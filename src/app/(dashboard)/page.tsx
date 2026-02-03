@@ -34,37 +34,31 @@ const LazyResponsiveContainer = dynamic(
 );
 
 // Safe chart wrapper that prevents -1 width/height errors
-const SafeChartContainer = ({ children, height = "100%" }: { children: React.ReactNode; height?: number | `${number}%` }) => {
+const SafeChartContainer = ({ children, height = 220 }: { children: React.ReactNode; height?: number }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isReady, setIsReady] = useState(false);
+  const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
 
   useEffect(() => {
-    const checkSize = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          setIsReady(true);
+    if (!containerRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setDimensions({ width, height });
         }
       }
-    };
+    });
 
-    // Check immediately and after a short delay
-    checkSize();
-    const timer = setTimeout(checkSize, 100);
+    observer.observe(containerRef.current);
 
-    // Also check on resize
-    window.addEventListener('resize', checkSize);
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', checkSize);
-    };
+    return () => observer.disconnect();
   }, []);
 
   return (
-    <div ref={containerRef} className="w-full h-full min-w-[1px] min-h-[1px]">
-      {isReady ? (
-        <LazyResponsiveContainer width="100%" height={height}>
+    <div ref={containerRef} className="w-full" style={{ height }}>
+      {dimensions && dimensions.width > 0 && dimensions.height > 0 ? (
+        <LazyResponsiveContainer width={dimensions.width} height={dimensions.height}>
           {children}
         </LazyResponsiveContainer>
       ) : (
