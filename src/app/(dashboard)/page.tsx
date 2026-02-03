@@ -314,10 +314,17 @@ export default function DashboardPage() {
   const [managedProductChartData, setManagedProductChartData] = useState<{ month: string; actual: number; target: number }[]>([]);
   // נתונים היסטוריים לגרף מגמות - 6 חודשים אחרונים
   const [trendsChartData, setTrendsChartData] = useState<{ month: string; salesActual: number; salesTarget: number; laborCostPct: number; foodCostPct: number }[]>([]);
-  const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    end: new Date(),
-  });
+  const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
+
+  // Initialize date range on client only to avoid hydration mismatch
+  useEffect(() => {
+    if (!dateRange) {
+      setDateRange({
+        start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+        end: new Date(),
+      });
+    }
+  }, [dateRange]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isDailyEntriesModalOpen, setIsDailyEntriesModalOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -346,6 +353,7 @@ export default function DashboardPage() {
 
   // Fetch businesses (cards) - runs on mount and when dateRange changes
   useEffect(() => {
+    if (!dateRange) return; // Wait for dateRange to be initialized
     const fetchBusinesses = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -575,6 +583,7 @@ export default function DashboardPage() {
 
   // Fetch detailed summary when businesses are selected
   useEffect(() => {
+    if (!dateRange) return; // Wait for dateRange to be initialized
     const fetchDetailedSummary = async () => {
       if (selectedBusinesses.length === 0) {
         setDetailedSummary(null);
@@ -1788,7 +1797,7 @@ export default function DashboardPage() {
             )}
           </div>
           {/* Left side - Date picker */}
-          <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
+          {dateRange && <DateRangePicker dateRange={dateRange} onChange={setDateRange} />}
         </div>
 
         {/* Cards Grid 2 columns - Business Cards (max 10) */}
@@ -2955,7 +2964,7 @@ export default function DashboardPage() {
       )}
 
       {/* Daily Entries Modal */}
-      {realBusinessId && (
+      {realBusinessId && dateRange && (
         <DailyEntriesModal
           isOpen={isDailyEntriesModalOpen}
           onClose={() => setIsDailyEntriesModalOpen(false)}
