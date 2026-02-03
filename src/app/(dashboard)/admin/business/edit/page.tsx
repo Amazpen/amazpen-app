@@ -17,11 +17,34 @@ export default function EditBusinessSelectPage() {
   const router = useRouter();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const fetchBusinesses = async () => {
       const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if user is admin
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .single();
+
+      const userIsAdmin = profile?.is_admin === true;
+      setIsAdmin(userIsAdmin);
+
+      if (!userIsAdmin) {
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("businesses")
         .select("id, name, business_type, logo_url, status, created_at")
@@ -45,6 +68,29 @@ export default function EditBusinessSelectPage() {
   const handleSelectBusiness = (businessId: string) => {
     router.push(`/admin/business/${businessId}/edit`);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-52px)]">
+        <div className="animate-spin w-8 h-8 border-4 border-[#4A56D4]/30 border-t-[#4A56D4] rounded-full"></div>
+      </div>
+    );
+  }
+
+  // Only admins can access this page
+  if (!isAdmin) {
+    return (
+      <div dir="rtl" className="flex flex-col items-center justify-center min-h-[calc(100vh-52px)] text-white px-[20px]">
+        <div className="w-[80px] h-[80px] rounded-full bg-[#F64E60]/20 flex items-center justify-center mb-[20px]">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-[#F64E60]">
+            <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <h2 className="text-[20px] font-bold mb-[10px]">אין לך הרשאת ניהול</h2>
+        <p className="text-[14px] text-white/60 text-center">רק מנהלי מערכת יכולים לערוך עסקים</p>
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" className="flex flex-col min-h-[calc(100vh-52px)] text-white p-[15px]">
@@ -72,21 +118,7 @@ export default function EditBusinessSelectPage() {
       </div>
 
       {/* Business List */}
-      {isLoading ? (
-        <div className="flex flex-col gap-[10px]">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-[#29318A]/30 rounded-[15px] p-[15px] animate-pulse">
-              <div className="flex items-center gap-[12px]">
-                <div className="w-[50px] h-[50px] rounded-[10px] bg-[#4C526B]/50" />
-                <div className="flex-1">
-                  <div className="h-[18px] bg-[#4C526B]/50 rounded w-[60%] mb-[8px]" />
-                  <div className="h-[14px] bg-[#4C526B]/30 rounded w-[40%]" />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : filteredBusinesses.length === 0 ? (
+      {filteredBusinesses.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-[60px]">
           <svg width="60" height="60" viewBox="0 0 24 24" fill="none" className="text-white/20 mb-[15px]">
             <path d="M19 21V5C19 3.89543 18.1046 3 17 3H7C5.89543 3 5 3.89543 5 5V21M19 21H5M19 21H21M5 21H3M9 7H10M9 11H10M14 7H15M14 11H15M9 21V16C9 15.4477 9.44772 15 10 15H14C14.5523 15 15 15.4477 15 16V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

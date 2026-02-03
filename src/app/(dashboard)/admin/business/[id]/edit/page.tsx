@@ -46,6 +46,7 @@ export default function EditBusinessPage({ params }: PageProps) {
   const router = useRouter();
   const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -134,6 +135,27 @@ export default function EditBusinessPage({ params }: PageProps) {
     const loadBusinessData = async () => {
       setIsLoading(true);
       const supabase = createClient();
+
+      // Check if user is admin first
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .single();
+
+      const userIsAdmin = profile?.is_admin === true;
+      setIsAdmin(userIsAdmin);
+
+      if (!userIsAdmin) {
+        setIsLoading(false);
+        return;
+      }
 
       // Fetch business data
       const { data: business, error: businessError } = await supabase
@@ -1547,6 +1569,29 @@ export default function EditBusinessPage({ params }: PageProps) {
       )}
     </div>
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-52px)]">
+        <div className="animate-spin w-8 h-8 border-4 border-[#4A56D4]/30 border-t-[#4A56D4] rounded-full"></div>
+      </div>
+    );
+  }
+
+  // Only admins can access this page
+  if (!isAdmin) {
+    return (
+      <div dir="rtl" className="flex flex-col items-center justify-center min-h-[calc(100vh-52px)] text-white px-[20px]">
+        <div className="w-[80px] h-[80px] rounded-full bg-[#F64E60]/20 flex items-center justify-center mb-[20px]">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-[#F64E60]">
+            <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <h2 className="text-[20px] font-bold mb-[10px]">אין לך הרשאת ניהול</h2>
+        <p className="text-[14px] text-white/60 text-center">רק מנהלי מערכת יכולים לערוך עסקים</p>
+      </div>
+    );
+  }
 
   return (
     <div dir="rtl" className="flex flex-col min-h-[calc(100vh-52px)] text-white pb-[100px]">
