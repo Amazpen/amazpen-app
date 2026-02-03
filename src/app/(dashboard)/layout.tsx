@@ -128,11 +128,18 @@ export default function DashboardLayout({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [profileImageLoaded, setProfileImageLoaded] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Set mounted state after hydration
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Fetch user profile from Supabase
   useEffect(() => {
+    if (!isMounted) return;
     const fetchUserProfile = async () => {
       setIsLoadingProfile(true);
       const supabase = createClient();
@@ -183,7 +190,7 @@ export default function DashboardLayout({
     };
 
     fetchUserProfile();
-  }, []);
+  }, [isMounted]);
 
   // Fetch notifications from Supabase
   const fetchNotifications = useCallback(async () => {
