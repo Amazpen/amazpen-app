@@ -74,7 +74,22 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(docker-compose up:*)",
-      "Bash(docker ps:*)"
+      "Bash(docker ps:*)",
+      "mcp__dokploy__application-create",
+      "mcp__dokploy__application-one",
+      "mcp__dokploy__application-saveGithubProvider",
+      "mcp__dokploy__application-saveBuildType",
+      "mcp__dokploy__domain-create",
+      "mcp__dokploy__application-update",
+      "mcp__dokploy__application-deploy",
+      "WebFetch(domain:amazpen.brainboxai.io)",
+      "mcp__dokploy__application-redeploy",
+      "Bash(/c/Program Files/nodejs/npx.cmd -y jq -r '.data.environments[0].compose[] | select\\(.name == \"\"Supabase\"\"\\) | .composeFile')",
+      "Bash(python -m json.tool:*)",
+      "Bash(git diff:*)",
+      "Bash(grep:*)",
+      "Bash(/c/Program Files/nodejs/npm.cmd install)",
+      "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit src/components/dashboard/ConsolidatedInvoiceModal.tsx)"
     ]
   },
   "enableAllProjectMcpServers": true,
