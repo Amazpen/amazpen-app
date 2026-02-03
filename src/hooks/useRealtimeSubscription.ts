@@ -99,15 +99,22 @@ export function useRealtimeSubscription({
 
     // Subscribe to the channel with error handling
     try {
-      channel.subscribe((status) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          // Realtime not available - disable future attempts silently
+      channel.subscribe((status, err) => {
+        if (status === "SUBSCRIBED") {
+          // Successfully connected to realtime
+          console.log("[Realtime] Connected to:", subscriptions.map(s => s.table).join(", "));
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          // Realtime not available
+          console.error("[Realtime] Connection failed:", status, err);
           setRealtimeAvailable(false);
           realtimeWarningShown = true;
+        } else {
+          console.log("[Realtime] Status:", status);
         }
       });
-    } catch {
+    } catch (error) {
       // WebSocket connection failed - disable realtime
+      console.error("[Realtime] Exception:", error);
       setRealtimeAvailable(false);
     }
 
