@@ -697,11 +697,6 @@ export default function DashboardLayout({
               )}
             </div>
 
-            {/* מרכזת Button */}
-            <button type="button" className="px-2 sm:px-[14px] py-[3px] border border-white rounded-[7px] text-white text-[12px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors">
-              מרכזת
-            </button>
-
             {/* עוזר AI Button */}
             <button type="button" className="px-2 sm:px-[14px] py-[3px] border border-white rounded-[7px] text-white text-[12px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors">
               עוזר AI
