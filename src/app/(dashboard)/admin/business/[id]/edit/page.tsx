@@ -1322,7 +1322,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             return (
               <div
                 key={member.id || idx}
-                className="flex items-center justify-between bg-[#0F1535] rounded-[10px] p-[12px]"
+                className="flex flex-row-reverse items-center justify-between bg-[#0F1535] rounded-[10px] p-[12px]"
               >
                 <button
                   type="button"
@@ -1331,7 +1331,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 >
                   ×
                 </button>
-                <div className="flex items-center gap-[10px]">
+                <div className="flex flex-row-reverse items-center gap-[10px]">
                   <div className="text-right">
                     <p className="text-[14px] text-white">{member.name || member.email}</p>
                     {member.name && <p className="text-[12px] text-white/50">{member.email}</p>}
@@ -1546,7 +1546,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             return (
               <div
                 key={idx}
-                className="flex items-center justify-between bg-[#0F1535] rounded-[10px] p-[12px] border border-[#3CD856]/30"
+                className="flex flex-row-reverse items-center justify-between bg-[#0F1535] rounded-[10px] p-[12px] border border-[#3CD856]/30"
               >
                 <button
                   type="button"
@@ -1555,7 +1555,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 >
                   ×
                 </button>
-                <div className="flex items-center gap-[10px]">
+                <div className="flex flex-row-reverse items-center gap-[10px]">
                   <div className="text-right">
                     <p className="text-[14px] text-white">{member.name || member.email}</p>
                     {member.name && <p className="text-[12px] text-white/50">{member.email}</p>}
