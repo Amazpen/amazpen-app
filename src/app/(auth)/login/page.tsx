@@ -81,6 +81,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="הזן כתובת מייל..."
                 required
+                autoComplete="username"
                 className="w-full h-[50px] bg-white text-[#0F1231] text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] pr-[45px] placeholder:text-[#9CA3AF]"
               />
               <div className="absolute top-1/2 right-[12px] -translate-y-1/2 text-[#6B7280]">
