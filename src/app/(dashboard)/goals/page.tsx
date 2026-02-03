@@ -131,9 +131,19 @@ function formatDiff(diff: number, unit: string = "₪"): string {
 export default function GoalsPage() {
   const { selectedBusinesses } = useDashboard();
   const [activeTab, setActiveTab] = useState<TabType>("vs-current");
-  const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1).padStart(2, "0"));
-  const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Initialize date values on client only
+  useEffect(() => {
+    if (!isMounted) {
+      setSelectedMonth(String(new Date().getMonth() + 1).padStart(2, "0"));
+      setSelectedYear(String(new Date().getFullYear()));
+      setIsMounted(true);
+    }
+  }, [isMounted]);
 
   // Realtime subscription
   const handleRealtimeChange = useCallback(() => {

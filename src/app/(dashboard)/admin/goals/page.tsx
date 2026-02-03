@@ -89,8 +89,18 @@ export default function AdminGoalsPage() {
   // State
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState<string>("");
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState<number>(0);
+  const [selectedMonth, setSelectedMonth] = useState<number>(0);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Initialize date values on client only
+  useEffect(() => {
+    if (!isMounted) {
+      setSelectedYear(new Date().getFullYear());
+      setSelectedMonth(new Date().getMonth() + 1);
+      setIsMounted(true);
+    }
+  }, [isMounted]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
