@@ -609,7 +609,7 @@ export default function Header({ title, activeKey, selectedBusiness = null }: He
       </div>
 
       {/* Sticky Header */}
-      <header className="sticky top-0 z-50 bg-[#0f1231] flex justify-between items-center px-3 sm:px-4 py-2 sm:py-3">
+      <header className="sticky top-0 z-[1500] bg-[#0f1231] flex justify-between items-center px-3 sm:px-4 py-2 sm:py-3">
         {/* Right side - Menu and Title */}
         <div className="flex items-center gap-[5px]">
           <button
