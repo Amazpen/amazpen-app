@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ToastProvider } from "@/components/ui/toast";
+import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 
 // Context for sharing selected businesses across pages
 interface DashboardContextType {
@@ -185,54 +186,35 @@ export default function DashboardLayout({
   }, []);
 
   // Fetch notifications from Supabase
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+  const fetchNotifications = useCallback(async () => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-      if (user) {
-        const { data, error } = await supabase
-          .from("notifications")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(20);
+    if (user) {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(20);
 
-        if (!error && data) {
-          setNotifications(data);
-          setUnreadCount(data.filter(n => !n.is_read).length);
-        }
+      if (!error && data) {
+        setNotifications(data);
+        setUnreadCount(data.filter(n => !n.is_read).length);
       }
-    };
-
-    fetchNotifications();
-
-    // Realtime subscription temporarily disabled due to self-hosted configuration issue
-    // TODO: Re-enable when Realtime tenant is properly configured
-    // const supabase = createClient();
-    // const channel = supabase
-    //   .channel("notifications-changes")
-    //   .on(
-    //     "postgres_changes",
-    //     { event: "*", schema: "public", table: "notifications" },
-    //     () => {
-    //       fetchNotifications();
-    //     }
-    //   )
-    //   .subscribe((status, err) => {
-    //     if (status === "SUBSCRIBED") {
-    //       console.log("Realtime: Connected to notifications channel");
-    //     } else if (status === "CHANNEL_ERROR") {
-    //       console.warn("Realtime: Channel error", err);
-    //     } else if (status === "TIMED_OUT") {
-    //       console.warn("Realtime: Connection timed out");
-    //     }
-    //   });
-
-    // return () => {
-    //   supabase.removeChannel(channel);
-    // };
+    }
   }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  // Global Realtime subscription for all important tables
+  useMultiTableRealtime(
+    ["notifications", "businesses", "daily_entries", "tasks", "invoices", "payments", "suppliers", "goals"],
+    fetchNotifications,
+    true
+  );
 
   // Load from localStorage on mount
   useEffect(() => {
