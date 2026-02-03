@@ -19,8 +19,18 @@ export const metadata: Metadata = {
   description: "בשביל לנצח בעסקים חייבים להכיר את החוקים",
   manifest: "/manifest.json",
   icons: {
-    icon: "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png",
-    apple: "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png",
+    icon: [
+      {
+        url: "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png",
+        type: "image/png",
+      },
+    ],
+    apple: [
+      {
+        url: "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png",
+        type: "image/png",
+      },
+    ],
   },
   openGraph: {
     title: "Amazpen | המצפן",
