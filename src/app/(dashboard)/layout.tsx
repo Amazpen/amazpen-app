@@ -117,6 +117,7 @@ export default function DashboardLayout({
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [businessName, setBusinessName] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -162,6 +163,28 @@ export default function DashboardLayout({
     fetchUserProfile();
   }, [isMounted]);
 
+  // Fetch business name for sidebar display
+  useEffect(() => {
+    const fetchBusinessName = async () => {
+      if (selectedBusinesses.length === 0) {
+        setBusinessName(null);
+        return;
+      }
+
+      const supabase = createClient();
+      const { data: business } = await supabase
+        .from("businesses")
+        .select("name")
+        .eq("id", selectedBusinesses[0])
+        .single();
+
+      if (business) {
+        setBusinessName(business.name);
+      }
+    };
+
+    fetchBusinessName();
+  }, [selectedBusinesses]);
 
   // Fetch notifications from Supabase
   const fetchNotifications = useCallback(async () => {
@@ -336,10 +359,10 @@ export default function DashboardLayout({
               />
             </div>
 
-            {/* System Name */}
+            {/* Business Name */}
             <div className="flex items-center justify-center gap-[10px] p-[7px] rounded-[10px] mb-[10px]">
-              <span className="text-white text-[16px] font-medium text-center">
-                Amazpen
+              <span className="text-white text-[16px] font-medium text-center" suppressHydrationWarning>
+                {businessName || "עסק"}
               </span>
             </div>
 
