@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTableRealtime } from "@/hooks/useRealtimeSubscription";
-import { ConsolidatedInvoiceModal } from "./ConsolidatedInvoiceModal";
 
 // Menu items for sidebar
 const menuItems = [
@@ -66,7 +65,6 @@ export default function Header({ title, activeKey, selectedBusiness = null }: He
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [showConsolidatedInvoiceModal, setShowConsolidatedInvoiceModal] = useState(false);
 
   // Fetch user profile and their businesses
   const fetchUserProfile = async () => {
@@ -668,15 +666,6 @@ export default function Header({ title, activeKey, selectedBusiness = null }: He
             )}
           </button>
 
-          {/* מרכזת Button */}
-          <button
-            type="button"
-            onClick={() => setShowConsolidatedInvoiceModal(true)}
-            className="px-2 sm:px-[14px] py-[3px] border border-white rounded-[7px] text-white text-[12px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors"
-          >
-            מרכזת
-          </button>
-
           {/* עוזר AI Button */}
           <button type="button" className="px-2 sm:px-[14px] py-[3px] border border-white rounded-[7px] text-white text-[12px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors">
             עוזר AI
@@ -684,11 +673,6 @@ export default function Header({ title, activeKey, selectedBusiness = null }: He
         </div>
       </header>
 
-      {/* Consolidated Invoice Modal */}
-      <ConsolidatedInvoiceModal
-        isOpen={showConsolidatedInvoiceModal}
-        onClose={() => setShowConsolidatedInvoiceModal(false)}
-      />
     </>
   );
 }
