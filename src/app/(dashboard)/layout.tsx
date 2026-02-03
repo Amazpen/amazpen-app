@@ -697,8 +697,8 @@ export default function DashboardLayout({
                                   {notification.message}
                                 </p>
                               )}
-                              <p className="text-[11px] text-white/30 mt-[6px]">
-                                {isHydrated ? formatTimeAgo(notification.created_at) : ""}
+                              <p className="text-[11px] text-white/30 mt-[6px]" suppressHydrationWarning>
+                                {formatTimeAgo(notification.created_at)}
                               </p>
                             </div>
                           </div>
