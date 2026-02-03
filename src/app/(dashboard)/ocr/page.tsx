@@ -250,28 +250,16 @@ export default function OCRPage() {
 
       {/* Main content area - 3 columns on desktop */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Document Viewer - Left side (desktop) / Tab 1 (mobile) */}
-        <div
-          className={`lg:flex-1 lg:block ${
-            showMobileViewer ? 'flex-1' : 'hidden'
-          } lg:border-l border-[#4C526B] overflow-hidden`}
-        >
-          {currentDocument ? (
-            <DocumentViewer
-              imageUrl={currentDocument.image_url}
-              onCrop={handleCrop}
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-white/60 px-6">
-              <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-              <p className="mt-4 text-lg">אין מסמך להצגה</p>
-              <p className="mt-1 text-sm">בחר מסמך מהתור בצד ימין</p>
-            </div>
-          )}
+        {/* Document Queue - Left side (desktop) */}
+        <div className="hidden lg:block lg:w-[200px] overflow-hidden lg:border-l border-[#4C526B]">
+          <DocumentQueue
+            documents={documents}
+            currentDocumentId={currentDocument?.id || null}
+            onSelectDocument={handleSelectDocument}
+            filterStatus={filterStatus}
+            onFilterChange={setFilterStatus}
+            vertical={true}
+          />
         </div>
 
         {/* OCR Form - Middle (desktop) / Tab 2 (mobile) */}
@@ -290,16 +278,28 @@ export default function OCRPage() {
           />
         </div>
 
-        {/* Document Queue - Right side (desktop) / Bottom (mobile) */}
-        <div className="hidden lg:block lg:w-[200px] overflow-hidden">
-          <DocumentQueue
-            documents={documents}
-            currentDocumentId={currentDocument?.id || null}
-            onSelectDocument={handleSelectDocument}
-            filterStatus={filterStatus}
-            onFilterChange={setFilterStatus}
-            vertical={true}
-          />
+        {/* Document Viewer - Right side (desktop) / Tab 1 (mobile) */}
+        <div
+          className={`lg:flex-1 lg:block ${
+            showMobileViewer ? 'flex-1' : 'hidden'
+          } overflow-hidden`}
+        >
+          {currentDocument ? (
+            <DocumentViewer
+              imageUrl={currentDocument.image_url}
+              onCrop={handleCrop}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-white/60 px-6">
+              <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              <p className="mt-4 text-lg">אין מסמך להצגה</p>
+              <p className="mt-1 text-sm">בחר מסמך מהתור בצד שמאל</p>
+            </div>
+          )}
         </div>
       </div>
 

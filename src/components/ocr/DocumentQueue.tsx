@@ -90,7 +90,7 @@ export default function DocumentQueue({
   // Vertical layout for desktop sidebar
   if (vertical) {
     return (
-      <div className="h-full flex flex-col bg-[#0F1535] border-r border-[#4C526B]">
+      <div className="h-full flex flex-col bg-[#0F1535] border-l border-[#4C526B]">
         {/* Header */}
         <div className="px-3 py-3 border-b border-[#4C526B]/50">
           <h3 className="text-[14px] font-semibold text-white text-center">תור מסמכים</h3>
