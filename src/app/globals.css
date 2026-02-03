@@ -408,3 +408,45 @@ input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
 .skeleton-bar-h-63 { height: 63%; }
 .skeleton-bar-h-68 { height: 68%; }
 .skeleton-bar-h-72 { height: 72%; }
+
+/* OCR Document Queue - scrollbar hiding (progressive enhancement) */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Opera */
+}
+@supports (scrollbar-width: none) {
+  .scrollbar-hide {
+    scrollbar-width: none; /* Firefox 64+ */
+  }
+}
+
+/* OCR Status badges */
+.ocr-status-pending {
+  background-color: rgba(245, 158, 11, 0.125);
+  color: #f59e0b;
+}
+.ocr-status-reviewing {
+  background-color: rgba(59, 130, 246, 0.125);
+  color: #3b82f6;
+}
+.ocr-status-approved {
+  background-color: rgba(34, 197, 94, 0.125);
+  color: #22c55e;
+}
+.ocr-status-rejected {
+  background-color: rgba(235, 87, 87, 0.125);
+  color: #EB5757;
+}
+
+/* OCR Confidence score bars */
+.ocr-confidence-high {
+  background-color: #22c55e;
+}
+.ocr-confidence-medium {
+  background-color: #f59e0b;
+}
+.ocr-confidence-low {
+  background-color: #EB5757;
+}

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { OCRDocument, DocumentStatus } from '@/types/ocr';
-import { getStatusLabel, getStatusColor, getSourceIcon, getDocumentTypeLabel } from '@/types/ocr';
+import { getStatusLabel, getSourceIcon, getDocumentTypeLabel } from '@/types/ocr';
 
 interface DocumentQueueProps {
   documents: OCRDocument[];
@@ -146,7 +146,6 @@ export default function DocumentQueue({
             ref={scrollContainerRef}
             onScroll={checkScrollPosition}
             className="h-full flex flex-col gap-2 p-2 overflow-y-auto scrollbar-hide"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             {filteredDocuments.length === 0 ? (
               <div className="flex-1 flex items-center justify-center py-6 text-white/50 text-center text-[12px]">
@@ -255,7 +254,6 @@ export default function DocumentQueue({
           ref={scrollContainerRef}
           onScroll={checkScrollPosition}
           className="flex gap-3 px-4 py-4 overflow-x-auto scrollbar-hide"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {filteredDocuments.length === 0 ? (
             <div className="flex-1 flex items-center justify-center py-6 text-white/50">
@@ -330,11 +328,7 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
 
         {/* Status badge */}
         <div
-          className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded text-[10px] font-medium"
-          style={{
-            backgroundColor: `${getStatusColor(document.status)}20`,
-            color: getStatusColor(document.status),
-          }}
+          className={`absolute top-1.5 right-1.5 px-2 py-0.5 rounded text-[10px] font-medium ocr-status-${document.status}`}
         >
           {getStatusLabel(document.status)}
         </div>
@@ -364,25 +358,7 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
 
         {/* Confidence score indicator */}
         {document.ocr_data?.confidence_score !== undefined && (
-          <div className="flex items-center gap-1 mt-1">
-            <div className="flex-1 h-1 bg-[#4C526B]/30 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${document.ocr_data.confidence_score * 100}%`,
-                  backgroundColor:
-                    document.ocr_data.confidence_score > 0.9
-                      ? '#22c55e'
-                      : document.ocr_data.confidence_score > 0.7
-                      ? '#f59e0b'
-                      : '#EB5757',
-                }}
-              />
-            </div>
-            <span className="text-[9px] text-white/40">
-              {Math.round(document.ocr_data.confidence_score * 100)}%
-            </span>
-          </div>
+          <ConfidenceBar score={document.ocr_data.confidence_score} />
         )}
       </div>
     </button>
@@ -436,11 +412,7 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
 
         {/* Status badge */}
         <div
-          className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[8px] font-medium"
-          style={{
-            backgroundColor: `${getStatusColor(document.status)}20`,
-            color: getStatusColor(document.status),
-          }}
+          className={`absolute top-1 right-1 px-1.5 py-0.5 rounded text-[8px] font-medium ocr-status-${document.status}`}
         >
           {getStatusLabel(document.status)}
         </div>
@@ -464,5 +436,32 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
         </p>
       </div>
     </button>
+  );
+}
+
+// Confidence bar component - uses ref to avoid inline style warning
+function ConfidenceBar({ score }: { score: number }) {
+  const barRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (barRef.current) {
+      barRef.current.style.width = `${score * 100}%`;
+    }
+  }, [score]);
+
+  const colorClass =
+    score > 0.9
+      ? 'ocr-confidence-high'
+      : score > 0.7
+      ? 'ocr-confidence-medium'
+      : 'ocr-confidence-low';
+
+  return (
+    <div className="flex items-center gap-1 mt-1">
+      <div className="flex-1 h-1 bg-[#4C526B]/30 rounded-full overflow-hidden">
+        <div ref={barRef} className={`h-full rounded-full ${colorClass}`} />
+      </div>
+      <span className="text-[9px] text-white/40">{Math.round(score * 100)}%</span>
+    </div>
   );
 }
