@@ -24,7 +24,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/goals", "/reports", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals"];
+const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/goals", "/reports", "/ocr", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -47,6 +47,7 @@ const adminMenuItems = [
   { id: 101, label: "עריכת עסק", href: "/admin/business/edit", key: "admin-edit-business" },
   { id: 102, label: "ניהול משתמשים", href: "/admin/users", key: "admin-users" },
   { id: 103, label: "ניהול יעדים ותקציבים", href: "/admin/goals", key: "admin-goals" },
+  { id: 104, label: "קליטת מסמכים OCR", href: "/ocr", key: "admin-ocr" },
 ];
 
 // Page titles mapping
@@ -55,6 +56,7 @@ const pageTitles: Record<string, string> = {
   "/expenses": "ניהול הוצאות",
   "/suppliers": "ניהול ספקים",
   "/payments": "ניהול תשלומים",
+  "/ocr": "קליטת מסמכים OCR",
   "/insights": "תובנות עסקית",
   "/tasks": "מערכת משימות",
   "/reports": "דוח רווח הפסד",
