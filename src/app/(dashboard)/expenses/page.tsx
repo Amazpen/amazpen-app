@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
+import { uploadFile } from "@/lib/uploadFile";
 
 // Supplier from database
 interface Supplier {
@@ -679,18 +680,13 @@ export default function ExpensesPage() {
         const fileName = `${editingInvoice.id}-${Date.now()}.${fileExt}`;
         const filePath = `invoices/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('attachments')
-          .upload(filePath, editAttachmentFile);
+        const result = await uploadFile(editAttachmentFile, filePath, "attachments");
 
-        if (uploadError) {
-          console.error("Upload error:", uploadError);
+        if (!result.success) {
+          console.error("Upload error:", result.error);
           showToast("שגיאה בהעלאת הקובץ", "error");
         } else {
-          const { data: urlData } = supabase.storage
-            .from('attachments')
-            .getPublicUrl(filePath);
-          attachmentUrl = urlData.publicUrl;
+          attachmentUrl = result.publicUrl || null;
         }
         setIsUploadingAttachment(false);
       } else if (editAttachmentPreview === null && editingInvoice.attachmentUrl) {

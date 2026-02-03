@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
+import { uploadFile } from "@/lib/uploadFile";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -236,29 +237,19 @@ export default function NewBusinessPage() {
     }
 
     setIsUploadingMemberAvatar(true);
-    const supabase = createClient();
-
     try {
       const fileExt = file.name.split(".").pop();
       const fileName = `avatars/${crypto.randomUUID()}-${Date.now()}.${fileExt}`;
 
-      const { error } = await supabase.storage
-        .from("assets")
-        .upload(fileName, file, {
-          cacheControl: "3600",
-        });
+      const result = await uploadFile(file, fileName, "assets");
 
-      if (error) {
-        console.error("Error uploading avatar:", error);
+      if (!result.success) {
+        console.error("Error uploading avatar:", result.error);
         showToast("שגיאה בהעלאת התמונה", "error");
         return;
       }
 
-      const { data: urlData } = supabase.storage
-        .from("assets")
-        .getPublicUrl(fileName);
-
-      setNewMemberAvatarUrl(urlData.publicUrl);
+      setNewMemberAvatarUrl(result.publicUrl || "");
     } catch (err) {
       console.error("Error uploading avatar:", err);
       showToast("שגיאה בהעלאת התמונה", "error");
@@ -311,19 +302,15 @@ export default function NewBusinessPage() {
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         const filePath = `business-logos/${fileName}`;
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("assets")
-          .upload(filePath, logoFile);
+        const result = await uploadFile(logoFile, filePath, "assets");
 
-        if (uploadError) {
-          console.error("Logo upload error:", uploadError);
-          showToast(`שגיאה בהעלאת הלוגו: ${uploadError.message}`, "error");
+        if (!result.success) {
+          console.error("Logo upload error:", result.error);
+          showToast(`שגיאה בהעלאת הלוגו: ${result.error}`, "error");
           // Continue without logo if upload fails
         } else {
-          console.log("Logo upload success:", uploadData);
-          // Build URL manually to ensure correct domain
-          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-          logoUrl = `${supabaseUrl}/storage/v1/object/public/assets/${filePath}`;
+          console.log("Logo upload success:", result.publicUrl);
+          logoUrl = result.publicUrl || null;
           console.log("Logo URL:", logoUrl);
         }
       }

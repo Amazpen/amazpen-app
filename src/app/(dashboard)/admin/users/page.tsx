@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
+import { uploadFile } from "@/lib/uploadFile";
 
 // Role labels in Hebrew
 const roleLabels: Record<string, string> = {
@@ -128,27 +129,17 @@ export default function AdminUsersPage() {
 
   // Upload avatar to Supabase Storage
   const uploadAvatar = async (file: File, userId?: string): Promise<string | null> => {
-    const supabase = createClient();
     const fileExt = file.name.split(".").pop();
     const fileName = `avatars/${userId || crypto.randomUUID()}-${Date.now()}.${fileExt}`;
 
-    const { error } = await supabase.storage
-      .from("assets")
-      .upload(fileName, file, {
-        cacheControl: "3600",
-        upsert: true,
-      });
+    const result = await uploadFile(file, fileName, "assets");
 
-    if (error) {
-      console.error("Error uploading avatar:", error);
+    if (!result.success) {
+      console.error("Error uploading avatar:", result.error);
       return null;
     }
 
-    const { data: urlData } = supabase.storage
-      .from("assets")
-      .getPublicUrl(fileName);
-
-    return urlData.publicUrl;
+    return result.publicUrl || null;
   };
 
   const handleNewAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useDashboard } from "../layout";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
+import { uploadFile } from "@/lib/uploadFile";
 
 // Category type from database
 interface ExpenseCategory {
@@ -327,15 +328,10 @@ export default function SuppliersPage() {
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         const filePath = `supplier-documents/${editingSupplierData.business_id}/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from("assets")
-          .upload(filePath, attachedFile);
+        const result = await uploadFile(attachedFile, filePath, "assets");
 
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage
-            .from("assets")
-            .getPublicUrl(filePath);
-          documentUrl = urlData.publicUrl;
+        if (result.success) {
+          documentUrl = result.publicUrl || null;
         }
       }
 
@@ -479,17 +475,12 @@ export default function SuppliersPage() {
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         const filePath = `supplier-documents/${selectedBusinesses[0]}/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from("assets")
-          .upload(filePath, attachedFile);
+        const result = await uploadFile(attachedFile, filePath, "assets");
 
-        if (uploadError) {
-          console.error("Document upload error:", uploadError);
+        if (!result.success) {
+          console.error("Document upload error:", result.error);
         } else {
-          const { data: urlData } = supabase.storage
-            .from("assets")
-            .getPublicUrl(filePath);
-          documentUrl = urlData.publicUrl;
+          documentUrl = result.publicUrl || null;
         }
       }
 
@@ -500,17 +491,12 @@ export default function SuppliersPage() {
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         const filePath = `supplier-obligations/${selectedBusinesses[0]}/${fileName}`;
 
-        const { error: uploadError } = await supabase.storage
-          .from("assets")
-          .upload(filePath, obligationDocument);
+        const result = await uploadFile(obligationDocument, filePath, "assets");
 
-        if (uploadError) {
-          console.error("Obligation document upload error:", uploadError);
+        if (!result.success) {
+          console.error("Obligation document upload error:", result.error);
         } else {
-          const { data: urlData } = supabase.storage
-            .from("assets")
-            .getPublicUrl(filePath);
-          obligationDocumentUrl = urlData.publicUrl;
+          obligationDocumentUrl = result.publicUrl || null;
         }
       }
 
