@@ -189,8 +189,8 @@ export default function EditBusinessPage({ params }: PageProps) {
       setExistingLogoUrl(business.logo_url || null);
       setLogoPreview(business.logo_url || null);
       setManagerSalary(business.manager_monthly_salary || 0);
-      setMarkupPercentage(business.markup_percentage ? (business.markup_percentage - 1) * 100 : 0);
-      setVatPercentage(business.vat_percentage ? business.vat_percentage * 100 : 18);
+      setMarkupPercentage(business.markup_percentage ? Math.round((business.markup_percentage - 1) * 100) : 0);
+      setVatPercentage(business.vat_percentage ? Math.round(business.vat_percentage * 100) : 18);
 
       // Fetch schedule
       const { data: scheduleData } = await supabase
@@ -496,11 +496,19 @@ export default function EditBusinessPage({ params }: PageProps) {
 
       // 4. Update income sources - delete removed, insert new
       const existingIncomeIds = incomeSources.filter(s => s.id).map(s => s.id);
-      await supabase
-        .from("income_sources")
-        .update({ is_active: false })
-        .eq("business_id", businessId)
-        .not("id", "in", `(${existingIncomeIds.length > 0 ? existingIncomeIds.join(",") : "''"})`);
+      if (existingIncomeIds.length > 0) {
+        await supabase
+          .from("income_sources")
+          .update({ is_active: false })
+          .eq("business_id", businessId)
+          .not("id", "in", `(${existingIncomeIds.join(",")})`);
+      } else {
+        // Deactivate all if none are kept
+        await supabase
+          .from("income_sources")
+          .update({ is_active: false })
+          .eq("business_id", businessId);
+      }
 
       const newIncomeSources = incomeSources.filter(s => !s.id);
       if (newIncomeSources.length > 0) {
@@ -516,11 +524,19 @@ export default function EditBusinessPage({ params }: PageProps) {
 
       // 5. Update receipt types
       const existingReceiptIds = receiptTypes.filter(t => t.id).map(t => t.id);
-      await supabase
-        .from("receipt_types")
-        .update({ is_active: false })
-        .eq("business_id", businessId)
-        .not("id", "in", `(${existingReceiptIds.length > 0 ? existingReceiptIds.join(",") : "''"})`);
+      if (existingReceiptIds.length > 0) {
+        await supabase
+          .from("receipt_types")
+          .update({ is_active: false })
+          .eq("business_id", businessId)
+          .not("id", "in", `(${existingReceiptIds.join(",")})`);
+      } else {
+        // Deactivate all if none are kept
+        await supabase
+          .from("receipt_types")
+          .update({ is_active: false })
+          .eq("business_id", businessId);
+      }
 
       const newReceiptTypes = receiptTypes.filter(t => !t.id);
       if (newReceiptTypes.length > 0) {
@@ -536,11 +552,19 @@ export default function EditBusinessPage({ params }: PageProps) {
 
       // 6. Update custom parameters
       const existingParamIds = customParameters.filter(p => p.id).map(p => p.id);
-      await supabase
-        .from("custom_parameters")
-        .update({ is_active: false })
-        .eq("business_id", businessId)
-        .not("id", "in", `(${existingParamIds.length > 0 ? existingParamIds.join(",") : "''"})`);
+      if (existingParamIds.length > 0) {
+        await supabase
+          .from("custom_parameters")
+          .update({ is_active: false })
+          .eq("business_id", businessId)
+          .not("id", "in", `(${existingParamIds.join(",")})`);
+      } else {
+        // Deactivate all if none are kept
+        await supabase
+          .from("custom_parameters")
+          .update({ is_active: false })
+          .eq("business_id", businessId);
+      }
 
       const newParams = customParameters.filter(p => !p.id);
       if (newParams.length > 0) {
@@ -556,11 +580,19 @@ export default function EditBusinessPage({ params }: PageProps) {
 
       // 7. Update credit cards
       const existingCardIds = creditCards.filter(c => c.id).map(c => c.id);
-      await supabase
-        .from("business_credit_cards")
-        .update({ is_active: false })
-        .eq("business_id", businessId)
-        .not("id", "in", `(${existingCardIds.length > 0 ? existingCardIds.join(",") : "''"})`);
+      if (existingCardIds.length > 0) {
+        await supabase
+          .from("business_credit_cards")
+          .update({ is_active: false })
+          .eq("business_id", businessId)
+          .not("id", "in", `(${existingCardIds.join(",")})`);
+      } else {
+        // Deactivate all if none are kept
+        await supabase
+          .from("business_credit_cards")
+          .update({ is_active: false })
+          .eq("business_id", businessId);
+      }
 
       const newCards = creditCards.filter(c => !c.id);
       if (newCards.length > 0) {
@@ -576,11 +608,19 @@ export default function EditBusinessPage({ params }: PageProps) {
 
       // 8. Update managed products
       const existingProductIds = managedProducts.filter(p => p.id).map(p => p.id);
-      await supabase
-        .from("managed_products")
-        .update({ is_active: false })
-        .eq("business_id", businessId)
-        .not("id", "in", `(${existingProductIds.length > 0 ? existingProductIds.join(",") : "''"})`);
+      if (existingProductIds.length > 0) {
+        await supabase
+          .from("managed_products")
+          .update({ is_active: false })
+          .eq("business_id", businessId)
+          .not("id", "in", `(${existingProductIds.join(",")})`);
+      } else {
+        // Deactivate all if none are kept
+        await supabase
+          .from("managed_products")
+          .update({ is_active: false })
+          .eq("business_id", businessId);
+      }
 
       const newProducts = managedProducts.filter(p => !p.id);
       if (newProducts.length > 0) {
