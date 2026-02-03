@@ -366,7 +366,7 @@ export default function DashboardPage() {
           if (!selectedBusinesses.includes(businessIds[0]) && !isInitialSetupDone.current) {
             isInitialSetupDone.current = true;
             setSelectedBusinesses([businessIds[0]]);
-            return; // Will re-run with the selected business
+            // Don't return - continue to load the data
           }
         }
       }
