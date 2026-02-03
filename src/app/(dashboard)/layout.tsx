@@ -351,7 +351,7 @@ export default function DashboardLayout({
           <div className="flex flex-col h-full overflow-y-auto mt-[40px]">
             {/* Business Logo - Dynamic based on connected business */}
             <div className="flex justify-center my-[15px]">
-              <div className="w-[143px] h-[66px] rounded-[5px] overflow-hidden bg-[#29318A] flex items-center justify-center relative">
+              <div className="w-[143px] h-[66px] rounded-[5px] overflow-hidden bg-[#29318A] flex items-center justify-center relative" suppressHydrationWarning>
                 {/* Skeleton loader while loading */}
                 {isLoadingProfile && (
                   <div className="absolute inset-0 bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded-[5px]" />
@@ -373,7 +373,7 @@ export default function DashboardLayout({
 
             {/* Business Name */}
             <div className="flex items-center justify-center gap-[10px] p-[7px] rounded-[10px] mb-[10px]">
-              <span className="text-white text-[16px] font-medium text-center">
+              <span className="text-white text-[16px] font-medium text-center" suppressHydrationWarning>
                 {isLoadingProfile ? (
                   <span className="inline-block w-[80px] h-[20px] bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded" />
                 ) : (
@@ -547,7 +547,7 @@ export default function DashboardLayout({
           {/* Left side - Profile, Notifications, Buttons */}
           <div className="flex flex-row-reverse items-center gap-1 sm:gap-[5px]">
             {/* Profile Image */}
-            <div className="w-[36px] h-[36px] sm:w-[40px] sm:h-[40px] rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative">
+            <div className="w-[36px] h-[36px] sm:w-[40px] sm:h-[40px] rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative" suppressHydrationWarning>
               {/* Skeleton loader - only show when loading AND there's an image to load */}
               {(isLoadingProfile || (!profileImageLoaded && userProfile?.avatar_url)) && (
                 <div className="absolute inset-0 bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded-full" />
