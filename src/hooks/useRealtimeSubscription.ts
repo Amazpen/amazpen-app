@@ -101,7 +101,7 @@ export function useRealtimeSubscription({
     try {
       channel.subscribe((status) => {
         if (status === "SUBSCRIBED") {
-          console.debug("[Realtime] Connected successfully to:", subscriptions.map(s => s.table).join(", "));
+          // Silent success - no logging needed
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           // Realtime not available - disable future attempts
           setRealtimeAvailable(false);
