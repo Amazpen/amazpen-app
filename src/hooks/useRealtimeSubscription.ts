@@ -100,16 +100,10 @@ export function useRealtimeSubscription({
     // Subscribe to the channel with error handling
     try {
       channel.subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          // Silent success - no logging needed
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          // Realtime not available - disable future attempts
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          // Realtime not available - disable future attempts silently
           setRealtimeAvailable(false);
-          if (!realtimeWarningShown) {
-            realtimeWarningShown = true;
-            // Use console.debug to avoid console spam
-            console.debug("[Realtime] Not available on this server - live updates disabled");
-          }
+          realtimeWarningShown = true;
         }
       });
     } catch {
