@@ -24,7 +24,7 @@ export default function OCRPage() {
   const router = useRouter();
   const { isAdmin } = useDashboard();
 
-  // State
+  // State - ALL hooks must be declared before any conditional returns
   const [documents, setDocuments] = useState<OCRDocument[]>(MOCK_DOCUMENTS);
   const [currentDocument, setCurrentDocument] = useState<OCRDocument | null>(null);
   const [filterStatus, setFilterStatus] = useState<DocumentStatus | 'all'>('pending');
@@ -50,41 +50,15 @@ export default function OCRPage() {
 
   // Select first pending document on load
   useEffect(() => {
-    const pendingDocs = documents.filter((doc) => doc.status === 'pending');
-    if (pendingDocs.length > 0 && !currentDocument) {
-      setCurrentDocument(pendingDocs[0]);
+    if (!isCheckingAuth && isAdmin) {
+      const pendingDocs = documents.filter((doc) => doc.status === 'pending');
+      if (pendingDocs.length > 0 && !currentDocument) {
+        setCurrentDocument(pendingDocs[0]);
+      }
     }
-  }, [documents, currentDocument]);
+  }, [documents, currentDocument, isCheckingAuth, isAdmin]);
 
-  // Show loading while checking auth
-  if (isCheckingAuth) {
-    return (
-      <div className="flex items-center justify-center h-[calc(100vh-60px)] bg-[#0a0d1f]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-white/20 border-t-white/60 rounded-full animate-spin" />
-          <span className="text-white/60">טוען...</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render anything if not admin (will redirect)
-  if (!isAdmin) {
-    return (
-      <div className="flex items-center justify-center h-[calc(100vh-60px)] bg-[#0a0d1f]">
-        <div className="flex flex-col items-center gap-4 text-white/60">
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-          <p className="text-lg">אין לך הרשאה לצפות בדף זה</p>
-          <p className="text-sm">מפנה לדף הבית...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Handle document selection
+  // Handle document selection - declare ALL callbacks before early returns
   const handleSelectDocument = useCallback((document: OCRDocument) => {
     setCurrentDocument(document);
     // Mark as reviewing if pending
@@ -209,6 +183,36 @@ export default function OCRPage() {
 
   // Count pending documents
   const pendingCount = documents.filter((doc) => doc.status === 'pending').length;
+
+  // NOW we can do early returns - after all hooks have been declared
+
+  // Show loading while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-60px)] bg-[#0a0d1f]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-white/20 border-t-white/60 rounded-full animate-spin" />
+          <span className="text-white/60">טוען...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not admin (will redirect)
+  if (!isAdmin) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-60px)] bg-[#0a0d1f]">
+        <div className="flex flex-col items-center gap-4 text-white/60">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <p className="text-lg">אין לך הרשאה לצפות בדף זה</p>
+          <p className="text-sm">מפנה לדף הבית...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-60px)] bg-[#0a0d1f]">
