@@ -34,15 +34,15 @@ const LazyResponsiveContainer = dynamic(
 );
 
 // Safe chart wrapper that prevents -1 width/height errors
-const SafeChartContainer = ({ children, height = "100%" }: { children: React.ReactNode; height?: string | number }) => {
+const SafeChartContainer = ({ children, height = "100%" }: { children: React.ReactNode; height?: number | `${number}%` }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     const checkSize = () => {
       if (containerRef.current) {
-        const { width, height } = containerRef.current.getBoundingClientRect();
-        if (width > 0 && height > 0) {
+        const rect = containerRef.current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
           setIsReady(true);
         }
       }
