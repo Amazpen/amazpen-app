@@ -375,15 +375,15 @@ export default function DashboardLayout({
 
             <div className="flex items-center gap-[10px] p-[7px] rounded-[10px] mb-[10px]">
               <div className="w-[30px] h-[30px] rounded-[5px] flex-shrink-0 overflow-hidden bg-[#29318A] flex items-center justify-center relative">
-                {/* Skeleton loader - always show until image fully loaded */}
-                {(!profileImageLoaded || isLoadingProfile) && (
+                {/* Skeleton loader - only show when loading AND there's an image to load */}
+                {(isLoadingProfile || (!profileImageLoaded && (isAdmin ? userProfile?.avatar_url : (userBusiness?.logo_url || userProfile?.avatar_url)))) && (
                   <div className="absolute inset-0 bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded-[5px]" />
                 )}
                 {(isAdmin ? userProfile?.avatar_url : (userBusiness?.logo_url || userProfile?.avatar_url)) && (
                   <img
                     src={isAdmin ? userProfile?.avatar_url! : (userBusiness?.logo_url || userProfile?.avatar_url)!}
                     alt={isAdmin ? "User" : "Business"}
-                    className={`w-full h-full object-cover transition-opacity duration-300 ${profileImageLoaded && !isLoadingProfile ? 'opacity-100' : 'opacity-0'}`}
+                    className={`w-full h-full object-cover transition-opacity duration-300 ${profileImageLoaded ? 'opacity-100' : 'opacity-0'}`}
                     onLoad={() => setProfileImageLoaded(true)}
                     onError={() => setProfileImageLoaded(true)}
                   />
