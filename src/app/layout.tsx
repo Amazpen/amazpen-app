@@ -19,8 +19,8 @@ export const metadata: Metadata = {
   description: "בשביל לנצח בעסקים חייבים להכיר את החוקים",
   manifest: "/manifest.json",
   icons: {
-    icon: { url: "/icon.svg", type: "image/svg+xml" },
-    apple: "/icon-192.png",
+    icon: "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png",
+    apple: "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png",
   },
   appleWebApp: {
     capable: true,
