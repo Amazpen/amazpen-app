@@ -521,7 +521,7 @@ export default function PaymentsPage() {
         </div>
 
         {/* Pie Chart Area */}
-        <div className="relative h-[350px] flex items-center justify-center mt-[35px]">
+        <div className="relative h-[350px] min-w-[1px] min-h-[1px] flex items-center justify-center mt-[35px]">
           {paymentMethodsData.length === 0 ? (
             /* Empty State - No Data */
             <div className="flex flex-col items-center justify-center gap-[15px]">
@@ -531,7 +531,7 @@ export default function PaymentsPage() {
               <span className="text-[18px] text-white/50">אין נתוני תשלומים</span>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={350}>
+            <ResponsiveContainer width="100%" height={350} minWidth={1} minHeight={1}>
               <PieChart>
                 <Pie
                   data={paymentMethodsData}

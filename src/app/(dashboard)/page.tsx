@@ -2360,8 +2360,8 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full" dir="ltr">
-                  <LazyResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                <div className="h-[220px] w-full min-w-[1px] min-h-[1px]" dir="ltr">
+                  <LazyResponsiveContainer width="100%" height="100%">
                     <LazyComposedChart data={trendsChartData} barGap={4}>
                       <defs>
                         <linearGradient id="colorSalesActual" x1="0" y1="0" x2="0" y2="1">
@@ -2503,8 +2503,8 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full" dir="ltr">
-                  <LazyResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                <div className="h-[220px] w-full min-w-[1px] min-h-[1px]" dir="ltr">
+                  <LazyResponsiveContainer width="100%" height="100%">
                     <LazyBarChart data={orderAvgChartData} barGap={2}>
                       <LazyXAxis
                         dataKey="month"
@@ -2609,8 +2609,8 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full" dir="ltr">
-                  <LazyResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                <div className="h-[220px] w-full min-w-[1px] min-h-[1px]" dir="ltr">
+                  <LazyResponsiveContainer width="100%" height="100%">
                     <LazyBarChart data={foodCostChartData} barGap={4}>
                       <LazyXAxis
                         dataKey="month"
@@ -2685,8 +2685,8 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full" dir="ltr">
-                  <LazyResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                <div className="h-[220px] w-full min-w-[1px] min-h-[1px]" dir="ltr">
+                  <LazyResponsiveContainer width="100%" height="100%">
                     <LazyAreaChart data={laborCostChartData}>
                       <defs>
                         <linearGradient id="colorLaborActual" x1="0" y1="0" x2="0" y2="1">
@@ -2815,8 +2815,8 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full" dir="ltr">
-                  <LazyResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                <div className="h-[220px] w-full min-w-[1px] min-h-[1px]" dir="ltr">
+                  <LazyResponsiveContainer width="100%" height="100%">
                     <LazyBarChart data={managedProductChartData} barGap={4}>
                       <LazyXAxis
                         dataKey="month"
