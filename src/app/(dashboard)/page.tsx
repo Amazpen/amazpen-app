@@ -416,7 +416,10 @@ export default function DashboardPage() {
       }
 
       lastFetchedBusinessIds.current = businessIds;
-      setRealBusinessId(businessIds[0]);
+      // Only set realBusinessId here if no business is selected yet
+      if (selectedBusinesses.length === 0) {
+        setRealBusinessId(businessIds[0]);
+      }
 
       const startDateStr = formatLocalDate(dateRange.start);
       const endDateStr = formatLocalDate(dateRange.end);
@@ -580,6 +583,13 @@ export default function DashboardPage() {
 
     fetchBusinesses();
   }, [dateRange, refreshTrigger]); // Removed selectedBusinesses and setSelectedBusinesses from deps
+
+  // Update realBusinessId when selectedBusinesses changes
+  useEffect(() => {
+    if (selectedBusinesses.length > 0) {
+      setRealBusinessId(selectedBusinesses[0]);
+    }
+  }, [selectedBusinesses]);
 
   // Fetch detailed summary when businesses are selected
   useEffect(() => {
