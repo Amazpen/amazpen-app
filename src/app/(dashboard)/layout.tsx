@@ -360,31 +360,27 @@ export default function DashboardLayout({
             <div className="flex items-center gap-[10px] p-[7px] rounded-[10px] mb-[10px]">
               <div className="w-[30px] h-[30px] rounded-[5px] flex-shrink-0 overflow-hidden bg-[#29318A] flex items-center justify-center relative">
                 {/* Skeleton loader - only show when loading AND there's an image to load */}
-                {(isLoadingProfile || (!profileImageLoaded && (isAdmin ? userProfile?.avatar_url : (userBusiness?.logo_url || userProfile?.avatar_url)))) && (
+                {(isLoadingProfile || (!profileImageLoaded && userBusiness?.logo_url)) && (
                   <div className="absolute inset-0 bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded-[5px]" />
                 )}
-                {(isAdmin ? userProfile?.avatar_url : (userBusiness?.logo_url || userProfile?.avatar_url)) && (
+                {userBusiness?.logo_url && (
                   <img
-                    src={isAdmin ? userProfile?.avatar_url! : (userBusiness?.logo_url || userProfile?.avatar_url)!}
-                    alt={isAdmin ? "User" : "Business"}
+                    src={userBusiness.logo_url}
+                    alt="Business"
                     className={`w-full h-full object-cover transition-opacity duration-300 ${profileImageLoaded ? 'opacity-100' : 'opacity-0'}`}
                     onLoad={() => setProfileImageLoaded(true)}
                     onError={() => setProfileImageLoaded(true)}
                   />
                 )}
-                {!isLoadingProfile && !(isAdmin ? userProfile?.avatar_url : (userBusiness?.logo_url || userProfile?.avatar_url)) && (
-                  /* User icon when no avatar */
+                {!isLoadingProfile && !userBusiness?.logo_url && (
+                  /* Building icon when no business logo */
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="12" cy="7" r="4" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M3 21h18M9 8h1M9 12h1M9 16h1M14 8h1M14 12h1M14 16h1M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 )}
               </div>
               <span className="text-white text-[16px] font-medium text-right flex-1">
-                {isAdmin
-                  ? (userProfile?.full_name || userProfile?.email?.split("@")[0] || "משתמש")
-                  : (userBusiness?.name || userProfile?.full_name || "משתמש")
-                }
+                {userBusiness?.name || "עסק"}
               </span>
             </div>
 
@@ -702,7 +698,7 @@ export default function DashboardLayout({
                                 </p>
                               )}
                               <p className="text-[11px] text-white/30 mt-[6px]">
-                                {formatTimeAgo(notification.created_at)}
+                                {isHydrated ? formatTimeAgo(notification.created_at) : ""}
                               </p>
                             </div>
                           </div>

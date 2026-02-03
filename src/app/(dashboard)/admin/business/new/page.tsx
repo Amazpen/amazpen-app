@@ -246,7 +246,6 @@ export default function NewBusinessPage() {
         .from("assets")
         .upload(fileName, file, {
           cacheControl: "3600",
-          upsert: true,
         });
 
       if (error) {

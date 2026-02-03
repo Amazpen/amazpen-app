@@ -397,7 +397,6 @@ export default function EditBusinessPage({ params }: PageProps) {
         .from("assets")
         .upload(fileName, file, {
           cacheControl: "3600",
-          upsert: true,
         });
 
       if (error) {
