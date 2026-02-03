@@ -159,16 +159,6 @@ export function getStatusLabel(status: DocumentStatus): string {
   return labels[status];
 }
 
-export function getStatusColor(status: DocumentStatus): string {
-  const colors: Record<DocumentStatus, string> = {
-    pending: '#f59e0b',
-    reviewing: '#3b82f6',
-    approved: '#22c55e',
-    rejected: '#EB5757',
-  };
-  return colors[status];
-}
-
 export function getDocumentTypeLabel(type: DocumentType): string {
   const labels: Record<DocumentType, string> = {
     invoice: 'חשבונית',
@@ -177,16 +167,6 @@ export function getDocumentTypeLabel(type: DocumentType): string {
     payment: 'תשלום',
   };
   return labels[type];
-}
-
-export function getSourceLabel(source: DocumentSource): string {
-  const labels: Record<DocumentSource, string> = {
-    telegram: 'טלגרם',
-    whatsapp: 'וואטסאפ',
-    email: 'אימייל',
-    upload: 'העלאה ידנית',
-  };
-  return labels[source];
 }
 
 export function getSourceIcon(source: DocumentSource): string {
