@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ToastProvider } from "@/components/ui/toast";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
+import { ConsolidatedInvoiceModal } from "@/components/dashboard/ConsolidatedInvoiceModal";
 
 // Context for sharing selected businesses across pages
 interface DashboardContextType {
@@ -120,6 +121,7 @@ export default function DashboardLayout({
   const [businessName, setBusinessName] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isCoordinatorModalOpen, setIsCoordinatorModalOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [profileImageLoaded, setProfileImageLoaded] = useState(false);
@@ -701,6 +703,17 @@ export default function DashboardLayout({
             <button type="button" className="px-2 sm:px-[14px] py-[3px] border border-white rounded-[7px] text-white text-[12px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors">
               עוזר AI
             </button>
+
+            {/* מרכזת Button - Admin Only */}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsCoordinatorModalOpen(true)}
+                className="px-2 sm:px-[14px] py-[3px] border border-white rounded-[7px] text-white text-[12px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors"
+              >
+                מרכזת
+              </button>
+            )}
           </div>
         </header>
 
@@ -708,6 +721,14 @@ export default function DashboardLayout({
         <main role="main" aria-label="תוכן ראשי" className="pt-[52px] sm:pt-[56px]">
           {children}
         </main>
+
+        {/* Coordinator Modal - Admin Only */}
+        {isAdmin && (
+          <ConsolidatedInvoiceModal
+            isOpen={isCoordinatorModalOpen}
+            onClose={() => setIsCoordinatorModalOpen(false)}
+          />
+        )}
       </div>
     </DashboardContext.Provider>
     </ToastProvider>
