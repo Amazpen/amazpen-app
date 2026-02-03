@@ -32,6 +32,47 @@ const LazyResponsiveContainer = dynamic(
   () => import("recharts").then((mod) => ({ default: mod.ResponsiveContainer })),
   { ssr: false }
 );
+
+// Safe chart wrapper that prevents -1 width/height errors
+const SafeChartContainer = ({ children, height = "100%" }: { children: React.ReactNode; height?: string | number }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const checkSize = () => {
+      if (containerRef.current) {
+        const { width, height } = containerRef.current.getBoundingClientRect();
+        if (width > 0 && height > 0) {
+          setIsReady(true);
+        }
+      }
+    };
+
+    // Check immediately and after a short delay
+    checkSize();
+    const timer = setTimeout(checkSize, 100);
+
+    // Also check on resize
+    window.addEventListener('resize', checkSize);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkSize);
+    };
+  }, []);
+
+  return (
+    <div ref={containerRef} className="w-full h-full min-w-[1px] min-h-[1px]">
+      {isReady ? (
+        <LazyResponsiveContainer width="100%" height={height}>
+          {children}
+        </LazyResponsiveContainer>
+      ) : (
+        <ChartSkeleton />
+      )}
+    </div>
+  );
+};
 const LazyAreaChart = dynamic(
   () => import("recharts").then((mod) => ({ default: mod.AreaChart })),
   { ssr: false, loading: () => <ChartSkeleton /> }
@@ -2360,8 +2401,8 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full min-w-[1px] min-h-[1px]" dir="ltr">
-                  <LazyResponsiveContainer width="100%" height="100%">
+                <div className="h-[220px] w-full" dir="ltr">
+                  <SafeChartContainer>
                     <LazyComposedChart data={trendsChartData} barGap={4}>
                       <defs>
                         <linearGradient id="colorSalesActual" x1="0" y1="0" x2="0" y2="1">
@@ -2419,7 +2460,7 @@ export default function DashboardPage() {
                         name="עלות מכר %"
                       />
                     </LazyComposedChart>
-                  </LazyResponsiveContainer>
+                  </SafeChartContainer>
                 </div>
                 {/* Legend */}
                 <div className="flex flex-row-reverse justify-center flex-wrap gap-4 mt-3">
@@ -2503,8 +2544,8 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full min-w-[1px] min-h-[1px]" dir="ltr">
-                  <LazyResponsiveContainer width="100%" height="100%">
+                <div className="h-[220px] w-full" dir="ltr">
+                  <SafeChartContainer>
                     <LazyBarChart data={orderAvgChartData} barGap={2}>
                       <LazyXAxis
                         dataKey="month"
@@ -2532,7 +2573,7 @@ export default function DashboardPage() {
                         );
                       })}
                     </LazyBarChart>
-                  </LazyResponsiveContainer>
+                  </SafeChartContainer>
                 </div>
                 <div className="flex flex-row-reverse justify-center flex-wrap gap-4 mt-3">
                   {incomeSourcesSummary.map((source, index) => {
@@ -2609,8 +2650,8 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full min-w-[1px] min-h-[1px]" dir="ltr">
-                  <LazyResponsiveContainer width="100%" height="100%">
+                <div className="h-[220px] w-full" dir="ltr">
+                  <SafeChartContainer>
                     <LazyBarChart data={foodCostChartData} barGap={4}>
                       <LazyXAxis
                         dataKey="month"
@@ -2628,7 +2669,7 @@ export default function DashboardPage() {
                       <LazyBar dataKey="target" fill="#0095FF" radius={[4, 4, 0, 0]} barSize={20} name="יעד" />
                       <LazyBar dataKey="actual" fill="#00E096" radius={[4, 4, 0, 0]} barSize={20} name="בפועל" />
                     </LazyBarChart>
-                  </LazyResponsiveContainer>
+                  </SafeChartContainer>
                 </div>
                 <div className="flex flex-row-reverse justify-center gap-6 mt-3">
                   <div className="flex flex-row-reverse items-center gap-2">
@@ -2685,8 +2726,8 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full min-w-[1px] min-h-[1px]" dir="ltr">
-                  <LazyResponsiveContainer width="100%" height="100%">
+                <div className="h-[220px] w-full" dir="ltr">
+                  <SafeChartContainer>
                     <LazyAreaChart data={laborCostChartData}>
                       <defs>
                         <linearGradient id="colorLaborActual" x1="0" y1="0" x2="0" y2="1">
@@ -2731,7 +2772,7 @@ export default function DashboardPage() {
                         dot={{ fill: '#0095FF', strokeWidth: 2, r: 4 }}
                       />
                     </LazyAreaChart>
-                  </LazyResponsiveContainer>
+                  </SafeChartContainer>
                 </div>
                 <div className="flex flex-row-reverse justify-center gap-8 mt-3">
                   <div className="flex flex-row-reverse items-center gap-2">
@@ -2815,8 +2856,8 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full min-w-[1px] min-h-[1px]" dir="ltr">
-                  <LazyResponsiveContainer width="100%" height="100%">
+                <div className="h-[220px] w-full" dir="ltr">
+                  <SafeChartContainer>
                     <LazyBarChart data={managedProductChartData} barGap={4}>
                       <LazyXAxis
                         dataKey="month"
@@ -2834,7 +2875,7 @@ export default function DashboardPage() {
                       <LazyBar dataKey="target" fill="#0095FF" radius={[4, 4, 0, 0]} barSize={20} name="יעד" />
                       <LazyBar dataKey="actual" fill="#00E096" radius={[4, 4, 0, 0]} barSize={20} name="בפועל" />
                     </LazyBarChart>
-                  </LazyResponsiveContainer>
+                  </SafeChartContainer>
                 </div>
                 <div className="flex flex-row-reverse justify-center gap-6 mt-3">
                   <div className="flex flex-row-reverse items-center gap-2">
