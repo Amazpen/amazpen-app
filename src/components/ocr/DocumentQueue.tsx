@@ -109,6 +109,7 @@ export default function DocumentQueue({
 
               return (
                 <button
+                  type="button"
                   key={filter.value}
                   onClick={() => onFilterChange?.(filter.value)}
                   className={`px-1 py-1 rounded text-[10px] font-medium transition-colors ${
@@ -129,6 +130,8 @@ export default function DocumentQueue({
           {/* Scroll up button */}
           {canScrollUp && (
             <button
+              type="button"
+              title="גלול למעלה"
               onClick={() => scroll('up')}
               className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-[#0F1535] to-transparent z-10 flex items-start justify-center pt-1"
             >
@@ -164,6 +167,8 @@ export default function DocumentQueue({
           {/* Scroll down button */}
           {canScrollDown && (
             <button
+              type="button"
+              title="גלול למטה"
               onClick={() => scroll('down')}
               className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0F1535] to-transparent z-10 flex items-end justify-center pb-1"
             >
@@ -198,6 +203,7 @@ export default function DocumentQueue({
 
             return (
               <button
+                type="button"
                 key={filter.value}
                 onClick={() => onFilterChange?.(filter.value)}
                 className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
@@ -221,6 +227,8 @@ export default function DocumentQueue({
         {/* Scroll buttons */}
         {canScrollLeft && (
           <button
+            type="button"
+            title="גלול ימינה"
             onClick={() => scroll('left')}
             className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-transparent to-[#0F1535] z-10 flex items-center justify-start pr-2"
           >
@@ -231,6 +239,8 @@ export default function DocumentQueue({
         )}
         {canScrollRight && (
           <button
+            type="button"
+            title="גלול שמאלה"
             onClick={() => scroll('right')}
             className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-transparent to-[#0F1535] z-10 flex items-center justify-end pl-2"
           >
@@ -280,6 +290,8 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
 
   return (
     <button
+      type="button"
+      title="בחר מסמך"
       onClick={onClick}
       className={`flex-shrink-0 w-[140px] rounded-[10px] overflow-hidden transition-all ${
         isSelected
@@ -384,6 +396,8 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
 
   return (
     <button
+      type="button"
+      title="בחר מסמך"
       onClick={onClick}
       className={`w-full rounded-[8px] overflow-hidden transition-all ${
         isSelected
