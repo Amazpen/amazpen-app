@@ -102,13 +102,6 @@ interface UserProfile {
   is_admin?: boolean;
 }
 
-// Business info type
-interface BusinessInfo {
-  id: string;
-  name: string;
-  logo_url: string | null;
-  role: string;
-}
 
 export default function DashboardLayout({
   children,
@@ -124,7 +117,6 @@ export default function DashboardLayout({
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [userBusiness, setUserBusiness] = useState<BusinessInfo | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -162,28 +154,6 @@ export default function DashboardLayout({
           // Check if user is admin from profile
           setIsAdmin(profile.is_admin === true);
 
-          // If not admin, fetch business membership
-          if (!profile.is_admin) {
-            const { data: membership } = await supabase
-              .from("business_members")
-              .select(`
-                role,
-                business:businesses(id, name, logo_url)
-              `)
-              .eq("user_id", user.id)
-              .not("joined_at", "is", null)
-              .single();
-
-            if (membership?.business) {
-              const businessData = membership.business as unknown as { id: string; name: string; logo_url: string | null };
-              setUserBusiness({
-                id: businessData.id,
-                name: businessData.name,
-                logo_url: businessData.logo_url,
-                role: membership.role,
-              });
-            }
-          }
         }
       }
       setIsLoadingProfile(false);
@@ -192,30 +162,6 @@ export default function DashboardLayout({
     fetchUserProfile();
   }, [isMounted]);
 
-  // For admin users: fetch the first selected business to display in sidebar
-  useEffect(() => {
-    const fetchSelectedBusiness = async () => {
-      if (!isAdmin || selectedBusinesses.length === 0) return;
-
-      const supabase = createClient();
-      const { data: business } = await supabase
-        .from("businesses")
-        .select("id, name, logo_url")
-        .eq("id", selectedBusinesses[0])
-        .single();
-
-      if (business) {
-        setUserBusiness({
-          id: business.id,
-          name: business.name,
-          logo_url: business.logo_url,
-          role: "admin",
-        });
-      }
-    };
-
-    fetchSelectedBusiness();
-  }, [isAdmin, selectedBusinesses]);
 
   // Fetch notifications from Supabase
   const fetchNotifications = useCallback(async () => {
@@ -383,13 +329,11 @@ export default function DashboardLayout({
           <div className="flex flex-col h-full overflow-y-auto mt-[40px]">
             {/* Amazpen System Logo - Fixed/Static */}
             <div className="flex justify-center my-[15px]">
-              <div className="w-[143px] h-[66px] rounded-[5px] overflow-hidden bg-[#29318A] flex items-center justify-center">
-                <img
-                  src="https://ae8ccc76b2d94d531551691b1d6411c9.cdn.bubble.io/cdn-cgi/image/w=192,h=88,f=auto,dpr=2,fit=contain/f1740495696315x242439751655884480/logo%20white.png"
-                  alt="Amazpen"
-                  className="max-w-full max-h-full object-contain"
-                />
-              </div>
+              <img
+                src="https://ae8ccc76b2d94d531551691b1d6411c9.cdn.bubble.io/cdn-cgi/image/w=192,h=88,f=auto,dpr=2,fit=contain/f1740495696315x242439751655884480/logo%20white.png"
+                alt="Amazpen"
+                className="w-[143px] h-[66px] object-contain"
+              />
             </div>
 
             {/* System Name */}
