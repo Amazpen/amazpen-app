@@ -1,26 +1,410 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Custom breakpoint for extra small screens */
+  --breakpoint-xs: 480px;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-assistant);
+  --font-poppins: var(--font-poppins);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Amazpen Dark Theme - based on the app design */
+:root {
+  --radius: 0.75rem;
+
+  /* Dark theme as default (matching Amazpen design) */
+  --background: #0f1231;
+  --foreground: #ffffff;
+
+  --card: rgba(15, 18, 49, 0.8);
+  --card-foreground: #ffffff;
+
+  --popover: rgba(15, 18, 49, 0.95);
+  --popover-foreground: #ffffff;
+
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+
+  --secondary: rgba(44, 53, 150, 0.3);
+  --secondary-foreground: #ffffff;
+
+  --muted: rgba(44, 53, 150, 0.2);
+  --muted-foreground: #94a3b8;
+
+  --accent: #6366f1;
+  --accent-foreground: #ffffff;
+
+  --destructive: #ef4444;
+
+  --border: rgba(44, 53, 150, 0.4);
+  --input: rgba(44, 53, 150, 0.3);
+  --ring: #6366f1;
+
+  /* Charts */
+  --chart-1: #6366f1;
+  --chart-2: #22c55e;
+  --chart-3: #f59e0b;
+  --chart-4: #ec4899;
+  --chart-5: #06b6d4;
+
+  /* Sidebar - matching the gradient theme */
+  --sidebar: #0f1231;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #6366f1;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(44, 53, 150, 0.5);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(44, 53, 150, 0.3);
+  --sidebar-ring: #6366f1;
+}
+
+/* Success/Warning colors */
+:root {
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --info: #06b6d4;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply text-foreground;
+    background: linear-gradient(180deg, #0f1231 0%, #2c3596 50%, #0f1231 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* RTL Support */
+[dir="rtl"] {
+  text-align: right;
 }
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* Dashboard Page Styles */
+.dashboard-page {
+  background: linear-gradient(181.67deg, #101434 0%, #2c3595 100%);
+  font-family: Poppins, sans-serif;
+}
+
+.dashboard-header {
+  background: #0f1535;
+  height: 70px;
+}
+
+.notification-badge {
+  background: #29318a;
+}
+
+.notification-dot {
+  background: #eb5757;
+}
+
+.menu-line {
+  background: #4c526b;
+}
+
+.clients-section {
+  background: #0f1535;
+}
+
+.client-card {
+  background: #29318a;
+}
+
+.client-card-expanded {
+  background: #3d4494;
+}
+
+.client-card-default {
+  border: 2px solid transparent;
+}
+
+.text-success {
+  color: #00e096;
+}
+
+.text-danger {
+  color: #f64e60;
+}
+
+.action-btn {
+  background: #29318a;
+}
+
+.data-card {
+  background: #29318a;
+}
+
+.expanded-section {
+  background: #0f1535;
+  border-radius: 12px;
+  padding: 12px 0;
+}
+
+.icon-bg-chart { background: #29318a; }
+.icon-bg-pencil { background: #ff947a; }
+.icon-bg-dollar { background: #3cd856; }
+.icon-bg-users { background: #fa5a7d; }
+.icon-bg-user { background: #bf83ff; }
+.icon-bg-bag { background: #0095ff; }
+.icon-bg-star { background: #ffcf00; }
+
+.diff-border {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Action Buttons */
+.action-btn-primary {
+  background-color: rgb(41, 49, 138);
+  box-shadow: 0px 7px 30px -10px rgba(99, 102, 241, 0.1);
+}
+
+/* Data Cards */
+.data-card-new {
+  background-color: rgb(41, 49, 138);
+}
+
+/* Text Colors */
+.text-danger-value { color: rgb(246, 78, 96); }
+.text-success-value { color: rgb(23, 219, 78); }
+
+/* LTR Numbers - for negative numbers to display correctly in RTL */
+.ltr-num {
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+  transition: all 0.3s ease-out;
+}
+
+/* Status Menu Portal - positioned via CSS custom properties */
+.status-menu-portal {
+  position: fixed;
+  top: var(--menu-top);
+  left: var(--menu-left);
+  transform: translateX(-50%);
+  z-index: 99999;
+}
+
+/* Smooth number transitions for data cards */
+.data-card-new span {
+  transition: color 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+/* Icon Backgrounds */
+.icon-bg-pink { background-color: rgb(250, 90, 125); }
+.icon-bg-peach { background-color: rgb(255, 148, 122); }
+.icon-bg-green { background-color: rgb(60, 216, 86); }
+.icon-bg-purple { background-color: rgb(191, 131, 255); }
+.icon-bg-orange { background-color: rgb(255, 164, 18); }
+
+/* Task Status Colors */
+.status-todo {
+  color: #3964FF;
+  border-color: #3964FF;
+}
+.status-done {
+  color: #00DD23;
+  border-color: #00DD23;
+}
+
+/* Progress Bar with CSS Variable */
+.progress-bar-fill {
+  width: var(--progress-width, 0%);
+}
+
+/* Business Cards - מיקוד נתונים */
+.business-card {
+  background-color: rgb(41, 49, 138);
+  transition: background-color 200ms ease-in, transform 200ms ease-in;
+}
+
+.business-card:hover:not(.business-card-expanded) {
+  background-color: rgb(51, 59, 158);
+}
+
+.business-card.business-card-expanded {
+  background-color: rgb(61, 68, 148) !important;
+}
+
+/* Dark Select Dropdown Styling */
+.select-dark {
+  background-color: transparent;
+}
+
+.select-dark option {
+  background-color: #29318A;
+  color: white;
+  padding: 10px;
+  font-size: 16px;
+}
+
+.select-dark option:hover,
+.select-dark option:focus,
+.select-dark option:checked {
+  background-color: #3D44A0;
+  color: white;
+}
+
+/* Date input - compact style for date range picker */
+input[type="date"].date-compact {
+  width: auto;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+input[type="date"].date-compact::-webkit-datetime-edit {
+  padding: 0;
+}
+
+input[type="date"].date-compact::-webkit-calendar-picker-indicator {
+  display: none !important;
+  -webkit-appearance: none;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  visibility: hidden;
+}
+
+input[type="date"].date-compact::-webkit-inner-spin-button,
+input[type="date"].date-compact::-webkit-clear-button {
+  display: none;
+  -webkit-appearance: none;
+}
+
+input[type="date"].date-compact::-webkit-date-and-time-value {
+  text-align: left;
+}
+
+/* Firefox - hide calendar icon */
+input[type="date"].date-compact::-moz-calendar-picker-indicator {
+  display: none;
+}
+
+/* Date input - click anywhere to open picker (default) */
+input[type="date"]:not(.date-compact) {
+  position: relative;
+}
+
+input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Sidebar CSS Variables - moved from inline styles */
+.sidebar-wrapper {
+  --sidebar-width: 16rem;
+  --sidebar-width-icon: 3rem;
+}
+
+/* Toast Animation */
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s ease-out forwards;
+}
+
+/* Chart Skeleton Bar Heights */
+.skeleton-bar-h-50 { height: 50%; }
+.skeleton-bar-h-55 { height: 55%; }
+.skeleton-bar-h-60 { height: 60%; }
+.skeleton-bar-h-65 { height: 65%; }
+.skeleton-bar-h-70 { height: 70%; }
+.skeleton-bar-h-75 { height: 75%; }
+.skeleton-bar-h-80 { height: 80%; }
+.skeleton-bar-h-85 { height: 85%; }
+.skeleton-bar-h-90 { height: 90%; }
+.skeleton-bar-h-45 { height: 45%; }
+.skeleton-bar-h-40 { height: 40%; }
+.skeleton-bar-h-36 { height: 36%; }
+.skeleton-bar-h-42 { height: 42%; }
+.skeleton-bar-h-44 { height: 44%; }
+.skeleton-bar-h-47 { height: 47%; }
+.skeleton-bar-h-48 { height: 48%; }
+.skeleton-bar-h-52 { height: 52%; }
+.skeleton-bar-h-54 { height: 54%; }
+.skeleton-bar-h-56 { height: 56%; }
+.skeleton-bar-h-59 { height: 59.5%; }
+.skeleton-bar-h-63 { height: 63%; }
+.skeleton-bar-h-68 { height: 68%; }
+.skeleton-bar-h-72 { height: 72%; }
