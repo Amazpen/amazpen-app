@@ -349,38 +349,36 @@ export default function DashboardLayout({
           </button>
 
           <div className="flex flex-col h-full overflow-y-auto mt-[40px]">
+            {/* Business Logo - Dynamic based on connected business */}
             <div className="flex justify-center my-[15px]">
-              <img
-                src="https://ae8ccc76b2d94d531551691b1d6411c9.cdn.bubble.io/cdn-cgi/image/w=192,h=88,f=auto,dpr=2,fit=contain/f1740495696315x242439751655884480/logo%20white.png"
-                alt="Logo"
-                className="w-[143px] h-auto rounded-[5px]"
-              />
-            </div>
-
-            <div className="flex items-center gap-[10px] p-[7px] rounded-[10px] mb-[10px]">
-              <div className="w-[30px] h-[30px] rounded-[5px] flex-shrink-0 overflow-hidden bg-[#29318A] flex items-center justify-center relative">
-                {/* Skeleton loader - only show when loading AND there's an image to load */}
-                {(isLoadingProfile || (!profileImageLoaded && userBusiness?.logo_url)) && (
+              <div className="w-[143px] h-[66px] rounded-[5px] overflow-hidden bg-[#29318A] flex items-center justify-center relative">
+                {/* Skeleton loader while loading */}
+                {isLoadingProfile && (
                   <div className="absolute inset-0 bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded-[5px]" />
                 )}
-                {userBusiness?.logo_url && (
+                {userBusiness?.logo_url ? (
                   <img
                     src={userBusiness.logo_url}
-                    alt="Business"
-                    className={`w-full h-full object-cover transition-opacity duration-300 ${profileImageLoaded ? 'opacity-100' : 'opacity-0'}`}
-                    onLoad={() => setProfileImageLoaded(true)}
-                    onError={() => setProfileImageLoaded(true)}
+                    alt={userBusiness.name || "Business Logo"}
+                    className="max-w-full max-h-full object-contain"
                   />
-                )}
-                {!isLoadingProfile && !userBusiness?.logo_url && (
+                ) : !isLoadingProfile && (
                   /* Building icon when no business logo */
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">
                     <path d="M3 21h18M9 8h1M9 12h1M9 16h1M14 8h1M14 12h1M14 16h1M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 )}
               </div>
-              <span className="text-white text-[16px] font-medium text-right flex-1">
-                {userBusiness?.name || "עסק"}
+            </div>
+
+            {/* Business Name */}
+            <div className="flex items-center justify-center gap-[10px] p-[7px] rounded-[10px] mb-[10px]">
+              <span className="text-white text-[16px] font-medium text-center">
+                {isLoadingProfile ? (
+                  <span className="inline-block w-[80px] h-[20px] bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded" />
+                ) : (
+                  userBusiness?.name || "עסק"
+                )}
               </span>
             </div>
 
