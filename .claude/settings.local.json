@@ -70,7 +70,11 @@
       "Bash(head:*)",
       "Bash(docker-compose build:*)",
       "Bash(git remote add:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker ps:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

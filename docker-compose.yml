@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ============================================
   # Amazpen App - Next.js Application
@@ -16,7 +14,7 @@ services:
     container_name: amazpen-app
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       # Runtime environment variables
       - NODE_ENV=production
