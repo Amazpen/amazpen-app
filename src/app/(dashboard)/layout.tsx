@@ -570,15 +570,15 @@ export default function DashboardLayout({
           <div className="flex flex-row-reverse items-center gap-1 sm:gap-[5px]">
             {/* Profile Image */}
             <div className="w-[36px] h-[36px] sm:w-[40px] sm:h-[40px] rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative">
-              {/* Skeleton loader - always show until image fully loaded */}
-              {(!profileImageLoaded || isLoadingProfile) && (
+              {/* Skeleton loader - only show when loading AND there's an image to load */}
+              {(isLoadingProfile || (!profileImageLoaded && userProfile?.avatar_url)) && (
                 <div className="absolute inset-0 bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded-full" />
               )}
               {userProfile?.avatar_url && (
                 <img
                   src={userProfile.avatar_url}
                   alt="Profile"
-                  className={`w-full h-full object-cover transition-opacity duration-300 ${profileImageLoaded && !isLoadingProfile ? 'opacity-100' : 'opacity-0'}`}
+                  className={`w-full h-full object-cover transition-opacity duration-300 ${profileImageLoaded ? 'opacity-100' : 'opacity-0'}`}
                   onLoad={() => setProfileImageLoaded(true)}
                   onError={() => setProfileImageLoaded(true)}
                 />
