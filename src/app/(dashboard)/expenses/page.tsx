@@ -15,6 +15,7 @@ interface Supplier {
   id: string;
   name: string;
   expense_category_id: string | null;
+  waiting_for_coordinator: boolean;
 }
 
 // Expense category from database
@@ -327,7 +328,7 @@ export default function ExpensesPage() {
         // Fetch suppliers for the selected businesses
         const { data: suppliersData } = await supabase
           .from("suppliers")
-          .select("id, name, expense_category_id")
+          .select("id, name, expense_category_id, waiting_for_coordinator")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .eq("is_active", true)
@@ -540,64 +541,92 @@ export default function ExpensesPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Create the invoice
-      const { data: newInvoice, error: invoiceError } = await supabase
-        .from("invoices")
-        .insert({
-          business_id: selectedBusinesses[0], // Use first selected business
-          supplier_id: selectedSupplier,
-          invoice_number: invoiceNumber || null,
-          invoice_date: expenseDate,
-          subtotal: parseFloat(amountBeforeVat),
-          vat_amount: calculatedVat,
-          total_amount: totalWithVat,
-          status: isPaidInFull ? "paid" : needsClarification ? "clarification" : "pending",
-          notes: notes || null,
-          created_by: user?.id || null,
-          invoice_type: expenseType,
-          clarification_reason: needsClarification ? clarificationReason : null,
-        })
-        .select()
-        .single();
+      // Check if supplier is a coordinator (מרכזת) - save as delivery note instead
+      const supplierInfo = suppliers.find(s => s.id === selectedSupplier);
+      const isCoordinatorSupplier = supplierInfo?.waiting_for_coordinator === true;
 
-      if (invoiceError) throw invoiceError;
-
-      // If paid in full, create payment record
-      if (isPaidInFull && newInvoice) {
-        const { error: paymentError } = await supabase
-          .from("payments")
+      if (isCoordinatorSupplier) {
+        // For coordinator suppliers, save ONLY as delivery note (תעודת משלוח)
+        // No invoice is created - will be created later when closing the coordinator
+        const { error: deliveryNoteError } = await supabase
+          .from("delivery_notes")
           .insert({
             business_id: selectedBusinesses[0],
             supplier_id: selectedSupplier,
-            payment_date: paymentDate || expenseDate,
+            delivery_note_number: invoiceNumber || null,
+            delivery_date: expenseDate,
+            subtotal: parseFloat(amountBeforeVat),
+            vat_amount: calculatedVat,
             total_amount: totalWithVat,
-            invoice_id: newInvoice.id,
-            notes: paymentNotes || null,
+            notes: notes || null,
+            is_verified: false,
+          });
+
+        if (deliveryNoteError) throw deliveryNoteError;
+
+        showToast("תעודת המשלוח נשמרה בהצלחה", "success");
+      } else {
+        // Regular supplier - create invoice as usual
+        const { data: newInvoice, error: invoiceError } = await supabase
+          .from("invoices")
+          .insert({
+            business_id: selectedBusinesses[0], // Use first selected business
+            supplier_id: selectedSupplier,
+            invoice_number: invoiceNumber || null,
+            invoice_date: expenseDate,
+            subtotal: parseFloat(amountBeforeVat),
+            vat_amount: calculatedVat,
+            total_amount: totalWithVat,
+            status: isPaidInFull ? "paid" : needsClarification ? "clarification" : "pending",
+            notes: notes || null,
             created_by: user?.id || null,
+            invoice_type: expenseType,
+            clarification_reason: needsClarification ? clarificationReason : null,
           })
           .select()
           .single();
 
-        if (paymentError) throw paymentError;
+        if (invoiceError) throw invoiceError;
 
-        // Create payment split for the payment method
-        const { data: paymentData } = await supabase
-          .from("payments")
-          .select("id")
-          .eq("invoice_id", newInvoice.id)
-          .single();
-
-        if (paymentData) {
-          await supabase
-            .from("payment_splits")
+        // If paid in full, create payment record
+        if (isPaidInFull && newInvoice) {
+          const { error: paymentError } = await supabase
+            .from("payments")
             .insert({
-              payment_id: paymentData.id,
-              payment_method: paymentMethod || "other",
-              amount: totalWithVat,
-              installments_count: paymentInstallments,
-              reference_number: paymentReference || null,
-            });
+              business_id: selectedBusinesses[0],
+              supplier_id: selectedSupplier,
+              payment_date: paymentDate || expenseDate,
+              total_amount: totalWithVat,
+              invoice_id: newInvoice.id,
+              notes: paymentNotes || null,
+              created_by: user?.id || null,
+            })
+            .select()
+            .single();
+
+          if (paymentError) throw paymentError;
+
+          // Create payment split for the payment method
+          const { data: paymentData } = await supabase
+            .from("payments")
+            .select("id")
+            .eq("invoice_id", newInvoice.id)
+            .single();
+
+          if (paymentData) {
+            await supabase
+              .from("payment_splits")
+              .insert({
+                payment_id: paymentData.id,
+                payment_method: paymentMethod || "other",
+                amount: totalWithVat,
+                installments_count: paymentInstallments,
+                reference_number: paymentReference || null,
+              });
+          }
         }
+
+        showToast("ההוצאה נשמרה בהצלחה", "success");
       }
 
       // Refresh data
