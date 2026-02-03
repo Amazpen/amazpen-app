@@ -22,6 +22,12 @@ export const metadata: Metadata = {
     icon: "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png",
     apple: "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png",
   },
+  openGraph: {
+    title: "Amazpen | המצפן",
+    description: "בשביל לנצח בעסקים חייבים להכיר את החוקים",
+    siteName: "amazpenbiz.co.il",
+    type: "website",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
