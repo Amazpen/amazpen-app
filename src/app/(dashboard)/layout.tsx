@@ -192,6 +192,31 @@ export default function DashboardLayout({
     fetchUserProfile();
   }, [isMounted]);
 
+  // For admin users: fetch the first selected business to display in sidebar
+  useEffect(() => {
+    const fetchSelectedBusiness = async () => {
+      if (!isAdmin || selectedBusinesses.length === 0) return;
+
+      const supabase = createClient();
+      const { data: business } = await supabase
+        .from("businesses")
+        .select("id, name, logo_url")
+        .eq("id", selectedBusinesses[0])
+        .single();
+
+      if (business) {
+        setUserBusiness({
+          id: business.id,
+          name: business.name,
+          logo_url: business.logo_url,
+          role: "admin",
+        });
+      }
+    };
+
+    fetchSelectedBusiness();
+  }, [isAdmin, selectedBusinesses]);
+
   // Fetch notifications from Supabase
   const fetchNotifications = useCallback(async () => {
     const supabase = createClient();
