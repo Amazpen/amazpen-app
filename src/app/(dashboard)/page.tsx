@@ -365,6 +365,7 @@ export default function DashboardPage() {
           setIsSingleBusiness(true);
           if (!selectedBusinesses.includes(businessIds[0]) && !isInitialSetupDone.current) {
             isInitialSetupDone.current = true;
+            setIsInitialLoad(true); // Show loading skeleton for auto-selected business
             setSelectedBusinesses([businessIds[0]]);
             // Don't return - continue to load the data
           }
