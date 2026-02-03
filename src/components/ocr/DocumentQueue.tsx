@@ -10,6 +10,7 @@ interface DocumentQueueProps {
   onSelectDocument: (document: OCRDocument) => void;
   filterStatus?: DocumentStatus | 'all';
   onFilterChange?: (status: DocumentStatus | 'all') => void;
+  vertical?: boolean;
 }
 
 const STATUS_FILTERS: { value: DocumentStatus | 'all'; label: string }[] = [
@@ -26,17 +27,25 @@ export default function DocumentQueue({
   onSelectDocument,
   filterStatus = 'pending',
   onFilterChange,
+  vertical = false,
 }: DocumentQueueProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
 
   // Check scroll position
   const checkScrollPosition = () => {
     const container = scrollContainerRef.current;
     if (container) {
-      setCanScrollLeft(container.scrollLeft > 0);
-      setCanScrollRight(container.scrollLeft < container.scrollWidth - container.clientWidth - 10);
+      if (vertical) {
+        setCanScrollUp(container.scrollTop > 0);
+        setCanScrollDown(container.scrollTop < container.scrollHeight - container.clientHeight - 10);
+      } else {
+        setCanScrollLeft(container.scrollLeft > 0);
+        setCanScrollRight(container.scrollLeft < container.scrollWidth - container.clientWidth - 10);
+      }
     }
   };
 
@@ -44,16 +53,23 @@ export default function DocumentQueue({
     checkScrollPosition();
     window.addEventListener('resize', checkScrollPosition);
     return () => window.removeEventListener('resize', checkScrollPosition);
-  }, [documents]);
+  }, [documents, vertical]);
 
-  const scroll = (direction: 'left' | 'right') => {
+  const scroll = (direction: 'left' | 'right' | 'up' | 'down') => {
     const container = scrollContainerRef.current;
     if (container) {
-      const scrollAmount = 200;
-      container.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth',
-      });
+      const scrollAmount = 150;
+      if (direction === 'left' || direction === 'right') {
+        container.scrollBy({
+          left: direction === 'left' ? -scrollAmount : scrollAmount,
+          behavior: 'smooth',
+        });
+      } else {
+        container.scrollBy({
+          top: direction === 'up' ? -scrollAmount : scrollAmount,
+          behavior: 'smooth',
+        });
+      }
     }
   };
 
@@ -71,6 +87,97 @@ export default function DocumentQueue({
     {} as Record<DocumentStatus, number>
   );
 
+  // Vertical layout for desktop sidebar
+  if (vertical) {
+    return (
+      <div className="h-full flex flex-col bg-[#0F1535] border-r border-[#4C526B]">
+        {/* Header */}
+        <div className="px-3 py-3 border-b border-[#4C526B]/50">
+          <h3 className="text-[14px] font-semibold text-white text-center">תור מסמכים</h3>
+          <p className="text-[12px] text-white/60 text-center mt-1">
+            {filteredDocuments.length} {filterStatus === 'all' ? 'סה״כ' : getStatusLabel(filterStatus as DocumentStatus)}
+          </p>
+        </div>
+
+        {/* Compact filter buttons */}
+        <div className="px-2 py-2 border-b border-[#4C526B]/50">
+          <div className="grid grid-cols-2 gap-1">
+            {STATUS_FILTERS.slice(0, 4).map((filter) => {
+              const count = filter.value === 'all'
+                ? documents.length
+                : statusCounts[filter.value as DocumentStatus] || 0;
+
+              return (
+                <button
+                  key={filter.value}
+                  onClick={() => onFilterChange?.(filter.value)}
+                  className={`px-1 py-1 rounded text-[10px] font-medium transition-colors ${
+                    filterStatus === filter.value
+                      ? 'bg-[#29318A] text-white'
+                      : 'bg-[#4C526B]/20 text-white/60 hover:bg-[#4C526B]/40'
+                  }`}
+                >
+                  {filter.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Documents vertical scroll */}
+        <div className="flex-1 relative overflow-hidden">
+          {/* Scroll up button */}
+          {canScrollUp && (
+            <button
+              onClick={() => scroll('up')}
+              className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-[#0F1535] to-transparent z-10 flex items-start justify-center pt-1"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                <polyline points="18 15 12 9 6 15" />
+              </svg>
+            </button>
+          )}
+
+          {/* Documents list */}
+          <div
+            ref={scrollContainerRef}
+            onScroll={checkScrollPosition}
+            className="h-full flex flex-col gap-2 p-2 overflow-y-auto scrollbar-hide"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            {filteredDocuments.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center py-6 text-white/50 text-center text-[12px]">
+                <span>אין מסמכים</span>
+              </div>
+            ) : (
+              filteredDocuments.map((doc) => (
+                <DocumentCardVertical
+                  key={doc.id}
+                  document={doc}
+                  isSelected={doc.id === currentDocumentId}
+                  onClick={() => onSelectDocument(doc)}
+                />
+              ))
+            )}
+          </div>
+
+          {/* Scroll down button */}
+          {canScrollDown && (
+            <button
+              onClick={() => scroll('down')}
+              className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0F1535] to-transparent z-10 flex items-end justify-center pb-1"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Horizontal layout for mobile/tablet
   return (
     <div className="bg-[#0F1535] border-t border-[#4C526B]">
       {/* Header with filters */}
@@ -166,6 +273,7 @@ interface DocumentCardProps {
   onClick: () => void;
 }
 
+// Horizontal card for bottom queue
 function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -264,6 +372,82 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
             </span>
           </div>
         )}
+      </div>
+    </button>
+  );
+}
+
+// Vertical card for sidebar
+function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardProps) {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full rounded-[8px] overflow-hidden transition-all ${
+        isSelected
+          ? 'ring-2 ring-[#29318A]'
+          : 'hover:ring-1 hover:ring-[#4C526B]'
+      }`}
+    >
+      {/* Image thumbnail */}
+      <div className="relative w-full h-[70px] bg-[#0a0d1f]">
+        {!imageError ? (
+          <>
+            <img
+              src={document.image_url}
+              alt="תמונת מסמך"
+              className={`w-full h-full object-cover transition-opacity ${
+                imageLoaded ? 'opacity-100' : 'opacity-0'
+              }`}
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageError(true)}
+            />
+            {!imageLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-white/40">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+          </div>
+        )}
+
+        {/* Status badge */}
+        <div
+          className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[8px] font-medium"
+          style={{
+            backgroundColor: `${getStatusColor(document.status)}20`,
+            color: getStatusColor(document.status),
+          }}
+        >
+          {getStatusLabel(document.status)}
+        </div>
+
+        {/* Source icon */}
+        <div className="absolute bottom-1 left-1 text-[12px]">
+          {getSourceIcon(document.source)}
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="p-1.5 bg-[#0F1535]">
+        <p className="text-[10px] text-white font-medium truncate">
+          {document.document_type
+            ? getDocumentTypeLabel(document.document_type)
+            : 'סוג לא ידוע'}
+        </p>
+        <p className="text-[9px] text-white/50 truncate">
+          {document.ocr_data?.supplier_name ||
+           new Date(document.created_at).toLocaleDateString('he-IL')}
+        </p>
       </div>
     </button>
   );

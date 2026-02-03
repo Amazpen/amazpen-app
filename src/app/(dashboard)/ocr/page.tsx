@@ -248,11 +248,11 @@ export default function OCRPage() {
         </button>
       </div>
 
-      {/* Main content area */}
+      {/* Main content area - 3 columns on desktop */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Document Viewer - Left side (desktop) / Tab 1 (mobile) */}
         <div
-          className={`lg:w-1/2 lg:block ${
+          className={`lg:flex-1 lg:block ${
             showMobileViewer ? 'flex-1' : 'hidden'
           } lg:border-l border-[#4C526B] overflow-hidden`}
         >
@@ -269,16 +269,16 @@ export default function OCRPage() {
                 <polyline points="21 15 16 10 5 21" />
               </svg>
               <p className="mt-4 text-lg">אין מסמך להצגה</p>
-              <p className="mt-1 text-sm">בחר מסמך מהתור למטה</p>
+              <p className="mt-1 text-sm">בחר מסמך מהתור בצד ימין</p>
             </div>
           )}
         </div>
 
-        {/* OCR Form - Right side (desktop) / Tab 2 (mobile) */}
+        {/* OCR Form - Middle (desktop) / Tab 2 (mobile) */}
         <div
-          className={`lg:w-1/2 lg:block ${
+          className={`lg:w-[420px] lg:block ${
             !showMobileViewer ? 'flex-1' : 'hidden'
-          } overflow-hidden`}
+          } lg:border-l border-[#4C526B] overflow-hidden`}
         >
           <OCRForm
             document={currentDocument}
@@ -289,16 +289,31 @@ export default function OCRPage() {
             isLoading={isLoading}
           />
         </div>
+
+        {/* Document Queue - Right side (desktop) / Bottom (mobile) */}
+        <div className="hidden lg:block lg:w-[200px] overflow-hidden">
+          <DocumentQueue
+            documents={documents}
+            currentDocumentId={currentDocument?.id || null}
+            onSelectDocument={handleSelectDocument}
+            filterStatus={filterStatus}
+            onFilterChange={setFilterStatus}
+            vertical={true}
+          />
+        </div>
       </div>
 
-      {/* Document Queue - Bottom */}
-      <DocumentQueue
-        documents={documents}
-        currentDocumentId={currentDocument?.id || null}
-        onSelectDocument={handleSelectDocument}
-        filterStatus={filterStatus}
-        onFilterChange={setFilterStatus}
-      />
+      {/* Document Queue - Bottom (mobile only) */}
+      <div className="lg:hidden">
+        <DocumentQueue
+          documents={documents}
+          currentDocumentId={currentDocument?.id || null}
+          onSelectDocument={handleSelectDocument}
+          filterStatus={filterStatus}
+          onFilterChange={setFilterStatus}
+          vertical={false}
+        />
+      </div>
     </div>
   );
 }
