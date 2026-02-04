@@ -579,7 +579,7 @@ export function DailyEntriesModal({
 
       {/* Modal */}
       <div
-        className="fixed z-[2002] bg-[#0F1535] rounded-[10px] p-[10px_5px_20px] overflow-y-auto top-[20px] left-0 right-0 bottom-[50px] mx-auto w-[calc(100%-20px)] max-w-[1200px] shadow-[0_0_20px_0_rgba(0,0,0,0.2)]"
+        className="fixed z-[2002] bg-[#0F1535] rounded-[10px] p-[10px_5px_20px] overflow-y-auto top-[10px] left-0 right-0 bottom-[10px] mx-auto w-[calc(100%-20px)] max-w-[1200px] shadow-[0_0_20px_0_rgba(0,0,0,0.2)] md:top-[20px] md:bottom-[50px]"
       >
         {/* Close Button */}
         <button

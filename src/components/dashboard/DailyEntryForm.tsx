@@ -201,7 +201,7 @@ export function DailyEntryForm({ businessId, onSuccess, editingEntry, isOpenExte
       ]);
 
       // If we have a previous entry, get the product usage from that day
-      let previousClosingStock: Record<string, number> = {};
+      const previousClosingStock: Record<string, number> = {};
       if (lastEntry) {
         const { data: previousUsage } = await supabase
           .from("daily_product_usage")
@@ -577,7 +577,7 @@ export function DailyEntryForm({ businessId, onSuccess, editingEntry, isOpenExte
       </SheetTrigger>
       <SheetContent
         side="bottom"
-        className="h-[90vh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto"
+        className="h-[85vh] h-[85dvh] max-h-[85dvh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto"
         showCloseButton={false}
       >
         <SheetHeader className="border-b border-[#4C526B] pb-4">
@@ -604,7 +604,7 @@ export function DailyEntryForm({ businessId, onSuccess, editingEntry, isOpenExte
             <span className="mr-2 text-[#7B91B0]">טוען נתונים...</span>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4 pb-8">
             {error && (
               <div className="bg-red-500/20 border border-red-500 rounded-lg p-3 text-red-400 text-sm text-right">
                 {error}

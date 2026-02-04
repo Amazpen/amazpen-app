@@ -163,6 +163,7 @@ export default function DashboardLayout({
     };
 
     fetchUserProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMounted]);
 
   // Fetch business name for sidebar display

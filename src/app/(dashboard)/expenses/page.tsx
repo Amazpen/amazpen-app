@@ -18,7 +18,8 @@ interface Supplier {
   waiting_for_coordinator: boolean;
 }
 
-// Expense category from database
+// Expense category from database (used for type checking)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface ExpenseCategory {
   id: string;
   name: string;
@@ -48,7 +49,8 @@ interface Invoice {
   creator_name?: string;
 }
 
-// Linked payment from database
+// Linked payment from database (used for type checking)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface LinkedPayment {
   id: string;
   payment_id: string;
@@ -120,7 +122,7 @@ export default function ExpensesPage() {
   const [expensesData, setExpensesData] = useState<ExpenseSummary[]>([]); // For chart and purchases tab - by supplier
   const [categoryData, setCategoryData] = useState<ExpenseCategorySummary[]>([]); // For expenses tab - by category with drill-down
   const [recentInvoices, setRecentInvoices] = useState<InvoiceDisplay[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [_isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null); // For drill-down
 
@@ -299,8 +301,8 @@ export default function ExpensesPage() {
     return customInstallments.reduce((sum, item) => sum + item.amount, 0);
   };
 
-  // Format date for display
-  const formatDate = (date: Date) => {
+  // Format date for display (kept for potential future use)
+  const _formatDate = (date: Date) => {
     return date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
   };
 
@@ -1085,7 +1087,7 @@ export default function ExpensesPage() {
               </svg>
               {/* Center text */}
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[18px] font-bold">סה''כ הוצאות</span>
+                <span className="text-[18px] font-bold">סה&apos;&apos;כ הוצאות</span>
                 <span className="text-[35px] font-bold ltr-num">₪{totalExpenses.toLocaleString()}</span>
                 <span className="text-[18px] font-bold ltr-num">{totalPercentage.toFixed(2)}%</span>
               </div>
@@ -1102,7 +1104,7 @@ export default function ExpensesPage() {
             <span className="text-[16px] flex-1 text-center">
               {activeTab === "expenses" ? "קטגוריית ספק" : "שם ספק"}
             </span>
-            <span className="text-[16px] flex-1 text-center">סכום לפני מע"מ</span>
+            <span className="text-[16px] flex-1 text-center">סכום לפני מע&quot;מ</span>
             <span className="text-[16px] flex-1 text-center">(%) מפדיון</span>
           </div>
 
@@ -1230,7 +1232,7 @@ export default function ExpensesPage() {
               <option value="date">תאריך חשבונית</option>
               <option value="supplier">ספק</option>
               <option value="reference">מספר תעודה</option>
-              <option value="amount">סכום לפני מע"מ</option>
+              <option value="amount">סכום לפני מע&quot;מ</option>
               <option value="notes">הערות</option>
               <option value="fixed">הוצאות קבועות</option>
             </select>
@@ -1431,15 +1433,15 @@ export default function ExpensesPage() {
                       {/* Details Grid */}
                       <div className="flex flex-row-reverse items-center justify-between px-[7px]">
                         <div className="flex flex-col items-center">
-                          <span className="text-[14px] text-[#979797]">סכום כולל מע"מ</span>
+                          <span className="text-[14px] text-[#979797]">סכום כולל מע&quot;מ</span>
                           <span className="text-[14px] text-white ltr-num">₪{invoice.amountWithVat.toLocaleString()}</span>
                         </div>
                         <div className="flex flex-col items-center">
-                          <span className="text-[14px] text-[#979797]">סכום לפני מע"מ</span>
+                          <span className="text-[14px] text-[#979797]">סכום לפני מע&quot;מ</span>
                           <span className="text-[14px] text-white ltr-num">₪{invoice.amountBeforeVat.toLocaleString()}</span>
                         </div>
                         <div className="flex flex-col items-center">
-                          <span className="text-[14px] text-[#979797]">הוזן ע"י</span>
+                          <span className="text-[14px] text-[#979797]">הוזן ע&quot;י</span>
                           <span className="text-[14px] text-white">{invoice.enteredBy}</span>
                         </div>
                         <div className="flex flex-col items-center">
@@ -1623,7 +1625,7 @@ export default function ExpensesPage() {
 
               {/* Amount Before VAT */}
               <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">סכום לפני מע''מ</label>
+                <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
                   <input
                     type="text"
@@ -1640,7 +1642,7 @@ export default function ExpensesPage() {
               {/* Partial VAT Checkbox and VAT Amount */}
               <div className="flex items-center justify-between gap-[15px]">
                 <div className="flex flex-col gap-[5px]">
-                  <label className="text-[15px] font-medium text-white text-right">מע"מ</label>
+                  <label className="text-[15px] font-medium text-white text-right">מע&quot;מ</label>
                   <div className="border border-[#4C526B] rounded-[10px] h-[50px] w-[148px]">
                     <input
                       type="text"
@@ -1672,13 +1674,13 @@ export default function ExpensesPage() {
                       )}
                     </svg>
                   </button>
-                  <span className="text-[15px] font-medium text-white">הזנת סכום מע"מ חלקי</span>
+                  <span className="text-[15px] font-medium text-white">הזנת סכום מע&quot;מ חלקי</span>
                 </div>
               </div>
 
               {/* Total with VAT */}
               <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">סכום כולל מע"מ</label>
+                <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
                   <input
                     type="text"
@@ -1752,7 +1754,7 @@ export default function ExpensesPage() {
                             <option value="" className="bg-[#0F1535] text-white/40"></option>
                             <option value="bank_transfer" className="bg-[#0F1535] text-white">העברה בנקאית</option>
                             <option value="cash" className="bg-[#0F1535] text-white">מזומן</option>
-                            <option value="check" className="bg-[#0F1535] text-white">צ'ק</option>
+                            <option value="check" className="bg-[#0F1535] text-white">צ&apos;ק</option>
                             <option value="bit" className="bg-[#0F1535] text-white">ביט</option>
                             <option value="paybox" className="bg-[#0F1535] text-white">פייבוקס</option>
                             <option value="credit_card" className="bg-[#0F1535] text-white">כרטיס אשראי</option>
@@ -2038,7 +2040,7 @@ export default function ExpensesPage() {
 
               {/* Amount Before VAT */}
               <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">סכום לפני מע''מ</label>
+                <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
                   <input
                     type="text"
@@ -2393,7 +2395,7 @@ export default function ExpensesPage() {
                             ))}
                           </div>
                           <div className="flex items-center border-t border-[#4C526B] pt-[8px] mt-[8px]">
-                            <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה"כ</span>
+                            <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה&quot;כ</span>
                             <span className="flex-1"></span>
                             <span className="text-[14px] font-bold text-white ltr-num flex-1 text-center">
                               ₪{getPopupInstallmentsTotal(pm.customInstallments).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

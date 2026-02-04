@@ -88,6 +88,7 @@ export default function OCRForm({
 
       // Set document type
       if (document.document_type) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setDocumentType(document.document_type);
       }
 
