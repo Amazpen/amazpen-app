@@ -1941,13 +1941,15 @@ export default function DashboardPage() {
 
         {/* More button - only show if there are more than 6 businesses and not showing all */}
         {businessCards.length > 6 && !showAllBusinessCards && (
-          <button
-            type="button"
-            onClick={() => setShowAllBusinessCards(true)}
-            className="text-white text-xl font-semibold text-center mt-6 hover:text-white/80 transition-colors"
-          >
-            עוד...
-          </button>
+          <div className="w-full flex justify-center mt-6">
+            <button
+              type="button"
+              onClick={() => setShowAllBusinessCards(true)}
+              className="text-white text-xl font-semibold hover:text-white/80 transition-colors"
+            >
+              עוד...
+            </button>
+          </div>
         )}
       </div>
       )}
