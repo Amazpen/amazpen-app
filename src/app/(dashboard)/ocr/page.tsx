@@ -53,6 +53,7 @@ export default function OCRPage() {
     if (!isCheckingAuth && isAdmin) {
       const pendingDocs = documents.filter((doc) => doc.status === 'pending');
       if (pendingDocs.length > 0 && !currentDocument) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCurrentDocument(pendingDocs[0]);
       }
     }

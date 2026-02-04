@@ -1267,7 +1267,7 @@ export default function SuppliersPage() {
 
               {/* VAT Required - Radio buttons */}
               <div className="flex flex-col gap-[3px]">
-                <label className="text-[15px] font-medium text-white text-right">נדרש מע"מ</label>
+                <label className="text-[15px] font-medium text-white text-right">נדרש מע&quot;מ</label>
                 <div className="flex items-center justify-start gap-[20px]" dir="rtl">
                   <button
                     type="button"
@@ -1314,7 +1314,7 @@ export default function SuppliersPage() {
                       )}
                     </svg>
                     <span className={`text-[15px] font-semibold ${vatRequired === "partial" ? "text-white" : "text-[#979797]"}`}>
-                      מע"מ חלקי
+                      מע&quot;מ חלקי
                     </span>
                   </button>
                 </div>
@@ -1384,7 +1384,7 @@ export default function SuppliersPage() {
                     <option value="" className="bg-[#0F1535] text-white/40"></option>
                     <option value="credit" className="bg-[#0F1535] text-white">כרטיס אשראי</option>
                     <option value="bank_transfer" className="bg-[#0F1535] text-white">העברה בנקאית</option>
-                    <option value="check" className="bg-[#0F1535] text-white">צ'ק</option>
+                    <option value="check" className="bg-[#0F1535] text-white">צ&apos;ק</option>
                     <option value="cash" className="bg-[#0F1535] text-white">מזומן</option>
                     <option value="bit" className="bg-[#0F1535] text-white">ביט</option>
                     <option value="paybox" className="bg-[#0F1535] text-white">פייבוקס</option>
@@ -1509,7 +1509,7 @@ export default function SuppliersPage() {
                   <span className="text-[14px] text-white font-medium">{selectedSupplier.payment_terms_days || "-"}</span>
                 </div>
                 <div className="flex flex-col items-center text-center">
-                  <span className="text-[12px] text-white/60">נדרש מע"מ</span>
+                  <span className="text-[12px] text-white/60">נדרש מע&quot;מ</span>
                   <span className="text-[14px] text-white font-medium">
                     {selectedSupplier.vat_type === "full" ? "כן" : selectedSupplier.vat_type === "none" ? "לא" : "חלקי"}
                   </span>
@@ -1566,7 +1566,7 @@ export default function SuppliersPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[14px] text-white">סה"כ תשלום שבוצע לספק</span>
+                  <span className="text-[14px] text-white">סה&quot;כ תשלום שבוצע לספק</span>
                   <span className="text-[16px] text-white font-bold ltr-num">
                     ₪{(supplierDetailData?.totalPaid || 0).toLocaleString()}
                   </span>
@@ -1599,7 +1599,7 @@ export default function SuppliersPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-white/80">סך הרכישות מהספק (כולל מע"מ)</span>
+                  <span className="text-[13px] text-white/80">סך הרכישות מהספק (כולל מע&quot;מ)</span>
                   <span className="text-[14px] text-white font-medium ltr-num">
                     ₪{(supplierDetailData?.monthlyData.monthlyPurchases || 0).toLocaleString()}
                   </span>
@@ -1611,7 +1611,7 @@ export default function SuppliersPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-white/20 pt-[10px]">
-                  <span className="text-[13px] text-[#3F97FF] font-medium">להוציא תשלום לספק ע"ס</span>
+                  <span className="text-[13px] text-[#3F97FF] font-medium">להוציא תשלום לספק ע&quot;ס</span>
                   <span className="text-[16px] text-[#3F97FF] font-bold ltr-num">
                     ₪{(supplierDetailData?.monthlyData.amountToPay || 0).toLocaleString(undefined, { minimumFractionDigits: 1 })}
                   </span>

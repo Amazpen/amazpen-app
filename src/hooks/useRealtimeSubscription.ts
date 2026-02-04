@@ -122,6 +122,7 @@ export function useRealtimeSubscription({
         channelRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, isAuthenticated, realtimeAvailable, JSON.stringify(subscriptions)]);
 
   return channelRef.current;

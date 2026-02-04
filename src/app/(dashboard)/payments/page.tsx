@@ -516,7 +516,7 @@ export default function PaymentsPage() {
             <span className="text-[24px] font-bold ltr-num">
               ₪{totalPayments.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </span>
-            <span className="text-[14px] font-bold">כולל מע"מ</span>
+            <span className="text-[14px] font-bold">כולל מע&quot;מ</span>
           </div>
         </div>
 
@@ -932,7 +932,7 @@ export default function PaymentsPage() {
                             ))}
                           </div>
                           <div className="flex items-center border-t border-[#4C526B] pt-[8px] mt-[8px]">
-                            <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה"כ</span>
+                            <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה&quot;כ</span>
                             <span className="flex-1"></span>
                             <span className="text-[14px] font-bold text-white ltr-num flex-1 text-center">
                               ₪{getInstallmentsTotal(pm.customInstallments).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

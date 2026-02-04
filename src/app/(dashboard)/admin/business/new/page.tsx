@@ -701,7 +701,7 @@ export default function NewBusinessPage() {
           </div>
         </div>
         <div className="flex flex-col gap-[5px]">
-          <label className="text-[15px] font-medium text-white text-right">אחוז מע"מ</label>
+          <label className="text-[15px] font-medium text-white text-right">אחוז מע&quot;מ</label>
           <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
             <span className="text-white/50 text-[14px] pr-[10px]">%</span>
             <input
@@ -808,7 +808,7 @@ export default function NewBusinessPage() {
       {/* Summary */}
       <div className="bg-[#0F1535] rounded-[10px] p-[8px]">
         <div className="flex items-center justify-between">
-          <span className="text-[14px] text-white">סה"כ ימי עבודה בשבוע:</span>
+          <span className="text-[14px] text-white">סה&quot;כ ימי עבודה בשבוע:</span>
           <span className="text-[16px] font-bold text-[#3CD856]">
             {Object.values(schedule).reduce((sum, val) => sum + parseFloat(val), 0).toFixed(1)}
           </span>
@@ -822,7 +822,7 @@ export default function NewBusinessPage() {
       {/* Section 1: Income Sources */}
       <div className="bg-[#4956D4]/20 rounded-[15px] p-[8px]">
         <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">מקורות הכנסה</h3>
-        <p className="text-[12px] text-white/50 text-right mb-[10px]">קופה, 10ביס, וולט וכו'</p>
+        <p className="text-[12px] text-white/50 text-right mb-[10px]">קופה, 10ביס, וולט וכו&apos;</p>
 
         <div className="flex gap-[10px] mb-[10px]">
           <button
@@ -1398,7 +1398,7 @@ export default function NewBusinessPage() {
             </div>
           )}
           <div className="flex items-center justify-between">
-            <span className="text-[13px] text-white/60">אחוז מע"מ:</span>
+            <span className="text-[13px] text-white/60">אחוז מע&quot;מ:</span>
             <span className="text-[14px] text-white">{vatPercentage}%</span>
           </div>
           {/* Team Members Section */}

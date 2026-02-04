@@ -307,7 +307,7 @@ export default function ReportsPage() {
               <span className={`text-[16px] font-bold ltr-num ${summary.operatingProfitPct >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>{summary.operatingProfitPct.toFixed(2)}%</span>
             </div>
           </div>
-          <span className="text-[20px] font-bold leading-[1.4]">סה"כ תוצאות רווח/הפסד</span>
+          <span className="text-[20px] font-bold leading-[1.4]">סה&quot;כ תוצאות רווח/הפסד</span>
         </div>
 
         {/* Date Filters Row */}
@@ -366,7 +366,7 @@ export default function ReportsPage() {
             <span className="text-[15px] font-bold ltr-num leading-[1.4]">{formatCurrency(summary.revenueTarget)}</span>
           </div>
         </div>
-        <span className="text-[16px] font-bold text-right leading-[1.4] w-[77px]">סה"כ הכנסות ללא מע"מ</span>
+        <span className="text-[16px] font-bold text-right leading-[1.4] w-[77px]">סה&quot;כ הכנסות ללא מע&quot;מ</span>
       </section>
 
       {/* Expenses Section */}
@@ -501,7 +501,7 @@ export default function ReportsPage() {
             <span className="text-[14px] font-bold w-[62px] text-center ltr-num leading-[1.4]">{formatCurrency(summary.totalExpenses)}</span>
             <span className="text-[14px] font-bold w-[62px] text-center ltr-num leading-[1.4]">{formatCurrency(summary.expensesTarget)}</span>
           </div>
-          <span className="text-[16px] font-bold text-right leading-[1.4]">סה"כ הוצאות</span>
+          <span className="text-[16px] font-bold text-right leading-[1.4]">סה&quot;כ הוצאות</span>
         </div>
       </section>
 

@@ -319,6 +319,7 @@ export default function DashboardPage() {
   // Initialize date range on client only to avoid hydration mismatch
   useEffect(() => {
     if (!dateRange) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDateRange({
         start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
         end: new Date(),
@@ -587,6 +588,7 @@ export default function DashboardPage() {
   // Update realBusinessId when selectedBusinesses changes
   useEffect(() => {
     if (selectedBusinesses.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRealBusinessId(selectedBusinesses[0]);
     }
   }, [selectedBusinesses]);
@@ -1693,7 +1695,7 @@ export default function DashboardPage() {
 
       // Fetch assignee names
       const assigneeIds = [...new Set((tasksData || []).map(t => t.assignee_id).filter(Boolean))];
-      let assigneeNames: Record<string, string> = {};
+      const assigneeNames: Record<string, string> = {};
 
       if (assigneeIds.length > 0) {
         const { data: profiles } = await supabase

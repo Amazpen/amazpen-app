@@ -201,7 +201,7 @@ export function DailyEntryForm({ businessId, onSuccess, editingEntry, isOpenExte
       ]);
 
       // If we have a previous entry, get the product usage from that day
-      let previousClosingStock: Record<string, number> = {};
+      const previousClosingStock: Record<string, number> = {};
       if (lastEntry) {
         const { data: previousUsage } = await supabase
           .from("daily_product_usage")
