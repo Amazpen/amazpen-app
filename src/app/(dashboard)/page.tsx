@@ -1942,31 +1942,37 @@ export default function DashboardPage() {
       {hasSelectedBusinesses && (
         <div className="expanded-section mt-2 space-y-1">
           {/* Action Buttons */}
-            <div className="flex flex-row justify-start items-center gap-[5px] mt-[30px]">
-              {realBusinessId ? (
-                <DailyEntryForm
-                  businessId={realBusinessId}
-                  onSuccess={() => {
-                    // Optionally refresh data after successful save
-                    console.log("Daily entry saved successfully");
-                  }}
-                />
-              ) : (
+            <div className="flex flex-row justify-between items-center gap-[5px] mt-[30px]">
+              <div className="flex flex-row items-center gap-[5px]">
+                {realBusinessId ? (
+                  <DailyEntryForm
+                    businessId={realBusinessId}
+                    onSuccess={() => {
+                      // Optionally refresh data after successful save
+                      console.log("Daily entry saved successfully");
+                    }}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="action-btn-primary text-white text-center font-bold text-sm leading-none rounded-[7px] py-[7px] px-[10px] min-h-[40px] cursor-pointer opacity-50"
+                    disabled
+                  >
+                    הזנת נתונים
+                  </button>
+                )}
                 <button
                   type="button"
-                  className="action-btn-primary text-white text-center font-bold text-sm leading-none rounded-[7px] py-[7px] px-[10px] min-h-[40px] cursor-pointer opacity-50"
-                  disabled
+                  onClick={() => setIsDailyEntriesModalOpen(true)}
+                  className="action-btn-primary text-white text-center font-bold text-sm leading-none rounded-[7px] py-[7px] px-[10px] min-h-[40px] cursor-pointer"
                 >
-                  הזנת נתונים
+                  הצגת/עריכת נתונים
                 </button>
+              </div>
+              {/* Date picker for single business users */}
+              {isSingleBusiness && dateRange && (
+                <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
               )}
-              <button
-                type="button"
-                onClick={() => setIsDailyEntriesModalOpen(true)}
-                className="action-btn-primary text-white text-center font-bold text-sm leading-none rounded-[7px] py-[7px] px-[10px] min-h-[40px] cursor-pointer"
-              >
-                הצגת/עריכת נתונים
-              </button>
             </div>
 
             {/* Data Cards - New Design */}
