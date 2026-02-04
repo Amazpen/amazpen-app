@@ -519,27 +519,27 @@ export default function DashboardLayout({
         )}
 
         {/* Fixed Header - Always visible */}
-        <header role="banner" aria-label="כותרת עליונה" className="fixed top-0 left-0 right-0 z-50 bg-[#0f1231] flex justify-between items-center px-3 sm:px-4 py-2 sm:py-3">
+        <header role="banner" aria-label="כותרת עליונה" className="fixed top-0 left-0 right-0 z-50 bg-[#0f1231] flex justify-between items-center px-3 sm:px-4 py-3 sm:py-3 min-h-[60px] sm:min-h-[56px]">
           {/* Right side - Menu and Title */}
-          <div className="flex items-center gap-[5px]">
+          <div className="flex items-center gap-[8px]">
             <button
               type="button"
               aria-label="תפריט"
               title="תפריט"
               onClick={() => setIsMenuOpen(true)}
-              className="w-[36px] h-[36px] sm:w-[40px] sm:h-[40px] flex items-center justify-center text-[#4C526B] cursor-pointer"
+              className="w-[44px] h-[44px] sm:w-[40px] sm:h-[40px] flex items-center justify-center text-[#4C526B] cursor-pointer touch-manipulation"
             >
-              <svg width="28" height="28" viewBox="0 0 32 32" fill="none" className="sm:w-8 sm:h-8">
+              <svg width="30" height="30" viewBox="0 0 32 32" fill="none" className="sm:w-8 sm:h-8">
                 <path d="M5 8H27M5 16H27M5 24H27" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </button>
-            <span className="text-white text-[16px] sm:text-[19px] font-bold leading-[1.4]">{title}</span>
+            <span className="text-white text-[17px] sm:text-[19px] font-bold leading-[1.4]">{title}</span>
           </div>
 
           {/* Left side - Profile, Notifications, Buttons */}
-          <div className="flex flex-row-reverse items-center gap-1 sm:gap-[5px]">
+          <div className="flex flex-row-reverse items-center gap-2 sm:gap-[5px]">
             {/* Profile Image */}
-            <div className="w-[36px] h-[36px] sm:w-[40px] sm:h-[40px] rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative" suppressHydrationWarning>
+            <div className="w-[44px] h-[44px] sm:w-[40px] sm:h-[40px] rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative touch-manipulation" suppressHydrationWarning>
               {/* Skeleton loader - only show when loading AND there's an image to load */}
               {(isLoadingProfile || (!profileImageLoaded && userProfile?.avatar_url)) && (
                 <div className="absolute inset-0 bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded-full" />
@@ -555,7 +555,7 @@ export default function DashboardLayout({
               )}
               {!isLoadingProfile && !userProfile?.avatar_url && (
                 /* User icon when no avatar */
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="sm:w-[22px] sm:h-[22px]">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="sm:w-[22px] sm:h-[22px]">
                   <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" strokeLinecap="round" strokeLinejoin="round"/>
                   <circle cx="12" cy="7" r="4" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
@@ -567,9 +567,9 @@ export default function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                className="w-[36px] h-[36px] sm:w-[40px] sm:h-[40px] rounded-full bg-[#29318A] flex items-center justify-center relative cursor-pointer hover:bg-[#3D44A0] transition-colors"
+                className="w-[44px] h-[44px] sm:w-[40px] sm:h-[40px] rounded-full bg-[#29318A] flex items-center justify-center relative cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation"
               >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="sm:w-[25px] sm:h-[25px] text-[#FFA412]">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="sm:w-[25px] sm:h-[25px] text-[#FFA412]">
                   <path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
@@ -590,7 +590,7 @@ export default function DashboardLayout({
                   {/* Dropdown - Full width */}
                   <div
                     dir="rtl"
-                    className="fixed top-[52px] sm:top-[56px] left-0 right-0 w-full max-h-[70vh] bg-[#111056] shadow-[0_10px_40px_rgba(0,0,0,0.5)] border-b border-white/10 z-[100] overflow-hidden"
+                    className="fixed top-[60px] sm:top-[56px] left-0 right-0 w-full max-h-[70vh] bg-[#111056] shadow-[0_10px_40px_rgba(0,0,0,0.5)] border-b border-white/10 z-[100] overflow-hidden"
                   >
                     {/* Header */}
                     <div className="flex items-center justify-between p-[15px] border-b border-white/10">
@@ -701,7 +701,7 @@ export default function DashboardLayout({
             </div>
 
             {/* עוזר AI Button */}
-            <button type="button" className="px-2 sm:px-[14px] py-[3px] border border-white rounded-[7px] text-white text-[12px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors">
+            <button type="button" className="px-3 sm:px-[14px] py-2 sm:py-[3px] min-h-[44px] sm:min-h-0 border border-white rounded-[7px] text-white text-[13px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors touch-manipulation">
               עוזר AI
             </button>
 
@@ -710,7 +710,7 @@ export default function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setIsCoordinatorModalOpen(true)}
-                className="px-2 sm:px-[14px] py-[3px] border border-white rounded-[7px] text-white text-[12px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors"
+                className="px-3 sm:px-[14px] py-2 sm:py-[3px] min-h-[44px] sm:min-h-0 border border-white rounded-[7px] text-white text-[13px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors touch-manipulation"
               >
                 מרכזת
               </button>
@@ -719,7 +719,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Main Content - with top padding for fixed header */}
-        <main role="main" aria-label="תוכן ראשי" className="pt-[52px] sm:pt-[56px]">
+        <main role="main" aria-label="תוכן ראשי" className="pt-[60px] sm:pt-[56px]">
           {children}
         </main>
 
