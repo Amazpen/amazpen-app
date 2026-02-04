@@ -578,7 +578,12 @@ export default function DashboardPage() {
         };
       });
 
-      setBusinessCards(businessCardsData);
+      // Sort businesses alphabetically by name
+      const sortedBusinessCardsData = businessCardsData.sort((a, b) =>
+        a.name.localeCompare(b.name, 'he')
+      );
+
+      setBusinessCards(sortedBusinessCardsData);
       setIsLoading(false);
     };
 
