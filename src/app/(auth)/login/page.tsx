@@ -56,13 +56,13 @@ export default function LoginPage() {
       className="min-h-screen flex flex-col items-center justify-center px-[20px] py-[40px] bg-[#0F1231]"
     >
       {/* Logo and Header */}
-      <div className="flex flex-col items-center gap-[15px] mb-[30px]">
+      <div className="flex flex-col items-center mb-[30px]">
         <img
           src="https://ae8ccc76b2d94d531551691b1d6411c9.cdn.bubble.io/cdn-cgi/image/w=192,h=91,f=auto,dpr=2,fit=contain/f1740495696315x242439751655884480/logo%20white.png"
           alt="Amazpen Logo"
-          className="w-[160px] h-auto"
+          className="w-[160px] h-auto mb-[8px]"
         />
-        <h1 className="text-[28px] font-bold text-white">המצפן כניסה</h1>
+        <h1 className="text-[28px] font-bold text-white mb-[4px]">המצפן כניסה</h1>
         <p className="text-[14px] text-white/60 text-center">
           בשביל לנצח בעסקים חייבים להכיר את החוקים
         </p>
