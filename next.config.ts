@@ -14,20 +14,8 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Configure Turbopack to handle PDF.js dependencies
-  turbopack: {
-    resolveAlias: {
-      canvas: false,
-      encoding: false,
-    },
-  },
-
-  // Fallback webpack config for older builds
-  webpack: (config) => {
-    config.resolve.alias.canvas = false;
-    config.resolve.alias.encoding = false;
-    return config;
-  },
+  // Empty turbopack config to silence warning about webpack config
+  turbopack: {},
 };
 
 export default nextConfig;
