@@ -724,7 +724,19 @@ export default function NewBusinessPage() {
         <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[120px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#29318A] transition-colors">
           {logoPreview ? (
             <div className="relative">
-              <img src={logoPreview} alt="Logo preview" className="max-h-[80px] max-w-[150px] object-contain rounded-[5px]" />
+              {logoFile?.type === 'application/pdf' ? (
+                /* PDF preview */
+                <div className="flex flex-col items-center gap-2">
+                  <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#F64E60" strokeWidth="1.5">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" strokeLinejoin="round"/>
+                    <polyline points="14,2 14,8 20,8" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M9 15h6M9 11h6" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span className="text-[12px] text-white/70">{logoFile.name}</span>
+                </div>
+              ) : (
+                <img src={logoPreview} alt="Logo preview" className="max-h-[80px] max-w-[150px] object-contain rounded-[5px]" />
+              )}
               <button
                 type="button"
                 onClick={(e) => {
@@ -745,14 +757,14 @@ export default function NewBusinessPage() {
                 <path d="M4 16L8.586 11.414C9.367 10.633 10.633 10.633 11.414 11.414L16 16M14 14L15.586 12.414C16.367 11.633 17.633 11.633 18.414 12.414L20 14M14 8H14.01M6 20H18C19.105 20 20 19.105 20 18V6C20 4.895 19.105 4 18 4H6C4.895 4 4 4.895 4 6V18C4 19.105 4.895 20 6 20Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span className="text-[14px] text-[#979797]">לחץ להעלאת לוגו</span>
-              <span className="text-[12px] text-[#979797]/60">PNG, JPG עד 2MB</span>
+              <span className="text-[12px] text-[#979797]/60">PNG, JPG, PDF עד 2MB</span>
             </>
           )}
           <input
             type="file"
             onChange={handleLogoChange}
             className="hidden"
-            accept="image/png,image/jpeg,image/jpg"
+            accept="image/png,image/jpeg,image/jpg,application/pdf"
           />
         </label>
       </div>
