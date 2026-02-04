@@ -2,43 +2,6 @@ import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
-// Dynamic import for pdf.js to avoid issues with server-side rendering
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function convertPdfToImage(pdfBuffer: Buffer): Promise<any> {
-  // Use dynamic import for canvas
-  const { createCanvas } = await import("canvas");
-
-  // Use dynamic import for pdfjs-dist
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-
-  // Load the PDF document
-  const loadingTask = pdfjs.getDocument({ data: pdfBuffer });
-  const pdfDocument = await loadingTask.promise;
-
-  // Get the first page
-  const page = await pdfDocument.getPage(1);
-
-  // Set scale for good quality (2x for retina-like quality)
-  const scale = 2;
-  const viewport = page.getViewport({ scale });
-
-  // Create canvas
-  const canvas = createCanvas(viewport.width, viewport.height);
-  const context = canvas.getContext("2d");
-
-  // Render PDF page to canvas
-  await page.render({
-    canvasContext: context,
-    viewport: viewport,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any).promise;
-
-  // Convert canvas to PNG buffer
-  const pngBuffer = canvas.toBuffer("image/png");
-
-  return pngBuffer;
-}
-
 export async function POST(request: NextRequest) {
   try {
     // Verify user is authenticated
@@ -53,7 +16,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const bucket = formData.get("bucket") as string || "assets";
-    let path = formData.get("path") as string;
+    const path = formData.get("path") as string;
 
     if (!file) {
       return NextResponse.json({ error: "חסר קובץ" }, { status: 400 });
@@ -80,29 +43,13 @@ export async function POST(request: NextRequest) {
 
     // Convert File to Buffer
     const arrayBuffer = await file.arrayBuffer();
-    let buffer = Buffer.from(arrayBuffer);
-    let contentType = file.type;
-
-    // If the file is a PDF, convert it to PNG
-    if (file.type === "application/pdf") {
-      try {
-        console.log("Converting PDF to PNG...");
-        buffer = await convertPdfToImage(buffer);
-        contentType = "image/png";
-        // Change the file extension in the path from .pdf to .png
-        path = path.replace(/\.pdf$/i, ".png");
-        console.log("PDF converted to PNG successfully");
-      } catch (conversionError) {
-        console.error("PDF conversion error:", conversionError);
-        return NextResponse.json({ error: "שגיאה בהמרת PDF לתמונה" }, { status: 500 });
-      }
-    }
+    const buffer = Buffer.from(arrayBuffer);
 
     // Upload file using service role (bypasses CORS)
     const { data, error: uploadError } = await adminSupabase.storage
       .from(bucket)
       .upload(path, buffer, {
-        contentType: contentType,
+        contentType: file.type,
         cacheControl: "3600",
         upsert: false,
       });

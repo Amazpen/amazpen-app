@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
+import { convertPdfToImage } from "@/lib/pdfToImage";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -298,11 +299,25 @@ export default function NewBusinessPage() {
       let logoUrl: string | null = null;
       if (logoFile) {
         console.log("Starting logo upload for file:", logoFile.name, "size:", logoFile.size);
-        const fileExt = logoFile.name.split(".").pop();
+
+        // Convert PDF to PNG if needed
+        let fileToUpload = logoFile;
+        if (logoFile.type === "application/pdf") {
+          console.log("Converting PDF to PNG...");
+          try {
+            fileToUpload = await convertPdfToImage(logoFile);
+            console.log("PDF converted to PNG:", fileToUpload.name);
+          } catch (conversionError) {
+            console.error("PDF conversion error:", conversionError);
+            // Continue with original file if conversion fails
+          }
+        }
+
+        const fileExt = fileToUpload.name.split(".").pop();
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         const filePath = `business-logos/${fileName}`;
 
-        const result = await uploadFile(logoFile, filePath, "assets");
+        const result = await uploadFile(fileToUpload, filePath, "assets");
 
         if (!result.success) {
           console.error("Logo upload error:", result.error);
