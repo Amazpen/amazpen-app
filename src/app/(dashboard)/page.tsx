@@ -330,6 +330,7 @@ export default function DashboardPage() {
   const [isDailyEntriesModalOpen, setIsDailyEntriesModalOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSingleBusiness, setIsSingleBusiness] = useState(false); // Non-admin with only one business
+  const [showAllBusinessCards, setShowAllBusinessCards] = useState(false); // Show all business cards or limit to 6
 
   // Realtime subscription - refresh data when changes occur
   const handleRealtimeChange = useCallback(() => {
@@ -1864,7 +1865,7 @@ export default function DashboardPage() {
               <p className="text-white/50 text-[14px] mt-2">צור עסק חדש דרך התפריט</p>
             </div>
           ) : (
-            businessCards.slice(0, 10).map((card) => (
+            businessCards.slice(0, showAllBusinessCards ? businessCards.length : 6).map((card) => (
               <button
                 key={card.id}
                 type="button"
@@ -1938,9 +1939,15 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* More button - only show if there are more than 10 businesses */}
-        {businessCards.length > 10 && (
-          <p className="text-white text-xl font-semibold text-center mt-6">עוד...</p>
+        {/* More button - only show if there are more than 6 businesses and not showing all */}
+        {businessCards.length > 6 && !showAllBusinessCards && (
+          <button
+            type="button"
+            onClick={() => setShowAllBusinessCards(true)}
+            className="text-white text-xl font-semibold text-center mt-6 hover:text-white/80 transition-colors"
+          >
+            עוד...
+          </button>
         )}
       </div>
       )}
