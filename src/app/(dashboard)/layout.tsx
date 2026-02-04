@@ -363,14 +363,14 @@ export default function DashboardLayout({
 
             {/* Business Name */}
             <div className="flex items-center justify-end gap-[10px] p-[7px] rounded-[10px] mb-[10px]">
-              <span className="text-white text-[16px] font-medium text-right flex-1" suppressHydrationWarning>
-                {businessName || "עסק"}
-              </span>
               <img
                 src="https://ae8ccc76b2d94d531551691b1d6411c9.cdn.bubble.io/f1725470298167x485496868385594050/userlogin.svg"
                 alt=""
                 className="w-[30px] h-[30px] rounded-[5px]"
               />
+              <span className="text-white text-[16px] font-medium text-right flex-1" suppressHydrationWarning>
+                {businessName || "עסק"}
+              </span>
             </div>
 
             <div className="flex flex-col gap-[5px]">
