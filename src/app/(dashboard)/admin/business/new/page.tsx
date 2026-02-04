@@ -298,8 +298,6 @@ export default function NewBusinessPage() {
       // 1. Upload logo if provided
       let logoUrl: string | null = null;
       if (logoFile) {
-        console.log("Starting logo upload for file:", logoFile.name, "size:", logoFile.size);
-
         // Convert PDF to PNG if needed
         let fileToUpload = logoFile;
         if (logoFile.type === "application/pdf") {
@@ -322,9 +320,7 @@ export default function NewBusinessPage() {
           showToast(`שגיאה בהעלאת הלוגו: ${result.error}`, "error");
           // Continue without logo if upload fails
         } else {
-          console.log("Logo upload success:", result.publicUrl);
           logoUrl = result.publicUrl || null;
-          console.log("Logo URL:", logoUrl);
         }
       }
 
