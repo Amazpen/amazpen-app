@@ -303,10 +303,8 @@ export default function NewBusinessPage() {
         // Convert PDF to PNG if needed
         let fileToUpload = logoFile;
         if (logoFile.type === "application/pdf") {
-          console.log("Converting PDF to PNG...");
           try {
             fileToUpload = await convertPdfToImage(logoFile);
-            console.log("PDF converted to PNG:", fileToUpload.name);
           } catch (conversionError) {
             console.error("PDF conversion error:", conversionError);
             // Continue with original file if conversion fails
