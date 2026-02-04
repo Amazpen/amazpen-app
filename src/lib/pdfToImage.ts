@@ -7,9 +7,9 @@ export async function convertPdfToImage(pdfFile: File): Promise<File> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfjsLib = await import("pdfjs-dist") as any;
 
-  // Configure worker - use CDN with fallback
+  // Configure worker - use local file from public folder
   if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
   }
 
   // Read PDF file as ArrayBuffer
