@@ -1780,9 +1780,9 @@ export default function DashboardPage() {
                   aria-label="סגור חיפוש"
                   title="סגור חיפוש"
                   onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}
-                  className="w-[30px] h-[30px] flex-shrink-0 flex items-center justify-center text-[#4C526B] hover:text-[#7B91B0] transition-colors cursor-pointer"
+                  className="w-[40px] h-[40px] sm:w-[30px] sm:h-[30px] flex-shrink-0 flex items-center justify-center text-[#4C526B] hover:text-[#7B91B0] transition-colors cursor-pointer touch-manipulation"
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="sm:w-5 sm:h-5">
                     <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
                 </button>
@@ -1791,7 +1791,7 @@ export default function DashboardPage() {
                   placeholder="חיפוש עסק, שם לקוח..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-transparent border border-[#4C526B] rounded-[7px] px-3 py-1 text-white text-[14px] placeholder:text-[#7B91B0] focus:outline-none focus:border-[#7B91B0] flex-1 min-w-0 max-w-[200px]"
+                  className="bg-transparent border border-[#4C526B] rounded-[7px] px-3 py-2 sm:py-1 text-white text-[15px] sm:text-[14px] placeholder:text-[#7B91B0] focus:outline-none focus:border-[#7B91B0] flex-1 min-w-0 max-w-[200px] min-h-[44px] sm:min-h-0"
                   autoFocus
                 />
               </div>
@@ -1803,14 +1803,14 @@ export default function DashboardPage() {
                   aria-label="חיפוש"
                   title="חיפוש"
                   onClick={() => setIsSearchOpen(true)}
-                  className="w-[30px] h-[30px] flex-shrink-0 flex items-center justify-center text-[#4C526B] hover:text-[#7B91B0] transition-colors cursor-pointer"
+                  className="w-[40px] h-[40px] sm:w-[30px] sm:h-[30px] flex-shrink-0 flex items-center justify-center text-[#4C526B] hover:text-[#7B91B0] transition-colors cursor-pointer touch-manipulation"
                 >
-                  <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+                  <svg width="26" height="26" viewBox="0 0 32 32" fill="none" className="sm:w-6 sm:h-6">
                     <circle cx="14" cy="14" r="8" stroke="currentColor" strokeWidth="2"/>
                     <path d="M20 20L26 26" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
                 </button>
-                <h2 className="text-lg font-semibold text-white">לקוחות</h2>
+                <h2 className="text-[18px] sm:text-lg font-semibold text-white">לקוחות</h2>
               </>
             )}
           </div>
