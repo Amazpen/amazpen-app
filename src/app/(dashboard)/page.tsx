@@ -1871,20 +1871,11 @@ export default function DashboardPage() {
                 {/* Business Image */}
                 <div className="w-[50px] h-[50px] rounded-[10px] overflow-hidden flex-shrink-0 flex items-center justify-center bg-white/10">
                   {card.logo_url ? (
-                    card.logo_url.toLowerCase().endsWith('.pdf') ? (
-                      /* PDF icon for PDF files */
-                      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F64E60" strokeWidth="1.5">
-                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" strokeLinejoin="round"/>
-                        <polyline points="14,2 14,8 20,8" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M9 15h6M9 11h6" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    ) : (
-                      <img
-                        src={card.logo_url}
-                        alt={card.name}
-                        className="w-full h-full object-cover"
-                      />
-                    )
+                    <img
+                      src={card.logo_url}
+                      alt={card.name}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">
                       <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" strokeLinecap="round" strokeLinejoin="round"/>

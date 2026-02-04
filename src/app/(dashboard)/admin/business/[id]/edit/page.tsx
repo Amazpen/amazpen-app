@@ -919,15 +919,16 @@ export default function EditBusinessPage({ params }: PageProps) {
         <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[120px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#29318A] transition-colors">
           {logoPreview ? (
             <div className="relative">
-              {logoFile?.type === 'application/pdf' || logoPreview.toLowerCase().endsWith('.pdf') ? (
-                /* PDF preview */
+              {logoFile?.type === 'application/pdf' ? (
+                /* PDF preview - will be converted to PNG on upload */
                 <div className="flex flex-col items-center gap-2">
-                  <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#F64E60" strokeWidth="1.5">
+                  <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#3CD856" strokeWidth="1.5">
                     <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" strokeLinejoin="round"/>
                     <polyline points="14,2 14,8 20,8" strokeLinecap="round" strokeLinejoin="round"/>
                     <path d="M9 15h6M9 11h6" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  <span className="text-[12px] text-white/70">{logoFile?.name || 'PDF לוגו'}</span>
+                  <span className="text-[12px] text-white/70">{logoFile.name}</span>
+                  <span className="text-[10px] text-green-400">יומר לתמונה בעת השמירה</span>
                 </div>
               ) : (
                 <img src={logoPreview} alt="Logo preview" className="max-h-[80px] max-w-[150px] object-contain rounded-[5px]" />
