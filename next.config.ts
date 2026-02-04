@@ -14,7 +14,15 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Configure webpack to handle PDF.js worker
+  // Configure Turbopack to handle PDF.js dependencies
+  turbopack: {
+    resolveAlias: {
+      canvas: false,
+      encoding: false,
+    },
+  },
+
+  // Fallback webpack config for older builds
   webpack: (config) => {
     config.resolve.alias.canvas = false;
     config.resolve.alias.encoding = false;
