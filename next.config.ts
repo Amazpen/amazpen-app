@@ -13,6 +13,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+
+  // Configure webpack to handle PDF.js worker
+  webpack: (config) => {
+    config.resolve.alias.canvas = false;
+    config.resolve.alias.encoding = false;
+    return config;
+  },
 };
 
 export default nextConfig;

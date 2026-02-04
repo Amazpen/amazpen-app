@@ -3,11 +3,14 @@
  * This runs client-side and converts the first page of a PDF to a PNG image
  */
 export async function convertPdfToImage(pdfFile: File): Promise<File> {
-  // Dynamically import pdf.js for browser
-  const pdfjsLib = await import("pdfjs-dist");
+  // Dynamic import of pdfjs-dist
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfjsLib = await import("pdfjs-dist") as any;
 
-  // Set worker source
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+  // Configure worker - use CDN with fallback
+  if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+  }
 
   // Read PDF file as ArrayBuffer
   const arrayBuffer = await pdfFile.arrayBuffer();
