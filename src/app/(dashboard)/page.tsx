@@ -1865,7 +1865,14 @@ export default function DashboardPage() {
               <p className="text-white/50 text-[14px] mt-2">צור עסק חדש דרך התפריט</p>
             </div>
           ) : (
-            businessCards.slice(0, showAllBusinessCards ? businessCards.length : 6).map((card) => (
+            businessCards
+              .filter(card => {
+                if (!searchQuery.trim()) return true;
+                const query = searchQuery.toLowerCase();
+                return card.name.toLowerCase().includes(query);
+              })
+              .slice(0, showAllBusinessCards ? businessCards.length : 6)
+              .map((card) => (
               <button
                 key={card.id}
                 type="button"
