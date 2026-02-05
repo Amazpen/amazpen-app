@@ -701,7 +701,7 @@ export default function DashboardLayout({
             </div>
 
             {/* עוזר AI Button */}
-            <button type="button" className="px-3 sm:px-[14px] py-2 sm:py-[3px] min-h-[44px] sm:min-h-0 border border-white rounded-[7px] text-white text-[13px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors touch-manipulation">
+            <button type="button" className="px-[10px] sm:px-[14px] py-[6px] sm:py-[3px] h-[40px] sm:h-auto border border-white rounded-[7px] text-white text-[12px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors touch-manipulation">
               עוזר AI
             </button>
 
@@ -710,7 +710,7 @@ export default function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setIsCoordinatorModalOpen(true)}
-                className="px-3 sm:px-[14px] py-2 sm:py-[3px] min-h-[44px] sm:min-h-0 border border-white rounded-[7px] text-white text-[13px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors touch-manipulation"
+                className="px-[10px] sm:px-[14px] py-[6px] sm:py-[3px] h-[40px] sm:h-auto border border-white rounded-[7px] text-white text-[12px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors touch-manipulation"
               >
                 מרכזת
               </button>
