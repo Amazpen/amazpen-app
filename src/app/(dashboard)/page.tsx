@@ -1769,7 +1769,7 @@ export default function DashboardPage() {
       {!isSingleBusiness && (
       <div className="clients-section rounded-[20px] p-1">
         {/* Section Header */}
-        <div className="flex justify-between items-center mb-4 px-[10px]">
+        <div className="flex justify-between items-center mb-4">
           {/* Right side - Search Icon and Title together */}
           <div className="flex items-center gap-[5px]">
             {isSearchOpen ? (
