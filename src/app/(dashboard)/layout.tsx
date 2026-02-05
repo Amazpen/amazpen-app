@@ -700,9 +700,9 @@ export default function DashboardLayout({
               )}
             </div>
 
-            {/* עוזר AI Button */}
+            {/* AI Button */}
             <button type="button" className="px-[10px] sm:px-[14px] py-[6px] sm:py-[3px] h-[40px] sm:h-auto border border-white rounded-[7px] text-white text-[12px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-white/10 transition-colors touch-manipulation">
-              עוזר AI
+              AI
             </button>
 
             {/* מרכזת Button - Admin Only */}
