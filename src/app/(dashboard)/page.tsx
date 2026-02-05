@@ -1814,8 +1814,8 @@ export default function DashboardPage() {
               </>
             )}
           </div>
-          {/* Left side - Date picker */}
-          {dateRange && <DateRangePicker dateRange={dateRange} onChange={setDateRange} />}
+          {/* Left side - Date picker - hide when search is open */}
+          {!isSearchOpen && dateRange && <DateRangePicker dateRange={dateRange} onChange={setDateRange} />}
         </div>
 
         {/* Cards Grid 2 columns - Business Cards (max 10) */}
