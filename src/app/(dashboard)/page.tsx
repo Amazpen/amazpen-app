@@ -2364,53 +2364,149 @@ export default function DashboardPage() {
               })}
 
               {/* עלות עובדים Card */}
-              <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
-                <div className="flex flex-row-reverse justify-between items-center w-full">
-                  <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
-                    <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${(detailedSummary?.laborCostDiffPct ?? 0) === 0 ? 'text-white' : (detailedSummary?.laborCostDiffPct || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                      {formatPercent(detailedSummary?.laborCostPct || 0)}
-                    </span>
-                    <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${(detailedSummary?.laborCostDiffPct ?? 0) === 0 ? 'text-white' : (detailedSummary?.laborCostDiffPct || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                      {formatCurrencyFull(detailedSummary?.laborCost || 0)}
-                    </span>
-                  </div>
-                  <div className="flex flex-row-reverse items-center gap-[6px]">
-                    <span className="text-[20px] font-bold text-white leading-[1.4]">עלות עובדים</span>
-                    <div className="icon-bg-purple w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
-                      <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
-                        <circle cx="16" cy="8" r="4" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M6 28v-2a6 6 0 016-6h8a6 6 0 016 6v2" strokeLinecap="round" strokeLinejoin="round"/>
-                        <circle cx="26" cy="10" r="3" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M26 28v-1.5a4.5 4.5 0 00-2-3.74" strokeLinecap="round" strokeLinejoin="round"/>
-                        <circle cx="6" cy="10" r="3" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M6 28v-1.5a4.5 4.5 0 012-3.74" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
+              {(() => {
+                const currentBusinessName = businessCards.find(b => b.id === realBusinessId)?.name || "";
+                const isPearla = currentBusinessName.includes("פרלה");
+                const laborDiffColor = (detailedSummary?.laborCostDiffPct ?? 0) === 0 ? 'text-white' : (detailedSummary?.laborCostDiffPct || 0) > 0 ? 'text-red-500' : 'text-green-500';
+                const laborPrevMonthColor = (detailedSummary?.laborCostPrevMonthChange ?? 0) === 0 ? 'text-white' : (detailedSummary?.laborCostPrevMonthChange || 0) > 0 ? 'text-red-500' : 'text-green-500';
+                const laborPrevYearColor = (detailedSummary?.laborCostPrevYearChange ?? 0) === 0 ? 'text-white' : (detailedSummary?.laborCostPrevYearChange || 0) > 0 ? 'text-red-500' : 'text-green-500';
+                const totalEvents = (detailedSummary?.privateCount || 0) + (detailedSummary?.businessCount || 0);
+                const avgLaborPerEvent = totalEvents > 0 ? (detailedSummary?.laborCost || 0) / totalEvents : 0;
+
+                if (isPearla) {
+                  return (
+                    <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
+                      <div className="flex flex-row-reverse justify-between items-center w-full gap-[15px]">
+                        <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
+                          <span className={`text-[20px] font-bold leading-[1.4] ltr-num min-w-[70px] max-w-[70px] ${laborDiffColor}`}>
+                            {formatPercent(detailedSummary?.laborCostPct || 0)}
+                          </span>
+                          <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${laborDiffColor}`}>
+                            {formatCurrencyFull(detailedSummary?.laborCost || 0)}
+                          </span>
+                        </div>
+                        <div className="flex flex-row-reverse items-center gap-[6px]">
+                          <span className="text-[20px] font-bold text-white leading-[1.4]">עלות עובדים</span>
+                          <div className="icon-bg-purple w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
+                            <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
+                              <circle cx="16" cy="8" r="4" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M6 28v-2a6 6 0 016-6h8a6 6 0 016 6v2" strokeLinecap="round" strokeLinejoin="round"/>
+                              <circle cx="26" cy="10" r="3" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M26 28v-1.5a4.5 4.5 0 00-2-3.74" strokeLinecap="round" strokeLinejoin="round"/>
+                              <circle cx="6" cy="10" r="3" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M6 28v-1.5a4.5 4.5 0 012-3.74" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Middle section - שכירים / כוח אדם with border */}
+                      <div className="flex flex-row-reverse justify-between items-start w-full border-b border-white/50 pb-[5px] mt-[5px]">
+                        <div className="flex flex-col ml-[10px]">
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">₪0</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">כוח אדם</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">0%</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">כוח אדם (%)</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col mr-[10px]">
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">₪0</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">שכירים</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">0%</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">שכירים (%)</span>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Bottom section - הפרשים + ממוצעים */}
+                      <div className="flex flex-row-reverse justify-between items-start gap-[10px]">
+                        <div className="flex flex-col ml-[10px]">
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborDiffColor}`}>{formatPercent(detailedSummary?.laborCostDiffPct || 0)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מיעד</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborDiffColor}`}>{formatCurrencyFull(detailedSummary?.laborCostDiffAmount || 0)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">₪0</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">ממוצע עובדים לאורח</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col mr-[10px]">
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevMonthColor}`}>{formatPercent(detailedSummary?.laborCostPrevMonthChange || 0)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevYearColor}`}>{formatPercent(detailedSummary?.laborCostPrevYearChange || 0)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">{formatCurrencyFull(avgLaborPerEvent)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">ממוצע עובדים לאירוע</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
+                    <div className="flex flex-row-reverse justify-between items-center w-full">
+                      <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
+                        <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${laborDiffColor}`}>
+                          {formatPercent(detailedSummary?.laborCostPct || 0)}
+                        </span>
+                        <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${laborDiffColor}`}>
+                          {formatCurrencyFull(detailedSummary?.laborCost || 0)}
+                        </span>
+                      </div>
+                      <div className="flex flex-row-reverse items-center gap-[6px]">
+                        <span className="text-[20px] font-bold text-white leading-[1.4]">עלות עובדים</span>
+                        <div className="icon-bg-purple w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
+                          <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
+                            <circle cx="16" cy="8" r="4" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M6 28v-2a6 6 0 016-6h8a6 6 0 016 6v2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <circle cx="26" cy="10" r="3" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M26 28v-1.5a4.5 4.5 0 00-2-3.74" strokeLinecap="round" strokeLinejoin="round"/>
+                            <circle cx="6" cy="10" r="3" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M6 28v-1.5a4.5 4.5 0 012-3.74" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
+                      <div className="flex flex-col ml-[10px]">
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborDiffColor}`}>{formatPercent(detailedSummary?.laborCostDiffPct || 0)}</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
+                        </div>
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.laborCostDiffAmount ?? 0) === 0 ? 'text-white' : (detailedSummary?.laborCostDiffAmount || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>{formatCurrencyFull(detailedSummary?.laborCostDiffAmount || 0)}</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col mr-[10px]">
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevMonthColor}`}>{formatPercent(detailedSummary?.laborCostPrevMonthChange || 0)}</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
+                        </div>
+                        <div className="flex flex-row-reverse justify-end items-center gap-[5px]">
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevYearColor}`}>{formatPercent(detailedSummary?.laborCostPrevYearChange || 0)}</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
-                  <div className="flex flex-col ml-[10px]">
-                    <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.laborCostDiffPct ?? 0) === 0 ? 'text-white' : (detailedSummary?.laborCostDiffPct || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>{formatPercent(detailedSummary?.laborCostDiffPct || 0)}</span>
-                      <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
-                    </div>
-                    <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.laborCostDiffAmount ?? 0) === 0 ? 'text-white' : (detailedSummary?.laborCostDiffAmount || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>{formatCurrencyFull(detailedSummary?.laborCostDiffAmount || 0)}</span>
-                      <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col mr-[10px]">
-                    <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.laborCostPrevMonthChange ?? 0) === 0 ? 'text-white' : (detailedSummary?.laborCostPrevMonthChange || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>{formatPercent(detailedSummary?.laborCostPrevMonthChange || 0)}</span>
-                      <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
-                    </div>
-                    <div className="flex flex-row-reverse justify-end items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.laborCostPrevYearChange ?? 0) === 0 ? 'text-white' : (detailedSummary?.laborCostPrevYearChange || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>{formatPercent(detailedSummary?.laborCostPrevYearChange || 0)}</span>
-                      <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* עלות מכר Card */}
               <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
