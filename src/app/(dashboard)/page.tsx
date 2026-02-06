@@ -2378,7 +2378,7 @@ export default function DashboardPage() {
                     <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
                       <div className="flex flex-row-reverse justify-between items-center w-full gap-[15px]">
                         <div className="flex flex-row items-center gap-[10px] ml-[9px]">
-                          <span className={`text-[20px] font-bold leading-[1.4] ltr-num min-w-[70px] max-w-[70px] ${laborDiffColor}`}>
+                          <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${laborDiffColor}`}>
                             {formatPercent(detailedSummary?.laborCostPct || 0)}
                           </span>
                           <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${laborDiffColor}`}>
