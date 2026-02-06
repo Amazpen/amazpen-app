@@ -701,7 +701,7 @@ export default function DashboardLayout({
             </div>
 
             {/* AI Button */}
-            <button type="button" className="px-[10px] sm:px-[14px] py-[6px] sm:py-[3px] h-[40px] sm:h-auto min-w-[60px] sm:min-w-[76px] text-center bg-[#29318A] rounded-[7px] text-white text-[12px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation">
+            <button type="button" className="px-[8px] sm:px-[12px] py-[4px] sm:py-[3px] h-[34px] sm:h-auto min-w-[50px] sm:min-w-[60px] text-center bg-[#29318A] rounded-[7px] text-white text-[12px] sm:text-[13px] leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation">
               AI
             </button>
 
@@ -710,7 +710,7 @@ export default function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setIsCoordinatorModalOpen(true)}
-                className="px-[10px] sm:px-[14px] py-[6px] sm:py-[3px] h-[40px] sm:h-auto min-w-[60px] sm:min-w-[76px] text-center bg-[#29318A] rounded-[7px] text-white text-[12px] sm:text-[14px] leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation"
+                className="px-[8px] sm:px-[12px] py-[4px] sm:py-[3px] h-[34px] sm:h-auto min-w-[50px] sm:min-w-[60px] text-center bg-[#29318A] rounded-[7px] text-white text-[12px] sm:text-[13px] leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation"
               >
                 מרכזת
               </button>
