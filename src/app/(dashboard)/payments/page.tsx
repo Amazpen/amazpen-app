@@ -910,7 +910,7 @@ export default function PaymentsPage() {
                 <div className="flex items-start">
                   <span className="text-[16px] font-medium text-white">סוג הוצאה</span>
                 </div>
-                <div className="flex items-start gap-[20px]">
+                <div className="flex items-start gap-[20px] flex-row-reverse">
                   <button
                     type="button"
                     onClick={() => { setExpenseType("expenses"); setSelectedSupplier(""); setSupplierSearch(""); }}
