@@ -360,7 +360,7 @@ export default function PaymentsPage() {
           if (amount > 0) {
             const installmentsCount = parseInt(pm.installments) || 1;
 
-            if (installmentsCount > 1 && pm.customInstallments.length > 0) {
+            if (pm.customInstallments.length > 0) {
               // Create split for each installment
               for (const inst of pm.customInstallments) {
                 await supabase
@@ -375,7 +375,7 @@ export default function PaymentsPage() {
                   });
               }
             } else {
-              // Single payment
+              // Fallback - single payment without customInstallments
               await supabase
                 .from("payment_splits")
                 .insert({
@@ -437,7 +437,7 @@ export default function PaymentsPage() {
 
   // Generate initial installments breakdown
   const generateInstallments = (numInstallments: number, totalAmount: number, startDateStr: string) => {
-    if (numInstallments <= 1 || totalAmount === 0) {
+    if (numInstallments < 1 || totalAmount === 0) {
       return [];
     }
 
@@ -537,7 +537,7 @@ export default function PaymentsPage() {
     setPaymentMethods(prev => prev.map(p => {
       const numInstallments = parseInt(p.installments) || 1;
       const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
-      if (numInstallments > 1 && totalAmount > 0) {
+      if (numInstallments >= 1 && totalAmount > 0) {
         return { ...p, customInstallments: generateInstallments(numInstallments, totalAmount, paymentDate) };
       }
       return { ...p, customInstallments: [] };
@@ -620,13 +620,6 @@ export default function PaymentsPage() {
 
   return (
     <div className="text-white p-[10px] pb-[80px]">
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-[40px]">
-          <div className="text-white/70">טוען נתונים...</div>
-        </div>
-      )}
-
       {/* Date Range and Add Button */}
       <div className="flex items-center justify-between mb-[10px]">
         <button
