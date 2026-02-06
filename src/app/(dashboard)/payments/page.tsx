@@ -906,8 +906,8 @@ export default function PaymentsPage() {
                       {/* Installments Breakdown */}
                       {pm.customInstallments.length > 0 && (
                         <div className="mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
-                          <div className="flex items-center border-b border-[#4C526B] pb-[8px] mb-[8px]">
-                            <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
+                          <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
+                            <span className="text-[14px] font-medium text-white/70 w-[50px] text-center flex-shrink-0">תשלום</span>
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">סכום</span>
                           </div>
@@ -935,7 +935,7 @@ export default function PaymentsPage() {
                               </div>
                             ))}
                           </div>
-                          <div className="flex items-center border-t border-[#4C526B] pt-[8px] mt-[8px]">
+                          <div className="flex items-center gap-[8px] border-t border-[#4C526B] pt-[8px] mt-[8px]">
                             <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה&quot;כ</span>
                             <span className="flex-1"></span>
                             <span className="text-[14px] font-bold text-white ltr-num flex-1 text-center">
