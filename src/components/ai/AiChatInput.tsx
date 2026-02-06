@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Send } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 
 interface AiChatInputProps {
   onSend: (message: string) => void;
@@ -62,9 +62,11 @@ export function AiChatInput({ onSend, disabled }: AiChatInputProps) {
           type="button"
           onClick={handleSend}
           disabled={!value.trim() || disabled}
+          title="שלח הודעה"
+          aria-label="שלח הודעה"
           className="flex-shrink-0 w-[44px] h-[44px] rounded-full bg-[#6366f1] flex items-center justify-center text-white transition-all hover:bg-[#5558e6] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#6366f1] disabled:active:scale-100"
         >
-          <Send className="w-5 h-5 rotate-180" />
+          <ArrowUp className="w-5 h-5 -rotate-45" />
         </button>
       </div>
     </div>

@@ -52,10 +52,15 @@ interface AiWelcomeScreenProps {
 export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenProps) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-8" dir="rtl">
-      {/* AI Icon */}
+      {/* AI Bot Icon */}
       <div className="w-[72px] h-[72px] rounded-full bg-[#6366f1]/20 flex items-center justify-center mb-5">
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-[#6366f1]">
-          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="currentColor" />
+          <rect x="3" y="11" width="18" height="10" rx="3" stroke="currentColor" strokeWidth="1.5" />
+          <circle cx="9" cy="16" r="1.5" fill="currentColor" />
+          <circle cx="15" cy="16" r="1.5" fill="currentColor" />
+          <path d="M12 2v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <circle cx="12" cy="2" r="1" fill="currentColor" />
+          <path d="M1 15h2M21 15h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </div>
 
