@@ -131,7 +131,7 @@ export default function ExpensesPage() {
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null); // For drill-down
 
   // Form state for new expense
-  const [expenseDate, setExpenseDate] = useState("");
+  const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [expenseType, setExpenseType] = useState<"current" | "goods">("current");
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -702,7 +702,7 @@ export default function ExpensesPage() {
   const handleClosePopup = () => {
     setShowAddExpensePopup(false);
     // Reset form
-    setExpenseDate("");
+    setExpenseDate(new Date().toISOString().split("T")[0]);
     setExpenseType("current");
     setSelectedSupplier("");
     setInvoiceNumber("");
@@ -817,7 +817,7 @@ export default function ExpensesPage() {
     setShowEditPopup(false);
     setEditingInvoice(null);
     // Reset form
-    setExpenseDate("");
+    setExpenseDate(new Date().toISOString().split("T")[0]);
     setExpenseType("current");
     setSelectedSupplier("");
     setInvoiceNumber("");
