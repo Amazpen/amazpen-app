@@ -127,6 +127,7 @@ export default function SuppliersPage() {
     date: string;
     amount: number;
   }>>([]);
+  const [isUploadingObligationDoc, setIsUploadingObligationDoc] = useState(false);
 
   // Edit supplier state
   const [isEditingSupplier, setIsEditingSupplier] = useState(false);
@@ -2034,23 +2035,109 @@ export default function SuppliersPage() {
                   <div className="flex flex-col gap-[3px]">
                     <span className="text-[15px] font-medium text-white text-right">תמונה / לוח סילוקין</span>
                     {selectedSupplier.obligation_document_url ? (
-                      <a
-                        href={selectedSupplier.obligation_document_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="border border-[#4C526B] rounded-[10px] overflow-hidden flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={selectedSupplier.obligation_document_url}
-                          alt="לוח סילוקין"
-                          className="max-h-[200px] object-contain"
-                        />
-                      </a>
-                    ) : (
-                      <div className="border border-[#4C526B] rounded-[10px] h-[80px] flex items-center justify-center">
-                        <span className="text-[14px] text-white/40">לא צורף מסמך</span>
+                      <div className="flex flex-col gap-[5px]">
+                        <a
+                          href={selectedSupplier.obligation_document_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="border border-[#4C526B] rounded-[10px] overflow-hidden flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={selectedSupplier.obligation_document_url}
+                            alt="לוח סילוקין"
+                            className="max-h-[200px] object-contain"
+                          />
+                        </a>
+                        {/* Replace image button */}
+                        <label className="flex items-center justify-center gap-[5px] text-[13px] text-white/60 hover:text-white cursor-pointer transition-colors">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                          </svg>
+                          החלפת תמונה
+                          <input
+                            type="file"
+                            accept="image/*,.pdf"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              setIsUploadingObligationDoc(true);
+                              try {
+                                const fileExt = file.name.split(".").pop();
+                                const fileName = `${crypto.randomUUID()}.${fileExt}`;
+                                const filePath = `supplier-obligations/${selectedSupplier.business_id}/${fileName}`;
+                                const result = await uploadFile(file, filePath, "assets");
+                                if (result.success && result.publicUrl) {
+                                  const supabase = createClient();
+                                  await supabase
+                                    .from("suppliers")
+                                    .update({ obligation_document_url: result.publicUrl })
+                                    .eq("id", selectedSupplier.id);
+                                  setSelectedSupplier({ ...selectedSupplier, obligation_document_url: result.publicUrl });
+                                  showToast("התמונה עודכנה בהצלחה", "success");
+                                } else {
+                                  showToast("שגיאה בהעלאת הקובץ", "error");
+                                }
+                              } catch {
+                                showToast("שגיאה בהעלאת הקובץ", "error");
+                              } finally {
+                                setIsUploadingObligationDoc(false);
+                                e.target.value = "";
+                              }
+                            }}
+                          />
+                        </label>
                       </div>
+                    ) : (
+                      <label className={`border border-dashed border-[#4C526B] rounded-[10px] h-[80px] flex flex-col items-center justify-center gap-[5px] cursor-pointer hover:bg-white/5 transition-colors ${isUploadingObligationDoc ? 'opacity-50 pointer-events-none' : ''}`}>
+                        {isUploadingObligationDoc ? (
+                          <span className="text-[14px] text-white/60">מעלה...</span>
+                        ) : (
+                          <>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/40">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                              <polyline points="17 8 12 3 7 8"/>
+                              <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            <span className="text-[14px] text-white/40">לחץ להעלאת תמונה</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setIsUploadingObligationDoc(true);
+                            try {
+                              const fileExt = file.name.split(".").pop();
+                              const fileName = `${crypto.randomUUID()}.${fileExt}`;
+                              const filePath = `supplier-obligations/${selectedSupplier.business_id}/${fileName}`;
+                              const result = await uploadFile(file, filePath, "assets");
+                              if (result.success && result.publicUrl) {
+                                const supabase = createClient();
+                                await supabase
+                                  .from("suppliers")
+                                  .update({ obligation_document_url: result.publicUrl })
+                                  .eq("id", selectedSupplier.id);
+                                setSelectedSupplier({ ...selectedSupplier, obligation_document_url: result.publicUrl });
+                                showToast("התמונה הועלתה בהצלחה", "success");
+                              } else {
+                                showToast("שגיאה בהעלאת הקובץ", "error");
+                              }
+                            } catch {
+                              showToast("שגיאה בהעלאת הקובץ", "error");
+                            } finally {
+                              setIsUploadingObligationDoc(false);
+                              e.target.value = "";
+                            }
+                          }}
+                        />
+                      </label>
                     )}
                   </div>
 
