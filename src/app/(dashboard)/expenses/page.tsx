@@ -1332,7 +1332,7 @@ export default function ExpensesPage() {
                     ₪{invoice.amountBeforeVat.toLocaleString()}
                   </button>
                   {/* Status - Clickable with dropdown */}
-                  <div className="flex justify-center" data-status-menu>
+                  <div className="flex justify-center min-w-0" data-status-menu>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1350,13 +1350,13 @@ export default function ExpensesPage() {
                           }, 0);
                         }
                       }}
-                      className={`text-[12px] font-bold px-[12px] py-[6px] rounded-full cursor-pointer hover:opacity-80 transition-opacity ${
+                      className={`text-[12px] font-bold px-[8px] py-[5px] rounded-full cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap ${
                         isFixedPending ? 'bg-[#bc76ff]' :
                         invoice.status === 'שולם' ? 'bg-[#00E096]' :
                         invoice.status === 'בבירור' ? 'bg-[#FFA500]' : 'bg-[#29318A]'
                       }`}
                     >
-                      {isFixedPending ? 'ה. קבועה' : invoice.status}
+                      {isFixedPending ? 'ה.קבועה' : invoice.status}
                     </button>
                   </div>
                 </div>
