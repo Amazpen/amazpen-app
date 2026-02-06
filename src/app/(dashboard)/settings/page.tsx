@@ -136,17 +136,33 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div dir="rtl" className="p-4 sm:p-6">
-        <div className="max-w-[500px] mx-auto space-y-6">
-          {/* Skeleton loader */}
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-[100px] h-[100px] rounded-full bg-[#29318A] animate-pulse" />
-            <div className="h-5 w-32 bg-[#29318A] rounded animate-pulse" />
+      <div dir="rtl" className="p-4 sm:p-6 pb-[100px]">
+        <div className="max-w-[500px] mx-auto">
+
+          {/* Avatar Skeleton */}
+          <div className="flex flex-col items-center mb-[30px]">
+            <div className="relative mb-[12px]">
+              <div className="w-[100px] h-[100px] rounded-full border-[3px] border-[#29318A] bg-[#29318A] animate-pulse" />
+              <div className="absolute bottom-0 left-0 w-[32px] h-[32px] bg-[#FFA412]/50 rounded-full animate-pulse" />
+            </div>
+            <div className="h-4 w-[180px] bg-[#29318A] rounded animate-pulse" />
           </div>
-          <div className="space-y-4">
-            <div className="h-12 bg-[#29318A] rounded-[10px] animate-pulse" />
-            <div className="h-12 bg-[#29318A] rounded-[10px] animate-pulse" />
+
+          {/* Fields Skeleton */}
+          <div className="space-y-[16px]">
+            {/* Name field */}
+            <div className="flex flex-col gap-[8px]">
+              <div className="h-4 w-[60px] bg-[#29318A] rounded animate-pulse" />
+              <div className="w-full h-[48px] bg-[#29318A]/40 rounded-[10px] border border-white/10 animate-pulse" />
+            </div>
+
+            {/* Email field */}
+            <div className="flex flex-col gap-[8px]">
+              <div className="h-4 w-[50px] bg-[#29318A] rounded animate-pulse" />
+              <div className="w-full h-[48px] bg-[#29318A]/20 rounded-[10px] border border-white/5 animate-pulse" />
+            </div>
           </div>
+
         </div>
       </div>
     );
