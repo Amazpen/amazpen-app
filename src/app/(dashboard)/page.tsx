@@ -2258,7 +2258,7 @@ export default function DashboardPage() {
                 return (
                   <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
                     <div className="flex flex-row-reverse justify-between items-center w-full">
-                      <div className="flex flex-col items-center ml-[9px]">
+                      <div className="flex flex-col items-center flex-1">
                         <div className="flex flex-row-reverse items-start justify-center gap-[10px]">
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${source.avgTicketDiff === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : 'text-green-500'}`}>
                             {formatCurrencyFull(source.avgAmount)}
