@@ -172,6 +172,8 @@ export default function ExpensesPage() {
   // Invoice filter state
   const [filterBy, setFilterBy] = useState<string>("");
   const [filterValue, setFilterValue] = useState<string>("");
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const filterMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Status change state
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
@@ -512,7 +514,7 @@ export default function ExpensesPage() {
     fetchData();
   }, [selectedBusinesses, dateRange, activeTab, refreshTrigger]);
 
-  // Close status menu when clicking outside
+  // Close status menu and filter menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (showStatusMenu) {
@@ -521,10 +523,13 @@ export default function ExpensesPage() {
           setShowStatusMenu(null);
         }
       }
+      if (showFilterMenu && filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) {
+        setShowFilterMenu(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showStatusMenu]);
+  }, [showStatusMenu, showFilterMenu]);
 
   // Calculate VAT and total
   const calculatedVat = partialVat ? parseFloat(vatAmount) || 0 : (parseFloat(amountBeforeVat) || 0) * 0.18;
@@ -1231,27 +1236,47 @@ export default function ExpensesPage() {
         {/* Header Row - RTL: פילטר בימין, כותרת באמצע, הורדה בשמאל */}
         <div className="flex items-center justify-between">
           {/* Filter Dropdown - Right side */}
-          <div className={`relative ${filterBy ? 'opacity-100' : 'opacity-50'}`}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className={filterBy ? 'text-[#bc76ff]' : 'text-white'}>
-              <path d="M8.07136 12.6325C4.96261 10.3075 2.74511 7.75 1.53386 6.3125C1.15886 5.8675 1.03636 5.54125 0.962611 4.9675C0.710111 3.0025 0.583861 2.02 1.16011 1.385C1.73636 0.75 2.75511 0.75 4.79261 0.75H19.2076C21.2451 0.75 22.2639 0.75 22.8401 1.38375C23.4164 2.01875 23.2901 3.00125 23.0376 4.96625C22.9626 5.54 22.8401 5.86625 22.4664 6.31125C21.2539 7.75125 19.0326 10.3137 15.9164 12.6425C15.7723 12.7546 15.6531 12.8956 15.5666 13.0564C15.4801 13.2172 15.4281 13.3942 15.4139 13.5762C15.1051 16.99 14.8201 18.86 14.6426 19.805C14.3564 21.3325 12.1926 22.2513 11.0326 23.07C10.3426 23.5575 9.50511 22.9775 9.41636 22.2225C9.08445 19.3456 8.80357 16.4631 8.57386 13.5762C8.56102 13.3925 8.50964 13.2135 8.42307 13.0509C8.33649 12.8883 8.21666 12.7457 8.07136 12.6325Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <select
+          <div className="relative" ref={filterMenuRef}>
+            <button
+              type="button"
               title="סינון לפי"
-              value={filterBy}
-              onChange={(e) => {
-                setFilterBy(e.target.value);
-                setFilterValue("");
-              }}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              onClick={() => setShowFilterMenu(!showFilterMenu)}
+              className={`${filterBy ? 'opacity-100' : 'opacity-50'} cursor-pointer`}
             >
-              <option value="">בחר...</option>
-              <option value="date">תאריך חשבונית</option>
-              <option value="supplier">ספק</option>
-              <option value="reference">מספר תעודה</option>
-              <option value="amount">סכום לפני מע&quot;מ</option>
-              <option value="notes">הערות</option>
-              <option value="fixed">הוצאות קבועות</option>
-            </select>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className={filterBy ? 'text-[#bc76ff]' : 'text-white'}>
+                <path d="M8.07136 12.6325C4.96261 10.3075 2.74511 7.75 1.53386 6.3125C1.15886 5.8675 1.03636 5.54125 0.962611 4.9675C0.710111 3.0025 0.583861 2.02 1.16011 1.385C1.73636 0.75 2.75511 0.75 4.79261 0.75H19.2076C21.2451 0.75 22.2639 0.75 22.8401 1.38375C23.4164 2.01875 23.2901 3.00125 23.0376 4.96625C22.9626 5.54 22.8401 5.86625 22.4664 6.31125C21.2539 7.75125 19.0326 10.3137 15.9164 12.6425C15.7723 12.7546 15.6531 12.8956 15.5666 13.0564C15.4801 13.2172 15.4281 13.3942 15.4139 13.5762C15.1051 16.99 14.8201 18.86 14.6426 19.805C14.3564 21.3325 12.1926 22.2513 11.0326 23.07C10.3426 23.5575 9.50511 22.9775 9.41636 22.2225C9.08445 19.3456 8.80357 16.4631 8.57386 13.5762C8.56102 13.3925 8.50964 13.2135 8.42307 13.0509C8.33649 12.8883 8.21666 12.7457 8.07136 12.6325Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            {showFilterMenu && (
+              <div className="absolute top-[30px] right-0 bg-[#1A2150] border border-white/20 rounded-[10px] py-[5px] min-w-[160px] z-50 shadow-lg shadow-black/40">
+                {[
+                  { value: "", label: "ללא סינון" },
+                  { value: "date", label: "תאריך חשבונית" },
+                  { value: "supplier", label: "ספק" },
+                  { value: "reference", label: "מספר תעודה" },
+                  { value: "amount", label: "סכום לפני מע\"מ" },
+                  { value: "notes", label: "הערות" },
+                  { value: "fixed", label: "הוצאות קבועות" },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      setFilterBy(option.value);
+                      setFilterValue("");
+                      setShowFilterMenu(false);
+                    }}
+                    className={`w-full text-right px-[12px] py-[8px] text-[13px] transition-colors ${
+                      filterBy === option.value
+                        ? 'text-[#bc76ff] bg-white/10'
+                        : 'text-white hover:bg-white/5'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Title - Center */}
