@@ -2254,6 +2254,62 @@ export default function DashboardPage() {
                   );
                 }
 
+                // Pearla business: Income source 3 (אקסטרות) - custom labels
+                if (isPearla && index === 2) {
+                  return (
+                    <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
+                      <div className="flex flex-row-reverse justify-between items-center w-full">
+                        <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
+                          <div className="flex flex-col min-h-[50px] max-h-[50px] hidden">
+                            <span className="text-[20px] font-bold leading-[1.4] ltr-num text-white">
+                              {formatCurrencyFull(source.avgAmount)}
+                            </span>
+                            <span className="text-[16px] font-normal text-center leading-[1.4] ltr-num text-white">({formatCurrencyWithSign(source.avgTicketDiff)})</span>
+                          </div>
+                          <div className="flex flex-col min-h-[50px] max-h-[50px]">
+                            <span className="text-[20px] font-bold leading-[1.4] ltr-num text-white">
+                              {formatCurrencyFull(source.totalAmount)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px]">
+                          <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
+                          <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]`}>
+                            <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
+                              <path d="M4 28V12" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M12 28V4" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M20 28V16" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M28 28V8" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
+                        <div className="flex flex-col ml-[10px]">
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{source.ordersCount}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">כמות {source.name}</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">{formatCurrencyFull(source.ordersCount > 0 ? source.totalAmount / source.ordersCount : 0)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">ממוצע לאורח</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col mr-[10px]">
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">0</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">כמות האורחים</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${source.avgAmount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>{formatCurrencyFull(source.avgAmount)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">ממוצע {source.name}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
                 // Default layout for all other businesses/sources
                 return (
                   <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
