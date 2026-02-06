@@ -54,7 +54,7 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-8" dir="rtl">
       {/* AI Bot Icon */}
       <div className="w-[72px] h-[72px] rounded-full bg-[#6366f1]/20 flex items-center justify-center mb-5">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-[#6366f1]">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-white">
           <rect x="3" y="11" width="18" height="10" rx="3" stroke="currentColor" strokeWidth="1.5" />
           <circle cx="9" cy="16" r="1.5" fill="currentColor" />
           <circle cx="15" cy="16" r="1.5" fill="currentColor" />
@@ -95,7 +95,7 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
             onClick={() => onSuggestionClick(suggestion.text)}
             className="flex items-center gap-3 bg-[#29318A] hover:bg-[#3D44A0] text-white text-[13px] text-right p-3 rounded-[12px] transition-colors cursor-pointer active:scale-[0.98]"
           >
-            <span className="flex-shrink-0 text-[#6366f1]">
+            <span className="flex-shrink-0 text-white">
               {iconMap[suggestion.icon]}
             </span>
             <span className="leading-snug">{suggestion.text}</span>

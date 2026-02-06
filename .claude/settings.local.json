@@ -99,7 +99,14 @@
       "Bash(dir /b node_modulespdfjs-distbuild)",
       "Bash(/c/Program Files/nodejs/npm.cmd list pdfjs-dist)",
       "Bash(cd:*)",
-      "Bash(/c/Program Files/Git/usr/bin/grep.exe:*)"
+      "Bash(/c/Program Files/Git/usr/bin/grep.exe:*)",
+      "Bash(ls:*)",
+      "Bash(/c/Program Files/nodejs/npx.cmd next build)",
+      "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit --skipLibCheck)",
+      "Bash(npx.cmd tsc:*)",
+      "Bash(/c/Program Files/nodejs/npm.cmd install react-markdown remark-gfm)",
+      "Bash(/c/Program Files/nodejs/npx.cmd next build --no-lint)",
+      "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit --pretty)"
     ]
   },
   "enableAllProjectMcpServers": true,
