@@ -420,15 +420,33 @@ export default function PaymentsPage() {
         }
       }
 
-      // Update selected invoices to paid
+      // Update selected invoices - mark as paid only those that fit within the paid amount
       if (selectedInvoiceIds.size > 0) {
-        const { error: invoiceUpdateError } = await supabase
-          .from("invoices")
-          .update({ status: "paid" })
-          .in("id", Array.from(selectedInvoiceIds));
+        const selectedInvoices = openInvoices
+          .filter(inv => selectedInvoiceIds.has(inv.id))
+          .sort((a, b) => Number(a.total_amount) - Number(b.total_amount));
 
-        if (invoiceUpdateError) {
-          console.error("Error updating invoice statuses:", invoiceUpdateError);
+        let remainingAmount = totalAmount;
+        const paidInvoiceIds: string[] = [];
+
+        for (const inv of selectedInvoices) {
+          const invAmount = Number(inv.total_amount);
+          if (invAmount <= remainingAmount) {
+            paidInvoiceIds.push(inv.id);
+            remainingAmount -= invAmount;
+          }
+        }
+
+        // Mark fully covered invoices as paid
+        if (paidInvoiceIds.length > 0) {
+          const { error: invoiceUpdateError } = await supabase
+            .from("invoices")
+            .update({ status: "paid" })
+            .in("id", paidInvoiceIds);
+
+          if (invoiceUpdateError) {
+            console.error("Error updating invoice statuses:", invoiceUpdateError);
+          }
         }
       }
 
