@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { uploadFile } from "@/lib/uploadFile";
 
 // Supplier from database
@@ -1504,30 +1506,27 @@ export default function ExpensesPage() {
       </div>
 
       {/* Add Expense Popup */}
-      {showAddExpensePopup && (
-        <>
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-black/50 z-[2001]"
-            onClick={handleClosePopup}
-          />
-
-          {/* Popup */}
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-20px)] max-w-[400px] max-h-[90vh] overflow-y-auto bg-[#0F1535] rounded-[10px] p-[25px_5px_5px] z-[2002]">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-[20px] px-[10px]">
+      <Sheet open={showAddExpensePopup} onOpenChange={(open) => !open && handleClosePopup()}>
+        <SheetContent
+          side="bottom"
+          className="h-auto max-h-[85vh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+          showCloseButton={false}
+        >
+          <SheetHeader className="border-b border-[#4C526B] pb-4">
+            <div className="flex justify-between items-center" dir="ltr">
               <button
                 type="button"
-                title="סגור"
                 onClick={handleClosePopup}
-                className="w-[30px] h-[30px] flex items-center justify-center text-white"
+                className="text-[#7B91B0] hover:text-white transition-colors"
+                title="סגור"
+                aria-label="סגור"
               >
-                <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-                  <path d="M24 8L8 24M8 8l16 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
+                <X className="w-6 h-6" />
               </button>
-              <h2 className="text-[22px] font-bold text-white text-center flex-1">הוספת הוצאה חדשה</h2>
+              <SheetTitle className="text-white text-xl font-bold">הוספת הוצאה חדשה</SheetTitle>
+              <div className="w-[24px]" />
             </div>
+          </SheetHeader>
 
             {/* Form */}
             <div className="flex flex-col gap-[15px] px-[5px]">
@@ -1953,35 +1952,31 @@ export default function ExpensesPage() {
                 </button>
               </div>
             </div>
-          </div>
-        </>
-      )}
+        </SheetContent>
+      </Sheet>
 
       {/* Edit Expense Popup */}
-      {showEditPopup && editingInvoice && (
-        <>
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-black/50 z-[2001]"
-            onClick={handleCloseEditPopup}
-          />
-
-          {/* Popup */}
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-20px)] max-w-[400px] max-h-[90vh] overflow-y-auto bg-[#0F1535] rounded-[10px] p-[25px_5px_5px] z-[2002]">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-[20px] px-[10px]">
+      <Sheet open={showEditPopup && !!editingInvoice} onOpenChange={(open) => !open && handleCloseEditPopup()}>
+        <SheetContent
+          side="bottom"
+          className="h-auto max-h-[85vh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+          showCloseButton={false}
+        >
+          <SheetHeader className="border-b border-[#4C526B] pb-4">
+            <div className="flex justify-between items-center" dir="ltr">
               <button
                 type="button"
-                title="סגור"
                 onClick={handleCloseEditPopup}
-                className="w-[30px] h-[30px] flex items-center justify-center text-white"
+                className="text-[#7B91B0] hover:text-white transition-colors"
+                title="סגור"
+                aria-label="סגור"
               >
-                <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-                  <path d="M24 8L8 24M8 8l16 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
+                <X className="w-6 h-6" />
               </button>
-              <h2 className="text-[22px] font-bold text-white text-center flex-1">עריכת הוצאה</h2>
+              <SheetTitle className="text-white text-xl font-bold">עריכת הוצאה</SheetTitle>
+              <div className="w-[24px]" />
             </div>
+          </SheetHeader>
 
             {/* Form */}
             <div className="flex flex-col gap-[15px] px-[5px]">
@@ -2139,21 +2134,17 @@ export default function ExpensesPage() {
                 </button>
               </div>
             </div>
-          </div>
-        </>
-      )}
+        </SheetContent>
+      </Sheet>
 
       {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <>
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-black/50 z-[2001]"
-            onClick={handleCancelDelete}
-          />
-
-          {/* Modal */}
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-40px)] max-w-[350px] bg-[#0F1535] rounded-[15px] p-[25px] z-[2002]">
+      <Sheet open={showDeleteConfirm} onOpenChange={(open) => !open && handleCancelDelete()}>
+        <SheetContent
+          side="bottom"
+          className="h-auto max-h-[60vh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+          showCloseButton={false}
+        >
+          <div className="flex flex-col items-center p-4">
             {/* Icon */}
             <div className="flex justify-center mb-[20px]">
               <div className="w-[60px] h-[60px] rounded-full bg-[#F64E60]/20 flex items-center justify-center">
@@ -2177,7 +2168,7 @@ export default function ExpensesPage() {
             </p>
 
             {/* Buttons */}
-            <div className="flex gap-[10px]">
+            <div className="flex gap-[10px] w-full">
               <button
                 type="button"
                 onClick={handleConfirmDelete}
@@ -2195,35 +2186,34 @@ export default function ExpensesPage() {
               </button>
             </div>
           </div>
-        </>
-      )}
+        </SheetContent>
+      </Sheet>
 
       {/* Payment Popup for existing invoice */}
-      {showPaymentPopup && paymentInvoice && (
-        <>
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-black/50 z-[2001]"
-            onClick={handleClosePaymentPopup}
-          />
-
-          {/* Popup */}
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-20px)] max-w-[400px] max-h-[90vh] overflow-y-auto bg-[#0F1535] rounded-[10px] p-[25px_5px_5px] z-[2002]">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-[20px] px-[10px]">
+      <Sheet open={showPaymentPopup && !!paymentInvoice} onOpenChange={(open) => !open && handleClosePaymentPopup()}>
+        <SheetContent
+          side="bottom"
+          className="h-auto max-h-[85vh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+          showCloseButton={false}
+        >
+          <SheetHeader className="border-b border-[#4C526B] pb-4">
+            <div className="flex justify-between items-center" dir="ltr">
               <button
                 type="button"
-                title="סגור"
                 onClick={handleClosePaymentPopup}
-                className="w-[30px] h-[30px] flex items-center justify-center text-white"
+                className="text-[#7B91B0] hover:text-white transition-colors"
+                title="סגור"
+                aria-label="סגור"
               >
-                <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-                  <path d="M24 8L8 24M8 8l16 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
+                <X className="w-6 h-6" />
               </button>
-              <h2 className="text-[22px] font-bold text-white text-center flex-1">קליטת תשלום</h2>
+              <SheetTitle className="text-white text-xl font-bold">קליטת תשלום</SheetTitle>
+              <div className="w-[24px]" />
             </div>
+          </SheetHeader>
 
+          {paymentInvoice && (
+          <>
             {/* Invoice Info */}
             <div className="bg-white/5 rounded-[10px] p-[15px] mx-[5px] mb-[20px]">
               <div className="flex justify-between items-center mb-[10px]">
@@ -2454,9 +2444,10 @@ export default function ExpensesPage() {
                 </button>
               </div>
             </div>
-          </div>
-        </>
-      )}
+          </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Status Menu Portal */}
       {showStatusMenu && typeof window !== 'undefined' && createPortal(

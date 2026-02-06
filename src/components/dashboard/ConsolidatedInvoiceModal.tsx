@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { X } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 interface Business {
   id: string;
@@ -412,32 +414,28 @@ export function ConsolidatedInvoiceModal({
     return num.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  if (!isOpen) return null;
-
   return (
-    <>
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 bg-black/50 z-[2001]"
-        onClick={handleClose}
-      />
-
-      {/* Popup */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-20px)] max-w-[450px] max-h-[90vh] overflow-y-auto bg-[#0F1535] rounded-[10px] p-[25px_5px_5px] z-[2002]">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-[20px] px-[10px]">
-          <button
-            type="button"
-            title="סגור"
-            onClick={handleClose}
-            className="w-[30px] h-[30px] flex items-center justify-center text-white"
-          >
-            <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-              <path d="M24 8L8 24M8 8l16 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </button>
-          <h2 className="text-[22px] font-bold text-white text-center flex-1">הוספת מרכזת</h2>
-        </div>
+    <Sheet open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <SheetContent
+        side="bottom"
+        className="h-auto max-h-[85vh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+        showCloseButton={false}
+      >
+        <SheetHeader className="border-b border-[#4C526B] pb-4">
+          <div className="flex justify-between items-center" dir="ltr">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="text-[#7B91B0] hover:text-white transition-colors"
+              title="סגור"
+              aria-label="סגור"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <SheetTitle className="text-white text-xl font-bold">הוספת מרכזת</SheetTitle>
+            <div className="w-[24px]" />
+          </div>
+        </SheetHeader>
 
         {/* Form */}
         <div className="flex flex-col gap-[15px] px-[5px]">
@@ -758,7 +756,7 @@ export function ConsolidatedInvoiceModal({
             </button>
           </div>
         </div>
-      </div>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }

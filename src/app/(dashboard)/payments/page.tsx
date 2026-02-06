@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { X } from "lucide-react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 // Supplier from database
 interface Supplier {
@@ -704,30 +706,27 @@ export default function PaymentsPage() {
       </div>
 
       {/* Add Payment Popup */}
-      {showAddPaymentPopup && (
-        <>
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-black/50 z-[2001]"
-            onClick={handleClosePopup}
-          />
-
-          {/* Popup */}
-          <div dir="rtl" className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-20px)] max-w-[400px] max-h-[90vh] overflow-y-auto bg-[#0F1535] rounded-[10px] p-[10px_7px] z-[2002]">
-            {/* Close Button */}
-            <button
-              type="button"
-              title="סגור"
-              onClick={handleClosePopup}
-              className="w-[30px] h-[30px] flex items-center justify-center text-white"
-            >
-              <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-                <path d="M24 8L8 24M8 8L24 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-
-            {/* Title */}
-            <h2 className="text-[22px] font-bold text-center text-white mb-[40px]">הוספת תשלום חדש</h2>
+      <Sheet open={showAddPaymentPopup} onOpenChange={(open) => !open && handleClosePopup()}>
+        <SheetContent
+          side="bottom"
+          className="h-auto max-h-[85vh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+          showCloseButton={false}
+        >
+          <SheetHeader className="border-b border-[#4C526B] pb-4">
+            <div className="flex justify-between items-center" dir="ltr">
+              <button
+                type="button"
+                onClick={handleClosePopup}
+                className="text-[#7B91B0] hover:text-white transition-colors"
+                title="סגור"
+                aria-label="סגור"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <SheetTitle className="text-white text-xl font-bold">הוספת תשלום חדש</SheetTitle>
+              <div className="w-[24px]" />
+            </div>
+          </SheetHeader>
 
             {/* Form */}
             <div className="flex flex-col gap-[5px]">
@@ -986,9 +985,8 @@ export default function PaymentsPage() {
                 {isSaving ? "שומר..." : "הוספת תשלום"}
               </button>
             </div>
-          </div>
-        </>
-      )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

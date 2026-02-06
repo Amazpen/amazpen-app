@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useDashboard } from "@/app/(dashboard)/layout";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 interface DailyEntry {
   id: string;
@@ -567,48 +568,35 @@ export function DailyEntriesModal({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 z-[2001]"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
-      <div
-        className="fixed z-[2002] bg-[#0F1535] rounded-[10px] p-[10px_5px_20px] overflow-y-auto top-[10px] left-0 right-0 bottom-[10px] mx-auto w-[calc(100%-20px)] max-w-[1200px] shadow-[0_0_20px_0_rgba(0,0,0,0.2)] md:top-[20px] md:bottom-[50px]"
+    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="bottom"
+        className="h-[90vh] h-[90dvh] max-h-[90dvh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+        showCloseButton={false}
       >
-        {/* Close Button */}
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-[10px] left-[10px] w-[25px] h-[25px] flex items-center justify-center text-white opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
-          aria-label="סגור"
-        >
-          <svg viewBox="0 0 32 32" className="w-full h-full">
-            <path
-              d="M24 8L8 24M8 8l16 16"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
-
-        {/* Header */}
-        <div className="flex flex-col items-center gap-[5px] mt-[40px] mb-[20px]">
-          <h2 className="text-white text-[25px] font-semibold text-center leading-[1.4]">
-            {editingEntry ? `עריכת יום ${formatDate(editingEntry.entry_date)}` : `מילוי יומי - ${businessName}`}
-          </h2>
+        <SheetHeader className="border-b border-[#4C526B] pb-4">
+          <div className="flex justify-between items-center" dir="ltr">
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-[#7B91B0] hover:text-white transition-colors"
+              title="סגור"
+              aria-label="סגור"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <SheetTitle className="text-white text-xl font-bold">
+              {editingEntry ? `עריכת יום ${formatDate(editingEntry.entry_date)}` : `מילוי יומי - ${businessName}`}
+            </SheetTitle>
+            <div className="w-[24px]" />
+          </div>
           {!editingEntry && (
             <p className="text-white text-[18px] text-center leading-[1.4]">
               {getMonthYear()}
             </p>
           )}
-        </div>
+        </SheetHeader>
 
         {/* Edit Form - shown when editing */}
         {editingEntry ? (
@@ -1178,7 +1166,7 @@ export function DailyEntriesModal({
         </div>
         </>
         )}
-      </div>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }

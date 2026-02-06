@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { X } from 'lucide-react';
 import type { OCRDocument, OCRFormData, DocumentType, ExpenseType } from '@/types/ocr';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 interface Supplier {
   id: string;
@@ -656,29 +658,44 @@ export default function OCRForm({
       </div>
 
       {/* Reject Modal */}
-      {showRejectModal && (
-        <>
-          <div className="fixed inset-0 bg-black/50 z-[2001]" onClick={() => setShowRejectModal(false)} />
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-20px)] max-w-[400px] bg-[#0F1535] rounded-[10px] p-6 z-[2002]" dir="rtl">
-            <h3 className="text-[18px] font-bold text-white text-center mb-4">דחיית מסמך</h3>
-            <div className="flex flex-col gap-3 mb-4">
-              {['מסמך לא קריא', 'מסמך כפול', 'לא מסמך עסקי', 'אחר'].map((reason) => (
-                <button
-                  key={reason}
-                  type="button"
-                  onClick={() => setRejectReason(reason)}
-                  className={`h-[44px] rounded-[10px] text-[14px] font-medium transition-colors ${
-                    rejectReason === reason
-                      ? 'bg-[#29318A] text-white border border-[#29318A]'
-                      : 'bg-transparent text-white/60 border border-[#4C526B] hover:border-[#29318A]/50'
-                  }`}
-                >
-                  {reason}
-                </button>
-              ))}
+      <Sheet open={showRejectModal} onOpenChange={(open) => !open && setShowRejectModal(false)}>
+        <SheetContent
+          side="bottom"
+          className="h-auto max-h-[60vh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+          showCloseButton={false}
+        >
+          <SheetHeader className="border-b border-[#4C526B] pb-4">
+            <div className="flex justify-between items-center" dir="ltr">
+              <button
+                type="button"
+                onClick={() => setShowRejectModal(false)}
+                className="text-[#7B91B0] hover:text-white transition-colors"
+                title="סגור"
+                aria-label="סגור"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <SheetTitle className="text-white text-xl font-bold">דחיית מסמך</SheetTitle>
+              <div className="w-[24px]" />
             </div>
+          </SheetHeader>
+          <div className="flex flex-col gap-3 p-4" dir="rtl">
+            {['מסמך לא קריא', 'מסמך כפול', 'לא מסמך עסקי', 'אחר'].map((reason) => (
+              <button
+                key={reason}
+                type="button"
+                onClick={() => setRejectReason(reason)}
+                className={`h-[44px] rounded-[10px] text-[14px] font-medium transition-colors ${
+                  rejectReason === reason
+                    ? 'bg-[#29318A] text-white border border-[#29318A]'
+                    : 'bg-transparent text-white/60 border border-[#4C526B] hover:border-[#29318A]/50'
+                }`}
+              >
+                {reason}
+              </button>
+            ))}
             {rejectReason === 'אחר' && (
-              <div className="mb-4">
+              <div>
                 <textarea
                   placeholder="פרט את סיבת הדחייה..."
                   value={rejectReason === 'אחר' ? '' : rejectReason}
@@ -687,7 +704,7 @@ export default function OCRForm({
                 />
               </div>
             )}
-            <div className="flex gap-3">
+            <div className="flex gap-3 mt-2">
               <button
                 type="button"
                 onClick={handleReject}
@@ -704,8 +721,8 @@ export default function OCRForm({
               </button>
             </div>
           </div>
-        </>
-      )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
