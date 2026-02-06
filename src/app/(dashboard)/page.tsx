@@ -2148,7 +2148,7 @@ export default function DashboardPage() {
                     <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
                       <div className="flex flex-row-reverse justify-between items-center w-full">
                         <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
-                          <div className="flex flex-col min-h-[50px] max-h-[50px] invisible">
+                          <div className="flex flex-col min-h-[50px] max-h-[50px] hidden">
                             <span className="text-[20px] font-bold leading-[1.4] ltr-num text-white">
                               {formatCurrencyFull(source.avgAmount)}
                             </span>
