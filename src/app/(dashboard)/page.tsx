@@ -2509,57 +2509,117 @@ export default function DashboardPage() {
               })()}
 
               {/* עלות מכר Card */}
-              <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
-                <div className="flex flex-row-reverse justify-between items-center w-full">
-                  <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
-                    <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${(detailedSummary?.foodCostDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostDiffPct || 0) < 0 ? 'text-green-500' : 'text-white'}`}>
-                      {formatPercent(detailedSummary?.foodCostPct || 0)}
-                    </span>
-                    <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${(detailedSummary?.foodCostDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostDiffPct || 0) < 0 ? 'text-green-500' : 'text-white'}`}>
-                      {formatCurrencyFull(detailedSummary?.foodCost || 0)}
-                    </span>
-                  </div>
-                  <div className="flex flex-row-reverse items-center gap-[6px]">
-                    <span className="text-[20px] font-bold text-white leading-[1.4]">עלות מכר</span>
-                    <div className="icon-bg-orange w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                        <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M18 9l-5 5-4-4-3 3" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
+              {(() => {
+                const currentBusinessName = businessCards.find(b => b.id === realBusinessId)?.name || "";
+                const isPearla = currentBusinessName.includes("פרלה");
+                const foodDiffColor = (detailedSummary?.foodCostDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostDiffPct || 0) < 0 ? 'text-green-500' : 'text-white';
+                const foodPrevMonthColor = (detailedSummary?.foodCostPrevMonthChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white';
+                const foodPrevYearColor = (detailedSummary?.foodCostPrevYearChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white';
+                const totalEvents = (detailedSummary?.privateCount || 0) + (detailedSummary?.businessCount || 0);
+                const avgFoodPerEvent = totalEvents > 0 ? (detailedSummary?.foodCost || 0) / totalEvents : 0;
+
+                if (isPearla) {
+                  return (
+                    <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
+                      <div className="flex flex-row-reverse justify-between items-center w-full">
+                        <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
+                          <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${foodDiffColor}`}>
+                            {formatPercent(detailedSummary?.foodCostPct || 0)}
+                          </span>
+                          <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${foodDiffColor}`}>
+                            {formatCurrencyFull(detailedSummary?.foodCost || 0)}
+                          </span>
+                        </div>
+                        <div className="flex flex-row-reverse items-center gap-[6px]">
+                          <span className="text-[20px] font-bold text-white leading-[1.4]">עלות מכר</span>
+                          <div className="icon-bg-orange w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                              <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M18 9l-5 5-4-4-3 3" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
+                        <div className="flex flex-col ml-[10px]">
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatPercentWithSign(detailedSummary?.foodCostDiffPct || 0)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מיעד</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatCurrencyFullWithSign(((detailedSummary?.foodCostDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">₪0</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">ממוצע סחורה לאורח</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col mr-[10px]">
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevMonthColor}`}>{formatPercentWithSign(detailedSummary?.foodCostPrevMonthChange || 0)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevYearColor}`}>{formatPercentWithSign(detailedSummary?.foodCostPrevYearChange || 0)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">{formatCurrencyFull(avgFoodPerEvent)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">ממוצע סחורה לאירוע</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
+                    <div className="flex flex-row-reverse justify-between items-center w-full">
+                      <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
+                        <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${foodDiffColor}`}>
+                          {formatPercent(detailedSummary?.foodCostPct || 0)}
+                        </span>
+                        <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${foodDiffColor}`}>
+                          {formatCurrencyFull(detailedSummary?.foodCost || 0)}
+                        </span>
+                      </div>
+                      <div className="flex flex-row-reverse items-center gap-[6px]">
+                        <span className="text-[20px] font-bold text-white leading-[1.4]">עלות מכר</span>
+                        <div className="icon-bg-orange w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                            <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M18 9l-5 5-4-4-3 3" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
+                      <div className="flex flex-col ml-[10px]">
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatPercentWithSign(detailedSummary?.foodCostDiffPct || 0)}</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
+                        </div>
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatCurrencyFullWithSign(((detailedSummary?.foodCostDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col mr-[10px]">
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevMonthColor}`}>{formatPercentWithSign(detailedSummary?.foodCostPrevMonthChange || 0)}</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
+                        </div>
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevYearColor}`}>{formatPercentWithSign(detailedSummary?.foodCostPrevYearChange || 0)}</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
-                  <div className="flex flex-col ml-[10px]">
-                    <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.foodCostDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostDiffPct || 0) < 0 ? 'text-green-500' : 'text-white'}`}>
-                        {formatPercentWithSign(detailedSummary?.foodCostDiffPct || 0)}
-                      </span>
-                      <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
-                    </div>
-                    <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.foodCostDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostDiffPct || 0) < 0 ? 'text-green-500' : 'text-white'}`}>
-                        {formatCurrencyFullWithSign(((detailedSummary?.foodCostDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}
-                      </span>
-                      <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col mr-[10px]">
-                    <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.foodCostPrevMonthChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white'}`}>
-                        {formatPercentWithSign(detailedSummary?.foodCostPrevMonthChange || 0)}
-                      </span>
-                      <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
-                    </div>
-                    <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.foodCostPrevYearChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white'}`}>
-                        {formatPercentWithSign(detailedSummary?.foodCostPrevYearChange || 0)}
-                      </span>
-                      <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Dynamic Managed Products Cards */}
               {managedProductsSummary.map((product, index) => {
