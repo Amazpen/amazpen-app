@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { uploadFile } from "@/lib/uploadFile";
 import { useToast } from "@/components/ui/toast";
+import { useDashboard } from "../layout";
 
 interface UserProfile {
   id: string;
@@ -23,6 +24,7 @@ interface UserBusiness {
 export default function SettingsPage() {
   const router = useRouter();
   const { showToast } = useToast();
+  const { refreshProfile } = useDashboard();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -123,6 +125,7 @@ export default function SettingsPage() {
         .eq("id", profile?.id);
 
       showToast("תמונת הפרופיל עודכנה בהצלחה", "success");
+      refreshProfile();
     } else {
       showToast("שגיאה בהעלאת התמונה", "error");
       setAvatarPreview(null);
@@ -152,6 +155,7 @@ export default function SettingsPage() {
     } else {
       setProfile(prev => prev ? { ...prev, full_name: fullName.trim() || null, phone: phone.trim() || null } : null);
       showToast("הפרופיל עודכן בהצלחה", "success");
+      refreshProfile();
     }
 
     setIsSaving(false);

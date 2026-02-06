@@ -14,6 +14,7 @@ interface DashboardContextType {
   setSelectedBusinesses: React.Dispatch<React.SetStateAction<string[]>>;
   toggleBusiness: (id: string) => void;
   isAdmin: boolean;
+  refreshProfile: () => Promise<void>;
 }
 
 const DashboardContext = createContext<DashboardContextType>({
@@ -21,6 +22,7 @@ const DashboardContext = createContext<DashboardContextType>({
   setSelectedBusinesses: () => {},
   toggleBusiness: () => {},
   isAdmin: false,
+  refreshProfile: async () => {},
 });
 
 export const useDashboard = () => useContext(DashboardContext);
@@ -141,38 +143,38 @@ export default function DashboardLayout({
   }, []);
 
   // Fetch user profile from Supabase
+  const fetchUserProfile = useCallback(async () => {
+    setIsLoadingProfile(true);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+      // Get profile from profiles table (including is_admin)
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, avatar_url, is_admin")
+        .eq("id", user.id)
+        .single();
+
+      if (profile) {
+        // Reset image loaded state when avatar changes
+        setProfileImageLoaded(prev => {
+          if (profile.avatar_url !== userProfile?.avatar_url) return false;
+          return prev;
+        });
+        setUserProfile(profile);
+        // Check if user is admin from profile
+        setIsAdmin(profile.is_admin === true);
+      }
+    }
+    setIsLoadingProfile(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!isMounted) return;
-    const fetchUserProfile = async () => {
-      setIsLoadingProfile(true);
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (user) {
-        // Get profile from profiles table (including is_admin)
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("id, email, full_name, avatar_url, is_admin")
-          .eq("id", user.id)
-          .single();
-
-        if (profile) {
-          // Reset image loaded state when avatar changes
-          if (profile.avatar_url !== userProfile?.avatar_url) {
-            setProfileImageLoaded(false);
-          }
-          setUserProfile(profile);
-          // Check if user is admin from profile
-          setIsAdmin(profile.is_admin === true);
-
-        }
-      }
-      setIsLoadingProfile(false);
-    };
-
     fetchUserProfile();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMounted]);
+  }, [isMounted, fetchUserProfile]);
 
   // Fetch business name for sidebar display
   useEffect(() => {
@@ -330,7 +332,7 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
-    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin }}>
+    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, refreshProfile: fetchUserProfile }}>
       <div className="min-h-screen bg-[#0F1535]">
         {/* Sidebar Overlay */}
         {isMenuOpen && (

@@ -572,7 +572,7 @@ export function DailyEntriesModal({
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="bottom"
-        className="h-[90vh] h-[90dvh] max-h-[90dvh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+        className="h-[calc(100vh-60px)] h-[calc(100dvh-60px)] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
         showCloseButton={false}
       >
         <SheetHeader className="border-b border-[#4C526B] pb-4">

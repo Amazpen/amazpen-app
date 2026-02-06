@@ -937,7 +937,7 @@ export default function SuppliersPage() {
       <Sheet open={isAddSupplierModalOpen} onOpenChange={(open) => !open && handleCloseAddSupplierModal()}>
         <SheetContent
           side="bottom"
-          className="h-auto max-h-[85vh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+          className="h-[calc(100vh-60px)] h-[calc(100dvh-60px)] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
           showCloseButton={false}
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
@@ -1475,7 +1475,7 @@ export default function SuppliersPage() {
       <Sheet open={showSupplierDetailPopup && !!selectedSupplier} onOpenChange={(open) => !open && handleCloseSupplierDetail()}>
         <SheetContent
           side="bottom"
-          className="h-auto max-h-[85vh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+          className="h-[calc(100vh-60px)] h-[calc(100dvh-60px)] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
           showCloseButton={false}
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">

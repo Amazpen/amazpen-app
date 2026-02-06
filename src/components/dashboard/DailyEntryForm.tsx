@@ -577,7 +577,7 @@ export function DailyEntryForm({ businessId, onSuccess, editingEntry, isOpenExte
       </SheetTrigger>
       <SheetContent
         side="bottom"
-        className="h-[85vh] h-[85dvh] max-h-[85dvh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto"
+        className="h-[calc(100vh-60px)] h-[calc(100dvh-60px)] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto"
         showCloseButton={false}
       >
         <SheetHeader className="border-b border-[#4C526B] pb-4">
