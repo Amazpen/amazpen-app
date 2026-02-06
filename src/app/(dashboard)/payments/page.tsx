@@ -186,6 +186,21 @@ export default function PaymentsPage() {
       const newSet = new Set(prev);
       if (newSet.has(invoiceId)) newSet.delete(invoiceId);
       else newSet.add(invoiceId);
+
+      // Update the first payment method amount to match selected invoices total
+      const selectedTotal = openInvoices
+        .filter(inv => newSet.has(inv.id))
+        .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+
+      if (newSet.size > 0) {
+        setPaymentMethods(prev => {
+          const updated = [...prev];
+          const amountStr = selectedTotal.toFixed(2).replace(/\.?0+$/, "") || "0";
+          updated[0] = { ...updated[0], amount: amountStr, customInstallments: generateInstallments(parseInt(updated[0].installments) || 1, selectedTotal, paymentDate) };
+          return updated;
+        });
+      }
+
       return newSet;
     });
   };
