@@ -12,6 +12,12 @@ interface UserProfile {
   full_name: string | null;
   phone: string | null;
   avatar_url: string | null;
+  created_at: string | null;
+}
+
+interface UserBusiness {
+  role: string;
+  business_name: string;
 }
 
 export default function SettingsPage() {
@@ -25,8 +31,10 @@ export default function SettingsPage() {
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [businesses, setBusinesses] = useState<UserBusiness[]>([]);
 
   // Fetch user profile
   useEffect(() => {
@@ -41,14 +49,31 @@ export default function SettingsPage() {
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("id, email, full_name, phone, avatar_url")
+        .select("id, email, full_name, phone, avatar_url, created_at")
         .eq("id", user.id)
         .single();
 
       if (profileData) {
         setProfile(profileData);
         setFullName(profileData.full_name || "");
+        setPhone(profileData.phone || "");
         setAvatarUrl(profileData.avatar_url);
+      }
+
+      // Fetch user businesses
+      const { data: memberData } = await supabase
+        .from("business_members")
+        .select("role, businesses(name)")
+        .eq("user_id", user.id)
+        .is("deleted_at", null);
+
+      if (memberData) {
+        setBusinesses(
+          memberData.map((m: Record<string, unknown>) => ({
+            role: m.role as string,
+            business_name: (m.businesses as Record<string, unknown>)?.name as string || "",
+          }))
+        );
       }
 
       setIsLoading(false);
@@ -117,6 +142,7 @@ export default function SettingsPage() {
       .from("profiles")
       .update({
         full_name: fullName.trim() || null,
+        phone: phone.trim() || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", profile.id);
@@ -124,7 +150,7 @@ export default function SettingsPage() {
     if (error) {
       showToast("שגיאה בשמירת הפרופיל", "error");
     } else {
-      setProfile(prev => prev ? { ...prev, full_name: fullName.trim() || null } : null);
+      setProfile(prev => prev ? { ...prev, full_name: fullName.trim() || null, phone: phone.trim() || null } : null);
       showToast("הפרופיל עודכן בהצלחה", "success");
     }
 
@@ -132,7 +158,13 @@ export default function SettingsPage() {
   };
 
   const displayAvatar = avatarPreview || avatarUrl;
-  const hasNameChanged = fullName.trim() !== (profile?.full_name || "");
+  const hasChanges = fullName.trim() !== (profile?.full_name || "") || phone.trim() !== (profile?.phone || "");
+
+  const roleLabels: Record<string, string> = {
+    owner: "בעלים",
+    manager: "מנהל",
+    employee: "עובד",
+  };
 
   if (isLoading) {
     return (
@@ -156,11 +188,29 @@ export default function SettingsPage() {
               <div className="w-full h-[48px] bg-[#29318A]/40 rounded-[10px] border border-white/10 animate-pulse" />
             </div>
 
+            {/* Phone field */}
+            <div className="flex flex-col gap-[8px]">
+              <div className="h-4 w-[50px] bg-[#29318A] rounded animate-pulse" />
+              <div className="w-full h-[48px] bg-[#29318A]/40 rounded-[10px] border border-white/10 animate-pulse" />
+            </div>
+
             {/* Email field */}
             <div className="flex flex-col gap-[8px]">
               <div className="h-4 w-[50px] bg-[#29318A] rounded animate-pulse" />
               <div className="w-full h-[48px] bg-[#29318A]/20 rounded-[10px] border border-white/5 animate-pulse" />
             </div>
+
+            {/* Member since field */}
+            <div className="flex flex-col gap-[8px]">
+              <div className="h-4 w-[70px] bg-[#29318A] rounded animate-pulse" />
+              <div className="w-full h-[48px] bg-[#29318A]/20 rounded-[10px] border border-white/5 animate-pulse" />
+            </div>
+          </div>
+
+          {/* Businesses Skeleton */}
+          <div className="mt-[25px] pt-[25px] border-t border-white/10">
+            <div className="h-4 w-[80px] bg-[#29318A] rounded animate-pulse mb-[12px]" />
+            <div className="w-full h-[48px] bg-[#29318A]/20 rounded-[10px] border border-white/5 animate-pulse" />
           </div>
 
         </div>
@@ -240,16 +290,39 @@ export default function SettingsPage() {
             />
           </div>
 
+          {/* Phone */}
+          <div className="flex flex-col gap-[8px]">
+            <label className="text-[14px] font-medium text-white/80">טלפון</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="הזן מספר טלפון..."
+              dir="ltr"
+              className="w-full h-[48px] bg-[#29318A]/40 text-white text-[14px] text-left rounded-[10px] border border-white/10 outline-none px-[15px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
+            />
+          </div>
+
           {/* Email (read-only) */}
           <div className="flex flex-col gap-[8px]">
             <label className="text-[14px] font-medium text-white/80">אימייל</label>
-            <div className="w-full h-[48px] bg-[#29318A]/20 text-white/50 text-[14px] text-right rounded-[10px] border border-white/5 px-[15px] flex items-center">
+            <div className="w-full h-[48px] bg-[#29318A]/20 text-white/50 text-[14px] text-left rounded-[10px] border border-white/5 px-[15px] flex items-center" dir="ltr">
               {profile?.email}
             </div>
           </div>
 
-          {/* Save Name Button */}
-          {hasNameChanged && (
+          {/* Member Since (read-only) */}
+          {profile?.created_at && (
+            <div className="flex flex-col gap-[8px]">
+              <label className="text-[14px] font-medium text-white/80">חבר מאז</label>
+              <div className="w-full h-[48px] bg-[#29318A]/20 text-white/50 text-[14px] text-right rounded-[10px] border border-white/5 px-[15px] flex items-center">
+                {new Date(profile.created_at).toLocaleDateString("he-IL", { year: "numeric", month: "long", day: "numeric" })}
+              </div>
+            </div>
+          )}
+
+          {/* Save Button */}
+          {hasChanges && (
             <button
               type="button"
               onClick={handleSaveProfile}
@@ -267,6 +340,29 @@ export default function SettingsPage() {
             </button>
           )}
         </div>
+
+        {/* Businesses Section */}
+        {businesses.length > 0 && (
+          <>
+            <div className="border-t border-white/10 my-[25px]" />
+            <div>
+              <h3 className="text-white text-[16px] font-bold mb-[12px]">עסקים</h3>
+              <div className="space-y-[8px]">
+                {businesses.map((biz, idx) => (
+                  <div
+                    key={idx}
+                    className="w-full bg-[#29318A]/20 rounded-[10px] border border-white/5 px-[15px] py-[12px] flex items-center justify-between"
+                  >
+                    <span className="text-white/70 text-[14px]">{biz.business_name}</span>
+                    <span className="text-[12px] text-[#FFA412] bg-[#FFA412]/10 px-[10px] py-[3px] rounded-full">
+                      {roleLabels[biz.role] || biz.role}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
       </div>
     </div>
