@@ -910,23 +910,7 @@ export default function PaymentsPage() {
                 <div className="flex items-start">
                   <span className="text-[16px] font-medium text-white">סוג הוצאה</span>
                 </div>
-                <div className="flex items-start gap-[20px] flex-row-reverse">
-                  <button
-                    type="button"
-                    onClick={() => { setExpenseType("expenses"); setSelectedSupplier(""); setSupplierSearch(""); }}
-                    className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
-                  >
-                    <span className={`text-[16px] font-semibold ${expenseType === "expenses" ? "text-white" : "text-[#979797]"}`}>
-                      הוצאות שוטפות
-                    </span>
-                    <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "expenses" ? "text-white" : "text-[#979797]"}>
-                      {expenseType === "expenses" ? (
-                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
-                      ) : (
-                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
-                      )}
-                    </svg>
-                  </button>
+                <div className="flex items-start gap-[20px] justify-end">
                   <button
                     type="button"
                     onClick={() => { setExpenseType("purchases"); setSelectedSupplier(""); setSupplierSearch(""); }}
@@ -937,6 +921,22 @@ export default function PaymentsPage() {
                     </span>
                     <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "purchases" ? "text-white" : "text-[#979797]"}>
                       {expenseType === "purchases" ? (
+                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                      ) : (
+                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setExpenseType("expenses"); setSelectedSupplier(""); setSupplierSearch(""); }}
+                    className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
+                  >
+                    <span className={`text-[16px] font-semibold ${expenseType === "expenses" ? "text-white" : "text-[#979797]"}`}>
+                      הוצאות שוטפות
+                    </span>
+                    <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "expenses" ? "text-white" : "text-[#979797]"}>
+                      {expenseType === "expenses" ? (
                         <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
                       ) : (
                         <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
