@@ -14,6 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 interface Supplier {
   id: string;
   name: string;
+  expense_type: string;
 }
 
 // Payment method summary for chart
@@ -129,7 +130,9 @@ export default function PaymentsPage() {
   const [notes, setNotes] = useState("");
 
   // Supplier search helpers
+  const expenseTypeMap = { expenses: "current_expenses", purchases: "goods_purchases" } as const;
   const filteredSuppliers = suppliers.filter(s =>
+    s.expense_type === expenseTypeMap[expenseType] &&
     s.name.toLowerCase().includes(supplierSearch.toLowerCase())
   );
   const selectedSupplierName = suppliers.find(s => s.id === selectedSupplier)?.name || "";
@@ -214,7 +217,7 @@ export default function PaymentsPage() {
         // Fetch suppliers for the selected businesses
         const { data: suppliersData } = await supabase
           .from("suppliers")
-          .select("id, name")
+          .select("id, name, expense_type")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .eq("is_active", true)
@@ -233,7 +236,7 @@ export default function PaymentsPage() {
           .select(`
             *,
             supplier:suppliers(id, name),
-            payment_splits(id, payment_method, amount, installments_count, installment_number)
+            payment_splits(id, payment_method, amount, installments_count, installment_number, due_date)
           `)
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
@@ -289,6 +292,7 @@ export default function PaymentsPage() {
               amount: number;
               installments_count: number | null;
               installment_number: number | null;
+              due_date: string | null;
             }>;
           }
 
@@ -380,6 +384,7 @@ export default function PaymentsPage() {
                     installments_count: installmentsCount,
                     installment_number: inst.number,
                     reference_number: reference || null,
+                    due_date: inst.dateForInput || null,
                   });
               }
             } else {
@@ -393,6 +398,7 @@ export default function PaymentsPage() {
                   installments_count: 1,
                   installment_number: 1,
                   reference_number: reference || null,
+                  due_date: paymentDate || null,
                 });
             }
           }
@@ -892,7 +898,7 @@ export default function PaymentsPage() {
                 <div className="flex items-start gap-[20px]">
                   <button
                     type="button"
-                    onClick={() => setExpenseType("expenses")}
+                    onClick={() => { setExpenseType("expenses"); setSelectedSupplier(""); setSupplierSearch(""); }}
                     className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
                   >
                     <span className={`text-[16px] font-semibold ${expenseType === "expenses" ? "text-white" : "text-[#979797]"}`}>
@@ -908,7 +914,7 @@ export default function PaymentsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setExpenseType("purchases")}
+                    onClick={() => { setExpenseType("purchases"); setSelectedSupplier(""); setSupplierSearch(""); }}
                     className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
                   >
                     <span className={`text-[16px] font-semibold ${expenseType === "purchases" ? "text-white" : "text-[#979797]"}`}>

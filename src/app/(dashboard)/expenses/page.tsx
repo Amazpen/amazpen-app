@@ -640,6 +640,7 @@ export default function ExpensesPage() {
                 amount: totalWithVat,
                 installments_count: paymentInstallments,
                 reference_number: paymentReference || null,
+                due_date: paymentDate || expenseDate || null,
               });
           }
         }
@@ -915,6 +916,7 @@ export default function ExpensesPage() {
                     installments_count: installmentsCount,
                     installment_number: inst.number,
                     reference_number: paymentReference || null,
+                    due_date: inst.dateForInput || null,
                   });
               }
             } else {
@@ -928,6 +930,7 @@ export default function ExpensesPage() {
                   installments_count: 1,
                   installment_number: 1,
                   reference_number: paymentReference || null,
+                  due_date: paymentDate || null,
                 });
             }
           }
