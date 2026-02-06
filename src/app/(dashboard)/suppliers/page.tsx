@@ -44,6 +44,8 @@ interface Supplier {
   obligation_monthly_amount?: number;
   obligation_num_payments?: number;
   obligation_first_charge_date?: string;
+  obligation_terms?: string;
+  obligation_document_url?: string;
 }
 
 // Supplier with balance info for display
@@ -116,6 +118,14 @@ export default function SuppliersPage() {
     method: string;
     amount: number;
     reference: string;
+  }>>([]);
+
+  // Obligation detail popup state
+  const [showObligationDetailPopup, setShowObligationDetailPopup] = useState(false);
+  const [obligationPayments, setObligationPayments] = useState<Array<{
+    id: string;
+    date: string;
+    amount: number;
   }>>([]);
 
   // Edit supplier state
@@ -591,6 +601,33 @@ export default function SuppliersPage() {
   // Handle opening supplier detail popup
   const handleOpenSupplierDetail = async (supplier: SupplierWithBalance) => {
     setSelectedSupplier(supplier);
+
+    // For obligation suppliers, open the dedicated obligation detail popup
+    if (supplier.has_previous_obligations) {
+      setShowObligationDetailPopup(true);
+      // Fetch payments for this supplier to determine paid installments
+      const supabase = createClient();
+      try {
+        const { data: paymentsList } = await supabase
+          .from("payments")
+          .select("id, payment_date, total_amount")
+          .eq("supplier_id", supplier.id)
+          .is("deleted_at", null)
+          .order("payment_date", { ascending: true });
+
+        if (paymentsList) {
+          setObligationPayments(paymentsList.map(pay => ({
+            id: pay.id,
+            date: pay.payment_date,
+            amount: Number(pay.total_amount),
+          })));
+        }
+      } catch (error) {
+        console.error("Error fetching obligation payments:", error);
+      }
+      return;
+    }
+
     setShowSupplierDetailPopup(true);
 
     // Fetch supplier financial data
@@ -1760,6 +1797,222 @@ export default function SuppliersPage() {
             </div>
           </div>
           )}
+        </SheetContent>
+      </Sheet>
+      {/* Obligation Detail Popup */}
+      <Sheet open={showObligationDetailPopup && !!selectedSupplier} onOpenChange={(open) => {
+        if (!open) {
+          setShowObligationDetailPopup(false);
+          setSelectedSupplier(null);
+          setObligationPayments([]);
+        }
+      }}>
+        <SheetContent
+          side="bottom"
+          className="h-[calc(100vh-60px)] h-[calc(100dvh-60px)] bg-[#0F1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+          showCloseButton={false}
+        >
+          {selectedSupplier && (() => {
+            // Generate payment schedule
+            const numPayments = selectedSupplier.obligation_num_payments || 0;
+            const monthlyAmount = selectedSupplier.obligation_monthly_amount || 0;
+            const firstChargeDate = selectedSupplier.obligation_first_charge_date
+              ? new Date(selectedSupplier.obligation_first_charge_date)
+              : null;
+
+            const schedule = Array.from({ length: numPayments }, (_, i) => {
+              let paymentDate: Date | null = null;
+              if (firstChargeDate) {
+                paymentDate = new Date(firstChargeDate);
+                paymentDate.setMonth(paymentDate.getMonth() + i);
+              }
+              // Check if this installment is paid by matching with actual payments
+              const isPaid = paymentDate ? obligationPayments.some(p => {
+                const pDate = new Date(p.date);
+                return pDate.getFullYear() === paymentDate!.getFullYear() &&
+                       pDate.getMonth() === paymentDate!.getMonth();
+              }) : false;
+
+              return {
+                number: i + 1,
+                amount: monthlyAmount,
+                date: paymentDate,
+                isPaid,
+              };
+            });
+
+            const formatDate = (d: Date | null) => {
+              if (!d) return "-";
+              return d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
+            };
+
+            return (
+              <div className="flex flex-col gap-[5px] p-[10px]">
+                {/* Header Row - Close + Delete */}
+                <div className="flex items-center gap-[5px]">
+                  <button
+                    type="button"
+                    title="סגור"
+                    onClick={() => {
+                      setShowObligationDetailPopup(false);
+                      setSelectedSupplier(null);
+                      setObligationPayments([]);
+                    }}
+                    className="w-[25px] h-[25px] flex items-center justify-center text-white cursor-pointer"
+                  >
+                    <X size={20} />
+                  </button>
+                  <button
+                    type="button"
+                    title="מחיקה"
+                    onClick={async () => {
+                      if (!confirm("האם למחוק את הספק?")) return;
+                      const supabase = createClient();
+                      await supabase
+                        .from("suppliers")
+                        .update({ deleted_at: new Date().toISOString() })
+                        .eq("id", selectedSupplier.id);
+                      setShowObligationDetailPopup(false);
+                      setSelectedSupplier(null);
+                      setObligationPayments([]);
+                      showToast("הספק נמחק בהצלחה", "success");
+                      setRefreshTrigger(prev => prev + 1);
+                    }}
+                    className="w-[25px] h-[25px] flex items-center justify-center text-white cursor-pointer"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                      <line x1="10" y1="11" x2="10" y2="17"/>
+                      <line x1="14" y1="11" x2="14" y2="17"/>
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Scrollable content */}
+                <div className="flex flex-col gap-[10px] overflow-y-auto flex-1">
+                  {/* שם הספק */}
+                  <div className="flex flex-col gap-[3px]">
+                    <span className="text-[15px] font-medium text-white text-right">שם הספק</span>
+                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center">
+                      <input
+                        type="text"
+                        title="שם הספק"
+                        disabled
+                        value={selectedSupplier.name}
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center outline-none px-[10px]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* סכום שנלקח */}
+                  <div className="flex flex-col gap-[3px]">
+                    <span className="text-[15px] font-medium text-white text-right">סכום שנלקח</span>
+                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center px-[10px]">
+                      <input
+                        type="text"
+                        title="סכום שנלקח"
+                        disabled
+                        value={selectedSupplier.obligation_total_amount ? `₪${selectedSupplier.obligation_total_amount.toLocaleString()}` : "-"}
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* תנאים */}
+                  <div className="flex flex-col gap-[3px]">
+                    <span className="text-[15px] font-medium text-white text-right">תנאים</span>
+                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center px-[10px]">
+                      <input
+                        type="text"
+                        title="תנאים"
+                        disabled
+                        value={selectedSupplier.obligation_terms || "-"}
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* כמות תשלומים */}
+                  <div className="flex flex-col gap-[3px]">
+                    <span className="text-[15px] font-medium text-white text-right">כמות תשלומים</span>
+                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center">
+                      <span className="text-[14px] text-white">{numPayments}</span>
+                    </div>
+                  </div>
+
+                  {/* סכום חיוב חודשי כולל ריבית (משוער) */}
+                  <div className="flex flex-col gap-[3px]">
+                    <span className="text-[15px] font-medium text-white text-right">סכום חיוב חודשי כולל ריבית (משוער)</span>
+                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center px-[10px]">
+                      <input
+                        type="text"
+                        title="סכום חיוב חודשי"
+                        disabled
+                        value={monthlyAmount ? `₪${monthlyAmount.toLocaleString()}` : "-"}
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* תאריך חיוב ראשון */}
+                  <div className="flex flex-col gap-[3px]">
+                    <span className="text-[15px] font-medium text-white text-right">תאריך חיוב ראשון</span>
+                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-between px-[10px]">
+                      <input
+                        type="text"
+                        title="תאריך חיוב ראשון"
+                        disabled
+                        value={firstChargeDate ? formatDate(firstChargeDate) : "-"}
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center outline-none font-semibold"
+                      />
+                      <svg width="24" height="24" viewBox="0 0 32 32" fill="none" className="text-[#979797] flex-shrink-0">
+                        <rect x="4" y="6" width="24" height="22" rx="3" stroke="currentColor" strokeWidth="2"/>
+                        <line x1="4" y1="12" x2="28" y2="12" stroke="currentColor" strokeWidth="2"/>
+                        <line x1="10" y1="3" x2="10" y2="8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        <line x1="22" y1="3" x2="22" y2="8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Payment Schedule */}
+                  <div className="flex flex-col gap-[10px]">
+                    {schedule.map((payment) => (
+                      <div key={payment.number} className="flex flex-col gap-[3px]">
+                        <span className="text-[15px] font-medium text-white text-right">תשלום {payment.number}</span>
+                        <div className="flex items-center gap-[10px]">
+                          {/* Amount */}
+                          <div className={`flex-1 border rounded-[10px] h-[50px] flex items-center justify-center ${
+                            payment.isPaid ? 'border-[#00E096]' : 'border-[#4C526B]'
+                          }`}>
+                            <input
+                              type="text"
+                              title={`סכום תשלום ${payment.number}`}
+                              disabled
+                              value={payment.amount ? `₪${payment.amount.toLocaleString()}` : "-"}
+                              className="w-full h-full bg-transparent text-white text-[14px] text-center outline-none"
+                            />
+                          </div>
+                          {/* Date */}
+                          <div className={`flex-1 border rounded-[10px] h-[50px] flex items-center justify-center ${
+                            payment.isPaid ? 'border-[#00E096]' : 'border-[#4C526B]'
+                          }`}>
+                            <input
+                              type="text"
+                              title={`תאריך תשלום ${payment.number}`}
+                              disabled
+                              value={formatDate(payment.date)}
+                              className="w-full h-full bg-transparent text-white text-[14px] text-center outline-none font-semibold"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </SheetContent>
       </Sheet>
     </div>
