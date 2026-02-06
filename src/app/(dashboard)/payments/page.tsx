@@ -1036,11 +1036,11 @@ export default function PaymentsPage() {
                             {expandedMonths.has(monthKey) && (
                               <div className="flex flex-col">
                                 {/* Column Headers */}
-                                <div className="flex items-center gap-[3px] px-[7px] py-[3px] border-b border-white/20">
-                                  <span className="text-[14px] text-white/70 flex-1 text-center">סכום כולל מע&quot;מ</span>
-                                  <span className="text-[14px] text-white/70 flex-1 text-center">אסמכתא</span>
-                                  <span className="text-[14px] text-white/70 flex-1 text-center">תאריך חשבונית</span>
+                                <div className="flex flex-row-reverse items-center gap-[3px] px-[7px] py-[3px] border-b border-white/20">
                                   <div className="w-[24px] flex-shrink-0" />
+                                  <span className="text-[14px] text-white/70 flex-1 text-center">תאריך חשבונית</span>
+                                  <span className="text-[14px] text-white/70 flex-1 text-center">אסמכתא</span>
+                                  <span className="text-[14px] text-white/70 flex-1 text-center">סכום כולל מע&quot;מ</span>
                                 </div>
 
                                 {/* Invoice Rows */}
@@ -1049,19 +1049,10 @@ export default function PaymentsPage() {
                                     key={inv.id}
                                     type="button"
                                     onClick={() => toggleInvoiceSelection(inv.id)}
-                                    className={`flex items-center gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 ${
+                                    className={`flex flex-row-reverse items-center gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 ${
                                       selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""
                                     }`}
                                   >
-                                    <span className="text-[14px] text-white flex-1 text-center ltr-num">
-                                      ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
-                                    <span className="text-[14px] text-white flex-1 text-center ltr-num">
-                                      {inv.invoice_number || "-"}
-                                    </span>
-                                    <span className="text-[14px] text-white flex-1 text-center ltr-num">
-                                      {new Date(inv.invoice_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
-                                    </span>
                                     <div className="w-[24px] flex-shrink-0 flex items-center justify-center">
                                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                                         {selectedInvoiceIds.has(inv.id) ? (
@@ -1074,6 +1065,15 @@ export default function PaymentsPage() {
                                         )}
                                       </svg>
                                     </div>
+                                    <span className="text-[14px] text-white flex-1 text-center ltr-num">
+                                      {new Date(inv.invoice_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                                    </span>
+                                    <span className="text-[14px] text-white flex-1 text-center ltr-num">
+                                      {inv.invoice_number || "-"}
+                                    </span>
+                                    <span className="text-[14px] text-white flex-1 text-center ltr-num">
+                                      ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
                                   </button>
                                 ))}
                               </div>
