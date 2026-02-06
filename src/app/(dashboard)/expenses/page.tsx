@@ -606,15 +606,19 @@ export default function ExpensesPage() {
 
         if (invoiceError) throw invoiceError;
 
-        // If paid in full, create payment record
+        // If paid in full, create payment record with all payment methods
         if (isPaidInFull && newInvoice) {
-          const { error: paymentError } = await supabase
+          const paymentTotal = popupPaymentMethods.reduce((sum, pm) => {
+            return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
+          }, 0);
+
+          const { data: newPayment, error: paymentError } = await supabase
             .from("payments")
             .insert({
               business_id: selectedBusinesses[0],
               supplier_id: selectedSupplier,
               payment_date: paymentDate || expenseDate,
-              total_amount: totalWithVat,
+              total_amount: paymentTotal || totalWithVat,
               invoice_id: newInvoice.id,
               notes: paymentNotes || null,
               created_by: user?.id || null,
@@ -624,24 +628,41 @@ export default function ExpensesPage() {
 
           if (paymentError) throw paymentError;
 
-          // Create payment split for the payment method
-          const { data: paymentData } = await supabase
-            .from("payments")
-            .select("id")
-            .eq("invoice_id", newInvoice.id)
-            .single();
+          if (newPayment) {
+            for (const pm of popupPaymentMethods) {
+              const amount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+              if (amount > 0 && pm.method) {
+                const installmentsCount = parseInt(pm.installments) || 1;
 
-          if (paymentData) {
-            await supabase
-              .from("payment_splits")
-              .insert({
-                payment_id: paymentData.id,
-                payment_method: paymentMethod || "other",
-                amount: totalWithVat,
-                installments_count: paymentInstallments,
-                reference_number: paymentReference || null,
-                due_date: paymentDate || expenseDate || null,
-              });
+                if (pm.customInstallments.length > 0) {
+                  for (const inst of pm.customInstallments) {
+                    await supabase
+                      .from("payment_splits")
+                      .insert({
+                        payment_id: newPayment.id,
+                        payment_method: pm.method,
+                        amount: inst.amount,
+                        installments_count: installmentsCount,
+                        installment_number: inst.number,
+                        reference_number: paymentReference || null,
+                        due_date: inst.dateForInput || null,
+                      });
+                  }
+                } else {
+                  await supabase
+                    .from("payment_splits")
+                    .insert({
+                      payment_id: newPayment.id,
+                      payment_method: pm.method,
+                      amount: amount,
+                      installments_count: 1,
+                      installment_number: 1,
+                      reference_number: paymentReference || null,
+                      due_date: paymentDate || expenseDate || null,
+                    });
+                }
+              }
+            }
           }
         }
 
@@ -679,6 +700,7 @@ export default function ExpensesPage() {
     setPaymentInstallments(1);
     setPaymentReference("");
     setPaymentNotes("");
+    setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", customInstallments: [] }]);
     setShowClarificationMenu(false);
   };
 
@@ -1843,36 +1865,12 @@ export default function ExpensesPage() {
                 {/* Payment Details Section - shown when isPaidInFull is true */}
                 {isPaidInFull && (
                   <div className="bg-[#0F1535] rounded-[10px] p-[25px_5px_5px] mt-[15px]">
-                    <h3 className="text-[18px] font-semibold text-white text-center mb-[40px]">הוספת הוצאה - קליטת תשלום</h3>
+                    <h3 className="text-[18px] font-semibold text-white text-center mb-[20px]">הוספת הוצאה - קליטת תשלום</h3>
 
                     <div className="flex flex-col gap-[15px]">
-                      {/* Payment Method */}
-                      <div className="flex flex-col gap-[3px]">
-                        <label className="text-[15px] font-medium text-white text-right">אמצעי תשלום</label>
-                        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                          <select
-                            title="אמצעי תשלום"
-                            value={paymentMethod}
-                            onChange={(e) => setPaymentMethod(e.target.value)}
-                            className="w-full h-full bg-transparent text-white/40 text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
-                          >
-                            <option value="" className="bg-[#0F1535] text-white/40"></option>
-                            <option value="bank_transfer" className="bg-[#0F1535] text-white">העברה בנקאית</option>
-                            <option value="cash" className="bg-[#0F1535] text-white">מזומן</option>
-                            <option value="check" className="bg-[#0F1535] text-white">צ&apos;ק</option>
-                            <option value="bit" className="bg-[#0F1535] text-white">ביט</option>
-                            <option value="paybox" className="bg-[#0F1535] text-white">פייבוקס</option>
-                            <option value="credit_card" className="bg-[#0F1535] text-white">כרטיס אשראי</option>
-                            <option value="other" className="bg-[#0F1535] text-white">אחר</option>
-                            <option value="credit_companies" className="bg-[#0F1535] text-white">חברות הקפה</option>
-                            <option value="standing_order" className="bg-[#0F1535] text-white">הוראת קבע</option>
-                          </select>
-                        </div>
-                      </div>
-
                       {/* Payment Date */}
                       <div className="flex flex-col gap-[3px]">
-                        <label className="text-[15px] font-medium text-white text-right">מתי יורד התשלום?</label>
+                        <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
                         <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
                           <span className={`text-[16px] font-semibold pointer-events-none ${paymentDate ? 'text-white' : 'text-white/40'}`}>
                             {paymentDate
@@ -1883,90 +1881,180 @@ export default function ExpensesPage() {
                             type="date"
                             title="תאריך תשלום"
                             value={paymentDate}
-                            onChange={(e) => setPaymentDate(e.target.value)}
+                            onChange={(e) => {
+                              setPaymentDate(e.target.value);
+                              setPopupPaymentMethods(prev => prev.map(p => {
+                                const numInstallments = parseInt(p.installments) || 1;
+                                const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+                                if (numInstallments >= 1 && totalAmount > 0) {
+                                  return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, e.target.value) };
+                                }
+                                return { ...p, customInstallments: [] };
+                              }));
+                            }}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                           />
                         </div>
                       </div>
 
-                      {/* Number of Installments */}
-                      <div className="flex flex-col gap-[3px]">
-                        <label className="text-[15px] font-medium text-white text-right">כמות תשלומים שווים</label>
-                        <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center gap-[30px] px-[10px]">
+                      {/* Payment Methods Section */}
+                      <div className="flex flex-col gap-[15px]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[15px] font-medium text-white">אמצעי תשלום</span>
                           <button
                             type="button"
-                            title="הוסף תשלום"
-                            onClick={() => setPaymentInstallments(prev => prev + 1)}
-                            className="text-white"
+                            onClick={addPopupPaymentMethodEntry}
+                            className="bg-[#29318A] text-white text-[14px] font-medium px-[12px] py-[6px] rounded-[7px] hover:bg-[#3D44A0] transition-colors"
                           >
-                            <svg width="27" height="27" viewBox="0 0 32 32" fill="none">
-                              <circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="2"/>
-                              <path d="M16 10V22M10 16H22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                            </svg>
-                          </button>
-                          <span className="text-[20px] text-white">{paymentInstallments}</span>
-                          <button
-                            type="button"
-                            title="הפחת תשלום"
-                            onClick={() => setPaymentInstallments(prev => Math.max(1, prev - 1))}
-                            className="text-white"
-                          >
-                            <svg width="27" height="27" viewBox="0 0 32 32" fill="none">
-                              <circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="2"/>
-                              <path d="M10 16H22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                            </svg>
+                            + הוסף אמצעי תשלום
                           </button>
                         </div>
-                      </div>
 
-                      {/* Payment Amount per Installment */}
-                      <div className="flex flex-col gap-[3px]">
-                        <label className="text-[15px] font-medium text-white text-right">סכום לתשלום</label>
-                        <div className="flex gap-[5px]">
-                          <div className="flex-1 border border-[#4C526B] rounded-[10px] h-[50px]">
-                            <input
-                              type="text"
-                              title="סכום לתשלום"
-                              disabled
-                              value={paymentInstallments > 0 ? (totalWithVat / paymentInstallments).toFixed(2) : '0.00'}
-                              className="w-full h-full bg-transparent text-white text-[14px] font-bold text-center rounded-[10px] border-none outline-none"
-                            />
+                        {popupPaymentMethods.map((pm, pmIndex) => (
+                          <div key={pm.id} className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+                            {popupPaymentMethods.length > 1 && (
+                              <div className="flex items-center justify-between mb-[5px]">
+                                <span className="text-[14px] text-white/70">אמצעי תשלום {pmIndex + 1}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removePopupPaymentMethodEntry(pm.id)}
+                                  className="text-[14px] text-red-400 hover:text-red-300 transition-colors"
+                                >
+                                  הסר
+                                </button>
+                              </div>
+                            )}
+
+                            <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                              <select
+                                title="בחירת אמצעי תשלום"
+                                value={pm.method}
+                                onChange={(e) => updatePopupPaymentMethodField(pm.id, "method", e.target.value)}
+                                className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
+                              >
+                                <option value="" disabled>בחר אמצעי תשלום...</option>
+                                {paymentMethodOptions.map((method) => (
+                                  <option key={method.value} value={method.value}>{method.label}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={pm.amount ? `₪${parseFloat(pm.amount.replace(/[^\d.]/g, "") || "0").toLocaleString("he-IL")}` : ""}
+                                onChange={(e) => {
+                                  const rawValue = e.target.value.replace(/[^\d.]/g, "");
+                                  updatePopupPaymentMethodField(pm.id, "amount", rawValue);
+                                }}
+                                placeholder="₪0.00 סכום"
+                                className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
+                              />
+                            </div>
+
+                            <div className="flex flex-col gap-[3px]">
+                              <span className="text-[14px] text-white/70">כמות תשלומים</span>
+                              <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
+                                <button
+                                  type="button"
+                                  title="הפחת תשלום"
+                                  onClick={() => updatePopupPaymentMethodField(pm.id, "installments", String(Math.max(1, parseInt(pm.installments) - 1)))}
+                                  className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
+                                >
+                                  -
+                                </button>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  title="כמות תשלומים"
+                                  value={pm.installments}
+                                  onChange={(e) => updatePopupPaymentMethodField(pm.id, "installments", e.target.value.replace(/\D/g, "") || "1")}
+                                  className="flex-1 h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  title="הוסף תשלום"
+                                  onClick={() => updatePopupPaymentMethodField(pm.id, "installments", String(parseInt(pm.installments) + 1))}
+                                  className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
+                                >
+                                  +
+                                </button>
+                              </div>
+
+                              {pm.customInstallments.length > 0 && (
+                                <div className="mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+                                  <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
+                                    <span className="text-[14px] font-medium text-white/70 w-[50px] text-center flex-shrink-0">תשלום</span>
+                                    <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
+                                    <span className="text-[14px] font-medium text-white/70 flex-1 text-center">סכום</span>
+                                  </div>
+                                  <div className="flex flex-col gap-[8px] max-h-[200px] overflow-y-auto">
+                                    {pm.customInstallments.map((item, index) => (
+                                      <div key={item.number} className="flex items-center gap-[8px]">
+                                        <span className="text-[14px] text-white ltr-num w-[50px] text-center flex-shrink-0">{item.number}/{pm.installments}</span>
+                                        <div className="flex-1 h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] relative flex items-center justify-center">
+                                          <span className="text-[14px] text-white pointer-events-none ltr-num">
+                                            {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
+                                          </span>
+                                          <input
+                                            type="date"
+                                            title={`תאריך תשלום ${item.number}`}
+                                            value={item.dateForInput}
+                                            onChange={(e) => handlePopupInstallmentDateChange(pm.id, index, e.target.value)}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                          />
+                                        </div>
+                                        <div className="flex-1 relative">
+                                          <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            title={`סכום תשלום ${item.number}`}
+                                            value={item.amount.toFixed(2)}
+                                            onChange={(e) => handlePopupInstallmentAmountChange(pm.id, index, e.target.value)}
+                                            className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                          />
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="flex items-center gap-[8px] border-t border-[#4C526B] pt-[8px] mt-[8px]">
+                                    <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה&quot;כ</span>
+                                    <span className="flex-1"></span>
+                                    <span className="text-[14px] font-bold text-white ltr-num flex-1 text-center">
+                                      ₪{getPopupInstallmentsTotal(pm.customInstallments).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex-1 border border-[#4C526B] rounded-[10px] h-[50px]">
-                            <input
-                              type="text"
-                              title="סכום כולל"
-                              disabled
-                              value={totalWithVat.toFixed(2)}
-                              className="w-full h-full bg-transparent text-white text-[14px] font-bold text-center rounded-[10px] border-none outline-none"
-                            />
-                          </div>
-                        </div>
+                        ))}
                       </div>
 
                       {/* Payment Reference */}
                       <div className="flex flex-col gap-[3px]">
-                        <label className="text-[15px] font-medium text-white text-right">מספר אסמכתא</label>
-                        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                        <label className="text-[15px] font-medium text-white text-right">אסמכתא</label>
+                        <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
                           <input
                             type="text"
-                            title="מספר אסמכתא"
+                            placeholder="מספר אסמכתא..."
                             value={paymentReference}
                             onChange={(e) => setPaymentReference(e.target.value)}
-                            className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
+                            className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
                           />
                         </div>
                       </div>
 
                       {/* Payment Notes */}
                       <div className="flex flex-col gap-[3px]">
-                        <label className="text-[15px] font-medium text-white text-right">הערות לתשלום</label>
-                        <div className="border border-[#4C526B] rounded-[10px] min-h-[75px]">
+                        <label className="text-[15px] font-medium text-white text-right">הערות</label>
+                        <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
                           <textarea
-                            title="הערות לתשלום"
                             value={paymentNotes}
                             onChange={(e) => setPaymentNotes(e.target.value)}
-                            className="w-full h-full min-h-[75px] bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none p-[10px] resize-none"
+                            placeholder="הערות..."
+                            className="w-full h-[100px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] py-[10px] rounded-[10px] resize-none"
                           />
                         </div>
                       </div>
