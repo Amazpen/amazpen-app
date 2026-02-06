@@ -28,7 +28,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/goals", "/reports", "/ocr", "/settings", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals"];
+const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/goals", "/reports", "/ocr", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -71,6 +71,7 @@ const pageTitles: Record<string, string> = {
   "/admin/business/edit": "עריכת עסק",
   "/admin/users": "ניהול משתמשים",
   "/admin/goals": "ניהול יעדים ותקציבים",
+  "/ai": "עוזר AI",
 };
 
 // Menu icon component
@@ -126,7 +127,12 @@ export default function DashboardLayout({
   const [selectedBusinesses, setSelectedBusinesses] = useState<string[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('isAdmin') === 'true';
+    }
+    return false;
+  });
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [businessName, setBusinessName] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -164,7 +170,9 @@ export default function DashboardLayout({
         });
         setUserProfile(profile);
         // Check if user is admin from profile
-        setIsAdmin(profile.is_admin === true);
+        const adminStatus = profile.is_admin === true;
+        setIsAdmin(adminStatus);
+        localStorage.setItem('isAdmin', String(adminStatus));
       }
     }
     setIsLoadingProfile(false);
@@ -713,9 +721,9 @@ export default function DashboardLayout({
             </div>
 
             {/* AI Button */}
-            <button type="button" className="px-[8px] sm:px-[12px] py-[4px] sm:py-[3px] h-[34px] sm:h-auto min-w-[50px] sm:min-w-[60px] text-center bg-[#29318A] rounded-[7px] text-white text-[12px] sm:text-[13px] leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation">
+            <Link href="/ai" className="px-[8px] sm:px-[12px] py-[4px] sm:py-[3px] h-[34px] sm:h-auto min-w-[50px] sm:min-w-[60px] text-center bg-[#29318A] rounded-[7px] text-white text-[12px] sm:text-[13px] leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center">
               AI
-            </button>
+            </Link>
 
             {/* מרכזת Button - Admin Only */}
             {isAdmin && (
