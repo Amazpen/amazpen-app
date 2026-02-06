@@ -169,6 +169,10 @@ export default function ExpensesPage() {
   const [editAttachmentPreview, setEditAttachmentPreview] = useState<string | null>(null);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
 
+  // Invoice filter state
+  const [filterBy, setFilterBy] = useState<string>("");
+  const [filterValue, setFilterValue] = useState<string>("");
+
   // Status change state
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -1016,7 +1020,7 @@ export default function ExpensesPage() {
       <div className="flex w-full h-[50px] mb-[34px] border border-[#6B6B6B] rounded-[7px] overflow-hidden">
         <button
           type="button"
-          onClick={() => setActiveTab("purchases")}
+          onClick={() => { setActiveTab("purchases"); setFilterBy(""); setFilterValue(""); }}
           className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
             activeTab === "purchases"
               ? "bg-[#29318A] text-white"
@@ -1027,7 +1031,7 @@ export default function ExpensesPage() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab("expenses")}
+          onClick={() => { setActiveTab("expenses"); setFilterBy(""); setFilterValue(""); }}
           className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
             activeTab === "expenses"
               ? "bg-[#29318A] text-white"
@@ -1227,12 +1231,17 @@ export default function ExpensesPage() {
         {/* Header Row - RTL: פילטר בימין, כותרת באמצע, הורדה בשמאל */}
         <div className="flex items-center justify-between">
           {/* Filter Dropdown - Right side */}
-          <div className="relative opacity-50">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white">
+          <div className={`relative ${filterBy ? 'opacity-100' : 'opacity-50'}`}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className={filterBy ? 'text-[#bc76ff]' : 'text-white'}>
               <path d="M8.07136 12.6325C4.96261 10.3075 2.74511 7.75 1.53386 6.3125C1.15886 5.8675 1.03636 5.54125 0.962611 4.9675C0.710111 3.0025 0.583861 2.02 1.16011 1.385C1.73636 0.75 2.75511 0.75 4.79261 0.75H19.2076C21.2451 0.75 22.2639 0.75 22.8401 1.38375C23.4164 2.01875 23.2901 3.00125 23.0376 4.96625C22.9626 5.54 22.8401 5.86625 22.4664 6.31125C21.2539 7.75125 19.0326 10.3137 15.9164 12.6425C15.7723 12.7546 15.6531 12.8956 15.5666 13.0564C15.4801 13.2172 15.4281 13.3942 15.4139 13.5762C15.1051 16.99 14.8201 18.86 14.6426 19.805C14.3564 21.3325 12.1926 22.2513 11.0326 23.07C10.3426 23.5575 9.50511 22.9775 9.41636 22.2225C9.08445 19.3456 8.80357 16.4631 8.57386 13.5762C8.56102 13.3925 8.50964 13.2135 8.42307 13.0509C8.33649 12.8883 8.21666 12.7457 8.07136 12.6325Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             <select
               title="סינון לפי"
+              value={filterBy}
+              onChange={(e) => {
+                setFilterBy(e.target.value);
+                setFilterValue("");
+              }}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             >
               <option value="">בחר...</option>
@@ -1261,6 +1270,49 @@ export default function ExpensesPage() {
           </button>
         </div>
 
+        {/* Filter Input Bar */}
+        {filterBy && filterBy !== "fixed" && (
+          <div className="flex items-center gap-[10px] px-[10px]">
+            <span className="text-[13px] text-white/60 whitespace-nowrap">
+              {filterBy === "date" ? "תאריך:" : filterBy === "supplier" ? "ספק:" : filterBy === "reference" ? "אסמכתא:" : filterBy === "amount" ? "סכום:" : "הערות:"}
+            </span>
+            <input
+              type="text"
+              value={filterValue}
+              onChange={(e) => setFilterValue(e.target.value)}
+              placeholder={
+                filterBy === "date" ? "לדוגמה: 01.02" :
+                filterBy === "supplier" ? "הקלד שם ספק..." :
+                filterBy === "reference" ? "הקלד מספר תעודה..." :
+                filterBy === "amount" ? "הקלד סכום..." :
+                "הקלד טקסט..."
+              }
+              className="flex-1 bg-white/10 text-white text-[13px] rounded-[7px] px-[10px] py-[6px] outline-none placeholder:text-white/30"
+            />
+            <button
+              type="button"
+              title="ניקוי סינון"
+              onClick={() => { setFilterBy(""); setFilterValue(""); }}
+              className="text-white/50 hover:text-white transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+        {filterBy === "fixed" && (
+          <div className="flex items-center gap-[10px] px-[10px]">
+            <span className="text-[13px] text-[#bc76ff]">מציג הוצאות קבועות בלבד</span>
+            <button
+              type="button"
+              title="ניקוי סינון"
+              onClick={() => { setFilterBy(""); setFilterValue(""); }}
+              className="text-white/50 hover:text-white transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
         {/* Table */}
         <div className="w-full flex flex-col gap-[5px]">
           {/* Table Header */}
@@ -1274,11 +1326,26 @@ export default function ExpensesPage() {
 
           {/* Table Rows */}
           <div className="max-h-[450px] overflow-y-auto flex flex-col gap-[5px]">
-            {recentInvoices.length === 0 ? (
+            {(() => {
+              const searchVal = filterValue.trim().toLowerCase();
+              const filtered = recentInvoices.filter((inv) => {
+                if (!filterBy) return true;
+                if (filterBy === "fixed") return inv.isFixed;
+                if (!searchVal) return true;
+                switch (filterBy) {
+                  case "date": return inv.date.includes(searchVal);
+                  case "supplier": return inv.supplier.toLowerCase().includes(searchVal);
+                  case "reference": return inv.reference.toLowerCase().includes(searchVal);
+                  case "amount": return inv.amountBeforeVat.toLocaleString().includes(searchVal) || inv.amountBeforeVat.toString().includes(searchVal);
+                  case "notes": return inv.notes.toLowerCase().includes(searchVal);
+                  default: return true;
+                }
+              });
+              return filtered.length === 0 ? (
               <div className="flex items-center justify-center py-[40px]">
-                <span className="text-[16px] text-white/50">אין חשבוניות להצגה</span>
+                <span className="text-[16px] text-white/50">{filterBy ? 'לא נמצאו תוצאות' : 'אין חשבוניות להצגה'}</span>
               </div>
-            ) : recentInvoices.map((invoice) => {
+            ) : filtered.map((invoice) => {
               // Fixed expense that still needs attachment or reference - show purple
               const isFixedPending = invoice.isFixed && (!invoice.attachmentUrl || !invoice.reference);
               return (
@@ -1510,7 +1577,8 @@ export default function ExpensesPage() {
                 )}
               </div>
               );
-            })}
+            });
+            })()}
           </div>
         </div>
       </div>
