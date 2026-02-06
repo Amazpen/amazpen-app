@@ -729,7 +729,7 @@ export default function PaymentsPage() {
           </SheetHeader>
 
             {/* Form */}
-            <div className="flex flex-col gap-[5px]">
+            <div className="flex flex-col gap-[5px] px-4">
               {/* Date Field */}
               <div className="flex flex-col gap-[5px]">
                 <div className="flex items-start">
