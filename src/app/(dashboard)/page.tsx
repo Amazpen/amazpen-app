@@ -2062,12 +2062,21 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-row-reverse justify-center items-center gap-[10px] ml-[25px]">
-                  <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${(detailedSummary?.monthlyPace || 0) === 0 ? 'text-white' : (detailedSummary?.targetDiffPct || 0) < 0 ? 'text-red-500' : (detailedSummary?.targetDiffPct || 0) > 0 ? 'text-green-500' : 'text-white'}`}>
-                    {formatCurrencyFull(detailedSummary?.monthlyPace || 0)}
-                  </span>
-                  <span className="text-[20px] font-bold text-white leading-[1.4]">צפי חודשי</span>
-                </div>
+                {(() => {
+                  const currentBusinessName = businessCards.find(b => b.id === realBusinessId)?.name || "";
+                  const isPearla = currentBusinessName.includes("פרלה");
+                  if (!isPearla) {
+                    return (
+                      <div className="flex flex-row-reverse justify-center items-center gap-[10px] ml-[25px]">
+                        <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${(detailedSummary?.monthlyPace || 0) === 0 ? 'text-white' : (detailedSummary?.targetDiffPct || 0) < 0 ? 'text-red-500' : (detailedSummary?.targetDiffPct || 0) > 0 ? 'text-green-500' : 'text-white'}`}>
+                          {formatCurrencyFull(detailedSummary?.monthlyPace || 0)}
+                        </span>
+                        <span className="text-[20px] font-bold text-white leading-[1.4]">צפי חודשי</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
                 {(() => {
                   const currentBusinessName = businessCards.find(b => b.id === realBusinessId)?.name || "";
                   const isPearla = currentBusinessName.includes("פרלה");
