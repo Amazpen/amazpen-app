@@ -645,7 +645,7 @@ export default function NewBusinessPage() {
   const canProceedStep2 = true; // Schedule has defaults
   const canProceedStep3 = incomeSources.length > 0;
   const hasOwner = teamMembers.some(m => m.role === "owner");
-  const canSubmit = hasOwner;
+  const canSubmit = true;
 
   const renderStep1 = () => (
     <div className="flex flex-col gap-[15px]">
@@ -1646,11 +1646,19 @@ export default function NewBusinessPage() {
         </div>
       )}
 
-      {/* Warning if no owner */}
+      {/* Info if no members added */}
+      {teamMembers.length === 0 && (
+        <div className="bg-[#0075FF]/10 border border-[#0075FF]/30 rounded-[10px] p-[12px]">
+          <p className="text-[13px] text-[#0075FF] text-right">
+            ניתן ליצור את העסק ללא משתמשים ולהוסיף אותם מאוחר יותר
+          </p>
+        </div>
+      )}
+      {/* Warning if members exist but no owner */}
       {teamMembers.length > 0 && !teamMembers.some(m => m.role === "owner") && (
-        <div className="bg-[#F64E60]/10 border border-[#F64E60]/30 rounded-[10px] p-[12px]">
-          <p className="text-[13px] text-[#F64E60] text-right">
-            חובה להוסיף לפחות בעל עסק אחד
+        <div className="bg-[#FFA412]/10 border border-[#FFA412]/30 rounded-[10px] p-[12px]">
+          <p className="text-[13px] text-[#FFA412] text-right">
+            מומלץ להוסיף לפחות בעל עסק אחד
           </p>
         </div>
       )}
