@@ -1014,7 +1014,7 @@ export default function PaymentsPage() {
                   </button>
 
                   {showOpenInvoices && (
-                    <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+                    <div dir="rtl" className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
                       {isLoadingInvoices ? (
                         <div className="text-center text-white/70 py-[20px]">טוען חשבוניות...</div>
                       ) : (
@@ -1024,7 +1024,7 @@ export default function PaymentsPage() {
                             <button
                               type="button"
                               onClick={() => toggleMonthExpanded(monthKey)}
-                              className="flex items-center justify-end gap-[5px] py-[10px] hover:bg-white/5 rounded-[7px] px-[10px] transition-colors"
+                              className="flex items-center gap-[5px] py-[10px] hover:bg-white/5 rounded-[7px] px-[10px] transition-colors"
                             >
                               <span className="text-[16px] font-bold text-white">{getMonthYearLabel(monthKey)}</span>
                               <svg
@@ -1042,7 +1042,7 @@ export default function PaymentsPage() {
                             {expandedMonths.has(monthKey) && (
                               <div className="flex flex-col">
                                 {/* Column Headers */}
-                                <div className="flex flex-row-reverse items-center gap-[3px] px-[7px] py-[3px] border-b border-white/20">
+                                <div className="flex items-center gap-[3px] px-[7px] py-[3px] border-b border-white/20">
                                   <div className="w-[24px] flex-shrink-0" />
                                   <span className="text-[14px] text-white/70 flex-1 text-center">תאריך חשבונית</span>
                                   <span className="text-[14px] text-white/70 flex-1 text-center">אסמכתא</span>
@@ -1055,7 +1055,7 @@ export default function PaymentsPage() {
                                     key={inv.id}
                                     type="button"
                                     onClick={() => toggleInvoiceSelection(inv.id)}
-                                    className={`flex flex-row-reverse items-center gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 ${
+                                    className={`flex items-center gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 ${
                                       selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""
                                     }`}
                                   >
