@@ -79,10 +79,15 @@ const paymentMethodOptions = [
 export default function PaymentsPage() {
   const { selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
-  const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    end: new Date(),
-  });
+  const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
+
+  // Initialize date range after hydration to avoid server/client mismatch
+  useEffect(() => {
+    setDateRange({
+      start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+      end: new Date(),
+    });
+  }, []);
   const [showAddPaymentPopup, setShowAddPaymentPopup] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -126,7 +131,7 @@ export default function PaymentsPage() {
   // Fetch data from Supabase
   useEffect(() => {
     const fetchData = async () => {
-      if (selectedBusinesses.length === 0) {
+      if (selectedBusinesses.length === 0 || !dateRange) {
         setPaymentMethodsData([]);
         setRecentPaymentsData([]);
         setSuppliers([]);
@@ -327,7 +332,7 @@ export default function PaymentsPage() {
 
       // Refresh data
       handleClosePopup();
-      setDateRange({ ...dateRange });
+      setDateRange(prev => prev ? { ...prev } : prev);
     } catch (error) {
       console.error("Error saving payment:", error);
       showToast("שגיאה בשמירת התשלום", "error");
@@ -506,7 +511,7 @@ export default function PaymentsPage() {
         >
           הוספת תשלום
         </button>
-        <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
+        {dateRange && <DateRangePicker dateRange={dateRange} onChange={setDateRange} />}
       </div>
 
       {/* Chart and Summary Section */}

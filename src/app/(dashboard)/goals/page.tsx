@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
@@ -33,8 +33,8 @@ const hebrewMonths = [
   { value: "12", label: "דצמבר" },
 ];
 
-const currentYear = new Date().getFullYear();
-const years = [String(currentYear), String(currentYear + 1)];
+// Computed inside component via useMemo to avoid hydration mismatch
+// (moved from module level)
 
 // Progress bar component
 function ProgressBar({ percentage, reverse = false }: { percentage: number; reverse?: boolean }) {
@@ -135,6 +135,12 @@ export default function GoalsPage() {
   const [selectedYear, setSelectedYear] = useState("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
+
+  // Year options for the dropdown (computed client-side after mount)
+  const years = useMemo(() => {
+    const y = new Date().getFullYear();
+    return [String(y), String(y + 1)];
+  }, []);
 
   // Initialize date values on client only
   useEffect(() => {
