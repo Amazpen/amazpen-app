@@ -18,6 +18,7 @@ interface Supplier {
   name: string;
   expense_category_id: string | null;
   waiting_for_coordinator: boolean;
+  is_fixed_expense?: boolean;
 }
 
 // Expense category from database (used for type checking)
@@ -93,7 +94,7 @@ interface ExpenseCategorySummary {
   category: string;
   amount: number;
   percentage: number;
-  suppliers: { id: string; name: string; amount: number; percentage: number }[];
+  suppliers: { id: string; name: string; amount: number; percentage: number; isFixed?: boolean }[];
 }
 
 export default function ExpensesPage() {
@@ -356,7 +357,7 @@ export default function ExpensesPage() {
           .from("invoices")
           .select(`
             *,
-            supplier:suppliers(id, name, expense_category_id),
+            supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
             creator:profiles!invoices_created_by_fkey(full_name)
           `)
           .in("business_id", selectedBusinesses)
@@ -398,7 +399,7 @@ export default function ExpensesPage() {
         // Calculate totals per supplier (for chart/purchases) and per category with suppliers (for expenses drill-down)
         if (invoicesData) {
           const supplierTotals = new Map<string, { name: string; total: number; categoryId: string | null }>();
-          const categoryTotals = new Map<string, { name: string; total: number; suppliers: Map<string, { name: string; total: number }> }>();
+          const categoryTotals = new Map<string, { name: string; total: number; suppliers: Map<string, { name: string; total: number; isFixed: boolean }> }>();
 
           // Initialize category totals with suppliers map
           if (categoriesData) {
@@ -417,6 +418,7 @@ export default function ExpensesPage() {
               const supplierName = inv.supplier.name;
               const subtotal = Number(inv.subtotal);
               const categoryId = inv.supplier.expense_category_id;
+              const isFixed = inv.supplier.is_fixed_expense || false;
 
               // Add to supplier totals (for chart/purchases tab)
               if (supplierTotals.has(supplierId)) {
@@ -436,7 +438,7 @@ export default function ExpensesPage() {
                   const supplier = category.suppliers.get(supplierId)!;
                   supplier.total += subtotal;
                 } else {
-                  category.suppliers.set(supplierId, { name: supplierName, total: subtotal });
+                  category.suppliers.set(supplierId, { name: supplierName, total: subtotal, isFixed });
                 }
               } else {
                 // Supplier has no category - add to uncategorized
@@ -450,7 +452,7 @@ export default function ExpensesPage() {
                   const supplier = uncategorized.suppliers.get(supplierId)!;
                   supplier.total += subtotal;
                 } else {
-                  uncategorized.suppliers.set(supplierId, { name: supplierName, total: subtotal });
+                  uncategorized.suppliers.set(supplierId, { name: supplierName, total: subtotal, isFixed });
                 }
               }
             }
@@ -486,6 +488,7 @@ export default function ExpensesPage() {
                   name: supData.name,
                   amount: supData.total,
                   percentage: data.total > 0 ? (supData.total / data.total) * 100 : 0,
+                  isFixed: supData.isFixed,
                 }))
                 .sort((a, b) => b.amount - a.amount),
             }))
@@ -1155,9 +1158,9 @@ export default function ExpensesPage() {
                               supIndex > 0 ? 'border-t border-white/10' : ''
                             }`}
                           >
-                            <span className="text-[14px] text-white/80 flex-1 text-center">{supplier.name}</span>
-                            <span className="text-[14px] text-white/80 flex-1 text-center ltr-num">₪{supplier.amount.toLocaleString()}</span>
-                            <span className="text-[14px] text-white/80 flex-1 text-center ltr-num">{supplier.percentage.toFixed(1)}%</span>
+                            <span className={`text-[14px] flex-1 text-center ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.name}</span>
+                            <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>₪{supplier.amount.toLocaleString()}</span>
+                            <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.percentage.toFixed(1)}%</span>
                           </div>
                         ))}
                       </div>
