@@ -1067,7 +1067,7 @@ export default function ExpensesPage() {
             /* Empty State - No Data */
             <div className="flex flex-col items-center justify-center gap-[15px]">
               <svg width="80" height="80" viewBox="0 0 100 100" className="text-white/20">
-                <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" strokeWidth="15"/>
+                <circle cx="50" cy="50" r="47" fill="currentColor"/>
               </svg>
               <span className="text-[18px] text-white/50">אין נתוני הוצאות</span>
             </div>
