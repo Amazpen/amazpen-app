@@ -2377,14 +2377,6 @@ export default function DashboardPage() {
                   return (
                     <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
                       <div className="flex flex-row-reverse justify-between items-center w-full gap-[15px]">
-                        <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
-                          <span className={`text-[20px] font-bold leading-[1.4] ltr-num min-w-[70px] max-w-[70px] ${laborDiffColor}`}>
-                            {formatPercent(detailedSummary?.laborCostPct || 0)}
-                          </span>
-                          <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${laborDiffColor}`}>
-                            {formatCurrencyFull(detailedSummary?.laborCost || 0)}
-                          </span>
-                        </div>
                         <div className="flex flex-row-reverse items-center gap-[6px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">עלות עובדים</span>
                           <div className="icon-bg-purple w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
@@ -2397,6 +2389,14 @@ export default function DashboardPage() {
                               <path d="M6 28v-1.5a4.5 4.5 0 012-3.74" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                           </div>
+                        </div>
+                        <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
+                          <span className={`text-[20px] font-bold leading-[1.4] ltr-num min-w-[70px] max-w-[70px] ${laborDiffColor}`}>
+                            {formatPercent(detailedSummary?.laborCostPct || 0)}
+                          </span>
+                          <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${laborDiffColor}`}>
+                            {formatCurrencyFull(detailedSummary?.laborCost || 0)}
+                          </span>
                         </div>
                       </div>
                       {/* Middle section - שכירים / כוח אדם with border */}
