@@ -1767,7 +1767,7 @@ export default function DashboardPage() {
     <div className="px-2.5 pt-4 pb-8">
       {/* לקוחות Section - Hidden for non-admin users with single business */}
       {!isSingleBusiness && (
-      <div className="clients-section rounded-[20px] p-1">
+      <div className="clients-section rounded-[20px] py-1">
         {/* Section Header */}
         <div className="flex justify-between items-center mb-4">
           {/* Right side - Search Icon and Title together */}
