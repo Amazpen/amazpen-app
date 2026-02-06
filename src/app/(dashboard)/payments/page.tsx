@@ -9,6 +9,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { uploadFile } from "@/lib/uploadFile";
 
 // Supplier from database
 interface Supplier {
@@ -128,6 +129,11 @@ export default function PaymentsPage() {
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Receipt upload state
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
 
   // Supplier search helpers
   const expenseTypeMap = { expenses: "current_expenses", purchases: "goods_purchases" } as const;
@@ -363,6 +369,22 @@ export default function PaymentsPage() {
         return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
       }, 0);
 
+      // Upload receipt if selected
+      let receiptUrl: string | null = null;
+      if (receiptFile) {
+        setIsUploadingReceipt(true);
+        const fileExt = receiptFile.name.split('.').pop();
+        const fileName = `receipt-${Date.now()}.${fileExt}`;
+        const filePath = `payments/${fileName}`;
+        const result = await uploadFile(receiptFile, filePath, "attachments");
+        if (result.success) {
+          receiptUrl = result.publicUrl || null;
+        } else {
+          console.error("Receipt upload error:", result.error);
+        }
+        setIsUploadingReceipt(false);
+      }
+
       // Create the payment
       const { data: newPayment, error: paymentError } = await supabase
         .from("payments")
@@ -374,6 +396,7 @@ export default function PaymentsPage() {
           invoice_id: selectedInvoiceIds.size > 0 ? Array.from(selectedInvoiceIds)[0] : null,
           notes: notes || null,
           created_by: user?.id || null,
+          receipt_url: receiptUrl,
         })
         .select()
         .single();
@@ -649,6 +672,8 @@ export default function PaymentsPage() {
     setPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", customInstallments: [] }]);
     setReference("");
     setNotes("");
+    setReceiptFile(null);
+    setReceiptPreview(null);
     // Reset open invoices state
     setOpenInvoices([]);
     setShowOpenInvoices(false);
@@ -1238,13 +1263,18 @@ export default function PaymentsPage() {
                             {pm.customInstallments.map((item, index) => (
                               <div key={item.number} className="flex items-center gap-[8px]">
                                 <span className="text-[14px] text-white ltr-num w-[50px] text-center flex-shrink-0">{item.number}/{pm.installments}</span>
-                                <input
-                                  type="date"
-                                  title={`תאריך תשלום ${item.number}`}
-                                  value={item.dateForInput}
-                                  onChange={(e) => handleInstallmentDateChange(pm.id, index, e.target.value)}
-                                  className="flex-1 h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px]"
-                                />
+                                <div className="flex-1 h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] relative flex items-center justify-center">
+                                  <span className="text-[14px] text-white pointer-events-none ltr-num">
+                                    {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
+                                  </span>
+                                  <input
+                                    type="date"
+                                    title={`תאריך תשלום ${item.number}`}
+                                    value={item.dateForInput}
+                                    onChange={(e) => handleInstallmentDateChange(pm.id, index, e.target.value)}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                  />
+                                </div>
                                 <div className="flex-1 relative">
                                   <input
                                     type="text"
@@ -1288,6 +1318,67 @@ export default function PaymentsPage() {
                 </div>
               </div>
 
+              {/* Receipt Upload */}
+              <div className="flex flex-col gap-[3px]">
+                <div className="flex items-start">
+                  <span className="text-[16px] font-medium text-white">קבלת תשלום</span>
+                </div>
+                {receiptPreview ? (
+                  <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => { setReceiptFile(null); setReceiptPreview(null); }}
+                      className="text-[#F64E60] text-[14px] hover:underline"
+                    >
+                      הסר
+                    </button>
+                    <div className="flex items-center gap-[10px]">
+                      <span className="text-[14px] text-white/70 truncate max-w-[150px]">
+                        {receiptFile?.name || "קובץ"}
+                      </span>
+                      <button
+                        type="button"
+                        title="צפייה בקובץ"
+                        onClick={() => window.open(receiptPreview, '_blank')}
+                        className="text-white/70 hover:text-white"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                          <circle cx="8.5" cy="8.5" r="1.5"/>
+                          <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[60px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
+                    <div className="flex items-center gap-[10px]">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                      </svg>
+                      <span className="text-[14px] text-white/50">לחץ להעלאת תמונה/מסמך</span>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setReceiptFile(file);
+                          setReceiptPreview(URL.createObjectURL(file));
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+                {isUploadingReceipt && (
+                  <span className="text-[12px] text-white/50 text-center">מעלה קובץ...</span>
+                )}
+              </div>
+
               {/* Notes */}
               <div className="flex flex-col gap-[3px]">
                 <div className="flex items-start">
@@ -1307,10 +1398,10 @@ export default function PaymentsPage() {
               <button
                 type="button"
                 onClick={handleSavePayment}
-                disabled={isSaving}
+                disabled={isSaving || isUploadingReceipt}
                 className="w-full bg-[#29318A] text-white text-[18px] font-semibold py-[14px] rounded-[10px] mt-[20px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50"
               >
-                {isSaving ? "שומר..." : "הוספת תשלום"}
+                {isSaving ? "שומר..." : isUploadingReceipt ? "מעלה קובץ..." : "הוספת תשלום"}
               </button>
             </div>
         </SheetContent>
