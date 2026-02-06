@@ -123,8 +123,16 @@ export default function PaymentsPage() {
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [expenseType, setExpenseType] = useState<"expenses" | "purchases">("purchases");
   const [selectedSupplier, setSelectedSupplier] = useState("");
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Supplier search helpers
+  const filteredSuppliers = suppliers.filter(s =>
+    s.name.toLowerCase().includes(supplierSearch.toLowerCase())
+  );
+  const selectedSupplierName = suppliers.find(s => s.id === selectedSupplier)?.name || "";
 
   // Open invoices state
   const [openInvoices, setOpenInvoices] = useState<OpenInvoice[]>([]);
@@ -597,6 +605,8 @@ export default function PaymentsPage() {
     setPaymentDate(new Date().toISOString().split("T")[0]);
     setExpenseType("purchases");
     setSelectedSupplier("");
+    setSupplierSearch("");
+    setShowSupplierDropdown(false);
     setPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", customInstallments: [] }]);
     setReference("");
     setNotes("");
@@ -920,18 +930,60 @@ export default function PaymentsPage() {
                 <div className="flex items-start">
                   <span className="text-[16px] font-medium text-white">שם ספק</span>
                 </div>
-                <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                  <select
-                    title="בחירת ספק"
-                    value={selectedSupplier}
-                    onChange={(e) => setSelectedSupplier(e.target.value)}
-                    className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
-                  >
-                    <option value="" disabled>בחר ספק...</option>
-                    {suppliers.map((supplier) => (
-                      <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-                    ))}
-                  </select>
+                <div className="relative">
+                  <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
+                    <input
+                      type="text"
+                      placeholder="חפש ספק..."
+                      value={showSupplierDropdown ? supplierSearch : selectedSupplierName}
+                      onFocus={() => {
+                        setShowSupplierDropdown(true);
+                        setSupplierSearch("");
+                      }}
+                      onChange={(e) => setSupplierSearch(e.target.value)}
+                      className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px]"
+                    />
+                    {selectedSupplier && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedSupplier("");
+                          setSupplierSearch("");
+                          setShowSupplierDropdown(false);
+                        }}
+                        className="absolute left-[10px] top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  {showSupplierDropdown && (
+                    <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowSupplierDropdown(false)} />
+                    <div className="absolute z-20 w-full mt-[2px] bg-[#0F1535] border border-[#4C526B] rounded-[10px] max-h-[200px] overflow-y-auto">
+                      {filteredSuppliers.length === 0 ? (
+                        <div className="p-[12px] text-center text-white/50 text-[16px]">לא נמצאו ספקים</div>
+                      ) : (
+                        filteredSuppliers.map((supplier) => (
+                          <button
+                            key={supplier.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedSupplier(supplier.id);
+                              setSupplierSearch("");
+                              setShowSupplierDropdown(false);
+                            }}
+                            className={`w-full text-center text-[16px] py-[12px] px-[10px] transition-colors hover:bg-[#29318A]/30 ${
+                              selectedSupplier === supplier.id ? "text-white bg-[#29318A]/20" : "text-white/80"
+                            }`}
+                          >
+                            {supplier.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                    </>
+                  )}
                 </div>
               </div>
 
