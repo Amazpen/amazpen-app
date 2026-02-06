@@ -2065,58 +2065,55 @@ export default function DashboardPage() {
                 {(() => {
                   const currentBusinessName = businessCards.find(b => b.id === realBusinessId)?.name || "";
                   const isPearla = currentBusinessName.includes("פרלה");
-                  if (!isPearla) {
+                  if (isPearla) {
                     return (
+                      <>
+                        <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
+                          <div className="flex flex-col ml-[10px]">
+                            <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                              <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white ml-[3px]">{(detailedSummary?.privateCount || 0) + (detailedSummary?.businessCount || 0)}</span>
+                              <span className="text-[14px] font-medium text-white leading-[1.4]">כמות אירועים</span>
+                            </div>
+                            <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                              <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">{formatCurrencyFull(((detailedSummary?.privateCount || 0) + (detailedSummary?.businessCount || 0)) > 0 ? (detailedSummary?.totalIncome || 0) / ((detailedSummary?.privateCount || 0) + (detailedSummary?.businessCount || 0)) : 0)}</span>
+                              <span className="text-[14px] font-medium text-white leading-[1.4]">ממוצע לאירוע</span>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  }
+                  return (
+                    <>
                       <div className="flex flex-row-reverse justify-center items-center gap-[10px] ml-[25px]">
                         <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${(detailedSummary?.monthlyPace || 0) === 0 ? 'text-white' : (detailedSummary?.targetDiffPct || 0) < 0 ? 'text-red-500' : (detailedSummary?.targetDiffPct || 0) > 0 ? 'text-green-500' : 'text-white'}`}>
                           {formatCurrencyFull(detailedSummary?.monthlyPace || 0)}
                         </span>
                         <span className="text-[20px] font-bold text-white leading-[1.4]">צפי חודשי</span>
                       </div>
-                    );
-                  }
-                  return null;
-                })()}
-                {(() => {
-                  const currentBusinessName = businessCards.find(b => b.id === realBusinessId)?.name || "";
-                  const isPearla = currentBusinessName.includes("פרלה");
-                  if (isPearla) {
-                    return (
-                      <div className="flex flex-row-reverse justify-center items-center gap-[40px] mt-[5px]">
-                        <div className="flex flex-col items-center gap-[2px]">
-                          <span className="text-[20px] font-bold leading-[1.4] ltr-num text-white">{(detailedSummary?.privateCount || 0) + (detailedSummary?.businessCount || 0)}</span>
-                          <span className="text-[14px] font-medium text-white leading-[1.4]">כמות אירועים</span>
+                      <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
+                        <div className="flex flex-col ml-[10px]">
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.targetDiffPct ?? 0) === 0 ? 'text-white' : (detailedSummary?.targetDiffPct || 0) < 0 ? 'text-red-500' : 'text-green-500'}`}>{formatPercent(detailedSummary?.targetDiffPct || 0)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.targetDiffAmount ?? 0) === 0 ? 'text-white' : (detailedSummary?.targetDiffAmount || 0) < 0 ? 'text-red-500' : 'text-green-500'}`}>{formatCurrencyFull(detailedSummary?.targetDiffAmount || 0)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
+                          </div>
                         </div>
-                        <div className="flex flex-col items-center gap-[2px]">
-                          <span className="text-[20px] font-bold leading-[1.4] ltr-num text-white">{formatCurrencyFull(((detailedSummary?.privateCount || 0) + (detailedSummary?.businessCount || 0)) > 0 ? (detailedSummary?.totalIncome || 0) / ((detailedSummary?.privateCount || 0) + (detailedSummary?.businessCount || 0)) : 0)}</span>
-                          <span className="text-[14px] font-medium text-white leading-[1.4]">ממוצע לאירוע</span>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
-                      <div className="flex flex-col ml-[10px]">
-                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.targetDiffPct ?? 0) === 0 ? 'text-white' : (detailedSummary?.targetDiffPct || 0) < 0 ? 'text-red-500' : 'text-green-500'}`}>{formatPercent(detailedSummary?.targetDiffPct || 0)}</span>
-                          <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
-                        </div>
-                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.targetDiffAmount ?? 0) === 0 ? 'text-white' : (detailedSummary?.targetDiffAmount || 0) < 0 ? 'text-red-500' : 'text-green-500'}`}>{formatCurrencyFull(detailedSummary?.targetDiffAmount || 0)}</span>
-                          <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
+                        <div className="flex flex-col mr-[10px]">
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.prevMonthChangePct ?? 0) === 0 ? 'text-white' : (detailedSummary?.prevMonthChangePct || 0) < 0 ? 'text-red-500' : 'text-green-500'}`}>{formatPercent(detailedSummary?.prevMonthChangePct || 0)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
+                          </div>
+                          <div className="flex flex-row-reverse justify-end items-center gap-[5px]">
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.prevYearChangePct ?? 0) === 0 ? 'text-white' : (detailedSummary?.prevYearChangePct || 0) < 0 ? 'text-red-500' : 'text-green-500'}`}>{formatPercent(detailedSummary?.prevYearChangePct || 0)}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex flex-col mr-[10px]">
-                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.prevMonthChangePct ?? 0) === 0 ? 'text-white' : (detailedSummary?.prevMonthChangePct || 0) < 0 ? 'text-red-500' : 'text-green-500'}`}>{formatPercent(detailedSummary?.prevMonthChangePct || 0)}</span>
-                          <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
-                        </div>
-                        <div className="flex flex-row-reverse justify-end items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.prevYearChangePct ?? 0) === 0 ? 'text-white' : (detailedSummary?.prevYearChangePct || 0) < 0 ? 'text-red-500' : 'text-green-500'}`}>{formatPercent(detailedSummary?.prevYearChangePct || 0)}</span>
-                          <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
-                        </div>
-                      </div>
-                    </div>
+                    </>
                   );
                 })()}
               </div>
@@ -2134,8 +2131,8 @@ export default function DashboardPage() {
                   return (
                     <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
                       <div className="flex flex-row-reverse justify-between items-center w-full">
-                        <span className={`text-[20px] font-bold leading-[1.4] ltr-num ml-[9px] ${source.avgTicketDiff === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : 'text-green-500'}`}>{formatCurrencyFull(source.totalAmount)}</span>
-                        <div className="flex flex-row-reverse items-center gap-[6px]">
+                        <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${source.avgTicketDiff === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : 'text-green-500'}`}>{formatCurrencyFull(source.totalAmount)}</span>
+                        <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
                           <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]`}>
                             <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
@@ -2147,9 +2144,13 @@ export default function DashboardPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex flex-row-reverse items-center gap-[5px]">
-                        <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{source.ordersCount}</span>
-                        <span className="text-[14px] font-medium text-white leading-[1.4]">כמות {source.name}</span>
+                      <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
+                        <div className="flex flex-col ml-[10px]">
+                          <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                            <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num ml-[3px]">{source.ordersCount}</span>
+                            <span className="text-[14px] font-medium text-white leading-[1.4]">כמות {source.name}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );
