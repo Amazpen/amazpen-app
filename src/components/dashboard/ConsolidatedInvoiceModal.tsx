@@ -741,18 +741,18 @@ export function ConsolidatedInvoiceModal({
           <div className="flex items-center justify-center gap-[15px] mt-[20px] mb-[10px]">
             <button
               type="button"
-              onClick={handleReset}
-              className="flex-1 h-[45px] border border-white rounded-[10px] text-white text-[16px] font-semibold transition-colors hover:bg-white/10"
-            >
-              איפוס
-            </button>
-            <button
-              type="button"
               onClick={handleSubmit}
               disabled={isSubmitting || !selectedBusinessId || !selectedSupplierId || !invoiceNumber || !totalAmount || !isClosed}
               className="flex-1 h-[45px] bg-gradient-to-r from-[#0075FF] to-[#00D4FF] rounded-[10px] text-white text-[16px] font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "שומר..." : "שמירה"}
+            </button>
+            <button
+              type="button"
+              onClick={handleReset}
+              className="flex-1 h-[45px] border border-white rounded-[10px] text-white text-[16px] font-semibold transition-colors hover:bg-white/10"
+            >
+              איפוס
             </button>
           </div>
         </div>
