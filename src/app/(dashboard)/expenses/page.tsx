@@ -77,6 +77,7 @@ interface InvoiceDisplay {
   entryDate: string;
   notes: string;
   attachmentUrl: string | null;
+  isFixed: boolean;
   linkedPayments: { id: string; amount: number; method: string; installments: number; date: string }[];
 }
 
@@ -383,6 +384,7 @@ export default function ExpensesPage() {
             entryDate: formatDateString(inv.created_at),
             notes: inv.notes || "",
             attachmentUrl: inv.attachment_url || null,
+            isFixed: inv.supplier?.is_fixed_expense || false,
             linkedPayments: [], // Will be fetched separately if needed
           }));
           setRecentInvoices(displayInvoices);
@@ -1276,7 +1278,10 @@ export default function ExpensesPage() {
               <div className="flex items-center justify-center py-[40px]">
                 <span className="text-[16px] text-white/50">אין חשבוניות להצגה</span>
               </div>
-            ) : recentInvoices.map((invoice) => (
+            ) : recentInvoices.map((invoice) => {
+              // Fixed expense that still needs attachment or reference - show purple
+              const isFixedPending = invoice.isFixed && (!invoice.attachmentUrl || !invoice.reference);
+              return (
               <div
                 key={invoice.id}
                 className={`bg-white/5 rounded-[7px] p-[7px_3px] border transition-colors ${
@@ -1296,17 +1301,17 @@ export default function ExpensesPage() {
                       height="12"
                       viewBox="0 0 32 32"
                       fill="none"
-                      className={`text-white/50 flex-shrink-0 transition-transform ${expandedInvoiceId === invoice.id ? 'rotate-90' : ''}`}
+                      className={`flex-shrink-0 transition-transform ${isFixedPending ? 'text-[#bc76ff]' : 'text-white/50'} ${expandedInvoiceId === invoice.id ? 'rotate-90' : ''}`}
                     >
                       <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                    <span className="text-[12px] ltr-num">{invoice.date}</span>
+                    <span className={`text-[12px] ltr-num ${isFixedPending ? 'text-[#bc76ff]' : ''}`}>{invoice.date}</span>
                   </button>
                   {/* Supplier - Clickable */}
                   <button
                     type="button"
                     onClick={() => setExpandedInvoiceId(expandedInvoiceId === invoice.id ? null : invoice.id)}
-                    className="text-[12px] text-center leading-tight cursor-pointer truncate px-[2px]"
+                    className={`text-[12px] text-center leading-tight cursor-pointer truncate px-[2px] ${isFixedPending ? 'text-[#bc76ff]' : ''}`}
                   >
                     {invoice.supplier}
                   </button>
@@ -1314,7 +1319,7 @@ export default function ExpensesPage() {
                   <button
                     type="button"
                     onClick={() => setExpandedInvoiceId(expandedInvoiceId === invoice.id ? null : invoice.id)}
-                    className="text-[12px] text-center ltr-num cursor-pointer truncate px-[2px]"
+                    className={`text-[12px] text-center ltr-num cursor-pointer truncate px-[2px] ${isFixedPending ? 'text-[#bc76ff]' : ''}`}
                   >
                     {invoice.reference}
                   </button>
@@ -1322,7 +1327,7 @@ export default function ExpensesPage() {
                   <button
                     type="button"
                     onClick={() => setExpandedInvoiceId(expandedInvoiceId === invoice.id ? null : invoice.id)}
-                    className="text-[12px] text-center ltr-num font-medium cursor-pointer"
+                    className={`text-[12px] text-center ltr-num font-medium cursor-pointer ${isFixedPending ? 'text-[#bc76ff]' : ''}`}
                   >
                     ₪{invoice.amountBeforeVat.toLocaleString()}
                   </button>
@@ -1346,11 +1351,12 @@ export default function ExpensesPage() {
                         }
                       }}
                       className={`text-[12px] font-bold px-[12px] py-[6px] rounded-full cursor-pointer hover:opacity-80 transition-opacity ${
+                        isFixedPending ? 'bg-[#bc76ff]' :
                         invoice.status === 'שולם' ? 'bg-[#00E096]' :
                         invoice.status === 'בבירור' ? 'bg-[#FFA500]' : 'bg-[#29318A]'
                       }`}
                     >
-                      {invoice.status}
+                      {isFixedPending ? 'ה. קבועה' : invoice.status}
                     </button>
                   </div>
                 </div>
@@ -1503,7 +1509,8 @@ export default function ExpensesPage() {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
