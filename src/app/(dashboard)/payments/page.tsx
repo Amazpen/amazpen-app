@@ -122,7 +122,7 @@ export default function PaymentsPage() {
 
   // Add payment form state
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [expenseType, setExpenseType] = useState<"expenses" | "purchases">("purchases");
+  const [expenseType, setExpenseType] = useState<"expenses" | "purchases">("expenses");
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [supplierSearch, setSupplierSearch] = useState("");
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
