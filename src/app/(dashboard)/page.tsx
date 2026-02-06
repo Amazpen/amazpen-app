@@ -2258,18 +2258,16 @@ export default function DashboardPage() {
                 return (
                   <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
                     <div className="flex flex-row-reverse justify-between items-center w-full">
-                      <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
-                        <div className="flex flex-col min-h-[50px] max-h-[50px]">
+                      <div className="flex flex-col items-center ml-[9px]">
+                        <div className="flex flex-row-reverse items-start gap-[10px]">
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${source.avgTicketDiff === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : 'text-green-500'}`}>
                             {formatCurrencyFull(source.avgAmount)}
                           </span>
-                          <span className={`text-[16px] font-normal text-center leading-[1.4] ltr-num ${source.avgTicketDiff === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : 'text-green-500'}`}>({formatCurrencyWithSign(source.avgTicketDiff)})</span>
-                        </div>
-                        <div className="flex flex-col min-h-[50px] max-h-[50px]">
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${source.avgTicketDiff === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : 'text-green-500'}`}>
                             {formatCurrencyFull(source.totalAmount)}
                           </span>
                         </div>
+                        <span className={`text-[16px] font-normal text-center leading-[1.4] ltr-num ${source.avgTicketDiff === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : 'text-green-500'}`}>({formatCurrencyWithSign(source.avgTicketDiff)})</span>
                       </div>
                       <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
