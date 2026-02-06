@@ -37,6 +37,15 @@ interface RecentPaymentDisplay {
   totalAmount: number;
 }
 
+// Open invoice from database
+interface OpenInvoice {
+  id: string;
+  invoice_number: string | null;
+  invoice_date: string;
+  total_amount: number;
+  status: string;
+}
+
 // Payment method colors
 const paymentMethodColors: Record<string, { color: string; colorClass: string }> = {
   "check": { color: "#00DD23", colorClass: "bg-[#00DD23]" },
@@ -111,11 +120,18 @@ export default function PaymentsPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   // Add payment form state
-  const [paymentDate, setPaymentDate] = useState("");
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [expenseType, setExpenseType] = useState<"expenses" | "purchases">("purchases");
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Open invoices state
+  const [openInvoices, setOpenInvoices] = useState<OpenInvoice[]>([]);
+  const [isLoadingInvoices, setIsLoadingInvoices] = useState(false);
+  const [showOpenInvoices, setShowOpenInvoices] = useState(false);
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
 
   // Format date for display
   const formatDate = (date: Date) => {
@@ -126,6 +142,50 @@ export default function PaymentsPage() {
   const formatDateString = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  };
+
+  // Hebrew month names for invoice grouping
+  const hebrewMonthNames = [
+    "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+    "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"
+  ];
+
+  const getMonthYearKey = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  };
+
+  const getMonthYearLabel = (key: string) => {
+    const [year, month] = key.split("-");
+    return `${hebrewMonthNames[parseInt(month) - 1]}, ${year}`;
+  };
+
+  const groupInvoicesByMonth = (invoices: OpenInvoice[]) => {
+    const groups = new Map<string, OpenInvoice[]>();
+    for (const inv of invoices) {
+      const key = getMonthYearKey(inv.invoice_date);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(inv);
+    }
+    return Array.from(groups.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+  };
+
+  const toggleInvoiceSelection = (invoiceId: string) => {
+    setSelectedInvoiceIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(invoiceId)) newSet.delete(invoiceId);
+      else newSet.add(invoiceId);
+      return newSet;
+    });
+  };
+
+  const toggleMonthExpanded = (monthKey: string) => {
+    setExpandedMonths(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(monthKey)) newSet.delete(monthKey);
+      else newSet.add(monthKey);
+      return newSet;
+    });
   };
 
   // Fetch data from Supabase
@@ -284,6 +344,7 @@ export default function PaymentsPage() {
           supplier_id: selectedSupplier,
           payment_date: paymentDate,
           total_amount: totalAmount,
+          invoice_id: selectedInvoiceIds.size > 0 ? Array.from(selectedInvoiceIds)[0] : null,
           notes: notes || null,
           created_by: user?.id || null,
         })
@@ -327,6 +388,18 @@ export default function PaymentsPage() {
                 });
             }
           }
+        }
+      }
+
+      // Update selected invoices to paid
+      if (selectedInvoiceIds.size > 0) {
+        const { error: invoiceUpdateError } = await supabase
+          .from("invoices")
+          .update({ status: "paid" })
+          .in("id", Array.from(selectedInvoiceIds));
+
+        if (invoiceUpdateError) {
+          console.error("Error updating invoice statuses:", invoiceUpdateError);
         }
       }
 
@@ -471,15 +544,67 @@ export default function PaymentsPage() {
     }));
   }, [paymentDate]);
 
+  // Fetch open invoices when supplier changes
+  useEffect(() => {
+    const fetchOpenInvoices = async () => {
+      if (!selectedSupplier) {
+        setOpenInvoices([]);
+        setShowOpenInvoices(false);
+        setSelectedInvoiceIds(new Set());
+        setExpandedMonths(new Set());
+        return;
+      }
+
+      setIsLoadingInvoices(true);
+      const supabase = createClient();
+
+      try {
+        const { data, error } = await supabase
+          .from("invoices")
+          .select("id, invoice_number, invoice_date, total_amount, status")
+          .eq("supplier_id", selectedSupplier)
+          .in("business_id", selectedBusinesses)
+          .in("status", ["pending", "clarification"])
+          .is("deleted_at", null)
+          .order("invoice_date", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching open invoices:", error);
+          setOpenInvoices([]);
+        } else {
+          setOpenInvoices(data || []);
+          if (data && data.length > 0) {
+            const firstKey = getMonthYearKey(data[0].invoice_date);
+            setExpandedMonths(new Set([firstKey]));
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching open invoices:", error);
+        setOpenInvoices([]);
+      } finally {
+        setIsLoadingInvoices(false);
+      }
+    };
+
+    fetchOpenInvoices();
+    setSelectedInvoiceIds(new Set());
+    setShowOpenInvoices(false);
+  }, [selectedSupplier, selectedBusinesses]);
+
   const handleClosePopup = () => {
     setShowAddPaymentPopup(false);
     // Reset form
-    setPaymentDate("");
+    setPaymentDate(new Date().toISOString().split("T")[0]);
     setExpenseType("purchases");
     setSelectedSupplier("");
     setPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", customInstallments: [] }]);
     setReference("");
     setNotes("");
+    // Reset open invoices state
+    setOpenInvoices([]);
+    setShowOpenInvoices(false);
+    setSelectedInvoiceIds(new Set());
+    setExpandedMonths(new Set());
   };
 
   // Show message if no business selected
@@ -532,7 +657,7 @@ export default function PaymentsPage() {
           {paymentMethodsData.length === 0 ? (
             /* Empty State - No Data */
             <div className="flex flex-col items-center justify-center gap-[15px]">
-              <svg width="80" height="80" viewBox="0 0 100 100" className="text-white/20">
+              <svg width="280" height="280" viewBox="0 0 100 100" className="text-white/20">
                 <circle cx="50" cy="50" r="47" fill="currentColor"/>
               </svg>
               <span className="text-[18px] text-white/50">אין נתוני תשלומים</span>
@@ -816,6 +941,120 @@ export default function PaymentsPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Open Invoices Section */}
+              {openInvoices.length > 0 && (
+                <div className="flex flex-col gap-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setShowOpenInvoices(!showOpenInvoices)}
+                    className="bg-[#29318A] text-white text-[18px] font-bold py-[12px] px-[24px] rounded-[5px] transition-colors hover:bg-[#3D44A0] flex items-center justify-center gap-[8px]"
+                  >
+                    <span>חשבוניות פתוחות ({openInvoices.length})</span>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 32 32"
+                      fill="none"
+                      className={`transition-transform ${showOpenInvoices ? "rotate-180" : ""}`}
+                    >
+                      <path d="M10 14L16 20L22 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+
+                  {showOpenInvoices && (
+                    <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+                      {isLoadingInvoices ? (
+                        <div className="text-center text-white/70 py-[20px]">טוען חשבוניות...</div>
+                      ) : (
+                        groupInvoicesByMonth(openInvoices).map(([monthKey, monthInvoices]) => (
+                          <div key={monthKey} className="flex flex-col">
+                            {/* Month Header */}
+                            <button
+                              type="button"
+                              onClick={() => toggleMonthExpanded(monthKey)}
+                              className="flex items-center justify-end gap-[5px] py-[10px] hover:bg-white/5 rounded-[7px] px-[10px] transition-colors"
+                            >
+                              <span className="text-[16px] font-bold text-white">{getMonthYearLabel(monthKey)}</span>
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 32 32"
+                                fill="none"
+                                className={`transition-transform ${expandedMonths.has(monthKey) ? "rotate-180" : ""}`}
+                              >
+                                <path d="M10 14L16 20L22 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            </button>
+
+                            {/* Month Invoices */}
+                            {expandedMonths.has(monthKey) && (
+                              <div className="flex flex-col">
+                                {/* Column Headers */}
+                                <div className="flex items-center gap-[3px] px-[7px] py-[3px] border-b border-white/20">
+                                  <span className="text-[14px] text-white/70 flex-1 text-center">סכום כולל מע&quot;מ</span>
+                                  <span className="text-[14px] text-white/70 flex-1 text-center">אסמכתא</span>
+                                  <span className="text-[14px] text-white/70 flex-1 text-center">תאריך חשבונית</span>
+                                  <div className="w-[24px] flex-shrink-0" />
+                                </div>
+
+                                {/* Invoice Rows */}
+                                {monthInvoices.map((inv) => (
+                                  <button
+                                    key={inv.id}
+                                    type="button"
+                                    onClick={() => toggleInvoiceSelection(inv.id)}
+                                    className={`flex items-center gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 ${
+                                      selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""
+                                    }`}
+                                  >
+                                    <span className="text-[14px] text-white flex-1 text-center ltr-num">
+                                      ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                    <span className="text-[14px] text-white flex-1 text-center ltr-num">
+                                      {inv.invoice_number || "-"}
+                                    </span>
+                                    <span className="text-[14px] text-white flex-1 text-center ltr-num">
+                                      {new Date(inv.invoice_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                                    </span>
+                                    <div className="w-[24px] flex-shrink-0 flex items-center justify-center">
+                                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                        {selectedInvoiceIds.has(inv.id) ? (
+                                          <>
+                                            <rect x="3" y="3" width="18" height="18" rx="3" fill="#29318A" stroke="white" strokeWidth="1.5"/>
+                                            <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                          </>
+                                        ) : (
+                                          <rect x="3" y="3" width="18" height="18" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" fill="none"/>
+                                        )}
+                                      </svg>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+
+                      {/* Selected Summary */}
+                      {selectedInvoiceIds.size > 0 && (
+                        <div className="flex items-center justify-between bg-[#29318A]/20 rounded-[7px] p-[10px] border border-[#29318A]">
+                          <span className="text-[14px] text-white">
+                            נבחרו {selectedInvoiceIds.size} חשבוניות
+                          </span>
+                          <span className="text-[16px] text-white font-bold ltr-num">
+                            ₪{openInvoices
+                              .filter(inv => selectedInvoiceIds.has(inv.id))
+                              .reduce((sum, inv) => sum + Number(inv.total_amount), 0)
+                              .toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Payment Methods Section */}
               <div className="flex flex-col gap-[15px]">
