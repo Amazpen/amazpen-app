@@ -1853,7 +1853,7 @@ export default function SuppliersPage() {
             return (
               <div className="flex flex-col gap-[5px] p-[10px]">
                 {/* Header Row - Close + Delete */}
-                <div className="flex items-center gap-[5px]">
+                <div className="flex items-center gap-[5px] justify-end">
                   <button
                     type="button"
                     title="סגור"
