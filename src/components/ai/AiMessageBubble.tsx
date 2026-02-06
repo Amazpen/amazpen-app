@@ -94,7 +94,7 @@ export function AiMessageBubble({ message }: AiMessageBubbleProps) {
 
   return (
     <div className="flex flex-col items-start gap-1" dir="rtl">
-      <div className="flex items-start gap-2 max-w-[85%]">
+      <div className="flex items-start gap-2 w-full">
         <AiIcon />
         <div className="flex-1 min-w-0">
           <div className="bg-[#29318A] text-white px-4 py-3 rounded-[16px] rounded-tr-[4px]">

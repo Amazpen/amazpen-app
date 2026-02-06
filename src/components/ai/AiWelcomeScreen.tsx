@@ -60,7 +60,7 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
         type="button"
         onClick={() => router.back()}
         title="סגור"
-        className="absolute top-4 left-4 w-[36px] h-[36px] rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+        className="absolute top-4 left-4 w-[36px] h-[36px] rounded-full hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="6" x2="6" y2="18" />

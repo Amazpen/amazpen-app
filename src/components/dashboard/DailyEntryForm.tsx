@@ -112,16 +112,21 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const [parameterData, setParameterData] = useState<Record<string, string>>({});
   const [productUsage, setProductUsage] = useState<Record<string, ProductUsageData>>({});
 
-  const today = new Date().toISOString().split("T")[0];
+  const getToday = () => new Date().toISOString().split("T")[0];
 
   const [formData, setFormData] = useState<BaseFormData>({
-    entry_date: today,
+    entry_date: "",
     total_register: "",
     day_factor: "1",
     labor_cost: "",
     labor_hours: "",
     discounts: "",
   });
+
+  // Set today's date after hydration to avoid server/client mismatch
+  useEffect(() => {
+    setFormData(prev => prev.entry_date === "" ? { ...prev, entry_date: getToday() } : prev);
+  }, []);
 
   // Pearla-specific form state
   const [pearlaData, setPearlaData] = useState({
@@ -547,7 +552,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
 
   const resetForm = () => {
     setFormData({
-      entry_date: today,
+      entry_date: getToday(),
       total_register: "",
       day_factor: "1",
       labor_cost: "",

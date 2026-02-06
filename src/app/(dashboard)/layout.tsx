@@ -127,12 +127,7 @@ export default function DashboardLayout({
   const [selectedBusinesses, setSelectedBusinesses] = useState<string[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isAdmin, setIsAdmin] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('isAdmin') === 'true';
-    }
-    return false;
-  });
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [businessName, setBusinessName] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -143,8 +138,13 @@ export default function DashboardLayout({
   const [profileImageLoaded, setProfileImageLoaded] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Set mounted state after hydration
+  // Set mounted state after hydration and restore client-only state
   useEffect(() => {
+    // Restore isAdmin from localStorage to avoid flash before profile fetch
+    const savedAdmin = localStorage.getItem('isAdmin') === 'true';
+    if (savedAdmin) {
+      setIsAdmin(true);
+    }
     setIsMounted(true);
   }, []);
 
