@@ -539,7 +539,7 @@ export default function DashboardLayout({
           {/* Left side - Profile, Notifications, Buttons */}
           <div className="flex flex-row-reverse items-center gap-2 sm:gap-[5px]">
             {/* Profile Image */}
-            <div className="w-[44px] h-[44px] sm:w-[40px] sm:h-[40px] rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative touch-manipulation" suppressHydrationWarning>
+            <div className="w-[34px] h-[34px] sm:w-[32px] sm:h-[32px] rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative touch-manipulation" suppressHydrationWarning>
               {/* Skeleton loader - only show when loading AND there's an image to load */}
               {(isLoadingProfile || (!profileImageLoaded && userProfile?.avatar_url)) && (
                 <div className="absolute inset-0 bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded-full" />
@@ -555,7 +555,7 @@ export default function DashboardLayout({
               )}
               {!isLoadingProfile && !userProfile?.avatar_url && (
                 /* User icon when no avatar */
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="sm:w-[22px] sm:h-[22px]">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="sm:w-[18px] sm:h-[18px]">
                   <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" strokeLinecap="round" strokeLinejoin="round"/>
                   <circle cx="12" cy="7" r="4" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
@@ -567,9 +567,9 @@ export default function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                className="w-[44px] h-[44px] sm:w-[40px] sm:h-[40px] rounded-full bg-[#29318A] flex items-center justify-center relative cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation"
+                className="w-[34px] h-[34px] sm:w-[32px] sm:h-[32px] rounded-full bg-[#29318A] flex items-center justify-center relative cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation"
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="sm:w-[25px] sm:h-[25px] text-[#FFA412]">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="sm:w-[20px] sm:h-[20px] text-[#FFA412]">
                   <path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
