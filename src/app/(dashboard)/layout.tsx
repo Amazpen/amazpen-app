@@ -26,7 +26,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/goals", "/reports", "/ocr", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals"];
+const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/goals", "/reports", "/ocr", "/settings", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -78,6 +78,14 @@ const MenuIcon = ({ active }: { active?: boolean }) => (
     <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2"/>
     <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2"/>
     <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="2"/>
+  </svg>
+);
+
+// Settings gear icon
+const SettingsIcon = ({ active }: { active?: boolean }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={active ? "text-white" : "text-white/70"}>
+    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
+    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
@@ -398,6 +406,8 @@ export default function DashboardLayout({
 
                 const pageExists = existingPages.includes(item.href);
 
+                const IconComponent = item.key === "settings" ? SettingsIcon : MenuIcon;
+
                 if (!pageExists) {
                   return (
                     <div
@@ -405,7 +415,7 @@ export default function DashboardLayout({
                       className="flex items-center gap-[10px] p-[7px] rounded-[10px] opacity-30 cursor-not-allowed"
                     >
                       <div className="w-[21px] h-[21px] flex items-center justify-center flex-shrink-0">
-                        <MenuIcon />
+                        <IconComponent />
                       </div>
                       <span className="text-white text-[14px] font-medium text-right flex-1">{item.label}</span>
                     </div>
@@ -424,7 +434,7 @@ export default function DashboardLayout({
                     }`}
                   >
                     <div className="w-[21px] h-[21px] flex items-center justify-center flex-shrink-0">
-                      <MenuIcon active={activeKey === item.key} />
+                      <IconComponent active={activeKey === item.key} />
                     </div>
                     <span className="text-white text-[14px] font-medium text-right flex-1">{item.label}</span>
                   </Link>
