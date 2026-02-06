@@ -662,7 +662,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                   />
                 </FormField>
 
-                <FormField label="יום חלקי/יום מלא">
+                {isAdmin && <FormField label="יום חלקי/יום מלא">
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -674,7 +674,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     onChange={(e) => handleChange("day_factor", e.target.value)}
                     className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                   />
-                </FormField>
+                </FormField>}
 
                 <FormField label="כמות מנות">
                   <Input
