@@ -1841,6 +1841,10 @@ export default function SuppliersPage() {
               };
             });
 
+            const paidCount = schedule.filter(s => s.isPaid).length;
+            const totalPaid = obligationPayments.reduce((sum, p) => sum + p.amount, 0);
+            const remainingAmount = (selectedSupplier.obligation_total_amount || 0) - totalPaid;
+
             const formatDate = (d: Date | null) => {
               if (!d) return "-";
               return d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -2009,6 +2013,59 @@ export default function SuppliersPage() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Summary - תשלומים שבוצעו + נותר לתשלום */}
+                  <div className="bg-[#29318A]/30 rounded-[10px] p-[15px] flex flex-col gap-[10px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] text-white">תשלומים שבוצעו</span>
+                      <span className="text-[16px] text-white font-bold ltr-num">{paidCount} / {numPayments}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] text-white">סה&quot;כ שולם</span>
+                      <span className="text-[16px] text-white font-bold ltr-num">₪{totalPaid.toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-white/20 pt-[10px]">
+                      <span className="text-[14px] text-[#F64E60] font-medium">נותר לתשלום</span>
+                      <span className="text-[18px] text-[#F64E60] font-bold ltr-num">₪{Math.max(0, remainingAmount).toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  {/* תמונה/לוח סילוקין */}
+                  <div className="flex flex-col gap-[3px]">
+                    <span className="text-[15px] font-medium text-white text-right">תמונה / לוח סילוקין</span>
+                    {selectedSupplier.obligation_document_url ? (
+                      <a
+                        href={selectedSupplier.obligation_document_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="border border-[#4C526B] rounded-[10px] overflow-hidden flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={selectedSupplier.obligation_document_url}
+                          alt="לוח סילוקין"
+                          className="max-h-[200px] object-contain"
+                        />
+                      </a>
+                    ) : (
+                      <div className="border border-[#4C526B] rounded-[10px] h-[80px] flex items-center justify-center">
+                        <span className="text-[14px] text-white/40">לא צורף מסמך</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Exit Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowObligationDetailPopup(false);
+                      setSelectedSupplier(null);
+                      setObligationPayments([]);
+                    }}
+                    className="w-full bg-[#29318A] text-white text-[18px] font-semibold py-[14px] rounded-[10px] hover:bg-[#3D44A0] transition-colors mt-[5px]"
+                  >
+                    יציאה
+                  </button>
                 </div>
               </div>
             );
