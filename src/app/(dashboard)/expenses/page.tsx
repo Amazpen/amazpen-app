@@ -150,6 +150,9 @@ export default function ExpensesPage() {
   const [paymentInstallments, setPaymentInstallments] = useState(1);
   const [paymentReference, setPaymentReference] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
+  const [paymentReceiptFile, setPaymentReceiptFile] = useState<File | null>(null);
+  const [paymentReceiptPreview, setPaymentReceiptPreview] = useState<string | null>(null);
+  const [isUploadingPaymentReceipt, setIsUploadingPaymentReceipt] = useState(false);
 
   // Expanded invoice row state
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
@@ -612,6 +615,20 @@ export default function ExpensesPage() {
             return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
           }, 0);
 
+          // Upload receipt if selected
+          let newExpReceiptUrl: string | null = null;
+          if (paymentReceiptFile) {
+            setIsUploadingPaymentReceipt(true);
+            const fileExt = paymentReceiptFile.name.split('.').pop();
+            const fileName = `receipt-${Date.now()}.${fileExt}`;
+            const filePath = `payments/${fileName}`;
+            const result = await uploadFile(paymentReceiptFile, filePath, "attachments");
+            if (result.success) {
+              newExpReceiptUrl = result.publicUrl || null;
+            }
+            setIsUploadingPaymentReceipt(false);
+          }
+
           const { data: newPayment, error: paymentError } = await supabase
             .from("payments")
             .insert({
@@ -622,6 +639,7 @@ export default function ExpensesPage() {
               invoice_id: newInvoice.id,
               notes: paymentNotes || null,
               created_by: user?.id || null,
+              receipt_url: newExpReceiptUrl,
             })
             .select()
             .single();
@@ -700,6 +718,8 @@ export default function ExpensesPage() {
     setPaymentInstallments(1);
     setPaymentReference("");
     setPaymentNotes("");
+    setPaymentReceiptFile(null);
+    setPaymentReceiptPreview(null);
     setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", customInstallments: [] }]);
     setShowClarificationMenu(false);
   };
@@ -902,6 +922,20 @@ export default function ExpensesPage() {
         return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
       }, 0);
 
+      // Upload receipt if selected
+      let receiptUrl: string | null = null;
+      if (paymentReceiptFile) {
+        setIsUploadingPaymentReceipt(true);
+        const fileExt = paymentReceiptFile.name.split('.').pop();
+        const fileName = `receipt-${Date.now()}.${fileExt}`;
+        const filePath = `payments/${fileName}`;
+        const result = await uploadFile(paymentReceiptFile, filePath, "attachments");
+        if (result.success) {
+          receiptUrl = result.publicUrl || null;
+        }
+        setIsUploadingPaymentReceipt(false);
+      }
+
       // Create the main payment record
       const { data: newPayment, error: paymentError } = await supabase
         .from("payments")
@@ -913,6 +947,7 @@ export default function ExpensesPage() {
           invoice_id: paymentInvoice.id,
           notes: paymentNotes || null,
           created_by: user?.id || null,
+          receipt_url: receiptUrl,
         })
         .select()
         .single();
@@ -989,6 +1024,8 @@ export default function ExpensesPage() {
     setPaymentDate("");
     setPaymentReference("");
     setPaymentNotes("");
+    setPaymentReceiptFile(null);
+    setPaymentReceiptPreview(null);
     setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", customInstallments: [] }]);
   };
 
@@ -1846,7 +1883,22 @@ export default function ExpensesPage() {
                 {/* Paid in Full Checkbox */}
                 <button
                   type="button"
-                  onClick={() => setIsPaidInFull(!isPaidInFull)}
+                  onClick={() => {
+                    const newVal = !isPaidInFull;
+                    setIsPaidInFull(newVal);
+                    if (newVal) {
+                      const today = new Date().toISOString().split('T')[0];
+                      setPaymentDate(today);
+                      const amount = totalWithVat > 0 ? totalWithVat.toString() : "";
+                      setPopupPaymentMethods([{
+                        id: 1,
+                        method: "",
+                        amount,
+                        installments: "1",
+                        customInstallments: amount ? generatePopupInstallments(1, totalWithVat, today) : [],
+                      }]);
+                    }
+                  }}
                   className="flex items-center gap-[3px] min-h-[35px]"
                 >
                   <svg width="21" height="21" viewBox="0 0 32 32" fill="none" className="text-[#979797]">
@@ -2044,6 +2096,65 @@ export default function ExpensesPage() {
                             className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
                           />
                         </div>
+                      </div>
+
+                      {/* Receipt Upload */}
+                      <div className="flex flex-col gap-[3px]">
+                        <label className="text-[15px] font-medium text-white text-right">קבלת תשלום</label>
+                        {paymentReceiptPreview ? (
+                          <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={() => { setPaymentReceiptFile(null); setPaymentReceiptPreview(null); }}
+                              className="text-[#F64E60] text-[14px] hover:underline"
+                            >
+                              הסר
+                            </button>
+                            <div className="flex items-center gap-[10px]">
+                              <span className="text-[14px] text-white/70 truncate max-w-[150px]">
+                                {paymentReceiptFile?.name || "קובץ"}
+                              </span>
+                              <button
+                                type="button"
+                                title="צפייה בקובץ"
+                                onClick={() => window.open(paymentReceiptPreview, '_blank')}
+                                className="text-white/70 hover:text-white"
+                              >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                                  <polyline points="21 15 16 10 5 21"/>
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[60px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
+                            <div className="flex items-center gap-[10px]">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                              </svg>
+                              <span className="text-[14px] text-white/50">לחץ להעלאת תמונה/מסמך</span>
+                            </div>
+                            <input
+                              type="file"
+                              accept="image/*,.pdf"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setPaymentReceiptFile(file);
+                                  setPaymentReceiptPreview(URL.createObjectURL(file));
+                                }
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+                        {isUploadingPaymentReceipt && (
+                          <span className="text-[12px] text-white/50 text-center">מעלה קובץ...</span>
+                        )}
                       </div>
 
                       {/* Payment Notes */}
@@ -2606,6 +2717,65 @@ export default function ExpensesPage() {
                 </div>
               </div>
 
+              {/* Receipt Upload */}
+              <div className="flex flex-col gap-[3px]">
+                <label className="text-[15px] font-medium text-white text-right">קבלת תשלום</label>
+                {paymentReceiptPreview ? (
+                  <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => { setPaymentReceiptFile(null); setPaymentReceiptPreview(null); }}
+                      className="text-[#F64E60] text-[14px] hover:underline"
+                    >
+                      הסר
+                    </button>
+                    <div className="flex items-center gap-[10px]">
+                      <span className="text-[14px] text-white/70 truncate max-w-[150px]">
+                        {paymentReceiptFile?.name || "קובץ"}
+                      </span>
+                      <button
+                        type="button"
+                        title="צפייה בקובץ"
+                        onClick={() => window.open(paymentReceiptPreview, '_blank')}
+                        className="text-white/70 hover:text-white"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                          <circle cx="8.5" cy="8.5" r="1.5"/>
+                          <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[60px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
+                    <div className="flex items-center gap-[10px]">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                      </svg>
+                      <span className="text-[14px] text-white/50">לחץ להעלאת תמונה/מסמך</span>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setPaymentReceiptFile(file);
+                          setPaymentReceiptPreview(URL.createObjectURL(file));
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+                {isUploadingPaymentReceipt && (
+                  <span className="text-[12px] text-white/50 text-center">מעלה קובץ...</span>
+                )}
+              </div>
+
               {/* Payment Notes */}
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">הערות לתשלום</label>
@@ -2624,10 +2794,10 @@ export default function ExpensesPage() {
                 <button
                   type="button"
                   onClick={handleSavePayment}
-                  disabled={isSaving}
+                  disabled={isSaving || isUploadingPaymentReceipt}
                   className="flex-1 bg-[#00E096] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#00C080] disabled:opacity-50"
                 >
-                  {isSaving ? "שומר..." : "אשר תשלום"}
+                  {isSaving ? "שומר..." : isUploadingPaymentReceipt ? "מעלה קובץ..." : "אשר תשלום"}
                 </button>
                 <button
                   type="button"
