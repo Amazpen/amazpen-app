@@ -28,6 +28,7 @@ interface EditingEntry {
 
 interface DailyEntryFormProps {
   businessId: string;
+  businessName?: string;
   onSuccess?: () => void;
   editingEntry?: EditingEntry | null;
   isOpenExternal?: boolean;
@@ -78,8 +79,9 @@ interface BaseFormData {
   discounts: string;
 }
 
-export function DailyEntryForm({ businessId, onSuccess, editingEntry, isOpenExternal, onOpenChange }: DailyEntryFormProps) {
+export function DailyEntryForm({ businessId, businessName, onSuccess, editingEntry, isOpenExternal, onOpenChange }: DailyEntryFormProps) {
   const { isAdmin } = useDashboard();
+  const isPearla = businessName?.includes("פרלה") || false;
   const { showToast } = useToast();
   const [isOpenInternal, setIsOpenInternal] = useState(false);
 
@@ -120,6 +122,23 @@ export function DailyEntryForm({ businessId, onSuccess, editingEntry, isOpenExte
     labor_hours: "",
     discounts: "",
   });
+
+  // Pearla-specific form state
+  const [pearlaData, setPearlaData] = useState({
+    portions_count: "",
+    portions_income: "",
+    serving_supplement: "",
+    serving_income: "",
+    extras_income: "",
+    total_income: "",
+    salaried_labor_cost: "",
+    salaried_labor_overhead: "",
+    manpower_labor_cost: "",
+  });
+
+  const handlePearlaChange = (field: string, value: string) => {
+    setPearlaData((prev) => ({ ...prev, [field]: value }));
+  };
 
   // Load all dynamic data when sheet opens
   useEffect(() => {
@@ -563,6 +582,19 @@ export function DailyEntryForm({ businessId, onSuccess, editingEntry, isOpenExte
       };
     });
     setProductUsage(resetProducts);
+
+    // Reset Pearla-specific data
+    setPearlaData({
+      portions_count: "",
+      portions_income: "",
+      serving_supplement: "",
+      serving_income: "",
+      extras_income: "",
+      total_income: "",
+      salaried_labor_cost: "",
+      salaried_labor_overhead: "",
+      manpower_labor_cost: "",
+    });
   };
 
   return (
@@ -592,7 +624,14 @@ export function DailyEntryForm({ businessId, onSuccess, editingEntry, isOpenExte
               <X className="w-6 h-6" />
             </button>
             <SheetTitle className="text-white text-xl font-bold">
-              {isEditMode ? "עריכת נתונים יומיים" : "הזנת נתונים יומית"}
+              {isPearla ? (
+                <>
+                  <div className="text-[22px] font-bold text-center">פרלה וג&apos;וזף קייטרינג בע&quot;מ</div>
+                  <div className="text-[18px] font-semibold text-center">{isEditMode ? "עריכת נתונים יומיים" : "הזנת נתונים יומיים"}</div>
+                </>
+              ) : (
+                isEditMode ? "עריכת נתונים יומיים" : "הזנת נתונים יומית"
+              )}
             </SheetTitle>
             <div className="w-[24px]" />
           </div>
@@ -611,201 +650,330 @@ export function DailyEntryForm({ businessId, onSuccess, editingEntry, isOpenExte
               </div>
             )}
 
-            {/* שדות בסיס */}
-            <FormField label="תאריך">
-              <Input
-                type="date"
-                value={formData.entry_date}
-                onChange={(e) => handleChange("entry_date", e.target.value)}
-                className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px] [color-scheme:dark]"
-              />
-            </FormField>
+            {isPearla ? (
+              <>
+                {/* Pearla-specific form fields */}
+                <FormField label="תאריך האירוע">
+                  <Input
+                    type="date"
+                    value={formData.entry_date}
+                    onChange={(e) => handleChange("entry_date", e.target.value)}
+                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px] [color-scheme:dark]"
+                  />
+                </FormField>
 
-            <FormField label='סה"כ קופה'>
-              <Input
-                type="number"
-                inputMode="decimal"
-                placeholder="0"
-                value={formData.total_register}
-                onChange={(e) => handleChange("total_register", e.target.value)}
-                className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-              />
-            </FormField>
+                <FormField label="יום חלקי/יום מלא">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder=""
+                    step="0.1"
+                    min="0"
+                    max="1"
+                    value={formData.day_factor}
+                    onChange={(e) => handleChange("day_factor", e.target.value)}
+                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
 
-            {/* יום חלקי/יום מלא - רק לאדמין */}
-            {isAdmin && (
-              <FormField label="יום חלקי/יום מלא">
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  placeholder="1"
-                  step="0.1"
-                  min="0"
-                  max="1"
-                  value={formData.day_factor}
-                  onChange={(e) => handleChange("day_factor", e.target.value)}
-                  className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-                />
-              </FormField>
-            )}
+                <FormField label="כמות מנות">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder=""
+                    value={pearlaData.portions_count}
+                    onChange={(e) => handlePearlaChange("portions_count", e.target.value)}
+                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
 
-            {/* מקורות הכנסה - דינמי */}
-            {incomeSources.length > 0 && (
-              <div className="flex flex-col gap-4 mt-2">
-                <SectionHeader title="מקורות הכנסה" />
-                {incomeSources.map((source) => (
-                  <div key={source.id} className="flex flex-col gap-3">
-                    <FormField label={`סה"כ ${source.name}`}>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        placeholder="0"
-                        value={incomeData[source.id]?.amount || ""}
-                        onChange={(e) => handleIncomeChange(source.id, "amount", e.target.value)}
-                        className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-                      />
-                    </FormField>
-                    <FormField label={`כמות הזמנות ${source.name}`}>
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        placeholder="0"
-                        value={incomeData[source.id]?.orders_count || ""}
-                        onChange={(e) => handleIncomeChange(source.id, "orders_count", e.target.value)}
-                        className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-                      />
-                    </FormField>
-                  </div>
-                ))}
-              </div>
-            )}
+                <FormField label='סה"כ הכנסות מנות'>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder=""
+                    disabled
+                    value={pearlaData.portions_income}
+                    className="bg-transparent border-[#4C526B] text-white/50 text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
 
-            {/* תקבולים - דינמי */}
-            {receiptTypes.length > 0 && (
-              <div className="flex flex-col gap-4 mt-2">
-                <SectionHeader title="תקבולים" />
-                {receiptTypes.map((receipt) => (
-                  <FormField key={receipt.id} label={receipt.name}>
+                <FormField label='תוספת הגשה בש"ח'>
+                  <Input
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder=""
+                    value={pearlaData.serving_supplement}
+                    onChange={(e) => handlePearlaChange("serving_supplement", e.target.value)}
+                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
+
+                <FormField label='סה"כ הכנסות הגשה'>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder=""
+                    disabled
+                    value={pearlaData.serving_income}
+                    className="bg-transparent border-[#4C526B] text-white/50 text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
+
+                <FormField label='סה"כ הכנסות אקסטרות'>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder=""
+                    value={pearlaData.extras_income}
+                    onChange={(e) => handlePearlaChange("extras_income", e.target.value)}
+                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
+
+                <FormField label='סה"כ הכנסות'>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder=""
+                    disabled
+                    value={pearlaData.total_income}
+                    className="bg-transparent border-[#4C526B] text-white/50 text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
+
+                <FormField label='סה"כ עלות עובדים שכירים'>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder=""
+                    value={pearlaData.salaried_labor_cost}
+                    onChange={(e) => handlePearlaChange("salaried_labor_cost", e.target.value)}
+                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
+
+                <FormField label="עלות עובדים שכירים + העמסה">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder=""
+                    disabled
+                    value={pearlaData.salaried_labor_overhead}
+                    className="bg-transparent border-[#4C526B] text-white/50 text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
+
+                <FormField label='סה"כ עלות עובדי כ"א'>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder=""
+                    value={pearlaData.manpower_labor_cost}
+                    onChange={(e) => handlePearlaChange("manpower_labor_cost", e.target.value)}
+                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
+              </>
+            ) : (
+              <>
+                {/* Original form fields for all other businesses */}
+                <FormField label="תאריך">
+                  <Input
+                    type="date"
+                    value={formData.entry_date}
+                    onChange={(e) => handleChange("entry_date", e.target.value)}
+                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px] [color-scheme:dark]"
+                  />
+                </FormField>
+
+                <FormField label='סה"כ קופה'>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={formData.total_register}
+                    onChange={(e) => handleChange("total_register", e.target.value)}
+                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
+
+                {/* יום חלקי/יום מלא - רק לאדמין */}
+                {isAdmin && (
+                  <FormField label="יום חלקי/יום מלא">
                     <Input
                       type="number"
                       inputMode="decimal"
-                      placeholder="0"
-                      value={receiptData[receipt.id] || ""}
-                      onChange={(e) => handleReceiptChange(receipt.id, e.target.value)}
+                      placeholder="1"
+                      step="0.1"
+                      min="0"
+                      max="1"
+                      value={formData.day_factor}
+                      onChange={(e) => handleChange("day_factor", e.target.value)}
                       className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                     />
                   </FormField>
-                ))}
-              </div>
-            )}
+                )}
 
-            {/* פרמטרים נוספים - דינמי */}
-            {customParameters.length > 0 && (
-              <div className="flex flex-col gap-4 mt-2">
-                <SectionHeader title="פרמטרים נוספים" />
-                {customParameters.map((param) => (
-                  <FormField key={param.id} label={param.name}>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={parameterData[param.id] || ""}
-                      onChange={(e) => handleParameterChange(param.id, e.target.value)}
-                      className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-                    />
-                  </FormField>
-                ))}
-              </div>
-            )}
-
-            {/* עלויות עובדים */}
-            <FormField label='סה"כ עלות עובדים יומית'>
-              <Input
-                type="number"
-                inputMode="decimal"
-                placeholder="0"
-                value={formData.labor_cost}
-                onChange={(e) => handleChange("labor_cost", e.target.value)}
-                className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-              />
-            </FormField>
-
-            <FormField label="כמות שעות עובדים">
-              <Input
-                type="number"
-                inputMode="decimal"
-                placeholder="0"
-                value={formData.labor_hours}
-                onChange={(e) => handleChange("labor_hours", e.target.value)}
-                className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-              />
-            </FormField>
-
-            <FormField label="זיכויים+ביטולים+הנחות ב-₪">
-              <Input
-                type="number"
-                inputMode="decimal"
-                placeholder="0"
-                value={formData.discounts}
-                onChange={(e) => handleChange("discounts", e.target.value)}
-                className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-              />
-            </FormField>
-
-            {/* מוצרים מנוהלים - דינמי */}
-            {managedProducts.length > 0 && (
-              <div className="flex flex-col gap-4 mt-2">
-                <SectionHeader title="מוצרים מנוהלים" />
-                {managedProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    className="border border-[#4C526B] rounded-[10px] p-4 flex flex-col gap-3"
-                  >
-                    <div className="text-white font-medium text-right">
-                      <span>{product.name}</span>
-                    </div>
-
-                    <FormField label={`מלאי פתיחה (${product.unit})`}>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        placeholder="0"
-                        value={productUsage[product.id]?.opening_stock || ""}
-                        onChange={(e) =>
-                          handleProductUsageChange(product.id, "opening_stock", e.target.value)
-                        }
-                        className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-                      />
-                    </FormField>
-
-                    <FormField label={`כמה ${product.unit} ${product.name} קיבלנו היום?`}>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        placeholder="0"
-                        value={productUsage[product.id]?.received_quantity || ""}
-                        onChange={(e) =>
-                          handleProductUsageChange(product.id, "received_quantity", e.target.value)
-                        }
-                        className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-                      />
-                    </FormField>
-
-                    <FormField label={`כמה ${product.unit} ${product.name} נשאר?`}>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        placeholder="0"
-                        value={productUsage[product.id]?.closing_stock || ""}
-                        onChange={(e) =>
-                          handleProductUsageChange(product.id, "closing_stock", e.target.value)
-                        }
-                        className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-                      />
-                    </FormField>
+                {/* מקורות הכנסה - דינמי */}
+                {incomeSources.length > 0 && (
+                  <div className="flex flex-col gap-4 mt-2">
+                    <SectionHeader title="מקורות הכנסה" />
+                    {incomeSources.map((source) => (
+                      <div key={source.id} className="flex flex-col gap-3">
+                        <FormField label={`סה"כ ${source.name}`}>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="0"
+                            value={incomeData[source.id]?.amount || ""}
+                            onChange={(e) => handleIncomeChange(source.id, "amount", e.target.value)}
+                            className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                          />
+                        </FormField>
+                        <FormField label={`כמות הזמנות ${source.name}`}>
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            placeholder="0"
+                            value={incomeData[source.id]?.orders_count || ""}
+                            onChange={(e) => handleIncomeChange(source.id, "orders_count", e.target.value)}
+                            className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                          />
+                        </FormField>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+
+                {/* תקבולים - דינמי */}
+                {receiptTypes.length > 0 && (
+                  <div className="flex flex-col gap-4 mt-2">
+                    <SectionHeader title="תקבולים" />
+                    {receiptTypes.map((receipt) => (
+                      <FormField key={receipt.id} label={receipt.name}>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="0"
+                          value={receiptData[receipt.id] || ""}
+                          onChange={(e) => handleReceiptChange(receipt.id, e.target.value)}
+                          className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                        />
+                      </FormField>
+                    ))}
+                  </div>
+                )}
+
+                {/* פרמטרים נוספים - דינמי */}
+                {customParameters.length > 0 && (
+                  <div className="flex flex-col gap-4 mt-2">
+                    <SectionHeader title="פרמטרים נוספים" />
+                    {customParameters.map((param) => (
+                      <FormField key={param.id} label={param.name}>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="0"
+                          value={parameterData[param.id] || ""}
+                          onChange={(e) => handleParameterChange(param.id, e.target.value)}
+                          className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                        />
+                      </FormField>
+                    ))}
+                  </div>
+                )}
+
+                {/* עלויות עובדים */}
+                <FormField label='סה"כ עלות עובדים יומית'>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={formData.labor_cost}
+                    onChange={(e) => handleChange("labor_cost", e.target.value)}
+                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
+
+                <FormField label="כמות שעות עובדים">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={formData.labor_hours}
+                    onChange={(e) => handleChange("labor_hours", e.target.value)}
+                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
+
+                <FormField label="זיכויים+ביטולים+הנחות ב-₪">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={formData.discounts}
+                    onChange={(e) => handleChange("discounts", e.target.value)}
+                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
+
+                {/* מוצרים מנוהלים - דינמי */}
+                {managedProducts.length > 0 && (
+                  <div className="flex flex-col gap-4 mt-2">
+                    <SectionHeader title="מוצרים מנוהלים" />
+                    {managedProducts.map((product) => (
+                      <div
+                        key={product.id}
+                        className="border border-[#4C526B] rounded-[10px] p-4 flex flex-col gap-3"
+                      >
+                        <div className="text-white font-medium text-right">
+                          <span>{product.name}</span>
+                        </div>
+
+                        <FormField label={`מלאי פתיחה (${product.unit})`}>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="0"
+                            value={productUsage[product.id]?.opening_stock || ""}
+                            onChange={(e) =>
+                              handleProductUsageChange(product.id, "opening_stock", e.target.value)
+                            }
+                            className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                          />
+                        </FormField>
+
+                        <FormField label={`כמה ${product.unit} ${product.name} קיבלנו היום?`}>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="0"
+                            value={productUsage[product.id]?.received_quantity || ""}
+                            onChange={(e) =>
+                              handleProductUsageChange(product.id, "received_quantity", e.target.value)
+                            }
+                            className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                          />
+                        </FormField>
+
+                        <FormField label={`כמה ${product.unit} ${product.name} נשאר?`}>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="0"
+                            value={productUsage[product.id]?.closing_stock || ""}
+                            onChange={(e) =>
+                              handleProductUsageChange(product.id, "closing_stock", e.target.value)
+                            }
+                            className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                          />
+                        </FormField>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
             {/* Action Buttons */}

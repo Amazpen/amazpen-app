@@ -1970,6 +1970,7 @@ export default function DashboardPage() {
                 {realBusinessId ? (
                   <DailyEntryForm
                     businessId={realBusinessId}
+                    businessName={businessCards.find(b => b.id === realBusinessId)?.name || ""}
                     onSuccess={() => {
                       // Optionally refresh data after successful save
                       console.log("Daily entry saved successfully");
