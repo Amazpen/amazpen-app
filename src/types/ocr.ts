@@ -4,7 +4,7 @@ export type DocumentSource = 'telegram' | 'whatsapp' | 'email' | 'upload';
 
 export type DocumentStatus = 'pending' | 'reviewing' | 'approved' | 'rejected';
 
-export type DocumentType = 'invoice' | 'delivery_note' | 'credit_note' | 'payment';
+export type DocumentType = 'invoice' | 'delivery_note' | 'credit_note' | 'payment' | 'summary';
 
 export type ExpenseType = 'goods' | 'current';
 
@@ -44,6 +44,7 @@ export interface OCRDocument {
 }
 
 export interface OCRFormData {
+  business_id: string;
   document_type: DocumentType;
   expense_type: ExpenseType;
   supplier_id: string;
@@ -165,6 +166,7 @@ export function getDocumentTypeLabel(type: DocumentType): string {
     delivery_note: 'תעודת משלוח',
     credit_note: 'זיכוי',
     payment: 'תשלום',
+    summary: 'מרכזת',
   };
   return labels[type];
 }

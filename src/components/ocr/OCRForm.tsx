@@ -10,20 +10,29 @@ interface Supplier {
   name: string;
 }
 
+interface Business {
+  id: string;
+  name: string;
+}
+
 interface OCRFormProps {
   document: OCRDocument | null;
   suppliers: Supplier[];
+  businesses: Business[];
+  selectedBusinessId: string;
+  onBusinessChange: (businessId: string) => void;
   onApprove: (formData: OCRFormData) => void;
   onReject: (documentId: string, reason?: string) => void;
   onSkip?: () => void;
   isLoading?: boolean;
 }
 
-const DOCUMENT_TYPES: { value: DocumentType; label: string }[] = [
+// Tabs for document type selection
+const DOCUMENT_TABS: { value: DocumentType; label: string }[] = [
   { value: 'invoice', label: 'חשבונית' },
-  { value: 'delivery_note', label: 'תעודת משלוח' },
-  { value: 'credit_note', label: 'זיכוי' },
   { value: 'payment', label: 'תשלום' },
+  { value: 'delivery_note', label: 'תעודת משלוח' },
+  { value: 'summary', label: 'מרכזת' },
 ];
 
 const PAYMENT_METHODS = [
@@ -40,9 +49,26 @@ const PAYMENT_METHODS = [
 
 const VAT_RATE = 0.17;
 
+// Payment method entry for multiple payment methods support
+interface PaymentMethodEntry {
+  id: number;
+  method: string;
+  amount: string;
+  installments: string;
+  customInstallments: Array<{
+    number: number;
+    date: string;
+    dateForInput: string;
+    amount: number;
+  }>;
+}
+
 export default function OCRForm({
   document,
   suppliers,
+  businesses,
+  selectedBusinessId,
+  onBusinessChange,
   onApprove,
   onReject,
   onSkip,
@@ -59,15 +85,31 @@ export default function OCRForm({
   const [partialVat, setPartialVat] = useState(false);
   const [notes, setNotes] = useState('');
   const [isPaid, setIsPaid] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('');
-  const [paymentDate, setPaymentDate] = useState('');
-  const [paymentInstallments, setPaymentInstallments] = useState(1);
-  const [paymentReference, setPaymentReference] = useState('');
-  const [paymentNotes, setPaymentNotes] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
-  // Calculate VAT and total
+  // Payment fields for invoice tab (when isPaid is checked) - single payment method
+  const [inlinePaymentMethod, setInlinePaymentMethod] = useState('');
+  const [inlinePaymentDate, setInlinePaymentDate] = useState('');
+  const [inlinePaymentReference, setInlinePaymentReference] = useState('');
+  const [inlinePaymentNotes, setInlinePaymentNotes] = useState('');
+
+  // Payment tab - multiple payment methods (aligned with payments page)
+  const [paymentTabDate, setPaymentTabDate] = useState('');
+  const [paymentTabExpenseType, setPaymentTabExpenseType] = useState<'expenses' | 'purchases'>('expenses');
+  const [paymentTabSupplierId, setPaymentTabSupplierId] = useState('');
+  const [paymentTabReference, setPaymentTabReference] = useState('');
+  const [paymentTabNotes, setPaymentTabNotes] = useState('');
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodEntry[]>([
+    { id: 1, method: '', amount: '', installments: '1', customInstallments: [] },
+  ]);
+
+  // Inline payment methods for invoice "paid in full" section
+  const [inlinePaymentMethods, setInlinePaymentMethods] = useState<PaymentMethodEntry[]>([
+    { id: 1, method: '', amount: '', installments: '1', customInstallments: [] },
+  ]);
+
+  // Calculate VAT and total (for invoice/delivery_note tabs)
   const calculatedVat = useMemo(() => {
     const amount = parseFloat(amountBeforeVat) || 0;
     return amount * VAT_RATE;
@@ -79,116 +121,226 @@ export default function OCRForm({
     return amount + vat;
   }, [amountBeforeVat, vatAmount, partialVat, calculatedVat]);
 
-  const paymentPerInstallment = useMemo(() => {
-    return paymentInstallments > 0 ? totalWithVat / paymentInstallments : 0;
-  }, [totalWithVat, paymentInstallments]);
+  // Generate installments breakdown
+  const generateInstallments = (numInstallments: number, totalAmount: number, startDateStr: string) => {
+    if (numInstallments <= 1 || totalAmount === 0) return [];
+    const installmentAmount = totalAmount / numInstallments;
+    const startDate = startDateStr ? new Date(startDateStr) : new Date();
+    const result = [];
+    for (let i = 0; i < numInstallments; i++) {
+      const date = new Date(startDate);
+      date.setMonth(date.getMonth() + i);
+      result.push({
+        number: i + 1,
+        date: date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+        dateForInput: date.toISOString().split('T')[0],
+        amount: installmentAmount,
+      });
+    }
+    return result;
+  };
+
+  // Payment methods helpers (shared for both payment tab and inline payment)
+  const addPaymentMethodEntry = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[]) => {
+    const newId = Math.max(...methods.map(p => p.id)) + 1;
+    setter(prev => [...prev, { id: newId, method: '', amount: '', installments: '1', customInstallments: [] }]);
+  };
+
+  const removePaymentMethodEntry = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[], id: number) => {
+    if (methods.length > 1) {
+      setter(prev => prev.filter(p => p.id !== id));
+    }
+  };
+
+  const updatePaymentMethodField = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, id: number, field: keyof PaymentMethodEntry, value: string, dateStr: string) => {
+    setter(prev => prev.map(p => {
+      if (p.id !== id) return p;
+      const updated = { ...p, [field]: value };
+      if (field === 'amount' || field === 'installments') {
+        const numInstallments = parseInt(field === 'installments' ? value : p.installments) || 1;
+        const totalAmount = parseFloat((field === 'amount' ? value : p.amount).replace(/[^\d.]/g, '')) || 0;
+        updated.customInstallments = generateInstallments(numInstallments, totalAmount, dateStr);
+      }
+      return updated;
+    }));
+  };
+
+  const handleInstallmentDateChange = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, paymentMethodId: number, installmentIndex: number, newDate: string) => {
+    setter(prev => prev.map(p => {
+      if (p.id !== paymentMethodId) return p;
+      const updatedInstallments = [...p.customInstallments];
+      if (updatedInstallments[installmentIndex]) {
+        const date = new Date(newDate);
+        updatedInstallments[installmentIndex] = {
+          ...updatedInstallments[installmentIndex],
+          dateForInput: newDate,
+          date: date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+        };
+      }
+      return { ...p, customInstallments: updatedInstallments };
+    }));
+  };
+
+  const handleInstallmentAmountChange = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, paymentMethodId: number, installmentIndex: number, newAmount: string) => {
+    const amount = parseFloat(newAmount.replace(/[^\d.]/g, '')) || 0;
+    setter(prev => prev.map(p => {
+      if (p.id !== paymentMethodId) return p;
+      const updatedInstallments = [...p.customInstallments];
+      if (updatedInstallments[installmentIndex]) {
+        updatedInstallments[installmentIndex] = { ...updatedInstallments[installmentIndex], amount };
+      }
+      return { ...p, customInstallments: updatedInstallments };
+    }));
+  };
+
+  const getInstallmentsTotal = (customInstallments: PaymentMethodEntry['customInstallments']) => {
+    return customInstallments.reduce((sum, item) => sum + item.amount, 0);
+  };
 
   // Populate form from OCR data when document changes
   useEffect(() => {
     if (document?.ocr_data) {
       const data = document.ocr_data;
 
-      // Set document type
       if (document.document_type) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setDocumentType(document.document_type);
       }
-
-      // Set expense type
       if (document.expense_type) {
         setExpenseType(document.expense_type);
       }
-
-      // Set date
       if (data.document_date) {
         setDocumentDate(data.document_date);
+        setPaymentTabDate(data.document_date);
       } else {
-        setDocumentDate(new Date().toISOString().split('T')[0]);
+        const today = new Date().toISOString().split('T')[0];
+        setDocumentDate(today);
+        setPaymentTabDate(today);
       }
-
-      // Set document number
       if (data.document_number) {
         setDocumentNumber(data.document_number);
       }
-
-      // Set amounts
       if (data.subtotal !== undefined) {
         setAmountBeforeVat(data.subtotal.toString());
       }
       if (data.vat_amount !== undefined) {
         setVatAmount(data.vat_amount.toString());
-        // Check if VAT is different from standard rate
         const expectedVat = (data.subtotal || 0) * VAT_RATE;
         if (Math.abs((data.vat_amount || 0) - expectedVat) > 0.01) {
           setPartialVat(true);
         }
       }
-
-      // Try to match supplier
       if (data.supplier_name) {
         const matchedSupplier = suppliers.find(
           (s) => s.name.includes(data.supplier_name!) || data.supplier_name!.includes(s.name)
         );
         if (matchedSupplier) {
           setSupplierId(matchedSupplier.id);
+          setPaymentTabSupplierId(matchedSupplier.id);
         }
       }
 
       // Reset payment fields
       setIsPaid(false);
-      setPaymentMethod('');
-      setPaymentDate('');
-      setPaymentInstallments(1);
-      setPaymentReference('');
-      setPaymentNotes('');
+      setInlinePaymentMethod('');
+      setInlinePaymentDate('');
+      setInlinePaymentReference('');
+      setInlinePaymentNotes('');
+      setInlinePaymentMethods([{ id: 1, method: '', amount: '', installments: '1', customInstallments: [] }]);
+      setPaymentMethods([{ id: 1, method: '', amount: '', installments: '1', customInstallments: [] }]);
+      setPaymentTabReference('');
+      setPaymentTabNotes('');
       setNotes('');
     } else {
-      // Reset all fields for empty document
+      // Reset all fields
       setDocumentType('invoice');
       setExpenseType('goods');
       setSupplierId('');
-      setDocumentDate(new Date().toISOString().split('T')[0]);
+      const today = new Date().toISOString().split('T')[0];
+      setDocumentDate(today);
       setDocumentNumber('');
       setAmountBeforeVat('');
       setVatAmount('');
       setPartialVat(false);
       setNotes('');
       setIsPaid(false);
-      setPaymentMethod('');
-      setPaymentDate('');
-      setPaymentInstallments(1);
-      setPaymentReference('');
-      setPaymentNotes('');
+      setInlinePaymentMethod('');
+      setInlinePaymentDate('');
+      setInlinePaymentReference('');
+      setInlinePaymentNotes('');
+      setInlinePaymentMethods([{ id: 1, method: '', amount: '', installments: '1', customInstallments: [] }]);
+      setPaymentTabDate(today);
+      setPaymentTabExpenseType('expenses');
+      setPaymentTabSupplierId('');
+      setPaymentTabReference('');
+      setPaymentTabNotes('');
+      setPaymentMethods([{ id: 1, method: '', amount: '', installments: '1', customInstallments: [] }]);
     }
   }, [document, suppliers]);
 
   const handleSubmit = () => {
-    if (!supplierId || !documentDate || !amountBeforeVat) {
-      alert('נא למלא את כל השדות הנדרשים');
+    if (!selectedBusinessId) {
+      alert('נא לבחור עסק');
       return;
     }
 
-    const formData: OCRFormData = {
-      document_type: documentType,
-      expense_type: expenseType,
-      supplier_id: supplierId,
-      document_date: documentDate,
-      document_number: documentNumber,
-      amount_before_vat: amountBeforeVat,
-      vat_amount: partialVat ? vatAmount : calculatedVat.toFixed(2),
-      total_amount: totalWithVat.toFixed(2),
-      notes,
-      is_paid: isPaid,
-      ...(isPaid && {
-        payment_method: paymentMethod,
-        payment_date: paymentDate,
-        payment_installments: paymentInstallments,
-        payment_reference: paymentReference,
-        payment_notes: paymentNotes,
-      }),
-    };
-
-    onApprove(formData);
+    if (documentType === 'payment') {
+      // Payment tab validation
+      if (!paymentTabSupplierId || !paymentTabDate) {
+        alert('נא למלא את כל השדות הנדרשים');
+        return;
+      }
+      const formData: OCRFormData = {
+        business_id: selectedBusinessId,
+        document_type: documentType,
+        expense_type: paymentTabExpenseType === 'purchases' ? 'goods' : 'current',
+        supplier_id: paymentTabSupplierId,
+        document_date: paymentTabDate,
+        document_number: '',
+        amount_before_vat: '0',
+        vat_amount: '0',
+        total_amount: paymentMethods.reduce((s, p) => s + (parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0), 0).toFixed(2),
+        notes: paymentTabNotes,
+        is_paid: true,
+        payment_method: paymentMethods[0]?.method || '',
+        payment_date: paymentTabDate,
+        payment_installments: parseInt(paymentMethods[0]?.installments) || 1,
+        payment_reference: paymentTabReference,
+        payment_notes: paymentTabNotes,
+      };
+      onApprove(formData);
+    } else if (documentType === 'summary') {
+      // Summary - placeholder
+      alert('מרכזת - בקרוב');
+      return;
+    } else {
+      // Invoice / Delivery Note / Credit Note
+      if (!supplierId || !documentDate || !amountBeforeVat) {
+        alert('נא למלא את כל השדות הנדרשים');
+        return;
+      }
+      const formData: OCRFormData = {
+        business_id: selectedBusinessId,
+        document_type: documentType,
+        expense_type: expenseType,
+        supplier_id: supplierId,
+        document_date: documentDate,
+        document_number: documentNumber,
+        amount_before_vat: amountBeforeVat,
+        vat_amount: partialVat ? vatAmount : calculatedVat.toFixed(2),
+        total_amount: totalWithVat.toFixed(2),
+        notes,
+        is_paid: isPaid,
+        ...(isPaid && {
+          payment_method: inlinePaymentMethods[0]?.method || inlinePaymentMethod,
+          payment_date: inlinePaymentDate,
+          payment_installments: parseInt(inlinePaymentMethods[0]?.installments) || 1,
+          payment_reference: inlinePaymentReference,
+          payment_notes: inlinePaymentNotes,
+        }),
+      };
+      onApprove(formData);
+    }
   };
 
   const handleReject = () => {
@@ -198,6 +350,572 @@ export default function OCRForm({
       setRejectReason('');
     }
   };
+
+  // Render payment methods section (reusable for both payment tab and inline)
+  const renderPaymentMethodsSection = (
+    methods: PaymentMethodEntry[],
+    setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>,
+    dateStr: string,
+  ) => (
+    <div className="flex flex-col gap-[15px]">
+      <div className="flex items-center justify-between">
+        <span className="text-[15px] font-medium text-white">אמצעי תשלום</span>
+        <button
+          type="button"
+          onClick={() => addPaymentMethodEntry(setter, methods)}
+          className="bg-[#29318A] text-white text-[14px] font-medium px-[12px] py-[6px] rounded-[7px] hover:bg-[#3D44A0] transition-colors"
+        >
+          + הוסף אמצעי תשלום
+        </button>
+      </div>
+
+      {methods.map((pm, pmIndex) => (
+        <div key={pm.id} className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+          {methods.length > 1 && (
+            <div className="flex items-center justify-between mb-[5px]">
+              <span className="text-[14px] text-white/70">אמצעי תשלום {pmIndex + 1}</span>
+              <button
+                type="button"
+                onClick={() => removePaymentMethodEntry(setter, methods, pm.id)}
+                className="text-[14px] text-red-400 hover:text-red-300 transition-colors"
+              >
+                הסר
+              </button>
+            </div>
+          )}
+
+          {/* Payment Method Select */}
+          <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+            <select
+              title="בחירת אמצעי תשלום"
+              value={pm.method}
+              onChange={(e) => updatePaymentMethodField(setter, pm.id, 'method', e.target.value, dateStr)}
+              className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
+            >
+              <option value="" disabled>בחר אמצעי תשלום...</option>
+              {PAYMENT_METHODS.map((method) => (
+                <option key={method.value} value={method.value}>{method.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Payment Amount */}
+          <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={pm.amount ? `₪${parseFloat(pm.amount.replace(/[^\d.]/g, '') || '0').toLocaleString('he-IL')}` : ''}
+              onChange={(e) => {
+                const rawValue = e.target.value.replace(/[^\d.]/g, '');
+                updatePaymentMethodField(setter, pm.id, 'amount', rawValue, dateStr);
+              }}
+              placeholder="₪0.00 סכום"
+              className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
+            />
+          </div>
+
+          {/* Installments */}
+          <div className="flex flex-col gap-[3px]">
+            <span className="text-[14px] text-white/70">כמות תשלומים</span>
+            <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
+              <button
+                type="button"
+                title="הפחת תשלום"
+                onClick={() => updatePaymentMethodField(setter, pm.id, 'installments', String(Math.max(1, parseInt(pm.installments) - 1)), dateStr)}
+                className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
+              >
+                -
+              </button>
+              <input
+                type="text"
+                inputMode="numeric"
+                title="כמות תשלומים"
+                value={pm.installments}
+                onChange={(e) => updatePaymentMethodField(setter, pm.id, 'installments', e.target.value.replace(/\D/g, '') || '1', dateStr)}
+                className="flex-1 h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none"
+              />
+              <button
+                type="button"
+                title="הוסף תשלום"
+                onClick={() => updatePaymentMethodField(setter, pm.id, 'installments', String(parseInt(pm.installments) + 1), dateStr)}
+                className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
+              >
+                +
+              </button>
+            </div>
+
+            {/* Installments Breakdown */}
+            {pm.customInstallments.length > 0 && (
+              <div className="mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+                <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
+                  <span className="text-[14px] font-medium text-white/70 w-[50px] text-center flex-shrink-0">תשלום</span>
+                  <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
+                  <span className="text-[14px] font-medium text-white/70 flex-1 text-center">סכום</span>
+                </div>
+                <div className="flex flex-col gap-[8px] max-h-[200px] overflow-y-auto">
+                  {pm.customInstallments.map((item, index) => (
+                    <div key={item.number} className="flex items-center gap-[8px]">
+                      <span className="text-[14px] text-white ltr-num w-[50px] text-center flex-shrink-0">{item.number}/{pm.installments}</span>
+                      <div className="flex-1 h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] relative flex items-center justify-center">
+                        <span className="text-[14px] text-white pointer-events-none ltr-num">
+                          {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
+                        </span>
+                        <input
+                          type="date"
+                          title={`תאריך תשלום ${item.number}`}
+                          value={item.dateForInput}
+                          onChange={(e) => handleInstallmentDateChange(setter, pm.id, index, e.target.value)}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        />
+                      </div>
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          title={`סכום תשלום ${item.number}`}
+                          value={item.amount.toFixed(2)}
+                          onChange={(e) => handleInstallmentAmountChange(setter, pm.id, index, e.target.value)}
+                          className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-[8px] border-t border-[#4C526B] pt-[8px] mt-[8px]">
+                  <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה&quot;כ</span>
+                  <span className="flex-1"></span>
+                  <span className="text-[14px] font-bold text-white ltr-num flex-1 text-center">
+                    ₪{getInstallmentsTotal(pm.customInstallments).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  // Render Invoice / Delivery Note / Credit Note form (aligned with expenses new form)
+  const renderInvoiceForm = () => (
+    <div className="flex flex-col gap-[15px]">
+      {/* Expense Type */}
+      <div className="flex flex-col gap-[5px]">
+        <label className="text-[15px] font-medium text-white text-right">סוג הוצאה</label>
+        <div className="flex items-center justify-start gap-[20px]">
+          <button
+            type="button"
+            onClick={() => setExpenseType('goods')}
+            className="flex items-center gap-[3px]"
+          >
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === 'goods' ? 'text-white' : 'text-white/50'}>
+              {expenseType === 'goods' ? (
+                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor" />
+              ) : (
+                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" />
+              )}
+            </svg>
+            <span className={`text-[15px] font-semibold ${expenseType === 'goods' ? 'text-white' : 'text-white/50'}`}>
+              קניות סחורה
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setExpenseType('current')}
+            className="flex items-center gap-[3px]"
+          >
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === 'current' ? 'text-white' : 'text-white/50'}>
+              {expenseType === 'current' ? (
+                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor" />
+              ) : (
+                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" />
+              )}
+            </svg>
+            <span className={`text-[15px] font-semibold ${expenseType === 'current' ? 'text-white' : 'text-white/50'}`}>
+              הוצאות שוטפות
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Date Field */}
+      <div className="flex flex-col gap-[5px]">
+        <label className="text-[15px] font-medium text-white text-right">תאריך</label>
+        <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
+          <span className={`text-[16px] font-semibold pointer-events-none ${documentDate ? 'text-white' : 'text-white/40'}`}>
+            {documentDate
+              ? new Date(documentDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+              : 'יום/חודש/שנה'}
+          </span>
+          <input
+            type="date"
+            title="תאריך מסמך"
+            value={documentDate}
+            onChange={(e) => setDocumentDate(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          />
+        </div>
+      </div>
+
+      {/* Supplier Select */}
+      <div className="flex flex-col gap-[3px]">
+        <label className="text-[15px] font-medium text-white text-right">שם ספק</label>
+        <div className="border border-[#4C526B] rounded-[10px]">
+          <select
+            title="בחר ספק"
+            value={supplierId}
+            onChange={(e) => setSupplierId(e.target.value)}
+            className="w-full h-[48px] bg-[#0F1535] text-white/40 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+          >
+            <option value="" className="bg-[#0F1535] text-white/40">בחר/י ספק...</option>
+            {suppliers.map((supplier) => (
+              <option key={supplier.id} value={supplier.id} className="bg-[#0F1535] text-white">
+                {supplier.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {document?.ocr_data?.supplier_name && !supplierId && (
+          <p className="text-[12px] text-[#f59e0b] mt-1">
+            OCR זיהה: {document.ocr_data.supplier_name}
+          </p>
+        )}
+      </div>
+
+      {/* Document Number */}
+      <div className="flex flex-col gap-[5px]">
+        <label className="text-[15px] font-normal text-white text-right">מספר חשבונית / תעודת משלוח</label>
+        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+          <input
+            type="text"
+            value={documentNumber}
+            onChange={(e) => setDocumentNumber(e.target.value)}
+            placeholder="מספר מסמך..."
+            className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+          />
+        </div>
+      </div>
+
+      {/* Amount Before VAT */}
+      <div className="flex flex-col gap-[5px]">
+        <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ</label>
+        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+          <input
+            type="text"
+            inputMode="decimal"
+            title="סכום לפני מע״מ"
+            value={amountBeforeVat}
+            onChange={(e) => setAmountBeforeVat(e.target.value)}
+            placeholder="0.00"
+            className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+          />
+        </div>
+      </div>
+
+      {/* Partial VAT Checkbox and VAT Amount */}
+      <div className="flex items-center justify-between gap-[15px]">
+        <div className="flex flex-col gap-[5px]">
+          <label className="text-[15px] font-medium text-white text-right">מע&quot;מ</label>
+          <div className="border border-[#4C526B] rounded-[10px] h-[50px] w-[148px]">
+            <input
+              type="text"
+              inputMode="decimal"
+              title="סכום מע״מ"
+              placeholder="0.00"
+              value={partialVat ? vatAmount : calculatedVat.toFixed(2)}
+              onChange={(e) => setVatAmount(e.target.value)}
+              disabled={!partialVat}
+              className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] disabled:text-white/50"
+            />
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-[5px]">
+          <button
+            type="button"
+            title="הזנת סכום מע״מ חלקי"
+            onClick={() => setPartialVat(!partialVat)}
+            className="text-[#979797]"
+          >
+            <svg width="21" height="21" viewBox="0 0 32 32" fill="none">
+              {partialVat ? (
+                <>
+                  <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor" />
+                  <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </>
+              ) : (
+                <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" />
+              )}
+            </svg>
+          </button>
+          <span className="text-[15px] font-medium text-white">הזנת סכום מע&quot;מ חלקי</span>
+        </div>
+      </div>
+
+      {/* Total with VAT */}
+      <div className="flex flex-col gap-[5px]">
+        <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
+        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+          <input
+            type="text"
+            title="סכום כולל מע״מ"
+            placeholder="0.00"
+            value={totalWithVat.toFixed(2)}
+            disabled
+            className="w-full h-full bg-transparent text-white/50 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+          />
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="flex flex-col gap-[5px]">
+        <label className="text-[15px] font-medium text-white text-right">הערות למסמך</label>
+        <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="הערות למסמך..."
+            className="w-full h-full min-h-[100px] bg-transparent text-white text-[16px] text-right rounded-[10px] border-none outline-none p-[10px] resize-none"
+          />
+        </div>
+      </div>
+
+      {/* Paid in Full Checkbox */}
+      <div className="flex flex-col gap-[3px]" dir="rtl">
+        <button
+          type="button"
+          onClick={() => {
+            const newVal = !isPaid;
+            setIsPaid(newVal);
+            if (newVal) {
+              const today = new Date().toISOString().split('T')[0];
+              setInlinePaymentDate(today);
+              const amount = totalWithVat > 0 ? totalWithVat.toString() : '';
+              setInlinePaymentMethods([{
+                id: 1,
+                method: '',
+                amount,
+                installments: '1',
+                customInstallments: amount ? generateInstallments(1, totalWithVat, today) : [],
+              }]);
+            }
+          }}
+          className="flex items-center gap-[3px] min-h-[35px]"
+        >
+          <svg width="21" height="21" viewBox="0 0 32 32" fill="none" className="text-[#979797]">
+            {isPaid ? (
+              <>
+                <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor" />
+                <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </>
+            ) : (
+              <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" />
+            )}
+          </svg>
+          <span className="text-[15px] font-medium text-white">התעודה שולמה במלואה</span>
+        </button>
+
+        {/* Payment Details Section - aligned with expenses page payment section */}
+        {isPaid && (
+          <div className="bg-[#0F1535] rounded-[10px] p-[25px_5px_5px] mt-[15px]">
+            <h3 className="text-[18px] font-semibold text-white text-center mb-[20px]">הוספת הוצאה - קליטת תשלום</h3>
+
+            <div className="flex flex-col gap-[15px]">
+              {/* Payment Date */}
+              <div className="flex flex-col gap-[3px]">
+                <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
+                <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
+                  <span className={`text-[16px] font-semibold pointer-events-none ${inlinePaymentDate ? 'text-white' : 'text-white/40'}`}>
+                    {inlinePaymentDate
+                      ? new Date(inlinePaymentDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                      : 'יום/חודש/שנה'}
+                  </span>
+                  <input
+                    type="date"
+                    title="תאריך תשלום"
+                    value={inlinePaymentDate}
+                    onChange={(e) => {
+                      setInlinePaymentDate(e.target.value);
+                      setInlinePaymentMethods(prev => prev.map(p => {
+                        const numInstallments = parseInt(p.installments) || 1;
+                        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
+                        if (numInstallments >= 1 && totalAmount > 0) {
+                          return { ...p, customInstallments: generateInstallments(numInstallments, totalAmount, e.target.value) };
+                        }
+                        return { ...p, customInstallments: [] };
+                      }));
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                </div>
+              </div>
+
+              {/* Payment Methods */}
+              {renderPaymentMethodsSection(inlinePaymentMethods, setInlinePaymentMethods, inlinePaymentDate)}
+
+              {/* Payment Reference */}
+              <div className="flex flex-col gap-[3px]">
+                <label className="text-[15px] font-medium text-white text-right">אסמכתא</label>
+                <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                  <input
+                    type="text"
+                    placeholder="מספר אסמכתא..."
+                    value={inlinePaymentReference}
+                    onChange={(e) => setInlinePaymentReference(e.target.value)}
+                    className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
+                  />
+                </div>
+              </div>
+
+              {/* Payment Notes */}
+              <div className="flex flex-col gap-[3px]">
+                <label className="text-[15px] font-medium text-white text-right">הערות</label>
+                <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
+                  <textarea
+                    value={inlinePaymentNotes}
+                    onChange={(e) => setInlinePaymentNotes(e.target.value)}
+                    placeholder="הערות..."
+                    className="w-full h-[100px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] py-[10px] rounded-[10px] resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Render Payment tab form (aligned with payments page new payment form)
+  const renderPaymentForm = () => (
+    <div className="flex flex-col gap-[15px]">
+      {/* Payment Date */}
+      <div className="flex flex-col gap-[5px]">
+        <label className="text-[16px] font-medium text-white text-right">תאריך קבלה</label>
+        <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
+          <span className={`text-[16px] font-semibold pointer-events-none ${paymentTabDate ? 'text-white' : 'text-white/40'}`}>
+            {paymentTabDate
+              ? new Date(paymentTabDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+              : 'יום/חודש/שנה'}
+          </span>
+          <input
+            type="date"
+            title="תאריך קבלה"
+            value={paymentTabDate}
+            onChange={(e) => setPaymentTabDate(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          />
+        </div>
+      </div>
+
+      {/* Expense Type */}
+      <div className="flex flex-col gap-[3px]">
+        <label className="text-[16px] font-medium text-white text-right">סוג הוצאה</label>
+        <div dir="rtl" className="flex items-start gap-[20px]">
+          <button
+            type="button"
+            onClick={() => setPaymentTabExpenseType('purchases')}
+            className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
+          >
+            <span className={`text-[16px] font-semibold ${paymentTabExpenseType === 'purchases' ? 'text-white' : 'text-[#979797]'}`}>
+              קניות סחורה
+            </span>
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={paymentTabExpenseType === 'purchases' ? 'text-white' : 'text-[#979797]'}>
+              {paymentTabExpenseType === 'purchases' ? (
+                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor" />
+              ) : (
+                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" />
+              )}
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaymentTabExpenseType('expenses')}
+            className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
+          >
+            <span className={`text-[16px] font-semibold ${paymentTabExpenseType === 'expenses' ? 'text-white' : 'text-[#979797]'}`}>
+              הוצאות שוטפות
+            </span>
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={paymentTabExpenseType === 'expenses' ? 'text-white' : 'text-[#979797]'}>
+              {paymentTabExpenseType === 'expenses' ? (
+                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor" />
+              ) : (
+                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" />
+              )}
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Supplier */}
+      <div className="flex flex-col gap-[3px]">
+        <label className="text-[16px] font-medium text-white text-right">שם ספק</label>
+        <div className="border border-[#4C526B] rounded-[10px]">
+          <select
+            title="בחר ספק"
+            value={paymentTabSupplierId}
+            onChange={(e) => setPaymentTabSupplierId(e.target.value)}
+            className="w-full h-[48px] bg-[#0F1535] text-white/40 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+          >
+            <option value="" className="bg-[#0F1535] text-white/40">בחר/י ספק...</option>
+            {suppliers.map((supplier) => (
+              <option key={supplier.id} value={supplier.id} className="bg-[#0F1535] text-white">
+                {supplier.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {document?.ocr_data?.supplier_name && !paymentTabSupplierId && (
+          <p className="text-[12px] text-[#f59e0b] mt-1">
+            OCR זיהה: {document.ocr_data.supplier_name}
+          </p>
+        )}
+      </div>
+
+      {/* Payment Methods Section */}
+      {renderPaymentMethodsSection(paymentMethods, setPaymentMethods, paymentTabDate)}
+
+      {/* Reference */}
+      <div className="flex flex-col gap-[3px]">
+        <label className="text-[16px] font-medium text-white text-right">אסמכתא</label>
+        <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+          <input
+            type="text"
+            value={paymentTabReference}
+            onChange={(e) => setPaymentTabReference(e.target.value)}
+            placeholder="מספר אסמכתא..."
+            className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
+          />
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="flex flex-col gap-[3px]">
+        <label className="text-[16px] font-medium text-white text-right">הערות</label>
+        <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
+          <textarea
+            value={paymentTabNotes}
+            onChange={(e) => setPaymentTabNotes(e.target.value)}
+            placeholder="הערות..."
+            className="w-full h-[100px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] py-[10px] rounded-[10px] resize-none"
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  // Render Summary (מרכזת) tab - placeholder
+  const renderSummaryForm = () => (
+    <div className="flex flex-col items-center justify-center py-[60px] text-white/60">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+        <rect x="9" y="3" width="6" height="4" rx="2" />
+        <path d="M9 12h6" />
+        <path d="M9 16h6" />
+      </svg>
+      <p className="mt-4 text-lg">מרכזת - בקרוב</p>
+      <p className="mt-1 text-sm">אפשרות זו תהיה זמינה בקרוב</p>
+    </div>
+  );
 
   if (!document) {
     return (
@@ -238,424 +956,83 @@ export default function OCRForm({
         )}
       </div>
 
+      {/* Business Selector */}
+      <div className="px-4 py-2 bg-[#0F1535] border-b border-[#4C526B]" dir="rtl">
+        <div className="border border-[#4C526B] rounded-[10px]">
+          <select
+            title="בחר עסק"
+            value={selectedBusinessId}
+            onChange={(e) => onBusinessChange(e.target.value)}
+            className="w-full h-[42px] bg-[#0F1535] text-white text-[15px] text-center rounded-[10px] border-none outline-none px-[10px] font-medium"
+          >
+            <option value="" className="bg-[#0F1535] text-white/40">בחר/י עסק...</option>
+            {businesses.map((business) => (
+              <option key={business.id} value={business.id} className="bg-[#0F1535] text-white">
+                {business.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Document Type Tabs */}
+      <div className="flex border-b border-[#4C526B]" dir="rtl">
+        {DOCUMENT_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            onClick={() => setDocumentType(tab.value)}
+            className={`flex-1 py-[12px] text-[14px] font-medium transition-colors ${
+              documentType === tab.value
+                ? 'text-white border-b-2 border-[#29318A] bg-[#29318A]/10'
+                : 'text-white/50 border-b-2 border-transparent hover:text-white/70'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Form content - scrollable */}
       <div className="flex-1 overflow-y-auto px-4 py-4" dir="rtl">
-        <div className="flex flex-col gap-[15px]">
-          {/* Document Type */}
-          <div className="flex flex-col gap-[5px]">
-            <label className="text-[15px] font-medium text-white text-right">סוג מסמך</label>
-            <div className="grid grid-cols-2 gap-2">
-              {DOCUMENT_TYPES.map((type) => (
-                <button
-                  key={type.value}
-                  type="button"
-                  onClick={() => setDocumentType(type.value)}
-                  className={`h-[44px] rounded-[10px] text-[14px] font-medium transition-colors ${
-                    documentType === type.value
-                      ? 'bg-[#29318A] text-white border border-[#29318A]'
-                      : 'bg-transparent text-white/60 border border-[#4C526B] hover:border-[#29318A]/50'
-                  }`}
-                >
-                  {type.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Expense Type */}
-          <div className="flex flex-col gap-[5px]">
-            <label className="text-[15px] font-medium text-white text-right">סוג הוצאה</label>
-            <div className="flex items-center justify-start gap-[20px]">
-              <button
-                type="button"
-                onClick={() => setExpenseType('goods')}
-                className="flex items-center gap-[6px]"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 32 32"
-                  fill="none"
-                  className={expenseType === 'goods' ? 'text-white' : 'text-white/50'}
-                >
-                  {expenseType === 'goods' ? (
-                    <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor" />
-                  ) : (
-                    <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" />
-                  )}
-                </svg>
-                <span
-                  className={`text-[15px] font-semibold ${
-                    expenseType === 'goods' ? 'text-white' : 'text-white/50'
-                  }`}
-                >
-                  קניות סחורה
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setExpenseType('current')}
-                className="flex items-center gap-[6px]"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 32 32"
-                  fill="none"
-                  className={expenseType === 'current' ? 'text-white' : 'text-white/50'}
-                >
-                  {expenseType === 'current' ? (
-                    <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor" />
-                  ) : (
-                    <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" />
-                  )}
-                </svg>
-                <span
-                  className={`text-[15px] font-semibold ${
-                    expenseType === 'current' ? 'text-white' : 'text-white/50'
-                  }`}
-                >
-                  הוצאות שוטפות
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* Date Field */}
-          <div className="flex flex-col gap-[5px]">
-            <label className="text-[15px] font-medium text-white text-right">תאריך</label>
-            <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-              <span className={`text-[16px] font-semibold pointer-events-none ${documentDate ? 'text-white' : 'text-white/40'}`}>
-                {documentDate
-                  ? new Date(documentDate).toLocaleDateString('he-IL', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                    })
-                  : 'יום/חודש/שנה'}
-              </span>
-              <input
-                type="date"
-                title="תאריך מסמך"
-                value={documentDate}
-                onChange={(e) => setDocumentDate(e.target.value)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              />
-            </div>
-          </div>
-
-          {/* Supplier Select */}
-          <div className="flex flex-col gap-[3px]">
-            <label className="text-[15px] font-medium text-white text-right">שם ספק</label>
-            <div className="border border-[#4C526B] rounded-[10px]">
-              <select
-                title="בחר ספק"
-                value={supplierId}
-                onChange={(e) => setSupplierId(e.target.value)}
-                className="w-full h-[48px] bg-[#0F1535] text-white/40 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
-              >
-                <option value="" className="bg-[#0F1535] text-white/40">
-                  בחר/י ספק...
-                </option>
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id} className="bg-[#0F1535] text-white">
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {document.ocr_data?.supplier_name && !supplierId && (
-              <p className="text-[12px] text-[#f59e0b] mt-1">
-                OCR זיהה: {document.ocr_data.supplier_name}
-              </p>
-            )}
-          </div>
-
-          {/* Document Number */}
-          <div className="flex flex-col gap-[5px]">
-            <label className="text-[15px] font-normal text-white text-right">מספר חשבונית / תעודת משלוח</label>
-            <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-              <input
-                type="text"
-                value={documentNumber}
-                onChange={(e) => setDocumentNumber(e.target.value)}
-                placeholder="מספר מסמך..."
-                className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
-              />
-            </div>
-          </div>
-
-          {/* Amount Before VAT */}
-          <div className="flex flex-col gap-[5px]">
-            <label className="text-[15px] font-medium text-white text-right">סכום לפני מע״מ</label>
-            <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-              <input
-                type="text"
-                inputMode="decimal"
-                title="סכום לפני מע״מ"
-                value={amountBeforeVat}
-                onChange={(e) => setAmountBeforeVat(e.target.value)}
-                placeholder="0.00"
-                className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
-              />
-            </div>
-          </div>
-
-          {/* Partial VAT Checkbox and VAT Amount */}
-          <div className="flex items-center justify-between gap-[15px]">
-            <div className="flex flex-col gap-[5px]">
-              <label className="text-[15px] font-medium text-white text-right">מע״מ</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[50px] w-[148px]">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  title="סכום מע״מ"
-                  placeholder="0.00"
-                  value={partialVat ? vatAmount : calculatedVat.toFixed(2)}
-                  onChange={(e) => setVatAmount(e.target.value)}
-                  disabled={!partialVat}
-                  className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] disabled:text-white/50"
-                />
-              </div>
-            </div>
-            <div className="flex flex-col items-center gap-[5px]">
-              <button
-                type="button"
-                title="הזנת סכום מע״מ חלקי"
-                onClick={() => setPartialVat(!partialVat)}
-                className="text-[#979797]"
-              >
-                <svg width="21" height="21" viewBox="0 0 32 32" fill="none">
-                  {partialVat ? (
-                    <>
-                      <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor" />
-                      <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </>
-                  ) : (
-                    <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" />
-                  )}
-                </svg>
-              </button>
-              <span className="text-[15px] font-medium text-white">הזנת סכום מע״מ חלקי</span>
-            </div>
-          </div>
-
-          {/* Total with VAT */}
-          <div className="flex flex-col gap-[5px]">
-            <label className="text-[15px] font-medium text-white text-right">סכום כולל מע״מ</label>
-            <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-              <input
-                type="text"
-                title="סכום כולל מע״מ"
-                placeholder="0.00"
-                value={totalWithVat.toFixed(2)}
-                disabled
-                className="w-full h-full bg-transparent text-white/50 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
-              />
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div className="flex flex-col gap-[5px]">
-            <label className="text-[15px] font-medium text-white text-right">הערות למסמך</label>
-            <div className="border border-[#4C526B] rounded-[10px] min-h-[80px]">
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="הערות למסמך..."
-                className="w-full h-full min-h-[80px] bg-transparent text-white text-[16px] text-right rounded-[10px] border-none outline-none p-[10px] resize-none"
-              />
-            </div>
-          </div>
-
-          {/* Paid in Full Checkbox */}
-          <div className="flex flex-col gap-[3px]">
-            <button
-              type="button"
-              onClick={() => setIsPaid(!isPaid)}
-              className="flex items-center gap-[6px] min-h-[35px]"
-            >
-              <svg width="21" height="21" viewBox="0 0 32 32" fill="none" className="text-[#979797]">
-                {isPaid ? (
-                  <>
-                    <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor" />
-                    <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </>
-                ) : (
-                  <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" />
-                )}
-              </svg>
-              <span className="text-[15px] font-medium text-white">התעודה שולמה במלואה</span>
-            </button>
-
-            {/* Payment Details Section */}
-            {isPaid && (
-              <div className="bg-[#0a0d1f] rounded-[10px] p-4 mt-3">
-                <h3 className="text-[16px] font-semibold text-white text-center mb-4">פרטי תשלום</h3>
-
-                <div className="flex flex-col gap-[15px]">
-                  {/* Payment Method */}
-                  <div className="flex flex-col gap-[3px]">
-                    <label className="text-[15px] font-medium text-white text-right">אמצעי תשלום</label>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                      <select
-                        title="אמצעי תשלום"
-                        value={paymentMethod}
-                        onChange={(e) => setPaymentMethod(e.target.value)}
-                        className="w-full h-full bg-transparent text-white/40 text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
-                      >
-                        <option value="" className="bg-[#0F1535] text-white/40"></option>
-                        {PAYMENT_METHODS.map((method) => (
-                          <option key={method.value} value={method.value} className="bg-[#0F1535] text-white">
-                            {method.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Payment Date */}
-                  <div className="flex flex-col gap-[3px]">
-                    <label className="text-[15px] font-medium text-white text-right">מתי יורד התשלום?</label>
-                    <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-                      <span className={`text-[16px] font-semibold pointer-events-none ${paymentDate ? 'text-white' : 'text-white/40'}`}>
-                        {paymentDate
-                          ? new Date(paymentDate).toLocaleDateString('he-IL', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: '2-digit',
-                            })
-                          : 'יום/חודש/שנה'}
-                      </span>
-                      <input
-                        type="date"
-                        title="תאריך תשלום"
-                        value={paymentDate}
-                        onChange={(e) => setPaymentDate(e.target.value)}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Number of Installments */}
-                  <div className="flex flex-col gap-[3px]">
-                    <label className="text-[15px] font-medium text-white text-right">כמות תשלומים שווים</label>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center gap-[30px] px-[10px]">
-                      <button
-                        type="button"
-                        title="הוסף תשלום"
-                        onClick={() => setPaymentInstallments((prev) => prev + 1)}
-                        className="text-white"
-                      >
-                        <svg width="27" height="27" viewBox="0 0 32 32" fill="none">
-                          <circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="2" />
-                          <path d="M16 10V22M10 16H22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        </svg>
-                      </button>
-                      <span className="text-[20px] text-white">{paymentInstallments}</span>
-                      <button
-                        type="button"
-                        title="הפחת תשלום"
-                        onClick={() => setPaymentInstallments((prev) => Math.max(1, prev - 1))}
-                        className="text-white"
-                      >
-                        <svg width="27" height="27" viewBox="0 0 32 32" fill="none">
-                          <circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="2" />
-                          <path d="M10 16H22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Payment Amount per Installment */}
-                  <div className="flex flex-col gap-[3px]">
-                    <label className="text-[15px] font-medium text-white text-right">סכום לתשלום</label>
-                    <div className="flex gap-[5px]">
-                      <div className="flex-1 border border-[#4C526B] rounded-[10px] h-[50px]">
-                        <input
-                          type="text"
-                          title="סכום לתשלום"
-                          disabled
-                          value={paymentPerInstallment.toFixed(2)}
-                          className="w-full h-full bg-transparent text-white text-[14px] font-bold text-center rounded-[10px] border-none outline-none"
-                        />
-                      </div>
-                      <div className="flex-1 border border-[#4C526B] rounded-[10px] h-[50px]">
-                        <input
-                          type="text"
-                          title="סכום כולל"
-                          disabled
-                          value={totalWithVat.toFixed(2)}
-                          className="w-full h-full bg-transparent text-white text-[14px] font-bold text-center rounded-[10px] border-none outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Payment Reference */}
-                  <div className="flex flex-col gap-[3px]">
-                    <label className="text-[15px] font-medium text-white text-right">מספר אסמכתא</label>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                      <input
-                        type="text"
-                        title="מספר אסמכתא"
-                        value={paymentReference}
-                        onChange={(e) => setPaymentReference(e.target.value)}
-                        className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Payment Notes */}
-                  <div className="flex flex-col gap-[3px]">
-                    <label className="text-[15px] font-medium text-white text-right">הערות לתשלום</label>
-                    <div className="border border-[#4C526B] rounded-[10px] min-h-[75px]">
-                      <textarea
-                        title="הערות לתשלום"
-                        value={paymentNotes}
-                        onChange={(e) => setPaymentNotes(e.target.value)}
-                        className="w-full h-full min-h-[75px] bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none p-[10px] resize-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        {(documentType === 'invoice' || documentType === 'delivery_note' || documentType === 'credit_note') && renderInvoiceForm()}
+        {documentType === 'payment' && renderPaymentForm()}
+        {documentType === 'summary' && renderSummaryForm()}
       </div>
 
       {/* Action buttons - fixed at bottom */}
-      <div className="px-4 py-4 bg-[#0F1535] border-t border-[#4C526B]">
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isLoading}
-            className="flex-1 h-[50px] bg-[#22c55e] hover:bg-[#16a34a] text-white text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? 'שומר...' : 'אישור וקליטה'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowRejectModal(true)}
-            disabled={isLoading}
-            className="h-[50px] px-6 bg-[#EB5757]/20 hover:bg-[#EB5757]/30 text-[#EB5757] text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
-          >
-            דחייה
-          </button>
-          {onSkip && (
+      {documentType !== 'summary' && (
+        <div className="px-4 py-4 bg-[#0F1535] border-t border-[#4C526B]">
+          <div className="flex gap-3">
             <button
               type="button"
-              onClick={onSkip}
+              onClick={handleSubmit}
               disabled={isLoading}
-              className="h-[50px] px-6 bg-[#4C526B]/30 hover:bg-[#4C526B]/50 text-white/70 text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
+              className="flex-1 h-[50px] bg-[#22c55e] hover:bg-[#16a34a] text-white text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              דלג
+              {isLoading ? 'שומר...' : 'אישור וקליטה'}
             </button>
-          )}
+            <button
+              type="button"
+              onClick={() => setShowRejectModal(true)}
+              disabled={isLoading}
+              className="h-[50px] px-6 bg-[#EB5757]/20 hover:bg-[#EB5757]/30 text-[#EB5757] text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
+            >
+              דחייה
+            </button>
+            {onSkip && (
+              <button
+                type="button"
+                onClick={onSkip}
+                disabled={isLoading}
+                className="h-[50px] px-6 bg-[#4C526B]/30 hover:bg-[#4C526B]/50 text-white/70 text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
+              >
+                דלג
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Reject Modal */}
       <Sheet open={showRejectModal} onOpenChange={(open) => !open && setShowRejectModal(false)}>

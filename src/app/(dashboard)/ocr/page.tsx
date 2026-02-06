@@ -3,22 +3,22 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDashboard } from '../layout';
+import { createClient } from '@/lib/supabase/client';
 import DocumentViewer from '@/components/ocr/DocumentViewer';
 import OCRForm from '@/components/ocr/OCRForm';
 import DocumentQueue from '@/components/ocr/DocumentQueue';
 import type { OCRDocument, OCRFormData, DocumentStatus } from '@/types/ocr';
 import { MOCK_DOCUMENTS } from '@/types/ocr';
 
-// Mock suppliers for development
-const MOCK_SUPPLIERS = [
-  { id: 'sup-1', name: 'ספק לדוגמה בע"מ' },
-  { id: 'sup-2', name: 'חברת משלוחים' },
-  { id: 'sup-3', name: 'חברת חשמל' },
-  { id: 'sup-4', name: 'ספק מאושר' },
-  { id: 'sup-5', name: 'מזון טרי בע"מ' },
-  { id: 'sup-6', name: 'משקאות ישראל' },
-  { id: 'sup-7', name: 'ציוד משרדי' },
-];
+interface Business {
+  id: string;
+  name: string;
+}
+
+interface Supplier {
+  id: string;
+  name: string;
+}
 
 export default function OCRPage() {
   const router = useRouter();
@@ -32,9 +32,13 @@ export default function OCRPage() {
   const [showMobileViewer, setShowMobileViewer] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
+  // Business and supplier state
+  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const [selectedBusinessId, setSelectedBusinessId] = useState('');
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+
   // Check admin access
   useEffect(() => {
-    // Give time for isAdmin to be set from context
     const timer = setTimeout(() => {
       setIsCheckingAuth(false);
     }, 500);
@@ -48,6 +52,54 @@ export default function OCRPage() {
     }
   }, [isAdmin, isCheckingAuth, router]);
 
+  // Fetch businesses (admin sees all active businesses)
+  useEffect(() => {
+    if (!isCheckingAuth && isAdmin) {
+      const fetchBusinesses = async () => {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from('businesses')
+          .select('id, name')
+          .is('deleted_at', null)
+          .eq('status', 'active')
+          .order('name');
+
+        if (data && data.length > 0) {
+          setBusinesses(data);
+          // Auto-select first business if none selected
+          if (!selectedBusinessId) {
+            setSelectedBusinessId(data[0].id);
+          }
+        }
+      };
+      fetchBusinesses();
+    }
+  }, [isCheckingAuth, isAdmin, selectedBusinessId]);
+
+  // Fetch suppliers when selected business changes
+  useEffect(() => {
+    if (!selectedBusinessId) {
+      setSuppliers([]);
+      return;
+    }
+
+    const fetchSuppliers = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('suppliers')
+        .select('id, name')
+        .eq('business_id', selectedBusinessId)
+        .is('deleted_at', null)
+        .eq('is_active', true)
+        .order('name');
+
+      if (data) {
+        setSuppliers(data);
+      }
+    };
+    fetchSuppliers();
+  }, [selectedBusinessId]);
+
   // Select first pending document on load
   useEffect(() => {
     if (!isCheckingAuth && isAdmin) {
@@ -59,10 +111,9 @@ export default function OCRPage() {
     }
   }, [documents, currentDocument, isCheckingAuth, isAdmin]);
 
-  // Handle document selection - declare ALL callbacks before early returns
+  // Handle document selection
   const handleSelectDocument = useCallback((document: OCRDocument) => {
     setCurrentDocument(document);
-    // Mark as reviewing if pending
     if (document.status === 'pending') {
       setDocuments((prev) =>
         prev.map((doc) =>
@@ -152,14 +203,12 @@ export default function OCRPage() {
   const handleSkip = useCallback(() => {
     if (!currentDocument) return;
 
-    // Revert to pending status
     setDocuments((prev) =>
       prev.map((doc) =>
         doc.id === currentDocument.id ? { ...doc, status: 'pending' as DocumentStatus } : doc
       )
     );
 
-    // Move to next pending document
     const pendingDocs = documents.filter(
       (doc) => doc.status === 'pending' && doc.id !== currentDocument.id
     );
@@ -172,7 +221,6 @@ export default function OCRPage() {
   const handleCrop = useCallback((croppedImageUrl: string) => {
     if (!currentDocument) return;
 
-    // Update document with cropped image
     setDocuments((prev) =>
       prev.map((doc) =>
         doc.id === currentDocument.id ? { ...doc, image_url: croppedImageUrl } : doc
@@ -187,7 +235,6 @@ export default function OCRPage() {
 
   // NOW we can do early returns - after all hooks have been declared
 
-  // Show loading while checking auth
   if (isCheckingAuth) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-60px)] bg-[#0a0d1f]">
@@ -199,7 +246,6 @@ export default function OCRPage() {
     );
   }
 
-  // Don't render anything if not admin (will redirect)
   if (!isAdmin) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-60px)] bg-[#0a0d1f]">
@@ -271,7 +317,10 @@ export default function OCRPage() {
         >
           <OCRForm
             document={currentDocument}
-            suppliers={MOCK_SUPPLIERS}
+            suppliers={suppliers}
+            businesses={businesses}
+            selectedBusinessId={selectedBusinessId}
+            onBusinessChange={setSelectedBusinessId}
             onApprove={handleApprove}
             onReject={handleReject}
             onSkip={handleSkip}
