@@ -43,6 +43,26 @@ export interface OCRDocument {
   notes?: string;
 }
 
+export interface OCRDeliveryNoteEntry {
+  delivery_note_number: string;
+  delivery_date: string;
+  total_amount: string;
+  notes: string;
+}
+
+export interface OCRPaymentMethodEntry {
+  id: number;
+  method: string;
+  amount: string;
+  installments: string;
+  customInstallments: Array<{
+    number: number;
+    date: string;
+    dateForInput: string;
+    amount: number;
+  }>;
+}
+
 export interface OCRFormData {
   business_id: string;
   document_type: DocumentType;
@@ -60,6 +80,11 @@ export interface OCRFormData {
   payment_installments?: number;
   payment_reference?: string;
   payment_notes?: string;
+  // Payment methods array (for payment tab and inline payment)
+  payment_methods?: OCRPaymentMethodEntry[];
+  // Summary (מרכזת) specific fields
+  summary_delivery_notes?: OCRDeliveryNoteEntry[];
+  summary_is_closed?: string;
 }
 
 // Mock data for UI development

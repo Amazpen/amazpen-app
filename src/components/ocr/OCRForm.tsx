@@ -15,9 +15,23 @@ interface Business {
   name: string;
 }
 
+interface CoordinatorSupplier {
+  id: string;
+  name: string;
+  waiting_for_coordinator?: boolean;
+}
+
+interface DeliveryNoteEntry {
+  delivery_note_number: string;
+  delivery_date: string;
+  total_amount: string;
+  notes: string;
+}
+
 interface OCRFormProps {
   document: OCRDocument | null;
   suppliers: Supplier[];
+  coordinatorSuppliers: CoordinatorSupplier[];
   businesses: Business[];
   selectedBusinessId: string;
   onBusinessChange: (businessId: string) => void;
@@ -66,6 +80,7 @@ interface PaymentMethodEntry {
 export default function OCRForm({
   document,
   suppliers,
+  coordinatorSuppliers,
   businesses,
   selectedBusinessId,
   onBusinessChange,
@@ -108,6 +123,22 @@ export default function OCRForm({
   const [inlinePaymentMethods, setInlinePaymentMethods] = useState<PaymentMethodEntry[]>([
     { id: 1, method: '', amount: '', installments: '1', customInstallments: [] },
   ]);
+
+  // Summary (מרכזת) tab state
+  const [summarySupplierId, setSummarySupplierId] = useState('');
+  const [summaryDate, setSummaryDate] = useState('');
+  const [summaryInvoiceNumber, setSummaryInvoiceNumber] = useState('');
+  const [summaryTotalAmount, setSummaryTotalAmount] = useState('');
+  const [summaryIsClosed, setSummaryIsClosed] = useState('');
+  const [summaryNotes, setSummaryNotes] = useState('');
+  const [summaryDeliveryNotes, setSummaryDeliveryNotes] = useState<DeliveryNoteEntry[]>([]);
+  const [showAddDeliveryNote, setShowAddDeliveryNote] = useState(false);
+  const [newDeliveryNote, setNewDeliveryNote] = useState<DeliveryNoteEntry>({
+    delivery_note_number: '',
+    delivery_date: '',
+    total_amount: '',
+    notes: '',
+  });
 
   // Calculate VAT and total (for invoice/delivery_note tabs)
   const calculatedVat = useMemo(() => {
@@ -197,6 +228,35 @@ export default function OCRForm({
     return customInstallments.reduce((sum, item) => sum + item.amount, 0);
   };
 
+  // Summary tab helpers
+  const summaryDeliveryNotesTotal = useMemo(() => {
+    return summaryDeliveryNotes.reduce((sum, note) => sum + (parseFloat(note.total_amount) || 0), 0);
+  }, [summaryDeliveryNotes]);
+
+  const summaryTotalsMatch = useMemo(() => {
+    if (summaryDeliveryNotes.length === 0) return true;
+    const invoiceTotal = parseFloat(summaryTotalAmount) || 0;
+    return Math.abs(invoiceTotal - summaryDeliveryNotesTotal) < 0.01;
+  }, [summaryTotalAmount, summaryDeliveryNotesTotal, summaryDeliveryNotes.length]);
+
+  const handleAddDeliveryNote = () => {
+    if (!newDeliveryNote.delivery_note_number.trim()) return;
+    if (!newDeliveryNote.delivery_date) return;
+    if (!newDeliveryNote.total_amount || parseFloat(newDeliveryNote.total_amount) <= 0) return;
+
+    setSummaryDeliveryNotes(prev => [...prev, { ...newDeliveryNote }]);
+    setNewDeliveryNote({ delivery_note_number: '', delivery_date: '', total_amount: '', notes: '' });
+    setShowAddDeliveryNote(false);
+  };
+
+  const handleRemoveDeliveryNote = (index: number) => {
+    setSummaryDeliveryNotes(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const formatNumber = (num: number) => {
+    return num.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   // Populate form from OCR data when document changes
   useEffect(() => {
     if (document?.ocr_data) {
@@ -251,6 +311,16 @@ export default function OCRForm({
       setPaymentTabReference('');
       setPaymentTabNotes('');
       setNotes('');
+      // Reset summary fields
+      setSummarySupplierId('');
+      setSummaryDate(data.document_date || new Date().toISOString().split('T')[0]);
+      setSummaryInvoiceNumber(data.document_number || '');
+      setSummaryTotalAmount(data.total_amount?.toString() || '');
+      setSummaryIsClosed('');
+      setSummaryNotes('');
+      setSummaryDeliveryNotes([]);
+      setShowAddDeliveryNote(false);
+      setNewDeliveryNote({ delivery_note_number: '', delivery_date: '', total_amount: '', notes: '' });
     } else {
       // Reset all fields
       setDocumentType('invoice');
@@ -275,6 +345,16 @@ export default function OCRForm({
       setPaymentTabReference('');
       setPaymentTabNotes('');
       setPaymentMethods([{ id: 1, method: '', amount: '', installments: '1', customInstallments: [] }]);
+      // Reset summary fields
+      setSummarySupplierId('');
+      setSummaryDate(new Date().toISOString().split('T')[0]);
+      setSummaryInvoiceNumber('');
+      setSummaryTotalAmount('');
+      setSummaryIsClosed('');
+      setSummaryNotes('');
+      setSummaryDeliveryNotes([]);
+      setShowAddDeliveryNote(false);
+      setNewDeliveryNote({ delivery_note_number: '', delivery_date: '', total_amount: '', notes: '' });
     }
   }, [document, suppliers]);
 
@@ -307,11 +387,56 @@ export default function OCRForm({
         payment_installments: parseInt(paymentMethods[0]?.installments) || 1,
         payment_reference: paymentTabReference,
         payment_notes: paymentTabNotes,
+        payment_methods: paymentMethods,
       };
       onApprove(formData);
     } else if (documentType === 'summary') {
-      // Summary - placeholder
-      alert('מרכזת - בקרוב');
+      // Summary tab validation
+      if (!summarySupplierId) {
+        alert('נא לבחור ספק מרכזת');
+        return;
+      }
+      if (!summaryDate) {
+        alert('נא לבחור תאריך');
+        return;
+      }
+      if (!summaryInvoiceNumber.trim()) {
+        alert('נא להזין מספר חשבונית');
+        return;
+      }
+      if (!summaryTotalAmount || parseFloat(summaryTotalAmount) <= 0) {
+        alert('נא להזין סכום');
+        return;
+      }
+      if (!summaryIsClosed) {
+        alert('נא לבחור האם נסגר');
+        return;
+      }
+      if (summaryIsClosed === 'yes' && summaryDeliveryNotes.length > 0 && !summaryTotalsMatch) {
+        alert('סכום החשבונית לא תואם לסכום תעודות המשלוח');
+        return;
+      }
+
+      const total = parseFloat(summaryTotalAmount);
+      const subtotal = total / 1.17;
+      const vat = total - subtotal;
+
+      const formData: OCRFormData = {
+        business_id: selectedBusinessId,
+        document_type: 'summary',
+        expense_type: 'goods',
+        supplier_id: summarySupplierId,
+        document_date: summaryDate,
+        document_number: summaryInvoiceNumber.trim(),
+        amount_before_vat: subtotal.toFixed(2),
+        vat_amount: vat.toFixed(2),
+        total_amount: total.toFixed(2),
+        notes: summaryNotes,
+        is_paid: false,
+        summary_delivery_notes: summaryDeliveryNotes,
+        summary_is_closed: summaryIsClosed,
+      };
+      onApprove(formData);
       return;
     } else {
       // Invoice / Delivery Note / Credit Note
@@ -337,6 +462,7 @@ export default function OCRForm({
           payment_installments: parseInt(inlinePaymentMethods[0]?.installments) || 1,
           payment_reference: inlinePaymentReference,
           payment_notes: inlinePaymentNotes,
+          payment_methods: inlinePaymentMethods,
         }),
       };
       onApprove(formData);
@@ -903,17 +1029,249 @@ export default function OCRForm({
     </div>
   );
 
-  // Render Summary (מרכזת) tab - placeholder
+  // Render Summary (מרכזת) tab - aligned with ConsolidatedInvoiceModal
   const renderSummaryForm = () => (
-    <div className="flex flex-col items-center justify-center py-[60px] text-white/60">
-      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-        <rect x="9" y="3" width="6" height="4" rx="2" />
-        <path d="M9 12h6" />
-        <path d="M9 16h6" />
-      </svg>
-      <p className="mt-4 text-lg">מרכזת - בקרוב</p>
-      <p className="mt-1 text-sm">אפשרות זו תהיה זמינה בקרוב</p>
+    <div className="flex flex-col gap-[15px]">
+      {/* Coordinator Supplier Select */}
+      <div className="flex flex-col gap-[3px]">
+        <label className="text-[15px] font-medium text-white text-right">בחירת ספק מרכזת</label>
+        <div className="border border-[#4C526B] rounded-[10px]">
+          <select
+            title="בחר ספק"
+            value={summarySupplierId}
+            onChange={(e) => setSummarySupplierId(e.target.value)}
+            disabled={!selectedBusinessId}
+            className="w-full h-[48px] bg-[#0F1535] text-white/40 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] disabled:opacity-50"
+          >
+            <option value="" className="bg-[#0F1535] text-white/40">
+              {coordinatorSuppliers.length === 0 && selectedBusinessId ? 'אין ספקי מרכזת' : 'בחר/י ספק...'}
+            </option>
+            {coordinatorSuppliers.map((supplier) => (
+              <option key={supplier.id} value={supplier.id} className="bg-[#0F1535] text-white">
+                {supplier.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {selectedBusinessId && coordinatorSuppliers.length === 0 && (
+          <p className="text-[12px] text-[#F64E60] text-right">
+            אין ספקים מוגדרים כמרכזת. יש לסמן ספק כ&quot;מרכזת&quot; בהגדרות הספק.
+          </p>
+        )}
+      </div>
+
+      {/* Date Field */}
+      <div className="flex flex-col gap-[5px]">
+        <label className="text-[15px] font-medium text-white text-right">תאריך מרכזת</label>
+        <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
+          <span className={`text-[16px] font-semibold pointer-events-none ${summaryDate ? 'text-white' : 'text-white/40'}`}>
+            {summaryDate
+              ? new Date(summaryDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+              : 'יום/חודש/שנה'}
+          </span>
+          <input
+            type="date"
+            title="תאריך מרכזת"
+            value={summaryDate}
+            onChange={(e) => setSummaryDate(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+          />
+        </div>
+      </div>
+
+      {/* Invoice Number */}
+      <div className="flex flex-col gap-[5px]">
+        <label className="text-[15px] font-medium text-white text-right">מספר חשבונית מרכזת</label>
+        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+          <input
+            type="text"
+            value={summaryInvoiceNumber}
+            onChange={(e) => setSummaryInvoiceNumber(e.target.value)}
+            placeholder="מספר חשבונית..."
+            className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+          />
+        </div>
+      </div>
+
+      {/* Total Amount */}
+      <div className="flex flex-col gap-[5px]">
+        <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
+        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={summaryTotalAmount}
+            onChange={(e) => setSummaryTotalAmount(e.target.value)}
+            placeholder="0.00"
+            className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+          />
+        </div>
+      </div>
+
+      {/* Delivery Notes Section */}
+      <div className="flex flex-col gap-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setShowAddDeliveryNote(!showAddDeliveryNote)}
+            className="text-[14px] text-[#0075FF] hover:text-[#00D4FF] transition-colors"
+          >
+            + הוספת תעודה
+          </button>
+          <label className="text-[15px] font-medium text-white">תעודות משלוח</label>
+        </div>
+
+        {/* Add Delivery Note Form */}
+        {showAddDeliveryNote && (
+          <div className="flex flex-col gap-[10px] bg-[#1a1f42] rounded-[8px] p-[10px]">
+            <div className="grid grid-cols-2 gap-[10px]">
+              <div className="flex flex-col gap-[3px]">
+                <label className="text-[12px] text-white/60 text-right">מספר תעודה</label>
+                <input
+                  type="text"
+                  value={newDeliveryNote.delivery_note_number}
+                  onChange={(e) => setNewDeliveryNote(prev => ({ ...prev, delivery_note_number: e.target.value }))}
+                  placeholder="מספר..."
+                  className="h-[40px] bg-[#0F1535] border border-[#4C526B] rounded-[8px] text-white text-[14px] text-center px-[8px] placeholder:text-white/30"
+                />
+              </div>
+              <div className="flex flex-col gap-[3px]">
+                <label className="text-[12px] text-white/60 text-right">תאריך</label>
+                <input
+                  type="date"
+                  title="תאריך תעודה"
+                  value={newDeliveryNote.delivery_date}
+                  onChange={(e) => setNewDeliveryNote(prev => ({ ...prev, delivery_date: e.target.value }))}
+                  className="h-[40px] bg-[#0F1535] border border-[#4C526B] rounded-[8px] text-white text-[14px] text-center px-[8px]"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-[10px]">
+              <div className="flex flex-col gap-[3px]">
+                <label className="text-[12px] text-white/60 text-right">סכום כולל</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={newDeliveryNote.total_amount}
+                  onChange={(e) => setNewDeliveryNote(prev => ({ ...prev, total_amount: e.target.value }))}
+                  placeholder="0.00"
+                  className="h-[40px] bg-[#0F1535] border border-[#4C526B] rounded-[8px] text-white text-[14px] text-center px-[8px] placeholder:text-white/30"
+                />
+              </div>
+              <div className="flex flex-col gap-[3px]">
+                <label className="text-[12px] text-white/60 text-right">הערה</label>
+                <input
+                  type="text"
+                  value={newDeliveryNote.notes}
+                  onChange={(e) => setNewDeliveryNote(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="הערה..."
+                  className="h-[40px] bg-[#0F1535] border border-[#4C526B] rounded-[8px] text-white text-[14px] text-center px-[8px] placeholder:text-white/30"
+                />
+              </div>
+            </div>
+            <div className="flex gap-[10px]">
+              <button
+                type="button"
+                onClick={() => setShowAddDeliveryNote(false)}
+                className="flex-1 h-[36px] border border-white/30 rounded-[8px] text-white/60 text-[14px] hover:bg-white/5"
+              >
+                ביטול
+              </button>
+              <button
+                type="button"
+                onClick={handleAddDeliveryNote}
+                className="flex-1 h-[36px] bg-[#3CD856] rounded-[8px] text-white text-[14px] font-medium hover:bg-[#34c04c]"
+              >
+                הוסף
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Delivery Notes List */}
+        {summaryDeliveryNotes.length > 0 && (
+          <div className="flex flex-col gap-[8px]">
+            {summaryDeliveryNotes.map((note, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between bg-[#1a1f42] rounded-[8px] p-[10px]"
+              >
+                <button
+                  type="button"
+                  onClick={() => handleRemoveDeliveryNote(index)}
+                  className="text-[#F64E60] text-[18px] font-bold hover:opacity-80"
+                >
+                  &times;
+                </button>
+                <div className="flex flex-col items-end flex-1 mr-[10px]">
+                  <div className="flex items-center gap-[10px]">
+                    <span className="text-[14px] text-white font-medium">
+                      &#8362;{formatNumber(parseFloat(note.total_amount))}
+                    </span>
+                    <span className="text-[14px] text-white">{note.delivery_note_number}</span>
+                  </div>
+                  <span className="text-[12px] text-white/50">
+                    {note.delivery_date ? new Date(note.delivery_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {/* Total of delivery notes */}
+            <div className="flex items-center justify-between pt-[8px] border-t border-white/10">
+              <span className={`text-[14px] font-bold ${summaryTotalsMatch ? 'text-[#3CD856]' : 'text-[#F64E60]'}`}>
+                &#8362;{formatNumber(summaryDeliveryNotesTotal)}
+              </span>
+              <span className="text-[14px] text-white/60">סה&quot;כ תעודות:</span>
+            </div>
+            {!summaryTotalsMatch && summaryTotalAmount && (
+              <p className="text-[12px] text-[#F64E60] text-right">
+                הפרש: &#8362;{formatNumber(Math.abs((parseFloat(summaryTotalAmount) || 0) - summaryDeliveryNotesTotal))}
+              </p>
+            )}
+          </div>
+        )}
+
+        {summaryDeliveryNotes.length === 0 && !showAddDeliveryNote && (
+          <p className="text-[12px] text-white/40 text-center py-[10px]">
+            לא נוספו תעודות משלוח
+          </p>
+        )}
+      </div>
+
+      {/* Is Closed */}
+      <div className="flex flex-col gap-[3px] border border-[#F64E60] rounded-[10px] p-[8px]">
+        <label className="text-[15px] font-medium text-white text-right">האם נסגר?</label>
+        <p className="text-[12px] text-white/50 text-right mb-[5px]">
+          אם כן - החשבונית תעבור לממתינות לתשלום
+        </p>
+        <div className="border border-[#4C526B] rounded-[10px]">
+          <select
+            title="האם נסגר"
+            value={summaryIsClosed}
+            onChange={(e) => setSummaryIsClosed(e.target.value)}
+            className="w-full h-[48px] bg-[#0F1535] text-white/40 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+          >
+            <option value="" className="bg-[#0F1535] text-white/40">כן/לא</option>
+            <option value="yes" className="bg-[#0F1535] text-white">כן</option>
+            <option value="no" className="bg-[#0F1535] text-white">לא</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="flex flex-col gap-[5px]">
+        <label className="text-[15px] font-medium text-white text-right">הערות</label>
+        <div className="border border-[#4C526B] rounded-[10px]">
+          <textarea
+            value={summaryNotes}
+            onChange={(e) => setSummaryNotes(e.target.value)}
+            placeholder="הערות..."
+            rows={3}
+            className="w-full min-h-[80px] bg-transparent text-white text-[16px] text-right rounded-[10px] border-none outline-none p-[10px] placeholder:text-white/30 resize-none"
+          />
+        </div>
+      </div>
     </div>
   );
 
@@ -1001,38 +1359,40 @@ export default function OCRForm({
       </div>
 
       {/* Action buttons - fixed at bottom */}
-      {documentType !== 'summary' && (
-        <div className="px-4 py-4 bg-[#0F1535] border-t border-[#4C526B]">
-          <div className="flex gap-3">
+      <div className="px-4 py-4 bg-[#0F1535] border-t border-[#4C526B]">
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isLoading || (documentType === 'summary' && (!selectedBusinessId || !summarySupplierId || !summaryInvoiceNumber || !summaryTotalAmount || !summaryIsClosed))}
+            className={`flex-1 h-[50px] text-white text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              documentType === 'summary'
+                ? 'bg-gradient-to-r from-[#0075FF] to-[#00D4FF]'
+                : 'bg-[#22c55e] hover:bg-[#16a34a]'
+            }`}
+          >
+            {isLoading ? 'שומר...' : documentType === 'summary' ? 'שמירה' : 'אישור וקליטה'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowRejectModal(true)}
+            disabled={isLoading}
+            className="h-[50px] px-6 bg-[#EB5757]/20 hover:bg-[#EB5757]/30 text-[#EB5757] text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
+          >
+            דחייה
+          </button>
+          {onSkip && (
             <button
               type="button"
-              onClick={handleSubmit}
+              onClick={onSkip}
               disabled={isLoading}
-              className="flex-1 h-[50px] bg-[#22c55e] hover:bg-[#16a34a] text-white text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-[50px] px-6 bg-[#4C526B]/30 hover:bg-[#4C526B]/50 text-white/70 text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
             >
-              {isLoading ? 'שומר...' : 'אישור וקליטה'}
+              דלג
             </button>
-            <button
-              type="button"
-              onClick={() => setShowRejectModal(true)}
-              disabled={isLoading}
-              className="h-[50px] px-6 bg-[#EB5757]/20 hover:bg-[#EB5757]/30 text-[#EB5757] text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
-            >
-              דחייה
-            </button>
-            {onSkip && (
-              <button
-                type="button"
-                onClick={onSkip}
-                disabled={isLoading}
-                className="h-[50px] px-6 bg-[#4C526B]/30 hover:bg-[#4C526B]/50 text-white/70 text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
-              >
-                דלג
-              </button>
-            )}
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Reject Modal */}
       <Sheet open={showRejectModal} onOpenChange={(open) => !open && setShowRejectModal(false)}>

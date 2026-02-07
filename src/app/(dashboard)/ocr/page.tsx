@@ -18,6 +18,7 @@ interface Business {
 interface Supplier {
   id: string;
   name: string;
+  waiting_for_coordinator?: boolean;
 }
 
 export default function OCRPage() {
@@ -36,6 +37,7 @@ export default function OCRPage() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState('');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [coordinatorSuppliers, setCoordinatorSuppliers] = useState<Supplier[]>([]);
 
   // Check admin access
   useEffect(() => {
@@ -80,14 +82,17 @@ export default function OCRPage() {
   useEffect(() => {
     if (!selectedBusinessId) {
       setSuppliers([]);
+      setCoordinatorSuppliers([]);
       return;
     }
 
     const fetchSuppliers = async () => {
       const supabase = createClient();
+
+      // Fetch all active suppliers
       const { data } = await supabase
         .from('suppliers')
-        .select('id, name')
+        .select('id, name, waiting_for_coordinator')
         .eq('business_id', selectedBusinessId)
         .is('deleted_at', null)
         .eq('is_active', true)
@@ -95,6 +100,8 @@ export default function OCRPage() {
 
       if (data) {
         setSuppliers(data);
+        // Filter coordinator suppliers separately for summary tab
+        setCoordinatorSuppliers(data.filter(s => s.waiting_for_coordinator === true));
       }
     };
     fetchSuppliers();
@@ -123,41 +130,249 @@ export default function OCRPage() {
     }
   }, []);
 
-  // Handle form approval
+  // Handle form approval - saves to Supabase based on document type
   const handleApprove = useCallback(
     async (formData: OCRFormData) => {
       if (!currentDocument) return;
 
       setIsLoading(true);
+      const supabase = createClient();
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
 
-      // Update document status
-      setDocuments((prev) =>
-        prev.map((doc) =>
-          doc.id === currentDocument.id
-            ? {
-                ...doc,
-                status: 'approved' as DocumentStatus,
-                processed_at: new Date().toISOString(),
+        if (formData.document_type === 'invoice' || formData.document_type === 'credit_note') {
+          // --- INVOICE / CREDIT NOTE ---
+          const { data: newInvoice, error: invoiceError } = await supabase
+            .from('invoices')
+            .insert({
+              business_id: formData.business_id,
+              supplier_id: formData.supplier_id,
+              invoice_number: formData.document_number || null,
+              invoice_date: formData.document_date,
+              subtotal: parseFloat(formData.amount_before_vat),
+              vat_amount: parseFloat(formData.vat_amount),
+              total_amount: parseFloat(formData.total_amount),
+              status: formData.is_paid ? 'paid' : 'pending',
+              notes: formData.notes || null,
+              created_by: user?.id || null,
+              invoice_type: formData.expense_type === 'goods' ? 'goods' : 'current',
+            })
+            .select()
+            .single();
+
+          if (invoiceError) throw invoiceError;
+
+          // If paid, create payment + payment splits
+          if (formData.is_paid && newInvoice && formData.payment_methods) {
+            const paymentTotal = formData.payment_methods.reduce((sum, pm) => {
+              return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0);
+            }, 0);
+
+            const { data: newPayment, error: paymentError } = await supabase
+              .from('payments')
+              .insert({
+                business_id: formData.business_id,
+                supplier_id: formData.supplier_id,
+                payment_date: formData.payment_date || formData.document_date,
+                total_amount: paymentTotal || parseFloat(formData.total_amount),
+                invoice_id: newInvoice.id,
+                notes: formData.payment_notes || null,
+                created_by: user?.id || null,
+              })
+              .select()
+              .single();
+
+            if (paymentError) throw paymentError;
+
+            if (newPayment) {
+              for (const pm of formData.payment_methods) {
+                const amount = parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0;
+                if (amount > 0 && pm.method) {
+                  const installmentsCount = parseInt(pm.installments) || 1;
+                  if (pm.customInstallments.length > 0) {
+                    for (const inst of pm.customInstallments) {
+                      await supabase.from('payment_splits').insert({
+                        payment_id: newPayment.id,
+                        payment_method: pm.method,
+                        amount: inst.amount,
+                        installments_count: installmentsCount,
+                        installment_number: inst.number,
+                        reference_number: formData.payment_reference || null,
+                        due_date: inst.dateForInput || null,
+                      });
+                    }
+                  } else {
+                    await supabase.from('payment_splits').insert({
+                      payment_id: newPayment.id,
+                      payment_method: pm.method,
+                      amount: amount,
+                      installments_count: 1,
+                      installment_number: 1,
+                      reference_number: formData.payment_reference || null,
+                      due_date: formData.payment_date || formData.document_date || null,
+                    });
+                  }
+                }
               }
-            : doc
-        )
-      );
+            }
+          }
 
-      // Move to next pending document
-      const pendingDocs = documents.filter(
-        (doc) => doc.status === 'pending' && doc.id !== currentDocument.id
-      );
-      if (pendingDocs.length > 0) {
-        setCurrentDocument(pendingDocs[0]);
-      } else {
-        setCurrentDocument(null);
+        } else if (formData.document_type === 'delivery_note') {
+          // --- DELIVERY NOTE ---
+          const { error: deliveryNoteError } = await supabase
+            .from('delivery_notes')
+            .insert({
+              business_id: formData.business_id,
+              supplier_id: formData.supplier_id,
+              delivery_note_number: formData.document_number || null,
+              delivery_date: formData.document_date,
+              subtotal: parseFloat(formData.amount_before_vat),
+              vat_amount: parseFloat(formData.vat_amount),
+              total_amount: parseFloat(formData.total_amount),
+              notes: formData.notes || null,
+              is_verified: false,
+            });
+
+          if (deliveryNoteError) throw deliveryNoteError;
+
+        } else if (formData.document_type === 'payment') {
+          // --- PAYMENT ---
+          const totalAmount = formData.payment_methods
+            ? formData.payment_methods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0), 0)
+            : parseFloat(formData.total_amount);
+
+          const { data: newPayment, error: paymentError } = await supabase
+            .from('payments')
+            .insert({
+              business_id: formData.business_id,
+              supplier_id: formData.supplier_id,
+              payment_date: formData.document_date,
+              total_amount: totalAmount,
+              notes: formData.payment_notes || formData.notes || null,
+              created_by: user?.id || null,
+            })
+            .select()
+            .single();
+
+          if (paymentError) throw paymentError;
+
+          // Create payment splits
+          if (newPayment && formData.payment_methods) {
+            for (const pm of formData.payment_methods) {
+              const amount = parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0;
+              if (amount > 0 && pm.method) {
+                const installmentsCount = parseInt(pm.installments) || 1;
+                if (pm.customInstallments.length > 0) {
+                  for (const inst of pm.customInstallments) {
+                    await supabase.from('payment_splits').insert({
+                      payment_id: newPayment.id,
+                      payment_method: pm.method,
+                      amount: inst.amount,
+                      installments_count: installmentsCount,
+                      installment_number: inst.number,
+                      reference_number: formData.payment_reference || null,
+                      due_date: inst.dateForInput || null,
+                    });
+                  }
+                } else {
+                  await supabase.from('payment_splits').insert({
+                    payment_id: newPayment.id,
+                    payment_method: pm.method,
+                    amount: amount,
+                    installments_count: 1,
+                    installment_number: 1,
+                    reference_number: formData.payment_reference || null,
+                    due_date: formData.document_date || null,
+                  });
+                }
+              }
+            }
+          }
+
+        } else if (formData.document_type === 'summary') {
+          // --- SUMMARY (מרכזת) ---
+          const total = parseFloat(formData.total_amount);
+          const subtotal = total / 1.17;
+          const vatAmount = total - subtotal;
+          const isClosed = formData.summary_is_closed === 'yes';
+
+          const { data: invoice, error: invoiceError } = await supabase
+            .from('invoices')
+            .insert({
+              business_id: formData.business_id,
+              supplier_id: formData.supplier_id,
+              invoice_date: formData.document_date,
+              invoice_number: formData.document_number,
+              subtotal: subtotal,
+              vat_amount: vatAmount,
+              total_amount: total,
+              status: isClosed ? 'pending' : 'needs_review',
+              invoice_type: 'current',
+              is_consolidated: true,
+              notes: formData.notes || null,
+              created_by: user?.id || null,
+            })
+            .select()
+            .single();
+
+          if (invoiceError) throw invoiceError;
+
+          // Insert delivery notes linked to this invoice
+          if (formData.summary_delivery_notes && formData.summary_delivery_notes.length > 0 && invoice) {
+            const deliveryNotesData = formData.summary_delivery_notes.map(note => {
+              const noteTotal = parseFloat(note.total_amount);
+              const noteSubtotal = noteTotal / 1.17;
+              const noteVat = noteTotal - noteSubtotal;
+              return {
+                invoice_id: invoice.id,
+                business_id: formData.business_id,
+                supplier_id: formData.supplier_id,
+                delivery_note_number: note.delivery_note_number.trim(),
+                delivery_date: note.delivery_date,
+                subtotal: noteSubtotal,
+                vat_amount: noteVat,
+                total_amount: noteTotal,
+                notes: note.notes?.trim() || null,
+                is_verified: isClosed,
+              };
+            });
+
+            const { error: notesError } = await supabase
+              .from('delivery_notes')
+              .insert(deliveryNotesData);
+
+            if (notesError) {
+              console.error('Error inserting delivery notes:', notesError);
+            }
+          }
+        }
+
+        // Update document status in local state
+        setDocuments((prev) =>
+          prev.map((doc) =>
+            doc.id === currentDocument.id
+              ? { ...doc, status: 'approved' as DocumentStatus, processed_at: new Date().toISOString() }
+              : doc
+          )
+        );
+
+        // Move to next pending document
+        const pendingDocs = documents.filter(
+          (doc) => doc.status === 'pending' && doc.id !== currentDocument.id
+        );
+        if (pendingDocs.length > 0) {
+          setCurrentDocument(pendingDocs[0]);
+        } else {
+          setCurrentDocument(null);
+        }
+
+      } catch (error) {
+        console.error('Error saving document:', error);
+        alert('שגיאה בשמירת המסמך');
+      } finally {
+        setIsLoading(false);
       }
-
-      setIsLoading(false);
-      console.log('Approved document:', currentDocument.id, formData);
     },
     [currentDocument, documents]
   );
@@ -318,6 +533,7 @@ export default function OCRPage() {
           <OCRForm
             document={currentDocument}
             suppliers={suppliers}
+            coordinatorSuppliers={coordinatorSuppliers}
             businesses={businesses}
             selectedBusinessId={selectedBusinessId}
             onBusinessChange={setSelectedBusinessId}
