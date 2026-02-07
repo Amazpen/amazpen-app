@@ -701,11 +701,6 @@ export default function OCRForm({
             ))}
           </select>
         </div>
-        {document?.ocr_data?.supplier_name && !supplierId && (
-          <p className="text-[12px] text-[#f59e0b] mt-1">
-            OCR זיהה: {document.ocr_data.supplier_name}
-          </p>
-        )}
       </div>
 
       {/* Document Number */}
@@ -990,11 +985,6 @@ export default function OCRForm({
             ))}
           </select>
         </div>
-        {document?.ocr_data?.supplier_name && !paymentTabSupplierId && (
-          <p className="text-[12px] text-[#f59e0b] mt-1">
-            OCR זיהה: {document.ocr_data.supplier_name}
-          </p>
-        )}
       </div>
 
       {/* Payment Methods Section */}
@@ -1296,22 +1286,6 @@ export default function OCRForm({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-[#0F1535] border-b border-[#4C526B]">
         <h2 className="text-[18px] font-bold text-white">פרטי מסמך</h2>
-        {document.ocr_data?.confidence_score && (
-          <div className="flex items-center gap-2">
-            <span className="text-[13px] text-white/60">דיוק OCR:</span>
-            <span
-              className={`text-[13px] font-semibold ${
-                document.ocr_data.confidence_score > 0.9
-                  ? 'text-[#22c55e]'
-                  : document.ocr_data.confidence_score > 0.7
-                  ? 'text-[#f59e0b]'
-                  : 'text-[#EB5757]'
-              }`}
-            >
-              {Math.round(document.ocr_data.confidence_score * 100)}%
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Business Selector */}
