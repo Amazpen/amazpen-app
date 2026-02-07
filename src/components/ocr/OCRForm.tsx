@@ -290,13 +290,19 @@ export default function OCRForm({
           setPartialVat(true);
         }
       }
-      if (data.supplier_name) {
+      // Pre-select supplier: prefer matched_supplier_id from AI, fallback to name matching
+      if (data.matched_supplier_id && suppliers.some(s => s.id === data.matched_supplier_id)) {
+        setSupplierId(data.matched_supplier_id);
+        setPaymentTabSupplierId(data.matched_supplier_id);
+        setSummarySupplierId(data.matched_supplier_id);
+      } else if (data.supplier_name) {
         const matchedSupplier = suppliers.find(
           (s) => s.name.includes(data.supplier_name!) || data.supplier_name!.includes(s.name)
         );
         if (matchedSupplier) {
           setSupplierId(matchedSupplier.id);
           setPaymentTabSupplierId(matchedSupplier.id);
+          setSummarySupplierId(matchedSupplier.id);
         }
       }
 

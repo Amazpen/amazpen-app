@@ -7,8 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import DocumentViewer from '@/components/ocr/DocumentViewer';
 import OCRForm from '@/components/ocr/OCRForm';
 import DocumentQueue from '@/components/ocr/DocumentQueue';
-import type { OCRDocument, OCRFormData, DocumentStatus } from '@/types/ocr';
-import { MOCK_DOCUMENTS } from '@/types/ocr';
+import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
 
 interface Business {
   id: string;
@@ -26,12 +25,70 @@ export default function OCRPage() {
   const { isAdmin } = useDashboard();
 
   // State - ALL hooks must be declared before any conditional returns
-  const [documents, setDocuments] = useState<OCRDocument[]>(MOCK_DOCUMENTS);
+  const [documents, setDocuments] = useState<OCRDocument[]>([]);
   const [currentDocument, setCurrentDocument] = useState<OCRDocument | null>(null);
   const [filterStatus, setFilterStatus] = useState<DocumentStatus | 'all'>('pending');
   const [isLoading, setIsLoading] = useState(false);
   const [showMobileViewer, setShowMobileViewer] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Fetch OCR documents from Supabase
+  const fetchDocuments = useCallback(async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('ocr_documents')
+      .select('*, ocr_extracted_data(*)')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching OCR documents:', error);
+      return;
+    }
+
+    if (data) {
+      const mapped: OCRDocument[] = data.map((doc: Record<string, unknown>) => {
+        const extracted = Array.isArray(doc.ocr_extracted_data) && doc.ocr_extracted_data.length > 0
+          ? doc.ocr_extracted_data[0] as Record<string, unknown>
+          : null;
+
+        const ocrData: OCRExtractedData | undefined = extracted ? {
+          supplier_name: (extracted.supplier_name as string) || undefined,
+          supplier_tax_id: (extracted.supplier_tax_id as string) || undefined,
+          document_number: (extracted.document_number as string) || undefined,
+          document_date: extracted.document_date ? String(extracted.document_date) : undefined,
+          subtotal: extracted.subtotal != null ? Number(extracted.subtotal) : undefined,
+          vat_amount: extracted.vat_amount != null ? Number(extracted.vat_amount) : undefined,
+          total_amount: extracted.total_amount != null ? Number(extracted.total_amount) : undefined,
+          confidence_score: extracted.overall_confidence != null ? Number(extracted.overall_confidence) : undefined,
+          raw_text: (extracted.raw_text as string) || undefined,
+          matched_supplier_id: (extracted.matched_supplier_id as string) || undefined,
+        } : undefined;
+
+        return {
+          id: doc.id as string,
+          business_id: doc.business_id as string,
+          source: (doc.source as string || 'upload') as OCRDocument['source'],
+          source_sender_name: (doc.source_sender_name as string) || undefined,
+          source_sender_phone: (doc.source_sender_phone as string) || undefined,
+          image_url: doc.image_url as string,
+          original_filename: (doc.original_filename as string) || undefined,
+          file_type: (doc.file_type as string) || undefined,
+          status: (doc.status as string || 'pending') as DocumentStatus,
+          document_type: (doc.document_type as DocumentType) || undefined,
+          ocr_data: ocrData,
+          created_at: doc.created_at as string,
+          processed_at: (doc.ocr_processed_at as string) || undefined,
+          reviewed_by: (doc.reviewed_by as string) || undefined,
+          reviewed_at: (doc.reviewed_at as string) || undefined,
+          rejection_reason: (doc.rejection_reason as string) || undefined,
+          created_invoice_id: (doc.created_invoice_id as string) || undefined,
+          created_payment_id: (doc.created_payment_id as string) || undefined,
+          created_delivery_note_id: (doc.created_delivery_note_id as string) || undefined,
+        };
+      });
+      setDocuments(mapped);
+    }
+  }, []);
 
   // Business and supplier state
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -53,6 +110,13 @@ export default function OCRPage() {
       router.replace('/');
     }
   }, [isAdmin, isCheckingAuth, router]);
+
+  // Fetch OCR documents when admin is confirmed
+  useEffect(() => {
+    if (!isCheckingAuth && isAdmin) {
+      fetchDocuments();
+    }
+  }, [isCheckingAuth, isAdmin, fetchDocuments]);
 
   // Fetch businesses (admin sees all active businesses)
   useEffect(() => {
@@ -122,11 +186,15 @@ export default function OCRPage() {
   const handleSelectDocument = useCallback((document: OCRDocument) => {
     setCurrentDocument(document);
     if (document.status === 'pending') {
+      // Update local state immediately for UI responsiveness
       setDocuments((prev) =>
         prev.map((doc) =>
           doc.id === document.id ? { ...doc, status: 'reviewing' as DocumentStatus } : doc
         )
       );
+      // Update status in Supabase (fire-and-forget)
+      const supabase = createClient();
+      supabase.from('ocr_documents').update({ status: 'reviewing' }).eq('id', document.id);
     }
   }, []);
 
@@ -140,6 +208,11 @@ export default function OCRPage() {
 
       try {
         const { data: { user } } = await supabase.auth.getUser();
+
+        // Track created record IDs for linking back to ocr_documents
+        let createdInvoiceId: string | null = null;
+        let createdPaymentId: string | null = null;
+        let createdDeliveryNoteId: string | null = null;
 
         if (formData.document_type === 'invoice' || formData.document_type === 'credit_note') {
           // --- INVOICE / CREDIT NOTE ---
@@ -162,6 +235,7 @@ export default function OCRPage() {
             .single();
 
           if (invoiceError) throw invoiceError;
+          createdInvoiceId = newInvoice?.id || null;
 
           // If paid, create payment + payment splits
           if (formData.is_paid && newInvoice && formData.payment_methods) {
@@ -184,6 +258,7 @@ export default function OCRPage() {
               .single();
 
             if (paymentError) throw paymentError;
+            createdPaymentId = newPayment?.id || null;
 
             if (newPayment) {
               for (const pm of formData.payment_methods) {
@@ -220,7 +295,7 @@ export default function OCRPage() {
 
         } else if (formData.document_type === 'delivery_note') {
           // --- DELIVERY NOTE ---
-          const { error: deliveryNoteError } = await supabase
+          const { data: newDeliveryNote, error: deliveryNoteError } = await supabase
             .from('delivery_notes')
             .insert({
               business_id: formData.business_id,
@@ -232,9 +307,12 @@ export default function OCRPage() {
               total_amount: parseFloat(formData.total_amount),
               notes: formData.notes || null,
               is_verified: false,
-            });
+            })
+            .select()
+            .single();
 
           if (deliveryNoteError) throw deliveryNoteError;
+          createdDeliveryNoteId = newDeliveryNote?.id || null;
 
         } else if (formData.document_type === 'payment') {
           // --- PAYMENT ---
@@ -256,6 +334,7 @@ export default function OCRPage() {
             .single();
 
           if (paymentError) throw paymentError;
+          createdPaymentId = newPayment?.id || null;
 
           // Create payment splits
           if (newPayment && formData.payment_methods) {
@@ -317,6 +396,7 @@ export default function OCRPage() {
             .single();
 
           if (invoiceError) throw invoiceError;
+          createdInvoiceId = invoice?.id || null;
 
           // Insert delivery notes linked to this invoice
           if (formData.summary_delivery_notes && formData.summary_delivery_notes.length > 0 && invoice) {
@@ -348,24 +428,20 @@ export default function OCRPage() {
           }
         }
 
-        // Update document status in local state
-        setDocuments((prev) =>
-          prev.map((doc) =>
-            doc.id === currentDocument.id
-              ? { ...doc, status: 'approved' as DocumentStatus, processed_at: new Date().toISOString() }
-              : doc
-          )
-        );
+        // Update OCR document status in Supabase
+        await supabase.from('ocr_documents').update({
+          status: 'approved',
+          reviewed_by: user?.id || null,
+          reviewed_at: new Date().toISOString(),
+          document_type: formData.document_type === 'summary' ? 'invoice' : formData.document_type,
+          created_invoice_id: createdInvoiceId,
+          created_payment_id: createdPaymentId,
+          created_delivery_note_id: createdDeliveryNoteId,
+        }).eq('id', currentDocument.id);
 
-        // Move to next pending document
-        const pendingDocs = documents.filter(
-          (doc) => doc.status === 'pending' && doc.id !== currentDocument.id
-        );
-        if (pendingDocs.length > 0) {
-          setCurrentDocument(pendingDocs[0]);
-        } else {
-          setCurrentDocument(null);
-        }
+        // Re-fetch documents and move to next pending
+        await fetchDocuments();
+        setCurrentDocument(null);
 
       } catch (error) {
         console.error('Error saving document:', error);
@@ -374,7 +450,7 @@ export default function OCRPage() {
         setIsLoading(false);
       }
     },
-    [currentDocument, documents]
+    [currentDocument, fetchDocuments]
   );
 
   // Handle document rejection
@@ -382,47 +458,47 @@ export default function OCRPage() {
     async (documentId: string, reason?: string) => {
       setIsLoading(true);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
 
-      // Update document status
-      setDocuments((prev) =>
-        prev.map((doc) =>
-          doc.id === documentId
-            ? {
-                ...doc,
-                status: 'rejected' as DocumentStatus,
-                notes: reason,
-              }
-            : doc
-        )
-      );
+        // Update OCR document status in Supabase
+        const { error } = await supabase.from('ocr_documents').update({
+          status: 'rejected',
+          reviewed_by: user?.id || null,
+          reviewed_at: new Date().toISOString(),
+          rejection_reason: reason || null,
+        }).eq('id', documentId);
 
-      // Move to next pending document
-      const pendingDocs = documents.filter(
-        (doc) => doc.status === 'pending' && doc.id !== documentId
-      );
-      if (pendingDocs.length > 0) {
-        setCurrentDocument(pendingDocs[0]);
-      } else {
+        if (error) throw error;
+
+        // Re-fetch documents and move to next pending
+        await fetchDocuments();
         setCurrentDocument(null);
+      } catch (error) {
+        console.error('Error rejecting document:', error);
+        alert('שגיאה בדחיית המסמך');
+      } finally {
+        setIsLoading(false);
       }
-
-      setIsLoading(false);
-      console.log('Rejected document:', documentId, reason);
     },
-    [documents]
+    [fetchDocuments]
   );
 
   // Handle skip
   const handleSkip = useCallback(() => {
     if (!currentDocument) return;
 
+    // Update local state
     setDocuments((prev) =>
       prev.map((doc) =>
         doc.id === currentDocument.id ? { ...doc, status: 'pending' as DocumentStatus } : doc
       )
     );
+
+    // Revert status in Supabase (fire-and-forget)
+    const supabase = createClient();
+    supabase.from('ocr_documents').update({ status: 'pending' }).eq('id', currentDocument.id);
 
     const pendingDocs = documents.filter(
       (doc) => doc.status === 'pending' && doc.id !== currentDocument.id
