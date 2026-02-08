@@ -190,9 +190,9 @@ export function AiMessageBubble({ message }: AiMessageBubbleProps) {
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-1 px-1 mr-[36px]">
-        <span className="text-white/30 text-[11px]">{formatTime(message.timestamp)}</span>
+      <div className="flex items-center justify-between px-1 mr-[36px]" style={{ width: "calc(100% - 36px)" }}>
         <CopyButton text={message.content} />
+        <span className="text-white/30 text-[11px]">{formatTime(message.timestamp)}</span>
       </div>
     </div>
   );
