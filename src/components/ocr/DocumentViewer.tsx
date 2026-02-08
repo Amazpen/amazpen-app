@@ -317,28 +317,20 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
         style={{ cursor: isCropping ? 'crosshair' : isDragging ? 'grabbing' : 'grab' }}
       >
         {/* Image */}
-        <div
-          className="absolute inset-0 flex items-center justify-center"
+        <img
+          ref={imageRef}
+          src={imageUrl}
+          alt="מסמך"
+          className="absolute top-1/2 left-1/2 select-none"
           style={{
-            transform: `translate(${position.x}px, ${position.y}px)`,
+            maxWidth: '100%',
+            maxHeight: '100%',
+            transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px)) scale(${zoom}) rotate(${rotation}deg)`,
+            transformOrigin: 'center center',
+            transition: isDragging ? 'none' : 'transform 0.2s ease-out',
           }}
-        >
-          <img
-            ref={imageRef}
-            src={imageUrl}
-            alt="מסמך"
-            className="select-none"
-            style={{
-              maxWidth: '100%',
-              maxHeight: '100%',
-              objectFit: 'contain',
-              transform: `scale(${zoom}) rotate(${rotation}deg)`,
-              transformOrigin: 'center center',
-              transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-            }}
-            draggable={false}
-          />
-        </div>
+          draggable={false}
+        />
 
         {/* Crop overlay */}
         {isCropping && cropArea.width > 0 && cropArea.height > 0 && (
