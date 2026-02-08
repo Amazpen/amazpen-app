@@ -178,7 +178,7 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
   }, []);
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0d1f] rounded-[10px] overflow-hidden">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#0a0d1f', borderRadius: '10px', overflow: 'hidden' }}>
       {/* Toolbar */}
       <div className="flex items-center justify-between px-4 py-3 bg-[#0F1535] border-b border-[#4C526B]">
         <div className="flex items-center gap-2">
@@ -309,14 +309,15 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
       {/* Image container */}
       <div
         ref={containerRef}
-        className="relative overflow-hidden cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         style={{
+          position: 'relative',
           flex: '1 1 0%',
           minHeight: 0,
+          overflow: 'hidden',
           cursor: isCropping ? 'crosshair' : isDragging ? 'grabbing' : 'grab',
         }}
       >
@@ -325,12 +326,16 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
           ref={imageRef}
           src={imageUrl}
           alt="מסמך"
-          className="select-none"
           style={{
-            display: 'block',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             width: '100%',
             height: '100%',
             objectFit: 'contain',
+            userSelect: 'none',
             transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
             transformOrigin: 'center center',
             transition: isDragging ? 'none' : 'transform 0.2s ease-out',

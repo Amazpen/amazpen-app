@@ -664,7 +664,8 @@ export default function OCRPage() {
         <div
           className={`lg:flex-1 lg:block ${
             showMobileViewer ? 'flex-1' : 'hidden'
-          } min-h-0 h-full overflow-hidden`}
+          }`}
+          style={{ minHeight: 0, overflow: 'hidden', height: '100%' }}
         >
           {currentDocument ? (
             <DocumentViewer
