@@ -1,13 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import OpenAI from "openai";
-import type { AiChartData } from "@/types/ai";
 
 // ---------------------------------------------------------------------------
 // Rate limiting (in-memory, per user)
 // ---------------------------------------------------------------------------
-const RATE_LIMIT = 20; // max requests per minute per user
+const RATE_LIMIT = 20;
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
 function checkRateLimit(userId: string): boolean {
@@ -21,6 +20,24 @@ function checkRateLimit(userId: string): boolean {
   entry.count++;
   return true;
 }
+
+// ---------------------------------------------------------------------------
+// Router prompt: decide if the message needs SQL or is just conversation
+// ---------------------------------------------------------------------------
+const ROUTER_SYSTEM_PROMPT = `You are a classifier. Given a user message in Hebrew, decide if it requires a database query or is just conversation/greeting.
+
+Reply with EXACTLY one word:
+- "SQL" — if the message asks about business data, numbers, finances, suppliers, invoices, income, expenses, goals, employees, products, etc.
+- "CHAT" — if the message is a greeting (היי, שלום, מה קורה), general question about your capabilities, thank you, or any non-data request.
+
+Examples:
+- "היי" → CHAT
+- "מה אתה יכול לעשות?" → CHAT
+- "תודה!" → CHAT
+- "כמה הכנסות היו החודש?" → SQL
+- "מי הספק הכי יקר?" → SQL
+- "מה ה-food cost?" → SQL
+- "השווה חודש שעבר" → SQL`;
 
 // ---------------------------------------------------------------------------
 // System prompt: SQL generation
@@ -152,7 +169,7 @@ COMMON QUERY PATTERNS:
 }
 
 // ---------------------------------------------------------------------------
-// System prompt: Response formatting
+// System prompt: Response formatting (used for SQL result formatting)
 // ---------------------------------------------------------------------------
 const RESPONSE_SYSTEM_PROMPT = `You are a Hebrew-speaking business analyst assistant for the "המצפן" (HaMatzpen) business management system.
 You receive a user question, the SQL query that was executed, and the query results. Format a clear, helpful response.
@@ -183,6 +200,22 @@ Available colors: #6366f1 (indigo), #22c55e (green), #f59e0b (amber), #ef4444 (r
 Only include a chart when it genuinely adds value. Do NOT include a chart for single-number answers.`;
 
 // ---------------------------------------------------------------------------
+// System prompt: conversational (non-SQL) chat
+// ---------------------------------------------------------------------------
+const CHAT_SYSTEM_PROMPT = `אתה עוזר עסקי חכם בשם "העוזר של המצפן". אתה מדבר בעברית.
+
+אתה עוזר לבעלי עסקים לנתח את הנתונים העסקיים שלהם. אתה יכול:
+- לענות על שאלות על הכנסות, הוצאות, ספקים, תשלומים
+- להשוות בין תקופות
+- להציג מצב מול יעדים
+- לנתח עלויות עבודה ו-food cost
+- להציג יתרות ספקים
+- ועוד...
+
+כשמישהו אומר שלום או מה קורה, ענה בקצרה ובחום, והציע לו לשאול שאלה על העסק.
+תהיה ידידותי וקצר. אל תשתמש באימוג'ים.`;
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -196,128 +229,214 @@ function stripSqlFences(raw: string): string {
     .trim();
 }
 
-function parseChartData(raw: string): { content: string; chartData?: AiChartData } {
-  const chartMatch = raw.match(/```chart-json\n([\s\S]*?)\n```/);
-  if (!chartMatch) return { content: raw };
+function jsonResponse(data: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
-  try {
-    const chartData = JSON.parse(chartMatch[1]) as AiChartData;
-    const content = raw.replace(/```chart-json\n[\s\S]*?\n```/, "").trim();
-    return { content, chartData };
-  } catch {
-    return { content: raw };
-  }
+// ---------------------------------------------------------------------------
+// SSE stream helper
+// ---------------------------------------------------------------------------
+function createSSEStream(
+  streamFn: (writer: {
+    writeText: (text: string) => void;
+    writeChart: (chart: unknown) => void;
+    writeDone: () => void;
+    writeError: (msg: string) => void;
+  }) => Promise<void>
+) {
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const writer = {
+        writeText(text: string) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text", content: text })}\n\n`));
+        },
+        writeChart(chart: unknown) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "chart", chartData: chart })}\n\n`));
+        },
+        writeDone() {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
+          controller.close();
+        },
+        writeError(msg: string) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error: msg })}\n\n`));
+          controller.close();
+        },
+      };
+
+      try {
+        await streamFn(writer);
+      } catch (err) {
+        console.error("Stream error:", err);
+        try {
+          writer.writeError("שגיאה פנימית. נסה שוב.");
+        } catch {
+          // Controller may already be closed
+        }
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
+  // 1. Validate environment
+  if (!process.env.OPENAI_API_KEY) {
+    return jsonResponse({ error: "שירות AI לא מוגדר" }, 503);
+  }
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    return jsonResponse({ error: "שירות מסד נתונים לא מוגדר" }, 503);
+  }
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    timeout: 30_000,
+  });
+
+  // 2. Parse request body safely
+  let body: Record<string, unknown>;
   try {
-    // 1. Validate environment
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ error: "שירות AI לא מוגדר" }, { status: 503 });
-    }
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !serviceRoleKey) {
-      return NextResponse.json({ error: "שירות מסד נתונים לא מוגדר" }, { status: 503 });
-    }
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "בקשה לא תקינה" }, 400);
+  }
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      timeout: 30_000,
-    });
+  const message = typeof body.message === "string" ? body.message : "";
+  const businessId = typeof body.businessId === "string" ? body.businessId : "";
+  const history = Array.isArray(body.history) ? body.history : [];
 
-    // 2. Parse request body safely
-    let body: Record<string, unknown>;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
-    }
+  if (!message || !businessId) {
+    return jsonResponse({ error: "חסרים נתונים" }, 400);
+  }
+  if (message.length > 2000) {
+    return jsonResponse({ error: "ההודעה ארוכה מדי (מקסימום 2000 תווים)" }, 400);
+  }
+  if (!UUID_REGEX.test(businessId)) {
+    return jsonResponse({ error: "מזהה עסק לא תקין" }, 400);
+  }
 
-    const message = typeof body.message === "string" ? body.message : "";
-    const businessId = typeof body.businessId === "string" ? body.businessId : "";
-    const history = Array.isArray(body.history) ? body.history : [];
+  // 3. Authenticate user
+  const serverSupabase = await createServerClient();
+  const {
+    data: { user },
+  } = await serverSupabase.auth.getUser();
 
-    if (!message || !businessId) {
-      return NextResponse.json({ error: "חסרים נתונים" }, { status: 400 });
-    }
-    if (message.length > 2000) {
-      return NextResponse.json({ error: "ההודעה ארוכה מדי (מקסימום 2000 תווים)" }, { status: 400 });
-    }
-    if (!UUID_REGEX.test(businessId)) {
-      return NextResponse.json({ error: "מזהה עסק לא תקין" }, { status: 400 });
-    }
+  if (!user) {
+    return jsonResponse({ error: "לא מחובר" }, 401);
+  }
 
-    // 3. Authenticate user
-    const serverSupabase = await createServerClient();
-    const {
-      data: { user },
-    } = await serverSupabase.auth.getUser();
+  // 4. Rate limiting
+  if (!checkRateLimit(user.id)) {
+    return jsonResponse({ error: "יותר מדי בקשות. נסה שוב בעוד דקה." }, 429);
+  }
 
-    if (!user) {
-      return NextResponse.json({ error: "לא מחובר" }, { status: 401 });
-    }
+  // 5. Authorization
+  const { data: profile } = await serverSupabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .single();
 
-    // 4. Rate limiting
-    if (!checkRateLimit(user.id)) {
-      return NextResponse.json(
-        { error: "יותר מדי בקשות. נסה שוב בעוד דקה." },
-        { status: 429 }
-      );
-    }
-
-    // 5. Authorization: admin can query any business, non-admin only their own
-    const { data: profile } = await serverSupabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", user.id)
+  if (!profile?.is_admin) {
+    const { data: membership } = await serverSupabase
+      .from("business_members")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("business_id", businessId)
+      .is("deleted_at", null)
       .single();
 
-    if (!profile?.is_admin) {
-      const { data: membership } = await serverSupabase
-        .from("business_members")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("business_id", businessId)
-        .is("deleted_at", null)
-        .single();
-
-      if (!membership) {
-        return NextResponse.json({ error: "אין גישה לעסק זה" }, { status: 403 });
-      }
+    if (!membership) {
+      return jsonResponse({ error: "אין גישה לעסק זה" }, 403);
     }
+  }
 
-    // 6. Create admin Supabase client for SQL execution
-    const adminSupabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+  // 6. Filter & validate history
+  const recentHistory = history.slice(-6).filter(
+    (h: unknown): h is { role: "user" | "assistant"; content: string } =>
+      typeof h === "object" &&
+      h !== null &&
+      "role" in h &&
+      "content" in h &&
+      typeof (h as Record<string, unknown>).content === "string"
+  );
 
-    // 7. First OpenAI call: generate SQL
-    const sqlSystemPrompt = buildSqlSystemPrompt(businessId);
-    const recentHistory = history.slice(-6).filter(
-      (h: unknown): h is { role: "user" | "assistant"; content: string } =>
-        typeof h === "object" &&
-        h !== null &&
-        ("role" in h) &&
-        ("content" in h) &&
-        typeof (h as Record<string, unknown>).content === "string"
-    );
-
-    const sqlMessages: OpenAI.ChatCompletionMessageParam[] = [
-      { role: "system", content: sqlSystemPrompt },
-      ...recentHistory.map((h) => ({
-        role: h.role as "user" | "assistant",
-        content: h.content.slice(0, 1000),
-      })),
+  // 7. Route: decide SQL vs CHAT
+  const routerCompletion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: ROUTER_SYSTEM_PROMPT },
       { role: "user", content: message },
-    ];
+    ],
+    temperature: 0,
+    max_tokens: 5,
+  });
+  const route = (routerCompletion.choices[0].message.content?.trim().toUpperCase() || "").startsWith("SQL")
+    ? "SQL"
+    : "CHAT";
 
+  // =========================================================================
+  // CHAT path: stream conversational response directly
+  // =========================================================================
+  if (route === "CHAT") {
+    return createSSEStream(async (writer) => {
+      const chatStream = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: CHAT_SYSTEM_PROMPT },
+          ...recentHistory.map((h) => ({
+            role: h.role as "user" | "assistant",
+            content: h.content.slice(0, 1000),
+          })),
+          { role: "user", content: message },
+        ],
+        temperature: 0.7,
+        max_tokens: 500,
+        stream: true,
+      });
+
+      for await (const chunk of chatStream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (delta) {
+          writer.writeText(delta);
+        }
+      }
+      writer.writeDone();
+    });
+  }
+
+  // =========================================================================
+  // SQL path: generate SQL → execute → stream formatted response
+  // =========================================================================
+  return createSSEStream(async (writer) => {
+    // --- Step A: Generate SQL ---
+    const sqlSystemPrompt = buildSqlSystemPrompt(businessId);
     const sqlCompletion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: sqlMessages,
+      messages: [
+        { role: "system", content: sqlSystemPrompt },
+        ...recentHistory.map((h) => ({
+          role: h.role as "user" | "assistant",
+          content: h.content.slice(0, 1000),
+        })),
+        { role: "user", content: message },
+      ],
       temperature: 0,
       max_tokens: 1500,
     });
@@ -325,35 +444,34 @@ export async function POST(request: NextRequest) {
     const rawSql = sqlCompletion.choices[0].message.content?.trim() || "";
     const sql = stripSqlFences(rawSql);
 
-    // 8. Validate SQL
+    // --- Step B: Validate SQL ---
     const sqlLower = sql.toLowerCase().trimStart();
     if (!sqlLower.startsWith("select") && !sqlLower.startsWith("with")) {
-      return NextResponse.json(
-        { error: "לא הצלחתי לייצר שאילתה מתאימה. נסה לנסח את השאלה אחרת." },
-        { status: 400 }
-      );
+      writer.writeText("לא הצלחתי לייצר שאילתה מתאימה. נסה לנסח את השאלה אחרת.");
+      writer.writeDone();
+      return;
     }
     if (FORBIDDEN_SQL.test(sql)) {
-      return NextResponse.json(
-        { error: "השאילתה מכילה פעולות אסורות." },
-        { status: 400 }
-      );
+      writer.writeText("השאילתה מכילה פעולות אסורות. נסה לנסח את השאלה אחרת.");
+      writer.writeDone();
+      return;
     }
-    // Block SQL comments that could hide business_id bypass
     if (sql.includes("--") || sql.includes("/*")) {
-      return NextResponse.json(
-        { error: "השאילתה מכילה תחביר לא מורשה." },
-        { status: 400 }
-      );
+      writer.writeText("השאילתה מכילה תחביר לא מורשה. נסה לנסח את השאלה אחרת.");
+      writer.writeDone();
+      return;
     }
     if (!sql.includes(businessId)) {
-      return NextResponse.json(
-        { error: "שאילתה חייבת לכלול סינון לפי עסק." },
-        { status: 400 }
-      );
+      writer.writeText("לא הצלחתי ליצור שאילתה מתאימה. נסה שוב.");
+      writer.writeDone();
+      return;
     }
 
-    // 9. Execute SQL via the read_only_query function
+    // --- Step C: Execute SQL ---
+    const adminSupabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
     let queryResult: unknown = [];
     let queryErrorOccurred = false;
 
@@ -368,66 +486,73 @@ export async function POST(request: NextRequest) {
       queryResult = data || [];
     }
 
-    // 10. Second OpenAI call: format response in Hebrew
     const resultRows = Array.isArray(queryResult) ? queryResult : [];
-    const truncatedResults =
-      resultRows.length > 100 ? resultRows.slice(0, 100) : resultRows;
+    const truncatedResults = resultRows.length > 100 ? resultRows.slice(0, 100) : resultRows;
 
-    const responseMessages: OpenAI.ChatCompletionMessageParam[] = [
-      { role: "system", content: RESPONSE_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: [
-          `שאלת המשתמש: ${message}`,
-          ``,
-          `שאילתת SQL שהורצה:`,
-          sql,
-          ``,
-          `תוצאות (${resultRows.length} שורות${resultRows.length > 100 ? ", מוצגות 100 ראשונות" : ""}):`,
-          JSON.stringify(truncatedResults, null, 2),
-          queryErrorOccurred
-            ? "\nהשאילתה נכשלה. הסבר למשתמש בעברית שכדאי לנסח את השאלה אחרת."
-            : "",
-        ].join("\n"),
-      },
-    ];
-
-    const responseCompletion = await openai.chat.completions.create({
+    // --- Step D: Stream formatted response ---
+    const responseStream = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: responseMessages,
+      messages: [
+        { role: "system", content: RESPONSE_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: [
+            `שאלת המשתמש: ${message}`,
+            ``,
+            `שאילתת SQL שהורצה:`,
+            sql,
+            ``,
+            `תוצאות (${resultRows.length} שורות${resultRows.length > 100 ? ", מוצגות 100 ראשונות" : ""}):`,
+            JSON.stringify(truncatedResults, null, 2),
+            queryErrorOccurred
+              ? "\nהשאילתה נכשלה. הסבר למשתמש בעברית שכדאי לנסח את השאלה אחרת."
+              : "",
+          ].join("\n"),
+        },
+      ],
       temperature: 0.7,
       max_tokens: 2500,
+      stream: true,
     });
 
-    const rawResponse =
-      responseCompletion.choices[0].message.content ||
-      "לא הצלחתי לעבד את התשובה. נסה שוב.";
+    let fullResponse = "";
+    let chartBlockStarted = false;
+    for await (const chunk of responseStream) {
+      const delta = chunk.choices[0]?.delta?.content;
+      if (delta) {
+        fullResponse += delta;
 
-    // 11. Parse content + optional chart data
-    const { content, chartData } = parseChartData(rawResponse);
+        if (chartBlockStarted) {
+          // Already inside chart block — don't stream
+          continue;
+        }
 
-    return NextResponse.json({ content, chartData });
-  } catch (error) {
-    console.error("AI chat error:", error);
-
-    if (error instanceof OpenAI.APIError) {
-      if (error.status === 429) {
-        return NextResponse.json(
-          { error: "יותר מדי בקשות. נסה שוב בעוד דקה." },
-          { status: 429 }
-        );
-      }
-      if (error.status === 401) {
-        return NextResponse.json(
-          { error: "שירות AI לא מוגדר כראוי." },
-          { status: 503 }
-        );
+        // Check if the chart block just started in this chunk
+        const chartIdx = fullResponse.indexOf("```chart-json");
+        if (chartIdx !== -1) {
+          chartBlockStarted = true;
+          // Stream only the text portion before the chart block
+          const textBefore = fullResponse.slice(0, chartIdx);
+          const alreadySent = fullResponse.length - delta.length;
+          const unsent = textBefore.slice(alreadySent);
+          if (unsent) writer.writeText(unsent);
+        } else {
+          writer.writeText(delta);
+        }
       }
     }
 
-    return NextResponse.json(
-      { error: "שגיאה פנימית בשרת. נסה שוב מאוחר יותר." },
-      { status: 500 }
-    );
-  }
+    // Parse chart data from the full response
+    const chartMatch = fullResponse.match(/```chart-json\n([\s\S]*?)\n```/);
+    if (chartMatch) {
+      try {
+        const chartData = JSON.parse(chartMatch[1]);
+        writer.writeChart(chartData);
+      } catch {
+        // Invalid chart JSON, ignore
+      }
+    }
+
+    writer.writeDone();
+  });
 }

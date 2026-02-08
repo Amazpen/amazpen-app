@@ -21,11 +21,12 @@ export function useAiChat(businessId: string | undefined) {
         timestamp: new Date(),
       };
 
+      const assistantId = `assistant-${crypto.randomUUID()}`;
+
       setMessages((prev) => [...prev, userMessage]);
       setIsLoading(true);
 
       try {
-        // Build recent history for context (last 10 messages)
         const recentHistory = [...messagesRef.current, userMessage]
           .slice(-10)
           .map((m) => ({
@@ -46,21 +47,89 @@ export function useAiChat(businessId: string | undefined) {
           signal: abortRef.current.signal,
         });
 
-        const data = await response.json();
-
+        // Non-SSE error responses (4xx/5xx) still return JSON
         if (!response.ok) {
-          throw new Error(data.error || "שגיאה בתקשורת עם השרת");
+          let errorMsg = "שגיאה בתקשורת עם השרת";
+          try {
+            const errData = await response.json();
+            errorMsg = errData.error || errorMsg;
+          } catch {
+            // couldn't parse JSON, use default
+          }
+          throw new Error(errorMsg);
         }
 
-        const assistantMessage: AiMessage = {
-          id: `assistant-${crypto.randomUUID()}`,
-          role: "assistant",
-          content: data.content,
-          timestamp: new Date(),
-          chartData: data.chartData,
-        };
+        const body = response.body;
+        if (!body) throw new Error("אין תגובה מהשרת");
 
-        setMessages((prev) => [...prev, assistantMessage]);
+        // Add empty assistant message that we'll update progressively
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: assistantId,
+            role: "assistant",
+            content: "",
+            timestamp: new Date(),
+          },
+        ]);
+
+        const reader = body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Process complete SSE lines
+          const lines = buffer.split("\n");
+          // Keep the last incomplete line in buffer
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith("data: ")) continue;
+
+            const jsonStr = trimmed.slice(6); // remove "data: "
+            let event: { type: string; content?: string; chartData?: unknown; error?: string };
+            try {
+              event = JSON.parse(jsonStr);
+            } catch {
+              continue;
+            }
+
+            if (event.type === "text" && event.content) {
+              // Append text chunk to the assistant message
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, content: m.content + event.content }
+                    : m
+                )
+              );
+            } else if (event.type === "chart" && event.chartData) {
+              // Attach chart data to the assistant message
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, chartData: event.chartData as AiMessage["chartData"] }
+                    : m
+                )
+              );
+            } else if (event.type === "error") {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? { ...m, content: `**שגיאה:** ${event.error || "שגיאה לא צפויה"}` }
+                    : m
+                )
+              );
+            }
+            // "done" event — nothing to do, stream ends naturally
+          }
+        }
       } catch (error: unknown) {
         if (error instanceof Error && error.name === "AbortError") return;
 
