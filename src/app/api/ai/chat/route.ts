@@ -24,13 +24,15 @@ function checkRateLimit(userId: string): boolean {
 // ---------------------------------------------------------------------------
 // Router prompt: decide if the message needs SQL or is just conversation
 // ---------------------------------------------------------------------------
-const ROUTER_SYSTEM_PROMPT = `You are a classifier. Given a user message in Hebrew, decide if it requires a database query or is just conversation/greeting.
+const ROUTER_SYSTEM_PROMPT = `You are a classifier. Given a user message in Hebrew, decide what type of action is needed.
 
 Reply with EXACTLY one word:
 - "SQL" — if the message asks about business data, numbers, finances, suppliers, invoices, income, expenses, goals, employees, products, OR mentions a specific business name, OR asks what data/information is available, OR asks to show/display/list anything related to business.
+- "CALC" — if the message is a math/calculation question NOT related to business data. Pure arithmetic, percentages, conversions, tip calculations, VAT calculations on a given number, etc.
 - "CHAT" — ONLY for simple greetings (היי, שלום, מה קורה), thank you messages, or very general questions about what you can do that don't mention any business or data.
 
-When in doubt, choose SQL.
+When in doubt between CALC and SQL, choose SQL (business data always needs SQL).
+When in doubt between CALC and CHAT, choose CALC.
 
 Examples:
 - "היי" → CHAT
@@ -43,7 +45,13 @@ Examples:
 - "מה יש לך על עסק דוגמה?" → SQL
 - "תראה לי מידע על ג'וליה" → SQL
 - "לאיזה עסקים יש לך גישה?" → SQL
-- "מה המצב של כל העסקים?" → SQL`;
+- "מה המצב של כל העסקים?" → SQL
+- "כמה זה 15% מ-1200?" → CALC
+- "חשב לי 340 כפול 12" → CALC
+- "כמה זה 5000 פלוס מעמ?" → CALC
+- "מה זה 18 אחוז מ-50000?" → CALC
+- "תחלק 9000 ל-3" → CALC
+- "כמה זה 1200 דולר בשקלים?" → CALC`;
 
 // ---------------------------------------------------------------------------
 // System prompt: SQL generation
@@ -438,6 +446,7 @@ ${greeting}
 - השוואה בין עסקים (למנהלי מערכת)
 - צפי לסיום חודש ומגמות
 - המלצות לשיפור רווחיות מבוססות נתונים
+- מחשבון: חישובי אחוזים, מע"מ, המרות מטבע, ועוד
 
 חשוב: אם המשתמש שואל שאלה שדורשת נתונים, עודד אותו לשאול ישירות (למשל: "כמה הכנסות היו החודש?" או "מה היתרה של הספקים?") כדי שתוכל לשלוף את המידע.
 
@@ -448,6 +457,31 @@ ${greeting}
 אסור להשתמש במילים: קריטי, דחוף, חייב, מסוכן, בעיה, משבר.
 תהיה ידידותי, מקצועי וקצר.`;
 }
+
+// ---------------------------------------------------------------------------
+// System prompt: Calculator — generate a JS expression
+// ---------------------------------------------------------------------------
+const CALC_SYSTEM_PROMPT = `You are a calculator assistant. The user asks a math question in Hebrew.
+You must reply with ONLY a valid JavaScript arithmetic expression that computes the answer.
+
+RULES:
+1. Return ONLY the JS expression. No explanation, no markdown, no variable names.
+2. Use standard JS math: +, -, *, /, %, Math.round(), Math.ceil(), Math.floor(), Math.pow(), Math.sqrt().
+3. For percentages: "15% מ-1200" → 1200 * 0.15
+4. For VAT (מעמ): Israel VAT is 18%. "5000 פלוס מעמ" → 5000 * 1.18, "כמה מעמ על 5000" → 5000 * 0.18
+5. For currency: 1 USD ≈ 3.6 ILS, 1 EUR ≈ 3.9 ILS (approximate).
+6. NEVER use eval, Function, require, import, fetch, or any non-math operation.
+7. The expression must be a single line that returns a number.
+
+Examples:
+- "כמה זה 15% מ-1200?" → 1200 * 0.15
+- "5000 פלוס מעמ" → 5000 * 1.18
+- "חשב 340 כפול 12" → 340 * 12
+- "תחלק 9000 ל-3" → 9000 / 3
+- "כמה זה 1200 דולר בשקלים?" → 1200 * 3.6
+- "מה זה 25 בריבוע?" → Math.pow(25, 2)
+- "שורש של 144" → Math.sqrt(144)
+- "כמה זה 18 אחוז מ-50000?" → 50000 * 0.18`;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -462,6 +496,31 @@ function stripSqlFences(raw: string): string {
     .replace(/\n?```$/i, "")
     .trim()
     .replace(/;\s*$/, ""); // Remove trailing semicolon — EXECUTE doesn't accept it
+}
+
+function stripCodeFences(raw: string): string {
+  return raw
+    .replace(/^```(?:javascript|js)?\n?/i, "")
+    .replace(/\n?```$/i, "")
+    .trim()
+    .replace(/;\s*$/, "");
+}
+
+/** Safely evaluate a pure math JS expression. Returns the number or throws. */
+function safeEvalMath(expr: string): number {
+  // Block anything that isn't math
+  const forbidden = /\b(eval|Function|require|import|fetch|XMLHttpRequest|process|global|window|document|setTimeout|setInterval|Buffer|fs|child_process|exec|spawn)\b/;
+  if (forbidden.test(expr)) throw new Error("Forbidden expression");
+
+  // Only allow: digits, operators, parens, dots, commas, Math.*, whitespace
+  const sanitized = expr.replace(/Math\.\w+/g, "M"); // temp replace Math calls
+  if (/[a-zA-Z_$]/.test(sanitized.replace(/M/g, ""))) throw new Error("Invalid characters in expression");
+
+  // Evaluate using Function (no access to scope)
+  const fn = new Function(`"use strict"; return (${expr});`);
+  const result = fn();
+  if (typeof result !== "number" || !isFinite(result)) throw new Error("Result is not a valid number");
+  return result;
 }
 
 function jsonResponse(data: Record<string, unknown>, status = 200) {
@@ -683,9 +742,8 @@ export async function POST(request: NextRequest) {
     temperature: 0,
     max_tokens: 5,
   });
-  const route = (routerCompletion.choices[0].message.content?.trim().toUpperCase() || "").startsWith("SQL")
-    ? "SQL"
-    : "CHAT";
+  const routeRaw = routerCompletion.choices[0].message.content?.trim().toUpperCase() || "";
+  const route = routeRaw.startsWith("SQL") ? "SQL" : routeRaw.startsWith("CALC") ? "CALC" : "CHAT";
 
   // =========================================================================
   // CHAT path: stream conversational response directly
@@ -726,6 +784,102 @@ export async function POST(request: NextRequest) {
         saveMessageToDB(supabaseUrl, serviceRoleKey, sessionId, "assistant", fullChatResponse);
       }
 
+      writer.writeDone();
+    });
+  }
+
+  // =========================================================================
+  // CALC path: generate JS expression → evaluate → stream formatted answer
+  // =========================================================================
+  if (route === "CALC") {
+    if (sessionId) {
+      saveMessageToDB(supabaseUrl, serviceRoleKey, sessionId, "user", message);
+    }
+
+    return createSSEStream(async (writer) => {
+      // Step 1: Ask GPT to generate a JS math expression
+      const calcCompletion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: CALC_SYSTEM_PROMPT },
+          { role: "user", content: message },
+        ],
+        temperature: 0,
+        max_tokens: 200,
+      });
+
+      const rawExpr = calcCompletion.choices[0].message.content?.trim() || "";
+      const expr = stripCodeFences(rawExpr);
+      console.log("[AI CALC] Expression:", expr);
+
+      let resultNum: number;
+      try {
+        resultNum = safeEvalMath(expr);
+      } catch (e) {
+        console.error("[AI CALC] Eval failed:", e instanceof Error ? e.message : e);
+        // Fallback: let GPT answer the math question directly
+        const fallbackStream = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: `אתה מחשבון. ענה בעברית. תן תשובה קצרה וברורה עם התוצאה המדויקת. השתמש ב-₪ למטבע ישראלי. פרמט מספרים עם פסיקים.` },
+            { role: "user", content: message },
+          ],
+          temperature: 0,
+          max_tokens: 300,
+          stream: true,
+        });
+
+        let fallbackResponse = "";
+        for await (const chunk of fallbackStream) {
+          const delta = chunk.choices[0]?.delta?.content;
+          if (delta) {
+            fallbackResponse += delta;
+            writer.writeText(delta);
+          }
+        }
+        if (sessionId && fallbackResponse) {
+          saveMessageToDB(supabaseUrl, serviceRoleKey, sessionId, "assistant", fallbackResponse);
+        }
+        writer.writeDone();
+        return;
+      }
+
+      // Step 2: Format the result nicely via GPT
+      const formatStream = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `אתה מחשבון עסקי. ענה בעברית בקצרה ובבהירות.
+כללים:
+- הצג את התוצאה בבולד עם פרמוט מספרים (פסיקים, ₪ למטבע).
+- הוסף את פירוט החישוב בשורה נפרדת.
+- השתמש באימוג'י 🧮 בכותרת.
+- אם מדובר באחוזים, הצג גם את הסכום וגם את האחוז.
+- תהיה קצר — 2-3 שורות מספיקות.`,
+          },
+          {
+            role: "user",
+            content: `שאלה: ${message}\nביטוי חישוב: ${expr}\nתוצאה: ${resultNum}`,
+          },
+        ],
+        temperature: 0.5,
+        max_tokens: 300,
+        stream: true,
+      });
+
+      let fullCalcResponse = "";
+      for await (const chunk of formatStream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (delta) {
+          fullCalcResponse += delta;
+          writer.writeText(delta);
+        }
+      }
+
+      if (sessionId && fullCalcResponse) {
+        saveMessageToDB(supabaseUrl, serviceRoleKey, sessionId, "assistant", fullCalcResponse);
+      }
       writer.writeDone();
     });
   }
