@@ -218,6 +218,7 @@ export default function DashboardLayout({
   const [isHydrated, setIsHydrated] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [businessName, setBusinessName] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -361,6 +362,7 @@ export default function DashboardLayout({
 
   const title = pageTitles[pathname] || "דשבורד";
   const activeKey = menuItems.find(item => item.href === pathname)?.key || "dashboard";
+  const isAdminPage = adminMenuItems.some(item => pathname.startsWith(item.href));
 
   const handleMenuClick = (item: typeof menuItems[0], e: React.MouseEvent) => {
     if (item.requiresBusiness && selectedBusinesses.length === 0) {
@@ -542,12 +544,28 @@ export default function DashboardLayout({
               })}
             </div>
 
-            {/* Admin Section - Show only for admin users */}
+            {/* Admin Section - Collapsible, show only for admin users */}
             {isAdmin && (
             <div className="mt-[20px] pt-[15px] border-t border-white/10">
-              <div className="flex items-center gap-[8px] mb-[10px] px-[7px]">
-                <span className="text-[#FFA412] text-[12px] font-bold">ניהול מערכת</span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsAdminMenuOpen((prev) => !prev)}
+                className="flex items-center justify-between w-full px-[7px] mb-[4px] cursor-pointer group"
+              >
+                <div className="flex items-center gap-[8px]">
+                  <span className="text-[#FFA412] text-[12px] font-bold">ניהול מערכת</span>
+                </div>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className={`text-[#FFA412] transition-transform duration-200 ${isAdminMenuOpen || isAdminPage ? 'rotate-180' : ''}`}
+                >
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <div className={`overflow-hidden transition-all duration-200 ${isAdminMenuOpen || isAdminPage ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
               {adminMenuItems.map((item) => {
                 const pageExists = existingPages.includes(item.href);
 
@@ -587,6 +605,7 @@ export default function DashboardLayout({
                   </Link>
                 );
               })}
+              </div>
             </div>
             )}
 
