@@ -619,8 +619,8 @@ export default function GoalsPage() {
                           type="text"
                           inputMode="decimal"
                           title={`יעד עבור ${item.name}`}
-                          value={item.target}
-                          onChange={(e) => handleTargetChange(item.id, e.target.value)}
+                          value={item.unit === "%" ? item.target : item.target.toLocaleString("en-US")}
+                          onChange={(e) => handleTargetChange(item.id, e.target.value.replace(/,/g, ""))}
                           className="w-[80px] text-[14px] font-bold text-white text-center bg-transparent border-none outline-none ltr-num"
                           placeholder="0"
                         />
