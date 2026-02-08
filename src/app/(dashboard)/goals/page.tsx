@@ -455,7 +455,7 @@ export default function GoalsPage() {
           const targetAvg = incomeGoalMap.get(source.id) || 0;
           return {
             id: `avg-ticket-${source.id}`,
-            name: `ממוצע ${source.name}`,
+            name: `ממוצע ${source.name} (₪)`,
             target: targetAvg,
             actual: Math.round(actualAvg),
             unit: "₪",
@@ -482,7 +482,7 @@ export default function GoalsPage() {
             const actualPct = totalRevenue > 0 ? (actualCost / totalRevenue) * 100 : 0;
             return {
               id: `product-${product.id}`,
-              name: product.name,
+              name: `יעד ${product.name} (%)`,
               target: Number(product.target_pct) || 0,
               actual: actualPct,
               unit: "%",
@@ -493,15 +493,16 @@ export default function GoalsPage() {
         const kpiItems: GoalItem[] = [
           {
             id: "revenue",
-            name: "הכנסות ברוטו",
+            name: "הכנסות ברוטו (₪)",
             target: Number(goal?.revenue_target) || 0,
             actual: totalRevenue,
             unit: "₪",
             editable: true,
           },
+          ...avgTicketItems,
           {
             id: "labor-pct",
-            name: "עלות עובדים",
+            name: "עלות עובדים (%)",
             target: Number(goal?.labor_cost_target_pct) || 0,
             actual: laborPct,
             unit: "%",
@@ -509,15 +510,16 @@ export default function GoalsPage() {
           },
           {
             id: "food-pct",
-            name: "עלות מכר",
+            name: "עלות מכר (%)",
             target: Number(goal?.food_cost_target_pct) || 0,
             actual: foodPct,
             unit: "%",
             editable: true,
           },
+          ...managedProductItems,
           {
             id: "current-expenses",
-            name: "הוצאות שוטפות",
+            name: "הוצאות שוטפות (₪)",
             target: Number(goal?.current_expenses_target) || 0,
             actual: totalCurrentExpenses,
             unit: "₪",
@@ -525,14 +527,12 @@ export default function GoalsPage() {
           },
           {
             id: "goods-expenses",
-            name: "קניות סחורה",
+            name: "הוצאות קניות סחורה (₪)",
             target: Number(goal?.goods_expenses_target) || 0,
             actual: totalGoodsCost,
             unit: "₪",
             editable: false,
           },
-          ...avgTicketItems,
-          ...managedProductItems,
         ];
         setKpiData(kpiItems);
 
