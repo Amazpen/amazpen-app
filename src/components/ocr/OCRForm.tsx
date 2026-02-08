@@ -269,14 +269,10 @@ export default function OCRForm({
       if (document.expense_type) {
         setExpenseType(document.expense_type);
       }
-      if (data.document_date) {
-        setDocumentDate(data.document_date);
-        setPaymentTabDate(data.document_date);
-      } else {
-        const today = new Date().toISOString().split('T')[0];
-        setDocumentDate(today);
-        setPaymentTabDate(today);
-      }
+      const docDate = data.document_date || new Date().toISOString().split('T')[0];
+      setDocumentDate(docDate);
+      setPaymentTabDate(docDate);
+
       if (data.document_number) {
         setDocumentNumber(data.document_number);
       }
@@ -290,21 +286,22 @@ export default function OCRForm({
           setPartialVat(true);
         }
       }
+
       // Pre-select supplier: prefer matched_supplier_id from AI, fallback to name matching
+      let matchedId = '';
       if (data.matched_supplier_id && suppliers.some(s => s.id === data.matched_supplier_id)) {
-        setSupplierId(data.matched_supplier_id);
-        setPaymentTabSupplierId(data.matched_supplier_id);
-        setSummarySupplierId(data.matched_supplier_id);
-      } else if (data.supplier_name) {
+        matchedId = data.matched_supplier_id;
+      } else if (data.supplier_name && suppliers.length > 0) {
         const matchedSupplier = suppliers.find(
           (s) => s.name.includes(data.supplier_name!) || data.supplier_name!.includes(s.name)
         );
         if (matchedSupplier) {
-          setSupplierId(matchedSupplier.id);
-          setPaymentTabSupplierId(matchedSupplier.id);
-          setSummarySupplierId(matchedSupplier.id);
+          matchedId = matchedSupplier.id;
         }
       }
+      setSupplierId(matchedId);
+      setPaymentTabSupplierId(matchedId);
+      setSummarySupplierId(matchedId);
 
       // Reset payment fields
       setIsPaid(false);
@@ -312,14 +309,17 @@ export default function OCRForm({
       setInlinePaymentDate('');
       setInlinePaymentReference('');
       setInlinePaymentNotes('');
+
+      // For payment tab, pre-fill the amount from OCR total
+      const totalStr = data.total_amount?.toString() || '';
+      setPaymentMethods([{ id: 1, method: '', amount: totalStr, installments: '1', customInstallments: [] }]);
       setInlinePaymentMethods([{ id: 1, method: '', amount: '', installments: '1', customInstallments: [] }]);
-      setPaymentMethods([{ id: 1, method: '', amount: '', installments: '1', customInstallments: [] }]);
-      setPaymentTabReference('');
+      setPaymentTabReference(data.document_number || '');
       setPaymentTabNotes('');
       setNotes('');
-      // Reset summary fields
-      setSummarySupplierId('');
-      setSummaryDate(data.document_date || new Date().toISOString().split('T')[0]);
+
+      // Summary fields - use matched supplier and OCR data
+      setSummaryDate(docDate);
       setSummaryInvoiceNumber(data.document_number || '');
       setSummaryTotalAmount(data.total_amount?.toString() || '');
       setSummaryIsClosed('');
@@ -692,6 +692,12 @@ export default function OCRForm({
       {/* Supplier Select */}
       <div className="flex flex-col gap-[3px]">
         <label className="text-[15px] font-medium text-white text-right">שם ספק</label>
+        {document?.ocr_data?.supplier_name && !supplierId && (
+          <div className="bg-[#29318A]/20 border border-[#29318A]/40 rounded-[8px] px-[10px] py-[6px]">
+            <span className="text-[13px] text-[#00D4FF]">זוהה מ-OCR: </span>
+            <span className="text-[13px] text-white font-medium">{document.ocr_data.supplier_name}</span>
+          </div>
+        )}
         <div className="border border-[#4C526B] rounded-[10px]">
           <select
             title="בחר ספק"
@@ -976,6 +982,12 @@ export default function OCRForm({
       {/* Supplier */}
       <div className="flex flex-col gap-[3px]">
         <label className="text-[16px] font-medium text-white text-right">שם ספק</label>
+        {document?.ocr_data?.supplier_name && !paymentTabSupplierId && (
+          <div className="bg-[#29318A]/20 border border-[#29318A]/40 rounded-[8px] px-[10px] py-[6px]">
+            <span className="text-[13px] text-[#00D4FF]">זוהה מ-OCR: </span>
+            <span className="text-[13px] text-white font-medium">{document.ocr_data.supplier_name}</span>
+          </div>
+        )}
         <div className="border border-[#4C526B] rounded-[10px]">
           <select
             title="בחר ספק"
