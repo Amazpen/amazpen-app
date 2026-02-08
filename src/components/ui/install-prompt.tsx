@@ -28,7 +28,6 @@ export function InstallPrompt() {
     }, 2000);
 
     const handler = (e: Event) => {
-      e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       setVisible(true);
     };
