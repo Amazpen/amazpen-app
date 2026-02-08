@@ -1846,7 +1846,7 @@ export default function NewBusinessPage() {
       </div>
 
       {/* Navigation Buttons */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#0F1535] border-t border-white/10 p-[15px] flex gap-[10px]">
+      <div className="fixed bottom-0 left-0 right-0 lg:right-[220px] bg-[#0F1535] border-t border-white/10 p-[15px] flex gap-[10px]">
         {currentStep > 1 && (
           <button
             type="button"
