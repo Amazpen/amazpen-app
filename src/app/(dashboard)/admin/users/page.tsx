@@ -269,88 +269,36 @@ export default function AdminUsersPage() {
         return;
       }
 
-      // Create auth user with password
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: newUserEmail.toLowerCase(),
-        password: newUserPassword,
-        email_confirm: true,
-      });
-
-      if (authError) {
-        // Fallback: try signUp if admin API not available
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      // Create user via server API route (uses service role key, no email sent)
+      const response = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           email: newUserEmail.toLowerCase(),
           password: newUserPassword,
-        });
+          fullName: newUserName || null,
+          phone: newUserPhone || null,
+          avatarUrl: newUserAvatarUrl || null,
+          businessId: newUserBusinessId && newUserBusinessId !== "" ? newUserBusinessId : null,
+          role: newUserRole,
+        }),
+      });
 
-        if (signUpError) {
-          throw new Error(signUpError.message);
-        }
+      const result = await response.json();
 
-        if (!signUpData.user) {
-          throw new Error("שגיאה ביצירת המשתמש");
-        }
+      if (!response.ok) {
+        throw new Error(result.error || "שגיאה ביצירת המשתמש");
+      }
 
-        // Update profile with additional fields
-        const { error: profileError } = await supabase
+      // Update is_admin flag if needed (API route doesn't handle this)
+      if (newUserIsAdmin && result.userId) {
+        const { error: adminError } = await supabase
           .from("profiles")
-          .update({
-            full_name: newUserName || null,
-            phone: newUserPhone || null,
-            avatar_url: newUserAvatarUrl || null,
-            is_admin: newUserIsAdmin,
-          })
-          .eq("id", signUpData.user.id);
+          .update({ is_admin: true })
+          .eq("id", result.userId);
 
-        if (profileError) {
-          console.error("Error updating profile:", profileError);
-        }
-
-        // If business selected, add to business_members
-        if (newUserBusinessId && newUserBusinessId !== "") {
-          const { error: memberError } = await supabase
-            .from("business_members")
-            .insert({
-              business_id: newUserBusinessId,
-              user_id: signUpData.user.id,
-              role: newUserRole,
-              invited_at: new Date().toISOString(),
-            });
-
-          if (memberError) {
-            console.error("Error adding to business:", memberError);
-          }
-        }
-      } else if (authData.user) {
-        // Admin API worked - update profile
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({
-            full_name: newUserName || null,
-            phone: newUserPhone || null,
-            avatar_url: newUserAvatarUrl || null,
-            is_admin: newUserIsAdmin,
-          })
-          .eq("id", authData.user.id);
-
-        if (profileError) {
-          console.error("Error updating profile:", profileError);
-        }
-
-        // If business selected, add to business_members
-        if (newUserBusinessId && newUserBusinessId !== "") {
-          const { error: memberError } = await supabase
-            .from("business_members")
-            .insert({
-              business_id: newUserBusinessId,
-              user_id: authData.user.id,
-              role: newUserRole,
-              invited_at: new Date().toISOString(),
-            });
-
-          if (memberError) {
-            console.error("Error adding to business:", memberError);
-          }
+        if (adminError) {
+          console.error("Error setting admin flag:", adminError);
         }
       }
 
