@@ -13,7 +13,7 @@ interface AiChatContainerProps {
 }
 
 export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
-  const { messages, isLoading, sendMessage, clearChat } = useAiChat(businessId);
+  const { messages, isLoading, sendMessage, clearChat } = useAiChat(businessId, isAdmin);
   const hasMessages = messages.length > 0;
 
   const handleSuggestionClick = useCallback(
@@ -54,7 +54,7 @@ export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
       )}
 
       {/* Input */}
-      <AiChatInput onSend={sendMessage} disabled={isLoading || !businessId} />
+      <AiChatInput onSend={sendMessage} disabled={isLoading || (!isAdmin && !businessId)} />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import type { AiMessage } from "@/types/ai";
 
-export function useAiChat(businessId: string | undefined) {
+export function useAiChat(businessId: string | undefined, isAdmin = false) {
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -12,7 +12,7 @@ export function useAiChat(businessId: string | undefined) {
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (!businessId || !content.trim()) return;
+      if ((!isAdmin && !businessId) || !content.trim()) return;
 
       const userMessage: AiMessage = {
         id: `user-${crypto.randomUUID()}`,
@@ -41,7 +41,7 @@ export function useAiChat(businessId: string | undefined) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message: content,
-            businessId,
+            businessId: businessId || "",
             history: recentHistory,
           }),
           signal: abortRef.current.signal,
@@ -144,7 +144,7 @@ export function useAiChat(businessId: string | undefined) {
         setIsLoading(false);
       }
     },
-    [businessId]
+    [businessId, isAdmin]
   );
 
   const clearChat = useCallback(() => {

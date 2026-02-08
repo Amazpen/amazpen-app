@@ -169,6 +169,104 @@ COMMON QUERY PATTERNS:
 }
 
 // ---------------------------------------------------------------------------
+// System prompt: SQL generation for admin cross-business queries
+// ---------------------------------------------------------------------------
+function buildAdminCrossBizSqlPrompt(businesses: Array<{ id: string; name: string }>): string {
+  const today = new Date().toISOString().split("T")[0];
+  const bizList = businesses.map((b) => `- "${b.name}" → '${b.id}'`).join("\n");
+
+  return `You are a SQL query generator for a business management system (PostgreSQL via Supabase).
+You generate READ-ONLY SQL queries based on user questions in Hebrew.
+The user is an ADMIN who can query any business or compare between businesses.
+
+CRITICAL RULES:
+1. ONLY generate SELECT queries. Never INSERT, UPDATE, DELETE, DROP, or ALTER.
+2. When the user mentions a business by name, use the matching business_id from the list below.
+3. When the user asks about "all businesses" or does not specify a business, query across all businesses and JOIN with the businesses table to show the business name.
+4. Use the exact table and column names from the schema below.
+5. When the user says "החודש" (this month), use the current month and year.
+6. When the user says "חודש קודם" or "חודש שעבר" (last month), subtract one month.
+7. Return ONLY the raw SQL query. No markdown fences, no explanation, no comments.
+8. Limit results to 500 rows maximum (add LIMIT 500 if not present).
+9. For percentage calculations, round to 2 decimal places.
+10. When joining tables, always use proper aliases for readability.
+11. For deleted records, always filter deleted_at IS NULL where the column exists.
+12. Today's date is ${today}.
+13. NEVER use UNION or UNION ALL.
+14. NEVER include SQL comments (-- or /* */).
+
+AVAILABLE BUSINESSES:
+${bizList}
+
+DATABASE SCHEMA:
+
+-- businesses: Business configuration
+-- Columns: id (uuid PK), name (text), business_type (text), tax_id (text),
+--   vat_percentage (numeric), markup_percentage (numeric),
+--   manager_monthly_salary (numeric), currency (text)
+
+-- daily_entries: Daily business performance data
+-- Columns: id (uuid PK), business_id (uuid FK), entry_date (date), total_register (numeric),
+--   labor_cost (numeric), labor_hours (numeric), discounts (numeric), waste (numeric),
+--   day_factor (numeric), notes (text), created_by (uuid), created_at, updated_at, deleted_at
+
+-- daily_income_breakdown: Income breakdown per daily entry
+-- Columns: id (uuid PK), daily_entry_id (uuid FK -> daily_entries.id),
+--   income_source_id (uuid FK -> income_sources.id), amount (numeric), orders_count (integer)
+
+-- daily_summary (VIEW - no deleted_at): Aggregated daily summary
+-- Columns: id (uuid), business_id (uuid), entry_date (date), total_register (numeric),
+--   labor_cost (numeric), labor_hours (numeric), discounts (numeric), waste (numeric),
+--   day_factor (numeric), total_income_breakdown (numeric), food_cost (numeric),
+--   labor_cost_pct (numeric), food_cost_pct (numeric), notes (text), created_by (uuid)
+
+-- monthly_summaries: Pre-computed monthly aggregations
+-- Columns: id (uuid PK), business_id (uuid FK), year (integer), month (integer),
+--   actual_work_days (numeric), total_income (numeric), monthly_pace (numeric)
+
+-- invoices: Supplier invoices
+-- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK -> suppliers.id),
+--   invoice_number (text), invoice_date (date), due_date (date), subtotal (numeric),
+--   vat_amount (numeric), total_amount (numeric), status (text: pending/paid/partial/clarification),
+--   amount_paid (numeric), invoice_type (text), is_consolidated (boolean),
+--   notes (text), created_by (uuid), created_at, updated_at, deleted_at
+
+-- payments: Payments to suppliers
+-- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK),
+--   payment_date (date), total_amount (numeric), invoice_id (uuid FK),
+--   notes (text), receipt_url (text), created_by (uuid), created_at, updated_at, deleted_at
+
+-- suppliers: Supplier information
+-- Columns: id (uuid PK), business_id (uuid FK), name (text), expense_type (text: goods/current),
+--   expense_category_id (uuid FK), expense_nature (text), contact_name (text),
+--   phone (text), email (text), tax_id (text), payment_terms_days (integer),
+--   requires_vat (boolean), is_fixed_expense (boolean), monthly_expense_amount (numeric),
+--   default_payment_method (text), charge_day (integer), is_active (boolean),
+--   vat_type (text), notes (text), created_at, updated_at, deleted_at
+
+-- supplier_balance (VIEW - no deleted_at): Supplier balance summary
+-- Columns: supplier_id (uuid), business_id (uuid), supplier_name (text),
+--   expense_type (text), total_invoiced (numeric), total_paid (numeric), balance (numeric)
+
+-- goals: Business performance goals
+-- Columns: id (uuid PK), business_id (uuid FK), year (integer), month (integer),
+--   revenue_target (numeric), labor_cost_target_pct (numeric),
+--   food_cost_target_pct (numeric), operating_cost_target_pct (numeric),
+--   profit_target (numeric), profit_margin_target_pct (numeric),
+--   current_expenses_target (numeric), goods_expenses_target (numeric), deleted_at
+
+-- income_sources: Types of income (delivery apps, cash, credit, etc.)
+-- Columns: id (uuid PK), business_id (uuid FK), name (text),
+--   income_type (text), input_type (text), commission_rate (numeric),
+--   display_order (integer), is_active (boolean), deleted_at
+
+COMMON QUERY PATTERNS FOR ADMIN:
+- Compare income across businesses: JOIN daily_entries with businesses ON business_id = businesses.id, GROUP BY businesses.name
+- Total income for a specific business: Use the business_id from the list above
+- All supplier balances: SELECT sb.*, b.name as business_name FROM supplier_balance sb JOIN businesses b ON sb.business_id = b.id`;
+}
+
+// ---------------------------------------------------------------------------
 // System prompt: Response formatting (used for SQL result formatting)
 // ---------------------------------------------------------------------------
 const RESPONSE_SYSTEM_PROMPT = `You are a Hebrew-speaking business analyst assistant for the "המצפן" (HaMatzpen) business management system.
@@ -325,13 +423,13 @@ export async function POST(request: NextRequest) {
   const businessId = typeof body.businessId === "string" ? body.businessId : "";
   const history = Array.isArray(body.history) ? body.history : [];
 
-  if (!message || !businessId) {
+  if (!message) {
     return jsonResponse({ error: "חסרים נתונים" }, 400);
   }
   if (message.length > 2000) {
     return jsonResponse({ error: "ההודעה ארוכה מדי (מקסימום 2000 תווים)" }, 400);
   }
-  if (!UUID_REGEX.test(businessId)) {
+  if (businessId && !UUID_REGEX.test(businessId)) {
     return jsonResponse({ error: "מזהה עסק לא תקין" }, 400);
   }
 
@@ -359,8 +457,24 @@ export async function POST(request: NextRequest) {
 
   const userName = profile?.full_name || "";
   let userRole = "";
+  const isAdmin = profile?.is_admin === true;
 
-  if (profile?.is_admin) {
+  // Non-admin must provide a businessId
+  if (!isAdmin && !businessId) {
+    return jsonResponse({ error: "חסרים נתונים" }, 400);
+  }
+
+  // Admin cross-business mode: fetch all businesses for the SQL prompt
+  let allBusinesses: Array<{ id: string; name: string }> = [];
+  if (isAdmin && !businessId) {
+    const { data: businesses } = await serverSupabase
+      .from("businesses")
+      .select("id, name")
+      .order("name");
+    allBusinesses = businesses || [];
+  }
+
+  if (isAdmin) {
     userRole = "מנהל מערכת";
   } else {
     const { data: membership } = await serverSupabase
@@ -440,9 +554,13 @@ export async function POST(request: NextRequest) {
   // =========================================================================
   // SQL path: generate SQL → execute → stream formatted response
   // =========================================================================
+  const isAdminCrossBiz = isAdmin && !businessId;
+
   return createSSEStream(async (writer) => {
     // --- Step A: Generate SQL ---
-    const sqlSystemPrompt = buildSqlSystemPrompt(businessId);
+    const sqlSystemPrompt = isAdminCrossBiz
+      ? buildAdminCrossBizSqlPrompt(allBusinesses)
+      : buildSqlSystemPrompt(businessId);
     const sqlCompletion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -477,7 +595,7 @@ export async function POST(request: NextRequest) {
       writer.writeDone();
       return;
     }
-    if (!sql.includes(businessId)) {
+    if (!isAdminCrossBiz && !sql.includes(businessId)) {
       writer.writeText("לא הצלחתי ליצור שאילתה מתאימה. נסה שוב.");
       writer.writeDone();
       return;
