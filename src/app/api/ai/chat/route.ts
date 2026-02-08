@@ -753,6 +753,8 @@ export async function POST(request: NextRequest) {
     const rawSql = sqlCompletion.choices[0].message.content?.trim() || "";
     const sql = stripSqlFences(rawSql);
 
+    console.log("[AI SQL] Generated SQL:", sql.slice(0, 500));
+
     // --- Step B: Validate SQL ---
     const sqlLower = sql.toLowerCase().trimStart();
     if (!sqlLower.startsWith("select") && !sqlLower.startsWith("with")) {
@@ -783,15 +785,46 @@ export async function POST(request: NextRequest) {
 
     let queryResult: unknown = [];
     let queryErrorOccurred = false;
+    let queryErrorMessage = "";
+    let executedSql = sql;
 
     const { data, error: rpcError } = await adminSupabase.rpc("read_only_query", {
       sql_query: sql,
     });
 
     if (rpcError) {
-      console.error("SQL execution error:", rpcError);
-      queryErrorOccurred = true;
+      console.error("[AI SQL] First attempt error:", rpcError.message);
+
+      // Retry: if "relation does not exist", try adding public. prefix
+      if (rpcError.message.includes("does not exist")) {
+        const fixedSql = sql.replace(
+          /\bFROM\s+(?!public\.)(\w+)/gi,
+          "FROM public.$1"
+        ).replace(
+          /\bJOIN\s+(?!public\.)(\w+)/gi,
+          "JOIN public.$1"
+        );
+        console.log("[AI SQL] Retrying with public. prefix:", fixedSql.slice(0, 500));
+
+        const { data: retryData, error: retryError } = await adminSupabase.rpc("read_only_query", {
+          sql_query: fixedSql,
+        });
+
+        if (retryError) {
+          console.error("[AI SQL] Retry also failed:", retryError.message);
+          queryErrorOccurred = true;
+          queryErrorMessage = retryError.message;
+        } else {
+          console.log("[AI SQL] Retry success, rows:", Array.isArray(retryData) ? retryData.length : "non-array");
+          queryResult = retryData || [];
+          executedSql = fixedSql;
+        }
+      } else {
+        queryErrorOccurred = true;
+        queryErrorMessage = rpcError.message;
+      }
     } else {
+      console.log("[AI SQL] Success, rows:", Array.isArray(data) ? data.length : "non-array");
       queryResult = data || [];
     }
 
@@ -809,13 +842,11 @@ export async function POST(request: NextRequest) {
             `שאלת המשתמש: ${message}`,
             ``,
             `שאילתת SQL שהורצה:`,
-            sql,
+            executedSql,
             ``,
-            `תוצאות (${resultRows.length} שורות${resultRows.length > 100 ? ", מוצגות 100 ראשונות" : ""}):`,
-            JSON.stringify(truncatedResults, null, 2),
             queryErrorOccurred
-              ? "\nהשאילתה נכשלה. הסבר למשתמש בעברית שכדאי לנסח את השאלה אחרת."
-              : "",
+              ? `השאילתה נכשלה עם שגיאה: ${queryErrorMessage}\nהסבר למשתמש בעברית שכדאי לנסח את השאלה אחרת. אל תחשוף פרטים טכניים.`
+              : `תוצאות (${resultRows.length} שורות${resultRows.length > 100 ? ", מוצגות 100 ראשונות" : ""}):\n${JSON.stringify(truncatedResults, null, 2)}`,
           ].join("\n"),
         },
       ],
