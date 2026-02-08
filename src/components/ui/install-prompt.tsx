@@ -80,7 +80,7 @@ export function InstallPrompt() {
   return (
     <div
       dir="rtl"
-      className="fixed bottom-[20px] left-1/2 -translate-x-1/2 lg:left-[calc(50%-110px)] z-[9998] w-[calc(100%-20px)] max-w-[400px] animate-slide-up"
+      className="fixed bottom-[20px] inset-x-0 mx-auto lg:mr-[220px] z-[9998] w-[calc(100%-40px)] max-w-[400px] animate-slide-up"
     >
       <div className="bg-[#29318A] rounded-[14px] shadow-2xl overflow-hidden">
         <div className="p-[14px_16px] flex items-center gap-[12px]">
