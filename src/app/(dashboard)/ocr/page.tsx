@@ -626,7 +626,7 @@ export default function OCRPage() {
       </div>
 
       {/* Main content area - 3 columns on desktop */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Document Queue - Left side (desktop) */}
         <div className="hidden lg:block lg:w-[200px] overflow-hidden lg:border-l border-[#4C526B]">
           <DocumentQueue
@@ -664,7 +664,7 @@ export default function OCRPage() {
         <div
           className={`lg:flex-1 lg:block ${
             showMobileViewer ? 'flex-1' : 'hidden'
-          } min-h-0 overflow-hidden`}
+          } min-h-0 h-full overflow-hidden`}
         >
           {currentDocument ? (
             <DocumentViewer

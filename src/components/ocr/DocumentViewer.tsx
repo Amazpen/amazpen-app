@@ -309,23 +309,29 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
       {/* Image container */}
       <div
         ref={containerRef}
-        className="flex-1 min-h-0 relative overflow-hidden cursor-grab active:cursor-grabbing"
+        className="relative overflow-hidden cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        style={{ cursor: isCropping ? 'crosshair' : isDragging ? 'grabbing' : 'grab' }}
+        style={{
+          flex: '1 1 0%',
+          minHeight: 0,
+          cursor: isCropping ? 'crosshair' : isDragging ? 'grabbing' : 'grab',
+        }}
       >
         {/* Image */}
         <img
           ref={imageRef}
           src={imageUrl}
           alt="מסמך"
-          className="absolute top-1/2 left-1/2 select-none"
+          className="select-none"
           style={{
-            maxWidth: '100%',
-            maxHeight: '100%',
-            transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px)) scale(${zoom}) rotate(${rotation}deg)`,
+            display: 'block',
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
             transformOrigin: 'center center',
             transition: isDragging ? 'none' : 'transform 0.2s ease-out',
           }}
