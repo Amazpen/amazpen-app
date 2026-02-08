@@ -202,7 +202,10 @@ Only include a chart when it genuinely adds value. Do NOT include a chart for si
 // ---------------------------------------------------------------------------
 // System prompt: conversational (non-SQL) chat
 // ---------------------------------------------------------------------------
-const CHAT_SYSTEM_PROMPT = `אתה עוזר עסקי חכם בשם "העוזר של המצפן". אתה מדבר בעברית.
+function buildChatSystemPrompt(userName: string, userType: string): string {
+  const greeting = userName ? `המשתמש שמדבר איתך הוא ${userName} (${userType}).` : "";
+  return `אתה עוזר עסקי חכם בשם "העוזר של המצפן". אתה מדבר בעברית.
+${greeting}
 
 אתה עוזר לבעלי עסקים לנתח את הנתונים העסקיים שלהם. אתה יכול:
 - לענות על שאלות על הכנסות, הוצאות, ספקים, תשלומים
@@ -212,8 +215,9 @@ const CHAT_SYSTEM_PROMPT = `אתה עוזר עסקי חכם בשם "העוזר �
 - להציג יתרות ספקים
 - ועוד...
 
-כשמישהו אומר שלום או מה קורה, ענה בקצרה ובחום, והציע לו לשאול שאלה על העסק.
+כשמישהו אומר שלום או מה קורה, ענה בקצרה ובחום, פנה אליו בשמו אם ידוע, והציע לו לשאול שאלה על העסק.
 תהיה ידידותי וקצר. אל תשתמש באימוג'ים.`;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -346,17 +350,22 @@ export async function POST(request: NextRequest) {
     return jsonResponse({ error: "יותר מדי בקשות. נסה שוב בעוד דקה." }, 429);
   }
 
-  // 5. Authorization
+  // 5. Authorization + user info
   const { data: profile } = await serverSupabase
     .from("profiles")
-    .select("is_admin")
+    .select("is_admin, full_name")
     .eq("id", user.id)
     .single();
 
-  if (!profile?.is_admin) {
+  const userName = profile?.full_name || "";
+  let userRole = "";
+
+  if (profile?.is_admin) {
+    userRole = "מנהל מערכת";
+  } else {
     const { data: membership } = await serverSupabase
       .from("business_members")
-      .select("id")
+      .select("id, role")
       .eq("user_id", user.id)
       .eq("business_id", businessId)
       .is("deleted_at", null)
@@ -365,6 +374,13 @@ export async function POST(request: NextRequest) {
     if (!membership) {
       return jsonResponse({ error: "אין גישה לעסק זה" }, 403);
     }
+
+    const roleMap: Record<string, string> = {
+      owner: "בעל עסק",
+      manager: "מנהל",
+      employee: "עובד",
+    };
+    userRole = roleMap[membership.role] || membership.role || "משתמש";
   }
 
   // 6. Filter & validate history
@@ -399,7 +415,7 @@ export async function POST(request: NextRequest) {
       const chatStream = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: CHAT_SYSTEM_PROMPT },
+          { role: "system", content: buildChatSystemPrompt(userName, userRole) },
           ...recentHistory.map((h) => ({
             role: h.role as "user" | "assistant",
             content: h.content.slice(0, 1000),
@@ -497,6 +513,7 @@ export async function POST(request: NextRequest) {
         {
           role: "user",
           content: [
+            userName ? `המשתמש: ${userName} (${userRole})` : "",
             `שאלת המשתמש: ${message}`,
             ``,
             `שאילתת SQL שהורצה:`,
