@@ -327,7 +327,7 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
             ref={imageRef}
             src={imageUrl}
             alt="מסמך"
-            className="max-w-none select-none"
+            className="max-h-full max-w-full select-none"
             style={{
               transform: `scale(${zoom}) rotate(${rotation}deg)`,
               transformOrigin: 'center center',
