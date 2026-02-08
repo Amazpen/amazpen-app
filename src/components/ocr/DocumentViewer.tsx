@@ -309,7 +309,7 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
       {/* Image container */}
       <div
         ref={containerRef}
-        className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing"
+        className="flex-1 min-h-0 relative overflow-hidden cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -327,8 +327,11 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
             ref={imageRef}
             src={imageUrl}
             alt="מסמך"
-            className="max-h-full max-w-full select-none"
+            className="select-none"
             style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain',
               transform: `scale(${zoom}) rotate(${rotation}deg)`,
               transformOrigin: 'center center',
               transition: isDragging ? 'none' : 'transform 0.2s ease-out',

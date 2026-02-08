@@ -664,7 +664,7 @@ export default function OCRPage() {
         <div
           className={`lg:flex-1 lg:block ${
             showMobileViewer ? 'flex-1' : 'hidden'
-          } overflow-hidden`}
+          } min-h-0 overflow-hidden`}
         >
           {currentDocument ? (
             <DocumentViewer
