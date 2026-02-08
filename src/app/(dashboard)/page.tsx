@@ -1764,10 +1764,10 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="px-2.5 pt-4 pb-8 lg:px-6 xl:px-8">
+    <div className="px-2.5 pt-4 pb-8 lg:px-3 xl:px-4">
       {/* לקוחות Section - Hidden for non-admin users with single business */}
       {!isSingleBusiness && (
-      <div className="clients-section rounded-[20px] py-1 lg:p-4 xl:p-6">
+      <div className="clients-section rounded-[20px] py-1 lg:p-2 xl:p-3">
         {/* Section Header */}
         <div className="flex justify-between items-center mb-4">
           {/* Right side - Search Icon and Title together */}
