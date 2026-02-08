@@ -99,11 +99,19 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
     }
   }, [isCropping, cropArea]);
 
-  // Mouse wheel zoom
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setZoom(prev => Math.min(Math.max(prev + delta, 0.25), 5));
+  // Mouse wheel zoom - use native event listener for non-passive support
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoom(prev => Math.min(Math.max(prev + delta, 0.25), 5));
+    };
+
+    container.addEventListener('wheel', onWheel, { passive: false });
+    return () => container.removeEventListener('wheel', onWheel);
   }, []);
 
   // Fullscreen toggle
@@ -306,7 +314,6 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
         style={{ cursor: isCropping ? 'crosshair' : isDragging ? 'grabbing' : 'grab' }}
       >
         {/* Image */}

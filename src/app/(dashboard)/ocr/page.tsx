@@ -176,10 +176,10 @@ export default function OCRPage() {
     if (!isCheckingAuth && isAdmin) {
       const pendingDocs = documents.filter((doc) => doc.status === 'pending');
       if (pendingDocs.length > 0 && !currentDocument) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setCurrentDocument(pendingDocs[0]);
+        handleSelectDocument(pendingDocs[0]);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documents, currentDocument, isCheckingAuth, isAdmin]);
 
   // Handle document selection
@@ -192,6 +192,8 @@ export default function OCRPage() {
           doc.id === document.id ? { ...doc, status: 'reviewing' as DocumentStatus } : doc
         )
       );
+      // Switch filter so user can see the document they're working on
+      setFilterStatus('reviewing');
       // Update status in Supabase (fire-and-forget)
       const supabase = createClient();
       supabase.from('ocr_documents').update({ status: 'reviewing' }).eq('id', document.id);
