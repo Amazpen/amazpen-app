@@ -573,7 +573,7 @@ export default function GoalsPage() {
   // Show message if no business selected
   if (selectedBusinesses.length === 0) {
     return (
-      <div className="text-white p-[10px] pb-[80px]" dir="rtl">
+      <div className="text-white px-[3px] pt-[10px] pb-[80px]" dir="rtl">
         <div className="bg-[#0F1535] rounded-[20px] p-[40px] text-center">
           <p className="text-[20px] text-white/70">יש לבחור עסק כדי לצפות ביעדים</p>
         </div>
@@ -582,7 +582,7 @@ export default function GoalsPage() {
   }
 
   return (
-    <div className="text-white p-[10px] pb-[80px]" dir="rtl">
+    <div className="text-white px-[3px] pt-[10px] pb-[80px]" dir="rtl">
       {/* Main Container */}
       <div className="bg-[#0F1535] rounded-[10px] p-[5px]">
 
