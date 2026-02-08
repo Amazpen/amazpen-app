@@ -385,19 +385,39 @@ input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
 }
 
 /* Install Prompt Animation */
-@keyframes slide-up {
-  from {
+@keyframes install-prompt-enter {
+  0% {
     opacity: 0;
-    transform: translate(-50%, 20px);
+    transform: translateY(30px) scale(0.95);
   }
-  to {
+  60% {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translateY(-4px) scale(1.01);
+  }
+  80% {
+    transform: translateY(2px) scale(0.995);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes install-prompt-glow {
+  0%, 100% {
+    box-shadow: 0 8px 32px rgba(41, 49, 138, 0.4);
+  }
+  50% {
+    box-shadow: 0 8px 40px rgba(99, 102, 241, 0.5);
   }
 }
 
 .animate-slide-up {
-  animation: slide-up 0.3s ease-out forwards;
+  animation: install-prompt-enter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-slide-up > div {
+  animation: install-prompt-glow 3s ease-in-out 0.5s infinite;
 }
 
 /* Chart Skeleton Bar Heights */
