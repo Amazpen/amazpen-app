@@ -452,7 +452,8 @@ function stripSqlFences(raw: string): string {
   return raw
     .replace(/^```sql?\n?/i, "")
     .replace(/\n?```$/i, "")
-    .trim();
+    .trim()
+    .replace(/;\s*$/, ""); // Remove trailing semicolon — EXECUTE doesn't accept it
 }
 
 function jsonResponse(data: Record<string, unknown>, status = 200) {
