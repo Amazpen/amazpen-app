@@ -148,6 +148,172 @@ export default function NewBusinessPage() {
   const [isUploadingMemberAvatar, setIsUploadingMemberAvatar] = useState(false);
   const memberAvatarInputRef = useRef<HTMLInputElement>(null);
 
+  // Step 5: Suppliers CSV Import
+  interface CsvSupplier {
+    name: string;
+    expense_type: string;
+    contact_name: string;
+    phone: string;
+    email: string;
+    tax_id: string;
+    address: string;
+    payment_terms_days: number;
+    notes: string;
+  }
+  const [csvSuppliers, setCsvSuppliers] = useState<CsvSupplier[]>([]);
+  const [csvFileName, setCsvFileName] = useState<string | null>(null);
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const [csvParsingDone, setCsvParsingDone] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvError(null);
+    setCsvFileName(file.name);
+    setCsvParsingDone(false);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
+
+        if (lines.length < 2) {
+          setCsvError("הקובץ חייב להכיל לפחות שורת כותרות ושורת נתונים אחת");
+          return;
+        }
+
+        // Parse header - support both comma and tab delimiters
+        const delimiter = lines[0].includes("\t") ? "\t" : ",";
+        const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^["']|["']$/g, "").replace(/^\uFEFF/, ""));
+
+        // Map Hebrew/English header names to field names
+        const headerMap: Record<string, keyof CsvSupplier> = {
+          "name": "name",
+          "שם": "name",
+          "שם ספק": "name",
+          "supplier_name": "name",
+          "supplier name": "name",
+          "expense_type": "expense_type",
+          "סוג הוצאה": "expense_type",
+          "סוג": "expense_type",
+          "type": "expense_type",
+          "contact_name": "contact_name",
+          "איש קשר": "contact_name",
+          "contact": "contact_name",
+          "phone": "phone",
+          "טלפון": "phone",
+          "email": "email",
+          "אימייל": "email",
+          "מייל": "email",
+          "tax_id": "tax_id",
+          "ח.פ": "tax_id",
+          "עוסק": "tax_id",
+          "מספר עוסק": "tax_id",
+          "address": "address",
+          "כתובת": "address",
+          "payment_terms_days": "payment_terms_days",
+          "ימי תשלום": "payment_terms_days",
+          "תנאי תשלום": "payment_terms_days",
+          "payment_terms": "payment_terms_days",
+          "notes": "notes",
+          "הערות": "notes",
+        };
+
+        const columnMapping: (keyof CsvSupplier | null)[] = headers.map(h => {
+          const lower = h.toLowerCase();
+          return headerMap[lower] || headerMap[h] || null;
+        });
+
+        // Check that "name" column exists
+        if (!columnMapping.includes("name")) {
+          setCsvError(`לא נמצאה עמודת "שם ספק" בקובץ. עמודות שנמצאו: ${headers.join(", ")}`);
+          return;
+        }
+
+        const suppliers: CsvSupplier[] = [];
+        const errors: string[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(delimiter).map(v => v.trim().replace(/^["']|["']$/g, ""));
+
+          const supplier: CsvSupplier = {
+            name: "",
+            expense_type: "current_expenses",
+            contact_name: "",
+            phone: "",
+            email: "",
+            tax_id: "",
+            address: "",
+            payment_terms_days: 30,
+            notes: "",
+          };
+
+          columnMapping.forEach((field, idx) => {
+            if (field && values[idx] !== undefined) {
+              const val = values[idx];
+              if (field === "payment_terms_days") {
+                supplier[field] = parseInt(val) || 30;
+              } else if (field === "expense_type") {
+                // Normalize expense type
+                const lower = val.toLowerCase();
+                if (lower === "goods_purchases" || lower === "רכש סחורה" || lower === "סחורה") {
+                  supplier.expense_type = "goods_purchases";
+                } else {
+                  supplier.expense_type = "current_expenses";
+                }
+              } else {
+                supplier[field] = val;
+              }
+            }
+          });
+
+          if (!supplier.name.trim()) {
+            errors.push(`שורה ${i + 1}: חסר שם ספק`);
+            continue;
+          }
+
+          // Check for duplicate names
+          if (suppliers.some(s => s.name === supplier.name)) {
+            errors.push(`שורה ${i + 1}: ספק "${supplier.name}" כבר קיים`);
+            continue;
+          }
+
+          suppliers.push(supplier);
+        }
+
+        if (errors.length > 0 && suppliers.length === 0) {
+          setCsvError(errors.join("\n"));
+          return;
+        }
+
+        if (errors.length > 0) {
+          setCsvError(`נטענו ${suppliers.length} ספקים. אזהרות:\n${errors.join("\n")}`);
+        }
+
+        setCsvSuppliers(suppliers);
+        setCsvParsingDone(true);
+      } catch {
+        setCsvError("שגיאה בקריאת הקובץ. ודא שהקובץ בפורמט CSV תקין");
+      }
+    };
+    reader.readAsText(file, "UTF-8");
+  };
+
+  const handleRemoveCsvSupplier = (index: number) => {
+    setCsvSuppliers(csvSuppliers.filter((_, i) => i !== index));
+  };
+
+  const handleClearCsv = () => {
+    setCsvSuppliers([]);
+    setCsvFileName(null);
+    setCsvError(null);
+    setCsvParsingDone(false);
+    if (csvInputRef.current) csvInputRef.current.value = "";
+  };
+
   // Existing user search
   const [addMode, setAddMode] = useState<"new" | "existing">("new");
   interface ExistingUser {
@@ -538,7 +704,32 @@ export default function NewBusinessPage() {
         }
       }
 
-      // 9. Create team members (owners and employees)
+      // 9. Create suppliers from CSV
+      if (csvSuppliers.length > 0) {
+        const supplierRecords = csvSuppliers.map((s) => ({
+          business_id: business.id,
+          name: s.name,
+          expense_type: s.expense_type,
+          contact_name: s.contact_name || null,
+          phone: s.phone || null,
+          email: s.email || null,
+          tax_id: s.tax_id || null,
+          address: s.address || null,
+          payment_terms_days: s.payment_terms_days || 30,
+          notes: s.notes || null,
+          is_active: true,
+        }));
+
+        const { error: supplierError } = await supabase
+          .from("suppliers")
+          .insert(supplierRecords);
+
+        if (supplierError) {
+          console.error("Suppliers creation error:", supplierError);
+        }
+      }
+
+      // 10. Create team members (owners and employees)
       // Note: The trigger already added the current admin as owner
       // Get current user to skip if they're in the list
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -644,6 +835,7 @@ export default function NewBusinessPage() {
   const canProceedStep1 = businessName.trim() && businessType && (businessType !== "other" || customBusinessType.trim()) && taxId.trim();
   const canProceedStep2 = true; // Schedule has defaults
   const canProceedStep3 = incomeSources.length > 0;
+  const canProceedStep4 = true; // Team members are optional
   const hasOwner = teamMembers.some(m => m.role === "owner");
   const canSubmit = true;
 
@@ -1699,6 +1891,10 @@ export default function NewBusinessPage() {
             <span className="text-[13px] text-white/60">מוצרים מנוהלים:</span>
             <span className="text-[14px] text-white">{managedProducts.length}</span>
           </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] text-white/60">ספקים (CSV):</span>
+            <span className="text-[14px] text-white">{csvSuppliers.length}</span>
+          </div>
           {managerSalary > 0 && (
             <div className="flex items-center justify-between">
               <span className="text-[13px] text-white/60">שכר מנהל:</span>
@@ -1755,6 +1951,211 @@ export default function NewBusinessPage() {
     </div>
   );
 
+  const renderStep5 = () => (
+    <div className="flex flex-col gap-[15px]">
+      <div className="text-center mb-[10px]">
+        <p className="text-[14px] text-white/70">
+          ניתן להעלות קובץ CSV עם רשימת הספקים של העסק. השלב הזה אופציונלי.
+        </p>
+      </div>
+
+      {/* CSV Upload Area */}
+      <div className="bg-[#4956D4]/20 rounded-[15px] p-[8px]">
+        <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">העלאת קובץ ספקים</h3>
+
+        {!csvParsingDone ? (
+          <>
+            <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[120px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#4956D4] transition-colors">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-[#979797]">
+                <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 18V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M9 15L12 12L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span className="text-[14px] text-[#979797]">לחץ להעלאת קובץ CSV</span>
+              <span className="text-[12px] text-[#979797]/60">UTF-8 בלבד - תומך בעברית</span>
+              {csvFileName && <span className="text-[12px] text-white/70">{csvFileName}</span>}
+              <input
+                ref={csvInputRef}
+                type="file"
+                onChange={handleCsvUpload}
+                className="hidden"
+                accept=".csv,text/csv"
+              />
+            </label>
+
+            {csvError && (
+              <div className="bg-[#F64E60]/10 border border-[#F64E60]/30 rounded-[10px] p-[10px] mt-[10px]">
+                <p className="text-[13px] text-[#F64E60] text-right whitespace-pre-line">{csvError}</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* File info & clear button */}
+            <div className="flex items-center justify-between bg-[#0F1535] rounded-[10px] p-[10px] mb-[10px]">
+              <button
+                type="button"
+                onClick={handleClearCsv}
+                className="text-[#F64E60] text-[13px] hover:underline"
+              >
+                נקה הכל
+              </button>
+              <div className="flex items-center gap-[8px]">
+                <span className="text-[14px] text-white">{csvFileName}</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-[#3CD856]">
+                  <path d="M5 12L10 17L19 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            </div>
+
+            {csvError && (
+              <div className="bg-[#FFA412]/10 border border-[#FFA412]/30 rounded-[10px] p-[10px] mb-[10px]">
+                <p className="text-[13px] text-[#FFA412] text-right whitespace-pre-line">{csvError}</p>
+              </div>
+            )}
+
+            {/* Summary */}
+            <div className="bg-[#0F1535] rounded-[10px] p-[10px] mb-[10px]">
+              <div className="flex items-center justify-between">
+                <span className="text-[16px] font-bold text-[#3CD856]">{csvSuppliers.length}</span>
+                <span className="text-[14px] text-white">ספקים נטענו בהצלחה</span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* CSV Format Guide */}
+      <div className="bg-[#0F1535] rounded-[15px] p-[8px]">
+        <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">מבנה הקובץ הנדרש</h3>
+        <p className="text-[12px] text-white/50 text-right mb-[10px]">
+          שורה ראשונה: כותרות העמודות. שאר השורות: נתוני הספקים.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className="text-right text-white/60 py-[6px] px-[8px]">עמודה</th>
+                <th className="text-right text-white/60 py-[6px] px-[8px]">חובה</th>
+                <th className="text-right text-white/60 py-[6px] px-[8px]">דוגמה</th>
+              </tr>
+            </thead>
+            <tbody className="text-white/80">
+              <tr className="border-b border-white/5">
+                <td className="py-[4px] px-[8px]">שם ספק / name</td>
+                <td className="py-[4px] px-[8px] text-[#F64E60]">כן</td>
+                <td className="py-[4px] px-[8px]">חברת הניקיון</td>
+              </tr>
+              <tr className="border-b border-white/5">
+                <td className="py-[4px] px-[8px]">סוג הוצאה / expense_type</td>
+                <td className="py-[4px] px-[8px] text-white/40">לא</td>
+                <td className="py-[4px] px-[8px]">current_expenses / סחורה</td>
+              </tr>
+              <tr className="border-b border-white/5">
+                <td className="py-[4px] px-[8px]">איש קשר / contact_name</td>
+                <td className="py-[4px] px-[8px] text-white/40">לא</td>
+                <td className="py-[4px] px-[8px]">יוסי כהן</td>
+              </tr>
+              <tr className="border-b border-white/5">
+                <td className="py-[4px] px-[8px]">טלפון / phone</td>
+                <td className="py-[4px] px-[8px] text-white/40">לא</td>
+                <td className="py-[4px] px-[8px]">050-1234567</td>
+              </tr>
+              <tr className="border-b border-white/5">
+                <td className="py-[4px] px-[8px]">אימייל / email</td>
+                <td className="py-[4px] px-[8px] text-white/40">לא</td>
+                <td className="py-[4px] px-[8px]">supplier@email.com</td>
+              </tr>
+              <tr className="border-b border-white/5">
+                <td className="py-[4px] px-[8px]">ח.פ / tax_id</td>
+                <td className="py-[4px] px-[8px] text-white/40">לא</td>
+                <td className="py-[4px] px-[8px]">515678901</td>
+              </tr>
+              <tr className="border-b border-white/5">
+                <td className="py-[4px] px-[8px]">כתובת / address</td>
+                <td className="py-[4px] px-[8px] text-white/40">לא</td>
+                <td className="py-[4px] px-[8px]">רחוב הרצל 10</td>
+              </tr>
+              <tr className="border-b border-white/5">
+                <td className="py-[4px] px-[8px]">ימי תשלום / payment_terms_days</td>
+                <td className="py-[4px] px-[8px] text-white/40">לא</td>
+                <td className="py-[4px] px-[8px]">30</td>
+              </tr>
+              <tr>
+                <td className="py-[4px] px-[8px]">הערות / notes</td>
+                <td className="py-[4px] px-[8px] text-white/40">לא</td>
+                <td className="py-[4px] px-[8px]">ספק ראשי</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Suppliers Table */}
+      {csvSuppliers.length > 0 && (
+        <div className="bg-[#0F1535] rounded-[15px] p-[8px]">
+          <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">ספקים שנטענו ({csvSuppliers.length})</h3>
+          <div className="flex flex-col gap-[8px]">
+            {csvSuppliers.map((supplier, index) => (
+              <div key={index} className="flex items-center justify-between bg-[#4956D4]/10 border border-[#4956D4]/30 rounded-[10px] p-[10px]">
+                <button
+                  type="button"
+                  onClick={() => handleRemoveCsvSupplier(index)}
+                  className="text-[#F64E60] hover:text-[#ff6b7a] flex-shrink-0"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </button>
+                <div className="flex-1 text-right mr-[10px]">
+                  <div className="flex items-center gap-[8px] justify-end flex-wrap">
+                    <span className={`text-[11px] px-[6px] py-[2px] rounded ${
+                      supplier.expense_type === "goods_purchases"
+                        ? "bg-[#FFA412]/20 text-[#FFA412]"
+                        : "bg-[#3CD856]/20 text-[#3CD856]"
+                    }`}>
+                      {supplier.expense_type === "goods_purchases" ? "רכש סחורה" : "הוצאות שוטפות"}
+                    </span>
+                    <span className="text-[14px] text-white font-medium">{supplier.name}</span>
+                  </div>
+                  <div className="flex items-center gap-[12px] justify-end mt-[4px] flex-wrap">
+                    {supplier.contact_name && (
+                      <span className="text-[11px] text-white/40">{supplier.contact_name}</span>
+                    )}
+                    {supplier.phone && (
+                      <span className="text-[11px] text-white/40">{supplier.phone}</span>
+                    )}
+                    {supplier.payment_terms_days !== 30 && (
+                      <span className="text-[11px] text-white/40">שוטף + {supplier.payment_terms_days}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* No suppliers info */}
+      {csvSuppliers.length === 0 && csvParsingDone && (
+        <div className="bg-[#FFA412]/10 border border-[#FFA412]/30 rounded-[10px] p-[12px]">
+          <p className="text-[13px] text-[#FFA412] text-right">
+            לא נטענו ספקים מהקובץ. בדוק את מבנה הקובץ.
+          </p>
+        </div>
+      )}
+
+      {csvSuppliers.length === 0 && !csvParsingDone && (
+        <div className="bg-[#0075FF]/10 border border-[#0075FF]/30 rounded-[10px] p-[12px]">
+          <p className="text-[13px] text-[#0075FF] text-right">
+            שלב זה אופציונלי - ניתן להוסיף ספקים גם לאחר יצירת העסק.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-52px)]">
@@ -1787,7 +2188,7 @@ export default function NewBusinessPage() {
 
       {/* Steps Progress */}
       <div className="flex items-center justify-center mb-[25px]">
-        {[1, 2, 3, 4].map((step, index) => (
+        {[1, 2, 3, 4, 5].map((step, index) => (
           <div key={step} className="flex items-center">
             {/* Connector line BEFORE the circle (except first) */}
             {index > 0 && (
@@ -1828,12 +2229,14 @@ export default function NewBusinessPage() {
           {currentStep === 2 && "לוח זמנים"}
           {currentStep === 3 && "הגדרות והכנסות"}
           {currentStep === 4 && "צוות העסק"}
+          {currentStep === 5 && "ספקים"}
         </h2>
         <p className="text-[13px] text-white/50 mt-[4px]">
           {currentStep === 1 && "הזן את פרטי העסק הבסיסיים"}
           {currentStep === 2 && "הגדר את ימי ושעות הפעילות"}
           {currentStep === 3 && "הוסף מקורות הכנסה, כרטיסים ומוצרים"}
           {currentStep === 4 && "הוסף בעלים ועובדים לעסק"}
+          {currentStep === 5 && "העלה רשימת ספקים מקובץ CSV"}
         </p>
       </div>
 
@@ -1843,6 +2246,7 @@ export default function NewBusinessPage() {
         {currentStep === 2 && renderStep2()}
         {currentStep === 3 && renderStep3()}
         {currentStep === 4 && renderStep4()}
+        {currentStep === 5 && renderStep5()}
       </div>
 
       {/* Navigation Buttons */}
@@ -1857,14 +2261,15 @@ export default function NewBusinessPage() {
           </button>
         )}
 
-        {currentStep < 4 ? (
+        {currentStep < 5 ? (
           <button
             type="button"
             onClick={() => setCurrentStep(currentStep + 1)}
             disabled={
               (currentStep === 1 && !canProceedStep1) ||
               (currentStep === 2 && !canProceedStep2) ||
-              (currentStep === 3 && !canProceedStep3)
+              (currentStep === 3 && !canProceedStep3) ||
+              (currentStep === 4 && !canProceedStep4)
             }
             className="flex-1 bg-[#29318A] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50 disabled:cursor-not-allowed"
           >
