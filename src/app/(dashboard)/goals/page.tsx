@@ -171,7 +171,10 @@ export default function GoalsPage() {
   // Fetch data from Supabase
   useEffect(() => {
     const fetchData = async () => {
-      if (selectedBusinesses.length === 0) {
+      const year = parseInt(selectedYear);
+      const month = parseInt(selectedMonth);
+
+      if (selectedBusinesses.length === 0 || isNaN(year) || isNaN(month)) {
         setCurrentExpensesData([]);
         setGoodsPurchaseData([]);
         setKpiData([]);
@@ -181,8 +184,6 @@ export default function GoalsPage() {
 
       setIsLoading(true);
       const supabase = createClient();
-      const year = parseInt(selectedYear);
-      const month = parseInt(selectedMonth);
 
       // Date range for the month
       const startDate = `${year}-${selectedMonth}-01`;

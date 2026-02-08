@@ -102,7 +102,10 @@ export default function ReportsPage() {
   // Fetch data from Supabase
   useEffect(() => {
     const fetchData = async () => {
-      if (selectedBusinesses.length === 0) {
+      const year = parseInt(selectedYear);
+      const month = parseInt(selectedMonth.replace("_", ""));
+
+      if (selectedBusinesses.length === 0 || isNaN(year) || isNaN(month)) {
         setExpenseCategories([]);
         setIsLoading(false);
         return;
@@ -110,8 +113,6 @@ export default function ReportsPage() {
 
       setIsLoading(true);
       const supabase = createClient();
-      const year = parseInt(selectedYear);
-      const month = parseInt(selectedMonth.replace("_", ""));
 
       try {
         // Fetch expense categories

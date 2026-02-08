@@ -146,7 +146,7 @@ export default function AdminGoalsPage() {
 
   // Load data when business/month/year changes
   const loadData = useCallback(async () => {
-    if (!selectedBusinessId) return;
+    if (!selectedBusinessId || !selectedYear || !selectedMonth) return;
 
     setIsLoading(true);
     const supabase = createClient();
