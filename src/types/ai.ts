@@ -24,3 +24,15 @@ export interface AiSuggestedQuestion {
   text: string;
   icon: "revenue" | "expenses" | "comparison" | "targets" | "summary" | "general";
 }
+
+export interface AiChatRequest {
+  message: string;
+  businessId: string;
+  history: Array<{ role: "user" | "assistant"; content: string }>;
+}
+
+export interface AiChatResponse {
+  content: string;
+  chartData?: AiChartData;
+  error?: string;
+}

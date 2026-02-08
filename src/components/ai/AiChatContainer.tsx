@@ -9,10 +9,11 @@ import { AiChatInput } from "./AiChatInput";
 
 interface AiChatContainerProps {
   isAdmin: boolean;
+  businessId: string | undefined;
 }
 
-export function AiChatContainer({ isAdmin }: AiChatContainerProps) {
-  const { messages, isLoading, sendMessage, clearChat } = useAiChat();
+export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
+  const { messages, isLoading, sendMessage, clearChat } = useAiChat(businessId);
   const hasMessages = messages.length > 0;
 
   const handleSuggestionClick = useCallback(
@@ -53,7 +54,7 @@ export function AiChatContainer({ isAdmin }: AiChatContainerProps) {
       )}
 
       {/* Input */}
-      <AiChatInput onSend={sendMessage} disabled={isLoading} />
+      <AiChatInput onSend={sendMessage} disabled={isLoading || !businessId} />
     </div>
   );
 }
