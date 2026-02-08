@@ -27,11 +27,7 @@ export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
     <div className="flex flex-col h-[calc(100vh-60px)] h-[calc(100dvh-60px)] bg-[#0F1535]">
       {/* Chat header bar */}
       {hasMessages && (
-        <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 border-b border-white/10" dir="rtl">
-          <div className="flex items-center gap-2">
-            <div className="w-[8px] h-[8px] rounded-full bg-[#3CD856]" />
-            <span className="text-white/50 text-[13px]">עוזר AI מוכן</span>
-          </div>
+        <div className="flex-shrink-0 flex items-center justify-end px-4 py-2 border-b border-white/10" dir="rtl">
           <button
             type="button"
             onClick={clearChat}

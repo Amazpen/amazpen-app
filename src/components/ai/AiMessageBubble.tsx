@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { Bot } from "lucide-react";
+import { Bot, Copy, Check } from "lucide-react";
 import type { AiMessage } from "@/types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
 
@@ -64,8 +64,37 @@ function SafeChartContainer({ children }: { children: React.ReactNode }) {
 function AiIcon() {
   return (
     <div className="flex-shrink-0 w-[28px] h-[28px] rounded-full bg-[#6366f1]/20 flex items-center justify-center">
-      <Bot className="w-4 h-4 text-[#6366f1]" />
+      <Bot className="w-4 h-4 text-white" />
     </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+    }
+  }, [text]);
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-white/10"
+      title="העתק"
+    >
+      {copied ? (
+        <Check className="w-3.5 h-3.5 text-green-400" />
+      ) : (
+        <Copy className="w-3.5 h-3.5 text-white/40 hover:text-white/70" />
+      )}
+    </button>
   );
 }
 
@@ -82,17 +111,20 @@ export function AiMessageBubble({ message }: AiMessageBubbleProps) {
 
   if (isUser) {
     return (
-      <div className="flex flex-col items-end gap-1" dir="rtl">
+      <div className="group flex flex-col items-end gap-1" dir="rtl">
         <div className="max-w-[80%] bg-[#6366f1] text-white text-[14px] leading-relaxed px-4 py-2.5 rounded-[16px] rounded-tl-[4px]">
           {message.content}
         </div>
-        <span className="text-white/30 text-[11px] px-1">{formatTime(message.timestamp)}</span>
+        <div className="flex items-center gap-1 px-1">
+          <span className="text-white/30 text-[11px]">{formatTime(message.timestamp)}</span>
+          <CopyButton text={message.content} />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-start gap-1" dir="rtl">
+    <div className="group flex flex-col items-start gap-1" dir="rtl">
       <div className="flex items-start gap-2 w-full">
         <AiIcon />
         <div className="flex-1 min-w-0">
@@ -158,7 +190,10 @@ export function AiMessageBubble({ message }: AiMessageBubbleProps) {
           </div>
         </div>
       </div>
-      <span className="text-white/30 text-[11px] px-1 mr-[36px]">{formatTime(message.timestamp)}</span>
+      <div className="flex items-center gap-1 px-1 mr-[36px]">
+        <span className="text-white/30 text-[11px]">{formatTime(message.timestamp)}</span>
+        <CopyButton text={message.content} />
+      </div>
     </div>
   );
 }
