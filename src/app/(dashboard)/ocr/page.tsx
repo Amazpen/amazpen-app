@@ -499,6 +499,31 @@ export default function OCRPage() {
     [fetchDocuments]
   );
 
+  // Handle document deletion
+  const handleDelete = useCallback(
+    async (documentId: string) => {
+      setIsLoading(true);
+      try {
+        const supabase = createClient();
+        // Delete related data first (foreign key constraints)
+        await supabase.from('ocr_extracted_data').delete().eq('document_id', documentId);
+        await supabase.from('ocr_document_crops').delete().eq('document_id', documentId);
+        // Delete the document itself
+        const { error } = await supabase.from('ocr_documents').delete().eq('id', documentId);
+        if (error) throw error;
+
+        await fetchDocuments();
+        setCurrentDocument(null);
+      } catch (error) {
+        console.error('Error deleting document:', error);
+        alert('שגיאה במחיקת המסמך');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [fetchDocuments]
+  );
+
   // Handle skip
   const handleSkip = useCallback(() => {
     if (!currentDocument) return;
@@ -629,6 +654,7 @@ export default function OCRPage() {
             onBusinessChange={setSelectedBusinessId}
             onApprove={handleApprove}
             onReject={handleReject}
+            onDelete={handleDelete}
             onSkip={handleSkip}
             isLoading={isLoading}
           />
