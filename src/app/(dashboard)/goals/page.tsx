@@ -88,17 +88,9 @@ function getStatusColor(percentage: number, isExpense: boolean = true): string {
   }
 }
 
-// Format currency - show K for thousands, M for millions
+// Format currency - show full number with comma separators
 function formatCurrency(amount: number): string {
-  if (Math.abs(amount) >= 1000000) {
-    const millions = amount / 1000000;
-    return `₪${millions % 1 === 0 ? millions.toFixed(0) : millions.toFixed(1)}M`;
-  }
-  if (Math.abs(amount) >= 1000) {
-    const thousands = amount / 1000;
-    return `₪${thousands % 1 === 0 ? thousands.toFixed(0) : thousands.toFixed(1)}K`;
-  }
-  return `₪${amount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `₪${Math.round(amount).toLocaleString("en-US")}`;
 }
 
 // Format percentage - show whole number if no decimal, otherwise show up to 2 decimals
@@ -119,13 +111,7 @@ function formatDiff(diff: number, unit: string = "₪"): string {
     }
     return `${sign}${parseFloat(diff.toFixed(2))}%`;
   }
-  if (Math.abs(diff) >= 1000000) {
-    return `${sign}${formatCurrency(diff)}`;
-  }
-  if (Math.abs(diff) >= 1000) {
-    return `${sign}${formatCurrency(diff)}`;
-  }
-  return `₪${sign}${diff.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `${sign}${formatCurrency(diff)}`;
 }
 
 export default function GoalsPage() {
