@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
@@ -153,6 +153,8 @@ export default function GoalsPage() {
   const [goodsPurchaseData, setGoodsPurchaseData] = useState<GoalItem[]>([]);
   const [kpiData, setKpiData] = useState<GoalItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [goalId, setGoalId] = useState<string | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch data from Supabase
   useEffect(() => {
@@ -189,6 +191,7 @@ export default function GoalsPage() {
           .is("deleted_at", null);
 
         const goal = goalsData?.[0];
+        setGoalId(goal?.id || null);
 
         // ============================================
         // 2. Fetch expense categories for "יעד VS שוטפות"
@@ -459,7 +462,7 @@ export default function GoalsPage() {
             target: targetAvg,
             actual: Math.round(actualAvg),
             unit: "₪",
-            editable: false,
+            editable: true,
           };
         });
 
@@ -486,7 +489,7 @@ export default function GoalsPage() {
               target: Number(product.target_pct) || 0,
               actual: actualPct,
               unit: "%",
-              editable: false,
+              editable: true,
             };
           });
 
@@ -562,12 +565,61 @@ export default function GoalsPage() {
 
   const data = getData();
 
-  // Handle KPI target change
+  // Save KPI target to DB
+  const saveTargetToDB = useCallback(async (id: string, value: number) => {
+    const supabase = createClient();
+    const year = parseInt(selectedYear);
+    const month = parseInt(selectedMonth);
+
+    try {
+      if (id === "revenue") {
+        await supabase.from("goals").update({ revenue_target: value, updated_at: new Date().toISOString() })
+          .in("business_id", selectedBusinesses).eq("year", year).eq("month", month);
+      } else if (id === "labor-pct") {
+        await supabase.from("goals").update({ labor_cost_target_pct: value, updated_at: new Date().toISOString() })
+          .in("business_id", selectedBusinesses).eq("year", year).eq("month", month);
+      } else if (id === "food-pct") {
+        await supabase.from("goals").update({ food_cost_target_pct: value, updated_at: new Date().toISOString() })
+          .in("business_id", selectedBusinesses).eq("year", year).eq("month", month);
+      } else if (id.startsWith("avg-ticket-") && goalId) {
+        const incomeSourceId = id.replace("avg-ticket-", "");
+        // Check if record exists
+        const { data: existing } = await supabase.from("income_source_goals")
+          .select("id").eq("goal_id", goalId).eq("income_source_id", incomeSourceId).maybeSingle();
+        if (existing) {
+          await supabase.from("income_source_goals")
+            .update({ avg_ticket_target: value, updated_at: new Date().toISOString() })
+            .eq("id", existing.id);
+        } else {
+          await supabase.from("income_source_goals").insert({
+            goal_id: goalId,
+            income_source_id: incomeSourceId,
+            avg_ticket_target: value,
+          });
+        }
+      } else if (id.startsWith("product-")) {
+        const productId = id.replace("product-", "");
+        await supabase.from("managed_products")
+          .update({ target_pct: value, updated_at: new Date().toISOString() })
+          .eq("id", productId);
+      }
+    } catch (error) {
+      console.error("Error saving KPI target:", error);
+    }
+  }, [selectedBusinesses, selectedYear, selectedMonth, goalId]);
+
+  // Handle KPI target change with debounced save
   const handleTargetChange = (id: string, newTarget: string) => {
     const numValue = parseFloat(newTarget) || 0;
     setKpiData(prev => prev.map(item =>
       item.id === id ? { ...item, target: numValue } : item
     ));
+
+    // Debounce save to DB
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveTargetToDB(id, numValue);
+    }, 800);
   };
 
   // Show message if no business selected
