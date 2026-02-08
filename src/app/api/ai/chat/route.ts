@@ -49,7 +49,9 @@ Examples:
 // System prompt: SQL generation
 // ---------------------------------------------------------------------------
 function buildSqlSystemPrompt(businessId: string): string {
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const today = now.toISOString().split("T")[0];
+  const israelTime = now.toLocaleString("he-IL", { timeZone: "Asia/Jerusalem", dateStyle: "full", timeStyle: "short" });
 
   return `You are a SQL query generator for a business management system (PostgreSQL via Supabase).
 You generate READ-ONLY SQL queries based on user questions in Hebrew.
@@ -65,7 +67,7 @@ CRITICAL RULES:
 8. For percentage calculations, round to 2 decimal places.
 9. When joining tables, always use proper aliases for readability.
 10. For deleted records, always filter deleted_at IS NULL where the column exists.
-11. Today's date is ${today}.
+11. Today's date is ${today}. Current date and time in Israel: ${israelTime}.
 12. NEVER use UNION or UNION ALL.
 13. NEVER include SQL comments (-- or /* */).
 14. NEVER reference business_id values other than '${businessId}'.
@@ -178,7 +180,9 @@ COMMON QUERY PATTERNS:
 // System prompt: SQL generation for admin cross-business queries
 // ---------------------------------------------------------------------------
 function buildAdminCrossBizSqlPrompt(businesses: Array<{ id: string; name: string }>): string {
-  const today = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const today = now.toISOString().split("T")[0];
+  const israelTime = now.toLocaleString("he-IL", { timeZone: "Asia/Jerusalem", dateStyle: "full", timeStyle: "short" });
   const bizList = businesses.map((b) => `- "${b.name}" → '${b.id}'`).join("\n");
 
   return `You are a SQL query generator for a business management system (PostgreSQL via Supabase).
@@ -197,7 +201,7 @@ CRITICAL RULES:
 9. For percentage calculations, round to 2 decimal places.
 10. When joining tables, always use proper aliases for readability.
 11. For deleted records, always filter deleted_at IS NULL where the column exists.
-12. Today's date is ${today}.
+12. Today's date is ${today}. Current date and time in Israel: ${israelTime}.
 13. NEVER use UNION or UNION ALL.
 14. NEVER include SQL comments (-- or /* */).
 
@@ -309,10 +313,12 @@ COMMON QUERY PATTERNS FOR ADMIN:
 // System prompt: Response formatting (used for SQL result formatting)
 // ---------------------------------------------------------------------------
 function buildResponseSystemPrompt(userName: string, userRole: string): string {
+  const israelTime = new Date().toLocaleString("he-IL", { timeZone: "Asia/Jerusalem", dateStyle: "full", timeStyle: "short" });
   const userContext = userName ? `המשתמש: ${userName} (${userRole}). פנה אליו בשמו הפרטי.` : "";
 
   return `אתה אנליסט עסקי מומחה בשם "העוזר של המצפן" למערכת ניהול עסקית.
 אתה מקבל שאלת משתמש, שאילתת SQL שהורצה, ותוצאות. פרמט תשובה ברורה ומקצועית.
+התאריך והשעה הנוכחיים: ${israelTime}.
 ${userContext}
 
 ## כללי פורמט בסיסיים
@@ -417,8 +423,10 @@ ${userContext}
 // System prompt: conversational (non-SQL) chat
 // ---------------------------------------------------------------------------
 function buildChatSystemPrompt(userName: string, userType: string): string {
+  const israelTime = new Date().toLocaleString("he-IL", { timeZone: "Asia/Jerusalem", dateStyle: "full", timeStyle: "short" });
   const greeting = userName ? `המשתמש שמדבר איתך הוא ${userName} (${userType}). פנה אליו בשמו הפרטי.` : "";
   return `אתה עוזר עסקי חכם בשם "העוזר של המצפן". אתה מדבר בעברית.
+התאריך והשעה הנוכחיים: ${israelTime}.
 ${greeting}
 
 יש לך גישה מלאה למסד הנתונים של המערכת ואתה יכול לענות על כל שאלה עסקית. היכולות שלך כוללות:
