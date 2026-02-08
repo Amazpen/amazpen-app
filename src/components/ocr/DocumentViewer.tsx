@@ -17,6 +17,8 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
   const [isCropping, setIsCropping] = useState(false);
   const [cropArea, setCropArea] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [cropStart, setCropStart] = useState({ x: 0, y: 0 });
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -177,10 +179,16 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  // Reset image state when URL changes
+  useEffect(() => {
+    setImageLoaded(false);
+    setImageError(false);
+  }, [imageUrl]);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#0a0d1f', borderRadius: '10px', overflow: 'hidden' }}>
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-[#0F1535] border-b border-[#4C526B]">
+    <div style={{ height: '100%', background: '#0a0d1f', borderRadius: '10px', overflow: 'hidden' }}>
+      {/* Toolbar - fixed height 48px */}
+      <div className="flex items-center justify-between px-4 bg-[#0F1535] border-b border-[#4C526B]" style={{ height: '48px' }}>
         <div className="flex items-center gap-2">
           {/* Zoom controls */}
           <button
@@ -306,7 +314,7 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
         </button>
       </div>
 
-      {/* Image container */}
+      {/* Image container - takes remaining height after toolbar (48px) and mobile slider (44px on mobile, 0 on desktop) */}
       <div
         ref={containerRef}
         onMouseDown={handleMouseDown}
@@ -315,23 +323,28 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
         onMouseLeave={handleMouseUp}
         style={{
           position: 'relative',
-          flex: '1 1 0%',
-          minHeight: 0,
+          height: 'calc(100% - 48px)',
           overflow: 'hidden',
           cursor: isCropping ? 'crosshair' : isDragging ? 'grabbing' : 'grab',
         }}
       >
+        {/* Error state */}
+        {imageError && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#EB5757', flexDirection: 'column', gap: '8px' }}>
+            <p>שגיאה בטעינת התמונה</p>
+            <a href={imageUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4C9AFF', textDecoration: 'underline', fontSize: '14px' }}>פתח תמונה בחלון חדש</a>
+          </div>
+        )}
+
         {/* Image */}
         <img
           ref={imageRef}
           src={imageUrl}
           alt="מסמך"
+          onLoad={() => setImageLoaded(true)}
+          onError={() => setImageError(true)}
           style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
+            display: imageError ? 'none' : 'block',
             width: '100%',
             height: '100%',
             objectFit: 'contain',
