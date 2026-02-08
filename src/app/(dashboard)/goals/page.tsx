@@ -737,7 +737,7 @@ export default function GoalsPage() {
                       )}
 
                       {/* Category/Goal Name - right side */}
-                      <div className="flex-1 text-[14px] font-bold text-white text-right">
+                      <div className="flex-1 text-[14px] font-bold text-white text-right" dir="rtl">
                         {item.name}
                       </div>
                     </div>
