@@ -104,7 +104,6 @@ export default function PaymentsPage() {
 
   // Realtime subscription
   const handleRealtimeChange = useCallback(() => {
-    console.log("[Payments] Realtime update received, refreshing data...");
     setRefreshTrigger(prev => prev + 1);
   }, []);
 

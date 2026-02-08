@@ -2448,7 +2448,11 @@ export default function ExpensesPage() {
           side="bottom"
           className="h-[calc(100vh-60px)] h-[calc(100dvh-60px)] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
           showCloseButton={false}
+          aria-describedby={undefined}
         >
+          <SheetHeader className="sr-only">
+            <SheetTitle>מחיקת הוצאה</SheetTitle>
+          </SheetHeader>
           <div className="flex flex-col items-center p-4">
             {/* Icon */}
             <div className="flex justify-center mb-[20px]">

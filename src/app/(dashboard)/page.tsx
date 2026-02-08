@@ -334,7 +334,6 @@ export default function DashboardPage() {
 
   // Realtime subscription - refresh data when changes occur
   const handleRealtimeChange = useCallback(() => {
-    console.log("[Dashboard] Realtime update received, refreshing data...");
     setRefreshTrigger(prev => prev + 1);
   }, []);
 
@@ -1972,8 +1971,7 @@ export default function DashboardPage() {
                     businessId={realBusinessId}
                     businessName={businessCards.find(b => b.id === realBusinessId)?.name || ""}
                     onSuccess={() => {
-                      // Optionally refresh data after successful save
-                      console.log("Daily entry saved successfully");
+                      setRefreshTrigger(prev => prev + 1);
                     }}
                   />
                 ) : (

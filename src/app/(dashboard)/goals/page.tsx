@@ -153,7 +153,6 @@ export default function GoalsPage() {
 
   // Realtime subscription
   const handleRealtimeChange = useCallback(() => {
-    console.log("[Goals] Realtime update received, refreshing data...");
     setRefreshTrigger(prev => prev + 1);
   }, []);
 

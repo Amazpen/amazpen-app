@@ -76,7 +76,6 @@ export default function ReportsPage() {
 
   // Realtime subscription
   const handleRealtimeChange = useCallback(() => {
-    console.log("[Reports] Realtime update received, refreshing data...");
     setRefreshTrigger(prev => prev + 1);
   }, []);
 

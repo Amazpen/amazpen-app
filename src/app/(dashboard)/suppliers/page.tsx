@@ -68,7 +68,6 @@ export default function SuppliersPage() {
 
   // Realtime subscription
   const handleRealtimeChange = useCallback(() => {
-    console.log("[Suppliers] Realtime update received, refreshing data...");
     setRefreshTrigger(prev => prev + 1);
   }, []);
 
