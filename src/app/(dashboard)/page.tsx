@@ -1764,10 +1764,10 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="px-2.5 pt-4 pb-8">
+    <div className="px-2.5 pt-4 pb-8 lg:px-6 xl:px-8">
       {/* לקוחות Section - Hidden for non-admin users with single business */}
       {!isSingleBusiness && (
-      <div className="clients-section rounded-[20px] py-1">
+      <div className="clients-section rounded-[20px] py-1 lg:p-4 xl:p-6">
         {/* Section Header */}
         <div className="flex justify-between items-center mb-4">
           {/* Right side - Search Icon and Title together */}
@@ -1818,8 +1818,8 @@ export default function DashboardPage() {
           {!isSearchOpen && dateRange && <DateRangePicker dateRange={dateRange} onChange={setDateRange} />}
         </div>
 
-        {/* Cards Grid 2 columns - Business Cards (max 10) */}
-        <div className="grid grid-cols-2 gap-[15px]">
+        {/* Cards Grid - Responsive: 2 cols mobile, 3 tablet, 4-6 desktop */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-[15px]">
           {isLoading ? (
             // Skeleton loaders - 6 cards with static structure, only data placeholders animate
             <>
@@ -1860,7 +1860,7 @@ export default function DashboardPage() {
               ))}
             </>
           ) : businessCards.length === 0 ? (
-            <div className="col-span-2 text-center py-10">
+            <div className="col-span-full text-center py-10">
               <p className="text-white/70 text-[16px]">לא נמצאו עסקים</p>
               <p className="text-white/50 text-[14px] mt-2">צור עסק חדש דרך התפריט</p>
             </div>
@@ -1871,7 +1871,7 @@ export default function DashboardPage() {
                 const query = searchQuery.toLowerCase();
                 return card.name.toLowerCase().includes(query);
               })
-              .slice(0, showAllBusinessCards ? businessCards.length : 6)
+              .slice(0, showAllBusinessCards ? businessCards.length : 12)
               .map((card) => (
               <button
                 key={card.id}
@@ -1947,7 +1947,7 @@ export default function DashboardPage() {
         </div>
 
         {/* More button - only show if there are more than 6 businesses and not showing all */}
-        {businessCards.length > 6 && !showAllBusinessCards && (
+        {businessCards.length > 12 && !showAllBusinessCards && (
           <div className="w-full flex justify-center mt-6">
             <button
               type="button"
@@ -1965,7 +1965,7 @@ export default function DashboardPage() {
       {hasSelectedBusinesses && (
         <div className="expanded-section mt-2 space-y-1">
           {/* Action Buttons */}
-            <div className="flex flex-row justify-between items-center gap-[5px] mt-[30px]">
+            <div className="flex flex-row justify-between items-center gap-[5px] lg:gap-[15px] mt-[30px]">
               <div className="flex flex-row items-center gap-[5px]">
                 {realBusinessId ? (
                   <DailyEntryForm
@@ -1999,8 +1999,8 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Data Cards - New Design */}
-            <div className="flex flex-col gap-[15px] w-full mt-[15px]">
+            {/* Data Cards - New Design - Grid on desktop */}
+            <div className="flex flex-col lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-[15px] w-full mt-[15px]">
               {(isInitialLoad || isLoadingSummary) && selectedBusinesses.length > 0 ? (
                 // Skeleton loaders for data cards - shown during loading
                 <>
@@ -2757,7 +2757,7 @@ export default function DashboardPage() {
 
             {/* Charts Section - מוצג כשיש נתונים או בזמן טעינה */}
             {(isInitialLoad || trendsChartData.length > 0 || incomeSourcesSummary.length > 0 || laborCostChartData.length > 0 || managedProductChartData.length > 0) && (
-            <div className="flex flex-col gap-[15px] mt-[15px]">
+            <div className="flex flex-col lg:grid lg:grid-cols-2 gap-[15px] mt-[15px]">
               {/* 1. מגמות Chart (Trends) - דינמי */}
               {isInitialLoad && trendsChartData.length === 0 ? (
               <div className="data-card-new rounded-[10px] p-4">
