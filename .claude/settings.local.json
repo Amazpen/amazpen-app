@@ -106,7 +106,15 @@
       "Bash(npx.cmd tsc:*)",
       "Bash(/c/Program Files/nodejs/npm.cmd install react-markdown remark-gfm)",
       "Bash(/c/Program Files/nodejs/npx.cmd next build --no-lint)",
-      "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit --pretty)"
+      "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit --pretty)",
+      "Bash(git reset:*)",
+      "Bash(/c/Program Files/nodejs/npx.cmd next build --no-lint --prefix /c/Users/netn1/Downloads/amazpen-app)",
+      "Skill(humanizer)",
+      "Skill(humanizer:*)",
+      "Bash(npx.cmd next build:*)",
+      "mcp__n8n-mcp__n8n_create_workflow",
+      "mcp__n8n-mcp__n8n_update_full_workflow",
+      "mcp__n8n-mcp__n8n_list_workflows"
     ]
   },
   "enableAllProjectMcpServers": true,

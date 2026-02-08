@@ -99,9 +99,9 @@ export default function DocumentQueue({
           </p>
         </div>
 
-        {/* Compact filter buttons */}
+        {/* Filter buttons */}
         <div className="px-2 py-2 border-b border-[#4C526B]/50">
-          <div className="grid grid-cols-2 gap-1">
+          <div className="flex flex-col gap-1.5">
             {STATUS_FILTERS.slice(0, 4).map((filter) => {
               const count = filter.value === 'all'
                 ? documents.length
@@ -112,13 +112,20 @@ export default function DocumentQueue({
                   type="button"
                   key={filter.value}
                   onClick={() => onFilterChange?.(filter.value)}
-                  className={`px-1 py-1 rounded text-[10px] font-medium transition-colors ${
+                  className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium transition-all flex items-center justify-between ${
                     filterStatus === filter.value
-                      ? 'bg-[#29318A] text-white'
-                      : 'bg-[#4C526B]/20 text-white/60 hover:bg-[#4C526B]/40'
+                      ? 'bg-[#29318A] text-white shadow-md'
+                      : 'bg-[#4C526B]/20 text-white/60 hover:bg-[#4C526B]/40 hover:text-white/80'
                   }`}
                 >
-                  {filter.label} ({count})
+                  <span>{filter.label}</span>
+                  <span className={`text-[11px] min-w-[24px] h-[20px] flex items-center justify-center rounded-full ${
+                    filterStatus === filter.value
+                      ? 'bg-white/20'
+                      : 'bg-[#4C526B]/30'
+                  }`}>
+                    {count}
+                  </span>
                 </button>
               );
             })}
@@ -375,14 +382,14 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
       type="button"
       title="בחר מסמך"
       onClick={onClick}
-      className={`w-full rounded-[8px] overflow-hidden transition-all ${
+      className={`w-full rounded-[10px] overflow-hidden transition-all cursor-pointer ${
         isSelected
-          ? 'ring-2 ring-[#29318A]'
-          : 'hover:ring-1 hover:ring-[#4C526B]'
+          ? 'ring-2 ring-[#29318A] shadow-lg shadow-[#29318A]/20'
+          : 'hover:ring-1 hover:ring-[#4C526B] hover:shadow-md'
       }`}
     >
       {/* Image thumbnail */}
-      <div className="relative w-full h-[70px] bg-[#0a0d1f]">
+      <div className="relative w-full h-[85px] bg-[#0a0d1f]">
         {!imageError ? (
           <>
             <img
@@ -396,13 +403,13 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
             />
             {!imageLoaded && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
               </div>
             )}
           </>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-white/40">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
               <circle cx="8.5" cy="8.5" r="1.5" />
               <polyline points="21 15 16 10 5 21" />
@@ -412,25 +419,25 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
 
         {/* Status badge */}
         <div
-          className={`absolute top-1 right-1 px-1.5 py-0.5 rounded text-[8px] font-medium ocr-status-${document.status}`}
+          className={`absolute top-1.5 right-1.5 px-2 py-0.5 rounded text-[10px] font-medium ocr-status-${document.status}`}
         >
           {getStatusLabel(document.status)}
         </div>
 
         {/* Source icon */}
-        <div className="absolute bottom-1 left-1 text-[12px]">
+        <div className="absolute bottom-1.5 left-1.5 text-[14px]">
           {getSourceIcon(document.source)}
         </div>
       </div>
 
       {/* Info */}
-      <div className="p-1.5 bg-[#0F1535]">
-        <p className="text-[10px] text-white font-medium truncate">
+      <div className="p-2 bg-[#0F1535]">
+        <p className="text-[12px] text-white font-medium truncate">
           {document.document_type
             ? getDocumentTypeLabel(document.document_type)
             : 'סוג לא ידוע'}
         </p>
-        <p className="text-[9px] text-white/50 truncate">
+        <p className="text-[11px] text-white/50 truncate">
           {document.ocr_data?.supplier_name ||
            new Date(document.created_at).toLocaleDateString('he-IL')}
         </p>

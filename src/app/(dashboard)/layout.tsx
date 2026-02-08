@@ -557,9 +557,9 @@ export default function DashboardLayout({
           </div>
 
           {/* Left side - Profile, Notifications, Buttons */}
-          <div className="flex flex-row-reverse items-center gap-2 sm:gap-[5px]">
+          <div className="flex flex-row-reverse items-stretch gap-2 sm:gap-[5px]">
             {/* Profile Image */}
-            <div className="w-[34px] h-[34px] sm:w-[32px] sm:h-[32px] rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative touch-manipulation" suppressHydrationWarning>
+            <div className="w-[34px] sm:w-[32px] aspect-square rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative touch-manipulation self-center" suppressHydrationWarning>
               {/* Skeleton loader - only show when loading AND there's an image to load */}
               {(isLoadingProfile || (!profileImageLoaded && userProfile?.avatar_url)) && (
                 <div className="absolute inset-0 bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded-full" />
@@ -587,7 +587,7 @@ export default function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                className="w-[34px] h-[34px] sm:w-[32px] sm:h-[32px] rounded-full bg-[#29318A] flex items-center justify-center relative cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation"
+                className="w-[34px] sm:w-[32px] aspect-square self-center rounded-full bg-[#29318A] flex items-center justify-center relative cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="sm:w-[20px] sm:h-[20px] text-[#FFA412]">
                   <path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -721,7 +721,7 @@ export default function DashboardLayout({
             </div>
 
             {/* AI Button */}
-            <Link href="/ai" className="px-[8px] sm:px-[12px] py-[4px] sm:py-[3px] h-[34px] sm:h-auto min-w-[50px] sm:min-w-[60px] text-center bg-[#29318A] rounded-[7px] text-white text-[12px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center">
+            <Link href="/ai" className="px-[8px] sm:px-[12px] min-w-[50px] sm:min-w-[60px] text-center bg-[#29318A] rounded-[7px] text-white text-[12px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center">
               AI
             </Link>
 
@@ -730,7 +730,7 @@ export default function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setIsCoordinatorModalOpen(true)}
-                className="px-[8px] sm:px-[12px] py-[4px] sm:py-[3px] h-[34px] sm:h-auto min-w-[50px] sm:min-w-[60px] text-center bg-[#29318A] rounded-[7px] text-white text-[12px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation"
+                className="px-[8px] sm:px-[12px] min-w-[50px] sm:min-w-[60px] text-center bg-[#29318A] rounded-[7px] text-white text-[12px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center"
               >
                 מרכזת
               </button>
