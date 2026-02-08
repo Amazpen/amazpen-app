@@ -27,17 +27,23 @@ function checkRateLimit(userId: string): boolean {
 const ROUTER_SYSTEM_PROMPT = `You are a classifier. Given a user message in Hebrew, decide if it requires a database query or is just conversation/greeting.
 
 Reply with EXACTLY one word:
-- "SQL" — if the message asks about business data, numbers, finances, suppliers, invoices, income, expenses, goals, employees, products, etc.
-- "CHAT" — if the message is a greeting (היי, שלום, מה קורה), general question about your capabilities, thank you, or any non-data request.
+- "SQL" — if the message asks about business data, numbers, finances, suppliers, invoices, income, expenses, goals, employees, products, OR mentions a specific business name, OR asks what data/information is available, OR asks to show/display/list anything related to business.
+- "CHAT" — ONLY for simple greetings (היי, שלום, מה קורה), thank you messages, or very general questions about what you can do that don't mention any business or data.
+
+When in doubt, choose SQL.
 
 Examples:
 - "היי" → CHAT
-- "מה אתה יכול לעשות?" → CHAT
 - "תודה!" → CHAT
+- "מה אתה יכול לעשות?" → CHAT
 - "כמה הכנסות היו החודש?" → SQL
 - "מי הספק הכי יקר?" → SQL
 - "מה ה-food cost?" → SQL
-- "השווה חודש שעבר" → SQL`;
+- "השווה חודש שעבר" → SQL
+- "מה יש לך על עסק דוגמה?" → SQL
+- "תראה לי מידע על ג'וליה" → SQL
+- "לאיזה עסקים יש לך גישה?" → SQL
+- "מה המצב של כל העסקים?" → SQL`;
 
 // ---------------------------------------------------------------------------
 // System prompt: SQL generation
@@ -260,10 +266,43 @@ DATABASE SCHEMA:
 --   income_type (text), input_type (text), commission_rate (numeric),
 --   display_order (integer), is_active (boolean), deleted_at
 
+-- managed_products: Inventory products
+-- Columns: id (uuid PK), business_id (uuid FK), name (text), unit (text),
+--   unit_cost (numeric), category (text), current_stock (numeric),
+--   target_pct (numeric), is_active (boolean), deleted_at
+
+-- expense_categories: Hierarchical expense categories
+-- Columns: id (uuid PK), business_id (uuid FK), parent_id (uuid FK self-ref),
+--   name (text), description (text), display_order (integer), is_active (boolean), deleted_at
+
+-- business_credit_cards: Credit cards for the business
+-- Columns: id (uuid PK), business_id (uuid FK), card_name (text),
+--   last_four_digits (text), card_type (text), billing_day (integer),
+--   credit_limit (numeric), is_active (boolean), deleted_at
+
+-- payment_splits: Payment method breakdown per payment
+-- Columns: id (uuid PK), payment_id (uuid FK -> payments.id), payment_method (text),
+--   amount (numeric), credit_card_id (uuid FK), check_number (text),
+--   check_date (date), reference_number (text), installments_count (integer),
+--   installment_number (integer), due_date (date)
+
+-- supplier_budgets: Monthly budgets per supplier
+-- Columns: id (uuid PK), supplier_id (uuid FK), business_id (uuid FK),
+--   year (integer), month (integer), budget_amount (numeric), notes (text), deleted_at
+
+-- delivery_notes: Delivery notes from suppliers
+-- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK -> suppliers.id),
+--   delivery_note_number (text), delivery_date (date), subtotal (numeric),
+--   vat_amount (numeric), total_amount (numeric), invoice_id (uuid FK),
+--   is_verified (boolean), notes (text)
+
 COMMON QUERY PATTERNS FOR ADMIN:
 - Compare income across businesses: JOIN daily_entries with businesses ON business_id = businesses.id, GROUP BY businesses.name
 - Total income for a specific business: Use the business_id from the list above
-- All supplier balances: SELECT sb.*, b.name as business_name FROM supplier_balance sb JOIN businesses b ON sb.business_id = b.id`;
+- All supplier balances: SELECT sb.*, b.name as business_name FROM supplier_balance sb JOIN businesses b ON sb.business_id = b.id
+- When user asks "what info do you have on X" or "show me X business": query businesses table + daily_entries count + invoices count to show summary
+- When user asks about all businesses: SELECT b.name, COUNT(de.id) as entries, SUM(de.total_register) as total FROM businesses b LEFT JOIN daily_entries de ON ...
+- Fixed expenses per business: JOIN suppliers with businesses, filter is_fixed_expense = true`;
 }
 
 // ---------------------------------------------------------------------------
@@ -305,15 +344,19 @@ function buildChatSystemPrompt(userName: string, userType: string): string {
   return `אתה עוזר עסקי חכם בשם "העוזר של המצפן". אתה מדבר בעברית.
 ${greeting}
 
-אתה עוזר לבעלי עסקים לנתח את הנתונים העסקיים שלהם. אתה יכול:
-- לענות על שאלות על הכנסות, הוצאות, ספקים, תשלומים
-- להשוות בין תקופות
+יש לך גישה מלאה למסד הנתונים של המערכת ואתה יכול לענות על כל שאלה עסקית. אתה יכול:
+- לשלוף נתונים על הכנסות, הוצאות, ספקים, תשלומים, חשבוניות
+- להשוות בין תקופות וחודשים
 - להציג מצב מול יעדים
 - לנתח עלויות עבודה ו-food cost
 - להציג יתרות ספקים
+- להשוות בין עסקים (למנהלי מערכת)
 - ועוד...
 
+חשוב: אם המשתמש שואל שאלה על נתונים או עסק, בקש ממנו לנסח את השאלה כשאלה ישירה (למשל: "כמה הכנסות היו החודש?" או "מה היתרה של הספקים?") כדי שתוכל לשלוף את המידע.
+
 כשמישהו אומר שלום או מה קורה, ענה בקצרה ובחום, פנה אליו בשמו אם ידוע, והציע לו לשאול שאלה על העסק.
+לעולם אל תגיד שאין לך גישה לנתונים או לעסקים - יש לך גישה מלאה.
 תהיה ידידותי וקצר. אל תשתמש באימוג'ים.`;
 }
 
@@ -336,6 +379,38 @@ function jsonResponse(data: Record<string, unknown>, status = 200) {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Chat history persistence helper
+// ---------------------------------------------------------------------------
+async function saveMessageToDB(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  sId: string,
+  role: "user" | "assistant",
+  content: string,
+  chartData?: unknown
+) {
+  if (!sId) return;
+  try {
+    const adminSb = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    await adminSb.from("ai_chat_messages").insert({
+      session_id: sId,
+      role,
+      content,
+      chart_data: chartData || null,
+    });
+    // Update session's updated_at
+    await adminSb
+      .from("ai_chat_sessions")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", sId);
+  } catch (err) {
+    console.error("Failed to save message:", err);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -421,6 +496,7 @@ export async function POST(request: NextRequest) {
 
   const message = typeof body.message === "string" ? body.message : "";
   const businessId = typeof body.businessId === "string" ? body.businessId : "";
+  const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
   const history = Array.isArray(body.history) ? body.history : [];
 
   if (!message) {
@@ -525,6 +601,11 @@ export async function POST(request: NextRequest) {
   // CHAT path: stream conversational response directly
   // =========================================================================
   if (route === "CHAT") {
+    // Save user message to DB
+    if (sessionId) {
+      saveMessageToDB(supabaseUrl, serviceRoleKey, sessionId, "user", message);
+    }
+
     return createSSEStream(async (writer) => {
       const chatStream = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -541,12 +622,20 @@ export async function POST(request: NextRequest) {
         stream: true,
       });
 
+      let fullChatResponse = "";
       for await (const chunk of chatStream) {
         const delta = chunk.choices[0]?.delta?.content;
         if (delta) {
+          fullChatResponse += delta;
           writer.writeText(delta);
         }
       }
+
+      // Save assistant response to DB
+      if (sessionId && fullChatResponse) {
+        saveMessageToDB(supabaseUrl, serviceRoleKey, sessionId, "assistant", fullChatResponse);
+      }
+
       writer.writeDone();
     });
   }
@@ -555,6 +644,11 @@ export async function POST(request: NextRequest) {
   // SQL path: generate SQL → execute → stream formatted response
   // =========================================================================
   const isAdminCrossBiz = isAdmin && !businessId;
+
+  // Save user message to DB
+  if (sessionId) {
+    saveMessageToDB(supabaseUrl, serviceRoleKey, sessionId, "user", message);
+  }
 
   return createSSEStream(async (writer) => {
     // --- Step A: Generate SQL ---
@@ -678,14 +772,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse chart data from the full response
+    let parsedChartData: unknown = null;
     const chartMatch = fullResponse.match(/```chart-json\n([\s\S]*?)\n```/);
     if (chartMatch) {
       try {
-        const chartData = JSON.parse(chartMatch[1]);
-        writer.writeChart(chartData);
+        parsedChartData = JSON.parse(chartMatch[1]);
+        writer.writeChart(parsedChartData);
       } catch {
         // Invalid chart JSON, ignore
       }
+    }
+
+    // Save assistant response to DB (text without chart block)
+    if (sessionId && fullResponse) {
+      const textContent = chartMatch
+        ? fullResponse.slice(0, fullResponse.indexOf("```chart-json")).trim()
+        : fullResponse;
+      saveMessageToDB(supabaseUrl, serviceRoleKey, sessionId, "assistant", textContent, parsedChartData);
     }
 
     writer.writeDone();

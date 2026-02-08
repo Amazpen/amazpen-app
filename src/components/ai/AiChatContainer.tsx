@@ -13,7 +13,7 @@ interface AiChatContainerProps {
 }
 
 export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
-  const { messages, isLoading, sendMessage, clearChat } = useAiChat(businessId, isAdmin);
+  const { messages, isLoading, isLoadingHistory, sendMessage, clearChat } = useAiChat(businessId, isAdmin);
   const hasMessages = messages.length > 0;
 
   const handleSuggestionClick = useCallback(
@@ -44,7 +44,11 @@ export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
       )}
 
       {/* Main content area */}
-      {hasMessages ? (
+      {isLoadingHistory ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+        </div>
+      ) : hasMessages ? (
         <AiMessageList messages={messages} isLoading={isLoading} />
       ) : (
         <AiWelcomeScreen

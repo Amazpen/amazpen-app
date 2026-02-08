@@ -1,14 +1,66 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { AiMessage } from "@/types/ai";
 
 export function useAiChat(businessId: string | undefined, isAdmin = false) {
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef<AiMessage[]>([]);
+  const sessionIdRef = useRef<string | null>(null);
   messagesRef.current = messages;
+
+  // Load previous session history on mount
+  useEffect(() => {
+    let cancelled = false;
+    async function loadHistory() {
+      try {
+        const res = await fetch("/api/ai/sessions");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+
+        if (data.session && data.messages?.length > 0) {
+          sessionIdRef.current = data.session.id;
+          setMessages(
+            data.messages.map((m: { id: string; role: string; content: string; chartData?: unknown; timestamp: string }) => ({
+              id: m.id,
+              role: m.role as "user" | "assistant",
+              content: m.content,
+              chartData: m.chartData as AiMessage["chartData"],
+              timestamp: new Date(m.timestamp),
+            }))
+          );
+        }
+      } catch {
+        // Failed to load history, start fresh
+      } finally {
+        if (!cancelled) setIsLoadingHistory(false);
+      }
+    }
+    loadHistory();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Create a new session if we don't have one
+  const ensureSession = useCallback(async (): Promise<string | null> => {
+    if (sessionIdRef.current) return sessionIdRef.current;
+    try {
+      const res = await fetch("/api/ai/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: businessId || null }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      sessionIdRef.current = data.sessionId;
+      return data.sessionId;
+    } catch {
+      return null;
+    }
+  }, [businessId]);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -27,6 +79,9 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
       setIsLoading(true);
 
       try {
+        // Ensure we have a session for persistence
+        const sId = await ensureSession();
+
         const recentHistory = [...messagesRef.current, userMessage]
           .slice(-10)
           .map((m) => ({
@@ -42,6 +97,7 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
           body: JSON.stringify({
             message: content,
             businessId: businessId || "",
+            sessionId: sId || "",
             history: recentHistory,
           }),
           signal: abortRef.current.signal,
@@ -144,14 +200,24 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
         setIsLoading(false);
       }
     },
-    [businessId, isAdmin]
+    [businessId, isAdmin, ensureSession]
   );
 
-  const clearChat = useCallback(() => {
+  const clearChat = useCallback(async () => {
     if (abortRef.current) abortRef.current.abort();
     setMessages([]);
     setIsLoading(false);
+
+    // Delete session from DB
+    if (sessionIdRef.current) {
+      sessionIdRef.current = null;
+      try {
+        await fetch("/api/ai/sessions", { method: "DELETE" });
+      } catch {
+        // ignore
+      }
+    }
   }, []);
 
-  return { messages, isLoading, sendMessage, clearChat };
+  return { messages, isLoading, isLoadingHistory, sendMessage, clearChat };
 }
