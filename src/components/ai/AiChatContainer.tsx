@@ -31,7 +31,7 @@ export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
           <button
             type="button"
             onClick={clearChat}
-            className="flex items-center gap-1.5 text-white/30 hover:text-white/60 text-[12px] transition-colors"
+            className="flex items-center gap-1.5 text-white hover:text-white/70 text-[12px] transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" />
             נקה שיחה
