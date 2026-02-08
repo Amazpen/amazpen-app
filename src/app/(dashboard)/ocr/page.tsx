@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import DocumentViewer from '@/components/ocr/DocumentViewer';
 import OCRForm from '@/components/ocr/OCRForm';
 import DocumentQueue from '@/components/ocr/DocumentQueue';
+import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
 import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
 
 interface Business {
@@ -118,6 +119,13 @@ export default function OCRPage() {
     }
   }, [isCheckingAuth, isAdmin, fetchDocuments]);
 
+  // Realtime subscription - auto-refresh when new documents arrive or data changes
+  useMultiTableRealtime(
+    ['ocr_documents', 'ocr_extracted_data'],
+    fetchDocuments,
+    !isCheckingAuth && isAdmin
+  );
+
   // Fetch businesses (admin sees all active businesses)
   useEffect(() => {
     if (!isCheckingAuth && isAdmin) {
@@ -185,6 +193,10 @@ export default function OCRPage() {
   // Handle document selection
   const handleSelectDocument = useCallback((document: OCRDocument) => {
     setCurrentDocument(document);
+    // Auto-select the business identified by AI from the document
+    if (document.business_id) {
+      setSelectedBusinessId(document.business_id);
+    }
     if (document.status === 'pending') {
       // Update local state immediately for UI responsiveness
       setDocuments((prev) =>
