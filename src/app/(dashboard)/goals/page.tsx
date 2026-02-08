@@ -143,7 +143,7 @@ export default function GoalsPage() {
   }, []);
 
   useMultiTableRealtime(
-    ["goals", "supplier_budgets", "invoices", "daily_entries", "expense_categories", "suppliers"],
+    ["goals", "supplier_budgets", "invoices", "daily_entries", "expense_categories", "suppliers", "income_source_goals", "daily_income_breakdown", "daily_product_usage"],
     handleRealtimeChange,
     selectedBusinesses.length > 0
   );
@@ -362,7 +362,7 @@ export default function GoalsPage() {
         // ============================================
         const { data: dailyEntries } = await supabase
           .from("daily_entries")
-          .select("total_register, labor_cost")
+          .select("id, total_register, labor_cost")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .gte("entry_date", startDate)
@@ -385,6 +385,110 @@ export default function GoalsPage() {
         // Calculate percentages
         const laborPct = totalRevenue > 0 ? (totalLaborCost / totalRevenue) * 100 : 0;
         const foodPct = totalRevenue > 0 ? (totalGoodsCost / totalRevenue) * 100 : 0;
+
+        // ============================================
+        // 8. Fetch income sources, goals & breakdown for avg ticket
+        // ============================================
+        const entryIds = (dailyEntries || []).map(d => d.id);
+
+        const [
+          { data: incomeSourcesData },
+          { data: incomeSourceGoalsData },
+          breakdownResult,
+          { data: managedProductsData },
+          productUsageResult,
+        ] = await Promise.all([
+          supabase
+            .from("income_sources")
+            .select("id, name")
+            .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
+            .eq("is_active", true)
+            .order("name"),
+          goal ? supabase
+            .from("income_source_goals")
+            .select("income_source_id, avg_ticket_target")
+            .eq("goal_id", goal.id)
+          : Promise.resolve({ data: [] as { income_source_id: string; avg_ticket_target: number }[] }),
+          entryIds.length > 0 ? supabase
+            .from("daily_income_breakdown")
+            .select("income_source_id, amount, orders_count")
+            .in("daily_entry_id", entryIds)
+          : Promise.resolve({ data: [] as { income_source_id: string; amount: number; orders_count: number }[] }),
+          supabase
+            .from("managed_products")
+            .select("id, name, unit, unit_cost, target_pct")
+            .in("business_id", selectedBusinesses)
+            .eq("is_active", true)
+            .is("deleted_at", null)
+            .order("name"),
+          entryIds.length > 0 ? supabase
+            .from("daily_product_usage")
+            .select("product_id, quantity, unit_cost_at_time")
+            .in("daily_entry_id", entryIds)
+          : Promise.resolve({ data: [] as { product_id: string; quantity: number; unit_cost_at_time: number }[] }),
+        ]);
+
+        const { data: breakdownData } = breakdownResult;
+        const { data: productUsageData } = productUsageResult;
+
+        // Aggregate income breakdown by source: total amount and orders
+        const incomeAgg: Record<string, { totalAmount: number; totalOrders: number }> = {};
+        (breakdownData || []).forEach(b => {
+          if (!incomeAgg[b.income_source_id]) {
+            incomeAgg[b.income_source_id] = { totalAmount: 0, totalOrders: 0 };
+          }
+          incomeAgg[b.income_source_id].totalAmount += Number(b.amount) || 0;
+          incomeAgg[b.income_source_id].totalOrders += Number(b.orders_count) || 0;
+        });
+
+        // Build income source goal map
+        const incomeGoalMap = new Map<string, number>();
+        ((incomeSourceGoalsData || []) as { income_source_id: string; avg_ticket_target: number }[]).forEach(ig => {
+          incomeGoalMap.set(ig.income_source_id, Number(ig.avg_ticket_target) || 0);
+        });
+
+        // Build avg ticket KPI items
+        const avgTicketItems: GoalItem[] = (incomeSourcesData || []).map(source => {
+          const agg = incomeAgg[source.id];
+          const actualAvg = agg && agg.totalOrders > 0 ? agg.totalAmount / agg.totalOrders : 0;
+          const targetAvg = incomeGoalMap.get(source.id) || 0;
+          return {
+            id: `avg-ticket-${source.id}`,
+            name: `ממוצע ${source.name}`,
+            target: targetAvg,
+            actual: Math.round(actualAvg),
+            unit: "₪",
+            editable: false,
+          };
+        });
+
+        // ============================================
+        // 9. Build managed product KPI items (target %)
+        // ============================================
+        // Aggregate product usage: total cost per product
+        const productCostAgg: Record<string, number> = {};
+        (productUsageData || []).forEach(pu => {
+          if (!productCostAgg[pu.product_id]) {
+            productCostAgg[pu.product_id] = 0;
+          }
+          productCostAgg[pu.product_id] += (Number(pu.quantity) || 0) * (Number(pu.unit_cost_at_time) || 0);
+        });
+
+        const managedProductItems: GoalItem[] = (managedProductsData || [])
+          .filter(p => p.target_pct !== null)
+          .map(product => {
+            const actualCost = productCostAgg[product.id] || 0;
+            const actualPct = totalRevenue > 0 ? (actualCost / totalRevenue) * 100 : 0;
+            return {
+              id: `product-${product.id}`,
+              name: product.name,
+              target: Number(product.target_pct) || 0,
+              actual: actualPct,
+              unit: "%",
+              editable: false,
+            };
+          });
 
         const kpiItems: GoalItem[] = [
           {
@@ -427,6 +531,8 @@ export default function GoalsPage() {
             unit: "₪",
             editable: false,
           },
+          ...avgTicketItems,
+          ...managedProductItems,
         ];
         setKpiData(kpiItems);
 
