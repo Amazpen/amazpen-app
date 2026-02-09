@@ -1120,23 +1120,25 @@ export default function SuppliersPage() {
                   <span className="text-[15px] font-semibold text-[#979797]">התחייבויות קודמות</span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setWaitingForCoordinator(!waitingForCoordinator)}
-                  className="flex items-center gap-[3px]"
-                >
-                  <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-[#979797]">
-                    {waitingForCoordinator ? (
-                      <>
-                        <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
-                        <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </>
-                    ) : (
-                      <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2"/>
-                    )}
-                  </svg>
-                  <span className="text-[15px] font-semibold text-[#979797]">ממתין למרכזת</span>
-                </button>
+                {!hasPreviousObligations && (
+                  <button
+                    type="button"
+                    onClick={() => setWaitingForCoordinator(!waitingForCoordinator)}
+                    className="flex items-center gap-[3px]"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-[#979797]">
+                      {waitingForCoordinator ? (
+                        <>
+                          <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                          <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </>
+                      ) : (
+                        <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                    <span className="text-[15px] font-semibold text-[#979797]">ממתין למרכזת</span>
+                  </button>
+                )}
               </div>
 
               {/* Previous Obligations Fields - shown when hasPreviousObligations is true */}
@@ -1244,60 +1246,62 @@ export default function SuppliersPage() {
                 </div>
               )}
 
-              {/* Expense Type - Radio buttons */}
-              <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">סוג הוצאה</label>
-                <div className="flex items-center justify-start gap-[20px]" dir="rtl">
-                  <button
-                    type="button"
-                    onClick={() => setExpenseType("current")}
-                    className="flex items-center gap-[3px]"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "current" ? "text-white" : "text-[#979797]"}>
-                      {expenseType === "current" ? (
-                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
-                      ) : (
-                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
-                      )}
-                    </svg>
-                    <span className={`text-[15px] font-semibold ${expenseType === "current" ? "text-white" : "text-[#979797]"}`}>
-                      הוצאות שוטפות
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setExpenseType("goods")}
-                    className="flex items-center gap-[3px]"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "goods" ? "text-white" : "text-[#979797]"}>
-                      {expenseType === "goods" ? (
-                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
-                      ) : (
-                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
-                      )}
-                    </svg>
-                    <span className={`text-[15px] font-semibold ${expenseType === "goods" ? "text-white" : "text-[#979797]"}`}>
-                      קניות סחורה
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setExpenseType("employees")}
-                    className="flex items-center gap-[3px]"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "employees" ? "text-white" : "text-[#979797]"}>
-                      {expenseType === "employees" ? (
-                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
-                      ) : (
-                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
-                      )}
-                    </svg>
-                    <span className={`text-[15px] font-semibold ${expenseType === "employees" ? "text-white" : "text-[#979797]"}`}>
-                      עלות עובדים
-                    </span>
-                  </button>
+              {/* Expense Type - Radio buttons (hidden for previous obligations) */}
+              {!hasPreviousObligations && (
+                <div className="flex flex-col gap-[5px]">
+                  <label className="text-[15px] font-medium text-white text-right">סוג הוצאה</label>
+                  <div className="flex items-center justify-start gap-[20px]" dir="rtl">
+                    <button
+                      type="button"
+                      onClick={() => setExpenseType("current")}
+                      className="flex items-center gap-[3px]"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "current" ? "text-white" : "text-[#979797]"}>
+                        {expenseType === "current" ? (
+                          <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                        ) : (
+                          <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
+                        )}
+                      </svg>
+                      <span className={`text-[15px] font-semibold ${expenseType === "current" ? "text-white" : "text-[#979797]"}`}>
+                        הוצאות שוטפות
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExpenseType("goods")}
+                      className="flex items-center gap-[3px]"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "goods" ? "text-white" : "text-[#979797]"}>
+                        {expenseType === "goods" ? (
+                          <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                        ) : (
+                          <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
+                        )}
+                      </svg>
+                      <span className={`text-[15px] font-semibold ${expenseType === "goods" ? "text-white" : "text-[#979797]"}`}>
+                        קניות סחורה
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExpenseType("employees")}
+                      className="flex items-center gap-[3px]"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "employees" ? "text-white" : "text-[#979797]"}>
+                        {expenseType === "employees" ? (
+                          <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                        ) : (
+                          <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
+                        )}
+                      </svg>
+                      <span className={`text-[15px] font-semibold ${expenseType === "employees" ? "text-white" : "text-[#979797]"}`}>
+                        עלות עובדים
+                      </span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Parent Category */}
               <div className="flex flex-col gap-[5px]">
@@ -1405,19 +1409,21 @@ export default function SuppliersPage() {
                 )}
               </div>
 
-              {/* Payment Terms */}
-              <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">תנאי תשלום (שוטף +)</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
-                    type="tel"
-                    title="תנאי תשלום"
-                    value={paymentTerms}
-                    onChange={(e) => setPaymentTerms(e.target.value)}
-                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
-                  />
+              {/* Payment Terms (hidden for previous obligations) */}
+              {!hasPreviousObligations && (
+                <div className="flex flex-col gap-[5px]">
+                  <label className="text-[15px] font-medium text-white text-right">תנאי תשלום (שוטף +)</label>
+                  <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                    <input
+                      type="tel"
+                      title="תנאי תשלום"
+                      value={paymentTerms}
+                      onChange={(e) => setPaymentTerms(e.target.value)}
+                      className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* VAT Required - Radio buttons */}
               <div className="flex flex-col gap-[3px]">
@@ -1562,26 +1568,28 @@ export default function SuppliersPage() {
                 </div>
               </div>
 
-              {/* File Upload - Quote/Terms */}
-              <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">הצעת מחיר/תקנון/תנאים שסוכמו וכדומה</label>
-                <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[80px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#29318A] transition-colors">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-[#979797]">
-                    <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M3 15V16C3 18.2091 4.79086 20 7 20H17C19.2091 20 21 18.2091 21 16V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  <span className="text-[14px] text-[#979797]">
-                    {attachedFile ? attachedFile.name : "לחץ להעלאת קובץ"}
-                  </span>
-                  <input
-                    type="file"
-                    title="העלאת קובץ"
-                    onChange={(e) => setAttachedFile(e.target.files?.[0] || null)}
-                    className="hidden"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                  />
-                </label>
-              </div>
+              {/* File Upload - Quote/Terms (hidden for previous obligations) */}
+              {!hasPreviousObligations && (
+                <div className="flex flex-col gap-[5px]">
+                  <label className="text-[15px] font-medium text-white text-right">הצעת מחיר/תקנון/תנאים שסוכמו וכדומה</label>
+                  <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[80px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#29318A] transition-colors">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-[#979797]">
+                      <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M3 15V16C3 18.2091 4.79086 20 7 20H17C19.2091 20 21 18.2091 21 16V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span className="text-[14px] text-[#979797]">
+                      {attachedFile ? attachedFile.name : "לחץ להעלאת קובץ"}
+                    </span>
+                    <input
+                      type="file"
+                      title="העלאת קובץ"
+                      onChange={(e) => setAttachedFile(e.target.files?.[0] || null)}
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    />
+                  </label>
+                </div>
+              )}
 
               {/* Submit and Cancel Buttons */}
               <div className="flex gap-[10px] mt-[15px] mb-[10px]">
