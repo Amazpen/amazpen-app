@@ -56,7 +56,7 @@ interface SupplierWithBalance extends Supplier {
   revenuePercentage: number;
 }
 
-type TabType = "previous" | "current" | "purchases";
+type TabType = "previous" | "current" | "purchases" | "employees";
 
 export default function SuppliersPage() {
   const { selectedBusinesses } = useDashboard();
@@ -152,7 +152,7 @@ export default function SuppliersPage() {
   const [obligationNumPayments, setObligationNumPayments] = useState("");
   const [obligationMonthlyAmount, setObligationMonthlyAmount] = useState("");
   const [obligationDocument, setObligationDocument] = useState<File | null>(null);
-  const [expenseType, setExpenseType] = useState<"current" | "goods">("current");
+  const [expenseType, setExpenseType] = useState<"current" | "goods" | "employees">("current");
   const [category, setCategory] = useState("");
   const [parentCategory, setParentCategory] = useState("");
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -208,7 +208,7 @@ export default function SuppliersPage() {
           if (draft.obligationFirstChargeDate) setObligationFirstChargeDate(draft.obligationFirstChargeDate as string);
           if (draft.obligationNumPayments) setObligationNumPayments(draft.obligationNumPayments as string);
           if (draft.obligationMonthlyAmount) setObligationMonthlyAmount(draft.obligationMonthlyAmount as string);
-          if (draft.expenseType) setExpenseType(draft.expenseType as "current" | "goods");
+          if (draft.expenseType) setExpenseType(draft.expenseType as "current" | "goods" | "employees");
           if (draft.category) setCategory(draft.category as string);
           if (draft.parentCategory) setParentCategory(draft.parentCategory as string);
           if (draft.paymentTerms) setPaymentTerms(draft.paymentTerms as string);
@@ -368,7 +368,7 @@ export default function SuppliersPage() {
 
     // Fill form with existing data
     setSupplierName(selectedSupplier.name);
-    setExpenseType(selectedSupplier.expense_type === "current_expenses" ? "current" : "goods");
+    setExpenseType(selectedSupplier.expense_type === "current_expenses" ? "current" : selectedSupplier.expense_type === "goods_purchases" ? "goods" : "employees");
     setCategory(selectedSupplier.expense_category_id || "");
     setPaymentTerms(selectedSupplier.payment_terms_days?.toString() || "");
     setVatRequired(
@@ -425,7 +425,7 @@ export default function SuppliersPage() {
         .from("suppliers")
         .update({
           name: supplierName.trim(),
-          expense_type: expenseType === "current" ? "current_expenses" : "goods_purchases",
+          expense_type: expenseType === "current" ? "current_expenses" : expenseType === "goods" ? "goods_purchases" : "employee_costs",
           expense_category_id: category || null,
           parent_category_id: parentCategory || null,
           payment_terms_days: paymentTerms ? parseInt(paymentTerms) : 30,
@@ -591,7 +591,7 @@ export default function SuppliersPage() {
         .insert({
           business_id: selectedBusinesses[0], // Use first selected business
           name: supplierName.trim(),
-          expense_type: expenseType === "current" ? "current_expenses" : "goods_purchases",
+          expense_type: expenseType === "current" ? "current_expenses" : expenseType === "goods" ? "goods_purchases" : "employee_costs",
           expense_category_id: category || null,
           parent_category_id: parentCategory || null,
           payment_terms_days: paymentTerms ? parseInt(paymentTerms) : 30,
@@ -869,6 +869,7 @@ export default function SuppliersPage() {
   const filteredByTab = suppliers.filter((supplier) => {
     if (activeTab === "previous") return supplier.has_previous_obligations;
     if (activeTab === "purchases") return supplier.expense_type === "goods_purchases" && !supplier.has_previous_obligations;
+    if (activeTab === "employees") return supplier.expense_type === "employee_costs" && !supplier.has_previous_obligations;
     return supplier.expense_type === "current_expenses" && !supplier.has_previous_obligations;
   });
 
@@ -899,6 +900,9 @@ export default function SuppliersPage() {
             if (activeTab === "previous") {
               setHasPreviousObligations(true);
             }
+            if (activeTab === "employees") {
+              setExpenseType("employees");
+            }
             setIsAddSupplierModalOpen(true);
           }}
           className="w-full min-h-[50px] bg-[#29318A] text-white text-[16px] font-semibold rounded-[5px] px-[24px] py-[12px] transition-colors duration-200 hover:bg-[#3D44A0] shadow-[0_7px_30px_-10px_rgba(41,49,138,0.1)]"
@@ -909,7 +913,7 @@ export default function SuppliersPage() {
 
       {/* Main Content Container */}
       <div className="flex-1 flex flex-col bg-[#0F1535] rounded-[10px] p-[5px_7px]">
-        {/* Tabs - קניות סחורה בימין, הוצאות שוטפות באמצע, התחייבויות קודמות בשמאל */}
+        {/* Tabs */}
         <div className="flex w-full h-[45px] mb-[10px] border border-[#6B6B6B] rounded-[7px] overflow-hidden">
           <button
             type="button"
@@ -920,7 +924,7 @@ export default function SuppliersPage() {
                 : "text-[#979797]"
             }`}
           >
-            <span className="text-[14px] font-bold">קניות סחורה</span>
+            <span className="text-[13px] font-bold">קניות סחורה</span>
           </button>
           <button
             type="button"
@@ -931,7 +935,18 @@ export default function SuppliersPage() {
                 : "text-[#979797]"
             }`}
           >
-            <span className="text-[14px] font-bold">הוצאות שוטפות</span>
+            <span className="text-[13px] font-bold">הוצאות שוטפות</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("employees")}
+            className={`flex-1 flex items-center justify-center transition-colors duration-200 p-[3px] ${
+              activeTab === "employees"
+                ? "bg-[#29318A] text-white"
+                : "text-[#979797]"
+            }`}
+          >
+            <span className="text-[13px] font-bold">עלות עובדים</span>
           </button>
           <button
             type="button"
@@ -942,7 +957,7 @@ export default function SuppliersPage() {
                 : "text-[#979797]"
             }`}
           >
-            <span className="text-[14px] font-bold">התחייבויות קודמות</span>
+            <span className="text-[13px] font-bold">התחייבויות קודמות</span>
           </button>
         </div>
 
@@ -981,19 +996,21 @@ export default function SuppliersPage() {
           {isLoading ? (
             /* Skeleton Loaders for Supplier Cards */
             <div className="grid grid-cols-2 gap-[26px]">
-              {[...Array(6)].map((_, i) => (
+              {[...Array(8)].map((_, i) => (
                 <div
                   key={`skeleton-${i}`}
-                  className="bg-[#29318A]/50 rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] animate-pulse"
+                  className="bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] animate-pulse"
                 >
                   {/* Skeleton Supplier Name */}
-                  <div className="w-[100px] h-[20px] bg-white/20 rounded-[5px]" />
+                  <div className="w-[120px] flex justify-center">
+                    <div className="w-[80px] h-[22px] bg-white/20 rounded-[5px]" />
+                  </div>
 
                   {/* Skeleton Payment Info */}
-                  <div className="flex flex-col items-center gap-[6px]">
-                    <div className="w-[80px] h-[16px] bg-white/10 rounded-[5px]" />
-                    <div className="w-[70px] h-[18px] bg-[#F64E60]/30 rounded-[5px]" />
-                    <div className="w-[90px] h-[14px] bg-white/10 rounded-[5px]" />
+                  <div className="w-[100px] flex flex-col items-center gap-[4px]">
+                    <div className="w-[80px] h-[18px] bg-white/15 rounded-[5px]" />
+                    <div className="w-[50px] h-[18px] bg-[#F64E60]/25 rounded-[5px]" />
+                    <div className="w-[75px] h-[16px] bg-white/15 rounded-[5px]" />
                   </div>
                 </div>
               ))}
@@ -1261,6 +1278,22 @@ export default function SuppliersPage() {
                     </svg>
                     <span className={`text-[15px] font-semibold ${expenseType === "goods" ? "text-white" : "text-[#979797]"}`}>
                       קניות סחורה
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExpenseType("employees")}
+                    className="flex items-center gap-[3px]"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "employees" ? "text-white" : "text-[#979797]"}>
+                      {expenseType === "employees" ? (
+                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                      ) : (
+                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                    <span className={`text-[15px] font-semibold ${expenseType === "employees" ? "text-white" : "text-[#979797]"}`}>
+                      עלות עובדים
                     </span>
                   </button>
                 </div>
@@ -1642,7 +1675,7 @@ export default function SuppliersPage() {
                 <div className="flex flex-col items-center text-center">
                   <span className="text-[12px] text-white/60">סוג הוצאה</span>
                   <span className="text-[14px] text-white font-medium">
-                    {selectedSupplier.expense_type === "current_expenses" ? "הוצאות שוטפות" : "קניות סחורה"}
+                    {selectedSupplier.expense_type === "current_expenses" ? "הוצאות שוטפות" : selectedSupplier.expense_type === "goods_purchases" ? "קניות סחורה" : "עלות עובדים"}
                   </span>
                 </div>
                 <div className="flex flex-col items-center text-center">
