@@ -1032,7 +1032,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 h-[50px] bg-gradient-to-r from-[#3964FF] to-[#6B8AFF] hover:from-[#2850E0] hover:to-[#5A79EE] text-white font-bold text-lg rounded-[10px] transition-all"
+                className="flex-1 h-[50px] bg-[#29318A] hover:bg-[#3D44A0] text-white font-bold text-lg rounded-[10px] transition-colors"
               >
                 {isSubmitting ? (
                   <>
