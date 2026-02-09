@@ -1462,35 +1462,38 @@ export default function SuppliersPage() {
                 </button>
               </div>
 
-              {/* Charge Day */}
-              <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">מתי יורד החיוב בחודש?</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
-                  <input
-                    type="tel"
-                    title="מתי יורד החיוב בחודש"
-                    value={chargeDay}
-                    onChange={(e) => setChargeDay(e.target.value)}
-                    placeholder="לדוגמה: 1, 15, 28"
-                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none placeholder:text-white/30"
-                  />
-                </div>
-              </div>
+              {/* Charge Day & Monthly Amount - only when fixed expense */}
+              {isFixedExpense && (
+                <>
+                  <div className="flex flex-col gap-[5px]">
+                    <label className="text-[15px] font-medium text-white text-right">מתי יורד החיוב בחודש?</label>
+                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
+                      <input
+                        type="tel"
+                        title="מתי יורד החיוב בחודש"
+                        value={chargeDay}
+                        onChange={(e) => setChargeDay(e.target.value)}
+                        placeholder="לדוגמה: 1, 15, 28"
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none placeholder:text-white/30"
+                      />
+                    </div>
+                  </div>
 
-              {/* Monthly Expense Amount */}
-              <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">סכום הוצאה עבור כל חודש</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
-                  <input
-                    type="tel"
-                    title="סכום הוצאה עבור כל חודש"
-                    value={monthlyExpenseAmount}
-                    onChange={(e) => setMonthlyExpenseAmount(e.target.value)}
-                    placeholder="₪"
-                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none placeholder:text-white/30"
-                  />
-                </div>
-              </div>
+                  <div className="flex flex-col gap-[5px]">
+                    <label className="text-[15px] font-medium text-white text-right">סכום הוצאה עבור כל חודש</label>
+                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
+                      <input
+                        type="tel"
+                        title="סכום הוצאה עבור כל חודש"
+                        value={monthlyExpenseAmount}
+                        onChange={(e) => setMonthlyExpenseAmount(e.target.value)}
+                        placeholder="₪"
+                        className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none placeholder:text-white/30"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Primary Payment Method */}
               <div className="flex flex-col gap-[5px]">
