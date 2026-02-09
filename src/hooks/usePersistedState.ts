@@ -1,40 +1,34 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 /**
  * useState wrapper that persists to localStorage.
- * Handles SSR hydration safely — always starts with initialValue on server,
- * then loads saved value on client mount.
+ * Uses lazy initializer to load from localStorage on first render (client only).
  */
 export function usePersistedState<T>(
   key: string,
   initialValue: T
 ): [T, (value: T | ((prev: T) => T)) => void] {
-  const [state, setState] = useState<T>(initialValue);
-  const isHydrated = useRef(false);
-
-  // Load from localStorage on mount
-  useEffect(() => {
+  const [state, setState] = useState<T>(() => {
+    if (typeof window === "undefined") return initialValue;
     try {
       const saved = localStorage.getItem(key);
       if (saved !== null) {
-        setState(JSON.parse(saved));
+        return JSON.parse(saved) as T;
       }
     } catch {
       // Invalid JSON or localStorage unavailable
     }
-    isHydrated.current = true;
-  }, [key]);
+    return initialValue;
+  });
 
-  // Save to localStorage on change (skip initial mount)
+  // Save to localStorage on change
   useEffect(() => {
-    if (isHydrated.current) {
-      try {
-        localStorage.setItem(key, JSON.stringify(state));
-      } catch {
-        // localStorage full or unavailable
-      }
+    try {
+      localStorage.setItem(key, JSON.stringify(state));
+    } catch {
+      // localStorage full or unavailable
     }
   }, [key, state]);
 
