@@ -646,7 +646,7 @@ export default function GoalsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("vs-goods")}
-            className={`flex-1 flex items-center justify-center transition-colors duration-200 rounded-l-[7px] ${
+            className={`flex-1 flex items-center justify-center py-[10px] px-[4px] transition-colors duration-200 rounded-l-[7px] ${
               activeTab === "vs-goods"
                 ? "bg-[#29318A] text-white border-[#29318A]"
                 : "text-[#6B6B6B] hover:bg-[#29318A]/20 border-[#6B6B6B]"
@@ -659,7 +659,7 @@ export default function GoalsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("vs-current")}
-            className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
+            className={`flex-1 flex items-center justify-center py-[10px] px-[4px] transition-colors duration-200 ${
               activeTab === "vs-current"
                 ? "bg-[#29318A] text-white"
                 : "text-[#6B6B6B] hover:bg-[#29318A]/20 border-y border-[#6B6B6B]"
@@ -672,7 +672,7 @@ export default function GoalsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("kpi")}
-            className={`flex-1 flex items-center justify-center transition-colors duration-200 rounded-r-[7px] ${
+            className={`flex-1 flex items-center justify-center py-[10px] px-[4px] transition-colors duration-200 rounded-r-[7px] ${
               activeTab === "kpi"
                 ? "bg-[#29318A] text-white border-[#29318A]"
                 : "text-[#6B6B6B] hover:bg-[#29318A]/20 border-[#6B6B6B]"

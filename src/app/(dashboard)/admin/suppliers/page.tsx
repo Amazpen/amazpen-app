@@ -23,6 +23,7 @@ interface CsvSupplier {
   monthly_expense_amount: number | null;
   charge_day: number | null;
   is_active: boolean;
+  has_previous_obligations: boolean;
   parent_category_name: string;
   category_name: string;
 }
@@ -113,6 +114,7 @@ export default function AdminSuppliersPage() {
             "אימייל": "email", "מייל": "email", "email": "email",
             "ח.פ": "tax_id", "מספר עוסק": "tax_id", "עוסק": "tax_id", "tax_id": "tax_id",
             "כתובת": "address", "address": "address",
+            "התחייבות": "has_obligations", "התחייבות קודמות": "has_obligations",
           };
 
           // Detect which headers from the CSV file match our known aliases
@@ -203,6 +205,10 @@ export default function AdminSuppliersPage() {
             const isActiveRaw = getField(row, "is_active_num");
             const is_active = isActiveRaw !== "1";
 
+            // Map has_previous_obligations
+            const obligationsRaw = getField(row, "has_obligations");
+            const has_previous_obligations = obligationsRaw === "כן" || obligationsRaw === "yes";
+
             // Check for duplicate names within CSV
             if (suppliers.some(s => s.name === name)) {
               errors.push(`שורה ${rowIdx + 2}: ספק "${name}" כבר קיים בקובץ - דילוג`);
@@ -225,6 +231,7 @@ export default function AdminSuppliersPage() {
               monthly_expense_amount,
               charge_day,
               is_active,
+              has_previous_obligations,
               parent_category_name,
               category_name,
             });
@@ -417,6 +424,7 @@ export default function AdminSuppliersPage() {
           monthly_expense_amount: s.monthly_expense_amount,
           charge_day: s.charge_day,
           is_active: s.is_active,
+          has_previous_obligations: s.has_previous_obligations,
           parent_category_id: parentCatId,
           expense_category_id: childCatId,
         };
@@ -458,6 +466,7 @@ export default function AdminSuppliersPage() {
   const fixedCount = csvSuppliers.filter(s => s.is_fixed_expense).length;
   const goodsCount = csvSuppliers.filter(s => s.expense_type === "goods_purchases").length;
   const currentCount = csvSuppliers.filter(s => s.expense_type === "current_expenses").length;
+  const obligationsCount = csvSuppliers.filter(s => s.has_previous_obligations).length;
 
   return (
     <div className="min-h-screen bg-[#0F1535] p-4 md:p-8" dir="rtl">
@@ -569,6 +578,11 @@ export default function AdminSuppliersPage() {
                       הוצאות קבועות: {fixedCount}
                     </span>
                   )}
+                  {obligationsCount > 0 && (
+                    <span className="text-[11px] px-[6px] py-[2px] rounded bg-[#E040FB]/20 text-[#E040FB]">
+                      התחייבות קודמות: {obligationsCount}
+                    </span>
+                  )}
                   {inactiveCount > 0 && (
                     <span className="text-[11px] px-[6px] py-[2px] rounded bg-[#F64E60]/20 text-[#F64E60]">
                       לא פעילים: {inactiveCount}
@@ -601,6 +615,11 @@ export default function AdminSuppliersPage() {
                       {!supplier.is_active && (
                         <span className="text-[10px] px-[4px] py-[1px] rounded bg-[#F64E60]/20 text-[#F64E60]">
                           לא פעיל
+                        </span>
+                      )}
+                      {supplier.has_previous_obligations && (
+                        <span className="text-[10px] px-[4px] py-[1px] rounded bg-[#E040FB]/20 text-[#E040FB]">
+                          התחייבות קודמות
                         </span>
                       )}
                       {supplier.is_fixed_expense && (
@@ -706,6 +725,11 @@ export default function AdminSuppliersPage() {
                   <td className="py-[4px] px-[8px]">מעמ</td>
                   <td className="py-[4px] px-[8px] text-white/40">לא</td>
                   <td className="py-[4px] px-[8px]">1.18 (מלא) / 1 (ללא)</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-[4px] px-[8px]">התחייבות</td>
+                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
+                  <td className="py-[4px] px-[8px]">כן / לא</td>
                 </tr>
                 <tr className="border-b border-white/5">
                   <td className="py-[4px] px-[8px]">הוצאה חודשית קבועה</td>
