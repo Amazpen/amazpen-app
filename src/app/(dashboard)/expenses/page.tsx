@@ -104,7 +104,7 @@ export default function ExpensesPage() {
   const router = useRouter();
   const { selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = usePersistedState<"expenses" | "purchases">("expenses:tab", "expenses");
+  const [activeTab, setActiveTab] = usePersistedState<"expenses" | "purchases" | "employees">("expenses:tab", "expenses");
   const [savedDateRange, setSavedDateRange] = usePersistedState<{ start: string; end: string } | null>("expenses:dateRange", null);
   const [dateRange, setDateRange] = useState({
     start: savedDateRange ? new Date(savedDateRange.start) : new Date(new Date().getFullYear(), new Date().getMonth(), 1),
@@ -146,7 +146,7 @@ export default function ExpensesPage() {
 
   // Form state for new expense
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [expenseType, setExpenseType] = useState<"current" | "goods">("current");
+  const [expenseType, setExpenseType] = useState<"current" | "goods" | "employees">("current");
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [amountBeforeVat, setAmountBeforeVat] = useState("");
@@ -388,7 +388,7 @@ export default function ExpensesPage() {
           .is("deleted_at", null)
           .gte("invoice_date", startDate)
           .lte("invoice_date", endDate)
-          .eq("invoice_type", activeTab === "expenses" ? "current" : "goods")
+          .eq("invoice_type", activeTab === "expenses" ? "current" : activeTab === "employees" ? "employees" : "goods")
           .order("invoice_date", { ascending: false })
           .limit(50);
 
@@ -580,7 +580,7 @@ export default function ExpensesPage() {
         const draft = restoreExpenseDraft();
         if (draft) {
           if (draft.expenseDate) setExpenseDate(draft.expenseDate as string);
-          if (draft.expenseType) setExpenseType(draft.expenseType as "current" | "goods");
+          if (draft.expenseType) setExpenseType(draft.expenseType as "current" | "goods" | "employees");
           if (draft.selectedSupplier) setSelectedSupplier(draft.selectedSupplier as string);
           if (draft.invoiceNumber) setInvoiceNumber(draft.invoiceNumber as string);
           if (draft.amountBeforeVat) setAmountBeforeVat(draft.amountBeforeVat as string);
@@ -1151,7 +1151,7 @@ export default function ExpensesPage() {
 
   return (
     <div className="text-white p-[10px] pb-[80px] w-full">
-      {/* Tabs - RTL: קניות סחורה בימין, הוצאות שוטפות בשמאל */}
+      {/* Tabs */}
       <div className="flex w-full h-[50px] mb-[34px] border border-[#6B6B6B] rounded-[7px] overflow-hidden">
         <button
           type="button"
@@ -1162,7 +1162,7 @@ export default function ExpensesPage() {
               : "text-[#979797]"
           }`}
         >
-          <span className="text-[20px] font-semibold">קניות סחורה</span>
+          <span className="text-[17px] font-semibold">קניות סחורה</span>
         </button>
         <button
           type="button"
@@ -1173,7 +1173,18 @@ export default function ExpensesPage() {
               : "text-[#979797]"
           }`}
         >
-          <span className="text-[20px] font-semibold">הוצאות שוטפות</span>
+          <span className="text-[17px] font-semibold">הוצאות שוטפות</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab("employees"); setFilterBy(""); setFilterValue(""); }}
+          className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
+            activeTab === "employees"
+              ? "bg-[#29318A] text-white"
+              : "text-[#979797]"
+          }`}
+        >
+          <span className="text-[17px] font-semibold">עלות עובדים</span>
         </button>
       </div>
 
@@ -1181,7 +1192,12 @@ export default function ExpensesPage() {
       <div className="flex items-center justify-between mb-[10px]">
         <button
           type="button"
-          onClick={() => setShowAddExpensePopup(true)}
+          onClick={() => {
+            if (activeTab === "employees") setExpenseType("employees");
+            else if (activeTab === "purchases") setExpenseType("goods");
+            else setExpenseType("current");
+            setShowAddExpensePopup(true);
+          }}
           className="bg-[#29318A] text-white text-[16px] font-semibold px-[20px] py-[10px] rounded-[7px] transition-colors hover:bg-[#3D44A0]"
         >
           הזנת הוצאה
@@ -1249,7 +1265,7 @@ export default function ExpensesPage() {
           {/* Table Header */}
           <div className="flex items-center border-b border-white/20 p-[5px]">
             <span className="text-[16px] flex-1 text-center">
-              {activeTab === "expenses" ? "קטגוריית ספק" : "שם ספק"}
+              {activeTab === "purchases" ? "שם ספק" : "קטגוריית ספק"}
             </span>
             <span className="text-[16px] flex-1 text-center">סכום לפני מע&quot;מ</span>
             <span className="text-[16px] flex-1 text-center">(%) מפדיון</span>
@@ -1257,8 +1273,8 @@ export default function ExpensesPage() {
 
           {/* Table Rows */}
           <div className="flex flex-col">
-            {activeTab === "expenses" ? (
-              /* הוצאות שוטפות - לפי קטגוריה עם drill-down */
+            {activeTab !== "purchases" ? (
+              /* הוצאות שוטפות / עלות עובדים - לפי קטגוריה עם drill-down */
               categoryData.length === 0 ? (
                 <div className="flex items-center justify-center py-[30px]">
                   <span className="text-[16px] text-white/50">אין נתונים להצגה</span>
@@ -1820,6 +1836,22 @@ export default function ExpensesPage() {
                     </svg>
                     <span className={`text-[15px] font-semibold ${expenseType === "current" ? "text-white" : "text-white/50"}`}>
                       הוצאות שוטפות
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExpenseType("employees")}
+                    className="flex items-center gap-[3px]"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "employees" ? "text-white" : "text-white/50"}>
+                      {expenseType === "employees" ? (
+                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                      ) : (
+                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                    <span className={`text-[15px] font-semibold ${expenseType === "employees" ? "text-white" : "text-white/50"}`}>
+                      עלות עובדים
                     </span>
                   </button>
                 </div>
