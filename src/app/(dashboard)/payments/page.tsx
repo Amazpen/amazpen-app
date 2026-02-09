@@ -760,7 +760,8 @@ export default function PaymentsPage() {
         {dateRange && <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />}
       </div>
 
-      {/* Chart and Summary Section */}
+      {/* Chart and Summary Section - hidden when no data */}
+      {paymentMethodsData.length > 0 && (
       <div className="bg-[#0F1535] rounded-[20px] p-[20px_10px_10px] mt-[10px]">
         {/* Header - Title and Total */}
         <div className="flex items-center justify-between px-[10px]">
@@ -864,6 +865,7 @@ export default function PaymentsPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Recent Payments Section - hidden when no data */}
       {recentPaymentsData.length > 0 && (
