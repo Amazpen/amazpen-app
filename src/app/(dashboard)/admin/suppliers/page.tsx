@@ -154,6 +154,8 @@ export default function AdminSuppliersPage() {
             let expense_type = "current_expenses";
             if (expenseTypeRaw === "קניות סחורה" || expenseTypeRaw === "goods_purchases" || expenseTypeRaw === "רכש סחורה" || expenseTypeRaw === "סחורה") {
               expense_type = "goods_purchases";
+            } else if (expenseTypeRaw === "עלות עובדים" || expenseTypeRaw === "employee_costs") {
+              expense_type = "employee_costs";
             }
 
             // Map requires_vat
@@ -466,6 +468,7 @@ export default function AdminSuppliersPage() {
   const fixedCount = csvSuppliers.filter(s => s.is_fixed_expense).length;
   const goodsCount = csvSuppliers.filter(s => s.expense_type === "goods_purchases").length;
   const currentCount = csvSuppliers.filter(s => s.expense_type === "current_expenses").length;
+  const employeesCount = csvSuppliers.filter(s => s.expense_type === "employee_costs").length;
   const obligationsCount = csvSuppliers.filter(s => s.has_previous_obligations).length;
 
   return (
@@ -578,6 +581,11 @@ export default function AdminSuppliersPage() {
                       הוצאות קבועות: {fixedCount}
                     </span>
                   )}
+                  {employeesCount > 0 && (
+                    <span className="text-[11px] px-[6px] py-[2px] rounded bg-[#00BCD4]/20 text-[#00BCD4]">
+                      עלות עובדים: {employeesCount}
+                    </span>
+                  )}
                   {obligationsCount > 0 && (
                     <span className="text-[11px] px-[6px] py-[2px] rounded bg-[#E040FB]/20 text-[#E040FB]">
                       התחייבות קודמות: {obligationsCount}
@@ -630,9 +638,11 @@ export default function AdminSuppliersPage() {
                       <span className={`text-[10px] px-[4px] py-[1px] rounded ${
                         supplier.expense_type === "goods_purchases"
                           ? "bg-[#FFA412]/20 text-[#FFA412]"
+                          : supplier.expense_type === "employee_costs"
+                          ? "bg-[#00BCD4]/20 text-[#00BCD4]"
                           : "bg-[#3CD856]/20 text-[#3CD856]"
                       }`}>
-                        {supplier.expense_type === "goods_purchases" ? "קניות סחורה" : "הוצאות שוטפות"}
+                        {supplier.expense_type === "goods_purchases" ? "קניות סחורה" : supplier.expense_type === "employee_costs" ? "עלות עובדים" : "הוצאות שוטפות"}
                       </span>
                       <span className="text-[14px] text-white font-medium">{supplier.name}</span>
                     </div>

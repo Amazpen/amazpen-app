@@ -219,9 +219,10 @@ CREATE TABLE suppliers (
   name TEXT NOT NULL,
 
   -- סיווג (היררכי)
-  expense_type TEXT NOT NULL CHECK (expense_type IN ('current_expenses', 'goods_purchases')),
+  expense_type TEXT NOT NULL CHECK (expense_type IN ('current_expenses', 'goods_purchases', 'employee_costs')),
     -- current_expenses = הוצאות שוטפות
     -- goods_purchases = קניות סחורה
+    -- employee_costs = עלות עובדים
   expense_category_id UUID REFERENCES expense_categories(id), -- קטגוריית הוצאה (דינמית והיררכית)
   expense_nature TEXT CHECK (expense_nature IN ('fixed', 'variable')),
     -- fixed = הוצאה קבועה

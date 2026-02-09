@@ -318,6 +318,8 @@ export default function NewBusinessPage() {
                 const lower = val.toLowerCase();
                 if (lower === "goods_purchases" || lower === "רכש סחורה" || lower === "סחורה") {
                   supplier.expense_type = "goods_purchases";
+                } else if (lower === "employee_costs" || lower === "עלות עובדים") {
+                  supplier.expense_type = "employee_costs";
                 } else {
                   supplier.expense_type = "current_expenses";
                 }
@@ -2108,7 +2110,7 @@ export default function NewBusinessPage() {
               <tr className="border-b border-white/5">
                 <td className="py-[4px] px-[8px]">סוג הוצאה / expense_type</td>
                 <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                <td className="py-[4px] px-[8px]">current_expenses / סחורה</td>
+                <td className="py-[4px] px-[8px]">current_expenses / סחורה / עלות עובדים</td>
               </tr>
               <tr className="border-b border-white/5">
                 <td className="py-[4px] px-[8px]">איש קשר / contact_name</td>
@@ -2171,9 +2173,11 @@ export default function NewBusinessPage() {
                     <span className={`text-[11px] px-[6px] py-[2px] rounded ${
                       supplier.expense_type === "goods_purchases"
                         ? "bg-[#FFA412]/20 text-[#FFA412]"
+                        : supplier.expense_type === "employee_costs"
+                        ? "bg-[#00BCD4]/20 text-[#00BCD4]"
                         : "bg-[#3CD856]/20 text-[#3CD856]"
                     }`}>
-                      {supplier.expense_type === "goods_purchases" ? "רכש סחורה" : "הוצאות שוטפות"}
+                      {supplier.expense_type === "goods_purchases" ? "רכש סחורה" : supplier.expense_type === "employee_costs" ? "עלות עובדים" : "הוצאות שוטפות"}
                     </span>
                     <span className="text-[14px] text-white font-medium">{supplier.name}</span>
                   </div>
