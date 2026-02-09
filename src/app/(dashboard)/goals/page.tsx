@@ -156,6 +156,7 @@ export default function GoalsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [goalId, setGoalId] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [focusedInputId, setFocusedInputId] = useState<string | null>(null);
 
   // Fetch data from Supabase
   useEffect(() => {
@@ -774,18 +775,20 @@ export default function GoalsPage() {
 
                       {/* Target - editable for KPI with currency/percent symbol */}
                       {isKpi && item.editable ? (
-                        <div className="w-[80px] flex items-center justify-center gap-[1px]">
-                          {item.unit === "₪" && <span className="text-[14px] font-bold text-white ltr-num">₪</span>}
+                        <div className="w-[80px] flex items-center justify-center gap-0">
+                          {item.unit === "₪" && focusedInputId !== item.id && <span className="text-[14px] font-bold text-white ltr-num">₪</span>}
                           <input
                             type="text"
                             inputMode="decimal"
                             title={`יעד עבור ${item.name}`}
                             value={item.unit === "%" ? item.target : item.target.toLocaleString("en-US")}
                             onChange={(e) => handleTargetChange(item.id, e.target.value.replace(/,/g, ""))}
-                            className="w-[55px] text-[14px] font-bold text-white text-center bg-transparent border-none outline-none ltr-num"
+                            onFocus={() => setFocusedInputId(item.id)}
+                            onBlur={() => setFocusedInputId(null)}
+                            className={`text-[14px] font-bold text-white text-center bg-transparent border-none outline-none ltr-num ${focusedInputId === item.id ? "w-[80px]" : "w-[55px]"}`}
                             placeholder="0"
                           />
-                          {item.unit === "%" && <span className="text-[14px] font-bold text-white ltr-num">%</span>}
+                          {item.unit === "%" && focusedInputId !== item.id && <span className="text-[14px] font-bold text-white ltr-num">%</span>}
                         </div>
                       ) : (
                         <span className="w-[80px] text-[14px] font-bold text-white text-center ltr-num">
