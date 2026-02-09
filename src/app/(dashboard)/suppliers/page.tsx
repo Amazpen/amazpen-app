@@ -900,6 +900,9 @@ export default function SuppliersPage() {
             if (activeTab === "previous") {
               setHasPreviousObligations(true);
             }
+            if (activeTab === "purchases") {
+              setExpenseType("goods");
+            }
             if (activeTab === "employees") {
               setExpenseType("employees");
             }
@@ -987,7 +990,7 @@ export default function SuppliersPage() {
               autoFocus
             />
           ) : (
-            <span className="text-[18px] font-bold text-white">{suppliersCount} ספקים</span>
+            <span className="text-[18px] font-bold text-white">{activeTab === "previous" ? `${suppliersCount} התחייבויות קודמות` : `${suppliersCount} ספקים`}</span>
           )}
         </div>
 
@@ -1088,11 +1091,11 @@ export default function SuppliersPage() {
             <div className="flex flex-col gap-[10px] px-[5px]">
               {/* Supplier Name */}
               <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">שם הספק</label>
+                <label className="text-[15px] font-medium text-white text-right">{hasPreviousObligations ? "שם התחייבות" : "שם הספק"}</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
                   <input
                     type="text"
-                    title="שם הספק"
+                    title={hasPreviousObligations ? "שם התחייבות" : "שם הספק"}
                     value={supplierName}
                     onChange={(e) => setSupplierName(e.target.value)}
                     className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
@@ -1100,25 +1103,27 @@ export default function SuppliersPage() {
                 </div>
               </div>
 
-              {/* Checkboxes - התחייבויות קודמות, ממתין למרכזת */}
+              {/* Checkboxes - התחייבויות קודמות (only in previous tab), ממתין למרכזת */}
               <div className="flex flex-col gap-[10px] items-start" dir="rtl">
-                <button
-                  type="button"
-                  onClick={() => setHasPreviousObligations(!hasPreviousObligations)}
-                  className="flex items-center gap-[3px]"
-                >
-                  <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-[#979797]">
-                    {hasPreviousObligations ? (
-                      <>
-                        <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
-                        <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </>
-                    ) : (
-                      <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2"/>
-                    )}
-                  </svg>
-                  <span className="text-[15px] font-semibold text-[#979797]">התחייבויות קודמות</span>
-                </button>
+                {activeTab === "previous" && (
+                  <button
+                    type="button"
+                    onClick={() => setHasPreviousObligations(!hasPreviousObligations)}
+                    className="flex items-center gap-[3px]"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-[#979797]">
+                      {hasPreviousObligations ? (
+                        <>
+                          <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                          <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </>
+                      ) : (
+                        <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                    <span className="text-[15px] font-semibold text-[#979797]">התחייבויות קודמות</span>
+                  </button>
+                )}
 
                 {!hasPreviousObligations && (
                   <button
@@ -1137,6 +1142,26 @@ export default function SuppliersPage() {
                       )}
                     </svg>
                     <span className="text-[15px] font-semibold text-[#979797]">ממתין למרכזת</span>
+                  </button>
+                )}
+
+                {!hasPreviousObligations && (
+                  <button
+                    type="button"
+                    onClick={() => setIsFixedExpense(!isFixedExpense)}
+                    className="flex items-center gap-[3px]"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-[#979797]">
+                      {isFixedExpense ? (
+                        <>
+                          <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                          <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </>
+                      ) : (
+                        <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                    <span className="text-[15px] font-semibold text-[#979797]">הוצאה קבועה</span>
                   </button>
                 )}
               </div>
@@ -1478,27 +1503,6 @@ export default function SuppliersPage() {
                     </span>
                   </button>
                 </div>
-              </div>
-
-              {/* Fixed Expense Checkbox */}
-              <div className="flex justify-start" dir="rtl">
-                <button
-                  type="button"
-                  onClick={() => setIsFixedExpense(!isFixedExpense)}
-                  className="flex items-center gap-[3px]"
-                >
-                  <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-[#979797]">
-                    {isFixedExpense ? (
-                      <>
-                        <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
-                        <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </>
-                    ) : (
-                      <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2"/>
-                    )}
-                  </svg>
-                  <span className="text-[15px] font-semibold text-[#979797]">הוצאה קבועה</span>
-                </button>
               </div>
 
               {/* Charge Day & Monthly Amount - only when fixed expense */}
