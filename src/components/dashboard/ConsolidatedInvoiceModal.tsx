@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { X } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useFormDraft } from "@/hooks/useFormDraft";
 
 interface Business {
   id: string;
@@ -38,6 +39,10 @@ export function ConsolidatedInvoiceModal({
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Draft persistence
+  const { saveDraft, restoreDraft, clearDraft } = useFormDraft("consolidatedInvoice:draft");
+  const draftRestored = useRef(false);
+
   // Form state
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -63,6 +68,42 @@ export function ConsolidatedInvoiceModal({
     total_amount: "",
     notes: "",
   });
+
+  // Save draft on form changes
+  const saveDraftData = useCallback(() => {
+    saveDraft({
+      selectedBusinessId, selectedSupplierId, invoiceDate, invoiceNumber,
+      totalAmount, isClosed, notes, deliveryNotes,
+    });
+  }, [saveDraft, selectedBusinessId, selectedSupplierId, invoiceDate, invoiceNumber,
+    totalAmount, isClosed, notes, deliveryNotes]);
+
+  useEffect(() => {
+    if (draftRestored.current && isOpen) {
+      saveDraftData();
+    }
+  }, [saveDraftData, isOpen]);
+
+  // Restore draft when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      draftRestored.current = false;
+      setTimeout(() => {
+        const draft = restoreDraft();
+        if (draft) {
+          if (draft.selectedBusinessId) setSelectedBusinessId(draft.selectedBusinessId as string);
+          if (draft.selectedSupplierId) setSelectedSupplierId(draft.selectedSupplierId as string);
+          if (draft.invoiceDate) setInvoiceDate(draft.invoiceDate as string);
+          if (draft.invoiceNumber) setInvoiceNumber(draft.invoiceNumber as string);
+          if (draft.totalAmount) setTotalAmount(draft.totalAmount as string);
+          if (draft.isClosed) setIsClosed(draft.isClosed as string);
+          if (draft.notes !== undefined) setNotes(draft.notes as string);
+          if (draft.deliveryNotes) setDeliveryNotes(draft.deliveryNotes as DeliveryNote[]);
+        }
+        draftRestored.current = true;
+      }, 0);
+    }
+  }, [isOpen, restoreDraft]);
 
   // Set default date to today
   useEffect(() => {
@@ -392,6 +433,7 @@ export function ConsolidatedInvoiceModal({
         }
       }
 
+      clearDraft();
       showToast(isClosed === "yes" ? "המרכזת נסגרה ונשמרה בהצלחה" : "המרכזת נשמרה בהצלחה", "success");
       handleClose();
     } catch (err) {

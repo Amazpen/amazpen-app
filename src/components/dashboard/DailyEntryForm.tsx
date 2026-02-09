@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, X } from "lucide-react";
 import {
@@ -145,9 +145,51 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
     setPearlaData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // === localStorage draft persistence ===
+  const DRAFT_KEY = `dailyEntry:draft:${businessId}`;
+  const draftLoaded = useRef(false);
+  const draftCleared = useRef(false);
+
+  // Save draft to localStorage whenever form values change
+  const saveDraft = useCallback(() => {
+    if (!isOpen || isEditMode || draftCleared.current) return;
+    try {
+      const draft = { formData, incomeData, receiptData, parameterData, productUsage, pearlaData };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    } catch { /* ignore */ }
+  }, [DRAFT_KEY, isOpen, isEditMode, formData, incomeData, receiptData, parameterData, productUsage, pearlaData]);
+
+  useEffect(() => {
+    if (draftLoaded.current) saveDraft();
+  }, [saveDraft]);
+
+  const clearDraft = useCallback(() => {
+    draftCleared.current = true;
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+  }, [DRAFT_KEY]);
+
+  // Restore draft after dynamic data loads (so we have the right keys)
+  const restoreDraft = useCallback(() => {
+    if (isEditMode) return;
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (!saved) return;
+      const draft = JSON.parse(saved);
+      if (draft.formData) setFormData(draft.formData);
+      if (draft.incomeData) setIncomeData(prev => ({ ...prev, ...draft.incomeData }));
+      if (draft.receiptData) setReceiptData(prev => ({ ...prev, ...draft.receiptData }));
+      if (draft.parameterData) setParameterData(prev => ({ ...prev, ...draft.parameterData }));
+      if (draft.productUsage) setProductUsage(prev => ({ ...prev, ...draft.productUsage }));
+      if (draft.pearlaData) setPearlaData(draft.pearlaData);
+    } catch { /* ignore */ }
+    draftLoaded.current = true;
+  }, [DRAFT_KEY, isEditMode]);
+
   // Load all dynamic data when sheet opens
   useEffect(() => {
     if (isOpen && businessId) {
+      draftCleared.current = false;
+      draftLoaded.current = false;
       loadAllData();
     }
   }, [isOpen, businessId]);
@@ -221,7 +263,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           .lte("entry_date", yesterdayStr)
           .order("entry_date", { ascending: false })
           .limit(1)
-          .single(),
+          .maybeSingle(),
       ]);
 
       // If we have a previous entry, get the product usage from that day
@@ -275,6 +317,9 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         };
       });
       setProductUsage(initialProducts);
+
+      // Restore draft after all state is initialized
+      setTimeout(() => restoreDraft(), 0);
     } catch (err) {
       console.error("Error loading form data:", err);
     } finally {
@@ -538,7 +583,8 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         }
       }
 
-      // Reset all form data
+      // Reset all form data and clear draft
+      clearDraft();
       resetForm();
       setIsOpen(false);
       onSuccess?.();

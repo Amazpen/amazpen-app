@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { uploadFile } from "@/lib/uploadFile";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { useFormDraft } from "@/hooks/useFormDraft";
 
 // Supplier from database
 interface Supplier {
@@ -114,6 +115,11 @@ export default function ExpensesPage() {
     setDateRange(range);
     setSavedDateRange({ start: range.start.toISOString(), end: range.end.toISOString() });
   }, [setSavedDateRange]);
+
+  // Draft persistence for add expense form
+  const expenseDraftKey = `expenseForm:draft:${selectedBusinesses[0] || "none"}`;
+  const { saveDraft: saveExpenseDraft, restoreDraft: restoreExpenseDraft, clearDraft: clearExpenseDraft } = useFormDraft(expenseDraftKey);
+  const expenseDraftRestored = useRef(false);
 
   const [showAddExpensePopup, setShowAddExpensePopup] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -543,6 +549,59 @@ export default function ExpensesPage() {
   }, [showStatusMenu, showFilterMenu]);
 
   // Calculate VAT and total
+  // Save expense form draft
+  const saveExpenseDraftData = useCallback(() => {
+    if (!showAddExpensePopup) return;
+    saveExpenseDraft({
+      expenseDate, expenseType, selectedSupplier, invoiceNumber,
+      amountBeforeVat, partialVat, vatAmount, notes,
+      isPaidInFull, needsClarification, clarificationReason,
+      paymentMethod, paymentDate, paymentInstallments, paymentReference, paymentNotes,
+      popupPaymentMethods,
+    });
+  }, [saveExpenseDraft, showAddExpensePopup,
+    expenseDate, expenseType, selectedSupplier, invoiceNumber,
+    amountBeforeVat, partialVat, vatAmount, notes,
+    isPaidInFull, needsClarification, clarificationReason,
+    paymentMethod, paymentDate, paymentInstallments, paymentReference, paymentNotes,
+    popupPaymentMethods]);
+
+  useEffect(() => {
+    if (expenseDraftRestored.current) {
+      saveExpenseDraftData();
+    }
+  }, [saveExpenseDraftData]);
+
+  // Restore expense draft when popup opens
+  useEffect(() => {
+    if (showAddExpensePopup && !editingInvoice) {
+      expenseDraftRestored.current = false;
+      setTimeout(() => {
+        const draft = restoreExpenseDraft();
+        if (draft) {
+          if (draft.expenseDate) setExpenseDate(draft.expenseDate as string);
+          if (draft.expenseType) setExpenseType(draft.expenseType as "current" | "goods");
+          if (draft.selectedSupplier) setSelectedSupplier(draft.selectedSupplier as string);
+          if (draft.invoiceNumber) setInvoiceNumber(draft.invoiceNumber as string);
+          if (draft.amountBeforeVat) setAmountBeforeVat(draft.amountBeforeVat as string);
+          if (draft.partialVat !== undefined) setPartialVat(draft.partialVat as boolean);
+          if (draft.vatAmount) setVatAmount(draft.vatAmount as string);
+          if (draft.notes !== undefined) setNotes(draft.notes as string);
+          if (draft.isPaidInFull !== undefined) setIsPaidInFull(draft.isPaidInFull as boolean);
+          if (draft.needsClarification !== undefined) setNeedsClarification(draft.needsClarification as boolean);
+          if (draft.clarificationReason) setClarificationReason(draft.clarificationReason as string);
+          if (draft.paymentMethod) setPaymentMethod(draft.paymentMethod as string);
+          if (draft.paymentDate) setPaymentDate(draft.paymentDate as string);
+          if (draft.paymentInstallments) setPaymentInstallments(draft.paymentInstallments as number);
+          if (draft.paymentReference) setPaymentReference(draft.paymentReference as string);
+          if (draft.paymentNotes) setPaymentNotes(draft.paymentNotes as string);
+          if (draft.popupPaymentMethods) setPopupPaymentMethods(draft.popupPaymentMethods as typeof popupPaymentMethods);
+        }
+        expenseDraftRestored.current = true;
+      }, 0);
+    }
+  }, [showAddExpensePopup, editingInvoice, restoreExpenseDraft]);
+
   const calculatedVat = partialVat ? parseFloat(vatAmount) || 0 : (parseFloat(amountBeforeVat) || 0) * 0.18;
   const totalWithVat = (parseFloat(amountBeforeVat) || 0) + calculatedVat;
 
@@ -696,6 +755,7 @@ export default function ExpensesPage() {
       }
 
       // Refresh data
+      clearExpenseDraft();
       handleClosePopup();
       // Trigger re-fetch by updating dateRange slightly
       setDateRange({ ...dateRange });

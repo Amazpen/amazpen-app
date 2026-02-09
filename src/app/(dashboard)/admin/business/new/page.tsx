@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { convertPdfToImage } from "@/lib/pdfToImage";
+import { useFormDraft } from "@/hooks/useFormDraft";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -42,6 +43,11 @@ const daysOfWeek = [
 export default function NewBusinessPage() {
   const router = useRouter();
   const { showToast } = useToast();
+
+  // Draft persistence
+  const { saveDraft, restoreDraft, clearDraft } = useFormDraft("newBusiness:draft");
+  const draftRestored = useRef(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -165,6 +171,57 @@ export default function NewBusinessPage() {
   const [csvError, setCsvError] = useState<string | null>(null);
   const [csvParsingDone, setCsvParsingDone] = useState(false);
   const csvInputRef = useRef<HTMLInputElement>(null);
+
+  // Save draft on form changes
+  const saveDraftData = useCallback(() => {
+    saveDraft({
+      currentStep,
+      businessName, businessType, customBusinessType, taxId, address, city, phone, email,
+      managerSalary, markupPercentage, vatPercentage,
+      schedule,
+      incomeSources, receiptTypes, customParameters, creditCards, managedProducts,
+      teamMembers: teamMembers.map(m => ({ ...m })),
+    });
+  }, [saveDraft, currentStep,
+    businessName, businessType, customBusinessType, taxId, address, city, phone, email,
+    managerSalary, markupPercentage, vatPercentage,
+    schedule, incomeSources, receiptTypes, customParameters, creditCards, managedProducts,
+    teamMembers]);
+
+  useEffect(() => {
+    if (draftRestored.current) {
+      saveDraftData();
+    }
+  }, [saveDraftData]);
+
+  // Restore draft on mount
+  useEffect(() => {
+    draftRestored.current = false;
+    const draft = restoreDraft();
+    if (draft) {
+      if (draft.currentStep) setCurrentStep(draft.currentStep as number);
+      if (draft.businessName) setBusinessName(draft.businessName as string);
+      if (draft.businessType) setBusinessType(draft.businessType as string);
+      if (draft.customBusinessType) setCustomBusinessType(draft.customBusinessType as string);
+      if (draft.taxId) setTaxId(draft.taxId as string);
+      if (draft.address) setAddress(draft.address as string);
+      if (draft.city) setCity(draft.city as string);
+      if (draft.phone) setPhone(draft.phone as string);
+      if (draft.email) setEmail(draft.email as string);
+      if (draft.managerSalary !== undefined) setManagerSalary(draft.managerSalary as number);
+      if (draft.markupPercentage !== undefined) setMarkupPercentage(draft.markupPercentage as number);
+      if (draft.vatPercentage !== undefined) setVatPercentage(draft.vatPercentage as number);
+      if (draft.schedule) setSchedule(draft.schedule as Record<number, string>);
+      if (draft.incomeSources) setIncomeSources(draft.incomeSources as string[]);
+      if (draft.receiptTypes) setReceiptTypes(draft.receiptTypes as string[]);
+      if (draft.customParameters) setCustomParameters(draft.customParameters as string[]);
+      if (draft.creditCards) setCreditCards(draft.creditCards as CreditCard[]);
+      if (draft.managedProducts) setManagedProducts(draft.managedProducts as ManagedProduct[]);
+      if (draft.teamMembers) setTeamMembers(draft.teamMembers as TeamMember[]);
+    }
+    draftRestored.current = true;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -822,6 +879,7 @@ export default function NewBusinessPage() {
       }
 
       // Success - redirect to dashboard
+      clearDraft();
       showToast("העסק נוצר בהצלחה!", "success");
       router.push("/");
     } catch (error) {

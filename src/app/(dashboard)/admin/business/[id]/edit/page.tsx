@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, use } from "react";
+import { useState, useEffect, useRef, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { convertPdfToImage } from "@/lib/pdfToImage";
+import { useFormDraft } from "@/hooks/useFormDraft";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -47,6 +48,11 @@ export default function EditBusinessPage({ params }: PageProps) {
   const { id: businessId } = use(params);
   const router = useRouter();
   const { showToast } = useToast();
+
+  // Draft persistence
+  const { saveDraft, restoreDraft, clearDraft } = useFormDraft(`editBusiness:draft:${businessId}`);
+  const draftRestored = useRef(false);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -294,10 +300,58 @@ export default function EditBusinessPage({ params }: PageProps) {
       }
 
       setIsLoading(false);
+
+      // Restore draft after data loads (user edits override loaded data)
+      draftRestored.current = false;
+      setTimeout(() => {
+        const draft = restoreDraft();
+        if (draft) {
+          if (draft.currentStep) setCurrentStep(draft.currentStep as number);
+          if (draft.businessName) setBusinessName(draft.businessName as string);
+          if (draft.businessType) setBusinessType(draft.businessType as string);
+          if (draft.customBusinessType) setCustomBusinessType(draft.customBusinessType as string);
+          if (draft.taxId) setTaxId(draft.taxId as string);
+          if (draft.address) setAddress(draft.address as string);
+          if (draft.city) setCity(draft.city as string);
+          if (draft.phone) setPhone(draft.phone as string);
+          if (draft.email) setEmail(draft.email as string);
+          if (draft.managerSalary !== undefined) setManagerSalary(draft.managerSalary as number);
+          if (draft.markupPercentage !== undefined) setMarkupPercentage(draft.markupPercentage as number);
+          if (draft.vatPercentage !== undefined) setVatPercentage(draft.vatPercentage as number);
+          if (draft.schedule) setSchedule(draft.schedule as Record<number, string>);
+          if (draft.incomeSources) setIncomeSources(draft.incomeSources as typeof incomeSources);
+          if (draft.receiptTypes) setReceiptTypes(draft.receiptTypes as typeof receiptTypes);
+          if (draft.customParameters) setCustomParameters(draft.customParameters as typeof customParameters);
+          if (draft.creditCards) setCreditCards(draft.creditCards as CreditCard[]);
+          if (draft.managedProducts) setManagedProducts(draft.managedProducts as ManagedProduct[]);
+        }
+        draftRestored.current = true;
+      }, 0);
     };
 
     loadBusinessData();
-  }, [businessId, router]);
+  }, [businessId, router, restoreDraft]);
+
+  // Save draft on form changes
+  const saveDraftData = useCallback(() => {
+    if (isLoading) return;
+    saveDraft({
+      currentStep,
+      businessName, businessType, customBusinessType, taxId, address, city, phone, email,
+      managerSalary, markupPercentage, vatPercentage,
+      schedule,
+      incomeSources, receiptTypes, customParameters, creditCards, managedProducts,
+    });
+  }, [saveDraft, isLoading, currentStep,
+    businessName, businessType, customBusinessType, taxId, address, city, phone, email,
+    managerSalary, markupPercentage, vatPercentage,
+    schedule, incomeSources, receiptTypes, customParameters, creditCards, managedProducts]);
+
+  useEffect(() => {
+    if (draftRestored.current) {
+      saveDraftData();
+    }
+  }, [saveDraftData]);
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -709,6 +763,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         }
       }
 
+      clearDraft();
       showToast("העסק עודכן בהצלחה!", "success");
       router.push("/");
     } catch (error) {

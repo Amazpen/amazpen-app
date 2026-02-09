@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { X } from "lucide-react";
 import { useDashboard } from "../layout";
@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { uploadFile } from "@/lib/uploadFile";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { useFormDraft } from "@/hooks/useFormDraft";
 
 // Supplier from database
 interface Supplier {
@@ -111,6 +112,11 @@ export default function PaymentsPage() {
     setSavedDateRange({ start: range.start.toISOString(), end: range.end.toISOString() });
   }, [setSavedDateRange]);
 
+  // Draft persistence for add payment form
+  const paymentDraftKey = `paymentForm:draft:${selectedBusinesses[0] || "none"}`;
+  const { saveDraft: savePaymentDraft, restoreDraft: restorePaymentDraft, clearDraft: clearPaymentDraft } = useFormDraft(paymentDraftKey);
+  const paymentDraftRestored = useRef(false);
+
   const [showAddPaymentPopup, setShowAddPaymentPopup] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -145,6 +151,42 @@ export default function PaymentsPage() {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+
+  // Save payment form draft
+  const savePaymentDraftData = useCallback(() => {
+    if (!showAddPaymentPopup) return;
+    savePaymentDraft({
+      paymentDate, expenseType, selectedSupplier, supplierSearch,
+      reference, notes,
+    });
+  }, [savePaymentDraft, showAddPaymentPopup,
+    paymentDate, expenseType, selectedSupplier, supplierSearch,
+    reference, notes]);
+
+  useEffect(() => {
+    if (paymentDraftRestored.current) {
+      savePaymentDraftData();
+    }
+  }, [savePaymentDraftData]);
+
+  // Restore payment draft when popup opens
+  useEffect(() => {
+    if (showAddPaymentPopup) {
+      paymentDraftRestored.current = false;
+      setTimeout(() => {
+        const draft = restorePaymentDraft();
+        if (draft) {
+          if (draft.paymentDate) setPaymentDate(draft.paymentDate as string);
+          if (draft.expenseType) setExpenseType(draft.expenseType as "expenses" | "purchases");
+          if (draft.selectedSupplier) setSelectedSupplier(draft.selectedSupplier as string);
+          if (draft.supplierSearch) setSupplierSearch(draft.supplierSearch as string);
+          if (draft.reference) setReference(draft.reference as string);
+          if (draft.notes !== undefined) setNotes(draft.notes as string);
+        }
+        paymentDraftRestored.current = true;
+      }, 0);
+    }
+  }, [showAddPaymentPopup, restorePaymentDraft]);
 
   // Supplier search helpers
   const expenseTypeMap = { expenses: "current_expenses", purchases: "goods_purchases" } as const;
@@ -485,6 +527,7 @@ export default function PaymentsPage() {
       }
 
       // Refresh data
+      clearPaymentDraft();
       handleClosePopup();
       setDateRange(prev => prev ? { ...prev } : prev);
     } catch (error) {

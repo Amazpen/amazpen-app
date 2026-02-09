@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { X } from 'lucide-react';
 import type { OCRDocument, OCRFormData, DocumentType, ExpenseType } from '@/types/ocr';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useFormDraft } from '@/hooks/useFormDraft';
 
 interface Supplier {
   id: string;
@@ -91,6 +92,11 @@ export default function OCRForm({
   onSkip,
   isLoading = false,
 }: OCRFormProps) {
+  // Draft persistence
+  const draftKey = `ocrForm:draft:${selectedBusinessId}:${document?.id || 'none'}`;
+  const { saveDraft, restoreDraft, clearDraft } = useFormDraft(draftKey);
+  const draftRestored = useRef(false);
+
   // Form state
   const [documentType, setDocumentType] = useState<DocumentType>('invoice');
   const [expenseType, setExpenseType] = useState<ExpenseType>('goods');
@@ -259,6 +265,33 @@ export default function OCRForm({
     return num.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  // Save draft on every form change
+  const saveDraftData = useCallback(() => {
+    saveDraft({
+      documentType, expenseType, supplierId, documentDate, documentNumber,
+      amountBeforeVat, vatAmount, partialVat, notes, isPaid,
+      inlinePaymentMethod, inlinePaymentDate, inlinePaymentReference, inlinePaymentNotes,
+      inlinePaymentMethods,
+      paymentTabDate, paymentTabExpenseType, paymentTabSupplierId, paymentTabReference, paymentTabNotes,
+      paymentMethods,
+      summarySupplierId, summaryDate, summaryInvoiceNumber, summaryTotalAmount, summaryIsClosed, summaryNotes,
+      summaryDeliveryNotes,
+    });
+  }, [saveDraft, documentType, expenseType, supplierId, documentDate, documentNumber,
+    amountBeforeVat, vatAmount, partialVat, notes, isPaid,
+    inlinePaymentMethod, inlinePaymentDate, inlinePaymentReference, inlinePaymentNotes,
+    inlinePaymentMethods,
+    paymentTabDate, paymentTabExpenseType, paymentTabSupplierId, paymentTabReference, paymentTabNotes,
+    paymentMethods,
+    summarySupplierId, summaryDate, summaryInvoiceNumber, summaryTotalAmount, summaryIsClosed, summaryNotes,
+    summaryDeliveryNotes]);
+
+  useEffect(() => {
+    if (draftRestored.current) {
+      saveDraftData();
+    }
+  }, [saveDraftData]);
+
   // Populate form from OCR data when document changes
   useEffect(() => {
     if (document?.ocr_data) {
@@ -364,7 +397,43 @@ export default function OCRForm({
       setShowAddDeliveryNote(false);
       setNewDeliveryNote({ delivery_note_number: '', delivery_date: '', total_amount: '', notes: '' });
     }
-  }, [document, suppliers]);
+    // After OCR data is set, try to restore draft (user edits override OCR defaults)
+    draftRestored.current = false;
+    setTimeout(() => {
+      const draft = restoreDraft();
+      if (draft) {
+        if (draft.documentType) setDocumentType(draft.documentType as DocumentType);
+        if (draft.expenseType) setExpenseType(draft.expenseType as ExpenseType);
+        if (draft.supplierId !== undefined) setSupplierId(draft.supplierId as string);
+        if (draft.documentDate) setDocumentDate(draft.documentDate as string);
+        if (draft.documentNumber !== undefined) setDocumentNumber(draft.documentNumber as string);
+        if (draft.amountBeforeVat !== undefined) setAmountBeforeVat(draft.amountBeforeVat as string);
+        if (draft.vatAmount !== undefined) setVatAmount(draft.vatAmount as string);
+        if (draft.partialVat !== undefined) setPartialVat(draft.partialVat as boolean);
+        if (draft.notes !== undefined) setNotes(draft.notes as string);
+        if (draft.isPaid !== undefined) setIsPaid(draft.isPaid as boolean);
+        if (draft.inlinePaymentMethod !== undefined) setInlinePaymentMethod(draft.inlinePaymentMethod as string);
+        if (draft.inlinePaymentDate !== undefined) setInlinePaymentDate(draft.inlinePaymentDate as string);
+        if (draft.inlinePaymentReference !== undefined) setInlinePaymentReference(draft.inlinePaymentReference as string);
+        if (draft.inlinePaymentNotes !== undefined) setInlinePaymentNotes(draft.inlinePaymentNotes as string);
+        if (draft.inlinePaymentMethods) setInlinePaymentMethods(draft.inlinePaymentMethods as PaymentMethodEntry[]);
+        if (draft.paymentTabDate) setPaymentTabDate(draft.paymentTabDate as string);
+        if (draft.paymentTabExpenseType) setPaymentTabExpenseType(draft.paymentTabExpenseType as 'expenses' | 'purchases');
+        if (draft.paymentTabSupplierId !== undefined) setPaymentTabSupplierId(draft.paymentTabSupplierId as string);
+        if (draft.paymentTabReference !== undefined) setPaymentTabReference(draft.paymentTabReference as string);
+        if (draft.paymentTabNotes !== undefined) setPaymentTabNotes(draft.paymentTabNotes as string);
+        if (draft.paymentMethods) setPaymentMethods(draft.paymentMethods as PaymentMethodEntry[]);
+        if (draft.summarySupplierId !== undefined) setSummarySupplierId(draft.summarySupplierId as string);
+        if (draft.summaryDate) setSummaryDate(draft.summaryDate as string);
+        if (draft.summaryInvoiceNumber !== undefined) setSummaryInvoiceNumber(draft.summaryInvoiceNumber as string);
+        if (draft.summaryTotalAmount !== undefined) setSummaryTotalAmount(draft.summaryTotalAmount as string);
+        if (draft.summaryIsClosed !== undefined) setSummaryIsClosed(draft.summaryIsClosed as string);
+        if (draft.summaryNotes !== undefined) setSummaryNotes(draft.summaryNotes as string);
+        if (draft.summaryDeliveryNotes) setSummaryDeliveryNotes(draft.summaryDeliveryNotes as DeliveryNoteEntry[]);
+      }
+      draftRestored.current = true;
+    }, 0);
+  }, [document, suppliers, restoreDraft]);
 
   const handleSubmit = () => {
     if (!selectedBusinessId) {
@@ -397,6 +466,7 @@ export default function OCRForm({
         payment_notes: paymentTabNotes,
         payment_methods: paymentMethods,
       };
+      clearDraft();
       onApprove(formData);
     } else if (documentType === 'summary') {
       // Summary tab validation
@@ -444,6 +514,7 @@ export default function OCRForm({
         summary_delivery_notes: summaryDeliveryNotes,
         summary_is_closed: summaryIsClosed,
       };
+      clearDraft();
       onApprove(formData);
       return;
     } else {
@@ -473,6 +544,7 @@ export default function OCRForm({
           payment_methods: inlinePaymentMethods,
         }),
       };
+      clearDraft();
       onApprove(formData);
     }
   };

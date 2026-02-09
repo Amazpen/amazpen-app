@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { X } from "lucide-react";
 import { useDashboard } from "../layout";
@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { useFormDraft } from "@/hooks/useFormDraft";
 
 // Category type from database
 interface ExpenseCategory {
@@ -60,6 +61,12 @@ type TabType = "previous" | "current" | "purchases";
 export default function SuppliersPage() {
   const { selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
+
+  // Draft persistence for add/edit supplier form
+  const supplierDraftKey = `supplierForm:draft:${selectedBusinesses[0] || "none"}`;
+  const { saveDraft: saveSupplierDraft, restoreDraft: restoreSupplierDraft, clearDraft: clearSupplierDraft } = useFormDraft(supplierDraftKey);
+  const supplierDraftRestored = useRef(false);
+
   const [activeTab, setActiveTab] = usePersistedState<TabType>("suppliers:tab", "current");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -160,6 +167,64 @@ export default function SuppliersPage() {
   const [primaryPaymentMethod, setPrimaryPaymentMethod] = useState("");
   const [fixedNote, setFixedNote] = useState("");
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
+
+  // Save supplier form draft
+  const saveSupplierDraftData = useCallback(() => {
+    if (!isAddSupplierModalOpen && !isEditingSupplier) return;
+    saveSupplierDraft({
+      supplierName, hasPreviousObligations, waitingForCoordinator,
+      obligationTotalAmount, obligationTerms, obligationFirstChargeDate,
+      obligationNumPayments, obligationMonthlyAmount,
+      expenseType, category, parentCategory, paymentTerms,
+      vatRequired, isFixedExpense, chargeDay, monthlyExpenseAmount,
+      primaryPaymentMethod, fixedNote,
+    });
+  }, [saveSupplierDraft, isAddSupplierModalOpen, isEditingSupplier,
+    supplierName, hasPreviousObligations, waitingForCoordinator,
+    obligationTotalAmount, obligationTerms, obligationFirstChargeDate,
+    obligationNumPayments, obligationMonthlyAmount,
+    expenseType, category, parentCategory, paymentTerms,
+    vatRequired, isFixedExpense, chargeDay, monthlyExpenseAmount,
+    primaryPaymentMethod, fixedNote]);
+
+  useEffect(() => {
+    if (supplierDraftRestored.current) {
+      saveSupplierDraftData();
+    }
+  }, [saveSupplierDraftData]);
+
+  // Restore supplier draft when modal opens (only for new, not edit)
+  useEffect(() => {
+    if (isAddSupplierModalOpen && !isEditingSupplier) {
+      supplierDraftRestored.current = false;
+      setTimeout(() => {
+        const draft = restoreSupplierDraft();
+        if (draft) {
+          if (draft.supplierName) setSupplierName(draft.supplierName as string);
+          if (draft.hasPreviousObligations !== undefined) setHasPreviousObligations(draft.hasPreviousObligations as boolean);
+          if (draft.waitingForCoordinator !== undefined) setWaitingForCoordinator(draft.waitingForCoordinator as boolean);
+          if (draft.obligationTotalAmount) setObligationTotalAmount(draft.obligationTotalAmount as string);
+          if (draft.obligationTerms) setObligationTerms(draft.obligationTerms as string);
+          if (draft.obligationFirstChargeDate) setObligationFirstChargeDate(draft.obligationFirstChargeDate as string);
+          if (draft.obligationNumPayments) setObligationNumPayments(draft.obligationNumPayments as string);
+          if (draft.obligationMonthlyAmount) setObligationMonthlyAmount(draft.obligationMonthlyAmount as string);
+          if (draft.expenseType) setExpenseType(draft.expenseType as "current" | "goods");
+          if (draft.category) setCategory(draft.category as string);
+          if (draft.parentCategory) setParentCategory(draft.parentCategory as string);
+          if (draft.paymentTerms) setPaymentTerms(draft.paymentTerms as string);
+          if (draft.vatRequired) setVatRequired(draft.vatRequired as "yes" | "no" | "partial");
+          if (draft.isFixedExpense !== undefined) setIsFixedExpense(draft.isFixedExpense as boolean);
+          if (draft.chargeDay) setChargeDay(draft.chargeDay as string);
+          if (draft.monthlyExpenseAmount) setMonthlyExpenseAmount(draft.monthlyExpenseAmount as string);
+          if (draft.primaryPaymentMethod) setPrimaryPaymentMethod(draft.primaryPaymentMethod as string);
+          if (draft.fixedNote) setFixedNote(draft.fixedNote as string);
+        }
+        supplierDraftRestored.current = true;
+      }, 0);
+    } else if (isEditingSupplier) {
+      supplierDraftRestored.current = true;
+    }
+  }, [isAddSupplierModalOpen, isEditingSupplier, restoreSupplierDraft]);
 
   // Fetch suppliers from database
   useEffect(() => {
@@ -589,6 +654,7 @@ export default function SuppliersPage() {
       ]);
 
       // 7. Close modal and reset form
+      clearSupplierDraft();
       handleCloseAddSupplierModal();
       showToast("הספק נוצר בהצלחה!", "success");
     } catch (error) {

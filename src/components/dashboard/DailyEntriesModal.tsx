@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { useDashboard } from "@/app/(dashboard)/layout";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useFormDraft } from "@/hooks/useFormDraft";
 
 interface DailyEntry {
   id: string;
@@ -88,6 +89,11 @@ export function DailyEntriesModal({
 }: DailyEntriesModalProps) {
   const { showToast } = useToast();
   const { isAdmin } = useDashboard();
+
+  // Draft persistence for edit form
+  const { saveDraft, restoreDraft, clearDraft } = useFormDraft(`dailyEntriesEdit:draft:${businessId}`);
+  const draftRestored = useRef(false);
+
   const [entries, setEntries] = useState<DailyEntry[]>([]);
   const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
   const [entryDetails, setEntryDetails] = useState<{
@@ -123,6 +129,22 @@ export function DailyEntriesModal({
   const [receiptData, setReceiptData] = useState<Record<string, string>>({});
   const [parameterData, setParameterData] = useState<Record<string, string>>({});
   const [productUsageForm, setProductUsageForm] = useState<Record<string, ProductUsageData>>({});
+
+  // Save draft on edit form changes
+  const saveDraftData = useCallback(() => {
+    if (editingEntry) {
+      saveDraft({
+        editingEntryId: editingEntry.id,
+        editFormData, incomeData, receiptData, parameterData, productUsageForm,
+      });
+    }
+  }, [saveDraft, editingEntry, editFormData, incomeData, receiptData, parameterData, productUsageForm]);
+
+  useEffect(() => {
+    if (draftRestored.current && editingEntry) {
+      saveDraftData();
+    }
+  }, [saveDraftData, editingEntry]);
 
   // Format date for display
   const formatDate = (dateStr: string) => {
@@ -343,6 +365,19 @@ export function DailyEntriesModal({
     try {
       await loadEditFormOptions();
       await loadExistingEntryData(entry.id);
+      // Restore draft if exists for this entry
+      draftRestored.current = false;
+      setTimeout(() => {
+        const draft = restoreDraft();
+        if (draft && draft.editingEntryId === entry.id) {
+          if (draft.editFormData) setEditFormData(draft.editFormData as typeof editFormData);
+          if (draft.incomeData) setIncomeData(draft.incomeData as Record<string, IncomeData>);
+          if (draft.receiptData) setReceiptData(draft.receiptData as Record<string, string>);
+          if (draft.parameterData) setParameterData(draft.parameterData as Record<string, string>);
+          if (draft.productUsageForm) setProductUsageForm(draft.productUsageForm as Record<string, ProductUsageData>);
+        }
+        draftRestored.current = true;
+      }, 0);
     } catch (err) {
       console.error("Error loading edit data:", err);
       setEditError("שגיאה בטעינת הנתונים");
@@ -477,6 +512,7 @@ export function DailyEntriesModal({
       }
 
       // Success - close form and refresh
+      clearDraft();
       setEditingEntry(null);
       setRefreshTrigger((prev) => prev + 1);
       showToast("הנתונים עודכנו בהצלחה", "success");
