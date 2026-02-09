@@ -866,7 +866,6 @@ export default function PaymentsPage() {
           </div>
         )}
       </div>
-      )}
 
       {/* Recent Payments Section - hidden when no data */}
       {recentPaymentsData.length > 0 && (
