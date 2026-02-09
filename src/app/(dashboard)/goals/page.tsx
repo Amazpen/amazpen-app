@@ -772,17 +772,21 @@ export default function GoalsPage() {
                         {item.unit === "%" ? formatPercent(item.actual) : formatCurrency(item.actual)}
                       </span>
 
-                      {/* Target - editable for KPI (plain number, no symbol) */}
+                      {/* Target - editable for KPI with currency/percent symbol */}
                       {isKpi && item.editable ? (
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          title={`יעד עבור ${item.name}`}
-                          value={item.unit === "%" ? item.target : item.target.toLocaleString("en-US")}
-                          onChange={(e) => handleTargetChange(item.id, e.target.value.replace(/,/g, ""))}
-                          className="w-[80px] text-[14px] font-bold text-white text-center bg-transparent border-none outline-none ltr-num"
-                          placeholder="0"
-                        />
+                        <div className="w-[80px] flex items-center justify-center gap-[1px]">
+                          {item.unit === "₪" && <span className="text-[14px] font-bold text-white ltr-num">₪</span>}
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            title={`יעד עבור ${item.name}`}
+                            value={item.unit === "%" ? item.target : item.target.toLocaleString("en-US")}
+                            onChange={(e) => handleTargetChange(item.id, e.target.value.replace(/,/g, ""))}
+                            className="w-[55px] text-[14px] font-bold text-white text-center bg-transparent border-none outline-none ltr-num"
+                            placeholder="0"
+                          />
+                          {item.unit === "%" && <span className="text-[14px] font-bold text-white ltr-num">%</span>}
+                        </div>
                       ) : (
                         <span className="w-[80px] text-[14px] font-bold text-white text-center ltr-num">
                           {item.unit === "%" ? formatPercent(item.target) : formatCurrency(item.target)}
