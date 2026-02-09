@@ -776,7 +776,7 @@ export default function GoalsPage() {
                       {/* Target - editable for KPI with currency/percent symbol */}
                       {isKpi && item.editable ? (
                         <div className="w-[80px] flex items-center justify-center gap-0">
-                          {item.unit === "₪" && focusedInputId !== item.id && <span className="text-[14px] font-bold text-white ltr-num">₪</span>}
+                          {item.unit === "₪" && focusedInputId !== item.id && <span className="text-[14px] font-bold text-white ltr-num shrink-0">₪</span>}
                           <input
                             type="text"
                             inputMode="decimal"
@@ -785,10 +785,10 @@ export default function GoalsPage() {
                             onChange={(e) => handleTargetChange(item.id, e.target.value.replace(/,/g, ""))}
                             onFocus={() => setFocusedInputId(item.id)}
                             onBlur={() => setFocusedInputId(null)}
-                            className={`text-[14px] font-bold text-white text-center bg-transparent border-none outline-none ltr-num ${focusedInputId === item.id ? "w-[80px]" : "w-[55px]"}`}
+                            className={`text-[14px] font-bold text-white bg-transparent border-none outline-none ltr-num ${focusedInputId === item.id ? "w-full text-center" : item.unit === "₪" ? "w-auto text-right" : "w-auto text-left"}`}
                             placeholder="0"
                           />
-                          {item.unit === "%" && focusedInputId !== item.id && <span className="text-[14px] font-bold text-white ltr-num">%</span>}
+                          {item.unit === "%" && focusedInputId !== item.id && <span className="text-[14px] font-bold text-white ltr-num shrink-0">%</span>}
                         </div>
                       ) : (
                         <span className="w-[80px] text-[14px] font-bold text-white text-center ltr-num">
