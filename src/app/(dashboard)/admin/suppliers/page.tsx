@@ -597,7 +597,7 @@ export default function AdminSuppliersPage() {
                     : "bg-[#4956D4]/10 border border-[#4956D4]/30"
                 }`}>
                   <div className="flex-1 text-right">
-                    <div className="flex items-center gap-[6px] justify-end flex-wrap">
+                    <div className="flex items-center gap-[6px] justify-start flex-wrap">
                       {!supplier.is_active && (
                         <span className="text-[10px] px-[4px] py-[1px] rounded bg-[#F64E60]/20 text-[#F64E60]">
                           לא פעיל
@@ -617,7 +617,7 @@ export default function AdminSuppliersPage() {
                       </span>
                       <span className="text-[14px] text-white font-medium">{supplier.name}</span>
                     </div>
-                    <div className="flex items-center gap-[10px] justify-end mt-[3px] flex-wrap">
+                    <div className="flex items-center gap-[10px] justify-start mt-[3px] flex-wrap">
                       {supplier.parent_category_name && (
                         <span className="text-[10px] text-white/30">
                           {supplier.parent_category_name}
