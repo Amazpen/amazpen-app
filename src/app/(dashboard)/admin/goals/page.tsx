@@ -700,39 +700,6 @@ export default function AdminGoalsPage() {
                     />
                   </div>
 
-                  {/* Current Expenses Target */}
-                  <div>
-                    <label className="block text-sm text-white/70 mb-2">
-                      הוצאות שוטפות (₪)
-                      <span className="text-xs text-white/40 mr-2">
-                        (סה״כ תקציבי ספקים: ₪{totalCurrentExpensesBudget.toLocaleString()})
-                      </span>
-                    </label>
-                    <input
-                      type="number"
-                      value={goal.current_expenses_target || ""}
-                      onChange={(e) => updateGoalField("current_expenses_target", e.target.value ? parseFloat(e.target.value) : null)}
-                      className="w-full bg-[#0F1535] border border-[#29318A] rounded-lg px-4 py-3 text-white text-left focus:outline-none focus:border-[#4956D4]"
-                      placeholder="0"
-                    />
-                  </div>
-
-                  {/* Goods Expenses Target */}
-                  <div>
-                    <label className="block text-sm text-white/70 mb-2">
-                      קניות סחורה (₪)
-                      <span className="text-xs text-white/40 mr-2">
-                        (סה״כ תקציבי ספקים: ₪{totalGoodsBudget.toLocaleString()})
-                      </span>
-                    </label>
-                    <input
-                      type="number"
-                      value={goal.goods_expenses_target || ""}
-                      onChange={(e) => updateGoalField("goods_expenses_target", e.target.value ? parseFloat(e.target.value) : null)}
-                      className="w-full bg-[#0F1535] border border-[#29318A] rounded-lg px-4 py-3 text-white text-left focus:outline-none focus:border-[#4956D4]"
-                      placeholder="0"
-                    />
-                  </div>
                 </div>
               </div>
 
