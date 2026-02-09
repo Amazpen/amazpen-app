@@ -785,7 +785,7 @@ export function ConsolidatedInvoiceModal({
               type="button"
               onClick={handleSubmit}
               disabled={isSubmitting || !selectedBusinessId || !selectedSupplierId || !invoiceNumber || !totalAmount || !isClosed}
-              className="flex-1 h-[45px] bg-gradient-to-r from-[#0075FF] to-[#00D4FF] rounded-[10px] text-white text-[16px] font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 h-[45px] bg-[#29318A] hover:bg-[#3D44A0] rounded-[10px] text-white text-[16px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "שומר..." : "שמירה"}
             </button>
