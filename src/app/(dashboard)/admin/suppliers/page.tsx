@@ -526,6 +526,12 @@ export default function AdminSuppliersPage() {
             <>
               {/* File info & clear button */}
               <div className="flex items-center justify-between bg-[#0F1535] rounded-[10px] p-[10px] mb-[10px]">
+                <div className="flex items-center gap-[8px]">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-[#3CD856]">
+                    <path d="M5 12L10 17L19 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span className="text-[14px] text-white">{csvFileName}</span>
+                </div>
                 <button
                   type="button"
                   onClick={handleClearCsv}
@@ -533,12 +539,6 @@ export default function AdminSuppliersPage() {
                 >
                   נקה הכל
                 </button>
-                <div className="flex items-center gap-[8px]">
-                  <span className="text-[14px] text-white">{csvFileName}</span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-[#3CD856]">
-                    <path d="M5 12L10 17L19 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
               </div>
 
               {csvError && (
@@ -550,10 +550,10 @@ export default function AdminSuppliersPage() {
               {/* Summary Stats */}
               <div className="bg-[#0F1535] rounded-[10px] p-[10px] mb-[10px]">
                 <div className="flex items-center justify-between mb-[8px]">
-                  <span className="text-[16px] font-bold text-[#3CD856]">{csvSuppliers.length}</span>
                   <span className="text-[14px] text-white">ספקים נטענו בהצלחה</span>
+                  <span className="text-[16px] font-bold text-[#3CD856]">{csvSuppliers.length}</span>
                 </div>
-                <div className="flex flex-wrap gap-[8px] justify-end">
+                <div className="flex flex-wrap gap-[8px] justify-start">
                   {goodsCount > 0 && (
                     <span className="text-[11px] px-[6px] py-[2px] rounded bg-[#FFA412]/20 text-[#FFA412]">
                       קניות סחורה: {goodsCount}
@@ -584,6 +584,82 @@ export default function AdminSuppliersPage() {
             </>
           )}
         </div>
+
+        {/* Suppliers Preview */}
+        {csvSuppliers.length > 0 && (
+          <div className="bg-[#0F1535] rounded-[15px] p-[15px]">
+            <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">ספקים שנטענו ({csvSuppliers.length})</h3>
+            <div className="flex flex-col gap-[8px] max-h-[400px] overflow-y-auto">
+              {csvSuppliers.map((supplier, index) => (
+                <div key={index} className={`flex items-center justify-between rounded-[10px] p-[10px] ${
+                  !supplier.is_active
+                    ? "bg-[#F64E60]/5 border border-[#F64E60]/20"
+                    : "bg-[#4956D4]/10 border border-[#4956D4]/30"
+                }`}>
+                  <div className="flex-1 text-right">
+                    <div className="flex items-center gap-[6px] justify-end flex-wrap">
+                      {!supplier.is_active && (
+                        <span className="text-[10px] px-[4px] py-[1px] rounded bg-[#F64E60]/20 text-[#F64E60]">
+                          לא פעיל
+                        </span>
+                      )}
+                      {supplier.is_fixed_expense && (
+                        <span className="text-[10px] px-[4px] py-[1px] rounded bg-[#4956D4]/20 text-[#8B93FF]">
+                          קבוע{supplier.monthly_expense_amount ? ` ₪${supplier.monthly_expense_amount.toLocaleString()}` : ""}
+                        </span>
+                      )}
+                      <span className={`text-[10px] px-[4px] py-[1px] rounded ${
+                        supplier.expense_type === "goods_purchases"
+                          ? "bg-[#FFA412]/20 text-[#FFA412]"
+                          : "bg-[#3CD856]/20 text-[#3CD856]"
+                      }`}>
+                        {supplier.expense_type === "goods_purchases" ? "קניות סחורה" : "הוצאות שוטפות"}
+                      </span>
+                      <span className="text-[14px] text-white font-medium">{supplier.name}</span>
+                    </div>
+                    <div className="flex items-center gap-[10px] justify-end mt-[3px] flex-wrap">
+                      {supplier.parent_category_name && (
+                        <span className="text-[10px] text-white/30">
+                          {supplier.parent_category_name}
+                          {supplier.category_name ? ` / ${supplier.category_name}` : ""}
+                        </span>
+                      )}
+                      {supplier.requires_vat && (
+                        <span className="text-[10px] text-white/30">
+                          {`מע"מ ${supplier.vat_type === "full" ? "מלא" : supplier.vat_type === "partial" ? "חלקי" : "ללא"}`}
+                        </span>
+                      )}
+                      {supplier.charge_day && (
+                        <span className="text-[10px] text-white/30">יום {supplier.charge_day}</span>
+                      )}
+                      {supplier.payment_terms_days > 0 && (
+                        <span className="text-[10px] text-white/30">שוטף + {supplier.payment_terms_days}</span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveCsvSupplier(index)}
+                    className="text-[#F64E60] hover:text-[#ff6b7a] flex-shrink-0 ml-[10px]"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* No suppliers loaded warning */}
+        {csvSuppliers.length === 0 && csvParsingDone && (
+          <div className="bg-[#FFA412]/10 border border-[#FFA412]/30 rounded-[10px] p-[12px]">
+            <p className="text-[13px] text-[#FFA412] text-right">
+              לא נטענו ספקים מהקובץ. בדוק את מבנה הקובץ.
+            </p>
+          </div>
+        )}
 
         {/* CSV Format Guide */}
         <div className="bg-[#0F1535] rounded-[15px] p-[15px]">
@@ -660,82 +736,6 @@ export default function AdminSuppliersPage() {
             </table>
           </div>
         </div>
-
-        {/* Suppliers Preview */}
-        {csvSuppliers.length > 0 && (
-          <div className="bg-[#0F1535] rounded-[15px] p-[15px]">
-            <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">ספקים שנטענו ({csvSuppliers.length})</h3>
-            <div className="flex flex-col gap-[8px] max-h-[400px] overflow-y-auto">
-              {csvSuppliers.map((supplier, index) => (
-                <div key={index} className={`flex items-center justify-between rounded-[10px] p-[10px] ${
-                  !supplier.is_active
-                    ? "bg-[#F64E60]/5 border border-[#F64E60]/20"
-                    : "bg-[#4956D4]/10 border border-[#4956D4]/30"
-                }`}>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveCsvSupplier(index)}
-                    className="text-[#F64E60] hover:text-[#ff6b7a] flex-shrink-0"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </button>
-                  <div className="flex-1 text-right mr-[10px]">
-                    <div className="flex items-center gap-[6px] justify-end flex-wrap">
-                      {!supplier.is_active && (
-                        <span className="text-[10px] px-[4px] py-[1px] rounded bg-[#F64E60]/20 text-[#F64E60]">
-                          לא פעיל
-                        </span>
-                      )}
-                      {supplier.is_fixed_expense && (
-                        <span className="text-[10px] px-[4px] py-[1px] rounded bg-[#4956D4]/20 text-[#8B93FF]">
-                          קבוע{supplier.monthly_expense_amount ? ` ₪${supplier.monthly_expense_amount.toLocaleString()}` : ""}
-                        </span>
-                      )}
-                      <span className={`text-[10px] px-[4px] py-[1px] rounded ${
-                        supplier.expense_type === "goods_purchases"
-                          ? "bg-[#FFA412]/20 text-[#FFA412]"
-                          : "bg-[#3CD856]/20 text-[#3CD856]"
-                      }`}>
-                        {supplier.expense_type === "goods_purchases" ? "קניות סחורה" : "הוצאות שוטפות"}
-                      </span>
-                      <span className="text-[14px] text-white font-medium">{supplier.name}</span>
-                    </div>
-                    <div className="flex items-center gap-[10px] justify-end mt-[3px] flex-wrap">
-                      {supplier.parent_category_name && (
-                        <span className="text-[10px] text-white/30">
-                          {supplier.parent_category_name}
-                          {supplier.category_name ? ` / ${supplier.category_name}` : ""}
-                        </span>
-                      )}
-                      {supplier.requires_vat && (
-                        <span className="text-[10px] text-white/30">
-                          {`מע"מ ${supplier.vat_type === "full" ? "מלא" : supplier.vat_type === "partial" ? "חלקי" : "ללא"}`}
-                        </span>
-                      )}
-                      {supplier.charge_day && (
-                        <span className="text-[10px] text-white/30">יום {supplier.charge_day}</span>
-                      )}
-                      {supplier.payment_terms_days > 0 && (
-                        <span className="text-[10px] text-white/30">שוטף + {supplier.payment_terms_days}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* No suppliers loaded warning */}
-        {csvSuppliers.length === 0 && csvParsingDone && (
-          <div className="bg-[#FFA412]/10 border border-[#FFA412]/30 rounded-[10px] p-[12px]">
-            <p className="text-[13px] text-[#FFA412] text-right">
-              לא נטענו ספקים מהקובץ. בדוק את מבנה הקובץ.
-            </p>
-          </div>
-        )}
 
         {/* Import Button */}
         {csvSuppliers.length > 0 && (
