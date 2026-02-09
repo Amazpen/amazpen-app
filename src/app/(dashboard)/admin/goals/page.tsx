@@ -183,7 +183,7 @@ export default function AdminGoalsPage() {
         .eq("year", selectedYear)
         .eq("month", selectedMonth)
         .is("deleted_at", null)
-        .single();
+        .maybeSingle();
 
       if (goalData) {
         setGoal(goalData);
@@ -279,7 +279,7 @@ export default function AdminGoalsPage() {
         .eq("year", prevYear)
         .eq("month", prevMonth)
         .is("deleted_at", null)
-        .single();
+        .maybeSingle();
 
       // Create new goal
       const newGoalData = {
