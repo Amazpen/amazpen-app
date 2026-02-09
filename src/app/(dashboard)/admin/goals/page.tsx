@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useDashboard } from "../../layout";
 import { useToast } from "@/components/ui/toast";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 // Types
 interface Business {
@@ -88,16 +89,16 @@ export default function AdminGoalsPage() {
 
   // State
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string>("");
-  const [selectedYear, setSelectedYear] = useState<number>(0);
-  const [selectedMonth, setSelectedMonth] = useState<number>(0);
+  const [selectedBusinessId, setSelectedBusinessId] = usePersistedState<string>("admin-goals:businessId", "");
+  const [selectedYear, setSelectedYear] = usePersistedState<number>("admin-goals:year", 0);
+  const [selectedMonth, setSelectedMonth] = usePersistedState<number>("admin-goals:month", 0);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Initialize date values on client only
+  // Initialize date values on client only (only if no saved value)
   useEffect(() => {
     if (!isMounted) {
-      setSelectedYear(new Date().getFullYear());
-      setSelectedMonth(new Date().getMonth() + 1);
+      if (!selectedYear) setSelectedYear(new Date().getFullYear());
+      if (!selectedMonth) setSelectedMonth(new Date().getMonth() + 1);
       setIsMounted(true);
     }
   }, [isMounted]);
@@ -115,7 +116,7 @@ export default function AdminGoalsPage() {
   const [managedProducts, setManagedProducts] = useState<ManagedProduct[]>([]);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<"kpi" | "suppliers">("kpi");
+  const [activeTab, setActiveTab] = usePersistedState<"kpi" | "suppliers">("admin-goals:tab", "kpi");
 
   // Redirect if not admin
   useEffect(() => {
@@ -136,7 +137,10 @@ export default function AdminGoalsPage() {
 
       if (data && data.length > 0) {
         setBusinesses(data);
-        setSelectedBusinessId(data[0].id);
+        // Only set default if no saved value or saved value not in list
+        if (!selectedBusinessId || !data.find(b => b.id === selectedBusinessId)) {
+          setSelectedBusinessId(data[0].id);
+        }
       }
       setIsLoading(false);
     };
@@ -739,13 +743,11 @@ export default function AdminGoalsPage() {
                 )}
               </div>
 
-              {/* Managed Products Targets */}
+              {/* Managed Products Targets - only show if products exist */}
+              {managedProducts.length > 0 && (
               <div className="bg-[#1A1F37] rounded-xl p-6">
                 <h3 className="text-lg font-semibold mb-4 pb-3 border-b border-white/10">יעדי מוצרים מנוהלים (%)</h3>
 
-                {managedProducts.length === 0 ? (
-                  <p className="text-white/60">לא הוגדרו מוצרים מנוהלים לעסק זה</p>
-                ) : (
                   <div className="space-y-4">
                     {managedProducts.map((product) => (
                       <div key={product.id}>
@@ -771,8 +773,8 @@ export default function AdminGoalsPage() {
                       </div>
                     ))}
                   </div>
-                )}
               </div>
+              )}
             </div>
           ) : (
             /* Supplier Budgets Tab */
