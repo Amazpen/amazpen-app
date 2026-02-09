@@ -140,7 +140,7 @@ export default function PaymentsPage() {
 
   // Add payment form state
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [expenseType, setExpenseType] = useState<"expenses" | "purchases">("expenses");
+  const [expenseType, setExpenseType] = useState<"expenses" | "purchases" | "employees">("expenses");
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [supplierSearch, setSupplierSearch] = useState("");
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
@@ -177,7 +177,7 @@ export default function PaymentsPage() {
         const draft = restorePaymentDraft();
         if (draft) {
           if (draft.paymentDate) setPaymentDate(draft.paymentDate as string);
-          if (draft.expenseType) setExpenseType(draft.expenseType as "expenses" | "purchases");
+          if (draft.expenseType) setExpenseType(draft.expenseType as "expenses" | "purchases" | "employees");
           if (draft.selectedSupplier) setSelectedSupplier(draft.selectedSupplier as string);
           if (draft.supplierSearch) setSupplierSearch(draft.supplierSearch as string);
           if (draft.reference) setReference(draft.reference as string);
@@ -189,7 +189,7 @@ export default function PaymentsPage() {
   }, [showAddPaymentPopup, restorePaymentDraft]);
 
   // Supplier search helpers
-  const expenseTypeMap = { expenses: "current_expenses", purchases: "goods_purchases" } as const;
+  const expenseTypeMap = { expenses: "current_expenses", purchases: "goods_purchases", employees: "employee_costs" } as const;
   const filteredSuppliers = suppliers.filter(s =>
     s.expense_type === expenseTypeMap[expenseType] &&
     s.name.toLowerCase().includes(supplierSearch.toLowerCase())
@@ -760,19 +760,20 @@ export default function PaymentsPage() {
         {dateRange && <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />}
       </div>
 
-      {/* Chart and Summary Section - hidden when no data */}
-      {paymentMethodsData.length > 0 && (
+      {/* Chart and Summary Section */}
       <div className="bg-[#0F1535] rounded-[20px] p-[20px_10px_10px] mt-[10px]">
-        {/* Header - Title and Total */}
-        <div className="flex items-center justify-between px-[10px]">
-          <h2 className="text-[24px] font-bold text-center">תשלומים שיצאו</h2>
-          <div className="flex flex-col items-center">
-            <span className="text-[24px] font-bold ltr-num">
-              ₪{totalPayments.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-            </span>
-            <span className="text-[14px] font-bold">כולל מע&quot;מ</span>
+        {/* Header - Title and Total - hidden when no data */}
+        {paymentMethodsData.length > 0 && (
+          <div className="flex items-center justify-between px-[10px]">
+            <h2 className="text-[24px] font-bold text-center">תשלומים שיצאו</h2>
+            <div className="flex flex-col items-center">
+              <span className="text-[24px] font-bold ltr-num">
+                ₪{totalPayments.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </span>
+              <span className="text-[14px] font-bold">כולל מע&quot;מ</span>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Pie Chart Area */}
         <div className="relative h-[350px] min-w-[1px] min-h-[1px] flex items-center justify-center mt-[35px]">
@@ -1040,6 +1041,22 @@ export default function PaymentsPage() {
                     </span>
                     <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "expenses" ? "text-white" : "text-[#979797]"}>
                       {expenseType === "expenses" ? (
+                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                      ) : (
+                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setExpenseType("employees"); setSelectedSupplier(""); setSupplierSearch(""); }}
+                    className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
+                  >
+                    <span className={`text-[16px] font-semibold ${expenseType === "employees" ? "text-white" : "text-[#979797]"}`}>
+                      עלות עובדים
+                    </span>
+                    <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "employees" ? "text-white" : "text-[#979797]"}>
+                      {expenseType === "employees" ? (
                         <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
                       ) : (
                         <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
