@@ -803,7 +803,8 @@ export default function PaymentsPage() {
           )}
         </div>
 
-        {/* Payment Methods Summary Table */}
+        {/* Payment Methods Summary Table - hidden when no data */}
+        {paymentMethodsData.length > 0 && (
         <div className="max-w-[350px] mx-auto">
           <h2 className="text-[24px] font-bold text-center mb-[20px]">סיכום לפי אמצעי תשלום</h2>
 
@@ -840,6 +841,7 @@ export default function PaymentsPage() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Action Buttons - only show when there's data */}
         {paymentMethodsData.length > 0 && (
@@ -863,7 +865,8 @@ export default function PaymentsPage() {
         )}
       </div>
 
-      {/* Recent Payments Section */}
+      {/* Recent Payments Section - hidden when no data */}
+      {recentPaymentsData.length > 0 && (
       <div className="bg-[#0F1535] rounded-[20px] p-[20px_5px] mt-[10px] flex flex-col gap-[23px]">
         {/* Header Row */}
         <div className="flex items-center justify-between px-[5px]">
@@ -955,6 +958,7 @@ export default function PaymentsPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Add Payment Popup */}
       <Sheet open={showAddPaymentPopup} onOpenChange={(open) => !open && handleClosePopup()}>
