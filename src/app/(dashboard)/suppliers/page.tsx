@@ -910,7 +910,7 @@ export default function SuppliersPage() {
           }}
           className="w-full min-h-[50px] bg-[#29318A] text-white text-[16px] font-semibold rounded-[5px] px-[24px] py-[12px] transition-colors duration-200 hover:bg-[#3D44A0] shadow-[0_7px_30px_-10px_rgba(41,49,138,0.1)]"
         >
-          הוספת ספק חדש
+          {activeTab === "previous" ? "הוספת התחייבות קודמת" : "הוספת ספק חדש"}
         </button>
       </div>
 
