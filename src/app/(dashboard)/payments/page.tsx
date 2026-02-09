@@ -10,6 +10,7 @@ import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { uploadFile } from "@/lib/uploadFile";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 // Supplier from database
 interface Supplier {
@@ -90,15 +91,26 @@ const paymentMethodOptions = [
 export default function PaymentsPage() {
   const { selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
+  const [savedDateRange, setSavedDateRange] = usePersistedState<{ start: string; end: string } | null>("payments:dateRange", null);
   const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
 
   // Initialize date range after hydration to avoid server/client mismatch
   useEffect(() => {
-    setDateRange({
-      start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-      end: new Date(),
-    });
+    if (savedDateRange) {
+      setDateRange({ start: new Date(savedDateRange.start), end: new Date(savedDateRange.end) });
+    } else {
+      setDateRange({
+        start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+        end: new Date(),
+      });
+    }
   }, []);
+
+  const handleDateRangeChange = useCallback((range: { start: Date; end: Date }) => {
+    setDateRange(range);
+    setSavedDateRange({ start: range.start.toISOString(), end: range.end.toISOString() });
+  }, [setSavedDateRange]);
+
   const [showAddPaymentPopup, setShowAddPaymentPopup] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -702,7 +714,7 @@ export default function PaymentsPage() {
         >
           הוספת תשלום
         </button>
-        {dateRange && <DateRangePicker dateRange={dateRange} onChange={setDateRange} />}
+        {dateRange && <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />}
       </div>
 
       {/* Chart and Summary Section */}

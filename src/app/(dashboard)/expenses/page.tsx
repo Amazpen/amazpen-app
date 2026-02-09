@@ -11,6 +11,7 @@ import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { uploadFile } from "@/lib/uploadFile";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 // Supplier from database
 interface Supplier {
@@ -102,11 +103,18 @@ export default function ExpensesPage() {
   const router = useRouter();
   const { selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<"expenses" | "purchases">("expenses");
+  const [activeTab, setActiveTab] = usePersistedState<"expenses" | "purchases">("expenses:tab", "expenses");
+  const [savedDateRange, setSavedDateRange] = usePersistedState<{ start: string; end: string } | null>("expenses:dateRange", null);
   const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    end: new Date(),
+    start: savedDateRange ? new Date(savedDateRange.start) : new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    end: savedDateRange ? new Date(savedDateRange.end) : new Date(),
   });
+  // Sync dateRange to localStorage
+  const handleDateRangeChange = useCallback((range: { start: Date; end: Date }) => {
+    setDateRange(range);
+    setSavedDateRange({ start: range.start.toISOString(), end: range.end.toISOString() });
+  }, [setSavedDateRange]);
+
   const [showAddExpensePopup, setShowAddExpensePopup] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -1118,7 +1126,7 @@ export default function ExpensesPage() {
         >
           הזנת הוצאה
         </button>
-        <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
+        <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
       </div>
 
       {/* Chart and Summary Section */}

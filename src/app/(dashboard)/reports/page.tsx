@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 // Expense category data for display
 interface ExpenseCategoryDisplay {
@@ -59,17 +60,17 @@ function formatPercentage(value: number): string {
 
 export default function ReportsPage() {
   const { selectedBusinesses } = useDashboard();
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedMonth, setSelectedMonth] = usePersistedState("reports:month", "");
+  const [selectedYear, setSelectedYear] = usePersistedState("reports:year", "");
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Initialize date values on client only
+  // Initialize date values on client only (only if no saved value)
   useEffect(() => {
     if (!isMounted) {
-      setSelectedMonth(String(new Date().getMonth() + 1).padStart(2, "0") + "_");
-      setSelectedYear(String(new Date().getFullYear()));
+      if (!selectedMonth) setSelectedMonth(String(new Date().getMonth() + 1).padStart(2, "0") + "_");
+      if (!selectedYear) setSelectedYear(String(new Date().getFullYear()));
       setIsMounted(true);
     }
   }, [isMounted]);

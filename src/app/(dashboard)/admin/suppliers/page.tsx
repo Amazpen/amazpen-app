@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 interface CsvSupplier {
   name: string;
@@ -27,7 +28,7 @@ export default function AdminSuppliersPage() {
 
   // Business selection
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string>("");
+  const [selectedBusinessId, setSelectedBusinessId] = usePersistedState<string>("admin-suppliers:businessId", "");
   const [isLoadingBusinesses, setIsLoadingBusinesses] = useState(true);
 
   // CSV state

@@ -8,6 +8,7 @@ import { DailyEntriesModal } from "@/components/dashboard/DailyEntriesModal";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 // ============================================================================
 // LAZY LOADED CHART COMPONENTS - Recharts (~200KB) loaded only when needed
@@ -314,18 +315,29 @@ export default function DashboardPage() {
   const [managedProductChartData, setManagedProductChartData] = useState<{ month: string; actual: number; target: number }[]>([]);
   // נתונים היסטוריים לגרף מגמות - 6 חודשים אחרונים
   const [trendsChartData, setTrendsChartData] = useState<{ month: string; salesActual: number; salesTarget: number; laborCostPct: number; foodCostPct: number }[]>([]);
+  const [savedDateRange, setSavedDateRange] = usePersistedState<{ start: string; end: string } | null>("dashboard:dateRange", null);
   const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
 
   // Initialize date range on client only to avoid hydration mismatch
   useEffect(() => {
     if (!dateRange) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setDateRange({
-        start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-        end: new Date(),
-      });
+      if (savedDateRange) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setDateRange({ start: new Date(savedDateRange.start), end: new Date(savedDateRange.end) });
+      } else {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setDateRange({
+          start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+          end: new Date(),
+        });
+      }
     }
-  }, [dateRange]);
+  }, [dateRange, savedDateRange]);
+
+  const handleDateRangeChange = useCallback((range: { start: Date; end: Date }) => {
+    setDateRange(range);
+    setSavedDateRange({ start: range.start.toISOString(), end: range.end.toISOString() });
+  }, [setSavedDateRange]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isDailyEntriesModalOpen, setIsDailyEntriesModalOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -1814,7 +1826,7 @@ export default function DashboardPage() {
             )}
           </div>
           {/* Left side - Date picker - hide when search is open */}
-          {!isSearchOpen && dateRange && <DateRangePicker dateRange={dateRange} onChange={setDateRange} />}
+          {!isSearchOpen && dateRange && <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />}
         </div>
 
         {/* Cards Grid - Responsive: 2 cols mobile, 3 tablet, 4-6 desktop */}
@@ -1993,7 +2005,7 @@ export default function DashboardPage() {
               </div>
               {/* Date picker for single business users */}
               {isSingleBusiness && dateRange && (
-                <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
+                <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
               )}
             </div>
 

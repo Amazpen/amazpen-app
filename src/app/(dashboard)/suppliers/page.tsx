@@ -8,6 +8,7 @@ import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 // Category type from database
 interface ExpenseCategory {
@@ -59,7 +60,7 @@ type TabType = "previous" | "current" | "purchases";
 export default function SuppliersPage() {
   const { selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<TabType>("current");
+  const [activeTab, setActiveTab] = usePersistedState<TabType>("suppliers:tab", "current");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAddSupplierModalOpen, setIsAddSupplierModalOpen] = useState(false);

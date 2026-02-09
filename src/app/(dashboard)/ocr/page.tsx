@@ -8,6 +8,7 @@ import DocumentViewer from '@/components/ocr/DocumentViewer';
 import OCRForm from '@/components/ocr/OCRForm';
 import DocumentQueue from '@/components/ocr/DocumentQueue';
 import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
 
 interface Business {
@@ -28,7 +29,7 @@ export default function OCRPage() {
   // State - ALL hooks must be declared before any conditional returns
   const [documents, setDocuments] = useState<OCRDocument[]>([]);
   const [currentDocument, setCurrentDocument] = useState<OCRDocument | null>(null);
-  const [filterStatus, setFilterStatus] = useState<DocumentStatus | 'all'>('pending');
+  const [filterStatus, setFilterStatus] = usePersistedState<DocumentStatus | 'all'>('ocr:filterStatus', 'pending');
   const [isLoading, setIsLoading] = useState(false);
   const [showMobileViewer, setShowMobileViewer] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -93,7 +94,7 @@ export default function OCRPage() {
 
   // Business and supplier state
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [selectedBusinessId, setSelectedBusinessId] = useState('');
+  const [selectedBusinessId, setSelectedBusinessId] = usePersistedState('ocr:businessId', '');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [coordinatorSuppliers, setCoordinatorSuppliers] = useState<Supplier[]>([]);
 

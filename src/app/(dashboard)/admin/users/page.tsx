@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 // Role labels in Hebrew
 const roleLabels: Record<string, string> = {
@@ -58,7 +59,7 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string>("all");
+  const [selectedBusinessId, setSelectedBusinessId] = usePersistedState<string>("admin-users:businessId", "all");
   const [allUsers, setAllUsers] = useState<Profile[]>([]);
   const [businessUsers, setBusinessUsers] = useState<UserMember[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);

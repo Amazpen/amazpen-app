@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 // Types
 type TabType = "vs-goods" | "vs-current" | "kpi";
@@ -116,9 +117,9 @@ function formatDiff(diff: number, unit: string = "₪"): string {
 
 export default function GoalsPage() {
   const { selectedBusinesses } = useDashboard();
-  const [activeTab, setActiveTab] = useState<TabType>("vs-current");
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [selectedYear, setSelectedYear] = useState("");
+  const [activeTab, setActiveTab] = usePersistedState<TabType>("goals:activeTab", "vs-current");
+  const [selectedMonth, setSelectedMonth] = usePersistedState("goals:selectedMonth", "");
+  const [selectedYear, setSelectedYear] = usePersistedState("goals:selectedYear", "");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -128,11 +129,11 @@ export default function GoalsPage() {
     return [String(y), String(y + 1)];
   }, []);
 
-  // Initialize date values on client only
+  // Initialize date values on client only (only if no saved value)
   useEffect(() => {
     if (!isMounted) {
-      setSelectedMonth(String(new Date().getMonth() + 1).padStart(2, "0"));
-      setSelectedYear(String(new Date().getFullYear()));
+      if (!selectedMonth) setSelectedMonth(String(new Date().getMonth() + 1).padStart(2, "0"));
+      if (!selectedYear) setSelectedYear(String(new Date().getFullYear()));
       setIsMounted(true);
     }
   }, [isMounted]);
