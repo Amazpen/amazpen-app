@@ -1241,7 +1241,8 @@ export default function ExpensesPage() {
           )}
         </div>
 
-        {/* Expenses Detail Table */}
+        {/* Expenses Detail Table - hidden when no data */}
+        {(activeTab === "expenses" ? categoryData.length > 0 : expensesData.length > 0) && (
         <div className="max-w-[400px] mx-auto">
           <h2 className="text-[24px] font-bold text-center mb-[20px]">פירוט הוצאות</h2>
 
@@ -1343,6 +1344,7 @@ export default function ExpensesPage() {
             )}
           </div>
         </div>
+        )}
 
         {/* Full Details Button - only show when there's data */}
         {(activeTab === "expenses" ? categoryData.length > 0 : expensesData.length > 0) && (
@@ -1361,7 +1363,8 @@ export default function ExpensesPage() {
         )}
       </div>
 
-      {/* Recent Invoices Section - חשבוניות אחרונות שהוזנו */}
+      {/* Recent Invoices Section - חשבוניות אחרונות שהוזנו (hidden when no invoices) */}
+      {recentInvoices.length > 0 && (
       <div className="bg-[#0F1535] rounded-[20px] p-[15px_0px] mt-[10px] flex flex-col gap-[15px] w-full">
         {/* Header Row - RTL: פילטר בימין, כותרת באמצע, הורדה בשמאל */}
         <div className="flex items-center justify-between">
@@ -1737,6 +1740,7 @@ export default function ExpensesPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Add Expense Popup */}
       <Sheet open={showAddExpensePopup} onOpenChange={(open) => !open && handleClosePopup()}>
