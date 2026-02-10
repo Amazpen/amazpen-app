@@ -352,6 +352,23 @@ export default function AdminGoalsPage() {
         }));
 
         await supabase.from("supplier_budgets").insert(newBudgets);
+
+        // Add budgets for new suppliers that didn't exist in the previous month
+        const coveredSupplierIds = new Set(prevBudgets.map((b) => b.supplier_id));
+        const missingSuppliers = suppliers.filter(
+          (s) => !s.has_previous_obligations && !coveredSupplierIds.has(s.id)
+        );
+
+        if (missingSuppliers.length > 0) {
+          const missingBudgets = missingSuppliers.map((s) => ({
+            supplier_id: s.id,
+            business_id: selectedBusinessId,
+            year: selectedYear,
+            month: selectedMonth,
+            budget_amount: s.is_fixed_expense && s.monthly_expense_amount ? s.monthly_expense_amount : 0,
+          }));
+          await supabase.from("supplier_budgets").insert(missingBudgets);
+        }
       } else {
         // Create budgets from supplier fixed expenses
         const newBudgets = suppliers
