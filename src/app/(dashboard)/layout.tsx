@@ -9,6 +9,8 @@ import { InstallPrompt } from "@/components/ui/install-prompt";
 import { UpdatePrompt } from "@/components/ui/update-prompt";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { ConsolidatedInvoiceModal } from "@/components/dashboard/ConsolidatedInvoiceModal";
+import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
+import { HelpButton } from "@/components/onboarding/HelpButton";
 
 // Context for sharing selected businesses across pages
 interface DashboardContextType {
@@ -433,6 +435,7 @@ export default function DashboardLayout({
   return (
     <ToastProvider>
     <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, refreshProfile: fetchUserProfile }}>
+      <OnboardingProvider>
       <div className="min-h-screen bg-[#0F1535]">
         {/* Sidebar Overlay - Mobile only */}
         {isMenuOpen && (
@@ -830,6 +833,9 @@ export default function DashboardLayout({
               AI
             </Link>
 
+            {/* Help/Tour Button */}
+            <HelpButton />
+
             {/* מרכזת Button - Admin Only */}
             {isAdmin && (
               <button
@@ -856,6 +862,7 @@ export default function DashboardLayout({
           />
         )}
       </div>
+      </OnboardingProvider>
     </DashboardContext.Provider>
     <InstallPrompt />
     <UpdatePrompt />

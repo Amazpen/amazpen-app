@@ -227,7 +227,7 @@ export default function SettingsPage() {
       <div className="max-w-[500px] mx-auto">
 
         {/* Profile Avatar Section */}
-        <div className="flex flex-col items-center mb-[30px]">
+        <div id="onboarding-settings-profile" className="flex flex-col items-center mb-[30px]">
           <div className="relative group mb-[12px]">
             <div className="w-[100px] h-[100px] rounded-full overflow-hidden border-[3px] border-[#29318A] bg-[#29318A] flex items-center justify-center">
               {displayAvatar ? (
@@ -348,7 +348,7 @@ export default function SettingsPage() {
         {businesses.length > 0 && (
           <>
             <div className="border-t border-white/10 my-[25px]" />
-            <div>
+            <div id="onboarding-settings-businesses">
               <h3 className="text-white text-[16px] font-bold mb-[12px]">עסקים</h3>
               <div className="space-y-[8px]">
                 {businesses.map((biz, idx) => (

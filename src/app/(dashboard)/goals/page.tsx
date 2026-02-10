@@ -765,7 +765,7 @@ export default function GoalsPage() {
       <div className="bg-[#0F1535] rounded-[10px] p-[5px]">
 
         {/* Tab Navigation */}
-        <div className="flex flex-row-reverse h-[55px] mb-[10px]">
+        <div id="onboarding-goals-tabs" className="flex flex-row-reverse h-[55px] mb-[10px]">
           {/* Tab 1: יעד VS קניות סחורה (leftmost in RTL = rightmost visually) */}
           <button
             type="button"
@@ -807,7 +807,7 @@ export default function GoalsPage() {
         </div>
 
         {/* Month & Year Selectors */}
-        <div className="flex flex-row-reverse justify-start gap-[10px] mt-[10px]">
+        <div id="onboarding-goals-month" className="flex flex-row-reverse justify-start gap-[10px] mt-[10px]">
           {/* Month Selector */}
           <div className="flex-1 flex flex-col gap-[3px]">
             <label className="text-[14px] text-white text-right">בחר/י חודש:</label>
@@ -848,7 +848,7 @@ export default function GoalsPage() {
         </div>
 
         {/* Goals List */}
-        <div className="mt-[15px]" dir="ltr">
+        <div id="onboarding-goals-table" className="mt-[15px]" dir="ltr">
           {/* Table Header */}
           <div className="flex flex-row items-center justify-between gap-[5px] border-b border-white/15 p-[7px_7px_5px]">
             <div className="flex flex-row items-center gap-[7px]">

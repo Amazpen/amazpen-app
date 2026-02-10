@@ -629,7 +629,7 @@ export default function OCRPage() {
       {/* Main content area - 3 columns on desktop */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Document Queue - Left side (desktop) */}
-        <div className="hidden lg:block lg:w-[200px] overflow-hidden lg:border-l border-[#4C526B]">
+        <div id="onboarding-ocr-queue" className="hidden lg:block lg:w-[200px] overflow-hidden lg:border-l border-[#4C526B]">
           <DocumentQueue
             documents={documents}
             currentDocumentId={currentDocument?.id || null}
@@ -642,6 +642,7 @@ export default function OCRPage() {
 
         {/* OCR Form - Middle (desktop) / Tab 2 (mobile) */}
         <div
+          id="onboarding-ocr-form"
           className={`lg:w-[420px] lg:block ${
             !showMobileViewer ? 'flex-1' : 'hidden'
           } lg:border-l border-[#4C526B] overflow-hidden`}
@@ -663,6 +664,7 @@ export default function OCRPage() {
 
         {/* Document Viewer - Right side (desktop) / Tab 1 (mobile) */}
         <div
+          id="onboarding-ocr-upload"
           className={`lg:flex-1 lg:block ${
             showMobileViewer ? 'flex-1' : 'hidden'
           }`}

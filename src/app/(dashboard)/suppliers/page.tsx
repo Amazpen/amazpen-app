@@ -895,6 +895,7 @@ export default function SuppliersPage() {
 
         {/* Add Supplier Button */}
         <button
+          id="onboarding-suppliers-add"
           type="button"
           onClick={() => {
             if (activeTab === "previous") {
@@ -917,7 +918,7 @@ export default function SuppliersPage() {
       {/* Main Content Container */}
       <div className="flex-1 flex flex-col bg-[#0F1535] rounded-[10px] p-[5px_7px]">
         {/* Tabs */}
-        <div className="flex w-full h-[45px] mb-[10px] border border-[#6B6B6B] rounded-[7px] overflow-hidden">
+        <div id="onboarding-suppliers-tabs" className="flex w-full h-[45px] mb-[10px] border border-[#6B6B6B] rounded-[7px] overflow-hidden">
           <button
             type="button"
             onClick={() => setActiveTab("purchases")}
@@ -995,7 +996,7 @@ export default function SuppliersPage() {
         </div>
 
         {/* Suppliers Grid */}
-        <div className="flex-1 overflow-auto mt-[15px] mx-[7px]">
+        <div id="onboarding-suppliers-list" className="flex-1 overflow-auto mt-[15px] mx-[7px]">
           {isLoading ? (
             /* Skeleton Loaders for Supplier Cards */
             <div className="grid grid-cols-2 gap-[26px]">

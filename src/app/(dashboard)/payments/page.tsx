@@ -784,6 +784,7 @@ export default function PaymentsPage() {
       {/* Date Range and Add Button */}
       <div className="flex items-center justify-between mb-[10px]">
         <button
+          id="onboarding-payments-import"
           type="button"
           onClick={() => setShowAddPaymentPopup(true)}
           className="bg-[#29318A] text-white text-[16px] font-semibold px-[20px] py-[10px] rounded-[7px] transition-colors hover:bg-[#3D44A0]"
@@ -794,7 +795,7 @@ export default function PaymentsPage() {
       </div>
 
       {/* Chart and Summary Section */}
-      <div className="bg-[#0F1535] rounded-[20px] p-[20px_10px_10px] mt-[10px]">
+      <div id="onboarding-payments-chart" className="bg-[#0F1535] rounded-[20px] p-[20px_10px_10px] mt-[10px]">
         {/* Header - Title and Total - hidden when no data */}
         {paymentMethodsData.length > 0 && (
           <div className="flex items-center justify-between px-[10px]">
@@ -902,7 +903,7 @@ export default function PaymentsPage() {
 
       {/* Recent Payments Section - hidden when no data */}
       {recentPaymentsData.length > 0 && (
-      <div className="bg-[#0F1535] rounded-[20px] p-[20px_5px] mt-[10px] flex flex-col gap-[23px]">
+      <div id="onboarding-payments-list" className="bg-[#0F1535] rounded-[20px] p-[20px_5px] mt-[10px] flex flex-col gap-[23px]">
         {/* Header Row */}
         <div className="flex items-center justify-between px-[5px]">
           {/* Filter Dropdown */}

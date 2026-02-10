@@ -1830,7 +1830,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Cards Grid - Responsive: 2 cols mobile, 3 tablet, 4-6 desktop */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-[15px]">
+        <div id="onboarding-business-cards" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-[15px]">
           {isLoading ? (
             // Skeleton loaders - 6 cards with static structure, only data placeholders animate
             <>
@@ -1976,7 +1976,7 @@ export default function DashboardPage() {
       {hasSelectedBusinesses && (
         <div className="expanded-section mt-2 space-y-1">
           {/* Action Buttons */}
-            <div className="flex flex-row justify-between items-center gap-[5px] lg:gap-[15px] mt-[30px]">
+            <div id="onboarding-daily-entry" className="flex flex-row justify-between items-center gap-[5px] lg:gap-[15px] mt-[30px]">
               <div className="flex flex-row items-center gap-[5px]">
                 {realBusinessId ? (
                   <DailyEntryForm
@@ -2010,7 +2010,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Data Cards - New Design - Grid on desktop */}
-            <div className="flex flex-col lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-[15px] w-full mt-[15px]">
+            <div id="onboarding-data-cards" className="flex flex-col lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-[15px] w-full mt-[15px]">
               {(isInitialLoad || isLoadingSummary) && selectedBusinesses.length > 0 ? (
                 // Skeleton loaders for data cards - shown during loading
                 <>
@@ -2781,7 +2781,7 @@ export default function DashboardPage() {
 
             {/* Charts Section - מוצג כשיש נתונים או בזמן טעינה */}
             {(isInitialLoad || trendsChartData.length > 0 || incomeSourcesSummary.length > 0 || laborCostChartData.length > 0 || managedProductChartData.length > 0) && (
-            <div className="flex flex-col lg:grid lg:grid-cols-2 gap-[15px] mt-[15px]">
+            <div id="onboarding-charts" className="flex flex-col lg:grid lg:grid-cols-2 gap-[15px] mt-[15px]">
               {/* 1. מגמות Chart (Trends) - דינמי */}
               {isInitialLoad && trendsChartData.length === 0 ? (
               <div className="data-card-new rounded-[10px] p-4">

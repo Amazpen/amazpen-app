@@ -1221,6 +1221,7 @@ export default function ExpensesPage() {
       {/* Date Range and Add Button */}
       <div className="flex items-center justify-between mb-[10px]">
         <button
+          id="onboarding-expenses-add"
           type="button"
           onClick={() => {
             if (activeTab === "employees") setExpenseType("employees");
@@ -1411,7 +1412,7 @@ export default function ExpensesPage() {
 
       {/* Recent Invoices Section - חשבוניות אחרונות שהוזנו (hidden when no invoices) */}
       {recentInvoices.length > 0 && (
-      <div className="bg-[#0F1535] rounded-[20px] p-[15px_0px] mt-[10px] flex flex-col gap-[15px] w-full">
+      <div id="onboarding-expenses-filters" className="bg-[#0F1535] rounded-[20px] p-[15px_0px] mt-[10px] flex flex-col gap-[15px] w-full">
         {/* Header Row - RTL: פילטר בימין, כותרת באמצע, הורדה בשמאל */}
         <div className="flex items-center justify-between">
           {/* Filter Dropdown - Right side */}
@@ -1518,7 +1519,7 @@ export default function ExpensesPage() {
         )}
 
         {/* Table */}
-        <div className="w-full flex flex-col gap-[5px]">
+        <div id="onboarding-expenses-list" className="w-full flex flex-col gap-[5px]">
           {/* Table Header */}
           <div className="grid grid-cols-[0.8fr_1.2fr_1.2fr_0.9fr_0.9fr] bg-white/5 rounded-t-[7px] p-[10px_5px] items-center">
             <span className="text-[13px] font-medium text-center">תאריך</span>

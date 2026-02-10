@@ -46,7 +46,7 @@ export function AiChatInput({ onSend, disabled }: AiChatInputProps) {
   );
 
   return (
-    <div className="flex-shrink-0 border-t border-white/10 bg-[#0F1535] px-4 py-3">
+    <div id="onboarding-ai-input" className="flex-shrink-0 border-t border-white/10 bg-[#0F1535] px-4 py-3">
       <div className="flex items-end gap-3" dir="rtl">
         <textarea
           ref={textareaRef}

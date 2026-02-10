@@ -371,7 +371,7 @@ export default function ReportsPage() {
       </section>
 
       {/* Expenses Section */}
-      <section aria-label="פירוט הוצאות" className="bg-[#0F1535] rounded-[10px] p-[7px_0_7px_7px] min-h-[40px] flex flex-col">
+      <section id="onboarding-reports-categories" aria-label="פירוט הוצאות" className="bg-[#0F1535] rounded-[10px] p-[7px_0_7px_7px] min-h-[40px] flex flex-col">
         {/* Header Row */}
         <div className="flex flex-row-reverse items-center justify-between min-h-[40px] gap-[10px] px-[7px] mb-[15px]">
           <div className="flex flex-row-reverse items-center gap-[5px]">
@@ -507,7 +507,7 @@ export default function ReportsPage() {
       </section>
 
       {/* Bottom Summary Cards */}
-      <section aria-label="סיכום רווחים" className="flex flex-col gap-[10px]">
+      <section id="onboarding-reports-summary" aria-label="סיכום רווחים" className="flex flex-col gap-[10px]">
         {/* Operating Profit */}
         <div className="bg-[#0F1535] rounded-[10px] p-[10px] min-h-[50px] flex flex-row-reverse items-center justify-between">
           <div className="flex flex-row-reverse items-center gap-[10px]">

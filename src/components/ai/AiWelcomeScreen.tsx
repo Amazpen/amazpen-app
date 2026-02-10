@@ -103,7 +103,7 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
       {!isAdmin && <div className="mb-6" />}
 
       {/* Suggestion cards */}
-      <div className="w-full max-w-[500px] grid grid-cols-2 gap-3">
+      <div id="onboarding-ai-suggestions" className="w-full max-w-[500px] grid grid-cols-2 gap-3">
         {suggestions.map((suggestion) => (
           <button
             key={suggestion.text}
