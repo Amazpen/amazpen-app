@@ -9,24 +9,34 @@ import { allTours, tourNameForPath } from "./tours";
 
 function OnboardingAutoStarter() {
   const pathname = usePathname();
-  const { isTourCompleted } = useOnboarding();
+  const { completedTours } = useOnboarding();
   const { startNextStep, isNextStepVisible } = useNextStep();
   const hasAutoStarted = useRef<Set<string>>(new Set());
+
+  // Use refs to avoid stale closures in the timeout
+  const completedToursRef = useRef(completedTours);
+  completedToursRef.current = completedTours;
+  const isVisibleRef = useRef(isNextStepVisible);
+  isVisibleRef.current = isNextStepVisible;
 
   useEffect(() => {
     const tourName = tourNameForPath[pathname];
     if (!tourName) return;
-    if (isTourCompleted(tourName)) return;
     if (hasAutoStarted.current.has(tourName)) return;
-    if (isNextStepVisible) return;
 
+    hasAutoStarted.current.add(tourName);
+
+    // Delay to allow hydration + page content to render
     const timer = setTimeout(() => {
-      hasAutoStarted.current.add(tourName);
+      // Check completed state at execution time (not capture time)
+      if (completedToursRef.current[tourName]) return;
+      if (isVisibleRef.current) return;
       startNextStep(tourName);
-    }, 800);
+    }, 1500);
 
     return () => clearTimeout(timer);
-  }, [pathname, isTourCompleted, startNextStep, isNextStepVisible]);
+    // Only re-run when pathname changes - refs handle the rest
+  }, [pathname, startNextStep]);
 
   return null;
 }
