@@ -816,7 +816,10 @@ export default function GoalsPage() {
                       )}
 
                       {/* Category/Goal Name - right side */}
-                      <div className="flex-1 flex flex-row-reverse items-center gap-[3px]" dir="rtl">
+                      <div className="flex-1 flex flex-row items-center justify-end gap-[3px]">
+                        <span className="text-[14px] font-bold text-white text-right" dir="rtl">
+                          {item.name}
+                        </span>
                         {hasChildren && (
                           <svg
                             width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
@@ -825,9 +828,6 @@ export default function GoalsPage() {
                             <polyline points="6 9 12 15 18 9" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         )}
-                        <span className="text-[14px] font-bold text-white text-right">
-                          {item.name}
-                        </span>
                       </div>
                     </div>
 
