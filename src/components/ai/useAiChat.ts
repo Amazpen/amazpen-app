@@ -10,7 +10,13 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef<AiMessage[]>([]);
   const sessionIdRef = useRef<string | null>(null);
+  const pageContextRef = useRef<string>("");
   messagesRef.current = messages;
+
+  // Read the page context the user was on before opening AI chat
+  useEffect(() => {
+    pageContextRef.current = localStorage.getItem("ai_page_context") || "";
+  }, []);
 
   // Load previous session history on mount
   useEffect(() => {
@@ -99,6 +105,7 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
             businessId: businessId || "",
             sessionId: sId || "",
             history: recentHistory,
+            pageContext: pageContextRef.current || "",
           }),
           signal: abortRef.current.signal,
         });
