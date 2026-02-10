@@ -143,7 +143,9 @@
       "Bash(/c/Program Files/nodejs/npx.cmd eslint src/components/ocr/DocumentViewer.tsx --ext .tsx)",
       "Bash(/c/Program Files/nodejs/npx.cmd eslint src/ --ext .ts,.tsx --quiet)",
       "Bash(/c/Program Files/nodejs/npm.cmd install papaparse)",
-      "Bash(/c/Program Files/nodejs/npm.cmd install -D @types/papaparse)"
+      "Bash(/c/Program Files/nodejs/npm.cmd install -D @types/papaparse)",
+      "Bash(/c/Program Files/nodejs/npm.cmd install nextstepjs motion)",
+      "Bash(/c/Program Files/nodejs/npm.cmd ls nextstepjs)"
     ]
   },
   "enableAllProjectMcpServers": true,
