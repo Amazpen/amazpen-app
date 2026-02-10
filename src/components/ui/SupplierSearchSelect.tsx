@@ -71,12 +71,8 @@ export default function SupplierSearchSelect({
 
   return (
     <div className="flex flex-col gap-[3px]">
-      <label className="text-[15px] font-medium text-white flex items-center gap-[6px] flex-row-reverse">
+      <label className="text-[15px] font-medium text-white text-right">
         {label}
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
       </label>
 
       <div ref={containerRef} className="relative">
