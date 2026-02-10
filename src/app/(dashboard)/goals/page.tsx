@@ -17,6 +17,7 @@ interface GoalItem {
   unit?: string; // ₪ or %
   editable?: boolean;
   children?: GoalItem[];
+  supplierIds?: string[]; // supplier IDs mapped to this category (for budget editing)
 }
 
 // Hebrew months
@@ -296,17 +297,28 @@ export default function GoalsPage() {
             let totalActual = categoryActuals.get(cat.id) || 0;
             let totalTarget = categoryTargets.get(cat.id) || 0;
 
+            // Find suppliers for this parent category directly
+            const parentSupplierIds = (suppliersData || [])
+              .filter(s => s.expense_category_id === cat.id && s.expense_type === "current_expenses")
+              .map(s => s.id);
+
             const children: GoalItem[] = childCats.map(child => {
               const childActual = categoryActuals.get(child.id) || 0;
               const childTarget = categoryTargets.get(child.id) || 0;
               totalActual += childActual;
               totalTarget += childTarget;
+              // Find suppliers for this child category
+              const childSupplierIds = (suppliersData || [])
+                .filter(s => s.expense_category_id === child.id && s.expense_type === "current_expenses")
+                .map(s => s.id);
               return {
                 id: child.id,
                 name: child.name,
                 target: childTarget,
                 actual: childActual,
                 unit: "₪",
+                editable: true,
+                supplierIds: childSupplierIds,
               };
             });
 
@@ -316,6 +328,8 @@ export default function GoalsPage() {
               target: totalTarget,
               actual: totalActual,
               unit: "₪",
+              editable: children.length === 0, // editable only if no children (leaf category)
+              supplierIds: parentSupplierIds,
               children: children.length > 0 ? children : undefined,
             };
           });
@@ -541,7 +555,7 @@ export default function GoalsPage() {
             target: Number(goal?.current_expenses_target) || 0,
             actual: totalCurrentExpenses,
             unit: "₪",
-            editable: false,
+            editable: true,
           },
           {
             id: "goods-expenses",
@@ -549,7 +563,7 @@ export default function GoalsPage() {
             target: Number(goal?.goods_expenses_target) || 0,
             actual: totalGoodsCost,
             unit: "₪",
-            editable: false,
+            editable: true,
           },
         ];
         setKpiData(kpiItems);
@@ -617,6 +631,12 @@ export default function GoalsPage() {
         await supabase.from("managed_products")
           .update({ target_pct: value, updated_at: new Date().toISOString() })
           .eq("id", productId);
+      } else if (id === "current-expenses") {
+        await supabase.from("goals").update({ current_expenses_target: value, updated_at: new Date().toISOString() })
+          .in("business_id", selectedBusinesses).eq("year", year).eq("month", month);
+      } else if (id === "goods-expenses") {
+        await supabase.from("goals").update({ goods_expenses_target: value, updated_at: new Date().toISOString() })
+          .in("business_id", selectedBusinesses).eq("year", year).eq("month", month);
       }
     } catch (error) {
       console.error("Error saving KPI target:", error);
@@ -634,6 +654,97 @@ export default function GoalsPage() {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       saveTargetToDB(id, numValue);
+    }, 800);
+  };
+
+  // Save current expenses category target to DB (supplier_budgets)
+  const saveCategoryTargetToDB = useCallback(async (supplierIds: string[], value: number) => {
+    const supabase = createClient();
+    const year = parseInt(selectedYear);
+    const month = parseInt(selectedMonth);
+
+    try {
+      if (supplierIds.length === 1) {
+        // Single supplier: set budget directly
+        const { data: existing } = await supabase.from("supplier_budgets")
+          .select("id").eq("supplier_id", supplierIds[0])
+          .in("business_id", selectedBusinesses).eq("year", year).eq("month", month)
+          .maybeSingle();
+        if (existing) {
+          await supabase.from("supplier_budgets")
+            .update({ budget_amount: value, updated_at: new Date().toISOString() })
+            .eq("id", existing.id);
+        } else {
+          await supabase.from("supplier_budgets").insert({
+            supplier_id: supplierIds[0],
+            business_id: selectedBusinesses[0],
+            year, month,
+            budget_amount: value,
+          });
+        }
+      } else if (supplierIds.length > 1) {
+        // Multiple suppliers: get current budgets and distribute proportionally
+        const { data: currentBudgets } = await supabase.from("supplier_budgets")
+          .select("id, supplier_id, budget_amount")
+          .in("supplier_id", supplierIds)
+          .in("business_id", selectedBusinesses)
+          .eq("year", year).eq("month", month);
+
+        const currentTotal = (currentBudgets || []).reduce((sum, b) => sum + Number(b.budget_amount), 0);
+
+        for (const supplierId of supplierIds) {
+          const existing = (currentBudgets || []).find(b => b.supplier_id === supplierId);
+          const oldAmount = existing ? Number(existing.budget_amount) : 0;
+          const ratio = currentTotal > 0 ? oldAmount / currentTotal : 1 / supplierIds.length;
+          const newAmount = Math.round(value * ratio);
+
+          if (existing) {
+            await supabase.from("supplier_budgets")
+              .update({ budget_amount: newAmount, updated_at: new Date().toISOString() })
+              .eq("id", existing.id);
+          } else {
+            await supabase.from("supplier_budgets").insert({
+              supplier_id: supplierId,
+              business_id: selectedBusinesses[0],
+              year, month,
+              budget_amount: newAmount,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error saving category target:", error);
+    }
+  }, [selectedBusinesses, selectedYear, selectedMonth]);
+
+  // Handle current expenses target change (for vs-current tab)
+  const handleCurrentExpenseTargetChange = (item: GoalItem, newTarget: string, isChild: boolean, parentId?: string) => {
+    const numValue = parseFloat(newTarget) || 0;
+
+    if (isChild && parentId) {
+      // Update child target and recalculate parent total
+      setCurrentExpensesData(prev => prev.map(parent => {
+        if (parent.id !== parentId || !parent.children) return parent;
+        const updatedChildren = parent.children.map(child =>
+          child.id === item.id ? { ...child, target: numValue } : child
+        );
+        // Parent target = sum of children targets (parent's own suppliers are already in children or direct)
+        const newParentTarget = updatedChildren.reduce((sum, c) => sum + c.target, 0);
+        return { ...parent, children: updatedChildren, target: newParentTarget };
+      }));
+    } else {
+      // Update parent without children directly
+      setCurrentExpensesData(prev => prev.map(i =>
+        i.id === item.id ? { ...i, target: numValue } : i
+      ));
+    }
+
+    // Debounce save to DB
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      if (item.supplierIds && item.supplierIds.length > 0) {
+        saveCategoryTargetToDB(item.supplierIds, numValue);
+      }
     }, 800);
   };
 
@@ -766,6 +877,7 @@ export default function GoalsPage() {
                 const percentage = item.target > 0 ? (item.actual / item.target) * 100 : 0;
                 const diff = item.target - item.actual; // Positive means under budget (good for expenses)
                 const isKpi = activeTab === "kpi";
+                const isCurrent = activeTab === "vs-current";
                 const isRevenueType = item.name.includes("הכנסות");
                 const statusColor = getStatusColor(percentage, !isRevenueType);
                 const hasChildren = item.children && item.children.length > 0;
@@ -791,16 +903,23 @@ export default function GoalsPage() {
                         {item.unit === "%" ? formatPercent(item.actual) : formatCurrency(item.actual)}
                       </span>
 
-                      {/* Target - editable for KPI with currency/percent symbol */}
-                      {isKpi && item.editable ? (
-                        <div className="w-[80px] flex items-center justify-center gap-0">
+                      {/* Target - editable for KPI and vs-current */}
+                      {((isKpi || isCurrent) && item.editable && !hasChildren) ? (
+                        <div className="w-[80px] flex items-center justify-center gap-0" onClick={(e) => e.stopPropagation()}>
                           {item.unit === "₪" && focusedInputId !== item.id && <span className="text-[14px] font-bold text-white ltr-num">₪</span>}
                           <input
                             type="text"
                             inputMode="decimal"
                             title={`יעד עבור ${item.name}`}
                             value={item.unit === "%" ? item.target : item.target.toLocaleString("en-US")}
-                            onChange={(e) => handleTargetChange(item.id, e.target.value.replace(/,/g, ""))}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/,/g, "");
+                              if (isKpi) {
+                                handleTargetChange(item.id, val);
+                              } else {
+                                handleCurrentExpenseTargetChange(item, val, false);
+                              }
+                            }}
                             onFocus={() => setFocusedInputId(item.id)}
                             onBlur={() => setFocusedInputId(null)}
                             style={{ width: focusedInputId === item.id ? '80px' : `${Math.max(1, String(item.unit === "%" ? item.target : item.target.toLocaleString("en-US")).length)}ch` }}
@@ -857,10 +976,28 @@ export default function GoalsPage() {
                                 {formatCurrency(child.actual)}
                               </span>
 
-                              {/* Target */}
-                              <span className="w-[80px] text-[14px] font-normal text-white text-center ltr-num">
-                                {formatCurrency(child.target)}
-                              </span>
+                              {/* Target - editable for vs-current children */}
+                              {isCurrent && child.editable ? (
+                                <div className="w-[80px] flex items-center justify-center gap-0">
+                                  {focusedInputId !== child.id && <span className="text-[14px] font-normal text-white ltr-num">₪</span>}
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    title={`יעד עבור ${child.name}`}
+                                    value={child.target.toLocaleString("en-US")}
+                                    onChange={(e) => handleCurrentExpenseTargetChange(child, e.target.value.replace(/,/g, ""), true, item.id)}
+                                    onFocus={() => setFocusedInputId(child.id)}
+                                    onBlur={() => setFocusedInputId(null)}
+                                    style={{ width: focusedInputId === child.id ? '80px' : `${Math.max(1, String(child.target.toLocaleString("en-US")).length)}ch` }}
+                                    className="text-[14px] font-normal text-white text-center bg-transparent border-none outline-none ltr-num"
+                                    placeholder="0"
+                                  />
+                                </div>
+                              ) : (
+                                <span className="w-[80px] text-[14px] font-normal text-white text-center ltr-num">
+                                  {formatCurrency(child.target)}
+                                </span>
+                              )}
 
                               {/* Child Name */}
                               <div className="flex-1 text-[14px] font-normal text-white text-right" dir="rtl">
