@@ -211,13 +211,12 @@ export default function AdminGoalsPage() {
         setIncomeSourceGoals([]);
       }
 
-      // Load supplier budgets for this month
+      // Load supplier budgets for all months of the year
       const { data: budgetsData } = await supabase
         .from("supplier_budgets")
         .select("*, suppliers(name, expense_type)")
         .eq("business_id", selectedBusinessId)
-        .eq("year", selectedYear)
-        .eq("month", selectedMonth);
+        .eq("year", selectedYear);
 
       const mappedBudgets = (budgetsData || []).map((b: Record<string, unknown>) => ({
         id: b.id as string,
@@ -409,13 +408,13 @@ export default function AdminGoalsPage() {
     });
   };
 
-  // Update supplier budget
-  const updateSupplierBudget = (supplierId: string, value: number) => {
+  // Update supplier budget for a specific month
+  const updateSupplierBudget = (supplierId: string, month: number, value: number) => {
     setSupplierBudgets((prev) => {
-      const existing = prev.find((b) => b.supplier_id === supplierId);
+      const existing = prev.find((b) => b.supplier_id === supplierId && b.month === month);
       if (existing) {
         return prev.map((b) =>
-          b.supplier_id === supplierId ? { ...b, budget_amount: value } : b
+          b.supplier_id === supplierId && b.month === month ? { ...b, budget_amount: value } : b
         );
       } else {
         const supplier = suppliers.find((s) => s.id === supplierId);
@@ -425,7 +424,7 @@ export default function AdminGoalsPage() {
             supplier_id: supplierId,
             business_id: selectedBusinessId,
             year: selectedYear,
-            month: selectedMonth,
+            month: month,
             budget_amount: value,
             supplier_name: supplier?.name,
             expense_type: supplier?.expense_type,
@@ -483,7 +482,7 @@ export default function AdminGoalsPage() {
         }
       }
 
-      // Upsert supplier budgets
+      // Upsert supplier budgets (all months)
       for (const b of supplierBudgets) {
         if (b.id) {
           await supabase
@@ -495,7 +494,7 @@ export default function AdminGoalsPage() {
             supplier_id: b.supplier_id,
             business_id: selectedBusinessId,
             year: selectedYear,
-            month: selectedMonth,
+            month: b.month,
             budget_amount: b.budget_amount,
           });
         }
@@ -525,14 +524,32 @@ export default function AdminGoalsPage() {
     }
   };
 
-  // Calculate totals
-  const totalCurrentExpensesBudget = supplierBudgets
+  // Get budget for a specific supplier and month
+  const getBudget = (supplierId: string, month: number): SupplierBudget | undefined => {
+    return supplierBudgets.find((b) => b.supplier_id === supplierId && b.month === month);
+  };
+
+  // Calculate total for a specific month (current expenses only)
+  const getMonthTotal = (month: number): number => {
+    return supplierBudgets
+      .filter((b) => b.expense_type === "current_expenses" && b.month === month)
+      .reduce((sum, b) => sum + b.budget_amount, 0);
+  };
+
+  // Calculate total for a specific supplier across all months
+  const getSupplierTotal = (supplierId: string): number => {
+    return supplierBudgets
+      .filter((b) => b.supplier_id === supplierId)
+      .reduce((sum, b) => sum + b.budget_amount, 0);
+  };
+
+  // Grand total for all current expenses across all months
+  const grandTotal = supplierBudgets
     .filter((b) => b.expense_type === "current_expenses")
     .reduce((sum, b) => sum + b.budget_amount, 0);
 
-  const totalGoodsBudget = supplierBudgets
-    .filter((b) => b.expense_type === "goods_purchases")
-    .reduce((sum, b) => sum + b.budget_amount, 0);
+  // Current expenses suppliers only
+  const currentExpensesSuppliers = suppliers.filter((s) => s.expense_type === "current_expenses");
 
   if (!isAdmin) {
     return null;
@@ -655,7 +672,7 @@ export default function AdminGoalsPage() {
                   : "bg-[#1A1F37] text-white/60 hover:text-white"
               }`}
             >
-              תקציבי ספקים
+              תקציב הוצאות שוטפות
             </button>
           </div>
 
@@ -777,93 +794,68 @@ export default function AdminGoalsPage() {
               )}
             </div>
           ) : (
-            /* Supplier Budgets Tab */
+            /* Supplier Budgets Tab - 12 Month Table */
             <div className="bg-[#1A1F37] rounded-xl overflow-hidden">
-              {/* Table Header */}
-              <div className="grid grid-cols-12 gap-4 p-4 bg-[#0F1535] font-semibold text-sm">
-                <div className="col-span-5">שם ספק</div>
-                <div className="col-span-3">סוג הוצאה</div>
-                <div className="col-span-4">תקציב חודשי (₪)</div>
-              </div>
-
-              {/* Current Expenses Section */}
-              <div className="p-4 border-b border-white/10">
-                <h4 className="text-[#4956D4] font-semibold mb-3">הוצאות שוטפות</h4>
-                <div className="space-y-2">
-                  {suppliers
-                    .filter((s) => s.expense_type === "current_expenses")
-                    .map((supplier) => {
-                      const budget = supplierBudgets.find((b) => b.supplier_id === supplier.id);
-                      return (
-                        <div key={supplier.id} className="grid grid-cols-12 gap-4 items-center py-2">
-                          <div className="col-span-5 text-white/90">{supplier.name}</div>
-                          <div className="col-span-3 text-white/60 text-sm">
-                            {supplier.is_fixed_expense ? "הוצאה קבועה" : "הוצאה משתנה"}
-                          </div>
-                          <div className="col-span-4">
-                            <input
-                              type="number"
-                              value={budget?.budget_amount || ""}
-                              onChange={(e) =>
-                                updateSupplierBudget(
-                                  supplier.id,
-                                  e.target.value ? parseFloat(e.target.value) : 0
-                                )
-                              }
-                              className="w-full bg-[#0F1535] border border-[#29318A] rounded-lg px-3 py-2 text-white text-left focus:outline-none focus:border-[#4956D4]"
-                              placeholder="0"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-                <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/10">
-                  <span className="font-semibold">סה״כ הוצאות שוטפות</span>
-                  <span className="text-[#17DB4E] font-bold">
-                    ₪{totalCurrentExpensesBudget.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-
-              {/* Goods Purchases Section */}
-              <div className="p-4">
-                <h4 className="text-[#F64E60] font-semibold mb-3">קניות סחורה</h4>
-                <div className="space-y-2">
-                  {suppliers
-                    .filter((s) => s.expense_type === "goods_purchases")
-                    .map((supplier) => {
-                      const budget = supplierBudgets.find((b) => b.supplier_id === supplier.id);
-                      return (
-                        <div key={supplier.id} className="grid grid-cols-12 gap-4 items-center py-2">
-                          <div className="col-span-5 text-white/90">{supplier.name}</div>
-                          <div className="col-span-3 text-white/60 text-sm">
-                            {supplier.is_fixed_expense ? "הוצאה קבועה" : "הוצאה משתנה"}
-                          </div>
-                          <div className="col-span-4">
-                            <input
-                              type="number"
-                              value={budget?.budget_amount || ""}
-                              onChange={(e) =>
-                                updateSupplierBudget(
-                                  supplier.id,
-                                  e.target.value ? parseFloat(e.target.value) : 0
-                                )
-                              }
-                              className="w-full bg-[#0F1535] border border-[#29318A] rounded-lg px-3 py-2 text-white text-left focus:outline-none focus:border-[#4956D4]"
-                              placeholder="0"
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-                <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/10">
-                  <span className="font-semibold">סה״כ קניות סחורה</span>
-                  <span className="text-[#F64E60] font-bold">
-                    ₪{totalGoodsBudget.toLocaleString()}
-                  </span>
-                </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] border-collapse">
+                  <thead>
+                    <tr className="bg-[#0F1535]">
+                      <th className="sticky right-0 z-10 bg-[#0F1535] text-right px-4 py-3 text-sm font-semibold border-b border-white/10 min-w-[140px]">שם ספק</th>
+                      <th className="text-right px-2 py-3 text-sm font-semibold border-b border-white/10 text-white/60 min-w-[70px]">סוג</th>
+                      {hebrewMonths.map((m) => (
+                        <th key={m.value} className="text-center px-1 py-3 text-xs font-semibold border-b border-white/10 text-white/70 min-w-[80px]">
+                          {m.label}
+                        </th>
+                      ))}
+                      <th className="text-center px-2 py-3 text-sm font-semibold border-b border-white/10 text-[#17DB4E] min-w-[90px]">סה״כ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentExpensesSuppliers.map((supplier) => (
+                      <tr key={supplier.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                        <td className="sticky right-0 z-10 bg-[#1A1F37] px-4 py-2 text-sm text-white/90 font-medium">{supplier.name}</td>
+                        <td className="px-2 py-2 text-xs text-white/40">{supplier.is_fixed_expense ? "קבוע" : "משתנה"}</td>
+                        {hebrewMonths.map((m) => {
+                          const budget = getBudget(supplier.id, m.value);
+                          return (
+                            <td key={m.value} className="px-1 py-1">
+                              <input
+                                type="number"
+                                value={budget?.budget_amount || ""}
+                                onChange={(e) =>
+                                  updateSupplierBudget(
+                                    supplier.id,
+                                    m.value,
+                                    e.target.value ? parseFloat(e.target.value) : 0
+                                  )
+                                }
+                                className="w-full bg-[#0F1535] border border-[#29318A]/50 rounded px-2 py-1.5 text-white text-center text-sm focus:outline-none focus:border-[#4956D4] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                placeholder="0"
+                              />
+                            </td>
+                          );
+                        })}
+                        <td className="px-2 py-2 text-center text-sm font-semibold text-white/80">
+                          ₪{getSupplierTotal(supplier.id).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#0F1535]/60 border-t border-white/10">
+                      <td className="sticky right-0 z-10 bg-[#0F1535] px-4 py-3 text-sm font-bold">סה״כ</td>
+                      <td></td>
+                      {hebrewMonths.map((m) => (
+                        <td key={m.value} className="px-1 py-3 text-center text-xs font-semibold text-[#4956D4]">
+                          ₪{getMonthTotal(m.value).toLocaleString()}
+                        </td>
+                      ))}
+                      <td className="px-2 py-3 text-center text-sm font-bold text-[#17DB4E]">
+                        ₪{grandTotal.toLocaleString()}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
           )}
