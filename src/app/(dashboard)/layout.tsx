@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ToastProvider } from "@/components/ui/toast";
 import { InstallPrompt } from "@/components/ui/install-prompt";
+import { UpdatePrompt } from "@/components/ui/update-prompt";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { ConsolidatedInvoiceModal } from "@/components/dashboard/ConsolidatedInvoiceModal";
 
@@ -856,6 +857,7 @@ export default function DashboardLayout({
       </div>
     </DashboardContext.Provider>
     <InstallPrompt />
+    <UpdatePrompt />
     </ToastProvider>
   );
 }

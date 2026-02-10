@@ -71,7 +71,10 @@ export default function RootLayout({
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
-                  navigator.serviceWorker.register('/sw.js').catch(() => {});
+                  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                    // Check for updates every 60 seconds
+                    setInterval(function() { reg.update(); }, 60000);
+                  }).catch(function() {});
                 });
               }
             `,
