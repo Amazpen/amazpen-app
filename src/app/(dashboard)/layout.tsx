@@ -53,6 +53,7 @@ const adminMenuItems = [
   { id: 104, label: "קליטת מסמכים OCR", href: "/ocr", key: "admin-ocr" },
   { id: 105, label: "ייבוא ספקים", href: "/admin/suppliers", key: "admin-suppliers" },
   { id: 106, label: "ייבוא הוצאות", href: "/admin/expenses", key: "admin-expenses" },
+  { id: 107, label: "ייבוא תשלומים", href: "/admin/payments", key: "admin-payments" },
 ];
 
 // Page titles mapping
@@ -71,6 +72,7 @@ const pageTitles: Record<string, string> = {
   "/admin/goals": "ניהול יעדים ותקציבים",
   "/admin/suppliers": "ייבוא ספקים",
   "/admin/expenses": "ייבוא הוצאות",
+  "/admin/payments": "ייבוא תשלומים",
   "/ai": "עוזר AI",
 };
 
