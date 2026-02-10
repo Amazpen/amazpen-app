@@ -2379,9 +2379,10 @@ export default function DashboardPage() {
                 const currentBusinessName = businessCards.find(b => b.id === realBusinessId)?.name || "";
                 const isPearla = currentBusinessName.includes("פרלה");
                 const noIncome = (detailedSummary?.totalIncome || 0) === 0;
-                const laborDiffColor = noIncome ? 'text-white' : (detailedSummary?.laborCostDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.laborCostDiffPct || 0) < 0 ? 'text-green-500' : 'text-white';
-                const laborPrevMonthColor = noIncome ? 'text-white' : (detailedSummary?.laborCostPrevMonthChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.laborCostPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white';
-                const laborPrevYearColor = noIncome ? 'text-white' : (detailedSummary?.laborCostPrevYearChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.laborCostPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white';
+                const noLaborData = noIncome || (detailedSummary?.laborCost || 0) === 0;
+                const laborDiffColor = noLaborData ? 'text-white' : (detailedSummary?.laborCostDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.laborCostDiffPct || 0) < 0 ? 'text-green-500' : 'text-white';
+                const laborPrevMonthColor = noLaborData ? 'text-white' : (detailedSummary?.laborCostPrevMonthChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.laborCostPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white';
+                const laborPrevYearColor = noLaborData ? 'text-white' : (detailedSummary?.laborCostPrevYearChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.laborCostPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white';
                 const totalEvents = (detailedSummary?.privateCount || 0) + (detailedSummary?.businessCount || 0);
                 const avgLaborPerEvent = totalEvents > 0 ? (detailedSummary?.laborCost || 0) / totalEvents : 0;
 
@@ -2438,11 +2439,11 @@ export default function DashboardPage() {
                       <div className="flex flex-row-reverse justify-between items-start gap-[10px]">
                         <div className="flex flex-col ml-[10px]">
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborDiffColor}`}>{formatPercent(noIncome ? 0 : (detailedSummary?.laborCostDiffPct || 0))}</span>
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborDiffColor}`}>{formatPercent(noLaborData ? 0 : (detailedSummary?.laborCostDiffPct || 0))}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מיעד</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborDiffColor}`}>{formatCurrencyFull(noIncome ? 0 : (detailedSummary?.laborCostDiffAmount || 0))}</span>
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborDiffColor}`}>{formatCurrencyFull(noLaborData ? 0 : (detailedSummary?.laborCostDiffAmount || 0))}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
@@ -2452,11 +2453,11 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex flex-col mr-[10px]">
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevMonthColor}`}>{formatPercent(noIncome ? 0 : (detailedSummary?.laborCostPrevMonthChange || 0))}</span>
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevMonthColor}`}>{formatPercent(noLaborData ? 0 : (detailedSummary?.laborCostPrevMonthChange || 0))}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevYearColor}`}>{formatPercent(noIncome ? 0 : (detailedSummary?.laborCostPrevYearChange || 0))}</span>
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevYearColor}`}>{formatPercent(noLaborData ? 0 : (detailedSummary?.laborCostPrevYearChange || 0))}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
@@ -2497,21 +2498,21 @@ export default function DashboardPage() {
                     <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
                       <div className="flex flex-col ml-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborDiffColor}`}>{formatPercent(noIncome ? 0 : (detailedSummary?.laborCostDiffPct || 0))}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborDiffColor}`}>{formatPercent(noLaborData ? 0 : (detailedSummary?.laborCostDiffPct || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                         </div>
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${noIncome ? 'text-white' : (detailedSummary?.laborCostDiffAmount || 0) > 0 ? 'text-red-500' : (detailedSummary?.laborCostDiffAmount || 0) < 0 ? 'text-green-500' : 'text-white'}`}>{formatCurrencyFull(noIncome ? 0 : (detailedSummary?.laborCostDiffAmount || 0))}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${noLaborData ? 'text-white' : (detailedSummary?.laborCostDiffAmount || 0) > 0 ? 'text-red-500' : (detailedSummary?.laborCostDiffAmount || 0) < 0 ? 'text-green-500' : 'text-white'}`}>{formatCurrencyFull(noLaborData ? 0 : (detailedSummary?.laborCostDiffAmount || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                         </div>
                       </div>
                       <div className="flex flex-col mr-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevMonthColor}`}>{formatPercent(noIncome ? 0 : (detailedSummary?.laborCostPrevMonthChange || 0))}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevMonthColor}`}>{formatPercent(noLaborData ? 0 : (detailedSummary?.laborCostPrevMonthChange || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
                         </div>
                         <div className="flex flex-row-reverse justify-end items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevYearColor}`}>{formatPercent(noIncome ? 0 : (detailedSummary?.laborCostPrevYearChange || 0))}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevYearColor}`}>{formatPercent(noLaborData ? 0 : (detailedSummary?.laborCostPrevYearChange || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
                         </div>
                       </div>
@@ -2525,9 +2526,11 @@ export default function DashboardPage() {
                 const currentBusinessName = businessCards.find(b => b.id === realBusinessId)?.name || "";
                 const isPearla = currentBusinessName.includes("פרלה");
                 const noIncome = (detailedSummary?.totalIncome || 0) === 0;
-                const foodDiffColor = noIncome ? 'text-white' : (detailedSummary?.foodCostDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostDiffPct || 0) < 0 ? 'text-green-500' : 'text-white';
-                const foodPrevMonthColor = noIncome ? 'text-white' : (detailedSummary?.foodCostPrevMonthChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white';
-                const foodPrevYearColor = noIncome ? 'text-white' : (detailedSummary?.foodCostPrevYearChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white';
+                const noFoodCost = (detailedSummary?.foodCost || 0) === 0;
+                const noFoodData = noIncome || noFoodCost;
+                const foodDiffColor = noFoodData ? 'text-white' : (detailedSummary?.foodCostDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostDiffPct || 0) < 0 ? 'text-green-500' : 'text-white';
+                const foodPrevMonthColor = noFoodData ? 'text-white' : (detailedSummary?.foodCostPrevMonthChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white';
+                const foodPrevYearColor = noFoodData ? 'text-white' : (detailedSummary?.foodCostPrevYearChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.foodCostPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white';
                 const totalEvents = (detailedSummary?.privateCount || 0) + (detailedSummary?.businessCount || 0);
                 const avgFoodPerEvent = totalEvents > 0 ? (detailedSummary?.foodCost || 0) / totalEvents : 0;
 
@@ -2556,11 +2559,11 @@ export default function DashboardPage() {
                       <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
                         <div className="flex flex-col ml-[10px]">
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatPercentWithSign(noIncome ? 0 : (detailedSummary?.foodCostDiffPct || 0))}</span>
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatPercentWithSign(noFoodData ? 0 : (detailedSummary?.foodCostDiffPct || 0))}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מיעד</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatCurrencyFullWithSign(noIncome ? 0 : ((detailedSummary?.foodCostDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}</span>
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatCurrencyFullWithSign(noFoodData ? 0 : ((detailedSummary?.foodCostDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
@@ -2570,11 +2573,11 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex flex-col mr-[10px]">
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevMonthColor}`}>{formatPercentWithSign(noIncome ? 0 : (detailedSummary?.foodCostPrevMonthChange || 0))}</span>
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevMonthColor}`}>{formatPercentWithSign(noFoodData ? 0 : (detailedSummary?.foodCostPrevMonthChange || 0))}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevYearColor}`}>{formatPercentWithSign(noIncome ? 0 : (detailedSummary?.foodCostPrevYearChange || 0))}</span>
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevYearColor}`}>{formatPercentWithSign(noFoodData ? 0 : (detailedSummary?.foodCostPrevYearChange || 0))}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
@@ -2611,21 +2614,21 @@ export default function DashboardPage() {
                     <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
                       <div className="flex flex-col ml-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatPercentWithSign(noIncome ? 0 : (detailedSummary?.foodCostDiffPct || 0))}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatPercentWithSign(noFoodData ? 0 : (detailedSummary?.foodCostDiffPct || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                         </div>
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatCurrencyFullWithSign(noIncome ? 0 : ((detailedSummary?.foodCostDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatCurrencyFullWithSign(noFoodData ? 0 : ((detailedSummary?.foodCostDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                         </div>
                       </div>
                       <div className="flex flex-col mr-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevMonthColor}`}>{formatPercentWithSign(noIncome ? 0 : (detailedSummary?.foodCostPrevMonthChange || 0))}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevMonthColor}`}>{formatPercentWithSign(noFoodData ? 0 : (detailedSummary?.foodCostPrevMonthChange || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
                         </div>
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevYearColor}`}>{formatPercentWithSign(noIncome ? 0 : (detailedSummary?.foodCostPrevYearChange || 0))}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevYearColor}`}>{formatPercentWithSign(noFoodData ? 0 : (detailedSummary?.foodCostPrevYearChange || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
                         </div>
                       </div>
@@ -2647,13 +2650,14 @@ export default function DashboardPage() {
 
                 // Calculate diff from target
                 const targetPct = product.targetPct ?? 0;
-                const diffPct = actualPct - targetPct;
+                const noProdData = (detailedSummary?.totalIncome || 0) === 0 || product.totalCost === 0;
+                const diffPct = noProdData ? 0 : actualPct - targetPct;
 
                 // Calculate diff in ILS
-                const diffILS = (diffPct / 100) * (detailedSummary?.revenueTargetBeforeVat || 0);
+                const diffILS = noProdData ? 0 : (diffPct / 100) * (detailedSummary?.revenueTargetBeforeVat || 0);
 
                 // Determine color based on diff
-                const diffColor = diffPct > 0 ? 'text-red-500' : diffPct < 0 ? 'text-green-500' : 'text-white';
+                const diffColor = noProdData ? 'text-white' : diffPct > 0 ? 'text-red-500' : diffPct < 0 ? 'text-green-500' : 'text-white';
 
                 return (
                   <div key={product.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
@@ -2694,14 +2698,14 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex flex-col mr-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${product.prevMonthChange > 0 ? 'text-red-500' : product.prevMonthChange < 0 ? 'text-green-500' : 'text-white'}`}>
-                            {formatPercentWithSign(product.prevMonthChange)}
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${noProdData ? 'text-white' : product.prevMonthChange > 0 ? 'text-red-500' : product.prevMonthChange < 0 ? 'text-green-500' : 'text-white'}`}>
+                            {formatPercentWithSign(noProdData ? 0 : product.prevMonthChange)}
                           </span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
                         </div>
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${product.prevYearChange > 0 ? 'text-red-500' : product.prevYearChange < 0 ? 'text-green-500' : 'text-white'}`}>
-                            {formatPercentWithSign(product.prevYearChange)}
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${noProdData ? 'text-white' : product.prevYearChange > 0 ? 'text-red-500' : product.prevYearChange < 0 ? 'text-green-500' : 'text-white'}`}>
+                            {formatPercentWithSign(noProdData ? 0 : product.prevYearChange)}
                           </span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
                         </div>
@@ -2712,13 +2716,19 @@ export default function DashboardPage() {
               })}
 
               {/* עלות הוצאות שוטפות Card */}
+              {(() => {
+                const noExpData = (detailedSummary?.totalIncome || 0) === 0 || (detailedSummary?.currentExpenses || 0) === 0;
+                const expDiffColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesDiffPct || 0) < 0 ? 'text-green-500' : 'text-white';
+                const expPrevMonthColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevMonthChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white';
+                const expPrevYearColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevYearChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white';
+                return (
               <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
                 <div className="flex flex-row-reverse justify-between items-center w-full">
                   <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
-                    <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${(detailedSummary?.totalIncome || 0) === 0 ? 'text-white' : (detailedSummary?.currentExpensesDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesDiffPct || 0) < 0 ? 'text-green-500' : 'text-white'}`}>
+                    <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${expDiffColor}`}>
                       {formatPercent(detailedSummary?.currentExpensesPct || 0)}
                     </span>
-                    <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${(detailedSummary?.totalIncome || 0) === 0 ? 'text-white' : (detailedSummary?.currentExpensesDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesDiffPct || 0) < 0 ? 'text-green-500' : 'text-white'}`}>
+                    <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${expDiffColor}`}>
                       {formatCurrencyFull(detailedSummary?.currentExpenses || 0)}
                     </span>
                   </div>
@@ -2735,34 +2745,36 @@ export default function DashboardPage() {
                 <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
                   <div className="flex flex-col ml-[10px]">
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.totalIncome || 0) === 0 ? 'text-white' : (detailedSummary?.currentExpensesDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesDiffPct || 0) < 0 ? 'text-green-500' : 'text-white'}`}>
-                        {formatPercentWithSign((detailedSummary?.totalIncome || 0) === 0 ? 0 : (detailedSummary?.currentExpensesDiffPct || 0))}
+                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expDiffColor}`}>
+                        {formatPercentWithSign(noExpData ? 0 : (detailedSummary?.currentExpensesDiffPct || 0))}
                       </span>
                       <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                     </div>
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.totalIncome || 0) === 0 ? 'text-white' : (detailedSummary?.currentExpensesDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesDiffPct || 0) < 0 ? 'text-green-500' : 'text-white'}`}>
-                        {formatCurrencyFullWithSign((detailedSummary?.totalIncome || 0) === 0 ? 0 : ((detailedSummary?.currentExpensesDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}
+                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expDiffColor}`}>
+                        {formatCurrencyFullWithSign(noExpData ? 0 : ((detailedSummary?.currentExpensesDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}
                       </span>
                       <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                     </div>
                   </div>
                   <div className="flex flex-col mr-[10px]">
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.totalIncome || 0) === 0 ? 'text-white' : (detailedSummary?.currentExpensesPrevMonthChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white'}`}>
-                        {formatPercentWithSign((detailedSummary?.totalIncome || 0) === 0 ? 0 : (detailedSummary?.currentExpensesPrevMonthChange || 0))}
+                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expPrevMonthColor}`}>
+                        {formatPercentWithSign(noExpData ? 0 : (detailedSummary?.currentExpensesPrevMonthChange || 0))}
                       </span>
                       <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
                     </div>
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(detailedSummary?.totalIncome || 0) === 0 ? 'text-white' : (detailedSummary?.currentExpensesPrevYearChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white'}`}>
-                        {formatPercentWithSign((detailedSummary?.totalIncome || 0) === 0 ? 0 : (detailedSummary?.currentExpensesPrevYearChange || 0))}
+                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expPrevYearColor}`}>
+                        {formatPercentWithSign(noExpData ? 0 : (detailedSummary?.currentExpensesPrevYearChange || 0))}
                       </span>
                       <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
                     </div>
                   </div>
                 </div>
               </div>
+                );
+              })()}
                 </>
               )}
             </div>
