@@ -381,6 +381,18 @@ export default function SettingsPage() {
           <span>יצירת קשר בוואטסאפ</span>
         </a>
 
+        <a
+          href="mailto:hello@amazpen.co.il"
+          className="w-full h-[48px] bg-[#FFA412] text-white text-[15px] font-bold rounded-[10px] transition-all duration-200 hover:bg-[#FFB94A] active:scale-[0.98] flex items-center justify-center gap-[10px] mt-[10px]"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" strokeLinecap="round" strokeLinejoin="round"/>
+            <polyline points="22,6 12,13 2,6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span>יצירת קשר במייל</span>
+        </a>
+        <p className="text-white/40 text-[12px] text-center mt-[6px]">לטיפול מהיר יותר, נא לציין את שם המשתמש, העסק המקושר ותיאור קצר של הפנייה</p>
+
       </div>
     </div>
   );
