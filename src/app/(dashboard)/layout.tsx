@@ -32,7 +32,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/goals", "/reports", "/ocr", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments"];
+const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/ocr", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -40,6 +40,7 @@ const menuItems = [
   { id: 2, label: "ניהול הוצאות", href: "/expenses", key: "expenses", requiresBusiness: true },
   { id: 3, label: "ניהול ספקים", href: "/suppliers", key: "suppliers", requiresBusiness: true },
   { id: 4, label: "ניהול תשלומים", href: "/payments", key: "payments", requiresBusiness: true },
+  { id: 5, label: "תזרים מזומנים", href: "/cashflow", key: "cashflow", requiresBusiness: true },
   { id: 7, label: "דוח רווח הפסד", href: "/reports", key: "reports", requiresBusiness: true },
   { id: 8, label: "יעדים", href: "/goals", key: "goals", requiresBusiness: true },
   { id: 10, label: "הגדרות", href: "/settings", key: "settings" },
@@ -64,6 +65,7 @@ const pageTitles: Record<string, string> = {
   "/expenses": "ניהול הוצאות",
   "/suppliers": "ניהול ספקים",
   "/payments": "ניהול תשלומים",
+  "/cashflow": "תזרים מזומנים",
   "/ocr": "קליטת מסמכים OCR",
   "/reports": "דוח רווח הפסד",
   "/goals": "יעדים",
@@ -145,6 +147,16 @@ const GoalsIcon = ({ active }: { active?: boolean }) => (
 const PaymentsIcon = ({ active }: { active?: boolean }) => (
   <svg width="18" height="18" viewBox="0 0 22 23" fill="none" className={active ? "text-white" : "text-white/70"}>
     <path d="M2.69806 11.1681H4.49903V19.5431H2.69806V11.1681ZM17.1058 7.44588H18.9068V19.5431H17.1058V7.44588ZM9.90192 1.86255H11.7029V19.5431H9.90192V1.86255Z" fill="currentColor"/>
+  </svg>
+);
+
+// Cash flow icon - arrows in/out
+const CashFlowIcon = ({ active }: { active?: boolean }) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={active ? "text-white" : "text-white/70"}>
+    <path d="M12 2v20M12 2l-4 4M12 2l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.5"/>
+    <path d="M5 12H1m0 0l3-3m-3 3l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M19 12h4m0 0l-3-3m3 3l-3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
   </svg>
 );
 
@@ -510,7 +522,7 @@ export default function DashboardLayout({
 
                 const pageExists = existingPages.includes(item.href);
 
-                const IconComponent = item.key === "settings" ? SettingsIcon : item.key === "dashboard" ? DashboardIcon : item.key === "expenses" ? ExpensesIcon : item.key === "suppliers" ? SuppliersIcon : item.key === "payments" ? PaymentsIcon : item.key === "insights" ? InsightsIcon : item.key === "tasks" ? TasksIcon : item.key === "reports" ? ReportsIcon : item.key === "goals" ? GoalsIcon : item.key === "surveys" ? SurveysIcon : MenuIcon;
+                const IconComponent = item.key === "settings" ? SettingsIcon : item.key === "dashboard" ? DashboardIcon : item.key === "expenses" ? ExpensesIcon : item.key === "suppliers" ? SuppliersIcon : item.key === "payments" ? PaymentsIcon : item.key === "cashflow" ? CashFlowIcon : item.key === "insights" ? InsightsIcon : item.key === "tasks" ? TasksIcon : item.key === "reports" ? ReportsIcon : item.key === "goals" ? GoalsIcon : item.key === "surveys" ? SurveysIcon : MenuIcon;
 
                 if (!pageExists) {
                   return (
