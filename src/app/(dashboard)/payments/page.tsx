@@ -1331,14 +1331,14 @@ export default function PaymentsPage() {
                       {pm.customInstallments.length > 0 && (
                         <div className="mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
                           <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
-                            <span className="text-[14px] font-medium text-white/70 w-[50px] text-center flex-shrink-0">תשלום</span>
+                            <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">סכום</span>
                           </div>
                           <div className="flex flex-col gap-[8px] max-h-[200px] overflow-y-auto">
                             {pm.customInstallments.map((item, index) => (
                               <div key={item.number} className="flex items-center gap-[8px]">
-                                <span className="text-[14px] text-white ltr-num w-[50px] text-center flex-shrink-0">{item.number}/{pm.installments}</span>
+                                <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
                                 <div className="flex-1 h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] relative flex items-center justify-center">
                                   <span className="text-[14px] text-white pointer-events-none ltr-num">
                                     {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
