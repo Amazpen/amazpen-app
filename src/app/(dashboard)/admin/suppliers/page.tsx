@@ -449,6 +449,40 @@ export default function AdminSuppliersPage() {
         setImportProgress(`מייבא... ${inserted}/${records.length}`);
       }
 
+      // Create supplier_budgets for the current month (same logic as manual supplier creation)
+      setImportProgress("יוצר תקציבים לחודש הנוכחי...");
+      const supplierNames = records.map(r => r.name);
+      const { data: insertedSuppliers } = await supabase
+        .from("suppliers")
+        .select("id, is_fixed_expense, monthly_expense_amount, has_previous_obligations")
+        .eq("business_id", selectedBusinessId)
+        .in("name", supplierNames)
+        .is("deleted_at", null);
+
+      if (insertedSuppliers && insertedSuppliers.length > 0) {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+
+        const budgetRecords = insertedSuppliers
+          .filter(s => !s.has_previous_obligations)
+          .map(s => ({
+            supplier_id: s.id,
+            business_id: selectedBusinessId,
+            year: currentYear,
+            month: currentMonth,
+            budget_amount: s.is_fixed_expense && s.monthly_expense_amount
+              ? s.monthly_expense_amount : 0,
+          }));
+
+        if (budgetRecords.length > 0) {
+          const { error: budgetError } = await supabase.from("supplier_budgets").insert(budgetRecords);
+          if (budgetError) {
+            console.error("Error creating supplier budgets:", budgetError);
+          }
+        }
+      }
+
       const msg = skippedCount > 0
         ? `יובאו ${newSuppliers.length} ספקים בהצלחה (${skippedCount} דולגו כי כבר קיימים)`
         : `יובאו ${newSuppliers.length} ספקים בהצלחה`;
