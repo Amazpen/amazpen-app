@@ -3,13 +3,22 @@
 import { useRouter } from "next/navigation";
 import type { AiSuggestedQuestion } from "@/types/ai";
 
-const suggestions: AiSuggestedQuestion[] = [
-  { text: "מה סך ההכנסות החודש?", icon: "revenue" },
-  { text: "הראה לי פילוח הוצאות", icon: "expenses" },
-  { text: "השווה בין החודש לחודש שעבר", icon: "comparison" },
+const userSuggestions: AiSuggestedQuestion[] = [
+  { text: "איך החודש שלי? תן סיכום", icon: "summary" },
+  { text: "מי הספק הכי יקר שלי?", icon: "expenses" },
+  { text: "מה ההכנסות היום?", icon: "revenue" },
+  { text: "השווה לי בין החודש לחודש שעבר", icon: "comparison" },
   { text: "מה המצב מול היעדים?", icon: "targets" },
-  { text: "תן לי סיכום כללי של העסק", icon: "summary" },
-  { text: "מה עלות העובדים באחוזים?", icon: "general" },
+  { text: "כמה אחוז עלות העובדים מההכנסות?", icon: "general" },
+];
+
+const adminSuggestions: AiSuggestedQuestion[] = [
+  { text: "תן סקירה של כל העסקים", icon: "summary" },
+  { text: "איזה עסק הכי רווחי החודש?", icon: "revenue" },
+  { text: "השווה עלות עובדים בין העסקים", icon: "comparison" },
+  { text: "איפה יש חריגה מהיעדים?", icon: "targets" },
+  { text: "מה סך ההוצאות החודש לכל העסקים?", icon: "expenses" },
+  { text: "איזה ספקים הכי יקרים ברמת מערכת?", icon: "general" },
 ];
 
 const iconMap: Record<AiSuggestedQuestion["icon"], React.ReactNode> = {
@@ -52,6 +61,7 @@ interface AiWelcomeScreenProps {
 
 export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenProps) {
   const router = useRouter();
+  const suggestions = isAdmin ? adminSuggestions : userSuggestions;
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 relative" dir="rtl">
