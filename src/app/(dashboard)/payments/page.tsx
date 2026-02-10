@@ -411,6 +411,18 @@ export default function PaymentsPage() {
       return;
     }
 
+    // Validate installments sum matches payment amount
+    for (const pm of paymentMethods) {
+      if (pm.customInstallments.length > 0) {
+        const pmTotal = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+        const installmentsTotal = getInstallmentsTotal(pm.customInstallments);
+        if (Math.abs(installmentsTotal - pmTotal) > 0.01) {
+          showToast(`סכום התשלומים (${installmentsTotal.toFixed(2)}) לא תואם לסכום לתשלום (${pmTotal.toFixed(2)})`, "warning");
+          return;
+        }
+      }
+    }
+
     setIsSaving(true);
     const supabase = createClient();
 
@@ -640,12 +652,33 @@ export default function PaymentsPage() {
     const amount = parseFloat(newAmount.replace(/[^\d.]/g, "")) || 0;
     setPaymentMethods(prev => prev.map(p => {
       if (p.id !== paymentMethodId) return p;
+      const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
       const updatedInstallments = [...p.customInstallments];
       if (updatedInstallments[installmentIndex]) {
+        // Cap the amount to the total so a single installment can't exceed it
+        const cappedAmount = Math.min(amount, totalAmount);
         updatedInstallments[installmentIndex] = {
           ...updatedInstallments[installmentIndex],
-          amount: amount,
+          amount: cappedAmount,
         };
+        // Distribute the remainder equally among the other installments
+        const remaining = totalAmount - cappedAmount;
+        const otherCount = updatedInstallments.length - 1;
+        if (otherCount > 0) {
+          const perOther = Math.floor((remaining / otherCount) * 100) / 100;
+          let distributed = 0;
+          updatedInstallments.forEach((inst, idx) => {
+            if (idx !== installmentIndex) {
+              if (idx === updatedInstallments.findLastIndex((_, i) => i !== installmentIndex)) {
+                // Last "other" installment gets the remainder to avoid rounding issues
+                updatedInstallments[idx] = { ...inst, amount: Math.round((remaining - distributed) * 100) / 100 };
+              } else {
+                updatedInstallments[idx] = { ...inst, amount: perOther };
+                distributed += perOther;
+              }
+            }
+          });
+        }
       }
       return { ...p, customInstallments: updatedInstallments };
     }));
@@ -1340,7 +1373,7 @@ export default function PaymentsPage() {
                               <div key={item.number} className="flex items-center gap-[8px]">
                                 <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
                                 <div className="flex-1 h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] relative flex items-center justify-center">
-                                  <span className="text-[14px] text-white pointer-events-none ltr-num">
+                                  <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num">
                                     {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
                                   </span>
                                   <input
@@ -1364,13 +1397,20 @@ export default function PaymentsPage() {
                               </div>
                             ))}
                           </div>
-                          <div className="flex items-center gap-[8px] border-t border-[#4C526B] pt-[8px] mt-[8px]">
-                            <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה&quot;כ</span>
-                            <span className="flex-1"></span>
-                            <span className="text-[14px] font-bold text-white ltr-num flex-1 text-center">
-                              ₪{getInstallmentsTotal(pm.customInstallments).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                          </div>
+                          {(() => {
+                            const installmentsTotal = getInstallmentsTotal(pm.customInstallments);
+                            const pmTotal = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+                            const isMismatch = Math.abs(installmentsTotal - pmTotal) > 0.01;
+                            return (
+                              <div className="flex items-center gap-[8px] border-t border-[#4C526B] pt-[8px] mt-[8px]">
+                                <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה&quot;כ</span>
+                                <span className="flex-1"></span>
+                                <span className={`text-[14px] font-bold ltr-num flex-1 text-center ${isMismatch ? 'text-red-400' : 'text-white'}`}>
+                                  ₪{installmentsTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
