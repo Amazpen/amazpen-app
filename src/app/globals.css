@@ -258,6 +258,7 @@
 .icon-bg-green { background-color: rgb(60, 216, 86); }
 .icon-bg-purple { background-color: rgb(191, 131, 255); }
 .icon-bg-orange { background-color: rgb(255, 164, 18); }
+.icon-bg-blue { background-color: #E34299; }
 
 /* Task Status Colors */
 .status-todo {
