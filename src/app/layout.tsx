@@ -70,10 +70,14 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
+                window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js').then(function(reg) {
-                    // Check for updates every 60 seconds
-                    setInterval(function() { reg.update(); }, 60000);
+                    // Check for updates only when user returns to the tab
+                    document.addEventListener('visibilitychange', function() {
+                      if (document.visibilityState === 'visible') {
+                        reg.update();
+                      }
+                    });
                   }).catch(function() {});
                 });
               }
