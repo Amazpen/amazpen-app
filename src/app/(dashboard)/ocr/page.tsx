@@ -9,7 +9,7 @@ import OCRForm from '@/components/ocr/OCRForm';
 import DocumentQueue from '@/components/ocr/DocumentQueue';
 import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
 import { usePersistedState } from '@/hooks/usePersistedState';
-import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
+import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType, OCRLineItem } from '@/types/ocr';
 
 interface Business {
   id: string;
@@ -39,7 +39,7 @@ export default function OCRPage() {
     const supabase = createClient();
     const { data, error } = await supabase
       .from('ocr_documents')
-      .select('*, ocr_extracted_data(*)')
+      .select('*, ocr_extracted_data(*, ocr_extracted_line_items(*))')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -53,6 +53,18 @@ export default function OCRPage() {
           ? doc.ocr_extracted_data[0] as Record<string, unknown>
           : null;
 
+        // Map line items from nested relation
+        const rawLineItems = Array.isArray(extracted?.ocr_extracted_line_items)
+          ? (extracted.ocr_extracted_line_items as Record<string, unknown>[])
+          : [];
+        const lineItems = rawLineItems.map((li) => ({
+          id: li.id as string,
+          description: (li.description as string) || undefined,
+          quantity: li.quantity != null ? Number(li.quantity) : undefined,
+          unit_price: li.unit_price != null ? Number(li.unit_price) : undefined,
+          total: li.total != null ? Number(li.total) : undefined,
+        }));
+
         const ocrData: OCRExtractedData | undefined = extracted ? {
           supplier_name: (extracted.supplier_name as string) || undefined,
           supplier_tax_id: (extracted.supplier_tax_id as string) || undefined,
@@ -64,6 +76,7 @@ export default function OCRPage() {
           confidence_score: extracted.overall_confidence != null ? Number(extracted.overall_confidence) : undefined,
           raw_text: (extracted.raw_text as string) || undefined,
           matched_supplier_id: (extracted.matched_supplier_id as string) || undefined,
+          line_items: lineItems.length > 0 ? lineItems : undefined,
         } : undefined;
 
         return {
@@ -439,6 +452,97 @@ export default function OCRPage() {
 
             if (notesError) {
               console.error('Error inserting delivery notes:', notesError);
+            }
+          }
+        }
+
+        // --- PRICE TRACKING: save line item prices ---
+        if (formData.line_items && formData.line_items.length > 0 && formData.supplier_id) {
+          for (const li of formData.line_items) {
+            if (!li.description || li.unit_price == null) continue;
+            const itemName = li.description.trim();
+            if (!itemName) continue;
+
+            try {
+              // Find or create supplier_item
+              let supplierItemId = li.matched_supplier_item_id || null;
+
+              if (!supplierItemId) {
+                // Try to find existing item by name
+                const { data: existing } = await supabase
+                  .from('supplier_items')
+                  .select('id, current_price')
+                  .eq('business_id', formData.business_id)
+                  .eq('supplier_id', formData.supplier_id)
+                  .eq('item_name', itemName)
+                  .maybeSingle();
+
+                if (existing) {
+                  supplierItemId = existing.id;
+                } else {
+                  // Create new supplier_item
+                  const { data: newItem } = await supabase
+                    .from('supplier_items')
+                    .insert({
+                      business_id: formData.business_id,
+                      supplier_id: formData.supplier_id,
+                      item_name: itemName,
+                      current_price: li.unit_price,
+                      last_price_date: formData.document_date,
+                    })
+                    .select('id')
+                    .single();
+                  if (newItem) supplierItemId = newItem.id;
+                }
+              }
+
+              if (!supplierItemId) continue;
+
+              // Get current price before updating
+              const { data: currentItem } = await supabase
+                .from('supplier_items')
+                .select('current_price')
+                .eq('id', supplierItemId)
+                .single();
+
+              const oldPrice = currentItem?.current_price;
+
+              // Insert price record
+              await supabase.from('supplier_item_prices').insert({
+                supplier_item_id: supplierItemId,
+                price: li.unit_price,
+                quantity: li.quantity || null,
+                invoice_id: createdInvoiceId || null,
+                ocr_document_id: currentDocument.id,
+                document_date: formData.document_date,
+              });
+
+              // Update current price on supplier_item
+              await supabase.from('supplier_items').update({
+                current_price: li.unit_price,
+                last_price_date: formData.document_date,
+                updated_at: new Date().toISOString(),
+              }).eq('id', supplierItemId);
+
+              // Create price alert if price changed
+              if (oldPrice != null && Math.abs(li.unit_price - oldPrice) > 0.01) {
+                const changePct = oldPrice > 0
+                  ? ((li.unit_price - oldPrice) / oldPrice) * 100
+                  : 0;
+                await supabase.from('price_alerts').insert({
+                  business_id: formData.business_id,
+                  supplier_item_id: supplierItemId,
+                  supplier_id: formData.supplier_id,
+                  ocr_document_id: currentDocument.id,
+                  old_price: oldPrice,
+                  new_price: li.unit_price,
+                  change_pct: Math.round(changePct * 100) / 100,
+                  document_date: formData.document_date,
+                });
+              }
+            } catch (priceError) {
+              console.error('Error saving price for item:', itemName, priceError);
+              // Continue with other items - don't fail the whole approval
             }
           }
         }

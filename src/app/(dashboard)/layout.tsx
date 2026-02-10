@@ -32,7 +32,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/ocr", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments"];
+const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -54,6 +54,7 @@ const adminMenuItems = [
   { id: 102, label: "ניהול משתמשים", href: "/admin/users", key: "admin-users" },
   { id: 103, label: "ניהול יעדים ותקציבים", href: "/admin/goals", key: "admin-goals" },
   { id: 104, label: "קליטת מסמכים OCR", href: "/ocr", key: "admin-ocr" },
+  { id: 108, label: "מעקב מחירי ספקים", href: "/price-tracking", key: "admin-price-tracking" },
   { id: 105, label: "ייבוא ספקים", href: "/admin/suppliers", key: "admin-suppliers" },
   { id: 106, label: "ייבוא הוצאות", href: "/admin/expenses", key: "admin-expenses" },
   { id: 107, label: "ייבוא תשלומים", href: "/admin/payments", key: "admin-payments" },
@@ -77,6 +78,7 @@ const pageTitles: Record<string, string> = {
   "/admin/suppliers": "ייבוא ספקים",
   "/admin/expenses": "ייבוא הוצאות",
   "/admin/payments": "ייבוא תשלומים",
+  "/price-tracking": "מעקב מחירי ספקים",
   "/ai": "עוזר AI",
 };
 

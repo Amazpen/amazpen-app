@@ -9,10 +9,16 @@ export type DocumentType = 'invoice' | 'delivery_note' | 'credit_note' | 'paymen
 export type ExpenseType = 'goods' | 'current';
 
 export interface OCRLineItem {
+  id?: string;
   description?: string;
   quantity?: number;
   unit_price?: number;
   total?: number;
+  // Price tracking fields (populated client-side)
+  matched_supplier_item_id?: string;
+  previous_price?: number | null;
+  price_change_pct?: number | null;
+  is_new_item?: boolean;
 }
 
 export interface OCRExtractedData {
@@ -95,6 +101,8 @@ export interface OCRFormData {
   // Summary (מרכזת) specific fields
   summary_delivery_notes?: OCRDeliveryNoteEntry[];
   summary_is_closed?: string;
+  // Line items for price tracking
+  line_items?: OCRLineItem[];
 }
 
 // Helper functions

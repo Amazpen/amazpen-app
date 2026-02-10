@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { X } from 'lucide-react';
-import type { OCRDocument, OCRFormData, DocumentType, ExpenseType } from '@/types/ocr';
+import type { OCRDocument, OCRFormData, DocumentType, ExpenseType, OCRLineItem } from '@/types/ocr';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useFormDraft } from '@/hooks/useFormDraft';
+import { createClient } from '@/lib/supabase/client';
 
 interface Supplier {
   id: string;
@@ -147,6 +148,81 @@ export default function OCRForm({
     total_amount: '',
     notes: '',
   });
+
+  // Line items state for price tracking
+  const [lineItems, setLineItems] = useState<OCRLineItem[]>([]);
+  const [priceCheckDone, setPriceCheckDone] = useState(false);
+
+  // Fetch price comparisons when supplier changes and we have line items
+  useEffect(() => {
+    if (!supplierId || !selectedBusinessId || lineItems.length === 0) {
+      setPriceCheckDone(false);
+      return;
+    }
+
+    const checkPrices = async () => {
+      const supabase = createClient();
+      // Fetch all supplier items for this supplier+business
+      const { data: supplierItems } = await supabase
+        .from('supplier_items')
+        .select('id, item_name, item_aliases, current_price')
+        .eq('business_id', selectedBusinessId)
+        .eq('supplier_id', supplierId)
+        .eq('is_active', true);
+
+      if (!supplierItems) {
+        setPriceCheckDone(true);
+        return;
+      }
+
+      // Match line items to supplier items and compare prices
+      const updatedItems = lineItems.map((li) => {
+        const desc = (li.description || '').trim().toLowerCase();
+        if (!desc) return li;
+
+        // Find matching supplier item by name or aliases
+        const match = supplierItems.find((si) => {
+          const nameMatch = si.item_name.toLowerCase() === desc;
+          const aliasMatch = (si.item_aliases || []).some(
+            (a: string) => a.toLowerCase() === desc
+          );
+          // Partial match: item name contains or is contained in description
+          const partialMatch = si.item_name.toLowerCase().includes(desc) ||
+            desc.includes(si.item_name.toLowerCase());
+          return nameMatch || aliasMatch || partialMatch;
+        });
+
+        if (match && match.current_price != null && li.unit_price != null) {
+          const priceDiff = li.unit_price - match.current_price;
+          const changePct = match.current_price > 0
+            ? ((priceDiff / match.current_price) * 100)
+            : 0;
+          return {
+            ...li,
+            matched_supplier_item_id: match.id,
+            previous_price: match.current_price,
+            price_change_pct: Math.abs(changePct) < 0.01 ? 0 : changePct,
+            is_new_item: false,
+          };
+        }
+
+        return { ...li, is_new_item: true, matched_supplier_item_id: undefined, previous_price: undefined, price_change_pct: undefined };
+      });
+
+      setLineItems(updatedItems);
+      setPriceCheckDone(true);
+    };
+
+    checkPrices();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supplierId, selectedBusinessId, lineItems.length]);
+
+  // Count price alerts
+  const priceAlerts = useMemo(() => {
+    return lineItems.filter(
+      (li) => li.price_change_pct != null && li.price_change_pct !== 0
+    );
+  }, [lineItems]);
 
   // Calculate VAT and total (for invoice/delivery_note tabs)
   const calculatedVat = useMemo(() => {
@@ -380,6 +456,14 @@ export default function OCRForm({
       setSummaryDeliveryNotes([]);
       setShowAddDeliveryNote(false);
       setNewDeliveryNote({ delivery_note_number: '', delivery_date: '', total_amount: '', notes: '' });
+
+      // Populate line items from OCR extraction
+      if (data.line_items && data.line_items.length > 0) {
+        setLineItems(data.line_items);
+      } else {
+        setLineItems([]);
+      }
+      setPriceCheckDone(false);
     } else {
       // Reset all fields
       setDocumentType('invoice');
@@ -414,6 +498,8 @@ export default function OCRForm({
       setSummaryDeliveryNotes([]);
       setShowAddDeliveryNote(false);
       setNewDeliveryNote({ delivery_note_number: '', delivery_date: '', total_amount: '', notes: '' });
+      setLineItems([]);
+      setPriceCheckDone(false);
     }
     // After OCR data is set, try to restore draft (user edits override OCR defaults)
     draftRestored.current = false;
@@ -577,6 +663,7 @@ export default function OCRForm({
         total_amount: totalWithVat.toFixed(2),
         notes,
         is_paid: isPaid,
+        line_items: lineItems.length > 0 ? lineItems : undefined,
         ...(isPaid && {
           payment_method: inlinePaymentMethods[0]?.method || inlinePaymentMethod,
           payment_date: inlinePaymentDate,
@@ -921,6 +1008,82 @@ export default function OCRForm({
           />
         </div>
       </div>
+
+      {/* Line Items & Price Tracking */}
+      {lineItems.length > 0 && (
+        <div className="flex flex-col gap-[8px] border border-[#4C526B] rounded-[10px] p-[10px]">
+          <div className="flex items-center justify-between">
+            <span className="text-[15px] font-medium text-white">פריטים ({lineItems.length})</span>
+            {priceAlerts.length > 0 && (
+              <span className="text-[12px] font-medium bg-[#F64E60]/20 text-[#F64E60] px-[8px] py-[2px] rounded-full">
+                {priceAlerts.length} שינויי מחיר
+              </span>
+            )}
+          </div>
+
+          {/* Price alerts banner */}
+          {priceCheckDone && priceAlerts.length > 0 && (
+            <div className="bg-[#F64E60]/10 border border-[#F64E60]/30 rounded-[8px] p-[8px]">
+              <p className="text-[12px] text-[#F64E60] font-medium text-right mb-[4px]">התראות שינוי מחיר:</p>
+              {priceAlerts.map((li, idx) => (
+                <div key={idx} className="flex items-center justify-between text-[12px] py-[2px]">
+                  <span className={`font-medium ltr-num ${(li.price_change_pct || 0) > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                    {(li.price_change_pct || 0) > 0 ? '+' : ''}{li.price_change_pct?.toFixed(1)}%
+                  </span>
+                  <span className="text-white/70">
+                    {li.description}: &#8362;{li.previous_price?.toFixed(2)} &larr; &#8362;{li.unit_price?.toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Items table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-[#4C526B] text-white/60">
+                  <th className="text-right py-[6px] pr-[4px]">פריט</th>
+                  <th className="text-center py-[6px] w-[55px]">כמות</th>
+                  <th className="text-center py-[6px] w-[70px]">מחיר</th>
+                  <th className="text-center py-[6px] w-[70px]">סה&quot;כ</th>
+                  <th className="text-center py-[6px] w-[32px]"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {lineItems.map((li, idx) => (
+                  <tr key={idx} className="border-b border-[#4C526B]/50">
+                    <td className="text-right py-[6px] pr-[4px] text-white">{li.description || '-'}</td>
+                    <td className="text-center py-[6px] text-white/70 ltr-num">{li.quantity || '-'}</td>
+                    <td className="text-center py-[6px] ltr-num">
+                      <span className="text-white">&#8362;{li.unit_price?.toFixed(2) || '0'}</span>
+                      {priceCheckDone && li.price_change_pct != null && li.price_change_pct !== 0 && (
+                        <span className={`block text-[10px] ${(li.price_change_pct || 0) > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                          {li.price_change_pct > 0 ? '\u25B2' : '\u25BC'}{Math.abs(li.price_change_pct).toFixed(1)}%
+                        </span>
+                      )}
+                      {priceCheckDone && li.is_new_item && (
+                        <span className="block text-[10px] text-[#00D4FF]">חדש</span>
+                      )}
+                    </td>
+                    <td className="text-center py-[6px] text-white/70 ltr-num">&#8362;{li.total?.toFixed(2) || '0'}</td>
+                    <td className="text-center py-[6px]">
+                      <button
+                        type="button"
+                        onClick={() => setLineItems(prev => prev.filter((_, i) => i !== idx))}
+                        className="text-[#F64E60]/60 hover:text-[#F64E60] text-[14px]"
+                        title="הסר פריט"
+                      >
+                        &times;
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Notes */}
       <div className="flex flex-col gap-[5px]">
