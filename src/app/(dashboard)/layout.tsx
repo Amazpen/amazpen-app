@@ -253,11 +253,10 @@ export default function DashboardLayout({
         .single();
 
       if (profile) {
-        // Reset image loaded state when avatar changes
-        setProfileImageLoaded(prev => {
-          if (profile.avatar_url !== userProfile?.avatar_url) return false;
-          return prev;
-        });
+        // Reset image loaded state only when avatar URL actually changes
+        if (userProfile && profile.avatar_url !== userProfile.avatar_url) {
+          setProfileImageLoaded(false);
+        }
         setUserProfile(profile);
         // Check if user is admin from profile
         const adminStatus = profile.is_admin === true;
