@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
 
 interface Business {
   id: string;
@@ -505,32 +506,20 @@ export function ConsolidatedInvoiceModal({
           </div>
 
           {/* Supplier Select - only shows suppliers marked as coordinator */}
-          <div className="flex flex-col gap-[3px]">
-            <label className="text-[15px] font-medium text-white text-right">בחירת ספק מרכזת</label>
-            <div className="border border-[#4C526B] rounded-[10px]">
-              <select
-                title="בחר ספק"
-                value={selectedSupplierId}
-                onChange={(e) => setSelectedSupplierId(e.target.value)}
-                disabled={!selectedBusinessId || isLoadingSuppliers}
-                className="w-full h-[48px] bg-[#0F1535] text-white/40 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] disabled:opacity-50"
-              >
-                <option value="" className="bg-[#0F1535] text-white/40">
-                  {isLoadingSuppliers ? "טוען..." : suppliers.length === 0 && selectedBusinessId ? "אין ספקי מרכזת" : "בחר/י ספק..."}
-                </option>
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id} className="bg-[#0F1535] text-white">
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {selectedBusinessId && suppliers.length === 0 && !isLoadingSuppliers && (
-              <p className="text-[12px] text-[#F64E60] text-right">
-                אין ספקים מוגדרים כמרכזת. יש לסמן ספק כ&quot;מרכזת&quot; בהגדרות הספק.
-              </p>
-            )}
-          </div>
+          <SupplierSearchSelect
+            suppliers={suppliers}
+            value={selectedSupplierId}
+            onChange={setSelectedSupplierId}
+            label="בחירת ספק מרכזת"
+            disabled={!selectedBusinessId || isLoadingSuppliers}
+            placeholder={isLoadingSuppliers ? "טוען..." : "בחר/י ספק..."}
+            emptyMessage={selectedBusinessId ? "אין ספקי מרכזת" : undefined}
+          />
+          {selectedBusinessId && suppliers.length === 0 && !isLoadingSuppliers && (
+            <p className="text-[12px] text-[#F64E60] text-right">
+              אין ספקים מוגדרים כמרכזת. יש לסמן ספק כ&quot;מרכזת&quot; בהגדרות הספק.
+            </p>
+          )}
 
           {/* Date Field */}
           <div className="flex flex-col gap-[5px]">

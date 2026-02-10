@@ -6,6 +6,7 @@ import type { OCRDocument, OCRFormData, DocumentType, ExpenseType, OCRLineItem }
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { createClient } from '@/lib/supabase/client';
+import SupplierSearchSelect from '@/components/ui/SupplierSearchSelect';
 
 interface Supplier {
   id: string;
@@ -900,30 +901,17 @@ export default function OCRForm({
       </div>
 
       {/* Supplier Select */}
-      <div className="flex flex-col gap-[3px]">
-        <label className="text-[15px] font-medium text-white text-right">שם ספק</label>
-        {document?.ocr_data?.supplier_name && !supplierId && (
-          <div className="bg-[#29318A]/20 border border-[#29318A]/40 rounded-[8px] px-[10px] py-[6px]">
-            <span className="text-[13px] text-[#00D4FF]">זוהה מ-OCR: </span>
-            <span className="text-[13px] text-white font-medium">{document.ocr_data.supplier_name}</span>
-          </div>
-        )}
-        <div className="border border-[#4C526B] rounded-[10px]">
-          <select
-            title="בחר ספק"
-            value={supplierId}
-            onChange={(e) => setSupplierId(e.target.value)}
-            className="w-full h-[48px] bg-[#0F1535] text-white/40 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
-          >
-            <option value="" className="bg-[#0F1535] text-white/40">בחר/י ספק...</option>
-            {suppliers.map((supplier) => (
-              <option key={supplier.id} value={supplier.id} className="bg-[#0F1535] text-white">
-                {supplier.name}
-              </option>
-            ))}
-          </select>
+      {document?.ocr_data?.supplier_name && !supplierId && (
+        <div className="bg-[#29318A]/20 border border-[#29318A]/40 rounded-[8px] px-[10px] py-[6px]">
+          <span className="text-[13px] text-[#00D4FF]">זוהה מ-OCR: </span>
+          <span className="text-[13px] text-white font-medium">{document.ocr_data.supplier_name}</span>
         </div>
-      </div>
+      )}
+      <SupplierSearchSelect
+        suppliers={suppliers}
+        value={supplierId}
+        onChange={setSupplierId}
+      />
 
       {/* Document Number */}
       <div className="flex flex-col gap-[5px]">
@@ -1266,30 +1254,17 @@ export default function OCRForm({
       </div>
 
       {/* Supplier */}
-      <div className="flex flex-col gap-[3px]">
-        <label className="text-[16px] font-medium text-white text-right">שם ספק</label>
-        {document?.ocr_data?.supplier_name && !paymentTabSupplierId && (
-          <div className="bg-[#29318A]/20 border border-[#29318A]/40 rounded-[8px] px-[10px] py-[6px]">
-            <span className="text-[13px] text-[#00D4FF]">זוהה מ-OCR: </span>
-            <span className="text-[13px] text-white font-medium">{document.ocr_data.supplier_name}</span>
-          </div>
-        )}
-        <div className="border border-[#4C526B] rounded-[10px]">
-          <select
-            title="בחר ספק"
-            value={paymentTabSupplierId}
-            onChange={(e) => setPaymentTabSupplierId(e.target.value)}
-            className="w-full h-[48px] bg-[#0F1535] text-white/40 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
-          >
-            <option value="" className="bg-[#0F1535] text-white/40">בחר/י ספק...</option>
-            {suppliers.map((supplier) => (
-              <option key={supplier.id} value={supplier.id} className="bg-[#0F1535] text-white">
-                {supplier.name}
-              </option>
-            ))}
-          </select>
+      {document?.ocr_data?.supplier_name && !paymentTabSupplierId && (
+        <div className="bg-[#29318A]/20 border border-[#29318A]/40 rounded-[8px] px-[10px] py-[6px]">
+          <span className="text-[13px] text-[#00D4FF]">זוהה מ-OCR: </span>
+          <span className="text-[13px] text-white font-medium">{document.ocr_data.supplier_name}</span>
         </div>
-      </div>
+      )}
+      <SupplierSearchSelect
+        suppliers={suppliers}
+        value={paymentTabSupplierId}
+        onChange={setPaymentTabSupplierId}
+      />
 
       {/* Payment Methods Section */}
       {renderPaymentMethodsSection(paymentMethods, setPaymentMethods, paymentTabDate)}
@@ -1327,32 +1302,19 @@ export default function OCRForm({
   const renderSummaryForm = () => (
     <div className="flex flex-col gap-[15px]">
       {/* Coordinator Supplier Select */}
-      <div className="flex flex-col gap-[3px]">
-        <label className="text-[15px] font-medium text-white text-right">בחירת ספק מרכזת</label>
-        <div className="border border-[#4C526B] rounded-[10px]">
-          <select
-            title="בחר ספק"
-            value={summarySupplierId}
-            onChange={(e) => setSummarySupplierId(e.target.value)}
-            disabled={!selectedBusinessId}
-            className="w-full h-[48px] bg-[#0F1535] text-white/40 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] disabled:opacity-50"
-          >
-            <option value="" className="bg-[#0F1535] text-white/40">
-              {coordinatorSuppliers.length === 0 && selectedBusinessId ? 'אין ספקי מרכזת' : 'בחר/י ספק...'}
-            </option>
-            {coordinatorSuppliers.map((supplier) => (
-              <option key={supplier.id} value={supplier.id} className="bg-[#0F1535] text-white">
-                {supplier.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        {selectedBusinessId && coordinatorSuppliers.length === 0 && (
-          <p className="text-[12px] text-[#F64E60] text-right">
-            אין ספקים מוגדרים כמרכזת. יש לסמן ספק כ&quot;מרכזת&quot; בהגדרות הספק.
-          </p>
-        )}
-      </div>
+      <SupplierSearchSelect
+        suppliers={coordinatorSuppliers}
+        value={summarySupplierId}
+        onChange={setSummarySupplierId}
+        label="בחירת ספק מרכזת"
+        disabled={!selectedBusinessId}
+        emptyMessage={selectedBusinessId ? 'אין ספקי מרכזת' : undefined}
+      />
+      {selectedBusinessId && coordinatorSuppliers.length === 0 && (
+        <p className="text-[12px] text-[#F64E60] text-right">
+          אין ספקים מוגדרים כמרכזת. יש לסמן ספק כ&quot;מרכזת&quot; בהגדרות הספק.
+        </p>
+      )}
 
       {/* Date Field */}
       <div className="flex flex-col gap-[5px]">

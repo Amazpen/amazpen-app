@@ -6,6 +6,7 @@ import { useDashboard } from '../layout';
 import { createClient } from '@/lib/supabase/client';
 import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
 import type { PriceAlert, SupplierItem, SupplierItemPrice } from '@/types/price-tracking';
+import SupplierSearchSelect from '@/components/ui/SupplierSearchSelect';
 
 interface Supplier {
   id: string;
@@ -291,21 +292,17 @@ export default function PriceTrackingPage() {
         <h2 className="text-[16px] font-semibold text-white mb-2">חיפוש מחירים לפי ספק</h2>
 
         {/* Supplier select */}
-        <div className="border border-[#4C526B] rounded-[10px] mb-3">
-          <select
-            title="בחר ספק"
+        <div className="mb-3">
+          <SupplierSearchSelect
+            suppliers={suppliers}
             value={selectedSupplierId}
-            onChange={(e) => {
-              setSelectedSupplierId(e.target.value);
+            onChange={(id) => {
+              setSelectedSupplierId(id);
               setSelectedItemId(null);
             }}
-            className="w-full h-[44px] bg-[#0F1535] text-white/60 text-[15px] text-center rounded-[10px] border-none outline-none px-[10px]"
-          >
-            <option value="">בחר ספק...</option>
-            {suppliers.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
+            placeholder="בחר ספק..."
+            label="חיפוש ספק"
+          />
         </div>
 
         {/* Items list */}
