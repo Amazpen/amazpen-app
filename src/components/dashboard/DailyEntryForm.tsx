@@ -344,9 +344,9 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
     }
   };
 
-  // Load monthly markup & manager salary when date changes (admin only)
+  // Load monthly markup & manager salary when date changes (admin + edit mode only)
   useEffect(() => {
-    if (!isAdmin || !formData.entry_date || !businessId) return;
+    if (!isAdmin || !isEditMode || !formData.entry_date || !businessId) return;
 
     const loadMonthlySettings = async () => {
       const supabase = createClient();
@@ -398,7 +398,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
     };
 
     loadMonthlySettings();
-  }, [isAdmin, formData.entry_date, businessId]);
+  }, [isAdmin, isEditMode, formData.entry_date, businessId]);
 
   const loadExistingEntryData = async (entryId: string) => {
     try {
@@ -1094,8 +1094,8 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                   />
                 </FormField>
 
-                {/* Admin-only calculated fields */}
-                {isAdmin && (() => {
+                {/* Admin-only calculated fields - edit mode only */}
+                {isAdmin && isEditMode && (() => {
                   // עלות עובדים יומית כולל העמסה = עלות יומית * העמסה
                   const laborCost = parseFloat(formData.labor_cost) || 0;
                   const laborWithMarkup = laborCost * monthlyMarkup;
@@ -1233,8 +1233,8 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                           />
                         </FormField>
 
-                        {/* שימוש בפועל - admin only */}
-                        {isAdmin && (() => {
+                        {/* שימוש בפועל - admin + edit mode only */}
+                        {isAdmin && isEditMode && (() => {
                           const opening = parseFloat(productUsage[product.id]?.opening_stock) || 0;
                           const received = parseFloat(productUsage[product.id]?.received_quantity) || 0;
                           const closing = parseFloat(productUsage[product.id]?.closing_stock) || 0;
