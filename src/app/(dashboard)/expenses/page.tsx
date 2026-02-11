@@ -3025,7 +3025,7 @@ export default function ExpensesPage() {
       <Sheet open={showSupplierBreakdownPopup} onOpenChange={(open) => !open && handleCloseSupplierBreakdown()}>
         <SheetContent
           side="bottom"
-          className="h-auto max-h-[calc(100vh-20px)] max-h-[calc(100dvh-20px)] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[10px]"
+          className="h-[calc(100vh-60px)] h-[calc(100dvh-60px)] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[10px]"
           showCloseButton={false}
         >
           <SheetTitle className="sr-only">{breakdownSupplierName || "פירוט ספק"}</SheetTitle>
