@@ -3028,6 +3028,7 @@ export default function ExpensesPage() {
           className="h-auto max-h-[calc(100vh-20px)] max-h-[calc(100dvh-20px)] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[10px]"
           showCloseButton={false}
         >
+          <SheetTitle className="sr-only">{breakdownSupplierName || "פירוט ספק"}</SheetTitle>
           <div className="flex flex-col gap-[15px] p-[10px_7px]">
             {/* Close Button */}
             <button
