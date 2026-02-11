@@ -1212,7 +1212,6 @@ export default function PaymentsPage() {
                                     <span className="flex-1 text-[14px] text-white text-center">ספק</span>
                                     <span className="flex-1 text-[14px] font-medium text-white text-center">סכום לתשלום</span>
                                     <span className="flex-1 text-[14px] font-medium text-white text-center">אמצאי תשלום</span>
-                                    <div className="w-[25px] flex-shrink-0" />
                                   </div>
 
                                   {/* Payment Rows */}
