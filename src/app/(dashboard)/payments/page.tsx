@@ -262,6 +262,7 @@ export default function PaymentsPage() {
   const [forecastTotal, setForecastTotal] = useState(0);
   const [isLoadingForecast, setIsLoadingForecast] = useState(false);
   const [expandedForecastMonths, setExpandedForecastMonths] = useState<Set<string>>(new Set());
+  const [expandedForecastDates, setExpandedForecastDates] = useState<Set<string>>(new Set());
   const [commitments, setCommitments] = useState<Commitment[]>([]);
   const [showCommitments, setShowCommitments] = useState(false);
 
@@ -601,6 +602,15 @@ export default function PaymentsPage() {
 
   const toggleForecastMonth = useCallback((key: string) => {
     setExpandedForecastMonths(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) newSet.delete(key);
+      else newSet.add(key);
+      return newSet;
+    });
+  }, []);
+
+  const toggleForecastDate = useCallback((key: string) => {
+    setExpandedForecastDates(prev => {
       const newSet = new Set(prev);
       if (newSet.has(key)) newSet.delete(key);
       else newSet.add(key);
@@ -1169,10 +1179,16 @@ export default function PaymentsPage() {
                       {/* Expanded Content */}
                       {isExpanded && (
                         <div className="px-[5px] pb-[10px]">
-                          {dateGroupsArr.map(([dateKey, splits]) => (
+                          {dateGroupsArr.map(([dateKey, splits]) => {
+                            const dateExpanded = expandedForecastDates.has(`${month.key}__${dateKey}`);
+                            return (
                             <div key={dateKey} className="bg-white/5 border border-white/25 rounded-[7px] p-[3px_5px] mt-[10px]">
-                              {/* Date Group Header */}
-                              <div className="flex items-center justify-between pb-[3px] mb-[5px] border-b border-white/10">
+                              {/* Date Group Header - clickable */}
+                              <button
+                                type="button"
+                                onClick={() => toggleForecastDate(`${month.key}__${dateKey}`)}
+                                className="w-full flex items-center justify-between pb-[3px] hover:bg-white/5 transition-colors rounded-[5px]"
+                              >
                                 <div className="flex flex-col items-start">
                                   <span className="text-[16px] text-white">
                                     {`₪${splits.reduce((s, sp) => s + sp.amount, 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -1181,49 +1197,55 @@ export default function PaymentsPage() {
                                 </div>
                                 <div className="flex items-center gap-[5px]">
                                   <span className="text-[16px] text-white">{formatForecastDate(dateKey)}</span>
-                                  <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-white">
+                                  <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className={`text-white transition-transform ${dateExpanded ? "rotate-90" : ""}`}>
                                     <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                   </svg>
                                 </div>
-                              </div>
+                              </button>
 
-                              {/* Table Header */}
-                              <div className="flex items-center justify-between gap-[3px] rounded-t-[7px] border-b border-white/25 pb-[2px] mb-[5px]">
-                                <div className="w-[25px] flex-shrink-0" />
-                                <span className="text-[14px] font-medium text-white w-[65px] text-center">אמצאי תשלום</span>
-                                <span className="text-[14px] font-medium text-white w-[95px] text-center">סכום לתשלום</span>
-                                <span className="text-[14px] text-white w-[60px] text-center">ספק</span>
-                                <div className="w-[67px] flex-shrink-0">
-                                  <span className="text-[14px] font-medium text-white text-center block">תאריך התשלום</span>
-                                </div>
-                              </div>
-
-                              {/* Payment Rows */}
-                              {splits.map((split) => (
-                                <div key={split.id} className="flex items-center justify-between gap-[3px] rounded-[7px] min-h-[45px] py-[3px]">
-                                  <div className="w-[25px] flex-shrink-0 flex items-center justify-center">
-                                    {split.receipt_url && /^https?:\/\//.test(split.receipt_url) && (
-                                      <a href={split.receipt_url} target="_blank" rel="noopener noreferrer" className="text-white opacity-70 hover:opacity-100">
-                                        <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-                                          <rect x="4" y="4" width="24" height="24" rx="4" stroke="currentColor" strokeWidth="2"/>
-                                          <circle cx="12" cy="13" r="3" stroke="currentColor" strokeWidth="1.5"/>
-                                          <path d="M4 22L11 17L16 21L22 16L28 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                                        </svg>
-                                      </a>
-                                    )}
+                              {/* Table - hidden until date header is clicked */}
+                              {dateExpanded && (
+                                <>
+                                  {/* Table Header */}
+                                  <div className="flex items-center justify-between gap-[3px] rounded-t-[7px] border-b border-white/25 pb-[2px] mb-[5px] mt-[5px]">
+                                    <div className="w-[25px] flex-shrink-0" />
+                                    <span className="text-[14px] font-medium text-white w-[65px] text-center">אמצאי תשלום</span>
+                                    <span className="text-[14px] font-medium text-white w-[95px] text-center">סכום לתשלום</span>
+                                    <span className="text-[14px] text-white w-[60px] text-center">ספק</span>
+                                    <div className="w-[67px] flex-shrink-0">
+                                      <span className="text-[14px] font-medium text-white text-center block">תאריך התשלום</span>
+                                    </div>
                                   </div>
-                                  <span className="text-[14px] text-white w-[65px] text-center">
-                                    {paymentMethodNames[split.payment_method] || "אחר"}
-                                  </span>
-                                  <span className="text-[14px] text-white w-[95px] text-center">
-                                    {`₪${split.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                                  </span>
-                                  <span className="text-[14px] text-white w-[60px] text-center truncate">{split.supplier_name}</span>
-                                  <span className="text-[14px] text-white w-[67px] text-right">{formatForecastDateShort(split.due_date)}</span>
-                                </div>
-                              ))}
+
+                                  {/* Payment Rows */}
+                                  {splits.map((split) => (
+                                    <div key={split.id} className="flex items-center justify-between gap-[3px] rounded-[7px] min-h-[45px] py-[3px]">
+                                      <div className="w-[25px] flex-shrink-0 flex items-center justify-center">
+                                        {split.receipt_url && /^https?:\/\//.test(split.receipt_url) && (
+                                          <a href={split.receipt_url} target="_blank" rel="noopener noreferrer" className="text-white opacity-70 hover:opacity-100">
+                                            <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+                                              <rect x="4" y="4" width="24" height="24" rx="4" stroke="currentColor" strokeWidth="2"/>
+                                              <circle cx="12" cy="13" r="3" stroke="currentColor" strokeWidth="1.5"/>
+                                              <path d="M4 22L11 17L16 21L22 16L28 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                            </svg>
+                                          </a>
+                                        )}
+                                      </div>
+                                      <span className="text-[14px] text-white w-[65px] text-center">
+                                        {paymentMethodNames[split.payment_method] || "אחר"}
+                                      </span>
+                                      <span className="text-[14px] text-white w-[95px] text-center">
+                                        {`₪${split.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                      </span>
+                                      <span className="text-[14px] text-white w-[60px] text-center truncate">{split.supplier_name}</span>
+                                      <span className="text-[14px] text-white w-[67px] text-right">{formatForecastDateShort(split.due_date)}</span>
+                                    </div>
+                                  ))}
+                                </>
+                              )}
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -1257,13 +1279,13 @@ export default function PaymentsPage() {
                             key={`${c.payment_id}__${c.monthly_amount}`}
                             className="flex items-center justify-between px-[10px] py-[8px] border-t border-white/10"
                           >
-                            <div className="flex flex-col items-start">
+                            <span className="text-[16px] text-white flex-1">{label}</span>
+                            <div className="flex flex-col items-end">
                               <span className="text-[16px] text-white">
                                 {`₪${c.monthly_amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                               </span>
                               <span className="text-[12px] font-bold text-white">{`סה"כ לתשלום`}</span>
                             </div>
-                            <span className="text-[16px] text-white text-right flex-1 me-[10px]">{label}</span>
                           </div>
                         );
                       })}
