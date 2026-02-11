@@ -663,9 +663,10 @@ export default function ExpensesPage() {
 
   // Chart data source: categories for expenses/employees tabs, suppliers for purchases tab
   // When categories are expanded, replace them with their suppliers in the chart
+  // Always sorted by amount descending for clear chart readability
   const chartDataSource = useMemo(() => {
-    if (activeTab === "purchases") return expensesData;
-    if (expandedCategoryIds.size === 0) return categoryData;
+    if (activeTab === "purchases") return [...expensesData].sort((a, b) => b.amount - a.amount);
+    if (expandedCategoryIds.size === 0) return [...categoryData].sort((a, b) => b.amount - a.amount);
 
     // Build mixed chart: non-expanded categories + suppliers from expanded categories
     const result: { id: string; amount: number; percentage: number; name?: string; category?: string }[] = [];
@@ -673,12 +674,19 @@ export default function ExpensesPage() {
       if (expandedCategoryIds.has(cat.id) && cat.suppliers.length > 0) {
         // Replace this category with its individual suppliers
         for (const sup of cat.suppliers) {
-          result.push({ id: sup.id, amount: sup.amount, percentage: sup.percentage, name: sup.name });
+          result.push({ id: sup.id, amount: sup.amount, percentage: 0, name: sup.name });
         }
       } else {
-        result.push(cat);
+        result.push({ ...cat, percentage: 0 });
       }
     }
+    // Recalculate percentages relative to global total
+    const total = result.reduce((sum, item) => sum + item.amount, 0);
+    for (const item of result) {
+      item.percentage = total > 0 ? (item.amount / total) * 100 : 0;
+    }
+    // Sort by amount descending for clear chart readability
+    result.sort((a, b) => b.amount - a.amount);
     return result;
   }, [activeTab, expensesData, categoryData, expandedCategoryIds]);
 
