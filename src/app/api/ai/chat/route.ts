@@ -1195,26 +1195,75 @@ export async function POST(request: NextRequest) {
       queryResult = data || [];
     }
 
+    // --- If SQL failed, try regenerating once with the error context ---
+    if (queryErrorOccurred) {
+      console.log("[AI SQL] Attempting auto-fix with error context...");
+      const retryGenCompletion = await openai.chat.completions.create({
+        model: "gpt-4.1-mini",
+        messages: [
+          { role: "system", content: sqlSystemPrompt },
+          ...recentHistory.map((h) => ({
+            role: h.role as "user" | "assistant",
+            content: h.content.slice(0, 2000),
+          })),
+          { role: "user", content: message },
+          { role: "assistant", content: sql },
+          { role: "user", content: `השאילתה הקודמת נכשלה עם שגיאה: ${queryErrorMessage}\nתקן את השאילתה. החזר רק את ה-SQL המתוקן.` },
+        ],
+        temperature: 0,
+        max_tokens: 2000,
+      });
+
+      const retrySqlRaw = retryGenCompletion.choices[0].message.content?.trim() || "";
+      const retrySql = stripSqlFences(retrySqlRaw);
+      const retrySqlLower = retrySql.toLowerCase().trimStart();
+
+      if ((retrySqlLower.startsWith("select") || retrySqlLower.startsWith("with")) && !FORBIDDEN_SQL.test(retrySql)) {
+        console.log("[AI SQL] Auto-fix SQL:", retrySql.slice(0, 500));
+        const { data: fixData, error: fixError } = await adminSupabase.rpc("read_only_query", {
+          sql_query: retrySql,
+        });
+
+        if (!fixError) {
+          console.log("[AI SQL] Auto-fix success, rows:", Array.isArray(fixData) ? fixData.length : "non-array");
+          queryResult = fixData || [];
+          executedSql = retrySql;
+          queryErrorOccurred = false;
+          queryErrorMessage = "";
+        } else {
+          console.error("[AI SQL] Auto-fix also failed:", fixError.message);
+        }
+      }
+    }
+
     const resultRows = Array.isArray(queryResult) ? queryResult : [];
     const truncatedResults = resultRows.length > 100 ? resultRows.slice(0, 100) : resultRows;
 
     // --- Step D: Stream formatted response ---
+    const userContent = queryErrorOccurred
+      ? [
+          `שאלת המשתמש: ${message}`,
+          ``,
+          `לא הצלחתי למצוא את הנתונים המבוקשים. השאילתה לא הצליחה.`,
+          `ענה למשתמש בעברית פשוטה שלא הצלחת לשלוף את המידע הזה כרגע, והציע 2-3 שאלות חלופיות שאתה כן יודע לענות עליהן.`,
+          `אל תציג שום פרט טכני, שום שגיאה, שום SQL. פשוט דבר בטבעיות.`,
+        ].join("\n")
+      : [
+          `שאלת המשתמש: ${message}`,
+          ``,
+          `שאילתת SQL שהורצה:`,
+          executedSql,
+          ``,
+          `תוצאות (${resultRows.length} שורות${resultRows.length > 100 ? ", מוצגות 100 ראשונות" : ""}):\n${JSON.stringify(truncatedResults, null, 2)}`,
+        ].join("\n");
+
     const responseStream = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
         { role: "system", content: buildResponseSystemPrompt(userName, userRole, pageHint) },
         {
           role: "user",
-          content: [
-            `שאלת המשתמש: ${message}`,
-            ``,
-            `שאילתת SQL שהורצה:`,
-            executedSql,
-            ``,
-            queryErrorOccurred
-              ? `השאילתה נכשלה עם שגיאה: ${queryErrorMessage}\nהסבר למשתמש בעברית שכדאי לנסח את השאלה אחרת. אל תחשוף פרטים טכניים.`
-              : `תוצאות (${resultRows.length} שורות${resultRows.length > 100 ? ", מוצגות 100 ראשונות" : ""}):\n${JSON.stringify(truncatedResults, null, 2)}`,
-          ].join("\n"),
+          content: userContent,
         },
       ],
       temperature: 0.7,
