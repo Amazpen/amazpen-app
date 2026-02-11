@@ -1394,12 +1394,11 @@ export default function ExpensesPage() {
                     <button
                       type="button"
                       onClick={() => setExpandedCategoryId(expandedCategoryId === cat.id ? null : cat.id)}
-                      className={`flex flex-row-reverse items-center p-[5px] min-h-[50px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] w-full ${
+                      className={`flex items-center p-[5px] min-h-[50px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] w-full ${
                         index > 0 ? 'border-t border-white/10' : ''
                       }`}
                     >
-                      <div className="flex items-center gap-[5px] flex-1 justify-end">
-                        <span className="text-[16px]">{cat.category}</span>
+                      <div className="flex items-center gap-[5px] flex-1">
                         <svg
                           width="18"
                           height="18"
@@ -1409,6 +1408,7 @@ export default function ExpensesPage() {
                         >
                           <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
+                        <span className="text-[16px] text-right flex-1">{cat.category}</span>
                       </div>
                       <span className="text-[16px] flex-1 text-center ltr-num">₪{cat.amount.toLocaleString()}</span>
                       <span className="text-[16px] flex-1 text-center ltr-num">{cat.percentage.toFixed(1)}%</span>
