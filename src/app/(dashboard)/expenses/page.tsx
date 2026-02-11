@@ -223,6 +223,15 @@ export default function ExpensesPage() {
   const statusMenuRef = useRef<HTMLDivElement | null>(null);
   const [statusConfirm, setStatusConfirm] = useState<{ invoiceId: string; newStatus: string; label: string } | null>(null);
 
+  // Clarification popup state (when changing status to "בבירור")
+  const [showClarificationPopup, setShowClarificationPopup] = useState(false);
+  const [clarificationInvoiceId, setClarificationInvoiceId] = useState<string | null>(null);
+  const [statusClarificationReason, setStatusClarificationReason] = useState("");
+  const [showStatusClarificationMenu, setShowStatusClarificationMenu] = useState(true);
+  const [statusClarificationFile, setStatusClarificationFile] = useState<File | null>(null);
+  const [statusClarificationFilePreview, setStatusClarificationFilePreview] = useState<string | null>(null);
+  const [isSavingClarification, setIsSavingClarification] = useState(false);
+
   // Payment popup for existing invoice (when changing status to "paid")
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
   const [paymentInvoice, setPaymentInvoice] = useState<InvoiceDisplay | null>(null);
@@ -1038,21 +1047,39 @@ export default function ExpensesPage() {
       return;
     }
 
-    // Show confirmation popup for pending/clarification
+    // If changing to "clarification", open clarification popup
+    if (newStatus === 'clarification') {
+      setClarificationInvoiceId(invoiceId);
+      setStatusClarificationReason("");
+      setShowStatusClarificationMenu(true);
+      setStatusClarificationFile(null);
+      setStatusClarificationFilePreview(null);
+      setShowClarificationPopup(true);
+      setShowStatusMenu(null);
+      return;
+    }
+
+    // Show confirmation popup for pending
     setStatusConfirm({ invoiceId, newStatus, label: statusLabels[newStatus] || newStatus });
     setShowStatusMenu(null);
   };
 
-  // Confirm and execute the status change
+  // Confirm and execute the status change (for pending only)
   const confirmStatusChange = async () => {
     if (!statusConfirm) return;
     setIsUpdatingStatus(true);
     const supabase = createClient();
 
     try {
+      const updateData: Record<string, unknown> = { status: statusConfirm.newStatus };
+      // Clear clarification data when moving away from clarification
+      if (statusConfirm.newStatus === 'pending') {
+        updateData.clarification_reason = null;
+      }
+
       const { error } = await supabase
         .from("invoices")
-        .update({ status: statusConfirm.newStatus })
+        .update(updateData)
         .eq("id", statusConfirm.invoiceId);
 
       if (error) throw error;
@@ -1065,6 +1092,62 @@ export default function ExpensesPage() {
     } finally {
       setIsUpdatingStatus(false);
       setStatusConfirm(null);
+    }
+  };
+
+  // Save clarification status with reason and optional document
+  const handleSaveClarification = async () => {
+    if (!clarificationInvoiceId) return;
+    if (!statusClarificationReason.trim()) {
+      showToast("נא לבחור או להזין סיבת בירור", "warning");
+      return;
+    }
+
+    setIsSavingClarification(true);
+    const supabase = createClient();
+
+    try {
+      const updateData: Record<string, unknown> = {
+        status: "clarification",
+        clarification_reason: statusClarificationReason,
+      };
+
+      // Upload document if provided
+      if (statusClarificationFile) {
+        const timestamp = Date.now();
+        const ext = statusClarificationFile.name.split('.').pop();
+        const filePath = `invoices/clarification_${clarificationInvoiceId}_${timestamp}.${ext}`;
+        const result = await uploadFile(statusClarificationFile, filePath);
+        if (result.success && result.publicUrl) {
+          // Get current attachment_url and append
+          const { data: currentInv } = await supabase
+            .from("invoices")
+            .select("attachment_url")
+            .eq("id", clarificationInvoiceId)
+            .maybeSingle();
+
+          const existingUrls = parseAttachmentUrls(currentInv?.attachment_url || null);
+          existingUrls.push(result.publicUrl);
+          updateData.attachment_url = JSON.stringify(existingUrls);
+        }
+      }
+
+      const { error } = await supabase
+        .from("invoices")
+        .update(updateData)
+        .eq("id", clarificationInvoiceId);
+
+      if (error) throw error;
+
+      showToast('הסטטוס עודכן ל"בבירור"', "success");
+      setRefreshTrigger(prev => prev + 1);
+      setShowClarificationPopup(false);
+      setClarificationInvoiceId(null);
+    } catch (error) {
+      console.error("Error updating clarification status:", error);
+      showToast("שגיאה בעדכון הסטטוס", "error");
+    } finally {
+      setIsSavingClarification(false);
     }
   };
 
@@ -3339,6 +3422,136 @@ export default function ExpensesPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Clarification Popup - when changing status to "בבירור" */}
+      {showClarificationPopup && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50" onClick={() => setShowClarificationPopup(false)}>
+          <div dir="rtl" className="bg-[#1A1F4E] rounded-[14px] border border-white/20 shadow-2xl p-[20px] w-[340px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[16px] font-bold text-white text-center mb-[15px]">מסמך בבירור</h3>
+
+            {/* Reason Selection */}
+            {showStatusClarificationMenu ? (
+              <div className="flex flex-col gap-[6px] mb-[15px]">
+                <span className="text-[13px] text-white/60 text-right">בחר סיבת בירור:</span>
+                {["הזמנה לא סופקה במלואה", "טעות במחיר", "תעודת משלוח", "אחר (פרט/י)"].map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => {
+                      setStatusClarificationReason(option === "אחר (פרט/י)" ? "" : option);
+                      setShowStatusClarificationMenu(false);
+                    }}
+                    className="text-[14px] text-white text-right py-[10px] px-[10px] hover:bg-[#29318A]/30 rounded-[7px] transition-colors border border-white/10"
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-[10px] mb-[15px]">
+                {/* Reason textarea */}
+                <div>
+                  <div className="flex items-center justify-between mb-[5px]">
+                    <span className="text-[13px] text-white/60">סיבת בירור:</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowStatusClarificationMenu(true)}
+                      className="text-[12px] text-[#3F97FF] hover:underline"
+                    >
+                      שנה בחירה
+                    </button>
+                  </div>
+                  <textarea
+                    title="סיבת בירור"
+                    value={statusClarificationReason}
+                    onChange={(e) => setStatusClarificationReason(e.target.value)}
+                    placeholder="פרט/י את הסיבה..."
+                    rows={3}
+                    className="w-full bg-[#0F1535] text-white text-[14px] text-right rounded-[8px] border border-[#4C526B] outline-none p-[10px] resize-none"
+                  />
+                </div>
+
+                {/* Document Upload */}
+                <div>
+                  <span className="text-[13px] text-white/60 block mb-[5px]">צירוף מסמך (אופציונלי):</span>
+                  {statusClarificationFilePreview ? (
+                    <div className="flex items-center gap-[8px] bg-[#0F1535] border border-[#4C526B] rounded-[8px] p-[8px]">
+                      {statusClarificationFile?.type.startsWith("image/") ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={statusClarificationFilePreview} alt="תצוגה מקדימה" className="w-[50px] h-[50px] object-cover rounded-[6px]" />
+                      ) : (
+                        <div className="w-[50px] h-[50px] flex items-center justify-center bg-white/5 rounded-[6px]">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                          </svg>
+                        </div>
+                      )}
+                      <span className="text-[12px] text-white/70 flex-1 truncate">{statusClarificationFile?.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => { setStatusClarificationFile(null); setStatusClarificationFilePreview(null); }}
+                        className="text-[#F64E60] text-[18px] hover:text-[#ff7585]"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex items-center justify-center gap-[6px] bg-[#0F1535] border border-dashed border-[#4C526B] rounded-[8px] p-[12px] cursor-pointer hover:border-white/40 transition-colors">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/50">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                      </svg>
+                      <span className="text-[13px] text-white/50">העלאת תמונה/מסמך</span>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setStatusClarificationFile(file);
+                            if (file.type.startsWith("image/")) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => setStatusClarificationFilePreview(reader.result as string);
+                              reader.readAsDataURL(file);
+                            } else {
+                              setStatusClarificationFilePreview("pdf");
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-[10px] mt-[5px]">
+                  <button
+                    type="button"
+                    onClick={handleSaveClarification}
+                    disabled={isSavingClarification}
+                    className="flex-1 bg-[#FFA500] hover:bg-[#e69500] disabled:opacity-50 text-[#0F1535] text-[14px] font-bold py-[10px] rounded-[8px] transition-colors flex items-center justify-center gap-[4px]"
+                  >
+                    {isSavingClarification ? (
+                      <div className="w-4 h-4 border-2 border-[#0F1535]/30 border-t-[#0F1535] rounded-full animate-spin" />
+                    ) : "העבר לבבירור"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowClarificationPopup(false)}
+                    className="flex-1 bg-white/10 hover:bg-white/20 text-white text-[14px] py-[10px] rounded-[8px] transition-colors"
+                  >
+                    ביטול
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Status Change Confirmation Popup */}
       {statusConfirm && typeof window !== 'undefined' && createPortal(
