@@ -1207,25 +1207,23 @@ export default function PaymentsPage() {
                               {dateExpanded && (
                                 <>
                                   {/* Table Header */}
-                                  <div dir="rtl" className="flex items-center gap-[3px] rounded-t-[7px] border-b border-white/25 pb-[2px] mb-[5px] mt-[5px]">
-                                    <div className="w-[67px] flex-shrink-0">
-                                      <span className="text-[14px] font-medium text-white text-center block">תאריך התשלום</span>
-                                    </div>
-                                    <span className="text-[14px] text-white w-[60px] text-center">ספק</span>
-                                    <span className="text-[14px] font-medium text-white w-[95px] text-center">סכום לתשלום</span>
-                                    <span className="text-[14px] font-medium text-white w-[65px] text-center">אמצאי תשלום</span>
+                                  <div dir="rtl" className="flex items-center rounded-t-[7px] border-b border-white/25 pb-[2px] mb-[5px] mt-[5px]">
+                                    <span className="flex-1 text-[14px] font-medium text-white text-center">תאריך התשלום</span>
+                                    <span className="flex-1 text-[14px] text-white text-center">ספק</span>
+                                    <span className="flex-1 text-[14px] font-medium text-white text-center">סכום לתשלום</span>
+                                    <span className="flex-1 text-[14px] font-medium text-white text-center">אמצאי תשלום</span>
                                     <div className="w-[25px] flex-shrink-0" />
                                   </div>
 
                                   {/* Payment Rows */}
                                   {splits.map((split) => (
-                                    <div key={split.id} dir="rtl" className="flex items-center gap-[3px] rounded-[7px] min-h-[45px] py-[3px]">
-                                      <span className="text-[14px] text-white w-[67px] text-center">{formatForecastDateShort(split.due_date)}</span>
-                                      <span className="text-[14px] text-white w-[60px] text-center truncate">{split.supplier_name}</span>
-                                      <span className="text-[14px] text-white w-[95px] text-center">
+                                    <div key={split.id} dir="rtl" className="flex items-center rounded-[7px] min-h-[45px] py-[3px]">
+                                      <span className="flex-1 text-[14px] text-white text-center">{formatForecastDateShort(split.due_date)}</span>
+                                      <span className="flex-1 text-[14px] text-white text-center truncate">{split.supplier_name}</span>
+                                      <span className="flex-1 text-[14px] text-white text-center">
                                         {`₪${split.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                       </span>
-                                      <span className="text-[14px] text-white w-[65px] text-center">
+                                      <span className="flex-1 text-[14px] text-white text-center">
                                         {paymentMethodNames[split.payment_method] || "אחר"}
                                       </span>
                                       <div className="w-[25px] flex-shrink-0 flex items-center justify-center">
