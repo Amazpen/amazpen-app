@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
@@ -1577,7 +1577,11 @@ export default function ExpensesPage() {
                     {/* Category Row */}
                     <button
                       type="button"
-                      onClick={() => setExpandedCategoryId(expandedCategoryId === cat.id ? null : cat.id)}
+                      onClick={() => setExpandedCategoryIds(prev => {
+                        const next = new Set(prev);
+                        if (next.has(cat.id)) { next.delete(cat.id); } else { next.add(cat.id); }
+                        return next;
+                      })}
                       className={`flex items-center p-[5px] min-h-[50px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] w-full ${
                         index > 0 ? 'border-t border-white/10' : ''
                       }`}
@@ -1592,7 +1596,7 @@ export default function ExpensesPage() {
                           height="18"
                           viewBox="0 0 32 32"
                           fill="none"
-                          className={`flex-shrink-0 transition-transform ${expandedCategoryId === cat.id ? '-rotate-90' : ''}`}
+                          className={`flex-shrink-0 transition-transform ${expandedCategoryIds.has(cat.id) ? '-rotate-90' : ''}`}
                         >
                           <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
@@ -1603,9 +1607,12 @@ export default function ExpensesPage() {
                     </button>
 
                     {/* Drill-down: Suppliers in this category */}
-                    {expandedCategoryId === cat.id && cat.suppliers.length > 0 && (
+                    {expandedCategoryIds.has(cat.id) && cat.suppliers.length > 0 && (
                       <div className="bg-white/5 rounded-[7px] mx-[10px] mb-[5px]">
-                        {cat.suppliers.map((supplier, supIndex) => (
+                        {cat.suppliers.map((supplier, supIndex) => {
+                          // Find supplier's color from chartDataSource
+                          const chartIdx = chartDataSource.findIndex(d => d.id === supplier.id);
+                          return (
                           <button
                             type="button"
                             key={supplier.id}
@@ -1614,11 +1621,20 @@ export default function ExpensesPage() {
                               supIndex > 0 ? 'border-t border-white/10' : ''
                             }`}
                           >
-                            <span className={`text-[14px] flex-1 text-center ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.name}</span>
+                            <div className="flex items-center gap-[5px] flex-1">
+                              {chartIdx >= 0 && (
+                                <span
+                                  className="w-[10px] h-[10px] rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: chartColors[chartIdx % chartColors.length] }}
+                                />
+                              )}
+                              <span className={`text-[14px] flex-1 text-center ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.name}</span>
+                            </div>
                             <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>₪{supplier.amount.toLocaleString()}</span>
                             <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.percentage.toFixed(1)}%</span>
                           </button>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1882,7 +1898,7 @@ export default function ExpensesPage() {
                     onClick={() => setExpandedInvoiceId(expandedInvoiceId === invoice.id ? null : invoice.id)}
                     className={`text-[12px] text-center ltr-num cursor-pointer truncate px-[2px] ${isFixedPending ? 'text-[#bc76ff]' : ''}`}
                   >
-                    {invoice.reference}
+                    {invoice.reference || "-"}
                   </button>
                   {/* Amount - Clickable */}
                   <button
