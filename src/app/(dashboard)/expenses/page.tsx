@@ -1949,7 +1949,7 @@ export default function ExpensesPage() {
               return (
               <div
                 key={invoice.id}
-                className={`bg-[#29318A] rounded-[7px] p-[7px_3px] border transition-colors ${
+                className={`bg-transparent rounded-[7px] p-[7px_3px] border transition-colors ${
                   expandedInvoiceId === invoice.id ? 'border-white' : 'border-transparent'
                 }`}
               >
