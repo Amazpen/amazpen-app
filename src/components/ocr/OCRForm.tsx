@@ -60,7 +60,7 @@ const PAYMENT_METHODS = [
   { value: 'bit', label: 'ביט' },
   { value: 'paybox', label: 'פייבוקס' },
   { value: 'credit_card', label: 'כרטיס אשראי' },
-  { value: 'credit_companies', label: 'חברות הקפה' },
+  { value: 'credit_company', label: 'חברות הקפה' },
   { value: 'standing_order', label: 'הוראת קבע' },
   { value: 'other', label: 'אחר' },
 ];

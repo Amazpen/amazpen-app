@@ -58,7 +58,7 @@ const paymentMethodAliases: Record<string, string> = {
   "ביט": "bit", "bit": "bit",
   "פייבוקס": "paybox", "paybox": "paybox",
   "כרטיס אשראי": "credit_card", "אשראי": "credit_card", "credit_card": "credit_card", "credit": "credit_card",
-  "חברות הקפה": "credit_companies", "הקפה": "credit_companies", "credit_companies": "credit_companies",
+  "חברות הקפה": "credit_company", "הקפה": "credit_company", "credit_companies": "credit_company", "credit_company": "credit_company",
   "הוראת קבע": "standing_order", "הו\"ק": "standing_order", "הוק": "standing_order", "standing_order": "standing_order",
   "אחר": "other", "other": "other",
 };
@@ -70,6 +70,7 @@ const paymentMethodNames: Record<string, string> = {
   "bit": "ביט",
   "paybox": "פייבוקס",
   "credit_card": "כרטיס אשראי",
+  "credit_company": "חברות הקפה",
   "credit_companies": "חברות הקפה",
   "standing_order": "הוראת קבע",
   "other": "אחר",
