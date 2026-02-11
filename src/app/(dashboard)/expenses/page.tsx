@@ -1394,7 +1394,7 @@ export default function ExpensesPage() {
                     <button
                       type="button"
                       onClick={() => setExpandedCategoryId(expandedCategoryId === cat.id ? null : cat.id)}
-                      className={`flex items-center p-[5px] min-h-[50px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] w-full ${
+                      className={`flex flex-row-reverse items-center p-[5px] min-h-[50px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] w-full ${
                         index > 0 ? 'border-t border-white/10' : ''
                       }`}
                     >
