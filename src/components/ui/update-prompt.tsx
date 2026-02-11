@@ -1,10 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export function UpdatePrompt() {
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const [visible, setVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
@@ -57,10 +63,17 @@ export function UpdatePrompt() {
     setVisible(false);
   };
 
-  if (!visible) return null;
+  if (!visible || !mounted) return null;
 
-  return (
-    <div className="fixed bottom-[20px] left-[10px] right-[10px] lg:left-auto lg:right-[230px] lg:max-w-[400px] z-[999999] animate-slide-up">
+  // Render via portal directly to document.body to escape any Radix Dialog focus traps
+  return createPortal(
+    <div
+      className="fixed bottom-[20px] left-[10px] right-[10px] lg:left-auto lg:right-[230px] lg:max-w-[400px] z-[999999] animate-slide-up"
+      style={{ pointerEvents: 'auto' }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
       <div dir="rtl" className="bg-[#1a7a4c] rounded-[14px] shadow-2xl overflow-hidden">
         <div className="p-[14px_16px] flex items-center gap-[12px]">
           {/* Update icon */}
@@ -102,6 +115,7 @@ export function UpdatePrompt() {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
