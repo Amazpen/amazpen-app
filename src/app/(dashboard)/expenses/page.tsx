@@ -11,6 +11,7 @@ import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { uploadFile } from "@/lib/uploadFile";
+import { convertPdfToImage } from "@/lib/pdfToImage";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
@@ -1883,7 +1884,7 @@ export default function ExpensesPage() {
         {/* Table */}
         <div id="onboarding-expenses-list" className="w-full flex flex-col gap-[5px]">
           {/* Table Header */}
-          <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#E34299] rounded-t-[7px] p-[10px_5px] items-center">
+          <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] items-center">
             <button
               type="button"
               onClick={() => setDateSortOrder(prev => prev === "asc" ? "desc" : prev === "desc" ? null : "asc")}
@@ -1938,7 +1939,7 @@ export default function ExpensesPage() {
               return (
               <div
                 key={invoice.id}
-                className={`bg-[#E34299]/10 rounded-[7px] p-[7px_3px] border transition-colors ${
+                className={`bg-[#29318A]/30 rounded-[7px] p-[7px_3px] border transition-colors ${
                   expandedInvoiceId === invoice.id ? 'border-white' : 'border-transparent'
                 }`}
               >
@@ -2461,12 +2462,24 @@ export default function ExpensesPage() {
                     type="file"
                     accept="image/*,.pdf"
                     multiple
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const files = e.target.files;
                       if (files && files.length > 0) {
                         const arr = Array.from(files);
                         setNewAttachmentFiles(prev => [...prev, ...arr]);
-                        setNewAttachmentPreviews(prev => [...prev, ...arr.map(f => URL.createObjectURL(f))]);
+                        // Generate previews - for PDFs render first page as image
+                        const previews = await Promise.all(arr.map(async (f) => {
+                          if (f.type === "application/pdf") {
+                            try {
+                              const imgFile = await convertPdfToImage(f);
+                              return URL.createObjectURL(imgFile);
+                            } catch {
+                              return URL.createObjectURL(f);
+                            }
+                          }
+                          return URL.createObjectURL(f);
+                        }));
+                        setNewAttachmentPreviews(prev => [...prev, ...previews]);
                       }
                       e.target.value = "";
                     }}
