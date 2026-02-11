@@ -60,7 +60,7 @@ export function UpdatePrompt() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-[20px] left-[10px] right-[10px] lg:left-auto lg:right-[230px] lg:max-w-[400px] z-[9999] animate-slide-up">
+    <div className="fixed bottom-[20px] left-[10px] right-[10px] lg:left-auto lg:right-[230px] lg:max-w-[400px] z-[999999] animate-slide-up">
       <div dir="rtl" className="bg-[#1a7a4c] rounded-[14px] shadow-2xl overflow-hidden">
         <div className="p-[14px_16px] flex items-center gap-[12px]">
           {/* Update icon */}
