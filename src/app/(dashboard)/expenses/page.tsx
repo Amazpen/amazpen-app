@@ -1019,12 +1019,22 @@ export default function ExpensesPage() {
   };
 
   // Handle file selection for edit
-  const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEditFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       const newFiles = Array.from(files);
       setEditAttachmentFiles(prev => [...prev, ...newFiles]);
-      const newPreviews = newFiles.map(f => URL.createObjectURL(f));
+      const newPreviews = await Promise.all(newFiles.map(async (f) => {
+        if (f.type === "application/pdf") {
+          try {
+            const imgFile = await convertPdfToImage(f);
+            return URL.createObjectURL(imgFile);
+          } catch {
+            return URL.createObjectURL(f);
+          }
+        }
+        return URL.createObjectURL(f);
+      }));
       setEditAttachmentPreviews(prev => [...prev, ...newPreviews]);
     }
     // Reset input so same file can be selected again
@@ -2410,30 +2420,10 @@ export default function ExpensesPage() {
                 {newAttachmentPreviews.length > 0 && (
                   <div className="flex flex-wrap gap-[8px] mb-[5px]">
                     {newAttachmentPreviews.map((preview, idx) => {
-                      const file = newAttachmentFiles[idx];
-                      const isImage = file?.type?.startsWith("image/");
-                      const isPdf = file?.type === "application/pdf";
                       return (
                       <div key={idx} className="relative group border border-[#4C526B] rounded-[8px] overflow-hidden w-[80px] h-[80px]">
-                        {isImage ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
-                        ) : isPdf ? (
-                          <div className="w-full h-full flex flex-col items-center justify-center bg-white/5 cursor-pointer" onClick={() => window.open(preview, '_blank')}>
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E53E3E" strokeWidth="1.5" className="mb-[2px]">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                              <polyline points="14 2 14 8 20 8"/>
-                            </svg>
-                            <span className="text-[9px] font-bold text-[#E53E3E]">PDF</span>
-                          </div>
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-white/5 cursor-pointer" onClick={() => window.open(preview, '_blank')}>
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                              <polyline points="14 2 14 8 20 8"/>
-                            </svg>
-                          </div>
-                        )}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
                         <button
                           type="button"
                           onClick={() => {
