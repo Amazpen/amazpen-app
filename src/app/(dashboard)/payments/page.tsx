@@ -1207,7 +1207,7 @@ export default function PaymentsPage() {
                               {dateExpanded && (
                                 <>
                                   {/* Table Header */}
-                                  <div dir="rtl" className="flex items-center rounded-t-[7px] border-b border-white/25 pb-[2px] mb-[5px] mt-[5px]">
+                                  <div className="flex flex-row-reverse items-center rounded-t-[7px] border-b border-white/25 pb-[2px] mb-[5px] mt-[5px]">
                                     <span className="flex-1 text-[14px] font-medium text-white text-center">תאריך התשלום</span>
                                     <span className="flex-1 text-[14px] text-white text-center">ספק</span>
                                     <span className="flex-1 text-[14px] font-medium text-white text-center">סכום לתשלום</span>
@@ -1217,7 +1217,7 @@ export default function PaymentsPage() {
 
                                   {/* Payment Rows */}
                                   {splits.map((split) => (
-                                    <div key={split.id} dir="rtl" className="flex items-center rounded-[7px] min-h-[45px] py-[3px]">
+                                    <div key={split.id} className="flex flex-row-reverse items-center rounded-[7px] min-h-[45px] py-[3px]">
                                       <span className="flex-1 text-[14px] text-white text-center">{formatForecastDateShort(split.due_date)}</span>
                                       <span className="flex-1 text-[14px] text-white text-center truncate">{split.supplier_name}</span>
                                       <span className="flex-1 text-[14px] text-white text-center">
