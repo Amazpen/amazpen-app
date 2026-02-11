@@ -1,4 +1,4 @@
-// BUILD_TIME=1770757642886
+// BUILD_TIME=1770802111454
 const CACHE_NAME = 'amazpen-v1';
 const STATIC_ASSETS = [
   '/',

@@ -146,7 +146,7 @@ export default function GoalsPage() {
   }, []);
 
   useMultiTableRealtime(
-    ["goals", "supplier_budgets", "invoices", "daily_entries", "expense_categories", "suppliers", "income_source_goals", "daily_income_breakdown", "daily_product_usage"],
+    ["goals", "supplier_budgets", "invoices", "daily_entries", "expense_categories", "suppliers", "income_source_goals", "daily_income_breakdown", "daily_product_usage", "businesses", "business_schedule"],
     handleRealtimeChange,
     selectedBusinesses.length > 0
   );
@@ -392,17 +392,67 @@ export default function GoalsPage() {
         // ============================================
         // 7. Build KPI data from goals + daily_entries
         // ============================================
-        const { data: dailyEntries } = await supabase
-          .from("daily_entries")
-          .select("id, total_register, labor_cost")
-          .in("business_id", selectedBusinesses)
-          .is("deleted_at", null)
-          .gte("entry_date", startDate)
-          .lte("entry_date", endDate);
+        const [
+          { data: dailyEntries },
+          { data: businessData },
+          { data: scheduleData },
+        ] = await Promise.all([
+          supabase
+            .from("daily_entries")
+            .select("id, total_register, labor_cost, day_factor")
+            .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
+            .gte("entry_date", startDate)
+            .lte("entry_date", endDate),
+          supabase
+            .from("businesses")
+            .select("id, markup_percentage, manager_monthly_salary, vat_percentage")
+            .in("id", selectedBusinesses),
+          supabase
+            .from("business_schedule")
+            .select("business_id, day_of_week, day_factor")
+            .in("business_id", selectedBusinesses),
+        ]);
 
         // Calculate totals from daily entries
         const totalRevenue = (dailyEntries || []).reduce((sum, d) => sum + Number(d.total_register || 0), 0);
-        const totalLaborCost = (dailyEntries || []).reduce((sum, d) => sum + Number(d.labor_cost || 0), 0);
+        const rawLaborCost = (dailyEntries || []).reduce((sum, d) => sum + Number(d.labor_cost || 0), 0);
+
+        // Calculate labor cost with markup and manager salary
+        // Formula: (labor_cost × markup) + (manager_salary ÷ expected_work_days × actual_days × markup)
+        const avgMarkup = (businessData || []).reduce((sum, b) => sum + (Number(b.markup_percentage) || 1), 0) / Math.max((businessData || []).length, 1);
+        const totalManagerSalary = (businessData || []).reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
+
+        // Calculate expected work days from schedule
+        const scheduleDayFactors: Record<number, number[]> = {};
+        (scheduleData || []).forEach(s => {
+          if (!scheduleDayFactors[s.day_of_week]) {
+            scheduleDayFactors[s.day_of_week] = [];
+          }
+          scheduleDayFactors[s.day_of_week].push(Number(s.day_factor) || 0);
+        });
+        const avgScheduleDayFactors: Record<number, number> = {};
+        Object.keys(scheduleDayFactors).forEach(dow => {
+          const factors = scheduleDayFactors[Number(dow)];
+          avgScheduleDayFactors[Number(dow)] = factors.reduce((a, b) => a + b, 0) / factors.length;
+        });
+        const firstDay = new Date(year, month - 1, 1);
+        const lastDay = new Date(year, month, 0);
+        let expectedWorkDays = 0;
+        const curDate = new Date(firstDay);
+        while (curDate <= lastDay) {
+          expectedWorkDays += avgScheduleDayFactors[curDate.getDay()] || 0;
+          curDate.setDate(curDate.getDate() + 1);
+        }
+
+        const managerDailyCost = expectedWorkDays > 0 ? totalManagerSalary / expectedWorkDays : 0;
+        const actualWorkDays = (dailyEntries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
+        const totalLaborCost = (rawLaborCost + (managerDailyCost * actualWorkDays)) * avgMarkup;
+
+        // Calculate VAT divisor from business settings
+        const avgVatPercentage = (businessData || []).reduce((sum, b) => sum + (Number(b.vat_percentage) || 0), 0) / Math.max((businessData || []).length, 1);
+        const vatDivisor = avgVatPercentage > 0 ? 1 + avgVatPercentage : 1;
+        const incomeBeforeVat = totalRevenue / vatDivisor;
 
         // Calculate food cost from goods invoices
         const totalGoodsCost = (invoicesData || [])
@@ -414,9 +464,9 @@ export default function GoalsPage() {
           .filter(inv => inv.invoice_type === "current")
           .reduce((sum, inv) => sum + Number(inv.subtotal), 0);
 
-        // Calculate percentages
-        const laborPct = totalRevenue > 0 ? (totalLaborCost / totalRevenue) * 100 : 0;
-        const foodPct = totalRevenue > 0 ? (totalGoodsCost / totalRevenue) * 100 : 0;
+        // Calculate percentages against income before VAT
+        const laborPct = incomeBeforeVat > 0 ? (totalLaborCost / incomeBeforeVat) * 100 : 0;
+        const foodPct = incomeBeforeVat > 0 ? (totalGoodsCost / incomeBeforeVat) * 100 : 0;
 
         // ============================================
         // 8. Fetch income sources, goals & breakdown for avg ticket
