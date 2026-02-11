@@ -2421,18 +2421,26 @@ export default function ExpensesPage() {
                   <div className="flex flex-wrap gap-[8px] mb-[5px]">
                     {newAttachmentPreviews.map((preview, idx) => {
                       return (
-                      <div key={idx} className="relative group border border-[#4C526B] rounded-[8px] overflow-hidden w-[80px] h-[80px]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
+                      <div key={idx} className="flex flex-col items-center gap-[4px]">
+                        <div className="relative border border-[#4C526B] rounded-[8px] overflow-hidden w-[100px] h-[100px]">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
+                        </div>
                         <button
                           type="button"
                           onClick={() => {
                             setNewAttachmentFiles(prev => prev.filter((_, i) => i !== idx));
                             setNewAttachmentPreviews(prev => prev.filter((_, i) => i !== idx));
                           }}
-                          className="absolute top-[2px] left-[2px] bg-[#F64E60] text-white rounded-full w-[18px] h-[18px] flex items-center justify-center text-[12px] opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="text-[#F64E60] hover:text-[#ff3547] transition-colors"
+                          title="הסר קובץ"
                         >
-                          ×
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            <line x1="10" y1="11" x2="10" y2="17"/>
+                            <line x1="14" y1="11" x2="14" y2="17"/>
+                          </svg>
                         </button>
                       </div>
                       );
@@ -2987,25 +2995,33 @@ export default function ExpensesPage() {
                 {editAttachmentPreviews.length > 0 && (
                   <div className="flex flex-wrap gap-[8px] mb-[5px]">
                     {editAttachmentPreviews.map((preview, idx) => (
-                      <div key={idx} className="relative group border border-[#4C526B] rounded-[8px] overflow-hidden w-[80px] h-[80px]">
-                        {preview.endsWith(".pdf") ? (
-                          <div className="w-full h-full flex flex-col items-center justify-center bg-white/5 cursor-pointer" onClick={() => window.open(preview, '_blank')}>
-                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E53E3E" strokeWidth="1.5" className="mb-[2px]">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                              <polyline points="14 2 14 8 20 8"/>
-                            </svg>
-                            <span className="text-[9px] font-bold text-[#E53E3E]">PDF</span>
-                          </div>
-                        ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
-                        )}
+                      <div key={idx} className="flex flex-col items-center gap-[4px]">
+                        <div className="relative border border-[#4C526B] rounded-[8px] overflow-hidden w-[100px] h-[100px]">
+                          {preview.endsWith(".pdf") ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-white/5 cursor-pointer" onClick={() => window.open(preview, '_blank')}>
+                              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E53E3E" strokeWidth="1.5" className="mb-[2px]">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                              </svg>
+                              <span className="text-[9px] font-bold text-[#E53E3E]">PDF</span>
+                            </div>
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
+                          )}
+                        </div>
                         <button
                           type="button"
                           onClick={() => handleRemoveEditAttachment(idx)}
-                          className="absolute top-[2px] left-[2px] bg-[#F64E60] text-white rounded-full w-[18px] h-[18px] flex items-center justify-center text-[12px] opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="text-[#F64E60] hover:text-[#ff3547] transition-colors"
+                          title="הסר קובץ"
                         >
-                          ×
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            <line x1="10" y1="11" x2="10" y2="17"/>
+                            <line x1="14" y1="11" x2="14" y2="17"/>
+                          </svg>
                         </button>
                       </div>
                     ))}

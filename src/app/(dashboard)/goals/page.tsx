@@ -425,7 +425,10 @@ export default function GoalsPage() {
 
         // Calculate labor cost with markup and manager salary
         // Formula: (labor_cost + manager_daily_cost × actual_days) × markup
-        const avgMarkup = (businessData || []).reduce((sum, b) => sum + (Number(b.markup_percentage) || 1), 0) / Math.max((businessData || []).length, 1);
+        // Use monthly goal values with business defaults as fallback
+        const avgMarkup = goal?.markup_percentage != null
+          ? Number(goal.markup_percentage)
+          : (businessData || []).reduce((sum, b) => sum + (Number(b.markup_percentage) || 1), 0) / Math.max((businessData || []).length, 1);
         const totalManagerSalary = (businessData || []).reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
 
         // Calculate expected work days from schedule
@@ -454,8 +457,10 @@ export default function GoalsPage() {
         const actualWorkDays = (dailyEntries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
         const totalLaborCost = (rawLaborCost + (managerDailyCost * actualWorkDays)) * avgMarkup;
 
-        // Calculate VAT divisor from business settings
-        const avgVatPercentage = (businessData || []).reduce((sum, b) => sum + (Number(b.vat_percentage) || 0), 0) / Math.max((businessData || []).length, 1);
+        // Calculate VAT divisor - use monthly goal values with business defaults as fallback
+        const avgVatPercentage = goal?.vat_percentage != null
+          ? Number(goal.vat_percentage)
+          : (businessData || []).reduce((sum, b) => sum + (Number(b.vat_percentage) || 0), 0) / Math.max((businessData || []).length, 1);
         const vatDivisor = avgVatPercentage > 0 ? 1 + avgVatPercentage : 1;
         const incomeBeforeVat = totalRevenue / vatDivisor;
 

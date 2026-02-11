@@ -466,7 +466,7 @@ export default function DashboardPage() {
           .in("business_id", businessIds),
         supabase
           .from("goals")
-          .select("business_id, revenue_target, labor_cost_target_pct, food_cost_target_pct")
+          .select("business_id, revenue_target, labor_cost_target_pct, food_cost_target_pct, markup_percentage, vat_percentage")
           .in("business_id", businessIds)
           .eq("year", targetYear)
           .eq("month", targetMonth)
@@ -516,8 +516,9 @@ export default function DashboardPage() {
         const totalIncome = businessEntries.reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
         const rawLaborCost = businessEntries.reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
 
-        const vatPercentage = Number(business.vat_percentage) || 0;
-        const markupPercentage = Number(business.markup_percentage) || 1;
+        const businessGoal = goalsData?.find((g: Record<string, unknown>) => g.business_id === business.id);
+        const vatPercentage = businessGoal?.vat_percentage != null ? Number(businessGoal.vat_percentage) : (Number(business.vat_percentage) || 0);
+        const markupPercentage = businessGoal?.markup_percentage != null ? Number(businessGoal.markup_percentage) : (Number(business.markup_percentage) || 1);
         const managerSalary = Number(business.manager_monthly_salary) || 0;
         const markupMultiplier = markupPercentage;
 
@@ -559,7 +560,6 @@ export default function DashboardPage() {
 
         let targetDiffPct = 0;
         const sumActualDayFactors = actualWorkDays;
-        const businessGoal = (goalsData || []).find(g => g.business_id === business.id);
 
         if (sumActualDayFactors > 0 && businessSchedule.length > 0 && businessGoal?.revenue_target) {
           const dailyAverage = totalIncome / sumActualDayFactors;
@@ -666,7 +666,7 @@ export default function DashboardPage() {
         // 4. Fetch goals data
         supabase
           .from("goals")
-          .select("id, revenue_target, labor_cost_target_pct, food_cost_target_pct, current_expenses_target")
+          .select("id, business_id, revenue_target, labor_cost_target_pct, food_cost_target_pct, current_expenses_target, markup_percentage, vat_percentage")
           .in("business_id", selectedBusinesses)
           .eq("year", targetYear)
           .eq("month", targetMonth)
@@ -786,7 +786,11 @@ export default function DashboardPage() {
 
       // Calculate labor cost with markup and manager salary
       // Formula: (labor_cost + manager_daily_cost × actual_days) × markup
-      const totalMarkup = (businessData || []).reduce((sum, b) => sum + (Number(b.markup_percentage) || 1), 0) / Math.max((businessData || []).length, 1);
+      // Use monthly goal values with business defaults as fallback
+      const totalMarkup = (businessData || []).reduce((sum, b) => {
+        const bGoal = (goalsData || []).find((g: Record<string, unknown>) => g.business_id === b.id);
+        return sum + (bGoal?.markup_percentage != null ? Number(bGoal.markup_percentage) : (Number(b.markup_percentage) || 1));
+      }, 0) / Math.max((businessData || []).length, 1);
       const totalManagerSalary = (businessData || []).reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
 
       // Calculate expected work days in the month from schedule
@@ -827,8 +831,11 @@ export default function DashboardPage() {
       // Labor cost in ILS: (labor_cost + manager_daily_cost × actual_days) × markup
       const laborCost = (rawLaborCost + (managerDailyCost * actualWorkDays)) * totalMarkup;
 
-      // Get average VAT percentage for selected businesses (stored as decimal like 0.18)
-      const avgVatPercentage = (businessData || []).reduce((sum, b) => sum + (Number(b.vat_percentage) || 0), 0) / Math.max((businessData || []).length, 1);
+      // Get average VAT percentage - use monthly goal values with business defaults as fallback
+      const avgVatPercentage = (businessData || []).reduce((sum, b) => {
+        const bGoal = (goalsData || []).find((g: Record<string, unknown>) => g.business_id === b.id);
+        return sum + (bGoal?.vat_percentage != null ? Number(bGoal.vat_percentage) : (Number(b.vat_percentage) || 0));
+      }, 0) / Math.max((businessData || []).length, 1);
       // VAT divisor: 1 + vat, e.g., 1.18 for 18% VAT
       const vatDivisor = avgVatPercentage > 0 ? 1 + avgVatPercentage : 1;
       // Income before VAT
@@ -1042,7 +1049,10 @@ export default function DashboardPage() {
       // Calculate food cost from invoices of suppliers with expense_type = 'goods_purchases'
       const foodCost = totalGoodsPurchases;
       // Food cost percentage calculated against income before VAT (same as labor cost)
-      const avgVatPercentageForFood = (businessData || []).reduce((sum, b) => sum + (Number(b.vat_percentage) || 0), 0) / Math.max((businessData || []).length, 1);
+      const avgVatPercentageForFood = (businessData || []).reduce((sum, b) => {
+        const bGoal = (goalsData || []).find((g: Record<string, unknown>) => g.business_id === b.id);
+        return sum + (bGoal?.vat_percentage != null ? Number(bGoal.vat_percentage) : (Number(b.vat_percentage) || 0));
+      }, 0) / Math.max((businessData || []).length, 1);
       const vatDivisorForFood = avgVatPercentageForFood > 0 ? 1 + avgVatPercentageForFood : 1;
       const incomeBeforeVatForFood = totalIncome / vatDivisorForFood;
       const foodCostPct = incomeBeforeVatForFood > 0 ? (foodCost / incomeBeforeVatForFood) * 100 : 0;
@@ -1418,7 +1428,7 @@ export default function DashboardPage() {
         // All goals for last 6 months (multiple months)
         supabase
           .from("goals")
-          .select("business_id, year, month, revenue_target, labor_cost_target_pct, food_cost_target_pct")
+          .select("business_id, year, month, revenue_target, labor_cost_target_pct, food_cost_target_pct, markup_percentage, vat_percentage")
           .in("business_id", selectedBusinesses)
           .gte("year", historicalStartDate.getFullYear())
           .is("deleted_at", null),
@@ -1460,11 +1470,10 @@ export default function DashboardPage() {
       const relevantBreakdowns = allBreakdownData.filter(b => historicalEntryIds.has(b.daily_entry_id));
       const relevantProductUsage = allProductUsageData.filter(p => historicalEntryIds.has(p.daily_entry_id));
 
-      // Calculate VAT and markup from business data (reuse from earlier)
-      const avgVatPct = (businessData || []).reduce((sum, b) => sum + (Number(b.vat_percentage) || 0), 0) / Math.max((businessData || []).length, 1);
-      const vatDivisorHist = avgVatPct > 0 ? 1 + avgVatPct : 1;
+      // Calculate VAT and markup defaults from business data (used as fallback for historical months)
+      const defaultVatPct = (businessData || []).reduce((sum, b) => sum + (Number(b.vat_percentage) || 0), 0) / Math.max((businessData || []).length, 1);
+      const defaultMarkupHist = (businessData || []).reduce((sum, b) => sum + (Number(b.markup_percentage) || 1), 0) / Math.max((businessData || []).length, 1);
       const totalManagerSalaryHist = (businessData || []).reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
-      const avgMarkupHist = (businessData || []).reduce((sum, b) => sum + (Number(b.markup_percentage) || 1), 0) / Math.max((businessData || []).length, 1);
 
       // Helper function to get month key (YYYY-MM)
       const getMonthKey = (dateStr: string) => dateStr.substring(0, 7);
@@ -1529,9 +1538,18 @@ export default function DashboardPage() {
         const monthInvoices = invoicesByMonth[monthKey] || [];
         const monthGoals = goalsByMonth[monthKey] || [];
 
+        // Calculate per-month VAT and markup from goals (with business defaults as fallback)
+        const monthVatPct = monthGoals.length > 0
+          ? monthGoals.reduce((sum, g) => sum + (g.vat_percentage != null ? Number(g.vat_percentage) : defaultVatPct), 0) / monthGoals.length
+          : defaultVatPct;
+        const monthMarkup = monthGoals.length > 0
+          ? monthGoals.reduce((sum, g) => sum + (g.markup_percentage != null ? Number(g.markup_percentage) : defaultMarkupHist), 0) / monthGoals.length
+          : defaultMarkupHist;
+        const monthVatDivisor = monthVatPct > 0 ? 1 + monthVatPct : 1;
+
         // Calculate metrics
         const monthTotalIncome = monthEntries.reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
-        const monthIncomeBeforeVat = monthTotalIncome / vatDivisorHist;
+        const monthIncomeBeforeVat = monthTotalIncome / monthVatDivisor;
         const monthRawLaborCost = monthEntries.reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
         const monthActualDayFactors = monthEntries.reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
 
@@ -1547,7 +1565,7 @@ export default function DashboardPage() {
         if (expectedWorkDaysMonth === 0) expectedWorkDaysMonth = 22;
 
         const managerDailyCostMonth = totalManagerSalaryHist / expectedWorkDaysMonth;
-        const monthLaborCost = (monthRawLaborCost + (managerDailyCostMonth * monthActualDayFactors)) * avgMarkupHist;
+        const monthLaborCost = (monthRawLaborCost + (managerDailyCostMonth * monthActualDayFactors)) * monthMarkup;
         const monthLaborCostPct = monthIncomeBeforeVat > 0 ? (monthLaborCost / monthIncomeBeforeVat) * 100 : 0;
 
         const monthFoodCost = monthInvoices.reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);

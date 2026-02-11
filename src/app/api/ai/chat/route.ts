@@ -174,7 +174,8 @@ DATABASE SCHEMA:
 --   revenue_target (numeric), labor_cost_target_pct (numeric),
 --   food_cost_target_pct (numeric), operating_cost_target_pct (numeric),
 --   profit_target (numeric), profit_margin_target_pct (numeric),
---   current_expenses_target (numeric), goods_expenses_target (numeric), deleted_at
+--   current_expenses_target (numeric), goods_expenses_target (numeric),
+--   markup_percentage (numeric, monthly override), vat_percentage (numeric, monthly override), deleted_at
 
 -- income_sources: Types of income (delivery apps, cash, credit, etc.)
 -- Columns: id (uuid PK), business_id (uuid FK), name (text),
@@ -352,7 +353,8 @@ DATABASE SCHEMA:
 --   revenue_target (numeric), labor_cost_target_pct (numeric),
 --   food_cost_target_pct (numeric), operating_cost_target_pct (numeric),
 --   profit_target (numeric), profit_margin_target_pct (numeric),
---   current_expenses_target (numeric), goods_expenses_target (numeric), deleted_at
+--   current_expenses_target (numeric), goods_expenses_target (numeric),
+--   markup_percentage (numeric, monthly override), vat_percentage (numeric, monthly override), deleted_at
 
 -- income_sources: Types of income (delivery apps, cash, credit, etc.)
 -- Columns: id (uuid PK), business_id (uuid FK), name (text),

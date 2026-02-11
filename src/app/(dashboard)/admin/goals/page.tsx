@@ -23,6 +23,8 @@ interface Goal {
   food_cost_target_pct: number | null;
   current_expenses_target: number | null;
   goods_expenses_target: number | null;
+  markup_percentage: number | null;
+  vat_percentage: number | null;
 }
 
 interface IncomeSource {
@@ -274,15 +276,22 @@ export default function AdminGoalsPage() {
         prevYear = selectedYear - 1;
       }
 
-      // Get previous month's goal as template
-      const { data: prevGoal } = await supabase
-        .from("goals")
-        .select("*")
-        .eq("business_id", selectedBusinessId)
-        .eq("year", prevYear)
-        .eq("month", prevMonth)
-        .is("deleted_at", null)
-        .maybeSingle();
+      // Get previous month's goal as template + business defaults for markup/vat
+      const [{ data: prevGoal }, { data: businessDefaults }] = await Promise.all([
+        supabase
+          .from("goals")
+          .select("*")
+          .eq("business_id", selectedBusinessId)
+          .eq("year", prevYear)
+          .eq("month", prevMonth)
+          .is("deleted_at", null)
+          .maybeSingle(),
+        supabase
+          .from("businesses")
+          .select("markup_percentage, vat_percentage")
+          .eq("id", selectedBusinessId)
+          .single(),
+      ]);
 
       // Create new goal
       const newGoalData = {
@@ -294,6 +303,8 @@ export default function AdminGoalsPage() {
         food_cost_target_pct: prevGoal?.food_cost_target_pct || 0,
         current_expenses_target: prevGoal?.current_expenses_target || 0,
         goods_expenses_target: prevGoal?.goods_expenses_target || 0,
+        markup_percentage: prevGoal?.markup_percentage ?? businessDefaults?.markup_percentage ?? 1,
+        vat_percentage: prevGoal?.vat_percentage ?? businessDefaults?.vat_percentage ?? 0.18,
       };
 
       const { data: newGoal, error: goalError } = await supabase
@@ -477,6 +488,8 @@ export default function AdminGoalsPage() {
           food_cost_target_pct: goal.food_cost_target_pct,
           current_expenses_target: goal.current_expenses_target,
           goods_expenses_target: goal.goods_expenses_target,
+          markup_percentage: goal.markup_percentage,
+          vat_percentage: goal.vat_percentage,
           updated_at: new Date().toISOString(),
         })
         .eq("id", goal.id);
@@ -700,6 +713,36 @@ export default function AdminGoalsPage() {
                 <h3 className="text-lg font-semibold mb-4 pb-3 border-b border-white/10">יעדים ראשיים</h3>
 
                 <div className="space-y-4">
+                  {/* Markup & VAT */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-white/70 mb-2">העמסה (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={goal.markup_percentage !== null && goal.markup_percentage !== undefined
+                          ? Math.round((goal.markup_percentage - 1) * 100)
+                          : ""}
+                        onChange={(e) => updateGoalField("markup_percentage", e.target.value ? 1 + parseFloat(e.target.value) / 100 : null)}
+                        className="w-full bg-[#0F1535] border border-[#29318A] rounded-lg px-4 py-3 text-white text-left focus:outline-none focus:border-[#4956D4]"
+                        placeholder="18"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-white/70 mb-2">מע״מ (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={goal.vat_percentage !== null && goal.vat_percentage !== undefined
+                          ? Math.round(goal.vat_percentage * 100)
+                          : ""}
+                        onChange={(e) => updateGoalField("vat_percentage", e.target.value ? parseFloat(e.target.value) / 100 : null)}
+                        className="w-full bg-[#0F1535] border border-[#29318A] rounded-lg px-4 py-3 text-white text-left focus:outline-none focus:border-[#4956D4]"
+                        placeholder="18"
+                      />
+                    </div>
+                  </div>
+
                   {/* Revenue Target */}
                   <div>
                     <label className="block text-sm text-white/70 mb-2">הכנסות ברוטו (₪)</label>

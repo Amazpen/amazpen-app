@@ -349,18 +349,23 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
 
     const loadMonthlySettings = async () => {
       const supabase = createClient();
-      const monthYear = formData.entry_date.substring(0, 7); // "YYYY-MM"
 
-      // Load monthly markup for this business+month
-      const { data: monthlySetting } = await supabase
-        .from("business_monthly_settings")
+      // Load monthly markup from goals table for this business+month
+      const entryDate = new Date(formData.entry_date);
+      const year = entryDate.getFullYear();
+      const month = entryDate.getMonth() + 1;
+
+      const { data: goalSetting } = await supabase
+        .from("goals")
         .select("markup_percentage")
         .eq("business_id", businessId)
-        .eq("month_year", monthYear)
+        .eq("year", year)
+        .eq("month", month)
+        .is("deleted_at", null)
         .maybeSingle();
 
-      if (monthlySetting) {
-        setMonthlyMarkup(Number(monthlySetting.markup_percentage));
+      if (goalSetting?.markup_percentage != null) {
+        setMonthlyMarkup(Number(goalSetting.markup_percentage));
       } else {
         // Fallback to business default
         const { data: business } = await supabase
