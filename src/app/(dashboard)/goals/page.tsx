@@ -419,7 +419,7 @@ export default function GoalsPage() {
         const rawLaborCost = (dailyEntries || []).reduce((sum, d) => sum + Number(d.labor_cost || 0), 0);
 
         // Calculate labor cost with markup and manager salary
-        // Formula: (labor_cost × markup) + (manager_salary ÷ expected_work_days × actual_days × markup)
+        // Formula: (labor_cost + manager_daily_cost × actual_days) × markup
         const avgMarkup = (businessData || []).reduce((sum, b) => sum + (Number(b.markup_percentage) || 1), 0) / Math.max((businessData || []).length, 1);
         const totalManagerSalary = (businessData || []).reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
 

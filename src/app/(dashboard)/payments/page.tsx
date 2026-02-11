@@ -50,6 +50,38 @@ interface OpenInvoice {
   status: string;
 }
 
+// Forecast: upcoming payment split with supplier info
+interface ForecastSplit {
+  id: string;
+  due_date: string;
+  amount: number;
+  payment_method: string;
+  installment_number: number | null;
+  installments_count: number | null;
+  supplier_name: string;
+  payment_id: string;
+  receipt_url: string | null;
+}
+
+// Forecast: month group
+interface ForecastMonth {
+  key: string; // YYYY-MM
+  label: string; // "חודש פברואר, 2026"
+  total: number;
+  splits: ForecastSplit[];
+}
+
+// Commitment: ongoing obligation (multi-installment payment)
+interface Commitment {
+  payment_id: string;
+  supplier_name: string;
+  notes: string | null;
+  monthly_amount: number;
+  last_due_date: string;
+  remaining_count: number;
+  installments_count: number;
+}
+
 // Payment method colors
 const paymentMethodColors: Record<string, { color: string; colorClass: string }> = {
   "check": { color: "#00DD23", colorClass: "bg-[#00DD23]" },
@@ -75,6 +107,27 @@ const paymentMethodNames: Record<string, string> = {
   "credit_companies": "חברות הקפה",
   "standing_order": "הוראת קבע",
 };
+
+// Hebrew day names for forecast dates
+const hebrewDayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+const hebrewMonthNamesConst = [
+  "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+  "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"
+];
+
+function formatForecastDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const day = hebrewDayNames[date.getDay()];
+  const d = date.getDate();
+  const month = hebrewMonthNamesConst[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day} ${d} ${month}, ${year}`;
+}
+
+function formatForecastDateShort(dateStr: string): string {
+  const date = new Date(dateStr);
+  return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getFullYear()).slice(2)}`;
+}
 
 // Payment method options for form
 const paymentMethodOptions = [
@@ -202,6 +255,15 @@ export default function PaymentsPage() {
   const [showOpenInvoices, setShowOpenInvoices] = useState(false);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
+
+  // Forecast state
+  const [showForecast, setShowForecast] = useState(false);
+  const [forecastMonths, setForecastMonths] = useState<ForecastMonth[]>([]);
+  const [forecastTotal, setForecastTotal] = useState(0);
+  const [isLoadingForecast, setIsLoadingForecast] = useState(false);
+  const [expandedForecastMonths, setExpandedForecastMonths] = useState<Set<string>>(new Set());
+  const [commitments, setCommitments] = useState<Commitment[]>([]);
+  const [showCommitments, setShowCommitments] = useState(false);
 
   // Format date for display
   const formatDate = (date: Date) => {
@@ -398,6 +460,153 @@ export default function PaymentsPage() {
 
     fetchData();
   }, [selectedBusinesses, dateRange, refreshTrigger]);
+
+  // Fetch forecast data (upcoming payment splits)
+  const fetchForecast = useCallback(async () => {
+    if (selectedBusinesses.length === 0) {
+      setForecastMonths([]);
+      setForecastTotal(0);
+      setCommitments([]);
+      return;
+    }
+
+    setIsLoadingForecast(true);
+    const supabase = createClient();
+    const today = new Date().toISOString().split("T")[0];
+
+    try {
+      const { data, error } = await supabase
+        .from("payment_splits")
+        .select(`
+          id, due_date, amount, payment_method, installment_number, installments_count,
+          payment:payments!inner(id, business_id, deleted_at, receipt_url, notes, supplier:suppliers(name))
+        `)
+        .gte("due_date", today)
+        .is("payment.deleted_at", null)
+        .in("payment.business_id", selectedBusinesses)
+        .order("due_date", { ascending: true })
+        .limit(500);
+
+      if (error) {
+        showToast("שגיאה בטעינת צפי תשלומים", "error");
+        setIsLoadingForecast(false);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        setForecastMonths([]);
+        setForecastTotal(0);
+        setCommitments([]);
+        setIsLoadingForecast(false);
+        return;
+      }
+
+      // Group by month for forecast
+      const monthMap = new Map<string, ForecastSplit[]>();
+      let total = 0;
+
+      // Also build commitments from the same data (installments_count > 3)
+      const commitMap = new Map<string, { amount: number; due_dates: string[]; payment: { id: string; notes: string | null; supplier_name: string } }>();
+
+      for (const row of data) {
+        const payment = row.payment as unknown as { id: string; receipt_url: string | null; notes: string | null; supplier: { name: string } | null };
+        if (!row.due_date) continue;
+
+        const split: ForecastSplit = {
+          id: row.id,
+          due_date: row.due_date,
+          amount: Number(row.amount),
+          payment_method: row.payment_method,
+          installment_number: row.installment_number,
+          installments_count: row.installments_count,
+          supplier_name: payment?.supplier?.name || "לא ידוע",
+          payment_id: payment?.id || "",
+          receipt_url: payment?.receipt_url || null,
+        };
+
+        total += split.amount;
+
+        const date = new Date(row.due_date);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+        if (!monthMap.has(key)) monthMap.set(key, []);
+        monthMap.get(key)!.push(split);
+
+        // Collect commitment data (multi-installment payments)
+        if ((row.installments_count || 0) > 3) {
+          const commitKey = `${payment?.id}__${row.amount}`;
+          if (!commitMap.has(commitKey)) {
+            commitMap.set(commitKey, {
+              amount: Number(row.amount),
+              due_dates: [],
+              payment: { id: payment?.id || "", notes: payment?.notes || null, supplier_name: payment?.supplier?.name || "לא ידוע" },
+            });
+          }
+          commitMap.get(commitKey)!.due_dates.push(row.due_date);
+        }
+      }
+
+      const months: ForecastMonth[] = Array.from(monthMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([key, splits]) => {
+          const [year, month] = key.split("-");
+          return {
+            key,
+            label: `${hebrewMonthNames[parseInt(month) - 1]}, ${year}`,
+            total: splits.reduce((sum, s) => sum + s.amount, 0),
+            splits,
+          };
+        });
+
+      setForecastMonths(months);
+      setForecastTotal(total);
+      // Auto-expand first month
+      if (months.length > 0) {
+        setExpandedForecastMonths(new Set([months[0].key]));
+      }
+
+      // Build commitments list from collected data
+      if (commitMap.size > 0) {
+        const commitList: Commitment[] = Array.from(commitMap.values()).map(({ amount, due_dates, payment: p }) => {
+          const lastDate = due_dates.sort().reverse()[0];
+          return {
+            payment_id: p.id,
+            supplier_name: p.supplier_name,
+            notes: p.notes,
+            monthly_amount: amount,
+            last_due_date: lastDate,
+            remaining_count: due_dates.length,
+            installments_count: due_dates.length,
+          };
+        });
+        commitList.sort((a, b) => b.monthly_amount - a.monthly_amount);
+        setCommitments(commitList);
+      } else {
+        setCommitments([]);
+      }
+    } catch (err) {
+      console.error("Error fetching forecast:", err);
+      showToast("שגיאה בטעינת צפי תשלומים", "error");
+    } finally {
+      setIsLoadingForecast(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBusinesses]);
+
+  // Fetch forecast when toggled on
+  useEffect(() => {
+    if (showForecast) {
+      fetchForecast();
+    }
+  }, [showForecast, refreshTrigger, fetchForecast]);
+
+  const toggleForecastMonth = useCallback((key: string) => {
+    setExpandedForecastMonths(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) newSet.delete(key);
+      else newSet.add(key);
+      return newSet;
+    });
+  }, []);
 
   // Handle saving new payment
   const handleSavePayment = async () => {
@@ -884,9 +1093,10 @@ export default function PaymentsPage() {
           <div className="flex items-center justify-center gap-[5px]">
             <button
               type="button"
-              className="flex-1 bg-[#29318A] text-white text-[18px] font-semibold py-[7px] px-[7px] rounded-tl-[5px] rounded-tr-[5px] rounded-br-[20px] rounded-bl-[5px] min-h-[50px] flex items-center justify-center gap-[8px] transition-colors hover:bg-[#3D44A0]"
+              onClick={() => setShowForecast(!showForecast)}
+              className={`flex-1 text-white text-[18px] font-semibold py-[7px] px-[7px] rounded-tl-[5px] rounded-tr-[5px] rounded-br-[20px] rounded-bl-[5px] min-h-[50px] flex items-center justify-center gap-[8px] transition-colors ${showForecast ? "bg-[#3D44A0]" : "bg-[#29318A] hover:bg-[#3D44A0]"}`}
             >
-              <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className="flex-shrink-0">
+              <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${showForecast ? "rotate-90" : ""}`}>
                 <path d="M12 10L18 16L12 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span>צפי תשלומים קדימה</span>
@@ -900,6 +1110,171 @@ export default function PaymentsPage() {
           </div>
         )}
       </div>
+
+      {/* Forecast Section - צפי תשלומים קדימה */}
+      {showForecast && (
+        <div className="bg-[#0F1535] rounded-[20px] p-[20px_5px] mt-[10px] flex flex-col gap-[10px]">
+          {isLoadingForecast ? (
+            <div className="flex items-center justify-center py-[40px]">
+              <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+            </div>
+          ) : forecastMonths.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-[30px] gap-[8px]">
+              <span className="text-[18px] text-white/50">אין תשלומים עתידיים</span>
+              <span className="text-[14px] text-white/30">כל התשלומים שולמו או שאין תשלומים עם תאריך יעד</span>
+            </div>
+          ) : (
+            <>
+              {/* Total Header */}
+              <h2 className="text-[18px] font-bold text-white text-center px-[10px]">
+                {`סה"כ תשלומים פתוחים: ₪${forecastTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              </h2>
+
+              {/* Monthly Groups */}
+              <div className="border border-white rounded-[7px] mx-[5px] overflow-hidden">
+                {forecastMonths.map((month, mi) => {
+                  const isExpanded = expandedForecastMonths.has(month.key);
+
+                  // Group splits by due_date within this month
+                  const dateGroups = new Map<string, ForecastSplit[]>();
+                  for (const split of month.splits) {
+                    const key = split.due_date;
+                    if (!dateGroups.has(key)) dateGroups.set(key, []);
+                    dateGroups.get(key)!.push(split);
+                  }
+                  const dateGroupsArr = Array.from(dateGroups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+                  return (
+                    <div key={month.key} className={`${mi > 0 ? "border-t-[5px] border-transparent" : ""}`}>
+                      {/* Month Header - clickable to expand/collapse */}
+                      <button
+                        type="button"
+                        onClick={() => toggleForecastMonth(month.key)}
+                        className="w-full flex items-center justify-between px-[10px] py-[8px] hover:bg-white/5 transition-colors"
+                      >
+                        <div className="flex flex-col items-start">
+                          <span className="text-[16px] font-normal text-white">
+                            {`₪${month.total.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          </span>
+                          <span className="text-[12px] font-bold text-white">{`סה"כ לתשלום`}</span>
+                        </div>
+                        <div className="flex items-center gap-[5px]">
+                          <span className="text-[18px] font-bold text-white">{`חודש ${month.label}`}</span>
+                          <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className={`text-white transition-transform ${isExpanded ? "rotate-90" : ""}`}>
+                            <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </div>
+                      </button>
+
+                      {/* Expanded Content */}
+                      {isExpanded && (
+                        <div className="px-[5px] pb-[10px]">
+                          {dateGroupsArr.map(([dateKey, splits]) => (
+                            <div key={dateKey} className="bg-white/5 border border-white/25 rounded-[7px] p-[3px_5px] mt-[10px]">
+                              {/* Date Group Header */}
+                              <div className="flex items-center justify-between pb-[3px] mb-[5px] border-b border-white/10">
+                                <div className="flex flex-col items-start">
+                                  <span className="text-[16px] text-white">
+                                    {`₪${splits.reduce((s, sp) => s + sp.amount, 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                  </span>
+                                  <span className="text-[12px] font-bold text-white">{`סה"כ לתשלום`}</span>
+                                </div>
+                                <div className="flex items-center gap-[5px]">
+                                  <span className="text-[16px] text-white">{formatForecastDate(dateKey)}</span>
+                                  <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-white">
+                                    <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                </div>
+                              </div>
+
+                              {/* Table Header */}
+                              <div className="flex items-center justify-between gap-[3px] rounded-t-[7px] border-b border-white/25 pb-[2px] mb-[5px]">
+                                <div className="w-[25px] flex-shrink-0" />
+                                <span className="text-[14px] font-medium text-white w-[65px] text-center">אמצאי תשלום</span>
+                                <span className="text-[14px] font-medium text-white w-[95px] text-center">סכום לתשלום</span>
+                                <span className="text-[14px] text-white w-[60px] text-center">ספק</span>
+                                <div className="w-[67px] flex-shrink-0">
+                                  <span className="text-[14px] font-medium text-white text-center block">תאריך התשלום</span>
+                                </div>
+                              </div>
+
+                              {/* Payment Rows */}
+                              {splits.map((split) => (
+                                <div key={split.id} className="flex items-center justify-between gap-[3px] rounded-[7px] min-h-[45px] py-[3px]">
+                                  <div className="w-[25px] flex-shrink-0 flex items-center justify-center">
+                                    {split.receipt_url && /^https?:\/\//.test(split.receipt_url) && (
+                                      <a href={split.receipt_url} target="_blank" rel="noopener noreferrer" className="text-white opacity-70 hover:opacity-100">
+                                        <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+                                          <rect x="4" y="4" width="24" height="24" rx="4" stroke="currentColor" strokeWidth="2"/>
+                                          <circle cx="12" cy="13" r="3" stroke="currentColor" strokeWidth="1.5"/>
+                                          <path d="M4 22L11 17L16 21L22 16L28 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                        </svg>
+                                      </a>
+                                    )}
+                                  </div>
+                                  <span className="text-[14px] text-white w-[65px] text-center">
+                                    {paymentMethodNames[split.payment_method] || "אחר"}
+                                  </span>
+                                  <span className="text-[14px] text-white w-[95px] text-center">
+                                    {`₪${split.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                  </span>
+                                  <span className="text-[14px] text-white w-[60px] text-center truncate">{split.supplier_name}</span>
+                                  <span className="text-[14px] text-white w-[67px] text-right">{formatForecastDateShort(split.due_date)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Commitments Section - התחייבויות קודמות */}
+              {commitments.length > 0 && (
+                <div className="bg-white/5 border border-white/25 rounded-[10px] p-[3px] mx-[5px]">
+                  <button
+                    type="button"
+                    onClick={() => setShowCommitments(!showCommitments)}
+                    className="w-full cursor-pointer hover:bg-white/10 transition-colors rounded-[7px]"
+                  >
+                    <h3 className="text-[20px] font-bold text-white text-center py-[10px]">
+                      התחייבויות קודמות
+                    </h3>
+                  </button>
+
+                  {showCommitments && (
+                    <div className="flex flex-col gap-[1px]">
+                      {commitments.map((c) => {
+                        const endDate = new Date(c.last_due_date);
+                        const endDateStr = `${String(endDate.getDate()).padStart(2, "0")}/${String(endDate.getMonth() + 1).padStart(2, "0")}/${endDate.getFullYear()}`;
+                        const label = c.notes
+                          ? `${c.notes} (מסתיים ${endDateStr})`
+                          : `${c.supplier_name} - מסתיים ${endDateStr}`;
+                        return (
+                          <div
+                            key={`${c.payment_id}__${c.monthly_amount}`}
+                            className="flex items-center justify-between px-[10px] py-[8px] border-t border-white/10"
+                          >
+                            <div className="flex flex-col items-start">
+                              <span className="text-[16px] text-white">
+                                {`₪${c.monthly_amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                              </span>
+                              <span className="text-[12px] font-bold text-white">{`סה"כ לתשלום`}</span>
+                            </div>
+                            <span className="text-[16px] text-white text-right flex-1 me-[10px]">{label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Recent Payments Section - hidden when no data */}
       {recentPaymentsData.length > 0 && (

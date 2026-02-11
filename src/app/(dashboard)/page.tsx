@@ -785,7 +785,7 @@ export default function DashboardPage() {
       const rawLaborCost = (entries || []).reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
 
       // Calculate labor cost with markup and manager salary
-      // Formula: (labor_cost × markup) + (manager_salary ÷ expected_work_days × markup)
+      // Formula: (labor_cost + manager_daily_cost × actual_days) × markup
       const totalMarkup = (businessData || []).reduce((sum, b) => sum + (Number(b.markup_percentage) || 1), 0) / Math.max((businessData || []).length, 1);
       const totalManagerSalary = (businessData || []).reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
 
@@ -824,7 +824,7 @@ export default function DashboardPage() {
       const managerDailyCost = expectedWorkDaysInMonth > 0 ? totalManagerSalary / expectedWorkDaysInMonth : 0;
       const actualWorkDays = (entries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
 
-      // Labor cost in ILS (with markup): (labor_cost + (manager_salary ÷ expected_work_days × actual_days)) × markup
+      // Labor cost in ILS: (labor_cost + manager_daily_cost × actual_days) × markup
       const laborCost = (rawLaborCost + (managerDailyCost * actualWorkDays)) * totalMarkup;
 
       // Get average VAT percentage for selected businesses (stored as decimal like 0.18)
