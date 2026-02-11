@@ -1398,7 +1398,7 @@ export default function ExpensesPage() {
                         index > 0 ? 'border-t border-white/10' : ''
                       }`}
                     >
-                      <div className="flex items-center gap-[5px] flex-1">
+                      <div className="flex flex-row-reverse items-center gap-[5px] flex-1">
                         <svg
                           width="18"
                           height="18"
