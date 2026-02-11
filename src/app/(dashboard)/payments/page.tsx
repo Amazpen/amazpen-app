@@ -1152,17 +1152,17 @@ export default function PaymentsPage() {
                         onClick={() => toggleForecastMonth(month.key)}
                         className="w-full flex items-center justify-between px-[10px] py-[8px] hover:bg-white/5 transition-colors"
                       >
-                        <div className="flex flex-col items-start">
+                        <div className="flex items-center gap-[5px]">
+                          <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className={`text-white transition-transform ${isExpanded ? "rotate-90" : ""}`}>
+                            <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          <span className="text-[18px] font-bold text-white">{`חודש ${month.label}`}</span>
+                        </div>
+                        <div className="flex flex-col items-end">
                           <span className="text-[16px] font-normal text-white">
                             {`₪${month.total.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                           </span>
                           <span className="text-[12px] font-bold text-white">{`סה"כ לתשלום`}</span>
-                        </div>
-                        <div className="flex items-center gap-[5px]">
-                          <span className="text-[18px] font-bold text-white">{`חודש ${month.label}`}</span>
-                          <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className={`text-white transition-transform ${isExpanded ? "rotate-90" : ""}`}>
-                            <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
                         </div>
                       </button>
 
