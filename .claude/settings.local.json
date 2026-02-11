@@ -145,7 +145,8 @@
       "Bash(/c/Program Files/nodejs/npm.cmd install papaparse)",
       "Bash(/c/Program Files/nodejs/npm.cmd install -D @types/papaparse)",
       "Bash(/c/Program Files/nodejs/npm.cmd install nextstepjs motion)",
-      "Bash(/c/Program Files/nodejs/npm.cmd ls nextstepjs)"
+      "Bash(/c/Program Files/nodejs/npm.cmd ls nextstepjs)",
+      "Bash(git status:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

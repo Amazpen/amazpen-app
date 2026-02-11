@@ -116,9 +116,18 @@ DATABASE SCHEMA:
 --   day_factor (numeric), total_income_breakdown (numeric), food_cost (numeric),
 --   labor_cost_pct (numeric), food_cost_pct (numeric), notes (text), created_by (uuid)
 
--- monthly_summaries: Pre-computed monthly aggregations
+-- monthly_summaries: Pre-computed monthly aggregations (includes historical data imported from CSV)
 -- Columns: id (uuid PK), business_id (uuid FK), year (integer), month (integer),
---   actual_work_days (numeric), total_income (numeric), monthly_pace (numeric)
+--   actual_work_days (numeric), total_income (numeric), monthly_pace (numeric),
+--   labor_cost_pct (numeric), labor_cost_amount (numeric), food_cost_pct (numeric), food_cost_amount (numeric),
+--   managed_product_1_pct (numeric), managed_product_1_cost (numeric),
+--   managed_product_2_pct (numeric), managed_product_2_cost (numeric),
+--   managed_product_3_pct (numeric), managed_product_3_cost (numeric),
+--   avg_income_1 (numeric), avg_income_2 (numeric), avg_income_3 (numeric), avg_income_4 (numeric),
+--   sales_budget_diff_pct (numeric), labor_budget_diff_pct (numeric), food_cost_budget_diff (numeric),
+--   sales_yoy_change_pct (numeric), labor_cost_yoy_change_pct (numeric), food_cost_yoy_change_pct (numeric)
+-- NOTE: For historical months (no daily_entries), use monthly_summaries for labor/food cost data.
+-- Percentage columns store decimal values (e.g. 0.325 = 32.5%).
 
 -- invoices: Supplier invoices
 -- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK -> suppliers.id),
@@ -201,6 +210,8 @@ COMMON QUERY PATTERNS:
 - Top suppliers by spend: SUM(total_amount) FROM public.invoices GROUP BY supplier_id, filtered by date
 - Fixed expenses: public.suppliers WHERE is_fixed_expense = true AND business_id='${businessId}'
 - Income by source: JOIN public.daily_income_breakdown with public.income_sources via public.daily_entries
+- Historical labor/food cost: SELECT year, month, total_income, labor_cost_pct, food_cost_pct, food_cost_amount, labor_cost_amount FROM public.monthly_summaries WHERE business_id='${businessId}' (for months without daily_entries)
+- YoY comparison: Use sales_yoy_change_pct from public.monthly_summaries for historical year-over-year data
 
 FAQ — COMMON USER QUESTIONS AND THE QUERIES THEY NEED:
 
@@ -299,9 +310,18 @@ DATABASE SCHEMA:
 --   day_factor (numeric), total_income_breakdown (numeric), food_cost (numeric),
 --   labor_cost_pct (numeric), food_cost_pct (numeric), notes (text), created_by (uuid)
 
--- monthly_summaries: Pre-computed monthly aggregations
+-- monthly_summaries: Pre-computed monthly aggregations (includes historical data imported from CSV)
 -- Columns: id (uuid PK), business_id (uuid FK), year (integer), month (integer),
---   actual_work_days (numeric), total_income (numeric), monthly_pace (numeric)
+--   actual_work_days (numeric), total_income (numeric), monthly_pace (numeric),
+--   labor_cost_pct (numeric), labor_cost_amount (numeric), food_cost_pct (numeric), food_cost_amount (numeric),
+--   managed_product_1_pct (numeric), managed_product_1_cost (numeric),
+--   managed_product_2_pct (numeric), managed_product_2_cost (numeric),
+--   managed_product_3_pct (numeric), managed_product_3_cost (numeric),
+--   avg_income_1 (numeric), avg_income_2 (numeric), avg_income_3 (numeric), avg_income_4 (numeric),
+--   sales_budget_diff_pct (numeric), labor_budget_diff_pct (numeric), food_cost_budget_diff (numeric),
+--   sales_yoy_change_pct (numeric), labor_cost_yoy_change_pct (numeric), food_cost_yoy_change_pct (numeric)
+-- NOTE: For historical months (no daily_entries), use monthly_summaries for labor/food cost data.
+-- Percentage columns store decimal values (e.g. 0.325 = 32.5%).
 
 -- invoices: Supplier invoices
 -- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK -> suppliers.id),

@@ -193,6 +193,14 @@ export default function ExpensesPage() {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
 
+  // Supplier detail popup state (from expenses breakdown)
+  const [showSupplierBreakdownPopup, setShowSupplierBreakdownPopup] = useState(false);
+  const [breakdownSupplierName, setBreakdownSupplierName] = useState("");
+  const [breakdownSupplierCategory, setBreakdownSupplierCategory] = useState("");
+  const [breakdownSupplierTotalWithVat, setBreakdownSupplierTotalWithVat] = useState(0);
+  const [breakdownSupplierInvoices, setBreakdownSupplierInvoices] = useState<InvoiceDisplay[]>([]);
+  const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
+
   // Status change state
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -1128,6 +1136,74 @@ export default function ExpensesPage() {
     setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", customInstallments: [] }]);
   };
 
+  // Handle opening supplier breakdown popup (from expenses detail table)
+  const handleOpenSupplierBreakdown = async (supplierId: string, supplierName: string, categoryName: string) => {
+    setBreakdownSupplierName(supplierName);
+    setBreakdownSupplierCategory(categoryName);
+    setShowSupplierBreakdownPopup(true);
+    setIsLoadingBreakdown(true);
+
+    const supabase = createClient();
+    try {
+      const formatLocalDate = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      const startDate = formatLocalDate(dateRange.start);
+      const endDate = formatLocalDate(dateRange.end);
+
+      const { data: invoicesData } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
+          creator:profiles!invoices_created_by_fkey(full_name)
+        `)
+        .in("business_id", selectedBusinesses)
+        .eq("supplier_id", supplierId)
+        .is("deleted_at", null)
+        .gte("invoice_date", startDate)
+        .lte("invoice_date", endDate)
+        .order("invoice_date", { ascending: false });
+
+      if (invoicesData) {
+        const displayInvoices: InvoiceDisplay[] = invoicesData.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => ({
+          id: inv.id,
+          date: formatDateString(inv.invoice_date),
+          supplier: inv.supplier?.name || "לא ידוע",
+          reference: inv.invoice_number || "",
+          amount: Number(inv.total_amount),
+          amountWithVat: Number(inv.total_amount),
+          amountBeforeVat: Number(inv.subtotal),
+          status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
+          enteredBy: inv.creator?.full_name || "מערכת",
+          entryDate: formatDateString(inv.created_at),
+          notes: inv.notes || "",
+          attachmentUrl: inv.attachment_url || null,
+          isFixed: inv.supplier?.is_fixed_expense || false,
+          linkedPayments: [],
+        }));
+        setBreakdownSupplierInvoices(displayInvoices);
+        const totalWithVat = displayInvoices.reduce((sum, inv) => sum + inv.amountWithVat, 0);
+        setBreakdownSupplierTotalWithVat(totalWithVat);
+      }
+    } catch (error) {
+      console.error("Error fetching supplier invoices:", error);
+    } finally {
+      setIsLoadingBreakdown(false);
+    }
+  };
+
+  const handleCloseSupplierBreakdown = () => {
+    setShowSupplierBreakdownPopup(false);
+    setBreakdownSupplierInvoices([]);
+    setBreakdownSupplierName("");
+    setBreakdownSupplierCategory("");
+    setBreakdownSupplierTotalWithVat(0);
+  };
+
   // Handle delete confirmation
   const handleDeleteClick = (invoiceId: string) => {
     setDeletingInvoiceId(invoiceId);
@@ -1342,16 +1418,18 @@ export default function ExpensesPage() {
                     {expandedCategoryId === cat.id && cat.suppliers.length > 0 && (
                       <div className="bg-white/5 rounded-[7px] mx-[10px] mb-[5px]">
                         {cat.suppliers.map((supplier, supIndex) => (
-                          <div
+                          <button
+                            type="button"
                             key={supplier.id}
-                            className={`flex items-center p-[4px_5px] ${
+                            onClick={() => handleOpenSupplierBreakdown(supplier.id, supplier.name, cat.category)}
+                            className={`flex items-center p-[4px_5px] w-full hover:bg-white/10 transition-colors cursor-pointer ${
                               supIndex > 0 ? 'border-t border-white/10' : ''
                             }`}
                           >
                             <span className={`text-[14px] flex-1 text-center ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.name}</span>
                             <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>₪{supplier.amount.toLocaleString()}</span>
                             <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.percentage.toFixed(1)}%</span>
-                          </div>
+                          </button>
                         ))}
                       </div>
                     )}
@@ -1366,9 +1444,11 @@ export default function ExpensesPage() {
                 </div>
               ) : (
                 expensesData.map((supplier, index) => (
-                  <div
+                  <button
+                    type="button"
                     key={supplier.id}
-                    className={`flex items-center p-[5px] min-h-[50px] ${
+                    onClick={() => handleOpenSupplierBreakdown(supplier.id, supplier.name, "קניות סחורה")}
+                    className={`flex items-center p-[5px] min-h-[50px] w-full hover:bg-[#29318A]/30 transition-colors cursor-pointer rounded-[7px] ${
                       index > 0 ? 'border-t border-white/10' : ''
                     }`}
                   >
@@ -1386,7 +1466,7 @@ export default function ExpensesPage() {
                     <span className="text-[16px] flex-1 text-center">{supplier.name}</span>
                     <span className="text-[16px] flex-1 text-center ltr-num">₪{supplier.amount.toLocaleString()}</span>
                     <span className="text-[16px] flex-1 text-center ltr-num">{supplier.percentage.toFixed(1)}%</span>
-                  </div>
+                  </button>
                 ))
               )
             )}
@@ -2938,6 +3018,132 @@ export default function ExpensesPage() {
             </div>
           </>
           )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Supplier Breakdown Popup */}
+      <Sheet open={showSupplierBreakdownPopup} onOpenChange={(open) => !open && handleCloseSupplierBreakdown()}>
+        <SheetContent
+          side="bottom"
+          className="h-auto max-h-[calc(100vh-20px)] max-h-[calc(100dvh-20px)] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[10px]"
+          showCloseButton={false}
+        >
+          <div className="flex flex-col gap-[15px] p-[10px_7px]">
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={handleCloseSupplierBreakdown}
+              className="self-start text-white/50 hover:text-white transition-colors"
+              title="סגור"
+              aria-label="סגור"
+            >
+              <X className="w-[30px] h-[30px]" />
+            </button>
+
+            {/* Supplier Title */}
+            <h2 className="text-[25px] font-semibold text-white text-center">{breakdownSupplierName}</h2>
+
+            {/* Summary Row */}
+            <div className="flex items-center justify-between mx-[10px] mb-[15px]">
+              <div className="flex flex-col items-center">
+                <span className="text-[20px] font-bold text-white ltr-num">₪{breakdownSupplierTotalWithVat.toLocaleString()}</span>
+                <span className="text-[14px] text-white/70">כולל מע&quot;מ</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[20px] font-bold text-white">{breakdownSupplierCategory}</span>
+              </div>
+            </div>
+
+            {/* Invoices Table */}
+            <div className="flex flex-col">
+              {/* Table Header */}
+              <div className="flex items-center justify-between border-b border-white/25 pb-[8px] px-[5px]">
+                <span className="text-[14px] font-medium text-white text-right" style={{ width: 81, maxWidth: 81 }}>תאריך</span>
+                <span className="text-[14px] font-medium text-white text-center" style={{ width: 66, maxWidth: 66 }}>מספר חשבונית</span>
+                <span className="text-[14px] font-medium text-white text-center" style={{ width: 65, maxWidth: 65 }}>סכום כולל מע&quot;מ</span>
+                <span className="text-[14px] font-medium text-white text-center" style={{ width: 60, maxWidth: 60 }}>סטטוס</span>
+                <span className="text-[14px] font-medium text-white text-center" style={{ width: 76, maxWidth: 76 }}>אפשרויות</span>
+              </div>
+
+              {/* Table Rows */}
+              {isLoadingBreakdown ? (
+                <div className="flex items-center justify-center py-[30px]">
+                  <span className="text-[14px] text-white/50">טוען...</span>
+                </div>
+              ) : breakdownSupplierInvoices.length === 0 ? (
+                <div className="flex items-center justify-center py-[30px]">
+                  <span className="text-[14px] text-white/50">אין חשבוניות בתקופה הנבחרת</span>
+                </div>
+              ) : (
+                breakdownSupplierInvoices.map((inv) => (
+                  <div key={inv.id} className="flex items-center justify-between px-[5px] py-[10px] border-b border-white/5">
+                    <span className="text-[14px] text-white text-right ltr-num" style={{ width: 81, maxWidth: 81 }}>{inv.date}</span>
+                    <span className="text-[14px] text-white text-center ltr-num" style={{ width: 66, maxWidth: 66 }}>{inv.reference || "-"}</span>
+                    <span className="text-[14px] text-white text-center ltr-num" style={{ width: 65, maxWidth: 65 }}>₪{inv.amountWithVat.toLocaleString()}</span>
+                    <span className="text-[12px] text-center ltr-num" style={{ width: 60, maxWidth: 60 }}>
+                      <span className={`px-[7px] py-[3px] rounded-full ${
+                        inv.status === "שולם" ? "bg-[#00E096]/20 text-[#00E096]" :
+                        inv.status === "בבירור" ? "bg-[#FFA500]/20 text-[#FFA500]" :
+                        "bg-[#29318A] text-white"
+                      }`}>
+                        {inv.status}
+                      </span>
+                    </span>
+                    <div className="flex items-center justify-center gap-[4px]" style={{ width: 76, maxWidth: 76 }}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Delete invoice
+                          handleDeleteClick(inv.id);
+                        }}
+                        className="w-[25px] h-[25px] flex items-center justify-center text-white/50 hover:text-white transition-colors"
+                        title="מחק"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                          <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                      {inv.attachmentUrl && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(inv.attachmentUrl!, "_blank");
+                          }}
+                          className="w-[25px] h-[25px] flex items-center justify-center text-white/50 hover:text-white transition-colors"
+                          title="צפה בקובץ"
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
+                            <path d="M21 15L16 10L5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Show All Invoices Button */}
+            <button
+              type="button"
+              onClick={() => {
+                handleCloseSupplierBreakdown();
+                router.push("/suppliers");
+              }}
+              className="self-center bg-[#29318A] text-white text-[15px] font-semibold py-[12px] px-[20px] rounded-[5px] flex items-center justify-center gap-[8px] hover:bg-[#3D44A0] transition-colors mt-[20px]"
+            >
+              <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="flex-shrink-0">
+                <path d="M16 4V22M16 22L10 16M16 22L22 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M6 28H26" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <span>הצגת כל החשבוניות</span>
+            </button>
+          </div>
         </SheetContent>
       </Sheet>
 
