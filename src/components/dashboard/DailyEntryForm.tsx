@@ -343,9 +343,9 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
     }
   };
 
-  // Load monthly markup & manager salary when date changes (admin + edit mode only)
+  // Load monthly markup & manager salary when date changes (admin only)
   useEffect(() => {
-    if (!isAdmin || !isEditMode || !formData.entry_date || !businessId) return;
+    if (!isAdmin || !formData.entry_date || !businessId) return;
 
     const loadMonthlySettings = async () => {
       const supabase = createClient();
@@ -386,7 +386,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
     };
 
     loadMonthlySettings();
-  }, [isAdmin, isEditMode, formData.entry_date, businessId]);
+  }, [isAdmin, formData.entry_date, businessId]);
 
   const loadExistingEntryData = async (entryId: string) => {
     try {
@@ -1072,8 +1072,8 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                   />
                 </FormField>
 
-                {/* Admin-only calculated fields - edit mode only */}
-                {isAdmin && isEditMode && (() => {
+                {/* Admin-only calculated fields */}
+                {isAdmin && (() => {
                   const laborCost = parseFloat(formData.labor_cost) || 0;
                   const laborWithMarkup = laborCost * monthlyMarkup;
 
@@ -1093,14 +1093,41 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                           className="bg-[#1a1f4a] border-[#4C526B] text-[#FFA412] text-right h-[50px] rounded-[10px] font-semibold"
                         />
                       </FormField>
-                      <FormField label="שכר מנהל יומי כולל העמסה">
+                      <div className="flex flex-col gap-[3px]">
+                        <div className="flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Re-fetch markup & manager salary
+                              const loadSettings = async () => {
+                                const supabase = createClient();
+                                const entryDate = new Date(formData.entry_date || new Date());
+                                const yr = entryDate.getFullYear();
+                                const mo = entryDate.getMonth() + 1;
+                                const { data: gs } = await supabase.from("goals").select("markup_percentage").eq("business_id", businessId).eq("year", yr).eq("month", mo).is("deleted_at", null).maybeSingle();
+                                if (gs?.markup_percentage != null) setMonthlyMarkup(Number(gs.markup_percentage));
+                                else {
+                                  const { data: bz } = await supabase.from("businesses").select("markup_percentage").eq("id", businessId).maybeSingle();
+                                  setMonthlyMarkup(bz ? Number(bz.markup_percentage) : 1);
+                                }
+                                const { data: bz2 } = await supabase.from("businesses").select("manager_monthly_salary").eq("id", businessId).maybeSingle();
+                                setManagerMonthlySalary(bz2 ? Number(bz2.manager_monthly_salary) : 0);
+                              };
+                              loadSettings();
+                            }}
+                            className="opacity-50 hover:opacity-100 transition-opacity"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                          </button>
+                          <Label className="text-white text-[15px] font-medium text-right">שכר מנהל יומי כולל העמסה</Label>
+                        </div>
                         <Input
                           type="text"
                           disabled
                           value={dailyManagerWithMarkup > 0 ? `₪ ${dailyManagerWithMarkup.toFixed(2)}` : "—"}
                           className="bg-[#1a1f4a] border-[#4C526B] text-[#FFA412] text-right h-[50px] rounded-[10px] font-semibold"
                         />
-                      </FormField>
+                      </div>
                     </>
                   );
                 })()}
