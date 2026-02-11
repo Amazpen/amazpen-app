@@ -153,11 +153,13 @@ export default function GoalsPage() {
 
   // Drill-down state
   const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
+  const [expandedChildId, setExpandedChildId] = useState<string | null>(null);
 
   // Data from Supabase
   const [currentExpensesData, setCurrentExpensesData] = useState<GoalItem[]>([]);
   const [goodsPurchaseData, setGoodsPurchaseData] = useState<GoalItem[]>([]);
   const [kpiData, setKpiData] = useState<GoalItem[]>([]);
+  const [supplierNamesMap, setSupplierNamesMap] = useState<Map<string, string>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [goalId, setGoalId] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -235,7 +237,9 @@ export default function GoalsPage() {
         // Build supplier -> category mapping and supplier -> budget mapping
         const supplierCategoryMap = new Map<string, string>();
         const supplierExpenseTypeMap = new Map<string, string>();
+        const namesMap = new Map<string, string>();
         (suppliersData || []).forEach(s => {
+          namesMap.set(s.id, s.name);
           if (s.expense_category_id) {
             supplierCategoryMap.set(s.id, s.expense_category_id);
           }
@@ -243,6 +247,7 @@ export default function GoalsPage() {
             supplierExpenseTypeMap.set(s.id, s.expense_type);
           }
         });
+        setSupplierNamesMap(namesMap);
 
         const supplierBudgetMap = new Map<string, number>();
         (supplierBudgetsData || []).forEach(b => {
@@ -931,14 +936,16 @@ export default function GoalsPage() {
                 const isRevenueType = item.name.includes("הכנסות");
                 const statusColor = getStatusColor(percentage, !isRevenueType);
                 const hasChildren = item.children && item.children.length > 0;
+                const hasSuppliers = item.supplierIds && item.supplierIds.length > 0;
+                const isExpandable = isCurrent && (hasChildren || hasSuppliers);
                 const isExpanded = expandedGoalId === item.id;
 
                 return (
                   <div key={item.id} className="flex flex-col">
                     {/* Parent Row */}
                     <div
-                      className={`flex flex-row items-center justify-between gap-[5px] border-b border-white/10 p-[7px] min-h-[50px] ${hasChildren ? 'cursor-pointer' : ''}`}
-                      onClick={hasChildren ? () => setExpandedGoalId(isExpanded ? null : item.id) : undefined}
+                      className={`flex flex-row items-center justify-between gap-[5px] border-b border-white/10 p-[7px] min-h-[50px] ${isExpandable ? 'cursor-pointer' : ''}`}
+                      onClick={isExpandable ? () => { setExpandedGoalId(isExpanded ? null : item.id); setExpandedChildId(null); } : undefined}
                     >
                       {/* Progress/Status - left side */}
                       <div className="flex flex-col items-center gap-[3px]">
@@ -989,7 +996,7 @@ export default function GoalsPage() {
                         <span className="text-[14px] font-bold text-white text-right" dir="rtl">
                           {item.name}
                         </span>
-                        {hasChildren && (
+                        {isExpandable && (
                           <svg
                             width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
                             className={`flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
@@ -1000,62 +1007,107 @@ export default function GoalsPage() {
                       </div>
                     </div>
 
-                    {/* Child Rows (Drill-Down) */}
-                    {isExpanded && hasChildren && (
+                    {/* Expanded Content */}
+                    {isExpanded && isExpandable && (
                       <div className="bg-white/5 rounded-[7px] mx-[7px] mb-[3px]">
-                        {item.children!.map((child, childIdx) => {
-                          const childPct = child.target > 0 ? (child.actual / child.target) * 100 : 0;
-                          const childDiff = child.target - child.actual;
-                          const childStatusColor = getStatusColor(childPct, true);
+                        {/* If has sub-categories, show them with expandable suppliers */}
+                        {hasChildren ? (
+                          item.children!.map((child, childIdx) => {
+                            const childPct = child.target > 0 ? (child.actual / child.target) * 100 : 0;
+                            const childDiff = child.target - child.actual;
+                            const childStatusColor = getStatusColor(childPct, true);
+                            const childHasSuppliers = child.supplierIds && child.supplierIds.length > 0;
+                            const isChildExpanded = expandedChildId === child.id;
 
-                          return (
-                            <div
-                              key={child.id}
-                              className={`flex flex-row items-center justify-between gap-[5px] p-[7px] min-h-[50px] ${childIdx < item.children!.length - 1 ? 'border-b border-white/5' : ''}`}
-                            >
-                              {/* Progress/Status */}
-                              <div className="flex flex-col items-center gap-[3px]">
-                                <span className={`text-[12px] font-medium ltr-num ${childStatusColor}`}>
-                                  {formatDiff(childDiff, child.unit)}
-                                </span>
-                                <ProgressBar percentage={childPct} reverse />
-                              </div>
+                            return (
+                              <div key={child.id} className="flex flex-col">
+                                <div
+                                  className={`flex flex-row items-center justify-between gap-[5px] p-[7px] min-h-[50px] ${childHasSuppliers ? 'cursor-pointer' : ''} ${childIdx < item.children!.length - 1 && !isChildExpanded ? 'border-b border-white/5' : ''}`}
+                                  onClick={childHasSuppliers ? () => setExpandedChildId(isChildExpanded ? null : child.id) : undefined}
+                                >
+                                  {/* Progress/Status */}
+                                  <div className="flex flex-col items-center gap-[3px]">
+                                    <span className={`text-[12px] font-medium ltr-num ${childStatusColor}`}>
+                                      {formatDiff(childDiff, child.unit)}
+                                    </span>
+                                    <ProgressBar percentage={childPct} reverse />
+                                  </div>
 
-                              {/* Actual */}
-                              <span className="w-[80px] text-[14px] font-normal text-white text-center ltr-num">
-                                {formatCurrency(child.actual)}
-                              </span>
+                                  {/* Actual */}
+                                  <span className="w-[80px] text-[14px] font-normal text-white text-center ltr-num">
+                                    {formatCurrency(child.actual)}
+                                  </span>
 
-                              {/* Target - editable for vs-current children */}
-                              {isCurrent && child.editable ? (
-                                <div className="w-[80px] flex items-center justify-center gap-0">
-                                  {focusedInputId !== child.id && <span className="text-[14px] font-normal text-white ltr-num">₪</span>}
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    title={`יעד עבור ${child.name}`}
-                                    value={child.target.toLocaleString("en-US")}
-                                    onChange={(e) => handleCurrentExpenseTargetChange(child, e.target.value.replace(/,/g, ""), true, item.id)}
-                                    onFocus={() => setFocusedInputId(child.id)}
-                                    onBlur={() => setFocusedInputId(null)}
-                                    style={{ width: focusedInputId === child.id ? '80px' : `${Math.max(1, String(child.target.toLocaleString("en-US")).length)}ch` }}
-                                    className="text-[14px] font-normal text-white text-center bg-transparent border-none outline-none ltr-num"
-                                    placeholder="0"
-                                  />
+                                  {/* Target - editable for vs-current children */}
+                                  {isCurrent && child.editable ? (
+                                    <div className="w-[80px] flex items-center justify-center gap-0" onClick={(e) => e.stopPropagation()}>
+                                      {focusedInputId !== child.id && <span className="text-[14px] font-normal text-white ltr-num">₪</span>}
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        title={`יעד עבור ${child.name}`}
+                                        value={child.target.toLocaleString("en-US")}
+                                        onChange={(e) => handleCurrentExpenseTargetChange(child, e.target.value.replace(/,/g, ""), true, item.id)}
+                                        onFocus={() => setFocusedInputId(child.id)}
+                                        onBlur={() => setFocusedInputId(null)}
+                                        style={{ width: focusedInputId === child.id ? '80px' : `${Math.max(1, String(child.target.toLocaleString("en-US")).length)}ch` }}
+                                        className="text-[14px] font-normal text-white text-center bg-transparent border-none outline-none ltr-num"
+                                        placeholder="0"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <span className="w-[80px] text-[14px] font-normal text-white text-center ltr-num">
+                                      {formatCurrency(child.target)}
+                                    </span>
+                                  )}
+
+                                  {/* Child Name with expand arrow */}
+                                  <div className="flex-1 flex flex-row items-center justify-end gap-[3px]" dir="rtl">
+                                    <span className="text-[14px] font-normal text-white text-right">
+                                      {child.name}
+                                    </span>
+                                    {childHasSuppliers && (
+                                      <svg
+                                        width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
+                                        className={`flex-shrink-0 transition-transform duration-200 ${isChildExpanded ? 'rotate-180' : ''}`}
+                                      >
+                                        <polyline points="6 9 12 15 18 9" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                    )}
+                                  </div>
                                 </div>
-                              ) : (
-                                <span className="w-[80px] text-[14px] font-normal text-white text-center ltr-num">
-                                  {formatCurrency(child.target)}
-                                </span>
-                              )}
 
-                              {/* Child Name */}
-                              <div className="flex-1 text-[14px] font-normal text-white text-right" dir="rtl">
-                                {child.name}
+                                {/* Suppliers under this child category */}
+                                {isChildExpanded && childHasSuppliers && (
+                                  <div className="bg-white/3 mx-[10px] mb-[5px] rounded-[5px] border-b border-white/5">
+                                    {child.supplierIds!.map((sId, sIdx) => (
+                                      <div
+                                        key={sId}
+                                        className={`flex items-center justify-end p-[6px_10px] ${sIdx < child.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
+                                      >
+                                        <span className="text-[13px] text-white/70 text-right">
+                                          {supplierNamesMap.get(sId) || sId}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
+                            );
+                          })
+                        ) : (
+                          /* Leaf category - show suppliers directly */
+                          hasSuppliers && item.supplierIds!.map((sId, sIdx) => (
+                            <div
+                              key={sId}
+                              className={`flex items-center justify-end p-[8px_10px] ${sIdx < item.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
+                            >
+                              <span className="text-[13px] text-white/70 text-right">
+                                {supplierNamesMap.get(sId) || sId}
+                              </span>
                             </div>
-                          );
-                        })}
+                          ))
+                        )}
                       </div>
                     )}
                   </div>
