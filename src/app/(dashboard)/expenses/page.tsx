@@ -90,6 +90,7 @@ interface InvoiceDisplay {
   notes: string;
   attachmentUrl: string | null;
   attachmentUrls: string[];
+  clarificationReason: string | null;
   isFixed: boolean;
   linkedPayments: { id: string; amount: number; method: string; installments: number; date: string }[];
 }
@@ -451,6 +452,7 @@ export default function ExpensesPage() {
             notes: inv.notes || "",
             attachmentUrl: inv.attachment_url || null,
             attachmentUrls: parseAttachmentUrls(inv.attachment_url),
+            clarificationReason: inv.clarification_reason || null,
             isFixed: inv.supplier?.is_fixed_expense || false,
             linkedPayments: [], // Will be fetched separately if needed
           }));
@@ -1253,6 +1255,7 @@ export default function ExpensesPage() {
           notes: inv.notes || "",
           attachmentUrl: inv.attachment_url || null,
           attachmentUrls: parseAttachmentUrls(inv.attachment_url),
+          clarificationReason: inv.clarification_reason || null,
           isFixed: inv.supplier?.is_fixed_expense || false,
           linkedPayments: [],
         }));
@@ -1823,6 +1826,14 @@ export default function ExpensesPage() {
                         className="w-full bg-transparent text-white text-[14px] font-bold text-right resize-none outline-none min-h-[70px]"
                       />
                     </div>
+
+                    {/* Clarification Reason - only show for "בבירור" status */}
+                    {invoice.status === "בבירור" && invoice.clarificationReason && (
+                      <div className="border border-[#FFA500]/50 rounded-[7px] p-[3px] flex flex-col gap-[3px]">
+                        <span className="text-[14px] text-[#FFA500] text-right">סיבת בירור</span>
+                        <span className="text-[14px] text-white font-bold text-right px-[3px]">{invoice.clarificationReason}</span>
+                      </div>
+                    )}
 
                     {/* Additional Details Section */}
                     <div className="border border-white/50 rounded-[7px] p-[3px] flex flex-col gap-[15px]">
