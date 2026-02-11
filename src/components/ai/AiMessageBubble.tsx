@@ -131,7 +131,7 @@ export function AiMessageBubble({ message, thinkingStatus }: AiMessageBubbleProp
         <div className="flex-1 min-w-0">
           <div className="bg-[#29318A] text-white px-4 py-3 rounded-[16px] rounded-tr-[4px]">
             {!message.content && thinkingStatus ? (
-              <div className="flex flex-row-reverse gap-2 items-center h-[20px]">
+              <div className="flex gap-2 items-center h-[20px]">
                 <span className="text-white/60 text-[13px]">{thinkingStatus}</span>
                 <div className="flex gap-1.5 items-center">
                   <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:0ms]" />
