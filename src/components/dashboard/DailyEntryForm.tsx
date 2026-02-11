@@ -185,29 +185,26 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
     draftLoaded.current = true;
   }, [DRAFT_KEY, isEditMode]);
 
-  // Load all dynamic data when sheet opens
+  // Load all dynamic data when sheet opens, then load existing entry data if editing
   useEffect(() => {
     if (isOpen && businessId) {
       draftCleared.current = false;
       draftLoaded.current = false;
-      loadAllData();
-    }
-  }, [isOpen, businessId]);
-
-  // Load existing data when editing
-  useEffect(() => {
-    if (isOpen && editingEntry) {
-      setFormData({
-        entry_date: editingEntry.entry_date,
-        total_register: editingEntry.total_register.toString(),
-        day_factor: editingEntry.day_factor.toString(),
-        labor_cost: editingEntry.labor_cost.toString(),
-        labor_hours: editingEntry.labor_hours.toString(),
-        discounts: editingEntry.discounts.toString(),
+      loadAllData().then(() => {
+        if (editingEntry) {
+          setFormData({
+            entry_date: editingEntry.entry_date,
+            total_register: editingEntry.total_register.toString(),
+            day_factor: editingEntry.day_factor.toString(),
+            labor_cost: editingEntry.labor_cost.toString(),
+            labor_hours: editingEntry.labor_hours.toString(),
+            discounts: editingEntry.discounts.toString(),
+          });
+          loadExistingEntryData(editingEntry.id);
+        }
       });
-      loadExistingEntryData(editingEntry.id);
     }
-  }, [isOpen, editingEntry]);
+  }, [isOpen, businessId, editingEntry]);
 
   const loadAllData = async () => {
     setIsLoading(true);
