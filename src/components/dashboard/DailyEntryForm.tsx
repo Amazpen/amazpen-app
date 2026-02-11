@@ -106,6 +106,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const [customParameters, setCustomParameters] = useState<CustomParameter[]>([]);
   const [managedProducts, setManagedProducts] = useState<ManagedProduct[]>([]);
 
+  // Monthly settings for admin calculated fields
+  const [monthlyMarkup, setMonthlyMarkup] = useState<number>(1);
+  const [managerMonthlySalary, setManagerMonthlySalary] = useState<number>(0);
+
   // Form state
   const [incomeData, setIncomeData] = useState<Record<string, IncomeData>>({});
   const [receiptData, setReceiptData] = useState<Record<string, string>>({});
@@ -323,6 +327,46 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       setIsLoading(false);
     }
   };
+
+  // Load monthly markup & manager salary when date changes (admin + edit mode only)
+  useEffect(() => {
+    if (!isAdmin || !isEditMode || !formData.entry_date || !businessId) return;
+
+    const loadMonthlySettings = async () => {
+      const supabase = createClient();
+      const monthYear = formData.entry_date.substring(0, 7); // "YYYY-MM"
+
+      // Load monthly markup for this business+month
+      const { data: monthlySetting } = await supabase
+        .from("business_monthly_settings")
+        .select("markup_percentage")
+        .eq("business_id", businessId)
+        .eq("month_year", monthYear)
+        .maybeSingle();
+
+      if (monthlySetting) {
+        setMonthlyMarkup(Number(monthlySetting.markup_percentage));
+      } else {
+        // Fallback to business default
+        const { data: business } = await supabase
+          .from("businesses")
+          .select("markup_percentage")
+          .eq("id", businessId)
+          .maybeSingle();
+        setMonthlyMarkup(business ? Number(business.markup_percentage) : 1);
+      }
+
+      // Load manager salary from business
+      const { data: biz } = await supabase
+        .from("businesses")
+        .select("manager_monthly_salary")
+        .eq("id", businessId)
+        .maybeSingle();
+      setManagerMonthlySalary(biz ? Number(biz.manager_monthly_salary) : 0);
+    };
+
+    loadMonthlySettings();
+  }, [isAdmin, isEditMode, formData.entry_date, businessId]);
 
   const loadExistingEntryData = async (entryId: string) => {
     try {
@@ -943,6 +987,39 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                   />
                 </FormField>
+
+                {/* Admin-only calculated fields - edit mode only */}
+                {isAdmin && isEditMode && (() => {
+                  const laborCost = parseFloat(formData.labor_cost) || 0;
+                  const laborWithMarkup = laborCost * monthlyMarkup;
+
+                  const entryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
+                  const daysInMonth = new Date(entryDate.getFullYear(), entryDate.getMonth() + 1, 0).getDate();
+                  const dailyManagerWithMarkup = daysInMonth > 0
+                    ? (managerMonthlySalary / daysInMonth) * monthlyMarkup
+                    : 0;
+
+                  return (
+                    <>
+                      <FormField label='סה"כ עלות עובדים יומית כולל העמסה'>
+                        <Input
+                          type="text"
+                          disabled
+                          value={laborWithMarkup > 0 ? `₪ ${laborWithMarkup.toFixed(2)}` : "—"}
+                          className="bg-[#1a1f4a] border-[#4C526B] text-[#FFA412] text-right h-[50px] rounded-[10px] font-semibold"
+                        />
+                      </FormField>
+                      <FormField label="שכר מנהל יומי כולל העמסה">
+                        <Input
+                          type="text"
+                          disabled
+                          value={dailyManagerWithMarkup > 0 ? `₪ ${dailyManagerWithMarkup.toFixed(2)}` : "—"}
+                          className="bg-[#1a1f4a] border-[#4C526B] text-[#FFA412] text-right h-[50px] rounded-[10px] font-semibold"
+                        />
+                      </FormField>
+                    </>
+                  );
+                })()}
 
                 <FormField label="כמות שעות עובדים">
                   <Input
