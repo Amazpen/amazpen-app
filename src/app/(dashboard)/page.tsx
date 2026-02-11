@@ -1235,9 +1235,10 @@ export default function DashboardPage() {
       const { data: prevYearCurrentExpensesInvoices } = prevYearCurrentExpensesInvoicesResult;
 
       // Calculate previous month metrics
+      // Use monthlyPace (forecast) instead of raw totalIncome for fair comparison
       const prevMonthIncome = (prevMonthEntries || []).reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
-      const prevMonthChange = prevMonthIncome > 0 ? totalIncome - prevMonthIncome : 0;
-      const prevMonthChangePct = prevMonthIncome > 0 ? ((totalIncome / prevMonthIncome) - 1) * 100 : 0;
+      const prevMonthChange = prevMonthIncome > 0 ? monthlyPace - prevMonthIncome : 0;
+      const prevMonthChangePct = prevMonthIncome > 0 ? ((monthlyPace / prevMonthIncome) - 1) * 100 : 0;
 
       const prevMonthRawLaborCost = (prevMonthEntries || []).reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
       const prevMonthActualWorkDays = (prevMonthEntries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
