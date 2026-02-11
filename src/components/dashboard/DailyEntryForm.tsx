@@ -115,6 +115,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const [receiptData, setReceiptData] = useState<Record<string, string>>({});
   const [parameterData, setParameterData] = useState<Record<string, string>>({});
   const [productUsage, setProductUsage] = useState<Record<string, ProductUsageData>>({});
+  const [dateWarning, setDateWarning] = useState<string | null>(null);
 
   const getToday = () => new Date().toISOString().split("T")[0];
 
@@ -442,6 +443,64 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const handleChange = (field: keyof BaseFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setError(null);
+    // When date changes, check for existing entry and update opening stock
+    if (field === "entry_date" && value) {
+      checkDateAndUpdateStock(value);
+    }
+  };
+
+  // Check if an entry exists for the selected date + fetch previous day closing stock
+  const checkDateAndUpdateStock = async (date: string) => {
+    if (!businessId || !date) return;
+    const supabase = createClient();
+
+    // Check if entry already exists for this date (skip in edit mode for same date)
+    const { data: existingEntry } = await supabase
+      .from("daily_entries")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("entry_date", date)
+      .maybeSingle();
+
+    if (existingEntry && (!editingEntry || editingEntry.id !== existingEntry.id)) {
+      setDateWarning("כבר קיים רישום לתאריך זה");
+    } else {
+      setDateWarning(null);
+    }
+
+    // Fetch the closest previous entry's closing stock for managed products
+    if (managedProducts.length > 0) {
+      const { data: prevEntry } = await supabase
+        .from("daily_entries")
+        .select("id")
+        .eq("business_id", businessId)
+        .lt("entry_date", date)
+        .order("entry_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (prevEntry) {
+        const { data: prevUsage } = await supabase
+          .from("daily_product_usage")
+          .select("product_id, closing_stock")
+          .eq("daily_entry_id", prevEntry.id);
+
+        if (prevUsage) {
+          setProductUsage(prev => {
+            const updated = { ...prev };
+            for (const usage of prevUsage) {
+              if (updated[usage.product_id]) {
+                updated[usage.product_id] = {
+                  ...updated[usage.product_id],
+                  opening_stock: (usage.closing_stock || 0) > 0 ? (usage.closing_stock || 0).toString() : "",
+                };
+              }
+            }
+            return updated;
+          });
+        }
+      }
+    }
   };
 
   const handleIncomeChange = (sourceId: string, field: keyof IncomeData, value: string) => {
@@ -750,8 +809,11 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     type="date"
                     value={formData.entry_date}
                     onChange={(e) => handleChange("entry_date", e.target.value)}
-                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px] [color-scheme:dark]"
+                    className={`bg-transparent text-white text-right h-[50px] rounded-[10px] [color-scheme:dark] ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'}`}
                   />
+                  {dateWarning && (
+                    <span className="text-[12px] text-[#FFA500] text-right mt-[3px]">{dateWarning}</span>
+                  )}
                 </FormField>
 
                 {isAdmin && <FormField label="יום חלקי/יום מלא">
@@ -875,8 +937,11 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     type="date"
                     value={formData.entry_date}
                     onChange={(e) => handleChange("entry_date", e.target.value)}
-                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px] [color-scheme:dark]"
+                    className={`bg-transparent text-white text-right h-[50px] rounded-[10px] [color-scheme:dark] ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'}`}
                   />
+                  {dateWarning && (
+                    <span className="text-[12px] text-[#FFA500] text-right mt-[3px]">{dateWarning}</span>
+                  )}
                 </FormField>
 
                 <FormField label='סה"כ קופה'>
