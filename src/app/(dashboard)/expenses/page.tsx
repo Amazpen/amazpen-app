@@ -205,6 +205,7 @@ export default function ExpensesPage() {
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const statusMenuRef = useRef<HTMLDivElement | null>(null);
+  const [statusConfirm, setStatusConfirm] = useState<{ invoiceId: string; newStatus: string; label: string } | null>(null);
 
   // Payment popup for existing invoice (when changing status to "paid")
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
@@ -879,24 +880,34 @@ export default function ExpensesPage() {
         attachmentUrl = null;
       }
 
+      // Auto-set status to "pending" for fixed expenses when both attachment and invoice number exist
+      const updateData: Record<string, unknown> = {
+        supplier_id: selectedSupplier,
+        invoice_number: invoiceNumber || null,
+        invoice_date: expenseDate,
+        subtotal: parseFloat(amountBeforeVat),
+        vat_amount: calculatedVatEdit,
+        total_amount: totalWithVatEdit,
+        notes: notes || null,
+        invoice_type: expenseType,
+        attachment_url: attachmentUrl,
+      };
+
+      if (editingInvoice.isFixed && attachmentUrl && invoiceNumber) {
+        updateData.status = "pending";
+      }
+
       const { error } = await supabase
         .from("invoices")
-        .update({
-          supplier_id: selectedSupplier,
-          invoice_number: invoiceNumber || null,
-          invoice_date: expenseDate,
-          subtotal: parseFloat(amountBeforeVat),
-          vat_amount: calculatedVatEdit,
-          total_amount: totalWithVatEdit,
-          notes: notes || null,
-          invoice_type: expenseType,
-          attachment_url: attachmentUrl,
-        })
+        .update(updateData)
         .eq("id", editingInvoice.id);
 
       if (error) throw error;
 
-      showToast("ההוצאה עודכנה בהצלחה", "success");
+      const autoStatusMsg = editingInvoice.isFixed && attachmentUrl && invoiceNumber
+        ? ' – הסטטוס עודכן אוטומטית ל"ממתין"'
+        : "";
+      showToast(`ההוצאה עודכנה בהצלחה${autoStatusMsg}`, "success");
       handleCloseEditPopup();
       setRefreshTrigger(prev => prev + 1);
     } catch (error) {
@@ -942,19 +953,31 @@ export default function ExpensesPage() {
     setEditAttachmentPreview(null);
   };
 
-  // Handle status change
-  const handleStatusChange = async (invoiceId: string, newStatus: string) => {
-    // If changing to "paid", open payment popup instead of directly updating
+  // Status labels map
+  const statusLabels: Record<string, string> = {
+    pending: "ממתין",
+    clarification: "בבירור",
+    paid: "שולם"
+  };
+
+  // Handle status change - show confirmation popup first
+  const handleStatusChange = (invoiceId: string, newStatus: string) => {
+    // Block status change for recurring fixed expenses
+    const invoice = recentInvoices.find(inv => inv.id === invoiceId);
+    if (invoice?.isFixed) {
+      showToast("לא ניתן לשנות סטטוס להוצאה חודשית קבועה – הסטטוס מתעדכן אוטומטית", "warning");
+      setShowStatusMenu(null);
+      return;
+    }
+
+    // If changing to "paid", open payment popup directly (it has its own confirmation)
     if (newStatus === 'paid') {
-      const invoice = recentInvoices.find(inv => inv.id === invoiceId);
       if (invoice) {
         setPaymentInvoice(invoice);
-        // Pre-fill payment form with invoice data
         const today = new Date().toISOString().split('T')[0];
         setPaymentDate(today);
         setPaymentReference("");
         setPaymentNotes("");
-        // Initialize with single payment method entry with the invoice amount
         setPopupPaymentMethods([{
           id: 1,
           method: "",
@@ -968,31 +991,33 @@ export default function ExpensesPage() {
       return;
     }
 
+    // Show confirmation popup for pending/clarification
+    setStatusConfirm({ invoiceId, newStatus, label: statusLabels[newStatus] || newStatus });
+    setShowStatusMenu(null);
+  };
+
+  // Confirm and execute the status change
+  const confirmStatusChange = async () => {
+    if (!statusConfirm) return;
     setIsUpdatingStatus(true);
     const supabase = createClient();
 
     try {
       const { error } = await supabase
         .from("invoices")
-        .update({ status: newStatus })
-        .eq("id", invoiceId);
+        .update({ status: statusConfirm.newStatus })
+        .eq("id", statusConfirm.invoiceId);
 
       if (error) throw error;
 
-      const statusLabels: Record<string, string> = {
-        pending: "ממתין",
-        clarification: "בבירור",
-        paid: "שולם"
-      };
-
-      showToast(`הסטטוס עודכן ל"${statusLabels[newStatus]}"`, "success");
-      setShowStatusMenu(null);
+      showToast(`הסטטוס עודכן ל"${statusConfirm.label}"`, "success");
       setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error("Error updating status:", error);
       showToast("שגיאה בעדכון הסטטוס", "error");
     } finally {
       setIsUpdatingStatus(false);
+      setStatusConfirm(null);
     }
   };
 
@@ -1689,6 +1714,10 @@ export default function ExpensesPage() {
                     <button
                       type="button"
                       onClick={(e) => {
+                        if (invoice.isFixed) {
+                          showToast("לא ניתן לשנות סטטוס להוצאה חודשית קבועה – הסטטוס מתעדכן אוטומטית", "warning");
+                          return;
+                        }
                         if (showStatusMenu === invoice.id) {
                           setShowStatusMenu(null);
                         } else {
@@ -3147,6 +3176,38 @@ export default function ExpensesPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Status Change Confirmation Popup */}
+      {statusConfirm && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50" onClick={() => setStatusConfirm(null)}>
+          <div dir="rtl" className="bg-[#1A1F4E] rounded-[14px] border border-white/20 shadow-2xl p-[20px] w-[320px]" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[16px] font-bold text-white text-center mb-[12px]">שינוי סטטוס</h3>
+            <p className="text-[14px] text-white/80 text-center mb-[20px]">
+              האם לשנות את הסטטוס ל<span className="font-bold text-white">&quot;{statusConfirm.label}&quot;</span>?
+            </p>
+            <div className="flex gap-[10px]">
+              <button
+                type="button"
+                onClick={confirmStatusChange}
+                disabled={isUpdatingStatus}
+                className="flex-1 bg-[#3CD856] hover:bg-[#2db845] disabled:opacity-50 text-[#0F1535] text-[14px] font-bold py-[10px] rounded-[8px] transition-colors flex items-center justify-center gap-[4px]"
+              >
+                {isUpdatingStatus ? (
+                  <div className="w-4 h-4 border-2 border-[#0F1535]/30 border-t-[#0F1535] rounded-full animate-spin" />
+                ) : "אישור"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusConfirm(null)}
+                className="flex-1 bg-white/10 hover:bg-white/20 text-white text-[14px] py-[10px] rounded-[8px] transition-colors"
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Status Menu Portal */}
       {showStatusMenu && typeof window !== 'undefined' && createPortal(
