@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useCallback } from "react";
 import type { AiMessage } from "@/types/ai";
-import { AiMessageBubble, AiTypingIndicator } from "./AiMessageBubble";
+import { AiMessageBubble } from "./AiMessageBubble";
 
 interface AiMessageListProps {
   messages: AiMessage[];
@@ -35,10 +35,13 @@ export function AiMessageList({ messages, isLoading, thinkingStatus }: AiMessage
       onScroll={checkIfNearBottom}
       className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scrollbar-thin"
     >
-      {messages.map((message) => (
-        <AiMessageBubble key={message.id} message={message} />
+      {messages.map((message, idx) => (
+        <AiMessageBubble
+          key={message.id}
+          message={message}
+          thinkingStatus={isLoading && idx === messages.length - 1 ? thinkingStatus : null}
+        />
       ))}
-      {isLoading && <AiTypingIndicator thinkingStatus={thinkingStatus} />}
       <div ref={bottomRef} />
     </div>
   );

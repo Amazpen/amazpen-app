@@ -104,9 +104,10 @@ function formatTime(date: Date): string {
 
 interface AiMessageBubbleProps {
   message: AiMessage;
+  thinkingStatus?: string | null;
 }
 
-export function AiMessageBubble({ message }: AiMessageBubbleProps) {
+export function AiMessageBubble({ message, thinkingStatus }: AiMessageBubbleProps) {
   const isUser = message.role === "user";
 
   if (isUser) {
@@ -129,7 +130,18 @@ export function AiMessageBubble({ message }: AiMessageBubbleProps) {
         <AiIcon />
         <div className="flex-1 min-w-0">
           <div className="bg-[#29318A] text-white px-4 py-3 rounded-[16px] rounded-tr-[4px]">
-            <AiMarkdownRenderer content={message.content} />
+            {!message.content && thinkingStatus ? (
+              <div className="flex flex-row-reverse gap-2 items-center h-[20px]">
+                <span className="text-white/60 text-[13px]">{thinkingStatus}</span>
+                <div className="flex gap-1.5 items-center">
+                  <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:0ms]" />
+                  <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:150ms]" />
+                  <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:300ms]" />
+                </div>
+              </div>
+            ) : (
+              <AiMarkdownRenderer content={message.content} />
+            )}
             {message.chartData && (
               <div className="mt-3 bg-[#0F1535] rounded-[12px] p-3">
                 <p className="text-white/70 text-[12px] font-medium mb-2" dir="rtl">
@@ -198,23 +210,3 @@ export function AiMessageBubble({ message }: AiMessageBubbleProps) {
   );
 }
 
-// Typing indicator component
-export function AiTypingIndicator({ thinkingStatus }: { thinkingStatus?: string | null }) {
-  return (
-    <div className="flex items-start gap-2" dir="rtl">
-      <AiIcon />
-      <div className="bg-[#29318A] px-4 py-3 rounded-[16px] rounded-tr-[4px]">
-        <div className="flex flex-row-reverse gap-2 items-center h-[20px]">
-          {thinkingStatus && (
-            <span className="text-white/60 text-[13px]">{thinkingStatus}</span>
-          )}
-          <div className="flex gap-1.5 items-center">
-            <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:0ms]" />
-            <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:150ms]" />
-            <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:300ms]" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
