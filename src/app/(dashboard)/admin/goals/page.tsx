@@ -149,10 +149,10 @@ export default function AdminGoalsPage() {
   }, []);
 
   // Load data when business/month/year changes
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (silent = false) => {
     if (!selectedBusinessId || !selectedYear || !selectedMonth) return;
 
-    setIsLoading(true);
+    if (!silent) setIsLoading(true);
     const supabase = createClient();
 
     try {
@@ -250,7 +250,7 @@ export default function AdminGoalsPage() {
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [selectedBusinessId, selectedYear, selectedMonth]);
 
@@ -530,8 +530,8 @@ export default function AdminGoalsPage() {
         }
       }
 
+      await loadData(true);
       showToast("נשמר בהצלחה!", "success");
-      await loadData();
 
     } catch (error) {
       console.error("Error saving:", error);
