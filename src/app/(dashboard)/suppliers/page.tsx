@@ -59,6 +59,15 @@ interface SupplierWithBalance extends Supplier {
 
 type TabType = "previous" | "current" | "purchases" | "employees";
 
+// Parse attachment_url: supports both single URL string and JSON array of URLs
+function parseAttachmentUrls(raw: string | null): string[] {
+  if (!raw) return [];
+  if (raw.startsWith("[")) {
+    try { return JSON.parse(raw).filter((u: unknown) => typeof u === "string" && u); } catch { return []; }
+  }
+  return [raw];
+}
+
 export default function SuppliersPage() {
   const { selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
@@ -118,8 +127,16 @@ export default function SuppliersPage() {
     date: string;
     reference: string;
     amount: number;
+    amountWithVat: number;
+    amountBeforeVat: number;
     status: string;
+    notes: string;
+    clarificationReason: string | null;
+    attachmentUrls: string[];
+    enteredBy: string;
+    entryDate: string;
   }>>([]);
+  const [expandedSupplierInvoiceId, setExpandedSupplierInvoiceId] = useState<string | null>(null);
   const [supplierPayments, setSupplierPayments] = useState<Array<{
     id: string;
     date: string;
@@ -781,19 +798,26 @@ export default function SuppliersPage() {
       // Fetch invoices list for this supplier
       const { data: invoicesList } = await supabase
         .from("invoices")
-        .select("id, invoice_date, invoice_number, subtotal, status")
+        .select("id, invoice_date, invoice_number, subtotal, total_amount, vat_amount, status, notes, clarification_reason, attachment_url, created_by, created_at, creator:profiles!invoices_created_by_fkey(full_name)")
         .eq("supplier_id", supplier.id)
         .is("deleted_at", null)
         .order("invoice_date", { ascending: false })
         .limit(20);
 
       if (invoicesList) {
-        setSupplierInvoices(invoicesList.map(inv => ({
-          id: inv.id,
-          date: new Date(inv.invoice_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
-          reference: inv.invoice_number || "-",
+        setSupplierInvoices(invoicesList.map((inv: Record<string, unknown>) => ({
+          id: inv.id as string,
+          date: new Date(inv.invoice_date as string).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
+          reference: (inv.invoice_number as string) || "-",
           amount: Number(inv.subtotal),
+          amountWithVat: Number(inv.total_amount || inv.subtotal),
+          amountBeforeVat: Number(inv.subtotal),
           status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
+          notes: (inv.notes as string) || "",
+          clarificationReason: (inv.clarification_reason as string) || null,
+          attachmentUrls: parseAttachmentUrls(inv.attachment_url as string | null),
+          enteredBy: (inv.creator as { full_name: string } | null)?.full_name || "מערכת",
+          entryDate: new Date(inv.created_at as string).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
         })));
       }
 
@@ -845,6 +869,7 @@ export default function SuppliersPage() {
     setShowSupplierDetailPopup(false);
     setSelectedSupplier(null);
     setSupplierDetailData(null);
+    setExpandedSupplierInvoiceId(null);
   };
 
   // Get category name by ID
@@ -1849,7 +1874,7 @@ export default function SuppliersPage() {
                   </div>
 
                   {/* Table Rows */}
-                  <div className="max-h-[200px] overflow-y-auto flex flex-col gap-[5px]">
+                  <div className="flex flex-col gap-[5px]">
                     {supplierInvoices.length === 0 ? (
                       <div className="flex items-center justify-center py-[30px]">
                         <span className="text-[14px] text-white/50">אין חשבוניות להצגה</span>
@@ -1858,11 +1883,27 @@ export default function SuppliersPage() {
                       supplierInvoices.map((invoice) => (
                         <div
                           key={invoice.id}
-                          className="bg-white/5 rounded-[7px] p-[7px_3px]"
+                          className={`rounded-[7px] p-[7px_3px] transition-colors ${
+                            expandedSupplierInvoiceId === invoice.id ? "bg-white/10 border border-white/20" : "bg-white/5"
+                          }`}
                         >
-                          <div className="grid grid-cols-[0.8fr_1fr_0.9fr_0.8fr] w-full p-[5px_5px] items-center">
-                            {/* Date */}
-                            <span className="text-[12px] text-center ltr-num">{invoice.date}</span>
+                          {/* Row - Clickable to expand */}
+                          <button
+                            type="button"
+                            onClick={() => setExpandedSupplierInvoiceId(expandedSupplierInvoiceId === invoice.id ? null : invoice.id)}
+                            className="grid grid-cols-[0.8fr_1fr_0.9fr_0.8fr] w-full p-[5px_5px] items-center cursor-pointer"
+                          >
+                            {/* Date with expand arrow */}
+                            <div className="flex items-center justify-center gap-[4px]">
+                              <svg
+                                width="12" height="12" viewBox="0 0 32 32"
+                                fill="none"
+                                className={`flex-shrink-0 transition-transform text-white/50 ${expandedSupplierInvoiceId === invoice.id ? 'rotate-90' : ''}`}
+                              >
+                                <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                              <span className="text-[12px] ltr-num">{invoice.date}</span>
+                            </div>
                             {/* Reference */}
                             <span className="text-[12px] text-center ltr-num truncate px-[2px]">{invoice.reference}</span>
                             {/* Amount */}
@@ -1881,7 +1922,122 @@ export default function SuppliersPage() {
                                 {invoice.status}
                               </span>
                             </div>
-                          </div>
+                          </button>
+
+                          {/* Expanded Content */}
+                          {expandedSupplierInvoiceId === invoice.id && (
+                            <div className="flex flex-col gap-[15px] p-[5px] mt-[10px]">
+                              {/* Notes Section - only show if has notes */}
+                              {invoice.notes && invoice.notes.trim() !== "" && (
+                                <div className="border border-white/50 rounded-[7px] p-[3px] flex flex-col gap-[3px]">
+                                  <span className="text-[14px] text-[#979797] text-right">הערות</span>
+                                  <textarea
+                                    title="הערות לחשבונית"
+                                    disabled
+                                    rows={2}
+                                    value={invoice.notes}
+                                    className="w-full bg-transparent text-white text-[14px] font-bold text-right resize-none outline-none min-h-[50px]"
+                                  />
+                                </div>
+                              )}
+
+                              {/* Clarification Reason - only show for "בבירור" status */}
+                              {invoice.status === "בבירור" && invoice.clarificationReason && (
+                                <div className="border border-[#FFA500]/50 rounded-[7px] p-[3px] flex flex-col gap-[3px]">
+                                  <span className="text-[14px] text-[#FFA500] text-right">סיבת בירור</span>
+                                  <span className="text-[14px] text-white font-bold text-right px-[3px]">{invoice.clarificationReason}</span>
+                                </div>
+                              )}
+
+                              {/* Details Section */}
+                              <div className="border border-white/50 rounded-[7px] p-[3px] flex flex-col gap-[15px]">
+                                {/* Header with title and action icons */}
+                                <div className="flex items-center justify-between border-b border-white/35 pb-[10px]">
+                                  <span className="text-[16px] font-medium text-white ml-[7px]">פרטים נוספים</span>
+                                  <div className="flex items-center gap-[6px]">
+                                    {/* Image/View Icon - only show if has attachments */}
+                                    {invoice.attachmentUrls.length > 0 && (
+                                      <button
+                                        type="button"
+                                        title="צפייה בתמונה"
+                                        onClick={() => window.open(invoice.attachmentUrls[0], '_blank')}
+                                        className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
+                                      >
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                          <circle cx="8.5" cy="8.5" r="1.5"/>
+                                          <polyline points="21 15 16 10 5 21"/>
+                                        </svg>
+                                      </button>
+                                    )}
+                                    {/* Download Icon - only show if has attachments */}
+                                    {invoice.attachmentUrls.length > 0 && (
+                                      <a
+                                        href={invoice.attachmentUrls[0]}
+                                        download
+                                        title="הורדה"
+                                        className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
+                                      >
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                          <polyline points="7 10 12 15 17 10"/>
+                                          <line x1="12" y1="15" x2="12" y2="3"/>
+                                        </svg>
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Attachment Thumbnails */}
+                                {invoice.attachmentUrls.length > 0 && (
+                                  <div className="flex flex-wrap gap-[8px] px-[7px]">
+                                    {invoice.attachmentUrls.map((url, idx) => (
+                                      <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => window.open(url, '_blank')}
+                                        className="border border-white/20 rounded-[8px] overflow-hidden w-[70px] h-[70px] hover:border-white/50 transition-colors"
+                                      >
+                                        {url.endsWith(".pdf") ? (
+                                          <div className="w-full h-full flex items-center justify-center bg-white/5">
+                                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
+                                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                              <polyline points="14 2 14 8 20 8"/>
+                                              <line x1="16" y1="13" x2="8" y2="13"/>
+                                              <line x1="16" y1="17" x2="8" y2="17"/>
+                                            </svg>
+                                          </div>
+                                        ) : (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" />
+                                        )}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Details Grid */}
+                                <div className="flex flex-row-reverse items-center justify-between px-[7px]">
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-[14px] text-[#979797]">סכום כולל מע&quot;מ</span>
+                                    <span className="text-[14px] text-white ltr-num">₪{invoice.amountWithVat.toLocaleString()}</span>
+                                  </div>
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-[14px] text-[#979797]">סכום לפני מע&quot;מ</span>
+                                    <span className="text-[14px] text-white ltr-num">₪{invoice.amountBeforeVat.toLocaleString()}</span>
+                                  </div>
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-[14px] text-[#979797]">הוזן ע&quot;י</span>
+                                    <span className="text-[14px] text-white">{invoice.enteredBy}</span>
+                                  </div>
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-[14px] text-[#979797]">תאריך הזנה</span>
+                                    <span className="text-[14px] text-white ltr-num">{invoice.entryDate}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))
                     )}
