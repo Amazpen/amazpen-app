@@ -1152,9 +1152,13 @@ export default function DashboardPage() {
       const prevYearEndStr = formatLocalDate(prevYearEnd);
 
       // Run all historical queries in parallel
+      const prevYearMonth = prevYearStart.getMonth() + 1; // 1-12
+      const prevYearYear = prevYearStart.getFullYear();
+
       const [
         prevMonthEntriesResult,
         prevYearEntriesResult,
+        prevYearMonthlySummaryResult,
         prevMonthGoodsInvoicesResult,
         prevYearGoodsInvoicesResult,
         prevMonthCurrentExpensesInvoicesResult,
@@ -1177,6 +1181,14 @@ export default function DashboardPage() {
           .gte("entry_date", prevYearStartStr)
           .lte("entry_date", prevYearEndStr)
           .is("deleted_at", null),
+
+        // Previous year monthly summaries (fallback for historical data)
+        supabase
+          .from("monthly_summaries")
+          .select("total_income")
+          .in("business_id", selectedBusinesses)
+          .eq("year", prevYearYear)
+          .eq("month", prevYearMonth),
 
         // Previous month goods invoices
         goodsSupplierIds.length > 0
@@ -1229,6 +1241,7 @@ export default function DashboardPage() {
 
       const { data: prevMonthEntries } = prevMonthEntriesResult;
       const { data: prevYearEntries } = prevYearEntriesResult;
+      const { data: prevYearMonthlySummaries } = prevYearMonthlySummaryResult;
       const { data: prevMonthGoodsInvoices } = prevMonthGoodsInvoicesResult;
       const { data: prevYearGoodsInvoices } = prevYearGoodsInvoicesResult;
       const { data: prevMonthCurrentExpensesInvoices } = prevMonthCurrentExpensesInvoicesResult;
@@ -1248,7 +1261,11 @@ export default function DashboardPage() {
       const laborCostPrevMonthChange = prevMonthLaborCostPct > 0 ? laborCostPct - prevMonthLaborCostPct : 0;
 
       // Calculate previous year metrics
-      const prevYearIncome = (prevYearEntries || []).reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
+      // Use daily_entries first; fall back to monthly_summaries (historical data) if no entries exist
+      let prevYearIncome = (prevYearEntries || []).reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
+      if (prevYearIncome === 0 && (prevYearMonthlySummaries || []).length > 0) {
+        prevYearIncome = (prevYearMonthlySummaries || []).reduce((sum, s) => sum + (Number(s.total_income) || 0), 0);
+      }
       const prevYearChange = prevYearIncome > 0 ? totalIncome - prevYearIncome : 0;
       const prevYearChangePct = prevYearIncome > 0 ? ((totalIncome / prevYearIncome) - 1) * 100 : 0;
 
