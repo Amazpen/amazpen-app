@@ -86,17 +86,18 @@ CRITICAL RULES:
 1. ONLY generate SELECT queries. Never INSERT, UPDATE, DELETE, DROP, or ALTER.
 2. ALWAYS filter by business_id = '${businessId}' in every query.
 3. Use the exact table and column names from the schema below.
-4. When the user says "החודש" (this month), use the current month and year.
-5. When the user says "חודש קודם" or "חודש שעבר" (last month), subtract one month.
-6. Return ONLY the raw SQL query. No markdown fences, no explanation, no comments.
-7. Limit results to 500 rows maximum (add LIMIT 500 if not present).
-8. For percentage calculations, round to 2 decimal places.
-9. When joining tables, always use proper aliases for readability.
-10. For deleted records, always filter deleted_at IS NULL where the column exists.
-11. Today's date is ${today}. Current date and time in Israel: ${israelTime}.
-12. NEVER use UNION or UNION ALL.
-13. NEVER include SQL comments (-- or /* */).
-14. NEVER reference business_id values other than '${businessId}'.
+4. ALWAYS prefix ALL table names with "public." — e.g. public.daily_entries, public.suppliers, public.goals. This is REQUIRED for every table and view in FROM and JOIN clauses.
+5. When the user says "החודש" (this month), use the current month and year.
+6. When the user says "חודש קודם" or "חודש שעבר" (last month), subtract one month.
+7. Return ONLY the raw SQL query. No markdown fences, no explanation, no comments.
+8. Limit results to 500 rows maximum (add LIMIT 500 if not present).
+9. For percentage calculations, round to 2 decimal places.
+10. When joining tables, always use proper aliases for readability.
+11. For deleted records, always filter deleted_at IS NULL where the column exists.
+12. Today's date is ${today}. Current date and time in Israel: ${israelTime}.
+13. NEVER use UNION or UNION ALL.
+14. NEVER include SQL comments (-- or /* */).
+15. NEVER reference business_id values other than '${businessId}'.
 
 DATABASE SCHEMA:
 
@@ -191,45 +192,45 @@ DATABASE SCHEMA:
 --   credit_limit (numeric), is_active (boolean), deleted_at
 
 COMMON QUERY PATTERNS:
-- Total income this month: SUM(total_register) FROM daily_entries WHERE business_id='${businessId}' AND entry_date >= date_trunc('month', CURRENT_DATE) AND deleted_at IS NULL
-- Total income last month: SUM(total_register) FROM daily_entries WHERE business_id='${businessId}' AND entry_date >= date_trunc('month', CURRENT_DATE - interval '1 month') AND entry_date < date_trunc('month', CURRENT_DATE) AND deleted_at IS NULL
-- Labor cost %: Use daily_summary view which has labor_cost_pct
-- Food cost %: Use daily_summary view which has food_cost_pct
-- Supplier balances: SELECT * FROM supplier_balance WHERE business_id='${businessId}'
-- Compare to goals: JOIN monthly_summaries or daily_summary aggregated with goals table
-- Top suppliers by spend: SUM(total_amount) FROM invoices GROUP BY supplier_id, filtered by date
-- Fixed expenses: suppliers WHERE is_fixed_expense = true AND business_id='${businessId}'
-- Income by source: JOIN daily_income_breakdown with income_sources via daily_entries
+- Total income this month: SUM(total_register) FROM public.daily_entries WHERE business_id='${businessId}' AND entry_date >= date_trunc('month', CURRENT_DATE) AND deleted_at IS NULL
+- Total income last month: SUM(total_register) FROM public.daily_entries WHERE business_id='${businessId}' AND entry_date >= date_trunc('month', CURRENT_DATE - interval '1 month') AND entry_date < date_trunc('month', CURRENT_DATE) AND deleted_at IS NULL
+- Labor cost %: Use public.daily_summary view which has labor_cost_pct
+- Food cost %: Use public.daily_summary view which has food_cost_pct
+- Supplier balances: SELECT * FROM public.supplier_balance WHERE business_id='${businessId}'
+- Compare to goals: JOIN public.monthly_summaries or public.daily_summary aggregated with public.goals table
+- Top suppliers by spend: SUM(total_amount) FROM public.invoices GROUP BY supplier_id, filtered by date
+- Fixed expenses: public.suppliers WHERE is_fixed_expense = true AND business_id='${businessId}'
+- Income by source: JOIN public.daily_income_breakdown with public.income_sources via public.daily_entries
 
 FAQ — COMMON USER QUESTIONS AND THE QUERIES THEY NEED:
 
 "איך החודש שלי?" / "סיכום חודשי":
 Generate a query that returns: total income, labor cost %, food cost %, goals vs actual, work days count.
-Use daily_summary + goals table JOIN for the current month.
+Use public.daily_summary + public.goals table JOIN for the current month.
 
 "מי הספק הכי יקר?" / "מה עולה לי הכי הרבה?":
-SUM(total_amount) FROM invoices GROUP BY supplier_id JOIN suppliers for name, ORDER BY sum DESC LIMIT 5, filtered by current month.
+SUM(total_amount) FROM public.invoices GROUP BY supplier_id JOIN public.suppliers for name, ORDER BY sum DESC LIMIT 5, filtered by current month.
 
 "כמה אני פתוח אצל ספק X?":
-Use supplier_balance view filtered by supplier name (ILIKE '%X%').
+Use public.supplier_balance view filtered by supplier name (ILIKE '%X%').
 
 "מה צפי התשלומים?" / "כמה כסף עתיד לרדת?":
-Query invoices WHERE status IN ('pending','partial') AND due_date >= CURRENT_DATE, with supplier name JOIN.
+Query public.invoices WHERE status IN ('pending','partial') AND due_date >= CURRENT_DATE, with supplier name JOIN from public.suppliers.
 
 "כמה הרווחתי?":
-Total income minus total expenses (invoices + labor cost) for the period. Use daily_summary for income+labor, invoices for supplier costs.
+Total income minus total expenses (invoices + labor cost) for the period. Use public.daily_summary for income+labor, public.invoices for supplier costs.
 
 "איפה החריגות?":
-Compare actual vs goals: JOIN daily_summary aggregated with goals for current month. Show income gap, labor %, food cost %.
+Compare actual vs goals: JOIN public.daily_summary aggregated with public.goals for current month. Show income gap, labor %, food cost %.
 
 "כמה יורד לי בכרטיס אשראי?":
-Query payment_splits WHERE payment_method = 'credit_card' AND due_date >= CURRENT_DATE AND due_date <= end of month, JOIN payments + suppliers.
+Query public.payment_splits WHERE payment_method = 'credit_card' AND due_date >= CURRENT_DATE AND due_date <= end of month, JOIN public.payments + public.suppliers.
 
 "כמה הלוואות יש לי?":
-Query suppliers WHERE expense_nature ILIKE '%הלוואה%' OR expense_nature ILIKE '%loan%', with their invoices/payments summary.
+Query public.suppliers WHERE expense_nature ILIKE '%הלוואה%' OR expense_nature ILIKE '%loan%', with their invoices/payments summary.
 
 "איך עלות המכר/הסחורה?":
-Use daily_summary food_cost and food_cost_pct aggregated for the month, compared with goals.food_cost_target_pct.`;
+Use public.daily_summary food_cost and food_cost_pct aggregated for the month, compared with public.goals.food_cost_target_pct.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -250,16 +251,17 @@ CRITICAL RULES:
 2. When the user mentions a business by name, use the matching business_id from the list below.
 3. When the user asks about "all businesses" or does not specify a business, query across all businesses and JOIN with the businesses table to show the business name.
 4. Use the exact table and column names from the schema below.
-5. When the user says "החודש" (this month), use the current month and year.
-6. When the user says "חודש קודם" or "חודש שעבר" (last month), subtract one month.
-7. Return ONLY the raw SQL query. No markdown fences, no explanation, no comments.
-8. Limit results to 500 rows maximum (add LIMIT 500 if not present).
-9. For percentage calculations, round to 2 decimal places.
-10. When joining tables, always use proper aliases for readability.
-11. For deleted records, always filter deleted_at IS NULL where the column exists.
-12. Today's date is ${today}. Current date and time in Israel: ${israelTime}.
-13. NEVER use UNION or UNION ALL.
-14. NEVER include SQL comments (-- or /* */).
+5. ALWAYS prefix ALL table names with "public." — e.g. public.daily_entries, public.suppliers, public.goals, public.businesses. This is REQUIRED for every table and view in FROM and JOIN clauses.
+6. When the user says "החודש" (this month), use the current month and year.
+7. When the user says "חודש קודם" or "חודש שעבר" (last month), subtract one month.
+8. Return ONLY the raw SQL query. No markdown fences, no explanation, no comments.
+9. Limit results to 500 rows maximum (add LIMIT 500 if not present).
+10. For percentage calculations, round to 2 decimal places.
+11. When joining tables, always use proper aliases for readability.
+12. For deleted records, always filter deleted_at IS NULL where the column exists.
+13. Today's date is ${today}. Current date and time in Israel: ${israelTime}.
+14. NEVER use UNION or UNION ALL.
+15. NEVER include SQL comments (-- or /* */).
 
 AVAILABLE BUSINESSES:
 ${bizList}
@@ -357,12 +359,12 @@ DATABASE SCHEMA:
 --   is_verified (boolean), notes (text)
 
 COMMON QUERY PATTERNS FOR ADMIN:
-- Compare income across businesses: JOIN daily_entries with businesses ON business_id = businesses.id, GROUP BY businesses.name
+- Compare income across businesses: JOIN public.daily_entries with public.businesses ON business_id = businesses.id, GROUP BY businesses.name
 - Total income for a specific business: Use the business_id from the list above
-- All supplier balances: SELECT sb.*, b.name as business_name FROM supplier_balance sb JOIN businesses b ON sb.business_id = b.id
-- When user asks "what info do you have on X" or "show me X business": query businesses table + daily_entries count + invoices count to show summary
-- When user asks about all businesses: SELECT b.name, COUNT(de.id) as entries, SUM(de.total_register) as total FROM businesses b LEFT JOIN daily_entries de ON ...
-- Fixed expenses per business: JOIN suppliers with businesses, filter is_fixed_expense = true`;
+- All supplier balances: SELECT sb.*, b.name as business_name FROM public.supplier_balance sb JOIN public.businesses b ON sb.business_id = b.id
+- When user asks "what info do you have on X" or "show me X business": query public.businesses table + public.daily_entries count + public.invoices count to show summary
+- When user asks about all businesses: SELECT b.name, COUNT(de.id) as entries, SUM(de.total_register) as total FROM public.businesses b LEFT JOIN public.daily_entries de ON ...
+- Fixed expenses per business: JOIN public.suppliers with public.businesses, filter is_fixed_expense = true`;
 }
 
 // ---------------------------------------------------------------------------
@@ -764,6 +766,7 @@ function createSSEStream(
   streamFn: (writer: {
     writeText: (text: string) => void;
     writeChart: (chart: unknown) => void;
+    writeStatus: (status: string) => void;
     writeDone: () => void;
     writeError: (msg: string) => void;
   }) => Promise<void>
@@ -778,6 +781,9 @@ function createSSEStream(
         },
         writeChart(chart: unknown) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "chart", chartData: chart })}\n\n`));
+        },
+        writeStatus(status: string) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "status", status })}\n\n`));
         },
         writeDone() {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
@@ -1100,6 +1106,7 @@ export async function POST(request: NextRequest) {
 
   return createSSEStream(async (writer) => {
     // --- Step A: Generate SQL ---
+    writer.writeStatus("מנתח את השאלה...");
     const sqlSystemPrompt = isAdminCrossBiz
       ? buildAdminCrossBizSqlPrompt(allBusinesses)
       : buildSqlSystemPrompt(businessId);
@@ -1146,6 +1153,7 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Step C: Execute SQL ---
+    writer.writeStatus("שולף נתונים מהמערכת...");
     const adminSupabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
@@ -1197,6 +1205,7 @@ export async function POST(request: NextRequest) {
 
     // --- If SQL failed, try regenerating once with the error context ---
     if (queryErrorOccurred) {
+      writer.writeStatus("מתקן ומנסה שוב...");
       console.log("[AI SQL] Attempting auto-fix with error context...");
       const retryGenCompletion = await openai.chat.completions.create({
         model: "gpt-4.1-mini",
@@ -1240,6 +1249,7 @@ export async function POST(request: NextRequest) {
     const truncatedResults = resultRows.length > 100 ? resultRows.slice(0, 100) : resultRows;
 
     // --- Step D: Stream formatted response ---
+    writer.writeStatus(queryErrorOccurred ? "מכין תשובה..." : "מעבד תוצאות ומכין תשובה...");
     const userContent = queryErrorOccurred
       ? [
           `שאלת המשתמש: ${message}`,

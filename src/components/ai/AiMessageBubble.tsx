@@ -199,15 +199,20 @@ export function AiMessageBubble({ message }: AiMessageBubbleProps) {
 }
 
 // Typing indicator component
-export function AiTypingIndicator() {
+export function AiTypingIndicator({ thinkingStatus }: { thinkingStatus?: string | null }) {
   return (
     <div className="flex items-start gap-2" dir="rtl">
       <AiIcon />
       <div className="bg-[#29318A] px-4 py-3 rounded-[16px] rounded-tr-[4px]">
-        <div className="flex gap-1.5 items-center h-[20px]">
-          <div className="w-[7px] h-[7px] rounded-full bg-white/40 animate-bounce [animation-delay:0ms]" />
-          <div className="w-[7px] h-[7px] rounded-full bg-white/40 animate-bounce [animation-delay:150ms]" />
-          <div className="w-[7px] h-[7px] rounded-full bg-white/40 animate-bounce [animation-delay:300ms]" />
+        <div className="flex flex-row-reverse gap-2 items-center h-[20px]">
+          {thinkingStatus && (
+            <span className="text-white/60 text-[13px]">{thinkingStatus}</span>
+          )}
+          <div className="flex gap-1.5 items-center">
+            <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:0ms]" />
+            <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:150ms]" />
+            <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:300ms]" />
+          </div>
         </div>
       </div>
     </div>

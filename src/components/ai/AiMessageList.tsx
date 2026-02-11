@@ -7,9 +7,10 @@ import { AiMessageBubble, AiTypingIndicator } from "./AiMessageBubble";
 interface AiMessageListProps {
   messages: AiMessage[];
   isLoading: boolean;
+  thinkingStatus?: string | null;
 }
 
-export function AiMessageList({ messages, isLoading }: AiMessageListProps) {
+export function AiMessageList({ messages, isLoading, thinkingStatus }: AiMessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
@@ -37,7 +38,7 @@ export function AiMessageList({ messages, isLoading }: AiMessageListProps) {
       {messages.map((message) => (
         <AiMessageBubble key={message.id} message={message} />
       ))}
-      {isLoading && <AiTypingIndicator />}
+      {isLoading && <AiTypingIndicator thinkingStatus={thinkingStatus} />}
       <div ref={bottomRef} />
     </div>
   );

@@ -6,6 +6,7 @@ import type { AiMessage } from "@/types/ai";
 export function useAiChat(businessId: string | undefined, isAdmin = false) {
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [thinkingStatus, setThinkingStatus] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef<AiMessage[]>([]);
@@ -156,14 +157,18 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
             if (!trimmed || !trimmed.startsWith("data: ")) continue;
 
             const jsonStr = trimmed.slice(6); // remove "data: "
-            let event: { type: string; content?: string; chartData?: unknown; error?: string };
+            let event: { type: string; content?: string; status?: string; chartData?: unknown; error?: string };
             try {
               event = JSON.parse(jsonStr);
             } catch {
               continue;
             }
 
-            if (event.type === "text" && event.content) {
+            if (event.type === "status" && event.status) {
+              setThinkingStatus(event.status);
+            } else if (event.type === "text" && event.content) {
+              // First text chunk clears the thinking status
+              setThinkingStatus(null);
               // Append text chunk to the assistant message
               setMessages((prev) =>
                 prev.map((m) =>
@@ -205,6 +210,7 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
         setMessages((prev) => [...prev, errorMessage]);
       } finally {
         setIsLoading(false);
+        setThinkingStatus(null);
       }
     },
     [businessId, isAdmin, ensureSession]
@@ -226,5 +232,5 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
     }
   }, []);
 
-  return { messages, isLoading, isLoadingHistory, sendMessage, clearChat };
+  return { messages, isLoading, thinkingStatus, isLoadingHistory, sendMessage, clearChat };
 }
