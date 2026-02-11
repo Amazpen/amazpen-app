@@ -230,7 +230,18 @@ Query public.payment_splits WHERE payment_method = 'credit_card' AND due_date >=
 Query public.suppliers WHERE expense_nature ILIKE '%הלוואה%' OR expense_nature ILIKE '%loan%', with their invoices/payments summary.
 
 "איך עלות המכר/הסחורה?":
-Use public.daily_summary food_cost and food_cost_pct aggregated for the month, compared with public.goals.food_cost_target_pct.`;
+Use public.daily_summary food_cost and food_cost_pct aggregated for the month, compared with public.goals.food_cost_target_pct.
+
+FEW-SHOT EXAMPLES (input → output):
+
+User: "מה סך ההכנסות החודש?"
+SQL: SELECT COALESCE(SUM(de.total_register), 0) AS total_income, COUNT(de.id) AS work_days FROM public.daily_entries de WHERE de.business_id = '${businessId}' AND de.entry_date >= date_trunc('month', CURRENT_DATE) AND de.deleted_at IS NULL LIMIT 500
+
+User: "מי הספק הכי יקר?"
+SQL: SELECT s.name AS supplier_name, SUM(i.total_amount) AS total_spent FROM public.invoices i JOIN public.suppliers s ON s.id = i.supplier_id WHERE i.business_id = '${businessId}' AND i.invoice_date >= date_trunc('month', CURRENT_DATE) AND i.deleted_at IS NULL AND s.deleted_at IS NULL GROUP BY s.name ORDER BY total_spent DESC LIMIT 5
+
+User: "מה המצב מול היעדים?"
+SQL: SELECT COALESCE(SUM(ds.total_register), 0) AS total_income, ROUND(AVG(ds.labor_cost_pct), 2) AS avg_labor_pct, ROUND(AVG(ds.food_cost_pct), 2) AS avg_food_cost_pct, COUNT(ds.id) AS work_days, g.revenue_target, g.labor_cost_target_pct, g.food_cost_target_pct, g.profit_target FROM public.daily_summary ds LEFT JOIN public.goals g ON g.business_id = ds.business_id AND g.year = EXTRACT(YEAR FROM CURRENT_DATE)::int AND g.month = EXTRACT(MONTH FROM CURRENT_DATE)::int AND g.deleted_at IS NULL WHERE ds.business_id = '${businessId}' AND ds.entry_date >= date_trunc('month', CURRENT_DATE) GROUP BY g.revenue_target, g.labor_cost_target_pct, g.food_cost_target_pct, g.profit_target LIMIT 500`;
 }
 
 // ---------------------------------------------------------------------------
@@ -364,7 +375,18 @@ COMMON QUERY PATTERNS FOR ADMIN:
 - All supplier balances: SELECT sb.*, b.name as business_name FROM public.supplier_balance sb JOIN public.businesses b ON sb.business_id = b.id
 - When user asks "what info do you have on X" or "show me X business": query public.businesses table + public.daily_entries count + public.invoices count to show summary
 - When user asks about all businesses: SELECT b.name, COUNT(de.id) as entries, SUM(de.total_register) as total FROM public.businesses b LEFT JOIN public.daily_entries de ON ...
-- Fixed expenses per business: JOIN public.suppliers with public.businesses, filter is_fixed_expense = true`;
+- Fixed expenses per business: JOIN public.suppliers with public.businesses, filter is_fixed_expense = true
+
+FEW-SHOT EXAMPLES (input → output):
+
+User: "אילו עסקים יש במערכת?"
+SQL: SELECT b.id, b.name, b.business_type, b.currency FROM public.businesses b ORDER BY b.name LIMIT 500
+
+User: "תן סקירה של כל העסקים"
+SQL: SELECT b.name, COUNT(de.id) AS work_days, COALESCE(SUM(de.total_register), 0) AS total_income, ROUND(AVG(de.labor_cost), 0) AS avg_daily_labor FROM public.businesses b LEFT JOIN public.daily_entries de ON de.business_id = b.id AND de.entry_date >= date_trunc('month', CURRENT_DATE) AND de.deleted_at IS NULL GROUP BY b.id, b.name ORDER BY total_income DESC LIMIT 500
+
+User: "איזה עסק הכי רווחי החודש?"
+SQL: SELECT b.name, COALESCE(SUM(ds.total_register), 0) AS total_income, COALESCE(SUM(ds.food_cost), 0) AS total_food_cost, COALESCE(SUM(ds.labor_cost), 0) AS total_labor_cost, COALESCE(SUM(ds.total_register), 0) - COALESCE(SUM(ds.food_cost), 0) - COALESCE(SUM(ds.labor_cost), 0) AS estimated_profit FROM public.businesses b LEFT JOIN public.daily_summary ds ON ds.business_id = b.id AND ds.entry_date >= date_trunc('month', CURRENT_DATE) GROUP BY b.id, b.name ORDER BY estimated_profit DESC LIMIT 500`;
 }
 
 // ---------------------------------------------------------------------------
@@ -965,6 +987,7 @@ export async function POST(request: NextRequest) {
     }
 
     return createSSEStream(async (writer) => {
+      writer.writeStatus("חושב...");
       const chatStream = await openai.chat.completions.create({
         model: "gpt-4.1-mini",
         messages: [
@@ -1007,6 +1030,7 @@ export async function POST(request: NextRequest) {
     }
 
     return createSSEStream(async (writer) => {
+      writer.writeStatus("מחשב...");
       // Step 1: Ask GPT to generate a JS math expression
       const calcCompletion = await openai.chat.completions.create({
         model: "gpt-4.1-mini",
@@ -1146,7 +1170,7 @@ export async function POST(request: NextRequest) {
       writer.writeDone();
       return;
     }
-    if (!isAdminCrossBiz && !sql.includes(businessId)) {
+    if (!isAdmin && !sql.includes(businessId)) {
       writer.writeText("לא הצלחתי ליצור שאילתה מתאימה. נסה שוב.");
       writer.writeDone();
       return;

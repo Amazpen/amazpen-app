@@ -116,17 +116,7 @@ export function AiChatInput({ onSend, disabled }: AiChatInputProps) {
   return (
     <div id="onboarding-ai-input" className="flex-shrink-0 border-t border-white/10 bg-[#0F1535] px-4 py-3">
       <div className="flex items-end gap-3" dir="rtl">
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={isTranscribing ? "ממלל הודעה קולית..." : "שאל שאלה על העסק שלך..."}
-          disabled={isBusy}
-          rows={1}
-          className="flex-1 resize-none bg-[#29318A] text-white text-[15px] leading-[24px] rounded-[14px] px-4 py-3 placeholder:text-white/40 outline-none focus:ring-2 focus:ring-[#6366f1]/50 transition-shadow disabled:opacity-50 scrollbar-thin"
-        />
-        {/* Mic button */}
+        {/* Mic button - right side in RTL */}
         <button
           type="button"
           onClick={isRecording ? stopRecording : startRecording}
@@ -145,7 +135,17 @@ export function AiChatInput({ onSend, disabled }: AiChatInputProps) {
             <Mic className="w-5 h-5" />
           )}
         </button>
-        {/* Send button */}
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={isTranscribing ? "ממלל הודעה קולית..." : "שאל שאלה על העסק שלך..."}
+          disabled={isBusy}
+          rows={1}
+          className="flex-1 resize-none bg-[#29318A] text-white text-[15px] leading-[24px] rounded-[14px] px-4 py-3 placeholder:text-white/40 outline-none focus:ring-2 focus:ring-[#6366f1]/50 transition-shadow disabled:opacity-50 scrollbar-thin"
+        />
+        {/* Send button - left side in RTL */}
         <button
           type="button"
           onClick={handleSend}
