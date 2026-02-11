@@ -130,6 +130,11 @@ export function DailyEntriesModal({
   const [parameterData, setParameterData] = useState<Record<string, string>>({});
   const [productUsageForm, setProductUsageForm] = useState<Record<string, ProductUsageData>>({});
 
+  // Admin calculated fields
+  const [monthlyMarkup, setMonthlyMarkup] = useState<number>(1);
+  const [managerMonthlySalary, setManagerMonthlySalary] = useState<number>(0);
+  const [workingDaysUpToDate, setWorkingDaysUpToDate] = useState<number>(0);
+
   // Save draft on edit form changes
   const saveDraftData = useCallback(() => {
     if (editingEntry) {
@@ -365,6 +370,42 @@ export function DailyEntriesModal({
     try {
       await loadEditFormOptions();
       await loadExistingEntryData(entry.id);
+
+      // Load admin calculated fields
+      if (isAdmin) {
+        const supabase = createClient();
+        const entryDate = new Date(entry.entry_date);
+        const year = entryDate.getFullYear();
+        const month = entryDate.getMonth() + 1;
+
+        // Load markup from goals or business fallback
+        const { data: goalSetting } = await supabase
+          .from("goals")
+          .select("markup_percentage")
+          .eq("business_id", businessId)
+          .eq("year", year)
+          .eq("month", month)
+          .is("deleted_at", null)
+          .maybeSingle();
+
+        if (goalSetting?.markup_percentage != null) {
+          setMonthlyMarkup(Number(goalSetting.markup_percentage));
+        } else {
+          const { data: biz } = await supabase.from("businesses").select("markup_percentage").eq("id", businessId).maybeSingle();
+          setMonthlyMarkup(biz ? Number(biz.markup_percentage) : 1);
+        }
+
+        // Load manager salary
+        const { data: biz2 } = await supabase.from("businesses").select("manager_monthly_salary").eq("id", businessId).maybeSingle();
+        setManagerMonthlySalary(biz2 ? Number(biz2.manager_monthly_salary) : 0);
+
+        // Count working days up to entry date
+        const firstOfMonth = `${year}-${String(month).padStart(2, "0")}-01`;
+        const { count } = await supabase.from("daily_entries").select("id", { count: "exact", head: true })
+          .eq("business_id", businessId).gte("entry_date", firstOfMonth).lte("entry_date", entry.entry_date);
+        setWorkingDaysUpToDate(count || 0);
+      }
+
       // Restore draft if exists for this entry
       draftRestored.current = false;
       setTimeout(() => {
@@ -403,16 +444,25 @@ export function DailyEntriesModal({
       const supabase = createClient();
       const dailyEntryId = editingEntry.id;
 
+      // Calculate manager daily cost for saving
+      const saveLaborCost = parseFloat(editFormData.labor_cost) || 0;
+      const saveEntryDate = editFormData.entry_date ? new Date(editFormData.entry_date) : new Date();
+      const saveDaysInMonth = new Date(saveEntryDate.getFullYear(), saveEntryDate.getMonth() + 1, 0).getDate();
+      const saveManagerDailyCost = saveDaysInMonth > 0
+        ? (managerMonthlySalary / saveDaysInMonth) * workingDaysUpToDate * monthlyMarkup
+        : 0;
+
       // Update main daily entry
       const { error: updateError } = await supabase
         .from("daily_entries")
         .update({
           entry_date: editFormData.entry_date,
           total_register: parseFloat(editFormData.total_register) || 0,
-          labor_cost: parseFloat(editFormData.labor_cost) || 0,
+          labor_cost: saveLaborCost,
           labor_hours: parseFloat(editFormData.labor_hours) || 0,
           discounts: parseFloat(editFormData.discounts) || 0,
           day_factor: parseFloat(editFormData.day_factor) || 1,
+          manager_daily_cost: saveManagerDailyCost,
           updated_at: new Date().toISOString(),
         })
         .eq("id", dailyEntryId);
@@ -790,6 +840,66 @@ export function DailyEntriesModal({
                   />
                 </div>
 
+                {/* Admin-only calculated fields */}
+                {isAdmin && (() => {
+                  const laborCost = parseFloat(editFormData.labor_cost) || 0;
+                  const laborWithMarkup = laborCost * monthlyMarkup;
+
+                  const entryDate = editFormData.entry_date ? new Date(editFormData.entry_date) : new Date();
+                  const daysInMonth = new Date(entryDate.getFullYear(), entryDate.getMonth() + 1, 0).getDate();
+                  const dailyManagerWithMarkup = daysInMonth > 0
+                    ? (managerMonthlySalary / daysInMonth) * workingDaysUpToDate * monthlyMarkup
+                    : 0;
+
+                  return (
+                    <>
+                      <div className="bg-white/5 border border-[#4C526B] rounded-[7px] p-[7px] flex flex-col gap-[3px]">
+                        <Label className="text-white text-[15px] font-medium text-right">סה&quot;כ עלות עובדים יומית כולל העמסה</Label>
+                        <Input
+                          type="text"
+                          disabled
+                          value={laborWithMarkup > 0 ? `₪ ${laborWithMarkup.toFixed(2)}` : "—"}
+                          className="bg-[#1a1f4a] border-[#4C526B] text-[#FFA412] text-right h-[50px] rounded-[10px] font-semibold"
+                        />
+                      </div>
+                      <div className="bg-white/5 border border-[#4C526B] rounded-[7px] p-[7px] flex flex-col gap-[3px]">
+                        <div className="flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const supabase = createClient();
+                              const ed = new Date(editFormData.entry_date || new Date());
+                              const yr = ed.getFullYear();
+                              const mo = ed.getMonth() + 1;
+                              const { data: gs } = await supabase.from("goals").select("markup_percentage").eq("business_id", businessId).eq("year", yr).eq("month", mo).is("deleted_at", null).maybeSingle();
+                              if (gs?.markup_percentage != null) setMonthlyMarkup(Number(gs.markup_percentage));
+                              else {
+                                const { data: bz } = await supabase.from("businesses").select("markup_percentage").eq("id", businessId).maybeSingle();
+                                setMonthlyMarkup(bz ? Number(bz.markup_percentage) : 1);
+                              }
+                              const { data: bz2 } = await supabase.from("businesses").select("manager_monthly_salary").eq("id", businessId).maybeSingle();
+                              setManagerMonthlySalary(bz2 ? Number(bz2.manager_monthly_salary) : 0);
+                              const firstOfMonth = `${yr}-${String(mo).padStart(2, "0")}-01`;
+                              const { count } = await supabase.from("daily_entries").select("id", { count: "exact", head: true }).eq("business_id", businessId).gte("entry_date", firstOfMonth).lte("entry_date", editFormData.entry_date);
+                              setWorkingDaysUpToDate(count || 0);
+                            }}
+                            className="opacity-50 hover:opacity-100 transition-opacity"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                          </button>
+                          <Label className="text-white text-[15px] font-medium text-right">שכר מנהל יומי כולל העמסה</Label>
+                        </div>
+                        <Input
+                          type="text"
+                          disabled
+                          value={dailyManagerWithMarkup > 0 ? `₪ ${dailyManagerWithMarkup.toFixed(2)}` : "—"}
+                          className="bg-[#1a1f4a] border-[#4C526B] text-[#FFA412] text-right h-[50px] rounded-[10px] font-semibold"
+                        />
+                      </div>
+                    </>
+                  );
+                })()}
+
                 <div className="flex flex-col gap-[3px]">
                   <Label className="text-white text-[15px] font-medium text-right">כמות שעות עובדים</Label>
                   <Input
@@ -873,6 +983,25 @@ export function DailyEntriesModal({
                             className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                           />
                         </div>
+
+                        {/* שימוש בפועל - admin only */}
+                        {isAdmin && (() => {
+                          const opening = parseFloat(productUsageForm[product.id]?.opening_stock) || 0;
+                          const received = parseFloat(productUsageForm[product.id]?.received_quantity) || 0;
+                          const closing = parseFloat(productUsageForm[product.id]?.closing_stock) || 0;
+                          const actualUsage = opening + received - closing;
+                          return (
+                            <div className="bg-white/5 border border-[#4C526B] rounded-[7px] p-[7px] flex flex-col gap-[3px]">
+                              <span className="text-white text-[15px] font-medium text-right">שימוש בפועל</span>
+                              <Input
+                                type="text"
+                                disabled
+                                value={actualUsage > 0 ? `${actualUsage.toFixed(2)} ${product.unit}` : "—"}
+                                className="bg-[#1a1f4a] border-[#4C526B] text-[#FFA412] text-right h-[40px] rounded-[10px] font-semibold"
+                              />
+                            </div>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>
