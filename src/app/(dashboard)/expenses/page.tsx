@@ -1883,7 +1883,7 @@ export default function ExpensesPage() {
         {/* Table */}
         <div id="onboarding-expenses-list" className="w-full flex flex-col gap-[5px]">
           {/* Table Header */}
-          <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-white/5 rounded-t-[7px] p-[10px_5px] items-center">
+          <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#E34299] rounded-t-[7px] p-[10px_5px] items-center">
             <button
               type="button"
               onClick={() => setDateSortOrder(prev => prev === "asc" ? "desc" : prev === "desc" ? null : "asc")}
@@ -1938,7 +1938,7 @@ export default function ExpensesPage() {
               return (
               <div
                 key={invoice.id}
-                className={`bg-white/5 rounded-[7px] p-[7px_3px] border transition-colors ${
+                className={`bg-[#E34299]/10 rounded-[7px] p-[7px_3px] border transition-colors ${
                   expandedInvoiceId === invoice.id ? 'border-white' : 'border-transparent'
                 }`}
               >
