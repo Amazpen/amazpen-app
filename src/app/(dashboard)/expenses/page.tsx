@@ -1815,17 +1815,19 @@ export default function ExpensesPage() {
                 {/* Expanded Content */}
                 {expandedInvoiceId === invoice.id && (
                   <div className="flex flex-col gap-[20px] p-[5px] mt-[10px]">
-                    {/* Notes Section */}
-                    <div className="border border-white/50 rounded-[7px] p-[3px] flex flex-col gap-[3px]">
-                      <span className="text-[14px] text-[#979797] text-right">הערות</span>
-                      <textarea
-                        title="הערות להוצאה"
-                        disabled
-                        rows={2}
-                        value={invoice.notes}
-                        className="w-full bg-transparent text-white text-[14px] font-bold text-right resize-none outline-none min-h-[70px]"
-                      />
-                    </div>
+                    {/* Notes Section - only show if has notes */}
+                    {invoice.notes && invoice.notes.trim() !== "" && (
+                      <div className="border border-white/50 rounded-[7px] p-[3px] flex flex-col gap-[3px]">
+                        <span className="text-[14px] text-[#979797] text-right">הערות</span>
+                        <textarea
+                          title="הערות להוצאה"
+                          disabled
+                          rows={2}
+                          value={invoice.notes}
+                          className="w-full bg-transparent text-white text-[14px] font-bold text-right resize-none outline-none min-h-[70px]"
+                        />
+                      </div>
+                    )}
 
                     {/* Clarification Reason - only show for "בבירור" status */}
                     {invoice.status === "בבירור" && invoice.clarificationReason && (
