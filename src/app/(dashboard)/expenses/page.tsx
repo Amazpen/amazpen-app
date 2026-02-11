@@ -1602,7 +1602,7 @@ export default function ExpensesPage() {
         {/* Table */}
         <div id="onboarding-expenses-list" className="w-full flex flex-col gap-[5px]">
           {/* Table Header */}
-          <div className="grid grid-cols-[0.8fr_1.2fr_1.2fr_0.9fr_0.9fr] bg-white/5 rounded-t-[7px] p-[10px_5px] items-center">
+          <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-white/5 rounded-t-[7px] p-[10px_5px] items-center">
             <span className="text-[13px] font-medium text-center">תאריך</span>
             <span className="text-[13px] font-medium text-center">ספק</span>
             <span className="text-[13px] font-medium text-center">אסמכתא</span>
@@ -1642,7 +1642,7 @@ export default function ExpensesPage() {
                 }`}
               >
                 {/* Main Row */}
-                <div className="grid grid-cols-[0.8fr_1.2fr_1.2fr_0.9fr_0.9fr] w-full p-[5px_5px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] items-center">
+                <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] w-full p-[5px_5px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] items-center">
                   {/* Date - Clickable */}
                   <button
                     type="button"
@@ -1664,7 +1664,7 @@ export default function ExpensesPage() {
                   <button
                     type="button"
                     onClick={() => setExpandedInvoiceId(expandedInvoiceId === invoice.id ? null : invoice.id)}
-                    className={`text-[12px] text-center leading-tight cursor-pointer truncate px-[2px] ${isFixedPending ? 'text-[#bc76ff]' : ''}`}
+                    className={`text-[12px] text-center leading-tight cursor-pointer break-words px-[2px] ${isFixedPending ? 'text-[#bc76ff]' : ''}`}
                   >
                     {invoice.supplier}
                   </button>
