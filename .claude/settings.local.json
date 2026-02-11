@@ -146,7 +146,8 @@
       "Bash(/c/Program Files/nodejs/npm.cmd install -D @types/papaparse)",
       "Bash(/c/Program Files/nodejs/npm.cmd install nextstepjs motion)",
       "Bash(/c/Program Files/nodejs/npm.cmd ls nextstepjs)",
-      "Bash(git status:*)"
+      "Bash(git status:*)",
+      "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit --pretty src/app/\\\\\\(dashboard\\\\\\)/admin/payments/page.tsx)"
     ]
   },
   "enableAllProjectMcpServers": true,
