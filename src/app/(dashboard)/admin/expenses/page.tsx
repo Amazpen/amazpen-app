@@ -348,30 +348,36 @@ export default function AdminExpensesPage() {
               unmatchedSet.add(supplier_name);
             }
 
-            // Parse expense type
+            // Parse expense type - maps to supplier expense_type
             let expense_type = "current_expenses";
+            // invoice_type for the invoices table: 'current' or 'goods'
+            let invoice_type_db = "current";
             if (expenseTypeRaw) {
               if (expenseTypeRaw.includes("קניות סחורה") || expenseTypeRaw.includes("קניות")) {
                 expense_type = "goods_purchases";
+                invoice_type_db = "goods";
               } else if (expenseTypeRaw.includes("הוצאות שוטפות") || expenseTypeRaw.includes("שוטפות")) {
                 expense_type = "current_expenses";
+                invoice_type_db = "current";
               } else if (expenseTypeRaw.includes("עובדים") || expenseTypeRaw.includes("שכר")) {
                 expense_type = "employee_costs";
+                invoice_type_db = "current";
               }
             }
 
-            // Parse payment status
+            // Parse payment status - DB allows: 'pending', 'clarification', 'paid'
             const paymentStatusRaw = getField(row, "payment_status");
             let payment_status = "pending";
             if (paymentStatusRaw) {
               if (paymentStatusRaw === "שולם" || paymentStatusRaw.includes("שולם")) {
                 payment_status = "paid";
               } else if (paymentStatusRaw === "בבירור") {
-                payment_status = "in_clarification";
+                payment_status = "clarification";
               } else if (paymentStatusRaw.includes("ממתין") || paymentStatusRaw.includes("טרם")) {
                 payment_status = "pending";
               } else if (paymentStatusRaw === "זיכוי") {
-                payment_status = "credited";
+                // No 'credited' in DB - use 'paid' as closest match
+                payment_status = "paid";
               }
             }
 
@@ -385,8 +391,8 @@ export default function AdminExpensesPage() {
             // Clarification
             const isInClarificationRaw = getField(row, "is_in_clarification");
             const clarification_reason = getField(row, "clarification_reason");
-            if (isInClarificationRaw === "כן" && payment_status !== "in_clarification") {
-              payment_status = "in_clarification";
+            if (isInClarificationRaw === "כן" && payment_status !== "clarification") {
+              payment_status = "clarification";
             }
 
             // VAT required
@@ -403,11 +409,8 @@ export default function AdminExpensesPage() {
               invoice_number = "";
             }
 
-            // Map invoice type
-            let invoice_type = "regular";
-            if (is_consolidated) {
-              invoice_type = "consolidated";
-            }
+            // Use the DB-compatible invoice_type
+            const invoice_type = invoice_type_db;
 
             // Build notes from various fields
             const notesParts: string[] = [];
@@ -636,11 +639,10 @@ export default function AdminExpensesPage() {
           }
         }
 
-        // Map payment_status to invoice status
+        // Map payment_status to invoice status (DB: pending/clarification/paid)
         let status = "pending";
         if (expense.payment_status === "paid") status = "paid";
-        else if (expense.payment_status === "in_clarification") status = "in_clarification";
-        else if (expense.payment_status === "credited") status = "credited";
+        else if (expense.payment_status === "clarification") status = "clarification";
 
         records.push({
           business_id: selectedBusinessId,
@@ -709,7 +711,7 @@ export default function AdminExpensesPage() {
   const consolidatedCount = csvExpenses.filter(e => e.is_consolidated).length;
   const paidCount = csvExpenses.filter(e => e.payment_status === "paid").length;
   const pendingCount = csvExpenses.filter(e => e.payment_status === "pending").length;
-  const clarificationCount = csvExpenses.filter(e => e.payment_status === "in_clarification").length;
+  const clarificationCount = csvExpenses.filter(e => e.payment_status === "clarification").length;
 
   // Group expenses by supplier for summary
   const supplierSummary = csvExpenses.reduce((acc, e) => {
@@ -1007,7 +1009,7 @@ export default function AdminExpensesPage() {
                             שולם
                           </span>
                         )}
-                        {expense.payment_status === "in_clarification" && (
+                        {expense.payment_status === "clarification" && (
                           <span className="text-[10px] px-[4px] py-[1px] rounded bg-[#F64E60]/20 text-[#F64E60]">
                             בבירור
                           </span>
