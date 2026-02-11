@@ -1524,11 +1524,13 @@ export default function ExpensesPage() {
               <svg className="w-full h-full" viewBox="0 0 100 100">
                 {/* Background circle */}
                 <circle cx="50" cy="50" r="40" fill="none" stroke="#29318A" strokeWidth="15"/>
-                {/* Dynamic segments */}
+                {/* Dynamic segments with percentage labels */}
                 {(() => {
                   let offset = 0;
-                  return chartDataSource.map((item, index) => {
-                    const segment = (
+                  const elements: React.ReactNode[] = [];
+                  chartDataSource.forEach((item, index) => {
+                    // Draw segment
+                    elements.push(
                       <circle
                         key={item.id}
                         cx="50"
@@ -1542,9 +1544,30 @@ export default function ExpensesPage() {
                         transform="rotate(-90 50 50)"
                       />
                     );
+                    // Add percentage label for segments >= 5%
+                    if (item.percentage >= 5) {
+                      const midAngle = ((offset + item.percentage / 2) / 100) * 2 * Math.PI - Math.PI / 2;
+                      const labelX = 50 + 40 * Math.cos(midAngle);
+                      const labelY = 50 + 40 * Math.sin(midAngle);
+                      elements.push(
+                        <text
+                          key={`label-${item.id}`}
+                          x={labelX}
+                          y={labelY}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fill="#fff"
+                          fontSize="4"
+                          fontWeight="bold"
+                          style={{ textShadow: "0 0 2px rgba(0,0,0,0.8)" }}
+                        >
+                          {item.percentage.toFixed(0)}%
+                        </text>
+                      );
+                    }
                     offset += item.percentage;
-                    return segment;
                   });
+                  return elements;
                 })()}
               </svg>
               {/* Center text */}
