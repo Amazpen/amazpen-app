@@ -32,7 +32,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/daily-entries"];
+const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/daily-entries", "/admin/historical-data"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -59,6 +59,7 @@ const adminMenuItems = [
   { id: 106, label: "ייבוא הוצאות", href: "/admin/expenses", key: "admin-expenses" },
   { id: 107, label: "ייבוא תשלומים", href: "/admin/payments", key: "admin-payments" },
   { id: 109, label: "ייבוא מילוי יומי", href: "/admin/daily-entries", key: "admin-daily-entries" },
+  { id: 110, label: "ייבוא נתוני עבר", href: "/admin/historical-data", key: "admin-historical-data" },
 ];
 
 // Page titles mapping
@@ -80,6 +81,7 @@ const pageTitles: Record<string, string> = {
   "/admin/expenses": "ייבוא הוצאות",
   "/admin/payments": "ייבוא תשלומים",
   "/admin/daily-entries": "ייבוא מילוי יומי",
+  "/admin/historical-data": "ייבוא נתוני עבר",
   "/price-tracking": "מעקב מחירי ספקים",
   "/ai": "עוזר AI",
 };

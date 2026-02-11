@@ -1070,6 +1070,7 @@ export default function DashboardPage() {
       // Calculate monthly pace (קצב חודשי)
       // Formula: (סה"כ קופה / סה"כ day_factor בפועל) × ימי עבודה צפויים בחודש
       let monthlyPace = 0;
+      let expectedMonthlyWorkDays = 0;
 
       // Sum of day_factor from actual entries (actual work days in range)
       const sumActualDayFactors = (entries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
@@ -1102,7 +1103,6 @@ export default function DashboardPage() {
         });
 
         // Count expected work days in the month by summing day_factors
-        let expectedMonthlyWorkDays = 0;
         const currentDate = new Date(firstDayOfMonth);
         while (currentDate <= lastDayOfMonth) {
           const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
@@ -1125,9 +1125,11 @@ export default function DashboardPage() {
       // Calculate percentage difference
       let targetDiffPct = 0;
       let targetDiffAmount = 0;
-      if (revenueTarget > 0) {
+      if (revenueTarget > 0 && expectedMonthlyWorkDays > 0) {
         targetDiffPct = ((monthlyPace / revenueTarget) - 1) * 100;
-        targetDiffAmount = monthlyPace - revenueTarget;
+        // Formula: (קצב - תקציב) / ימי_עבודה_בחודש × ימי_עבודה_בפועל
+        const dailyDiff = (monthlyPace - revenueTarget) / expectedMonthlyWorkDays;
+        targetDiffAmount = dailyDiff * sumActualDayFactors;
       }
 
       // ========================================================================
