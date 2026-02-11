@@ -859,12 +859,11 @@ export function DailyEntriesModal({
                           type="text"
                           disabled
                           value={laborWithMarkup > 0 ? `₪ ${laborWithMarkup.toFixed(2)}` : "—"}
-                          className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold"
+                          className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold disabled:opacity-100"
                         />
                       </div>
                       <div className="bg-transparent rounded-[7px] flex flex-col gap-[3px]">
-                        <div className="flex items-center justify-between flex-row-reverse">
-                          <Label className="text-white text-[15px] font-medium text-right">שכר מנהל יומי כולל העמסה</Label>
+                        <div className="flex items-center justify-between">
                           <button
                             type="button"
                             onClick={async () => {
@@ -888,12 +887,13 @@ export function DailyEntriesModal({
                           >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                           </button>
+                          <Label className="text-white text-[15px] font-medium text-right">שכר מנהל יומי כולל העמסה</Label>
                         </div>
                         <Input
                           type="text"
                           disabled
                           value={dailyManagerWithMarkup > 0 ? `₪ ${dailyManagerWithMarkup.toFixed(2)}` : "—"}
-                          className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold"
+                          className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold disabled:opacity-100"
                         />
                       </div>
                     </>
@@ -997,7 +997,7 @@ export function DailyEntriesModal({
                                 type="text"
                                 disabled
                                 value={actualUsage > 0 ? `${actualUsage.toFixed(2)} ${product.unit}` : "—"}
-                                className="bg-transparent border-[#4C526B] text-white text-right h-[40px] rounded-[10px] font-semibold"
+                                className="bg-transparent border-[#4C526B] text-white text-right h-[40px] rounded-[10px] font-semibold disabled:opacity-100"
                               />
                             </div>
                           );
