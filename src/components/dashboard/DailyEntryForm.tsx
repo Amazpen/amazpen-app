@@ -1114,7 +1114,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                           type="text"
                           disabled
                           value={laborWithMarkup > 0 ? `₪ ${laborWithMarkup.toFixed(2)}` : "—"}
-                          className="bg-[#1a1f4a] border-[#4C526B] text-[#FFA412] text-right h-[50px] rounded-[10px] font-semibold"
+                          className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold"
                         />
                       </FormField>
                       <div className="flex flex-col gap-[3px]">
@@ -1152,7 +1152,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                           type="text"
                           disabled
                           value={dailyManagerWithMarkup > 0 ? `₪ ${dailyManagerWithMarkup.toFixed(2)}` : "—"}
-                          className="bg-[#1a1f4a] border-[#4C526B] text-[#FFA412] text-right h-[50px] rounded-[10px] font-semibold"
+                          className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold"
                         />
                       </div>
                     </>
@@ -1240,13 +1240,13 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                           const closing = parseFloat(productUsage[product.id]?.closing_stock) || 0;
                           const actualUsage = opening + received - closing;
                           return (
-                            <div className="bg-white/5 border border-[#4C526B] rounded-[7px] p-[7px] flex flex-col gap-[3px]">
+                            <div className="bg-transparent rounded-[7px] flex flex-col gap-[3px]">
                               <span className="text-white text-[15px] font-medium text-right">שימוש בפועל</span>
                               <Input
                                 type="text"
                                 disabled
                                 value={actualUsage > 0 ? `${actualUsage.toFixed(2)} ${product.unit}` : "—"}
-                                className="bg-[#1a1f4a] border-[#4C526B] text-[#FFA412] text-right h-[40px] rounded-[10px] font-semibold"
+                                className="bg-transparent border-[#4C526B] text-white text-right h-[40px] rounded-[10px] font-semibold"
                               />
                             </div>
                           );
