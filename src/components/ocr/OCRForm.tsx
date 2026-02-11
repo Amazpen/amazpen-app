@@ -11,6 +11,7 @@ import SupplierSearchSelect from '@/components/ui/SupplierSearchSelect';
 interface Supplier {
   id: string;
   name: string;
+  notes?: string | null;
 }
 
 interface Business {
@@ -920,6 +921,24 @@ export default function OCRForm({
         value={supplierId}
         onChange={setSupplierId}
       />
+
+      {/* Supplier Notes - show if selected supplier has notes */}
+      {(() => {
+        const selectedSupplier = suppliers.find(s => s.id === supplierId);
+        if (selectedSupplier?.notes && selectedSupplier.notes.trim()) {
+          return (
+            <div className="bg-[#FFA500]/10 border border-[#FFA500]/40 rounded-[8px] px-[10px] py-[8px] flex items-start gap-[6px]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFA500" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-[2px]">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <span className="text-[13px] text-white/90 text-right leading-[1.4]">{selectedSupplier.notes}</span>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       {/* Document Number */}
       <div className="flex flex-col gap-[5px]">
