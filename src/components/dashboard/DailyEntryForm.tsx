@@ -320,6 +320,20 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       });
       setProductUsage(initialProducts);
 
+      // Check if today's date already has an entry (only in create mode)
+      if (!editingEntry) {
+        const today = new Date().toISOString().split("T")[0];
+        const { data: todayEntry } = await supabase
+          .from("daily_entries")
+          .select("id")
+          .eq("business_id", businessId)
+          .eq("entry_date", today)
+          .maybeSingle();
+        if (todayEntry) {
+          setDateWarning("כבר קיים רישום לתאריך זה");
+        }
+      }
+
       // Restore draft after all state is initialized
       setTimeout(() => restoreDraft(), 0);
     } catch (err) {
