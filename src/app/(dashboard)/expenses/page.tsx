@@ -2290,18 +2290,21 @@ export default function ExpensesPage() {
                 <label className="text-[16px] font-medium text-white text-right">תמונות/מסמכים</label>
                 {newAttachmentPreviews.length > 0 && (
                   <div className="flex flex-wrap gap-[8px] mb-[5px]">
-                    {newAttachmentPreviews.map((preview, idx) => (
+                    {newAttachmentPreviews.map((preview, idx) => {
+                      const file = newAttachmentFiles[idx];
+                      const isImage = file?.type?.startsWith("image/");
+                      return (
                       <div key={idx} className="relative group border border-[#4C526B] rounded-[8px] overflow-hidden w-[80px] h-[80px]">
-                        {newAttachmentFiles[idx]?.name.endsWith(".pdf") ? (
+                        {isImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
+                        ) : (
                           <div className="w-full h-full flex items-center justify-center bg-white/5">
                             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
                               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                               <polyline points="14 2 14 8 20 8"/>
                             </svg>
                           </div>
-                        ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
                         )}
                         <button
                           type="button"
@@ -2314,7 +2317,8 @@ export default function ExpensesPage() {
                           ×
                         </button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[50px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
