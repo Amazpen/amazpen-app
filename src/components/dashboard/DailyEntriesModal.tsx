@@ -971,14 +971,14 @@ export function DailyEntriesModal({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDelete(entry.id);
+                        handleEdit(entry);
                       }}
                       className="w-[20px] h-[20px] text-white opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
-                      aria-label="מחק"
+                      aria-label="ערוך"
                     >
                       <svg viewBox="0 0 32 32" className="w-full h-full">
                         <path
-                          d="M9 10h14M12 10V8a2 2 0 012-2h4a2 2 0 012 2v2m2 0v14a2 2 0 01-2 2H10a2 2 0 01-2-2V10h16z"
+                          d="M22 6l4 4-14 14H8v-4L22 6z"
                           stroke="currentColor"
                           strokeWidth="2"
                           strokeLinecap="round"
@@ -991,14 +991,14 @@ export function DailyEntriesModal({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleEdit(entry);
+                        handleDelete(entry.id);
                       }}
                       className="w-[20px] h-[20px] text-white opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
-                      aria-label="ערוך"
+                      aria-label="מחק"
                     >
                       <svg viewBox="0 0 32 32" className="w-full h-full">
                         <path
-                          d="M22 6l4 4-14 14H8v-4L22 6z"
+                          d="M9 10h14M12 10V8a2 2 0 012-2h4a2 2 0 012 2v2m2 0v14a2 2 0 01-2 2H10a2 2 0 01-2-2V10h16z"
                           stroke="currentColor"
                           strokeWidth="2"
                           strokeLinecap="round"
