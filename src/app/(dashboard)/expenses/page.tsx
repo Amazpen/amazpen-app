@@ -1372,7 +1372,7 @@ export default function ExpensesPage() {
 
           {/* Table Header */}
           <div className="flex items-center border-b border-white/20 p-[5px]">
-            <span className="text-[16px] flex-1 text-center">
+            <span className="text-[16px] flex-1 text-right">
               {activeTab === "purchases" ? "שם ספק" : "קטגוריית ספק"}
             </span>
             <span className="text-[16px] flex-1 text-center">סכום לפני מע&quot;מ</span>
@@ -1398,7 +1398,7 @@ export default function ExpensesPage() {
                         index > 0 ? 'border-t border-white/10' : ''
                       }`}
                     >
-                      <div className="flex items-center justify-center gap-[5px] flex-1">
+                      <div className="flex items-center justify-end gap-[5px] flex-1">
                         <svg
                           width="18"
                           height="18"
@@ -1408,7 +1408,7 @@ export default function ExpensesPage() {
                         >
                           <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                        <span className="text-[16px] text-center">{cat.category}</span>
+                        <span className="text-[16px]">{cat.category}</span>
                       </div>
                       <span className="text-[16px] flex-1 text-center ltr-num">₪{cat.amount.toLocaleString()}</span>
                       <span className="text-[16px] flex-1 text-center ltr-num">{cat.percentage.toFixed(1)}%</span>
@@ -3047,11 +3047,11 @@ export default function ExpensesPage() {
             {/* Summary Row */}
             <div className="flex items-center justify-between mx-[10px] mb-[15px]">
               <div className="flex flex-col items-center">
-                <span className="text-[20px] font-bold text-white ltr-num">₪{breakdownSupplierTotalWithVat.toLocaleString()}</span>
-                <span className="text-[14px] text-white/70">כולל מע&quot;מ</span>
+                <span className="text-[20px] font-bold text-white">{breakdownSupplierCategory}</span>
               </div>
               <div className="flex flex-col items-center">
-                <span className="text-[20px] font-bold text-white">{breakdownSupplierCategory}</span>
+                <span className="text-[20px] font-bold text-white ltr-num">₪{breakdownSupplierTotalWithVat.toLocaleString()}</span>
+                <span className="text-[14px] text-white/70">כולל מע&quot;מ</span>
               </div>
             </div>
 
