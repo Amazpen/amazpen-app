@@ -1189,17 +1189,17 @@ export default function PaymentsPage() {
                                 onClick={() => toggleForecastDate(`${month.key}__${dateKey}`)}
                                 className="w-full flex items-center justify-between pb-[3px] hover:bg-white/5 transition-colors rounded-[5px]"
                               >
-                                <div className="flex flex-col items-start">
+                                <div className="flex items-center gap-[5px]">
+                                  <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className={`text-white transition-transform ${dateExpanded ? "rotate-90" : ""}`}>
+                                    <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                  <span className="text-[16px] text-white">{formatForecastDate(dateKey)}</span>
+                                </div>
+                                <div className="flex flex-col items-end">
                                   <span className="text-[16px] text-white">
                                     {`₪${splits.reduce((s, sp) => s + sp.amount, 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                                   </span>
                                   <span className="text-[12px] font-bold text-white">{`סה"כ לתשלום`}</span>
-                                </div>
-                                <div className="flex items-center gap-[5px]">
-                                  <span className="text-[16px] text-white">{formatForecastDate(dateKey)}</span>
-                                  <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className={`text-white transition-transform ${dateExpanded ? "rotate-90" : ""}`}>
-                                    <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                  </svg>
                                 </div>
                               </button>
 
