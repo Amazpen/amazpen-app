@@ -66,6 +66,15 @@ interface LinkedPayment {
   check_date: string | null;
 }
 
+// Parse attachment_url: supports both single URL string and JSON array of URLs
+function parseAttachmentUrls(raw: string | null): string[] {
+  if (!raw) return [];
+  if (raw.startsWith("[")) {
+    try { return JSON.parse(raw).filter((u: unknown) => typeof u === "string" && u); } catch { return []; }
+  }
+  return [raw];
+}
+
 // Invoice display for UI
 interface InvoiceDisplay {
   id: string;
@@ -80,6 +89,7 @@ interface InvoiceDisplay {
   entryDate: string;
   notes: string;
   attachmentUrl: string | null;
+  attachmentUrls: string[];
   isFixed: boolean;
   linkedPayments: { id: string; amount: number; method: string; installments: number; date: string }[];
 }
@@ -182,9 +192,9 @@ export default function ExpensesPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // File upload state for edit
-  const [editAttachmentFile, setEditAttachmentFile] = useState<File | null>(null);
-  const [editAttachmentPreview, setEditAttachmentPreview] = useState<string | null>(null);
+  // File upload state for edit (supports multiple files)
+  const [editAttachmentFiles, setEditAttachmentFiles] = useState<File[]>([]);
+  const [editAttachmentPreviews, setEditAttachmentPreviews] = useState<string[]>([]);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
 
   // Invoice filter state
@@ -435,6 +445,7 @@ export default function ExpensesPage() {
             entryDate: formatDateString(inv.created_at),
             notes: inv.notes || "",
             attachmentUrl: inv.attachment_url || null,
+            attachmentUrls: parseAttachmentUrls(inv.attachment_url),
             isFixed: inv.supplier?.is_fixed_expense || false,
             linkedPayments: [], // Will be fetched separately if needed
           }));
@@ -837,9 +848,9 @@ export default function ExpensesPage() {
     setInvoiceNumber(invoice.reference);
     setAmountBeforeVat(invoice.amountBeforeVat.toString());
     setNotes(invoice.notes);
-    // Set existing attachment preview
-    setEditAttachmentPreview(invoice.attachmentUrl);
-    setEditAttachmentFile(null);
+    // Set existing attachment previews
+    setEditAttachmentPreviews(invoice.attachmentUrls);
+    setEditAttachmentFiles([]);
     setShowEditPopup(true);
   };
 
@@ -857,28 +868,28 @@ export default function ExpensesPage() {
       const calculatedVatEdit = partialVat ? parseFloat(vatAmount) || 0 : (parseFloat(amountBeforeVat) || 0) * 0.18;
       const totalWithVatEdit = (parseFloat(amountBeforeVat) || 0) + calculatedVatEdit;
 
-      let attachmentUrl = editingInvoice.attachmentUrl;
+      // Build final attachment URLs list from existing previews + new uploads
+      const finalUrls: string[] = [...editAttachmentPreviews.filter(u => u.startsWith("http"))];
 
-      // Upload new attachment if selected
-      if (editAttachmentFile) {
+      // Upload new files
+      if (editAttachmentFiles.length > 0) {
         setIsUploadingAttachment(true);
-        const fileExt = editAttachmentFile.name.split('.').pop();
-        const fileName = `${editingInvoice.id}-${Date.now()}.${fileExt}`;
-        const filePath = `invoices/${fileName}`;
-
-        const result = await uploadFile(editAttachmentFile, filePath, "attachments");
-
-        if (!result.success) {
-          console.error("Upload error:", result.error);
-          showToast("שגיאה בהעלאת הקובץ", "error");
-        } else {
-          attachmentUrl = result.publicUrl || null;
+        for (const file of editAttachmentFiles) {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${editingInvoice.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${fileExt}`;
+          const filePath = `invoices/${fileName}`;
+          const result = await uploadFile(file, filePath, "attachments");
+          if (!result.success) {
+            console.error("Upload error:", result.error);
+            showToast("שגיאה בהעלאת קובץ", "error");
+          } else if (result.publicUrl) {
+            finalUrls.push(result.publicUrl);
+          }
         }
         setIsUploadingAttachment(false);
-      } else if (editAttachmentPreview === null && editingInvoice.attachmentUrl) {
-        // Attachment was removed
-        attachmentUrl = null;
       }
+
+      const attachmentUrl = finalUrls.length === 0 ? null : finalUrls.length === 1 ? finalUrls[0] : JSON.stringify(finalUrls);
 
       // Auto-set status to "pending" for fixed expenses when both attachment and invoice number exist
       const updateData: Record<string, unknown> = {
@@ -931,26 +942,33 @@ export default function ExpensesPage() {
     setPartialVat(false);
     setVatAmount("");
     setNotes("");
-    // Reset attachment
-    setEditAttachmentFile(null);
-    setEditAttachmentPreview(null);
+    // Reset attachments
+    setEditAttachmentFiles([]);
+    setEditAttachmentPreviews([]);
   };
 
   // Handle file selection for edit
   const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setEditAttachmentFile(file);
-      // Create preview URL
-      const previewUrl = URL.createObjectURL(file);
-      setEditAttachmentPreview(previewUrl);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFiles = Array.from(files);
+      setEditAttachmentFiles(prev => [...prev, ...newFiles]);
+      const newPreviews = newFiles.map(f => URL.createObjectURL(f));
+      setEditAttachmentPreviews(prev => [...prev, ...newPreviews]);
     }
+    // Reset input so same file can be selected again
+    e.target.value = "";
   };
 
-  // Handle removing attachment in edit
-  const handleRemoveEditAttachment = () => {
-    setEditAttachmentFile(null);
-    setEditAttachmentPreview(null);
+  // Handle removing a specific attachment by index
+  const handleRemoveEditAttachment = (index: number) => {
+    setEditAttachmentPreviews(prev => prev.filter((_, i) => i !== index));
+    // Only remove from files if it's a new file (blob URL), not an existing server URL
+    const preview = editAttachmentPreviews[index];
+    if (preview?.startsWith("blob:")) {
+      const blobIndex = editAttachmentPreviews.slice(0, index + 1).filter(p => p.startsWith("blob:")).length - 1;
+      setEditAttachmentFiles(prev => prev.filter((_, i) => i !== blobIndex));
+    }
   };
 
   // Status labels map
@@ -1207,6 +1225,7 @@ export default function ExpensesPage() {
           entryDate: formatDateString(inv.created_at),
           notes: inv.notes || "",
           attachmentUrl: inv.attachment_url || null,
+          attachmentUrls: parseAttachmentUrls(inv.attachment_url),
           isFixed: inv.supplier?.is_fixed_expense || false,
           linkedPayments: [],
         }));
@@ -1658,7 +1677,7 @@ export default function ExpensesPage() {
               </div>
             ) : filtered.map((invoice) => {
               // Fixed expense that still needs attachment or reference - show purple
-              const isFixedPending = invoice.isFixed && (!invoice.attachmentUrl || !invoice.reference);
+              const isFixedPending = invoice.isFixed && (invoice.attachmentUrls.length === 0 || !invoice.reference);
               return (
               <div
                 key={invoice.id}
@@ -1764,12 +1783,12 @@ export default function ExpensesPage() {
                       <div className="flex items-center justify-between border-b border-white/35 pb-[10px]">
                         <span className="text-[16px] font-medium text-white ml-[7px]">פרטים נוספים</span>
                         <div className="flex items-center gap-[6px]">
-                          {/* Image/View Icon - only show if has attachment */}
-                          {invoice.attachmentUrl && (
+                          {/* Image/View Icon - only show if has attachments */}
+                          {invoice.attachmentUrls.length > 0 && (
                             <button
                               type="button"
                               title="צפייה בתמונה"
-                              onClick={() => window.open(invoice.attachmentUrl!, '_blank')}
+                              onClick={() => window.open(invoice.attachmentUrls[0], '_blank')}
                               className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
                             >
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
@@ -1779,10 +1798,10 @@ export default function ExpensesPage() {
                               </svg>
                             </button>
                           )}
-                          {/* Download Icon - only show if has attachment */}
-                          {invoice.attachmentUrl && (
+                          {/* Download Icon - only show if has attachments */}
+                          {invoice.attachmentUrls.length > 0 && (
                             <a
-                              href={invoice.attachmentUrl}
+                              href={invoice.attachmentUrls[0]}
                               download
                               title="הורדה"
                               className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
@@ -1822,6 +1841,34 @@ export default function ExpensesPage() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Attachment Thumbnails */}
+                      {invoice.attachmentUrls.length > 0 && (
+                        <div className="flex flex-wrap gap-[8px] px-[7px]">
+                          {invoice.attachmentUrls.map((url, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => window.open(url, '_blank')}
+                              className="border border-white/20 rounded-[8px] overflow-hidden w-[70px] h-[70px] hover:border-white/50 transition-colors"
+                            >
+                              {url.endsWith(".pdf") ? (
+                                <div className="w-full h-full flex items-center justify-center bg-white/5">
+                                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                    <line x1="16" y1="13" x2="8" y2="13"/>
+                                    <line x1="16" y1="17" x2="8" y2="17"/>
+                                  </svg>
+                                </div>
+                              ) : (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Details Grid */}
                       <div className="flex flex-row-reverse items-center justify-between px-[7px]">
@@ -2580,56 +2627,58 @@ export default function ExpensesPage() {
                 </div>
               </div>
 
-              {/* Image Upload */}
+              {/* Image Upload - Multiple */}
               <div className="flex flex-col gap-[5px]">
-                <label className="text-[16px] font-medium text-white text-right">תמונה/מסמך</label>
-                {editAttachmentPreview ? (
-                  <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={handleRemoveEditAttachment}
-                      className="text-[#F64E60] text-[14px] hover:underline"
-                    >
-                      הסר
-                    </button>
-                    <div className="flex items-center gap-[10px]">
-                      <span className="text-[14px] text-white/70 truncate max-w-[150px]">
-                        {editAttachmentFile?.name || "קובץ קיים"}
-                      </span>
-                      <button
-                        type="button"
-                        title="צפייה בקובץ"
-                        onClick={() => window.open(editAttachmentPreview, '_blank')}
-                        className="text-white/70 hover:text-white"
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                          <circle cx="8.5" cy="8.5" r="1.5"/>
-                          <polyline points="21 15 16 10 5 21"/>
-                        </svg>
-                      </button>
-                    </div>
+                <label className="text-[16px] font-medium text-white text-right">תמונות/מסמכים</label>
+                {/* Existing + new attachment previews */}
+                {editAttachmentPreviews.length > 0 && (
+                  <div className="flex flex-wrap gap-[8px] mb-[5px]">
+                    {editAttachmentPreviews.map((preview, idx) => (
+                      <div key={idx} className="relative group border border-[#4C526B] rounded-[8px] overflow-hidden w-[80px] h-[80px]">
+                        {preview.endsWith(".pdf") ? (
+                          <div className="w-full h-full flex items-center justify-center bg-white/5">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                              <polyline points="14 2 14 8 20 8"/>
+                              <line x1="16" y1="13" x2="8" y2="13"/>
+                              <line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                          </div>
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEditAttachment(idx)}
+                          className="absolute top-[2px] left-[2px] bg-[#F64E60] text-white rounded-full w-[18px] h-[18px] flex items-center justify-center text-[12px] opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[60px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
-                    <div className="flex items-center gap-[10px]">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                      </svg>
-                      <span className="text-[14px] text-white/50">לחץ להעלאת תמונה/מסמך</span>
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={handleEditFileChange}
-                      className="hidden"
-                    />
-                  </label>
                 )}
+                {/* Add more button */}
+                <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[50px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
+                  <div className="flex items-center gap-[10px]">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <span className="text-[14px] text-white/50">{editAttachmentPreviews.length > 0 ? "הוסף תמונה/מסמך נוסף" : "לחץ להעלאת תמונה/מסמך"}</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    multiple
+                    onChange={handleEditFileChange}
+                    className="hidden"
+                  />
+                </label>
                 {isUploadingAttachment && (
-                  <span className="text-[12px] text-white/50 text-center">מעלה קובץ...</span>
+                  <span className="text-[12px] text-white/50 text-center">מעלה קבצים...</span>
                 )}
               </div>
 
@@ -3135,12 +3184,12 @@ export default function ExpensesPage() {
                           <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                       </button>
-                      {inv.attachmentUrl && (
+                      {inv.attachmentUrls.length > 0 && (
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            window.open(inv.attachmentUrl!, "_blank");
+                            window.open(inv.attachmentUrls[0], "_blank");
                           }}
                           className="w-[25px] h-[25px] flex items-center justify-center text-white/50 hover:text-white transition-colors"
                           title="צפה בקובץ"
