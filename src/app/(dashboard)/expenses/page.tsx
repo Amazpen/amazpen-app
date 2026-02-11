@@ -192,6 +192,10 @@ export default function ExpensesPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // File upload state for new expense (supports multiple files)
+  const [newAttachmentFiles, setNewAttachmentFiles] = useState<File[]>([]);
+  const [newAttachmentPreviews, setNewAttachmentPreviews] = useState<string[]>([]);
+
   // File upload state for edit (supports multiple files)
   const [editAttachmentFiles, setEditAttachmentFiles] = useState<File[]>([]);
   const [editAttachmentPreviews, setEditAttachmentPreviews] = useState<string[]>([]);
@@ -716,6 +720,26 @@ export default function ExpensesPage() {
 
         if (invoiceError) throw invoiceError;
 
+        // Upload attachments if any
+        if (newInvoice && newAttachmentFiles.length > 0) {
+          setIsUploadingAttachment(true);
+          const uploadedUrls: string[] = [];
+          for (const file of newAttachmentFiles) {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${newInvoice.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${fileExt}`;
+            const filePath = `invoices/${fileName}`;
+            const result = await uploadFile(file, filePath, "attachments");
+            if (result.success && result.publicUrl) {
+              uploadedUrls.push(result.publicUrl);
+            }
+          }
+          setIsUploadingAttachment(false);
+          if (uploadedUrls.length > 0) {
+            const attachmentValue = uploadedUrls.length === 1 ? uploadedUrls[0] : JSON.stringify(uploadedUrls);
+            await supabase.from("invoices").update({ attachment_url: attachmentValue }).eq("id", newInvoice.id);
+          }
+        }
+
         // If paid in full, create payment record with all payment methods
         if (isPaidInFull && newInvoice) {
           const paymentTotal = popupPaymentMethods.reduce((sum, pm) => {
@@ -828,6 +852,8 @@ export default function ExpensesPage() {
     setPaymentNotes("");
     setPaymentReceiptFile(null);
     setPaymentReceiptPreview(null);
+    setNewAttachmentFiles([]);
+    setNewAttachmentPreviews([]);
     setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", customInstallments: [] }]);
     setShowClarificationMenu(false);
   };
@@ -2157,12 +2183,66 @@ export default function ExpensesPage() {
                 </div>
               </div>
 
-              {/* Image Upload */}
+              {/* Image Upload - Multiple */}
               <div className="flex flex-col gap-[5px]">
-                <label className="text-[16px] font-medium text-white text-right">הוספת תמונה</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center px-[10px]">
-                  <span className="text-[14px] text-white/40">הוסף תמונה/מסמך</span>
-                </div>
+                <label className="text-[16px] font-medium text-white text-right">תמונות/מסמכים</label>
+                {newAttachmentPreviews.length > 0 && (
+                  <div className="flex flex-wrap gap-[8px] mb-[5px]">
+                    {newAttachmentPreviews.map((preview, idx) => (
+                      <div key={idx} className="relative group border border-[#4C526B] rounded-[8px] overflow-hidden w-[80px] h-[80px]">
+                        {newAttachmentFiles[idx]?.name.endsWith(".pdf") ? (
+                          <div className="w-full h-full flex items-center justify-center bg-white/5">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                              <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                          </div>
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewAttachmentFiles(prev => prev.filter((_, i) => i !== idx));
+                            setNewAttachmentPreviews(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="absolute top-[2px] left-[2px] bg-[#F64E60] text-white rounded-full w-[18px] h-[18px] flex items-center justify-center text-[12px] opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[50px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
+                  <div className="flex items-center gap-[10px]">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <span className="text-[14px] text-white/50">{newAttachmentPreviews.length > 0 ? "הוסף תמונה/מסמך נוסף" : "לחץ להעלאת תמונה/מסמך"}</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    multiple
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files && files.length > 0) {
+                        const arr = Array.from(files);
+                        setNewAttachmentFiles(prev => [...prev, ...arr]);
+                        setNewAttachmentPreviews(prev => [...prev, ...arr.map(f => URL.createObjectURL(f))]);
+                      }
+                      e.target.value = "";
+                    }}
+                    className="hidden"
+                  />
+                </label>
+                {isUploadingAttachment && (
+                  <span className="text-[12px] text-white/50 text-center">מעלה קבצים...</span>
+                )}
               </div>
 
               {/* Notes */}
