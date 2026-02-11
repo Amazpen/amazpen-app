@@ -661,8 +661,10 @@ export default function ExpensesPage() {
   const calculatedVat = partialVat ? parseFloat(vatAmount) || 0 : (parseFloat(amountBeforeVat) || 0) * 0.18;
   const totalWithVat = (parseFloat(amountBeforeVat) || 0) + calculatedVat;
 
-  const totalExpenses = expensesData.reduce((sum: number, item: ExpenseSummary) => sum + item.amount, 0);
-  const totalPercentage = expensesData.reduce((sum: number, item: ExpenseSummary) => sum + item.percentage, 0);
+  // Chart data source: categories for expenses/employees tabs, suppliers for purchases tab
+  const chartDataSource = activeTab === "purchases" ? expensesData : categoryData;
+  const totalExpenses = chartDataSource.reduce((sum, item) => sum + item.amount, 0);
+  const totalPercentage = chartDataSource.reduce((sum, item) => sum + item.percentage, 0);
 
   // Chart colors - used in both chart and table
   const chartColors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8", "#F7DC6F"];
@@ -1480,7 +1482,7 @@ export default function ExpensesPage() {
       <div className="bg-[#0F1535] rounded-[20px] pb-[10px] mt-[10px]">
         {/* Donut Chart Area */}
         <div className="relative h-[350px] flex items-center justify-center mt-[17px]">
-          {expensesData.length === 0 ? (
+          {chartDataSource.length === 0 ? (
             /* Empty State - No Data */
             <div className="flex flex-col items-center justify-center gap-[15px]">
               <svg width="280" height="280" viewBox="0 0 100 100" className="text-white/20">
@@ -1495,25 +1497,25 @@ export default function ExpensesPage() {
               <svg className="w-full h-full" viewBox="0 0 100 100">
                 {/* Background circle */}
                 <circle cx="50" cy="50" r="40" fill="none" stroke="#29318A" strokeWidth="15"/>
-                {/* Dynamic segments based on expensesData */}
+                {/* Dynamic segments */}
                 {(() => {
                   let offset = 0;
-                  return expensesData.map((expense, index) => {
+                  return chartDataSource.map((item, index) => {
                     const segment = (
                       <circle
-                        key={expense.id}
+                        key={item.id}
                         cx="50"
                         cy="50"
                         r="40"
                         fill="none"
                         stroke={chartColors[index % chartColors.length]}
                         strokeWidth="15"
-                        strokeDasharray={`${expense.percentage} ${100 - expense.percentage}`}
+                        strokeDasharray={`${item.percentage} ${100 - item.percentage}`}
                         strokeDashoffset={-offset}
                         transform="rotate(-90 50 50)"
                       />
                     );
-                    offset += expense.percentage;
+                    offset += item.percentage;
                     return segment;
                   });
                 })()}
@@ -1562,6 +1564,10 @@ export default function ExpensesPage() {
                       }`}
                     >
                       <div className="flex items-center gap-[5px] flex-1">
+                        <span
+                          className="w-[12px] h-[12px] rounded-full flex-shrink-0"
+                          style={{ backgroundColor: chartColors[index % chartColors.length] }}
+                        />
                         <svg
                           width="18"
                           height="18"
