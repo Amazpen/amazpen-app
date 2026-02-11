@@ -109,6 +109,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   // Monthly settings for admin calculated fields
   const [monthlyMarkup, setMonthlyMarkup] = useState<number>(1);
   const [managerMonthlySalary, setManagerMonthlySalary] = useState<number>(0);
+  const [workingDaysUpToDate, setWorkingDaysUpToDate] = useState<number>(0);
 
   // Form state
   const [incomeData, setIncomeData] = useState<Record<string, IncomeData>>({});
@@ -383,6 +384,17 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         .eq("id", businessId)
         .maybeSingle();
       setManagerMonthlySalary(biz ? Number(biz.manager_monthly_salary) : 0);
+
+      // Count working days in this month up to and including the entry date
+      const firstOfMonth = `${year}-${String(month).padStart(2, "0")}-01`;
+      const entryDateStr = formData.entry_date;
+      const { count } = await supabase
+        .from("daily_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("business_id", businessId)
+        .gte("entry_date", firstOfMonth)
+        .lte("entry_date", entryDateStr);
+      setWorkingDaysUpToDate((count || 0) + (isEditMode ? 0 : 1));
     };
 
     loadMonthlySettings();
@@ -561,6 +573,14 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         throw new Error("יש להתחבר למערכת");
       }
 
+      // Calculate manager daily cost with markup for saving
+      const saveLaborCost = parseFloat(formData.labor_cost) || 0;
+      const saveEntryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
+      const saveDaysInMonth = new Date(saveEntryDate.getFullYear(), saveEntryDate.getMonth() + 1, 0).getDate();
+      const saveManagerDailyCost = saveDaysInMonth > 0
+        ? (managerMonthlySalary / saveDaysInMonth) * workingDaysUpToDate * monthlyMarkup
+        : 0;
+
       let dailyEntryId: string;
 
       if (isEditMode && editingEntry) {
@@ -570,10 +590,11 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           .update({
             entry_date: formData.entry_date,
             total_register: parseFloat(formData.total_register) || 0,
-            labor_cost: parseFloat(formData.labor_cost) || 0,
+            labor_cost: saveLaborCost,
             labor_hours: parseFloat(formData.labor_hours) || 0,
             discounts: parseFloat(formData.discounts) || 0,
             day_factor: parseFloat(formData.day_factor) || 1,
+            manager_daily_cost: saveManagerDailyCost,
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingEntry.id);
@@ -602,10 +623,11 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
             business_id: businessId,
             entry_date: formData.entry_date,
             total_register: parseFloat(formData.total_register) || 0,
-            labor_cost: parseFloat(formData.labor_cost) || 0,
+            labor_cost: saveLaborCost,
             labor_hours: parseFloat(formData.labor_hours) || 0,
             discounts: parseFloat(formData.discounts) || 0,
             day_factor: parseFloat(formData.day_factor) || 1,
+            manager_daily_cost: saveManagerDailyCost,
             created_by: user.id,
           })
           .select()
@@ -1074,13 +1096,15 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
 
                 {/* Admin-only calculated fields */}
                 {isAdmin && (() => {
+                  // עלות עובדים יומית כולל העמסה = עלות יומית * העמסה
                   const laborCost = parseFloat(formData.labor_cost) || 0;
                   const laborWithMarkup = laborCost * monthlyMarkup;
 
+                  // שכר מנהל כולל העמסה = (שכר חודשי / ימים בחודש) * ימי עבודה עד התאריך * העמסה
                   const entryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
                   const daysInMonth = new Date(entryDate.getFullYear(), entryDate.getMonth() + 1, 0).getDate();
                   const dailyManagerWithMarkup = daysInMonth > 0
-                    ? (managerMonthlySalary / daysInMonth) * monthlyMarkup
+                    ? (managerMonthlySalary / daysInMonth) * workingDaysUpToDate * monthlyMarkup
                     : 0;
 
                   return (
@@ -1098,12 +1122,12 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                           <button
                             type="button"
                             onClick={() => {
-                              // Re-fetch markup & manager salary
+                              // Re-fetch markup, manager salary & working days
                               const loadSettings = async () => {
                                 const supabase = createClient();
-                                const entryDate = new Date(formData.entry_date || new Date());
-                                const yr = entryDate.getFullYear();
-                                const mo = entryDate.getMonth() + 1;
+                                const ed = new Date(formData.entry_date || new Date());
+                                const yr = ed.getFullYear();
+                                const mo = ed.getMonth() + 1;
                                 const { data: gs } = await supabase.from("goals").select("markup_percentage").eq("business_id", businessId).eq("year", yr).eq("month", mo).is("deleted_at", null).maybeSingle();
                                 if (gs?.markup_percentage != null) setMonthlyMarkup(Number(gs.markup_percentage));
                                 else {
@@ -1112,6 +1136,9 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                                 }
                                 const { data: bz2 } = await supabase.from("businesses").select("manager_monthly_salary").eq("id", businessId).maybeSingle();
                                 setManagerMonthlySalary(bz2 ? Number(bz2.manager_monthly_salary) : 0);
+                                const firstOfMonth = `${yr}-${String(mo).padStart(2, "0")}-01`;
+                                const { count } = await supabase.from("daily_entries").select("id", { count: "exact", head: true }).eq("business_id", businessId).gte("entry_date", firstOfMonth).lte("entry_date", formData.entry_date);
+                                setWorkingDaysUpToDate((count || 0) + (isEditMode ? 0 : 1));
                               };
                               loadSettings();
                             }}
