@@ -1182,7 +1182,7 @@ export default function PaymentsPage() {
                           {dateGroupsArr.map(([dateKey, splits]) => {
                             const dateExpanded = expandedForecastDates.has(`${month.key}__${dateKey}`);
                             return (
-                            <div key={dateKey} className="bg-white/5 border border-white/25 rounded-[7px] p-[3px_5px] mt-[10px]">
+                            <div key={dateKey} className="bg-white/5 border border-white/25 rounded-[7px] p-[3px_0px_3px_5px] mt-[10px]">
                               {/* Date Group Header - clickable */}
                               <button
                                 type="button"

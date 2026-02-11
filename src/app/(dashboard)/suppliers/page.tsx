@@ -29,6 +29,7 @@ interface Supplier {
   name: string;
   expense_type: string;
   expense_category_id?: string;
+  parent_category_id?: string;
   expense_nature?: string;
   payment_terms_days?: number;
   vat_type?: string;
@@ -369,6 +370,7 @@ export default function SuppliersPage() {
     // Fill form with existing data
     setSupplierName(selectedSupplier.name);
     setExpenseType(selectedSupplier.expense_type === "current_expenses" ? "current" : selectedSupplier.expense_type === "goods_purchases" ? "goods" : "employees");
+    setParentCategory(selectedSupplier.parent_category_id || "");
     setCategory(selectedSupplier.expense_category_id || "");
     setPaymentTerms(selectedSupplier.payment_terms_days?.toString() || "");
     setVatRequired(
@@ -854,7 +856,12 @@ export default function SuppliersPage() {
 
   // Get parent category name by ID
   const getParentCategoryName = (supplier: SupplierWithBalance) => {
-    // First try to find the category's parent
+    // First try from supplier's direct parent_category_id
+    if (supplier.parent_category_id) {
+      const parent = parentCategories.find(p => p.id === supplier.parent_category_id);
+      if (parent) return parent.name;
+    }
+    // Fallback: try to find the category's parent
     if (supplier.expense_category_id) {
       const cat = categories.find(c => c.id === supplier.expense_category_id);
       if (cat?.parent_id) {
