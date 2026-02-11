@@ -1782,6 +1782,52 @@ export default function ExpensesPage() {
           <button
             type="button"
             className="flex flex-col items-center gap-[5px] cursor-pointer"
+            onClick={() => {
+              const searchVal = filterValue.trim().toLowerCase();
+              let filtered = recentInvoices.filter((inv) => {
+                if (!filterBy) return true;
+                if (filterBy === "fixed") return inv.isFixed;
+                if (!searchVal) return true;
+                switch (filterBy) {
+                  case "date": return inv.date.includes(searchVal);
+                  case "supplier": return inv.supplier.toLowerCase().includes(searchVal);
+                  case "reference": return inv.reference.toLowerCase().includes(searchVal);
+                  case "amount": return inv.amountBeforeVat.toLocaleString().includes(searchVal) || inv.amountBeforeVat.toString().includes(searchVal);
+                  case "notes": return inv.notes.toLowerCase().includes(searchVal);
+                  default: return true;
+                }
+              });
+              if (dateSortOrder) {
+                filtered = [...filtered].sort((a, b) => {
+                  const [dA, mA, yA] = a.date.split(".").map(Number);
+                  const [dB, mB, yB] = b.date.split(".").map(Number);
+                  const dateA = (yA + 2000) * 10000 + mA * 100 + dA;
+                  const dateB = (yB + 2000) * 10000 + mB * 100 + dB;
+                  return dateSortOrder === "asc" ? dateA - dateB : dateB - dateA;
+                });
+              }
+              const headers = ["תאריך", "ספק", "אסמכתא", "סכום לפני מע״מ", "סכום כולל מע״מ", "סטטוס", "הערות"];
+              const rows = filtered.map((inv) => {
+                const status = inv.isFixed && (inv.attachmentUrls.length === 0 || !inv.reference) ? "ה.קבועה" : inv.status;
+                return [
+                  inv.date,
+                  `"${inv.supplier.replace(/"/g, '""')}"`,
+                  inv.reference || "-",
+                  inv.amountBeforeVat,
+                  inv.amountWithVat,
+                  status,
+                  `"${(inv.notes || "").replace(/"/g, '""')}"`,
+                ];
+              });
+              const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+              const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = `expenses_${new Date().toISOString().split("T")[0]}.csv`;
+              link.click();
+              URL.revokeObjectURL(url);
+            }}
           >
             <svg width="30" height="30" viewBox="0 0 32 32" fill="none" className="text-white">
               <path d="M16 4V22M16 22L10 16M16 22L22 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
