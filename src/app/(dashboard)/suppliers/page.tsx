@@ -1376,7 +1376,7 @@ export default function SuppliersPage() {
                       title="בחר קטגוריית אב"
                       value={parentCategory}
                       onChange={(e) => setParentCategory(e.target.value)}
-                      className="w-full h-full bg-transparent text-white/40 text-[14px] text-center rounded-[10px] border-none outline-none"
+                      className={`w-full h-full bg-transparent ${parentCategory ? "text-white" : "text-white/40"} text-[14px] text-center rounded-[10px] border-none outline-none`}
                     >
                       <option value="" className="bg-[#0F1535] text-white/40">בחר קטגוריית אב</option>
                       {parentCategories.map((cat) => (
@@ -1429,7 +1429,7 @@ export default function SuppliersPage() {
                       title="בחר קטגוריה"
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="w-full h-full bg-transparent text-white/40 text-[14px] text-center rounded-[10px] border-none outline-none"
+                      className={`w-full h-full bg-transparent ${category ? "text-white" : "text-white/40"} text-[14px] text-center rounded-[10px] border-none outline-none`}
                     >
                       <option value="" className="bg-[#0F1535] text-white/40">בחר קטגוריה</option>
                       {categories.map((cat) => (
@@ -1723,6 +1723,14 @@ export default function SuppliersPage() {
                   <span className="text-[14px] text-white font-medium">{selectedSupplier.has_previous_obligations ? "כן" : "לא"}</span>
                 </div>
               </div>
+
+              {/* Notes - only show if exists */}
+              {selectedSupplier.notes && (
+                <div className="mt-[10px] bg-[#29318A]/20 rounded-[10px] p-[10px] border border-[#4C526B]">
+                  <span className="text-[12px] text-white/60">הערות</span>
+                  <p className="text-[14px] text-white mt-[4px] text-right whitespace-pre-wrap">{selectedSupplier.notes}</p>
+                </div>
+              )}
             </div>
 
             {/* Account Status Section */}
