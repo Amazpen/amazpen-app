@@ -154,7 +154,7 @@ export default function ExpensesPage() {
   const [recentInvoices, setRecentInvoices] = useState<InvoiceDisplay[]>([]);
   const [_isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null); // For drill-down
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set()); // For drill-down (supports multiple)
 
   // Form state for new expense
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -662,7 +662,26 @@ export default function ExpensesPage() {
   const totalWithVat = (parseFloat(amountBeforeVat) || 0) + calculatedVat;
 
   // Chart data source: categories for expenses/employees tabs, suppliers for purchases tab
-  const chartDataSource = activeTab === "purchases" ? expensesData : categoryData;
+  // When categories are expanded, replace them with their suppliers in the chart
+  const chartDataSource = useMemo(() => {
+    if (activeTab === "purchases") return expensesData;
+    if (expandedCategoryIds.size === 0) return categoryData;
+
+    // Build mixed chart: non-expanded categories + suppliers from expanded categories
+    const result: { id: string; amount: number; percentage: number; name?: string; category?: string }[] = [];
+    for (const cat of categoryData) {
+      if (expandedCategoryIds.has(cat.id) && cat.suppliers.length > 0) {
+        // Replace this category with its individual suppliers
+        for (const sup of cat.suppliers) {
+          result.push({ id: sup.id, amount: sup.amount, percentage: sup.percentage, name: sup.name });
+        }
+      } else {
+        result.push(cat);
+      }
+    }
+    return result;
+  }, [activeTab, expensesData, categoryData, expandedCategoryIds]);
+
   const totalExpenses = chartDataSource.reduce((sum, item) => sum + item.amount, 0);
   const totalPercentage = chartDataSource.reduce((sum, item) => sum + item.percentage, 0);
 
@@ -2299,13 +2318,22 @@ export default function ExpensesPage() {
                     {newAttachmentPreviews.map((preview, idx) => {
                       const file = newAttachmentFiles[idx];
                       const isImage = file?.type?.startsWith("image/");
+                      const isPdf = file?.type === "application/pdf";
                       return (
                       <div key={idx} className="relative group border border-[#4C526B] rounded-[8px] overflow-hidden w-[80px] h-[80px]">
                         {isImage ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
+                        ) : isPdf ? (
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-white/5 cursor-pointer" onClick={() => window.open(preview, '_blank')}>
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E53E3E" strokeWidth="1.5" className="mb-[2px]">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                              <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            <span className="text-[9px] font-bold text-[#E53E3E]">PDF</span>
+                          </div>
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-white/5">
+                          <div className="w-full h-full flex items-center justify-center bg-white/5 cursor-pointer" onClick={() => window.open(preview, '_blank')}>
                             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
                               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                               <polyline points="14 2 14 8 20 8"/>
@@ -2865,13 +2893,12 @@ export default function ExpensesPage() {
                     {editAttachmentPreviews.map((preview, idx) => (
                       <div key={idx} className="relative group border border-[#4C526B] rounded-[8px] overflow-hidden w-[80px] h-[80px]">
                         {preview.endsWith(".pdf") ? (
-                          <div className="w-full h-full flex items-center justify-center bg-white/5">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-white/5 cursor-pointer" onClick={() => window.open(preview, '_blank')}>
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E53E3E" strokeWidth="1.5" className="mb-[2px]">
                               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                               <polyline points="14 2 14 8 20 8"/>
-                              <line x1="16" y1="13" x2="8" y2="13"/>
-                              <line x1="16" y1="17" x2="8" y2="17"/>
                             </svg>
+                            <span className="text-[9px] font-bold text-[#E53E3E]">PDF</span>
                           </div>
                         ) : (
                           // eslint-disable-next-line @next/next/no-img-element
