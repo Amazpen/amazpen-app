@@ -71,7 +71,6 @@ const paymentMethodNames: Record<string, string> = {
   "paybox": "פייבוקס",
   "credit_card": "כרטיס אשראי",
   "credit_company": "חברות הקפה",
-  "credit_companies": "חברות הקפה",
   "standing_order": "הוראת קבע",
   "other": "אחר",
 };
@@ -80,7 +79,7 @@ const paymentMethodColors: Record<string, string> = {
   "check": "bg-[#00DD23]/20 text-[#00DD23]",
   "cash": "bg-[#FF0000]/20 text-[#FF0000]",
   "standing_order": "bg-[#3964FF]/20 text-[#3964FF]",
-  "credit_companies": "bg-[#FFCF00]/20 text-[#FFCF00]",
+  "credit_company": "bg-[#FFCF00]/20 text-[#FFCF00]",
   "credit_card": "bg-[#FF3665]/20 text-[#FF3665]",
   "bank_transfer": "bg-[#FF7F00]/20 text-[#FF7F00]",
   "bit": "bg-[#9333ea]/20 text-[#9333ea]",
@@ -748,7 +747,10 @@ export default function AdminPaymentsPage() {
           if (split.due_date) splitRecord.due_date = split.due_date;
           if (split.reference_number) splitRecord.reference_number = split.reference_number;
           if (split.check_number) splitRecord.check_number = split.check_number;
-          if (split.credit_card_id) splitRecord.credit_card_id = split.credit_card_id;
+          // credit_card_id must be a valid UUID (FK to business_credit_cards)
+          if (split.credit_card_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(split.credit_card_id)) {
+            splitRecord.credit_card_id = split.credit_card_id;
+          }
 
           const { error: splitError } = await supabase
             .from("payment_splits")
