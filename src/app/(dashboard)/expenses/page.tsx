@@ -242,6 +242,7 @@ export default function ExpensesPage() {
     method: string;
     amount: string;
     installments: string;
+    checkNumber: string;
     customInstallments: Array<{
       number: number;
       date: string;
@@ -250,7 +251,7 @@ export default function ExpensesPage() {
     }>;
   }
   const [popupPaymentMethods, setPopupPaymentMethods] = useState<PaymentMethodEntry[]>([
-    { id: 1, method: "", amount: "", installments: "1", customInstallments: [] }
+    { id: 1, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: [] }
   ]);
 
   // Payment method options for popup form
@@ -296,7 +297,7 @@ export default function ExpensesPage() {
     const newId = Math.max(...popupPaymentMethods.map(p => p.id)) + 1;
     setPopupPaymentMethods(prev => [
       ...prev,
-      { id: newId, method: "", amount: "", installments: "1", customInstallments: [] }
+      { id: newId, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: [] }
     ]);
   };
 
@@ -805,6 +806,7 @@ export default function ExpensesPage() {
                         installments_count: installmentsCount,
                         installment_number: inst.number,
                         reference_number: paymentReference || null,
+                        check_number: pm.method === "check" ? (pm.checkNumber || null) : null,
                         due_date: inst.dateForInput || null,
                       });
                   }
@@ -818,6 +820,7 @@ export default function ExpensesPage() {
                       installments_count: 1,
                       installment_number: 1,
                       reference_number: paymentReference || null,
+                      check_number: pm.method === "check" ? (pm.checkNumber || null) : null,
                       due_date: paymentDate || expenseDate || null,
                     });
                 }
@@ -865,7 +868,7 @@ export default function ExpensesPage() {
     setPaymentReceiptPreview(null);
     setNewAttachmentFiles([]);
     setNewAttachmentPreviews([]);
-    setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", customInstallments: [] }]);
+    setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: [] }]);
     setShowClarificationMenu(false);
   };
 
@@ -1039,6 +1042,7 @@ export default function ExpensesPage() {
           method: "",
           amount: invoice.amountWithVat.toString(),
           installments: "1",
+          checkNumber: "",
           customInstallments: []
         }]);
         setShowPaymentPopup(true);
@@ -1235,6 +1239,7 @@ export default function ExpensesPage() {
                     installments_count: installmentsCount,
                     installment_number: inst.number,
                     reference_number: paymentReference || null,
+                    check_number: pm.method === "check" ? (pm.checkNumber || null) : null,
                     due_date: inst.dateForInput || null,
                   });
               }
@@ -1249,6 +1254,7 @@ export default function ExpensesPage() {
                   installments_count: 1,
                   installment_number: 1,
                   reference_number: paymentReference || null,
+                  check_number: pm.method === "check" ? (pm.checkNumber || null) : null,
                   due_date: paymentDate || null,
                 });
             }
@@ -1288,7 +1294,7 @@ export default function ExpensesPage() {
     setPaymentNotes("");
     setPaymentReceiptFile(null);
     setPaymentReceiptPreview(null);
-    setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", customInstallments: [] }]);
+    setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: [] }]);
   };
 
   // Handle opening supplier breakdown popup (from expenses detail table)
@@ -2371,6 +2377,7 @@ export default function ExpensesPage() {
                         method: "",
                         amount,
                         installments: "1",
+                        checkNumber: "",
                         customInstallments: amount ? generatePopupInstallments(1, totalWithVat, today) : [],
                       }]);
                     }
@@ -2466,6 +2473,21 @@ export default function ExpensesPage() {
                                 ))}
                               </select>
                             </div>
+
+                            {/* Check Number - only show when method is check */}
+                            {pm.method === "check" && (
+                              <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  title="מספר צ'ק"
+                                  value={pm.checkNumber}
+                                  onChange={(e) => updatePopupPaymentMethodField(pm.id, "checkNumber", e.target.value)}
+                                  placeholder="מספר צ'ק..."
+                                  className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px]"
+                                />
+                              </div>
+                            )}
 
                             <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
                               <input
@@ -3086,6 +3108,21 @@ export default function ExpensesPage() {
                         ))}
                       </select>
                     </div>
+
+                    {/* Check Number - only show when method is check */}
+                    {pm.method === "check" && (
+                      <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          title="מספר צ'ק"
+                          value={pm.checkNumber}
+                          onChange={(e) => updatePopupPaymentMethodField(pm.id, "checkNumber", e.target.value)}
+                          placeholder="מספר צ'ק..."
+                          className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px]"
+                        />
+                      </div>
+                    )}
 
                     {/* Payment Amount */}
                     <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
