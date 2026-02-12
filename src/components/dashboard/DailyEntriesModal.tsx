@@ -1141,137 +1141,358 @@ export function DailyEntriesModal({
 
                 {/* Expanded Details */}
                 {expandedEntryId === entry.id && (
-                  <div className="bg-[#0F1535] rounded-[10px] border-2 border-[#FFCF00] p-[7px] mb-[10px]">
+                  <div className="mb-[10px]">
                     {isLoadingDetails ? (
                       <div className="text-white/70 text-center py-[10px]">
                         טוען פרטים...
                       </div>
                     ) : (
                       <>
-                        {/* Summary Title */}
-                        <div className="text-[#FFCF00] text-[18px] font-bold text-center mb-[10px]">
-                          הסיכום היומי ליום {formatDate(entry.entry_date)}
-                        </div>
+                        {/* 3 Sections: Daily Summary | Parameter/Target | Monthly Cumulative */}
+                        <div className="flex flex-col md:flex-row-reverse gap-[10px]">
 
-                        {/* Summary Table */}
-                        <div className="flex gap-[3px] w-full" dir="rtl">
-                          {/* Labels Column */}
-                          <div className="flex flex-col gap-[2px] min-w-[70px] max-w-[85px] flex-shrink-0">
-                            <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 font-bold">
+                          {/* ========== Section 1: הסיכום היומי ========== */}
+                          <div className="bg-[#0F1535] rounded-[10px] border-2 border-[#FFCF00] p-[7px] flex-1 min-w-0">
+                            <div className="text-[#FFCF00] text-[14px] md:text-[16px] font-bold text-center mb-[10px]">
+                              הסיכום היומי ליום {(() => {
+                                const days = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+                                const d = new Date(entry.entry_date);
+                                return `${days[d.getDay()]}, ${formatDate(entry.entry_date)}`;
+                              })()}
+                            </div>
 
-                            </div>
-                            <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                              סה&quot;כ קופה
-                            </div>
-                            {entryDetails?.incomeBreakdown.map((source) => (
-                              <div
-                                key={source.income_source_id}
-                                className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate"
-                                title={source.income_source_name}
-                              >
-                                {source.income_source_name}
+                            <div className="flex gap-[3px] w-full" dir="rtl">
+                              {/* Labels Column */}
+                              <div className="flex flex-col gap-[2px] min-w-[70px] max-w-[85px] flex-shrink-0">
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 font-bold" />
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  סה&quot;כ קופה כולל מע&quot;מ
+                                </div>
+                                {entryDetails?.incomeBreakdown.map((source) => (
+                                  <div
+                                    key={source.income_source_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate"
+                                    title={source.income_source_name}
+                                  >
+                                    {source.income_source_name}
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  ע. עובדים (%)
+                                </div>
+                                {entryDetails?.productUsage.map((product) => (
+                                  <div
+                                    key={product.product_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate"
+                                    title={product.product_name}
+                                  >
+                                    {product.product_name} (%)
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  עלות מכר
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  הוצאות שוטפות
+                                </div>
                               </div>
-                            ))}
-                            <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                              ע. עובדים
-                            </div>
-                            {entryDetails?.productUsage.map((product) => (
-                              <div
-                                key={product.product_id}
-                                className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate"
-                                title={product.product_name}
-                              >
-                                {product.product_name}
+
+                              {/* Daily Total Column - סה"כ יומי */}
+                              <div className="flex flex-col gap-[2px] flex-1 min-w-0">
+                                <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10 whitespace-nowrap">
+                                  סה&quot;כ יומי
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">{formatCurrency(entry.total_register)}</span>
+                                </div>
+                                {entryDetails?.incomeBreakdown.map((source) => (
+                                  <div
+                                    key={source.income_source_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                  >
+                                    <span className="ltr-num">{formatCurrency(source.amount)}</span>
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">{entry.total_register > 0 ? ((entry.labor_cost / entry.total_register) * 100).toFixed(entry.labor_cost / entry.total_register * 100 % 1 === 0 ? 0 : 2) : 0}%</span>
+                                </div>
+                                {entryDetails?.productUsage.map((product) => (
+                                  <div
+                                    key={product.product_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                  >
+                                    <span className="ltr-num">{entry.total_register > 0 ? ((product.quantity * product.unit_cost) / entry.total_register * 100).toFixed(2) : 0}%</span>
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">0%</span>
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">{formatCurrency(0)}</span>
+                                </div>
                               </div>
-                            ))}
+
+                              {/* Quantity Column - כמות */}
+                              <div className="flex flex-col gap-[2px] flex-1 min-w-0">
+                                <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">
+                                  כמות
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10" />
+                                {entryDetails?.incomeBreakdown.map((source) => (
+                                  <div
+                                    key={source.income_source_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                  >
+                                    <span className="ltr-num">{source.orders_count}</span>
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">{entry.labor_hours || 0}</span>
+                                </div>
+                                {entryDetails?.productUsage.map((product) => (
+                                  <div
+                                    key={product.product_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                  >
+                                    <span className="ltr-num">{product.quantity}</span>
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10" />
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10" />
+                              </div>
+
+                              {/* Target Diff Column - הפרש מהיעד */}
+                              <div className="flex flex-col gap-[2px] flex-1 min-w-0">
+                                <div className="text-white text-[10px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10 whitespace-nowrap">
+                                  הפרש מהיעד
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">0%</span>
+                                </div>
+                                {entryDetails?.incomeBreakdown.map((source) => (
+                                  <div
+                                    key={source.income_source_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                  >
+                                    <span className="ltr-num">₪0</span>
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">0%</span>
+                                </div>
+                                {entryDetails?.productUsage.map((product) => (
+                                  <div
+                                    key={product.product_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                  >
+                                    <span className="ltr-num">0%</span>
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">0%</span>
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">{formatCurrency(0)}</span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
 
-                          {/* Daily Total Column */}
-                          <div className="flex flex-col gap-[2px] flex-1 min-w-0">
-                            <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10 whitespace-nowrap">
-                              סה&quot;כ יומי
+                          {/* ========== Section 2: פרמטר / יעד ========== */}
+                          <div className="bg-[#0F1535] rounded-[10px] border-2 border-[#FFCF00] p-[7px] flex-1 min-w-0">
+                            <div className="text-[#FFCF00] text-[14px] md:text-[16px] font-bold text-center mb-[10px]">
+                              פרמטר / יעד
                             </div>
-                            <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                              <span className="ltr-num">{formatCurrency(entry.total_register)}</span>
-                            </div>
-                            {entryDetails?.incomeBreakdown.map((source) => (
-                              <div
-                                key={source.income_source_id}
-                                className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
-                              >
-                                <span className="ltr-num">{formatCurrency(source.amount)}</span>
+
+                            <div className="flex gap-[3px] w-full" dir="rtl">
+                              {/* Parameter Name Column - פרמטר */}
+                              <div className="flex flex-col gap-[2px] flex-1 min-w-0">
+                                <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">
+                                  פרמטר
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  סה&quot;כ קופה כולל מע&quot;מ
+                                </div>
+                                {entryDetails?.incomeBreakdown.map((source) => (
+                                  <div
+                                    key={source.income_source_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate"
+                                    title={source.income_source_name}
+                                  >
+                                    {source.income_source_name}
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  ע. עובדים (%)
+                                </div>
+                                {entryDetails?.productUsage.map((product) => (
+                                  <div
+                                    key={product.product_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate"
+                                    title={product.product_name}
+                                  >
+                                    עלות {product.product_name} (%)
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  עלות מכר
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  הוצאות שוטפות
+                                </div>
                               </div>
-                            ))}
-                            <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                              <span className="ltr-num">{entry.total_register > 0 ? ((entry.labor_cost / entry.total_register) * 100).toFixed(entry.labor_cost / entry.total_register * 100 % 1 === 0 ? 0 : 2) : 0}%</span>
-                            </div>
-                            {entryDetails?.productUsage.map((product) => (
-                              <div
-                                key={product.product_id}
-                                className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
-                              >
-                                <span className="ltr-num">{formatCurrency(product.quantity * product.unit_cost)}</span>
+
+                              {/* Target Value Column - יעד */}
+                              <div className="flex flex-col gap-[2px] flex-1 min-w-0">
+                                <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">
+                                  יעד
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">{formatCurrency(0)}</span>
+                                </div>
+                                {entryDetails?.incomeBreakdown.map((source) => (
+                                  <div
+                                    key={source.income_source_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                  >
+                                    <span className="ltr-num">₪0</span>
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">0%</span>
+                                </div>
+                                {entryDetails?.productUsage.map((product) => (
+                                  <div
+                                    key={product.product_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                  >
+                                    <span className="ltr-num">0%</span>
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">0%</span>
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">{formatCurrency(0)}</span>
+                                </div>
                               </div>
-                            ))}
+                            </div>
                           </div>
 
-                          {/* Quantity Column */}
-                          <div className="flex flex-col gap-[2px] flex-1 min-w-0">
-                            <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">
-                              כמות
+                          {/* ========== Section 3: מצטבר חודש ========== */}
+                          <div className="bg-[#0F1535] rounded-[10px] border-2 border-[#FFCF00] p-[7px] flex-1 min-w-0">
+                            <div className="text-[#FFCF00] text-[14px] md:text-[16px] font-bold text-center mb-[10px]">
+                              מצטבר {getMonthYear()}
                             </div>
-                            <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
 
-                            </div>
-                            {entryDetails?.incomeBreakdown.map((source) => (
-                              <div
-                                key={source.income_source_id}
-                                className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
-                              >
-                                <span className="ltr-num">{source.orders_count}</span>
+                            <div className="flex gap-[3px] w-full" dir="rtl">
+                              {/* Labels Column */}
+                              <div className="flex flex-col gap-[2px] min-w-[60px] max-w-[75px] flex-shrink-0">
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 font-bold" />
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  סה&quot;כ קופה
+                                </div>
+                                {entryDetails?.incomeBreakdown.map((source) => (
+                                  <div
+                                    key={source.income_source_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate"
+                                    title={source.income_source_name}
+                                  >
+                                    {source.income_source_name}
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  ע. עובדים
+                                </div>
+                                {entryDetails?.productUsage.map((product) => (
+                                  <div
+                                    key={product.product_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate"
+                                    title={product.product_name}
+                                  >
+                                    {product.product_name}
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  עלות מכר
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  הוצאות שוטפות
+                                </div>
                               </div>
-                            ))}
-                            <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                              <span className="ltr-num">{entry.labor_hours || 0}</span>
-                            </div>
-                            {entryDetails?.productUsage.map((product) => (
-                              <div
-                                key={product.product_id}
-                                className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
-                              >
-                                <span className="ltr-num">{product.quantity}</span>
+
+                              {/* Cumulative Total Column - סה"כ */}
+                              <div className="flex flex-col gap-[2px] flex-1 min-w-0">
+                                <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">
+                                  סה&quot;כ
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">{formatCurrency(0)}</span>
+                                </div>
+                                {entryDetails?.incomeBreakdown.map((source) => (
+                                  <div
+                                    key={source.income_source_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                  >
+                                    <span className="ltr-num">₪0</span>
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">0%</span>
+                                </div>
+                                {entryDetails?.productUsage.map((product) => (
+                                  <div
+                                    key={product.product_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                  >
+                                    <span className="ltr-num">0%</span>
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">0%</span>
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">{formatCurrency(0)}</span>
+                                </div>
                               </div>
-                            ))}
+
+                              {/* Difference Column - הפרש */}
+                              <div className="flex flex-col gap-[2px] flex-1 min-w-0">
+                                <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">
+                                  הפרש
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">0%</span>
+                                </div>
+                                {entryDetails?.incomeBreakdown.map((source) => (
+                                  <div
+                                    key={source.income_source_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                  >
+                                    <span className="ltr-num">₪0</span>
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">0%</span>
+                                </div>
+                                {entryDetails?.productUsage.map((product) => (
+                                  <div
+                                    key={product.product_id}
+                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                  >
+                                    <span className="ltr-num">0%</span>
+                                  </div>
+                                ))}
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">0%</span>
+                                </div>
+                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                  <span className="ltr-num">{formatCurrency(0)}</span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
 
-                          {/* Target Diff Column */}
-                          <div className="flex flex-col gap-[2px] flex-1 min-w-0">
-                            <div className="text-white text-[10px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10 whitespace-nowrap">
-                              הפרש מיעד
-                            </div>
-                            <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                              <span className="ltr-num">0%</span>
-                            </div>
-                            {entryDetails?.incomeBreakdown.map((source) => (
-                              <div
-                                key={source.income_source_id}
-                                className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
-                              >
-                                <span className="ltr-num">₪0</span>
-                              </div>
-                            ))}
-                            <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                              <span className="ltr-num">0%</span>
-                            </div>
-                            {entryDetails?.productUsage.map((product) => (
-                              <div
-                                key={product.product_id}
-                                className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
-                              >
-                                <span className="ltr-num">₪0</span>
-                              </div>
-                            ))}
-                          </div>
                         </div>
 
                         {/* Additional Info */}
