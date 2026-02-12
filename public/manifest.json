@@ -20,6 +20,18 @@
       "src": "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png",
       "sizes": "512x512",
       "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ],

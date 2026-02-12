@@ -65,7 +65,57 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl" className="dark" suppressHydrationWarning>
       <body className={`${assistant.variable} ${poppins.variable} font-sans antialiased`} suppressHydrationWarning>
+        {/* Custom splash screen - shows immediately while app loads */}
+        <div
+          id="app-splash"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#0a0a0a',
+            transition: 'opacity 0.3s ease-out',
+          }}
+        >
+          <img
+            src="https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png"
+            alt="Amazpen"
+            style={{
+              width: '70vw',
+              maxWidth: '400px',
+              height: 'auto',
+              objectFit: 'contain',
+            }}
+          />
+        </div>
         {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              // Hide splash screen when app is ready
+              (function() {
+                function hideSplash() {
+                  var splash = document.getElementById('app-splash');
+                  if (splash) {
+                    splash.style.opacity = '0';
+                    setTimeout(function() { splash.remove(); }, 300);
+                  }
+                }
+                // Hide after app hydrates or after max 3 seconds
+                if (document.readyState === 'complete') {
+                  setTimeout(hideSplash, 500);
+                } else {
+                  window.addEventListener('load', function() {
+                    setTimeout(hideSplash, 500);
+                  });
+                }
+                setTimeout(hideSplash, 3000);
+              })();
+            `,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
