@@ -1021,13 +1021,32 @@ export default function PaymentsPage() {
       isActive: boolean; payload: { name: string; amount: number }; percent: number;
     };
 
+    // Calculate label position at ~60% of the radius (center of pie slice)
+    const midAngleDeg = (startAngle + endAngle) / 2;
+    const midAngleRad = midAngleDeg * (Math.PI / 180);
+    const labelRadius = (outerRadius as number) * 0.6;
+    const labelX = (cx as number) + labelRadius * Math.cos(midAngleRad);
+    const labelY = (cy as number) - labelRadius * Math.sin(midAngleRad);
+    const pct = ((percent as number) * 100);
+    const showLabel = pct >= 5;
+
     if (!isActive) {
-      return <Sector cx={cx} cy={cy} outerRadius={outerRadius} startAngle={startAngle} endAngle={endAngle} fill={fill} />;
+      return (
+        <g>
+          <Sector cx={cx} cy={cy} outerRadius={outerRadius} startAngle={startAngle} endAngle={endAngle} fill={fill} />
+          {showLabel && (
+            <text x={labelX} y={labelY} textAnchor="middle" dominantBaseline="central"
+              fill="#fff" fontSize={12} fontWeight="bold" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>
+              {`${pct.toFixed(0)}%`}
+            </text>
+          )}
+        </g>
+      );
     }
 
-    const midAngle = ((startAngle + endAngle) / 2) * (Math.PI / 180);
-    const pullX = cx + 6 * Math.cos(midAngle);
-    const pullY = cy - 6 * Math.sin(midAngle);
+    const midAngle = midAngleRad;
+    const pullX = (cx as number) + 6 * Math.cos(midAngle);
+    const pullY = (cy as number) - 6 * Math.sin(midAngle);
     return (
       <g>
         <Sector cx={pullX} cy={pullY} outerRadius={(outerRadius as number) + 8}

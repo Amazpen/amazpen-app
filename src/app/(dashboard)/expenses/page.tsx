@@ -744,8 +744,27 @@ export default function ExpensesPage() {
       isActive: boolean; payload: { displayName: string; amount: number }; percent: number;
     };
 
+    // Calculate label position at the middle of the arc
+    const midAngleDeg = (startAngle + endAngle) / 2;
+    const midAngleRad = midAngleDeg * (Math.PI / 180);
+    const midRadius = ((innerRadius as number) + (outerRadius as number)) / 2;
+    const labelX = (cx as number) + midRadius * Math.cos(midAngleRad);
+    const labelY = (cy as number) - midRadius * Math.sin(midAngleRad);
+    const pct = ((percent as number) * 100);
+    const showLabel = pct >= 5;
+
     if (!isActive) {
-      return <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius} startAngle={startAngle} endAngle={endAngle} fill={fill} />;
+      return (
+        <g>
+          <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius} startAngle={startAngle} endAngle={endAngle} fill={fill} />
+          {showLabel && (
+            <text x={labelX} y={labelY} textAnchor="middle" dominantBaseline="central"
+              fill="#fff" fontSize={11} fontWeight="bold" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>
+              {`${pct.toFixed(0)}%`}
+            </text>
+          )}
+        </g>
+      );
     }
 
     return (
