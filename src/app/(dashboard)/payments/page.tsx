@@ -1506,7 +1506,7 @@ export default function PaymentsPage() {
                 {expandedPaymentId === payment.id && (
                   <div className="flex flex-col gap-[10px] mt-[5px]">
                     {/* Header: פרטים נוספים + action icons */}
-                    <div className="flex items-center justify-between border-b border-white/20 pb-[8px] px-[7px] flex-row-reverse">
+                    <div className="flex items-center justify-between border-b border-white/20 pb-[8px] px-[7px]" dir="rtl">
                       <span className="text-[16px] font-medium">פרטים נוספים</span>
                       <div className="flex items-center gap-[5px]">
                         {payment.receiptUrl && (
