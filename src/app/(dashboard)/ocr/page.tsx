@@ -302,6 +302,7 @@ export default function OCRPage() {
                         installments_count: installmentsCount,
                         installment_number: inst.number,
                         reference_number: formData.payment_reference || null,
+                        check_number: pm.checkNumber || null,
                         due_date: inst.dateForInput || null,
                       });
                     }
@@ -313,6 +314,7 @@ export default function OCRPage() {
                       installments_count: 1,
                       installment_number: 1,
                       reference_number: formData.payment_reference || null,
+                      check_number: pm.checkNumber || null,
                       due_date: formData.payment_date || formData.document_date || null,
                     });
                   }
@@ -379,6 +381,7 @@ export default function OCRPage() {
                       installments_count: installmentsCount,
                       installment_number: inst.number,
                       reference_number: formData.payment_reference || null,
+                      check_number: pm.checkNumber || null,
                       due_date: inst.dateForInput || null,
                     });
                   }
@@ -390,6 +393,7 @@ export default function OCRPage() {
                     installments_count: 1,
                     installment_number: 1,
                     reference_number: formData.payment_reference || null,
+                    check_number: pm.checkNumber || null,
                     due_date: formData.document_date || null,
                   });
                 }

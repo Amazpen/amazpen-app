@@ -74,6 +74,7 @@ interface PaymentMethodEntry {
   method: string;
   amount: string;
   installments: string;
+  checkNumber: string;
   customInstallments: Array<{
     number: number;
     date: string;
@@ -127,12 +128,12 @@ export default function OCRForm({
   const [paymentTabReference, setPaymentTabReference] = useState('');
   const [paymentTabNotes, setPaymentTabNotes] = useState('');
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodEntry[]>([
-    { id: 1, method: '', amount: '', installments: '1', customInstallments: [] },
+    { id: 1, method: '', amount: '', installments: '1', checkNumber: '', customInstallments: [] },
   ]);
 
   // Inline payment methods for invoice "paid in full" section
   const [inlinePaymentMethods, setInlinePaymentMethods] = useState<PaymentMethodEntry[]>([
-    { id: 1, method: '', amount: '', installments: '1', customInstallments: [] },
+    { id: 1, method: '', amount: '', installments: '1', checkNumber: '', customInstallments: [] },
   ]);
 
   // Summary (מרכזת) tab state
@@ -241,7 +242,8 @@ export default function OCRForm({
   // Generate installments breakdown
   const generateInstallments = (numInstallments: number, totalAmount: number, startDateStr: string) => {
     if (numInstallments <= 1 || totalAmount === 0) return [];
-    const installmentAmount = totalAmount / numInstallments;
+    const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
+    const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
     const startDate = startDateStr ? new Date(startDateStr) : new Date();
     const result = [];
     for (let i = 0; i < numInstallments; i++) {
@@ -251,16 +253,24 @@ export default function OCRForm({
         number: i + 1,
         date: date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
         dateForInput: date.toISOString().split('T')[0],
-        amount: installmentAmount,
+        amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
       });
     }
     return result;
   };
 
+  // Get effective start date from existing methods
+  const getEffectiveStartDate = (methods: PaymentMethodEntry[], fallbackDate: string) => {
+    if (methods.length > 0 && methods[0].customInstallments.length > 0) {
+      return methods[0].customInstallments[0].dateForInput;
+    }
+    return fallbackDate;
+  };
+
   // Payment methods helpers (shared for both payment tab and inline payment)
   const addPaymentMethodEntry = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[]) => {
     const newId = Math.max(...methods.map(p => p.id)) + 1;
-    setter(prev => [...prev, { id: newId, method: '', amount: '', installments: '1', customInstallments: [] }]);
+    setter(prev => [...prev, { id: newId, method: '', amount: '', installments: '1', checkNumber: '', customInstallments: [] }]);
   };
 
   const removePaymentMethodEntry = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[], id: number) => {
@@ -269,15 +279,38 @@ export default function OCRForm({
     }
   };
 
-  const updatePaymentMethodField = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, id: number, field: keyof PaymentMethodEntry, value: string, dateStr: string) => {
+  const updatePaymentMethodField = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[], id: number, field: keyof PaymentMethodEntry, value: string, dateStr: string) => {
     setter(prev => prev.map(p => {
       if (p.id !== id) return p;
       const updated = { ...p, [field]: value };
-      if (field === 'amount' || field === 'installments') {
-        const numInstallments = parseInt(field === 'installments' ? value : p.installments) || 1;
-        const totalAmount = parseFloat((field === 'amount' ? value : p.amount).replace(/[^\d.]/g, '')) || 0;
-        updated.customInstallments = generateInstallments(numInstallments, totalAmount, dateStr);
+
+      // Regenerate installments when installments count changes
+      if (field === 'installments') {
+        const numInstallments = parseInt(value) || 1;
+        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
+        const startDate = p.customInstallments.length > 0 ? p.customInstallments[0].dateForInput : getEffectiveStartDate(methods, dateStr);
+        updated.customInstallments = generateInstallments(numInstallments, totalAmount, startDate);
       }
+
+      // When amount changes, recalculate installment amounts but keep dates
+      if (field === 'amount') {
+        const numInstallments = parseInt(p.installments) || 1;
+        const totalAmount = parseFloat(value.replace(/[^\d.]/g, '')) || 0;
+        if (p.customInstallments.length > 0 && totalAmount > 0) {
+          const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
+          const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
+          updated.customInstallments = p.customInstallments.map((inst, idx) => ({
+            ...inst,
+            amount: idx === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
+          }));
+        } else if (totalAmount > 0 && numInstallments > 1) {
+          const startDate = getEffectiveStartDate(methods, dateStr);
+          updated.customInstallments = generateInstallments(numInstallments, totalAmount, startDate);
+        } else {
+          updated.customInstallments = [];
+        }
+      }
+
       return updated;
     }));
   };
@@ -305,23 +338,22 @@ export default function OCRForm({
       const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
       const updatedInstallments = [...p.customInstallments];
       if (updatedInstallments[installmentIndex]) {
-        const cappedAmount = Math.min(amount, totalAmount);
+        const cappedAmount = Math.min(Math.round(amount * 100) / 100, totalAmount);
         updatedInstallments[installmentIndex] = { ...updatedInstallments[installmentIndex], amount: cappedAmount };
-        const remaining = totalAmount - cappedAmount;
-        const otherCount = updatedInstallments.length - 1;
-        if (otherCount > 0) {
-          const perOther = Math.floor((remaining / otherCount) * 100) / 100;
+        const remaining = Math.round((totalAmount - cappedAmount) * 100) / 100;
+        const otherIndices = updatedInstallments.map((_, idx) => idx).filter(idx => idx !== installmentIndex);
+        if (otherIndices.length > 0) {
+          const perOther = Math.floor((remaining / otherIndices.length) * 100) / 100;
           let distributed = 0;
-          updatedInstallments.forEach((inst, idx) => {
-            if (idx !== installmentIndex) {
-              if (idx === updatedInstallments.findLastIndex((_, i) => i !== installmentIndex)) {
-                updatedInstallments[idx] = { ...inst, amount: Math.round((remaining - distributed) * 100) / 100 };
-              } else {
-                updatedInstallments[idx] = { ...inst, amount: perOther };
-                distributed += perOther;
-              }
+          for (let i = 0; i < otherIndices.length; i++) {
+            const idx = otherIndices[i];
+            if (i === otherIndices.length - 1) {
+              updatedInstallments[idx] = { ...updatedInstallments[idx], amount: Math.round((remaining - distributed) * 100) / 100 };
+            } else {
+              updatedInstallments[idx] = { ...updatedInstallments[idx], amount: perOther };
+              distributed += perOther;
             }
-          });
+          }
         }
       }
       return { ...p, customInstallments: updatedInstallments };
@@ -448,8 +480,8 @@ export default function OCRForm({
 
       // For payment tab, pre-fill the amount from OCR total
       const totalStr = data.total_amount?.toString() || '';
-      setPaymentMethods([{ id: 1, method: '', amount: totalStr, installments: '1', customInstallments: [] }]);
-      setInlinePaymentMethods([{ id: 1, method: '', amount: '', installments: '1', customInstallments: [] }]);
+      setPaymentMethods([{ id: 1, method: '', amount: totalStr, installments: '1', checkNumber: '', customInstallments: [] }]);
+      setInlinePaymentMethods([{ id: 1, method: '', amount: '', installments: '1', checkNumber: '', customInstallments: [] }]);
       setPaymentTabReference(data.document_number || '');
       setPaymentTabNotes('');
       setNotes('');
@@ -488,13 +520,13 @@ export default function OCRForm({
       setInlinePaymentDate('');
       setInlinePaymentReference('');
       setInlinePaymentNotes('');
-      setInlinePaymentMethods([{ id: 1, method: '', amount: '', installments: '1', customInstallments: [] }]);
+      setInlinePaymentMethods([{ id: 1, method: '', amount: '', installments: '1', checkNumber: '', customInstallments: [] }]);
       setPaymentTabDate(today);
       setPaymentTabExpenseType('expenses');
       setPaymentTabSupplierId('');
       setPaymentTabReference('');
       setPaymentTabNotes('');
-      setPaymentMethods([{ id: 1, method: '', amount: '', installments: '1', customInstallments: [] }]);
+      setPaymentMethods([{ id: 1, method: '', amount: '', installments: '1', checkNumber: '', customInstallments: [] }]);
       // Reset summary fields
       setSummarySupplierId('');
       setSummaryDate(new Date().toISOString().split('T')[0]);
@@ -734,7 +766,7 @@ export default function OCRForm({
             <select
               title="בחירת אמצעי תשלום"
               value={pm.method}
-              onChange={(e) => updatePaymentMethodField(setter, pm.id, 'method', e.target.value, dateStr)}
+              onChange={(e) => updatePaymentMethodField(setter, methods, pm.id, 'method', e.target.value, dateStr)}
               className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
             >
               <option value="" disabled>בחר אמצעי תשלום...</option>
@@ -744,18 +776,33 @@ export default function OCRForm({
             </select>
           </div>
 
+          {/* Check Number - only shown when payment method is check */}
+          {pm.method === 'check' && (
+            <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={pm.checkNumber}
+                onChange={(e) => updatePaymentMethodField(setter, methods, pm.id, 'checkNumber', e.target.value, dateStr)}
+                placeholder="מספר צ׳ק"
+                className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px] ltr-num"
+              />
+            </div>
+          )}
+
           {/* Payment Amount */}
           <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
             <input
               type="text"
               inputMode="decimal"
-              value={pm.amount ? `₪${parseFloat(pm.amount.replace(/[^\d.]/g, '') || '0').toLocaleString('he-IL')}` : ''}
+              value={pm.amount}
+              onFocus={(e) => e.target.select()}
               onChange={(e) => {
-                const rawValue = e.target.value.replace(/[^\d.]/g, '');
-                updatePaymentMethodField(setter, pm.id, 'amount', rawValue, dateStr);
+                const val = e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+                updatePaymentMethodField(setter, methods, pm.id, 'amount', val, dateStr);
               }}
-              placeholder="₪0.00 סכום"
-              className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
+              placeholder="סכום"
+              className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px] ltr-num"
             />
           </div>
 
@@ -766,7 +813,7 @@ export default function OCRForm({
               <button
                 type="button"
                 title="הפחת תשלום"
-                onClick={() => updatePaymentMethodField(setter, pm.id, 'installments', String(Math.max(1, parseInt(pm.installments) - 1)), dateStr)}
+                onClick={() => updatePaymentMethodField(setter, methods, pm.id, 'installments', String(Math.max(1, parseInt(pm.installments) - 1)), dateStr)}
                 className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
               >
                 -
@@ -776,13 +823,13 @@ export default function OCRForm({
                 inputMode="numeric"
                 title="כמות תשלומים"
                 value={pm.installments}
-                onChange={(e) => updatePaymentMethodField(setter, pm.id, 'installments', e.target.value.replace(/\D/g, '') || '1', dateStr)}
+                onChange={(e) => updatePaymentMethodField(setter, methods, pm.id, 'installments', e.target.value.replace(/\D/g, '') || '1', dateStr)}
                 className="flex-1 h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none"
               />
               <button
                 type="button"
                 title="הוסף תשלום"
-                onClick={() => updatePaymentMethodField(setter, pm.id, 'installments', String(parseInt(pm.installments) + 1), dateStr)}
+                onClick={() => updatePaymentMethodField(setter, methods, pm.id, 'installments', String(parseInt(pm.installments) + 1), dateStr)}
                 className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
               >
                 +
@@ -801,7 +848,7 @@ export default function OCRForm({
                   {pm.customInstallments.map((item, index) => (
                     <div key={item.number} className="flex items-center gap-[8px]">
                       <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
-                      <div className="flex-1 h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] relative flex items-center justify-center">
+                      <div className="flex-1 relative">
                         <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num">
                           {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
                         </span>
@@ -810,7 +857,7 @@ export default function OCRForm({
                           title={`תאריך תשלום ${item.number}`}
                           value={item.dateForInput}
                           onChange={(e) => handleInstallmentDateChange(setter, pm.id, index, e.target.value)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] opacity-0 cursor-pointer"
                         />
                       </div>
                       <div className="flex-1 relative">
@@ -818,7 +865,8 @@ export default function OCRForm({
                           type="text"
                           inputMode="decimal"
                           title={`סכום תשלום ${item.number}`}
-                          value={item.amount.toFixed(2)}
+                          value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => handleInstallmentAmountChange(setter, pm.id, index, e.target.value)}
                           className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                         />
@@ -1129,6 +1177,7 @@ export default function OCRForm({
                 method: '',
                 amount,
                 installments: '1',
+                checkNumber: '',
                 customInstallments: amount ? generateInstallments(1, totalWithVat, today) : [],
               }]);
             }

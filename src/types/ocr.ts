@@ -71,6 +71,7 @@ export interface OCRPaymentMethodEntry {
   method: string;
   amount: string;
   installments: string;
+  checkNumber: string;
   customInstallments: Array<{
     number: number;
     date: string;
