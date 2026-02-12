@@ -101,6 +101,12 @@ interface Commitment {
   installments_count: number;
 }
 
+// Supplier breakdown per payment method (for popup)
+interface MethodSupplierEntry {
+  supplierName: string;
+  amount: number;
+}
+
 // Payment method colors
 const paymentMethodColors: Record<string, { color: string; colorClass: string }> = {
   "check": { color: "#00DD23", colorClass: "bg-[#00DD23]" },
@@ -206,6 +212,8 @@ export default function PaymentsPage() {
   // Data from Supabase
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [paymentMethodsData, setPaymentMethodsData] = useState<PaymentMethodSummary[]>([]);
+  const [methodSupplierBreakdown, setMethodSupplierBreakdown] = useState<Record<string, MethodSupplierEntry[]>>({});
+  const [selectedMethodPopup, setSelectedMethodPopup] = useState<PaymentMethodSummary | null>(null);
   const [recentPaymentsData, setRecentPaymentsData] = useState<RecentPaymentDisplay[]>([]);
   const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null);
   const [showLinkedInvoices, setShowLinkedInvoices] = useState<string | null>(null);
@@ -406,20 +414,32 @@ export default function PaymentsPage() {
           .limit(50);
 
         if (paymentsData) {
-          // Calculate payment method summary
+          // Calculate payment method summary + supplier breakdown per method
           const methodTotals = new Map<string, number>();
+          const methodSuppliers = new Map<string, Map<string, number>>();
 
           for (const payment of paymentsData) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const supplierName = (payment as any).supplier?.name || "לא ידוע";
             if (payment.payment_splits && payment.payment_splits.length > 0) {
               for (const split of payment.payment_splits) {
                 const method = split.payment_method || "other";
+                const amount = Number(split.amount);
                 const current = methodTotals.get(method) || 0;
-                methodTotals.set(method, current + Number(split.amount));
+                methodTotals.set(method, current + amount);
+                // Track supplier breakdown
+                if (!methodSuppliers.has(method)) methodSuppliers.set(method, new Map());
+                const supplierMap = methodSuppliers.get(method)!;
+                supplierMap.set(supplierName, (supplierMap.get(supplierName) || 0) + amount);
               }
             } else {
               // Fallback if no splits
+              const amount = Number(payment.total_amount);
               const current = methodTotals.get("other") || 0;
-              methodTotals.set("other", current + Number(payment.total_amount));
+              methodTotals.set("other", current + amount);
+              if (!methodSuppliers.has("other")) methodSuppliers.set("other", new Map());
+              const supplierMap = methodSuppliers.get("other")!;
+              supplierMap.set(supplierName, (supplierMap.get(supplierName) || 0) + amount);
             }
           }
 
@@ -439,6 +459,15 @@ export default function PaymentsPage() {
             .sort((a, b) => b.amount - a.amount);
 
           setPaymentMethodsData(methodsSummary);
+
+          // Build supplier breakdown lookup
+          const breakdown: Record<string, MethodSupplierEntry[]> = {};
+          for (const [method, supplierMap] of methodSuppliers.entries()) {
+            breakdown[method] = Array.from(supplierMap.entries())
+              .map(([name, amt]) => ({ supplierName: name, amount: amt }))
+              .sort((a, b) => b.amount - a.amount);
+          }
+          setMethodSupplierBreakdown(breakdown);
 
           // Transform recent payments to display format
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1419,7 +1448,8 @@ export default function PaymentsPage() {
                 {expandedPaymentId === payment.id && (
                   <div className="flex flex-col gap-[10px] mt-[5px]">
                     {/* Header: פרטים נוספים + action icons */}
-                    <div className="flex items-center justify-between border-b border-white/20 pb-[8px] px-[7px]">
+                    <div className="flex items-center justify-between border-b border-white/20 pb-[8px] px-[7px] flex-row-reverse">
+                      <span className="text-[16px] font-medium">פרטים נוספים</span>
                       <div className="flex items-center gap-[5px]">
                         {payment.receiptUrl && (
                           <button
@@ -1450,7 +1480,6 @@ export default function PaymentsPage() {
                           </a>
                         )}
                       </div>
-                      <span className="text-[16px] font-medium">פרטים נוספים</span>
                     </div>
 
                     {/* Details row */}

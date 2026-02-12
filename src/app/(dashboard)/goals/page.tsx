@@ -1123,9 +1123,6 @@ export default function GoalsPage() {
 
                                   {/* Child Name with expand arrow */}
                                   <div className="flex-1 flex flex-row-reverse items-center justify-start gap-[3px]">
-                                    <span className="text-[14px] font-normal text-white text-right">
-                                      {child.name}
-                                    </span>
                                     {childHasSuppliers && (
                                       <svg
                                         width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
@@ -1134,6 +1131,9 @@ export default function GoalsPage() {
                                         <polyline points="6 9 12 15 18 9" strokeLinecap="round" strokeLinejoin="round" />
                                       </svg>
                                     )}
+                                    <span className="text-[14px] font-normal text-white text-right">
+                                      {child.name}
+                                    </span>
                                   </div>
                                 </div>
 
