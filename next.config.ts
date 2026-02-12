@@ -2,20 +2,21 @@ import type { NextConfig } from "next";
 import { writeFileSync, readFileSync } from "fs";
 import { join } from "path";
 
-// Inject build timestamp into sw.js so the browser detects a new version on each deploy
-const swPath = join(process.cwd(), "public", "sw.js");
-try {
-  let swContent = readFileSync(swPath, "utf-8");
-  // Replace or add the BUILD_TIME comment at the top
-  const buildTime = `// BUILD_TIME=${Date.now()}`;
-  if (swContent.startsWith("// BUILD_TIME=")) {
-    swContent = swContent.replace(/^\/\/ BUILD_TIME=\d+/, buildTime);
-  } else {
-    swContent = buildTime + "\n" + swContent;
+// Inject build timestamp into sw.js only during production build (not dev)
+if (process.env.NODE_ENV === "production") {
+  const swPath = join(process.cwd(), "public", "sw.js");
+  try {
+    let swContent = readFileSync(swPath, "utf-8");
+    const buildTime = `// BUILD_TIME=${Date.now()}`;
+    if (swContent.startsWith("// BUILD_TIME=")) {
+      swContent = swContent.replace(/^\/\/ BUILD_TIME=\d+/, buildTime);
+    } else {
+      swContent = buildTime + "\n" + swContent;
+    }
+    writeFileSync(swPath, swContent);
+  } catch {
+    // Ignore errors (e.g., in CI without sw.js)
   }
-  writeFileSync(swPath, swContent);
-} catch {
-  // Ignore errors (e.g., in CI without sw.js)
 }
 
 const nextConfig: NextConfig = {
