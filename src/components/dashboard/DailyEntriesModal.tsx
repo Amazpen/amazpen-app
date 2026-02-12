@@ -72,6 +72,30 @@ interface ProductUsageData {
   closing_stock: string;
 }
 
+// Goals/targets data for Section 2
+interface GoalsData {
+  revenueTarget: number;
+  laborCostTargetPct: number;
+  foodCostTargetPct: number;
+  currentExpensesTarget: number;
+  vatPercentage: number;
+  incomeSourceTargets: Record<string, number>; // income_source_id -> avg_ticket_target
+  productTargetPcts: Record<string, number>; // product_id -> target_pct
+}
+
+// Monthly cumulative data for Section 3
+interface MonthlyCumulativeData {
+  totalIncome: number;
+  incomeBeforeVat: number;
+  laborCost: number;
+  laborCostPct: number;
+  incomeSourceTotals: Record<string, { amount: number; ordersCount: number; avgTicket: number }>;
+  productCosts: Record<string, { totalCost: number; costPct: number }>;
+  foodCostPct: number;
+  currentExpenses: number;
+  currentExpensesPct: number;
+}
+
 interface DailyEntriesModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -100,6 +124,8 @@ export function DailyEntriesModal({
     incomeBreakdown: IncomeBreakdown[];
     productUsage: ProductUsage[];
   } | null>(null);
+  const [goalsData, setGoalsData] = useState<GoalsData | null>(null);
+  const [monthlyCumulative, setMonthlyCumulative] = useState<MonthlyCumulativeData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DailyEntry | null>(null);
@@ -575,33 +601,117 @@ export function DailyEntriesModal({
     }
   };
 
-  // Fetch entry details when expanded
+  // Fetch entry details when expanded - includes goals + monthly cumulative
   const fetchEntryDetails = async (entryId: string) => {
     setIsLoadingDetails(true);
     const supabase = createClient();
 
-    // Fetch income breakdown
-    const { data: breakdownData } = await supabase
-      .from("daily_income_breakdown")
-      .select(`
-        income_source_id,
-        amount,
-        orders_count,
-        income_sources (name)
-      `)
-      .eq("daily_entry_id", entryId);
+    // Find the entry to get its date
+    const currentEntry = entries.find(e => e.id === entryId);
+    const entryDate = currentEntry ? new Date(currentEntry.entry_date) : dateRange.start;
+    const year = entryDate.getFullYear();
+    const month = entryDate.getMonth() + 1;
+    const monthStr = String(month).padStart(2, "0");
+    const firstOfMonth = `${year}-${monthStr}-01`;
+    const lastOfMonth = `${year}-${monthStr}-${new Date(year, month, 0).getDate()}`;
 
-    // Fetch product usage
-    const { data: usageData } = await supabase
-      .from("daily_product_usage")
-      .select(`
-        product_id,
-        quantity,
-        unit_cost_at_time,
-        managed_products (name, unit)
-      `)
-      .eq("daily_entry_id", entryId);
+    // Parallel fetch: entry details + goals + monthly data
+    const [
+      { data: breakdownData },
+      { data: usageData },
+      { data: goalData },
+      { data: businessData },
+      { data: monthlyEntries },
+      { data: monthlyBreakdowns },
+      { data: monthlyProductUsage },
+      { data: incomeSourceGoalsData },
+      { data: managedProductsData },
+      { data: monthlyInvoices },
+    ] = await Promise.all([
+      // 1. Entry income breakdown
+      supabase
+        .from("daily_income_breakdown")
+        .select(`income_source_id, amount, orders_count, income_sources (name)`)
+        .eq("daily_entry_id", entryId),
+      // 2. Entry product usage
+      supabase
+        .from("daily_product_usage")
+        .select(`product_id, quantity, unit_cost_at_time, managed_products (name, unit)`)
+        .eq("daily_entry_id", entryId),
+      // 3. Goals for this month
+      supabase
+        .from("goals")
+        .select("id, revenue_target, labor_cost_target_pct, food_cost_target_pct, current_expenses_target, vat_percentage, markup_percentage")
+        .eq("business_id", businessId)
+        .eq("year", year)
+        .eq("month", month)
+        .is("deleted_at", null)
+        .maybeSingle(),
+      // 4. Business fallback for VAT
+      supabase
+        .from("businesses")
+        .select("vat_percentage, markup_percentage")
+        .eq("id", businessId)
+        .maybeSingle(),
+      // 5. All month entries for cumulative
+      supabase
+        .from("daily_entries")
+        .select("id, total_register, labor_cost, labor_hours, day_factor")
+        .eq("business_id", businessId)
+        .gte("entry_date", firstOfMonth)
+        .lte("entry_date", lastOfMonth)
+        .is("deleted_at", null),
+      // 6. All month income breakdowns - placeholder, fetched after monthly entries
+      Promise.resolve({ data: [] as Record<string, unknown>[] }),
+      // 7. All month product usage - placeholder, fetched after monthly entries
+      Promise.resolve({ data: [] as Record<string, unknown>[] }),
+      // 8. Income source goals - placeholder, fetched after goals
+      Promise.resolve({ data: [] as { income_source_id: string; avg_ticket_target: number }[] }),
+      // 9. Managed products with target_pct
+      supabase
+        .from("managed_products")
+        .select("id, target_pct")
+        .eq("business_id", businessId)
+        .eq("is_active", true)
+        .is("deleted_at", null),
+      // 10. Monthly invoices for food cost / current expenses
+      supabase
+        .from("invoices")
+        .select("subtotal, suppliers!inner(expense_type)")
+        .eq("business_id", businessId)
+        .gte("invoice_date", firstOfMonth)
+        .lte("invoice_date", lastOfMonth)
+        .is("deleted_at", null),
+    ]);
 
+    // Sequential fetches that depend on parallel results
+    const allMonthEntryIds = (monthlyEntries || []).map(e => e.id);
+
+    const [
+      { data: fetchedMonthlyBreakdowns },
+      { data: fetchedMonthlyProductUsage },
+    ] = allMonthEntryIds.length > 0 ? await Promise.all([
+      supabase
+        .from("daily_income_breakdown")
+        .select("daily_entry_id, income_source_id, amount, orders_count")
+        .in("daily_entry_id", allMonthEntryIds),
+      supabase
+        .from("daily_product_usage")
+        .select("daily_entry_id, product_id, quantity, unit_cost_at_time")
+        .in("daily_entry_id", allMonthEntryIds),
+    ]) : [{ data: [] }, { data: [] }];
+
+    // Fetch income source goals if we have a goal
+    let finalIncomeSourceGoals = incomeSourceGoalsData || [];
+    if (goalData?.id) {
+      const { data: isg } = await supabase
+        .from("income_source_goals")
+        .select("income_source_id, avg_ticket_target")
+        .eq("goal_id", goalData.id);
+      finalIncomeSourceGoals = isg || [];
+    }
+
+    // Build entry details (Section 1)
     const incomeBreakdown: IncomeBreakdown[] = (breakdownData || []).map((b: Record<string, unknown>) => ({
       income_source_id: b.income_source_id as string,
       income_source_name: (b.income_sources as { name: string })?.name || "לא ידוע",
@@ -618,6 +728,88 @@ export function DailyEntriesModal({
     }));
 
     setEntryDetails({ incomeBreakdown, productUsage });
+
+    // Build goals data (Section 2)
+    const vatPct = goalData?.vat_percentage != null ? Number(goalData.vat_percentage) : (Number(businessData?.vat_percentage) || 0);
+
+    const incomeSourceTargets: Record<string, number> = {};
+    ((finalIncomeSourceGoals || []) as { income_source_id: string; avg_ticket_target: number }[]).forEach(ig => {
+      incomeSourceTargets[ig.income_source_id] = Number(ig.avg_ticket_target) || 0;
+    });
+
+    const productTargetPcts: Record<string, number> = {};
+    (managedProductsData || []).forEach((p: { id: string; target_pct: number | null }) => {
+      if (p.target_pct != null) productTargetPcts[p.id] = Number(p.target_pct);
+    });
+
+    setGoalsData({
+      revenueTarget: Number(goalData?.revenue_target) || 0,
+      laborCostTargetPct: Number(goalData?.labor_cost_target_pct) || 0,
+      foodCostTargetPct: Number(goalData?.food_cost_target_pct) || 0,
+      currentExpensesTarget: Number(goalData?.current_expenses_target) || 0,
+      vatPercentage: vatPct,
+      incomeSourceTargets,
+      productTargetPcts,
+    });
+
+    // Build monthly cumulative (Section 3)
+    const allMonthEntries = monthlyEntries || [];
+    const monthTotalIncome = allMonthEntries.reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
+    const vatDivisor = vatPct > 0 ? 1 + vatPct : 1;
+    const monthIncomeBeforeVat = monthTotalIncome / vatDivisor;
+    const monthLaborCost = allMonthEntries.reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
+    const monthLaborCostPct = monthIncomeBeforeVat > 0 ? (monthLaborCost / monthIncomeBeforeVat) * 100 : 0;
+
+    // Aggregate income sources for month
+    const monthEntryIds = new Set(allMonthEntries.map(e => e.id));
+    const incomeSourceTotals: Record<string, { amount: number; ordersCount: number; avgTicket: number }> = {};
+    (fetchedMonthlyBreakdowns || []).forEach((b: Record<string, unknown>) => {
+      if (!monthEntryIds.has(b.daily_entry_id as string)) return;
+      const sid = b.income_source_id as string;
+      if (!incomeSourceTotals[sid]) incomeSourceTotals[sid] = { amount: 0, ordersCount: 0, avgTicket: 0 };
+      incomeSourceTotals[sid].amount += Number(b.amount) || 0;
+      incomeSourceTotals[sid].ordersCount += Number(b.orders_count) || 0;
+    });
+    Object.values(incomeSourceTotals).forEach(v => {
+      v.avgTicket = v.ordersCount > 0 ? v.amount / v.ordersCount : 0;
+    });
+
+    // Aggregate product costs for month
+    const productCosts: Record<string, { totalCost: number; costPct: number }> = {};
+    (fetchedMonthlyProductUsage || []).forEach((p: Record<string, unknown>) => {
+      if (!monthEntryIds.has(p.daily_entry_id as string)) return;
+      const pid = p.product_id as string;
+      if (!productCosts[pid]) productCosts[pid] = { totalCost: 0, costPct: 0 };
+      productCosts[pid].totalCost += (Number(p.quantity) || 0) * (Number(p.unit_cost_at_time) || 0);
+    });
+    Object.entries(productCosts).forEach(([, v]) => {
+      v.costPct = monthIncomeBeforeVat > 0 ? (v.totalCost / monthIncomeBeforeVat) * 100 : 0;
+    });
+
+    // Food cost from invoices (goods_purchases)
+    let monthFoodCost = 0;
+    let monthCurrentExpenses = 0;
+    (monthlyInvoices || []).forEach((inv: Record<string, unknown>) => {
+      const supplier = inv.suppliers as { expense_type: string } | null;
+      const subtotal = Number(inv.subtotal) || 0;
+      if (supplier?.expense_type === "goods_purchases") monthFoodCost += subtotal;
+      else if (supplier?.expense_type === "current_expenses") monthCurrentExpenses += subtotal;
+    });
+    const foodCostPct = monthIncomeBeforeVat > 0 ? (monthFoodCost / monthIncomeBeforeVat) * 100 : 0;
+    const currentExpensesPct = monthIncomeBeforeVat > 0 ? (monthCurrentExpenses / monthIncomeBeforeVat) * 100 : 0;
+
+    setMonthlyCumulative({
+      totalIncome: monthTotalIncome,
+      incomeBeforeVat: monthIncomeBeforeVat,
+      laborCost: monthLaborCost,
+      laborCostPct: monthLaborCostPct,
+      incomeSourceTotals,
+      productCosts,
+      foodCostPct,
+      currentExpenses: monthCurrentExpenses,
+      currentExpensesPct,
+    });
+
     setIsLoadingDetails(false);
   };
 
@@ -1266,33 +1458,61 @@ export function DailyEntriesModal({
                                 <div className="text-white text-[10px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10 whitespace-nowrap">
                                   הפרש מהיעד
                                 </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">0%</span>
+                                {/* סה"כ קופה - הפרש באחוזים מיעד הכנסות */}
+                                <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${goalsData && goalsData.revenueTarget > 0 ? (entry.total_register >= goalsData.revenueTarget / 26 ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                  <span className="ltr-num">{goalsData && goalsData.revenueTarget > 0 ? `${(((entry.total_register / (goalsData.revenueTarget / 26)) - 1) * 100).toFixed(1)}%` : "-"}</span>
                                 </div>
-                                {entryDetails?.incomeBreakdown.map((source) => (
-                                  <div
-                                    key={source.income_source_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
-                                  >
-                                    <span className="ltr-num">₪0</span>
-                                  </div>
-                                ))}
+                                {/* מקורות הכנסה - הפרש ממוצע מהיעד */}
+                                {entryDetails?.incomeBreakdown.map((source) => {
+                                  const target = goalsData?.incomeSourceTargets[source.income_source_id] || 0;
+                                  const avg = source.orders_count > 0 ? source.amount / source.orders_count : 0;
+                                  const diff = target > 0 ? avg - target : 0;
+                                  return (
+                                    <div
+                                      key={source.income_source_id}
+                                      className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
+                                    >
+                                      <span className="ltr-num">{target > 0 ? `₪${diff.toFixed(1)}` : "-"}</span>
+                                    </div>
+                                  );
+                                })}
+                                {/* ע. עובדים - הפרש מיעד */}
+                                {(() => {
+                                  const laborPct = entry.total_register > 0 ? (entry.labor_cost / entry.total_register) * 100 : 0;
+                                  const targetPct = goalsData?.laborCostTargetPct || 0;
+                                  const diff = targetPct > 0 ? laborPct - targetPct : 0;
+                                  return (
+                                    <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${targetPct > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                      <span className="ltr-num">{targetPct > 0 ? `${diff.toFixed(1)}%` : "-"}</span>
+                                    </div>
+                                  );
+                                })()}
+                                {/* מוצרים - הפרש מיעד */}
+                                {entryDetails?.productUsage.map((product) => {
+                                  const actualPct = entry.total_register > 0 ? ((product.quantity * product.unit_cost) / entry.total_register) * 100 : 0;
+                                  const targetPct = goalsData?.productTargetPcts[product.product_id] || 0;
+                                  const diff = targetPct > 0 ? actualPct - targetPct : 0;
+                                  return (
+                                    <div
+                                      key={product.product_id}
+                                      className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${targetPct > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
+                                    >
+                                      <span className="ltr-num">{targetPct > 0 ? `${diff.toFixed(2)}%` : "-"}</span>
+                                    </div>
+                                  );
+                                })}
+                                {/* עלות מכר - הפרש מיעד */}
+                                {(() => {
+                                  const targetPct = goalsData?.foodCostTargetPct || 0;
+                                  return (
+                                    <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                      <span className="ltr-num">{targetPct > 0 ? "-" : "-"}</span>
+                                    </div>
+                                  );
+                                })()}
+                                {/* הוצאות שוטפות - הפרש */}
                                 <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">0%</span>
-                                </div>
-                                {entryDetails?.productUsage.map((product) => (
-                                  <div
-                                    key={product.product_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
-                                  >
-                                    <span className="ltr-num">0%</span>
-                                  </div>
-                                ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">0%</span>
-                                </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">{formatCurrency(0)}</span>
+                                  <span className="ltr-num">-</span>
                                 </div>
                               </div>
                             </div>

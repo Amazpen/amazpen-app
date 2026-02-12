@@ -1032,7 +1032,7 @@ export default function SuppliersPage() {
         </div>
 
         {/* Suppliers Grid */}
-        <div id="onboarding-suppliers-list" className="flex-1 overflow-auto mt-[15px] mx-[7px]">
+        <div id="onboarding-suppliers-list" className="flex-1 overflow-auto mt-[15px] mx-0">
           {isLoading ? (
             /* Skeleton Loaders for Supplier Cards */
             <div className="grid grid-cols-2 gap-[26px]">
