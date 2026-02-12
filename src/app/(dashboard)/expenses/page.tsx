@@ -1737,7 +1737,7 @@ export default function ExpensesPage() {
                         index % 8 === 6 ? 'bg-[#98D8C8]' : 'bg-[#F7DC6F]'
                       }`}
                     />
-                    <span className="text-[16px] flex-1 text-center">{supplier.name}</span>
+                    <span className="text-[16px] flex-1 text-right">{supplier.name}</span>
                     <span className="text-[16px] flex-1 text-center ltr-num">₪{supplier.amount.toLocaleString()}</span>
                     <span className="text-[16px] flex-1 text-center ltr-num">{supplier.percentage.toFixed(1)}%</span>
                   </button>
