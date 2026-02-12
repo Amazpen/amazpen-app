@@ -65,14 +65,14 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl" className="dark" suppressHydrationWarning>
       <body className={`${assistant.variable} ${poppins.variable} font-sans antialiased`} suppressHydrationWarning>
-        {/* Custom splash screen - shows immediately while app loads */}
+        {/* Custom splash screen - hidden by default, shown only in standalone PWA mode */}
         <div
           id="app-splash"
           style={{
             position: 'fixed',
             inset: 0,
             zIndex: 9999,
-            display: 'flex',
+            display: 'none',
             alignItems: 'center',
             justifyContent: 'center',
             background: '#0a0a0a',
@@ -94,17 +94,23 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Hide splash screen when app is ready
+              // Show splash only when opened as installed PWA (standalone mode)
               (function() {
+                var isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                  || window.navigator.standalone === true;
+                if (!isStandalone) return;
+
+                var splash = document.getElementById('app-splash');
+                if (!splash) return;
+                splash.style.display = 'flex';
+
                 function hideSplash() {
-                  var splash = document.getElementById('app-splash');
                   if (splash) {
                     splash.style.opacity = '0';
                     splash.style.pointerEvents = 'none';
                     setTimeout(function() { splash.style.display = 'none'; }, 300);
                   }
                 }
-                // Hide after app hydrates or after max 3 seconds
                 if (document.readyState === 'complete') {
                   setTimeout(hideSplash, 500);
                 } else {
