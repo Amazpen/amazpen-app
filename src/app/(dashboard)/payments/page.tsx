@@ -1847,7 +1847,7 @@ export default function PaymentsPage() {
 
       {/* Recent Payments Section - hidden when no data */}
       {recentPaymentsData.length > 0 && (
-      <div id="onboarding-payments-list" className="bg-[#0F1535] rounded-[20px] p-[20px_5px] mt-[10px] flex flex-col gap-[23px]">
+      <div id="onboarding-payments-list" className="bg-[#0F1535] rounded-[20px] p-[20px_0px] mt-[10px] flex flex-col gap-[23px]">
         {/* Header Row */}
         <div className="flex items-center justify-between px-[5px]">
           {/* Filter Dropdown */}

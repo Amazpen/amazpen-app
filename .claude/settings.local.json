@@ -147,7 +147,10 @@
       "Bash(/c/Program Files/nodejs/npm.cmd install nextstepjs motion)",
       "Bash(/c/Program Files/nodejs/npm.cmd ls nextstepjs)",
       "Bash(git status:*)",
-      "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit --pretty src/app/\\\\\\(dashboard\\\\\\)/admin/payments/page.tsx)"
+      "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit --pretty src/app/\\\\\\(dashboard\\\\\\)/admin/payments/page.tsx)",
+      "Bash(git checkout:*)",
+      "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit --pretty src/app/\\\\\\(dashboard\\\\\\)/suppliers/page.tsx)",
+      "Bash(git restore:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

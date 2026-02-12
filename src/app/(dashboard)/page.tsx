@@ -2059,7 +2059,7 @@ export default function DashboardPage() {
                     >
                       <div className="flex flex-row-reverse justify-between items-center w-full">
                         <div className="h-[28px] w-[100px] rounded-[6px] bg-white/10 animate-pulse ml-[9px]" />
-                        <div className="flex flex-row-reverse items-center gap-[6px]">
+                        <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                           <div className="h-[28px] w-[120px] rounded-[6px] bg-white/10 animate-pulse" />
                           <div className="w-[31px] h-[31px] rounded-full bg-white/10 animate-pulse" />
                         </div>
@@ -2101,7 +2101,7 @@ export default function DashboardPage() {
                   <span className={`text-[20px] font-bold leading-[1.4] ltr-num ml-[9px] ${(detailedSummary?.totalIncome || 0) === 0 ? 'text-white' : (detailedSummary?.targetDiffPct || 0) < 0 ? 'text-red-500' : (detailedSummary?.targetDiffPct || 0) > 0 ? 'text-green-500' : 'text-white'}`}>
                     {formatCurrencyFull(detailedSummary?.totalIncome || 0)}
                   </span>
-                  <div className="flex flex-row-reverse items-center gap-[6px]">
+                  <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                     <span className="text-[20px] font-bold text-white leading-[1.4]">סה״כ הכנסות</span>
                     <div className="icon-bg-pink w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -2209,7 +2209,7 @@ export default function DashboardPage() {
                             </span>
                           </div>
                         </div>
-                        <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px]">
+                        <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px] mr-[9px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
                           <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]`}>
                             <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
@@ -2265,7 +2265,7 @@ export default function DashboardPage() {
                             </span>
                           </div>
                         </div>
-                        <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px]">
+                        <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px] mr-[9px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
                           <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]`}>
                             <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
@@ -2321,7 +2321,7 @@ export default function DashboardPage() {
                             </span>
                           </div>
                         </div>
-                        <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px]">
+                        <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px] mr-[9px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
                           <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]`}>
                             <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
@@ -2374,7 +2374,7 @@ export default function DashboardPage() {
                           {formatCurrencyFull(source.totalAmount)}
                         </span>
                       </div>
-                      <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px]">
+                      <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px] mr-[9px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
                         <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]`}>
                           <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
@@ -2436,7 +2436,7 @@ export default function DashboardPage() {
                             {formatCurrencyFull(detailedSummary?.laborCost || 0)}
                           </span>
                         </div>
-                        <div className="flex flex-row-reverse items-center gap-[6px]">
+                        <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">עלות עובדים</span>
                           <div className="icon-bg-purple w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
                             <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
@@ -2519,7 +2519,7 @@ export default function DashboardPage() {
                           {formatCurrencyFull(detailedSummary?.laborCost || 0)}
                         </span>
                       </div>
-                      <div className="flex flex-row-reverse items-center gap-[6px]">
+                      <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">עלות עובדים</span>
                         <div className="icon-bg-purple w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
                           <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
@@ -2584,7 +2584,7 @@ export default function DashboardPage() {
                             {formatCurrencyFull(detailedSummary?.foodCost || 0)}
                           </span>
                         </div>
-                        <div className="flex flex-row-reverse items-center gap-[6px]">
+                        <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">עלות מכר</span>
                           <div className="icon-bg-orange w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -2639,7 +2639,7 @@ export default function DashboardPage() {
                           {formatCurrencyFull(detailedSummary?.foodCost || 0)}
                         </span>
                       </div>
-                      <div className="flex flex-row-reverse items-center gap-[6px]">
+                      <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">עלות מכר</span>
                         <div className="icon-bg-orange w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -2708,7 +2708,7 @@ export default function DashboardPage() {
                           {formatCurrencyFull(product.totalCost)}
                         </span>
                       </div>
-                      <div className="flex flex-row-reverse items-center gap-[6px]">
+                      <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">עלות {product.name}</span>
                         <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]`}>
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -2770,7 +2770,7 @@ export default function DashboardPage() {
                       {formatCurrencyFull(detailedSummary?.currentExpenses || 0)}
                     </span>
                   </div>
-                  <div className="flex flex-row-reverse items-center gap-[6px]">
+                  <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                     <span className="text-[20px] font-bold text-white leading-[1.4]">הוצאות שוטפות</span>
                     <div className="icon-bg-peach w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
