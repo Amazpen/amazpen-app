@@ -341,45 +341,99 @@ export default function GoalsPage() {
         setCurrentExpensesData(currentData);
 
         // ============================================
-        // 6. Build goods purchase data
+        // 6. Build goods purchase data (grouped by category)
         // ============================================
-        // Sum up invoices for goods
-        const goodsActuals = new Map<string, number>();
-        const goodsNames = new Map<string, string>();
+        // Sum up invoices for goods by category
+        const goodsCategoryActuals = new Map<string, number>();
+        const goodsCategoryTargets = new Map<string, number>();
 
+        // Initialize categories with 0
+        (categoriesData || []).forEach(cat => {
+          goodsCategoryActuals.set(cat.id, 0);
+          goodsCategoryTargets.set(cat.id, 0);
+        });
+
+        // Aggregate goods invoices by category
         (invoicesData || []).filter(inv => inv.invoice_type === "goods").forEach(inv => {
-          const current = goodsActuals.get(inv.supplier_id) || 0;
-          goodsActuals.set(inv.supplier_id, current + Number(inv.subtotal));
-          const supplier = (suppliersData || []).find(s => s.id === inv.supplier_id);
-          if (supplier) {
-            goodsNames.set(inv.supplier_id, supplier.name);
+          const catId = supplierCategoryMap.get(inv.supplier_id);
+          if (catId) {
+            const current = goodsCategoryActuals.get(catId) || 0;
+            goodsCategoryActuals.set(catId, current + Number(inv.subtotal));
           }
         });
 
-        // Get all goods suppliers with their budgets
+        // Aggregate goods budgets by category
         const goodsSuppliers = (suppliersData || []).filter(s => s.expense_type === "goods");
+        goodsSuppliers.forEach(supplier => {
+          const catId = supplier.expense_category_id;
+          const budget = supplierBudgetMap.get(supplier.id) || 0;
+          if (catId && budget > 0) {
+            const current = goodsCategoryTargets.get(catId) || 0;
+            goodsCategoryTargets.set(catId, current + budget);
+          }
+        });
 
-        const goodsData: GoalItem[] = goodsSuppliers.map(supplier => ({
-          id: supplier.id,
-          name: supplier.name,
-          target: supplierBudgetMap.get(supplier.id) || 0,
-          actual: goodsActuals.get(supplier.id) || 0,
-          unit: "₪",
-        }));
+        // Build hierarchical goods data by category
+        const goodsData: GoalItem[] = (categoriesData || [])
+          .filter(cat => !cat.parent_id)
+          .map((cat) => {
+            const childCats = (categoriesData || []).filter(c => c.parent_id === cat.id);
+            let totalActual = goodsCategoryActuals.get(cat.id) || 0;
+            let totalTarget = goodsCategoryTargets.get(cat.id) || 0;
 
-        // Add total row if there are multiple suppliers
-        if (goodsData.length > 1) {
-          const totalTarget = goodsData.reduce((sum, g) => sum + g.target, 0);
-          const totalActual = goodsData.reduce((sum, g) => sum + g.actual, 0);
+            const parentSupplierIds = goodsSuppliers
+              .filter(s => s.expense_category_id === cat.id)
+              .map(s => s.id);
+
+            const children: GoalItem[] = childCats.map(child => {
+              const childActual = goodsCategoryActuals.get(child.id) || 0;
+              const childTarget = goodsCategoryTargets.get(child.id) || 0;
+              totalActual += childActual;
+              totalTarget += childTarget;
+              const childSupplierIds = goodsSuppliers
+                .filter(s => s.expense_category_id === child.id)
+                .map(s => s.id);
+              return {
+                id: child.id,
+                name: child.name,
+                target: childTarget,
+                actual: childActual,
+                unit: "₪",
+                supplierIds: childSupplierIds,
+              };
+            });
+
+            return {
+              id: cat.id,
+              name: cat.name,
+              target: totalTarget,
+              actual: totalActual,
+              unit: "₪",
+              supplierIds: parentSupplierIds,
+              children: children.length > 0 ? children : undefined,
+            };
+          })
+          // Only include categories that have goods suppliers (directly or via children)
+          .filter(cat => {
+            const hasDirectSuppliers = cat.supplierIds && cat.supplierIds.length > 0;
+            const hasChildSuppliers = cat.children?.some(c => c.supplierIds && c.supplierIds.length > 0);
+            const hasActual = cat.actual > 0;
+            const hasTarget = cat.target > 0;
+            return hasDirectSuppliers || hasChildSuppliers || hasActual || hasTarget;
+          });
+
+        // Add total row
+        const goodsTotalActual = goodsData.reduce((sum, g) => sum + g.actual, 0);
+        const goodsTotalTarget = goodsData.reduce((sum, g) => sum + g.target, 0);
+        if (goodsData.length > 0) {
           goodsData.unshift({
             id: "goods-total",
             name: 'סה"כ קניות סחורה',
-            target: Number(goal?.goods_expenses_target) || totalTarget,
-            actual: totalActual,
+            target: Number(goal?.goods_expenses_target) || goodsTotalTarget,
+            actual: goodsTotalActual,
             unit: "₪",
           });
-        } else if (goodsData.length === 0) {
-          // Show total even if no specific suppliers
+        } else {
           const totalActual = (invoicesData || [])
             .filter(inv => inv.invoice_type === "goods")
             .reduce((sum, inv) => sum + Number(inv.subtotal), 0);
@@ -942,7 +996,8 @@ export default function GoalsPage() {
                 const statusColor = getStatusColor(percentage, !isRevenueType);
                 const hasChildren = item.children && item.children.length > 0;
                 const hasSuppliers = item.supplierIds && item.supplierIds.length > 0;
-                const isExpandable = isCurrent && (hasChildren || hasSuppliers);
+                const isGoods = activeTab === "vs-goods";
+                const isExpandable = (isCurrent || isGoods) && (hasChildren || hasSuppliers);
                 const isExpanded = expandedGoalId === item.id;
 
                 return (
