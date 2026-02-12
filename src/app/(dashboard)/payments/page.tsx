@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { uploadFile } from "@/lib/uploadFile";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
 
 // Supplier from database
 interface Supplier {
@@ -224,8 +225,6 @@ export default function PaymentsPage() {
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [expenseType, setExpenseType] = useState<"expenses" | "purchases" | "employees">("expenses");
   const [selectedSupplier, setSelectedSupplier] = useState("");
-  const [supplierSearch, setSupplierSearch] = useState("");
-  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -238,11 +237,11 @@ export default function PaymentsPage() {
   const savePaymentDraftData = useCallback(() => {
     if (!showAddPaymentPopup) return;
     savePaymentDraft({
-      paymentDate, expenseType, selectedSupplier, supplierSearch,
+      paymentDate, expenseType, selectedSupplier,
       reference, notes,
     });
   }, [savePaymentDraft, showAddPaymentPopup,
-    paymentDate, expenseType, selectedSupplier, supplierSearch,
+    paymentDate, expenseType, selectedSupplier,
     reference, notes]);
 
   useEffect(() => {
@@ -261,7 +260,6 @@ export default function PaymentsPage() {
           if (draft.paymentDate) setPaymentDate(draft.paymentDate as string);
           if (draft.expenseType) setExpenseType(draft.expenseType as "expenses" | "purchases" | "employees");
           if (draft.selectedSupplier) setSelectedSupplier(draft.selectedSupplier as string);
-          if (draft.supplierSearch) setSupplierSearch(draft.supplierSearch as string);
           if (draft.reference) setReference(draft.reference as string);
           if (draft.notes !== undefined) setNotes(draft.notes as string);
         }
@@ -270,13 +268,11 @@ export default function PaymentsPage() {
     }
   }, [showAddPaymentPopup, restorePaymentDraft]);
 
-  // Supplier search helpers
+  // Supplier filtering by expense type
   const expenseTypeMap = { expenses: "current_expenses", purchases: "goods_purchases", employees: "employee_costs" } as const;
   const filteredSuppliers = suppliers.filter(s =>
-    s.expense_type === expenseTypeMap[expenseType] &&
-    s.name.toLowerCase().includes(supplierSearch.toLowerCase())
+    s.expense_type === expenseTypeMap[expenseType]
   );
-  const selectedSupplierName = suppliers.find(s => s.id === selectedSupplier)?.name || "";
 
   // Open invoices state
   const [openInvoices, setOpenInvoices] = useState<OpenInvoice[]>([]);
@@ -1034,8 +1030,6 @@ export default function PaymentsPage() {
     setPaymentDate(new Date().toISOString().split("T")[0]);
     setExpenseType("purchases");
     setSelectedSupplier("");
-    setSupplierSearch("");
-    setShowSupplierDropdown(false);
     setPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", customInstallments: [] }]);
     setReference("");
     setNotes("");
@@ -1167,12 +1161,13 @@ export default function PaymentsPage() {
             <div className="absolute inset-0 bg-black/50" />
             {/* Popup */}
             <div
+              dir="rtl"
               className="relative bg-[#0f1535] rounded-[10px] p-[10px] w-full max-w-[350px] min-h-[300px] max-h-[500px] overflow-y-auto z-[2002]"
               style={{ boxShadow: "rgba(0, 0, 0, 0.2) 0px 0px 20px 0px" }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Close button */}
-              <div className="flex justify-end">
+              <div className="flex justify-start">
                 <button
                   type="button"
                   onClick={() => setSelectedMethodPopup(null)}
@@ -1184,19 +1179,19 @@ export default function PaymentsPage() {
 
               {/* Header - method name and total */}
               <div className="flex items-center justify-between mx-[10px] mb-[15px]">
+                <span className="text-[25px] font-semibold text-white text-center">{selectedMethodPopup.name}</span>
                 <div className="flex flex-col items-center">
                   <span className="text-[25px] font-semibold text-white text-center ltr-num">
                     ₪{selectedMethodPopup.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                   <span className="text-[14px] text-white text-center">כולל מע&apos;מ</span>
                 </div>
-                <span className="text-[25px] font-semibold text-white text-center">{selectedMethodPopup.name}</span>
               </div>
 
               {/* Table header */}
-              <div className="flex flex-row-reverse items-center justify-between min-h-[40px] border-b border-white/20 px-[5px]">
-                <span className="text-[16px] font-medium text-white w-[85px] text-center">סכום התשלום</span>
-                <span className="text-[16px] font-medium text-white flex-1 text-left">שם ספק</span>
+              <div className="flex items-center justify-between min-h-[40px] border-b border-white/20 px-[5px]">
+                <span className="text-[16px] font-medium text-white flex-1">שם ספק</span>
+                <span className="text-[16px] font-medium text-white w-[120px] text-center">סכום התשלום</span>
               </div>
 
               {/* Supplier rows */}
@@ -1204,14 +1199,14 @@ export default function PaymentsPage() {
                 {(methodSupplierBreakdown[selectedMethodPopup.id] || []).map((entry, idx) => (
                   <div
                     key={entry.supplierName}
-                    className={`flex flex-row-reverse items-center justify-between min-h-[40px] px-[5px] pt-[10px] ${
+                    className={`flex items-center justify-between min-h-[40px] px-[5px] pt-[10px] ${
                       idx > 0 ? "border-t border-white/20" : ""
                     }`}
                   >
-                    <span className="text-[14px] font-bold text-white w-[85px] text-center ltr-num">
+                    <span className="text-[14px] font-bold text-white flex-1">{entry.supplierName}</span>
+                    <span className="text-[14px] font-bold text-white w-[120px] text-center ltr-num">
                       ₪{entry.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                    <span className="text-[14px] font-bold text-white flex-1 text-left">{entry.supplierName}</span>
                   </div>
                 ))}
               </div>
@@ -1718,7 +1713,7 @@ export default function PaymentsPage() {
                 <div dir="rtl" className="flex items-start gap-[20px]">
                   <button
                     type="button"
-                    onClick={() => { setExpenseType("purchases"); setSelectedSupplier(""); setSupplierSearch(""); }}
+                    onClick={() => { setExpenseType("purchases"); setSelectedSupplier(""); }}
                     className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
                   >
                     <span className={`text-[16px] font-semibold ${expenseType === "purchases" ? "text-white" : "text-[#979797]"}`}>
@@ -1734,7 +1729,7 @@ export default function PaymentsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setExpenseType("expenses"); setSelectedSupplier(""); setSupplierSearch(""); }}
+                    onClick={() => { setExpenseType("expenses"); setSelectedSupplier(""); }}
                     className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
                   >
                     <span className={`text-[16px] font-semibold ${expenseType === "expenses" ? "text-white" : "text-[#979797]"}`}>
@@ -1750,7 +1745,7 @@ export default function PaymentsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setExpenseType("employees"); setSelectedSupplier(""); setSupplierSearch(""); }}
+                    onClick={() => { setExpenseType("employees"); setSelectedSupplier(""); }}
                     className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
                   >
                     <span className={`text-[16px] font-semibold ${expenseType === "employees" ? "text-white" : "text-[#979797]"}`}>
@@ -1768,66 +1763,11 @@ export default function PaymentsPage() {
               </div>
 
               {/* Supplier */}
-              <div className="flex flex-col gap-[3px]">
-                <div className="flex items-start">
-                  <span className="text-[16px] font-medium text-white">שם ספק</span>
-                </div>
-                <div className="relative">
-                  <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
-                    <input
-                      type="text"
-                      placeholder="חפש ספק..."
-                      value={showSupplierDropdown ? supplierSearch : selectedSupplierName}
-                      onFocus={() => {
-                        setShowSupplierDropdown(true);
-                        setSupplierSearch("");
-                      }}
-                      onChange={(e) => setSupplierSearch(e.target.value)}
-                      className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px]"
-                    />
-                    {selectedSupplier && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedSupplier("");
-                          setSupplierSearch("");
-                          setShowSupplierDropdown(false);
-                        }}
-                        className="absolute left-[10px] top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                  {showSupplierDropdown && (
-                    <>
-                    <div className="fixed inset-0 z-10" onClick={() => setShowSupplierDropdown(false)} />
-                    <div className="absolute z-20 w-full mt-[2px] bg-[#0F1535] border border-[#4C526B] rounded-[10px] max-h-[200px] overflow-y-auto">
-                      {filteredSuppliers.length === 0 ? (
-                        <div className="p-[12px] text-center text-white/50 text-[16px]">לא נמצאו ספקים</div>
-                      ) : (
-                        filteredSuppliers.map((supplier) => (
-                          <button
-                            key={supplier.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedSupplier(supplier.id);
-                              setSupplierSearch("");
-                              setShowSupplierDropdown(false);
-                            }}
-                            className={`w-full text-center text-[16px] py-[12px] px-[10px] transition-colors hover:bg-[#29318A]/30 ${
-                              selectedSupplier === supplier.id ? "text-white bg-[#29318A]/20" : "text-white/80"
-                            }`}
-                          >
-                            {supplier.name}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                    </>
-                  )}
-                </div>
-              </div>
+              <SupplierSearchSelect
+                suppliers={filteredSuppliers}
+                value={selectedSupplier}
+                onChange={setSelectedSupplier}
+              />
 
               {/* Open Invoices Section */}
               {openInvoices.length > 0 && (
