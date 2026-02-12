@@ -1404,7 +1404,7 @@ export default function PaymentsPage() {
 
       {/* Forecast Section - צפי תשלומים קדימה */}
       {showForecast && (
-        <div className="bg-[#0F1535] rounded-[20px] p-[20px_5px] mt-[10px] flex flex-col gap-[10px]">
+        <div className="bg-[#0F1535] rounded-[20px] mt-[10px] flex flex-col gap-[10px]">
           {isLoadingForecast ? (
             <div className="flex items-center justify-center py-[40px]">
               <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
@@ -1576,7 +1576,7 @@ export default function PaymentsPage() {
 
       {/* Past Payments Section - תשלומי עבר */}
       {showPastPayments && (
-        <div className="bg-[#0F1535] rounded-[20px] p-[20px_5px] mt-[10px] flex flex-col gap-[10px]">
+        <div className="bg-[#0F1535] rounded-[20px] mt-[10px] flex flex-col gap-[10px]">
           {isLoadingPast ? (
             <div className="flex items-center justify-center py-[40px]">
               <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
