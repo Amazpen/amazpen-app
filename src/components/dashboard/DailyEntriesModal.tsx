@@ -858,7 +858,7 @@ export function DailyEntriesModal({
                         <Input
                           type="text"
                           disabled
-                          value={laborWithMarkup > 0 ? `₪ ${laborWithMarkup.toFixed(2)}` : "—"}
+                          value={laborWithMarkup > 0 ? laborWithMarkup.toFixed(2) : "—"}
                           className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold disabled:opacity-100"
                         />
                       </div>
