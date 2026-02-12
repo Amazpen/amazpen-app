@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { OCRDocument, DocumentStatus } from '@/types/ocr';
-import { getStatusLabel, getSourceIcon, getDocumentTypeLabel } from '@/types/ocr';
+import { getStatusLabel, getSourceIcon, getSourceLabel, getDocumentTypeLabel } from '@/types/ocr';
 
 interface DocumentQueueProps {
   documents: OCRDocument[];
@@ -372,10 +372,37 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
   );
 }
 
-// Vertical card for sidebar
+// Vertical card for sidebar - compact with details
 function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+
+  // Determine sender info based on source
+  const getSenderDisplay = () => {
+    if (document.source === 'email') {
+      return document.source_sender_name || '-';
+    }
+    // WhatsApp / Telegram - show phone
+    return document.source_sender_phone || document.source_sender_name || '-';
+  };
+
+  // Format date
+  const formatDate = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toLocaleDateString('he-IL', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+      });
+    } catch {
+      return '-';
+    }
+  };
+
+  // Document type label with "unknown" fallback
+  const docTypeLabel = document.document_type
+    ? getDocumentTypeLabel(document.document_type)
+    : 'לא זוהה';
 
   return (
     <button
@@ -388,59 +415,69 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
           : 'hover:ring-1 hover:ring-[#4C526B] hover:shadow-md'
       }`}
     >
-      {/* Image thumbnail */}
-      <div className="relative w-full h-[85px] bg-[#0a0d1f]">
-        {!imageError ? (
-          <>
-            <img
-              src={document.image_url}
-              alt="תמונת מסמך"
-              className={`w-full h-full object-cover transition-opacity ${
-                imageLoaded ? 'opacity-100' : 'opacity-0'
-              }`}
-              onLoad={() => setImageLoaded(true)}
-              onError={() => setImageError(true)}
-            />
-            {!imageLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-white/40">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
+      <div className="flex flex-row-reverse bg-[#0F1535]">
+        {/* Small image thumbnail - right side */}
+        <div className="relative w-[56px] h-[80px] flex-shrink-0 bg-[#0a0d1f]">
+          {!imageError ? (
+            <>
+              <img
+                src={document.image_url}
+                alt="תמונת מסמך"
+                className={`w-full h-full object-cover transition-opacity ${
+                  imageLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
+                onLoad={() => setImageLoaded(true)}
+                onError={() => setImageError(true)}
+              />
+              {!imageLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-white/40">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+            </div>
+          )}
+
+          {/* Status badge on image */}
+          <div
+            className={`absolute top-1 right-0.5 px-1 py-0.5 rounded text-[8px] font-medium ocr-status-${document.status}`}
+          >
+            {getStatusLabel(document.status)}
           </div>
-        )}
-
-        {/* Status badge */}
-        <div
-          className={`absolute top-1.5 right-1.5 px-2 py-0.5 rounded text-[10px] font-medium ocr-status-${document.status}`}
-        >
-          {getStatusLabel(document.status)}
         </div>
 
-        {/* Source icon */}
-        <div className="absolute bottom-1.5 left-1.5 text-[14px]">
-          {getSourceIcon(document.source)}
-        </div>
-      </div>
+        {/* Details - left side */}
+        <div className="flex-1 p-1.5 flex flex-col justify-between min-w-0 text-right">
+          {/* Source */}
+          <div className="flex items-center justify-end gap-1">
+            <span className="text-[10px] text-white/70 font-medium truncate">
+              {getSourceLabel(document.source)}
+            </span>
+            <span className="text-[12px] flex-shrink-0">{getSourceIcon(document.source)}</span>
+          </div>
 
-      {/* Info */}
-      <div className="p-2 bg-[#0F1535]">
-        <p className="text-[12px] text-white font-medium truncate">
-          {document.document_type
-            ? getDocumentTypeLabel(document.document_type)
-            : 'סוג לא ידוע'}
-        </p>
-        <p className="text-[11px] text-white/50 truncate">
-          {document.ocr_data?.supplier_name ||
-           new Date(document.created_at).toLocaleDateString('he-IL')}
-        </p>
+          {/* Sender */}
+          <p className="text-[10px] text-white/50 truncate" dir="ltr" style={{ textAlign: 'right' }}>
+            {getSenderDisplay()}
+          </p>
+
+          {/* Date */}
+          <p className="text-[10px] text-white/50">
+            {formatDate(document.created_at)}
+          </p>
+
+          {/* Document type */}
+          <p className="text-[10px] text-white font-medium truncate">
+            {docTypeLabel}
+          </p>
+        </div>
       </div>
     </button>
   );

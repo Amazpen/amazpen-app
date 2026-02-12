@@ -458,6 +458,104 @@ export default function OCRPage() {
               console.error('Error inserting delivery notes:', notesError);
             }
           }
+        } else if (formData.document_type === 'daily_entry') {
+          // --- DAILY ENTRY (רישום יומי) ---
+          const { data: dailyEntry, error: dailyError } = await supabase
+            .from('daily_entries')
+            .insert({
+              business_id: formData.business_id,
+              entry_date: formData.daily_entry_date,
+              total_register: parseFloat(formData.daily_total_register || '0') || 0,
+              labor_cost: parseFloat(formData.daily_labor_cost || '0') || 0,
+              labor_hours: parseFloat(formData.daily_labor_hours || '0') || 0,
+              discounts: parseFloat(formData.daily_discounts || '0') || 0,
+              day_factor: parseFloat(formData.daily_day_factor || '1') || 1,
+              manager_daily_cost: 0,
+              created_by: user?.id || null,
+            })
+            .select()
+            .single();
+
+          if (dailyError) {
+            if (dailyError.code === '23505') {
+              alert('כבר קיים רישום לתאריך זה');
+              setIsLoading(false);
+              return;
+            }
+            throw dailyError;
+          }
+
+          const dailyEntryId = dailyEntry.id;
+
+          // Save income breakdown
+          if (formData.daily_income_data) {
+            for (const [sourceId, data] of Object.entries(formData.daily_income_data)) {
+              const amount = parseFloat(data.amount) || 0;
+              const ordersCount = parseInt(data.orders_count) || 0;
+              if (amount > 0 || ordersCount > 0) {
+                await supabase.from('daily_income_breakdown').insert({
+                  daily_entry_id: dailyEntryId,
+                  income_source_id: sourceId,
+                  amount,
+                  orders_count: ordersCount,
+                });
+              }
+            }
+          }
+
+          // Save receipts
+          if (formData.daily_receipt_data) {
+            for (const [receiptId, val] of Object.entries(formData.daily_receipt_data)) {
+              const amount = parseFloat(val) || 0;
+              if (amount > 0) {
+                await supabase.from('daily_receipts').insert({
+                  daily_entry_id: dailyEntryId,
+                  receipt_type_id: receiptId,
+                  amount,
+                });
+              }
+            }
+          }
+
+          // Save custom parameters
+          if (formData.daily_parameter_data) {
+            for (const [paramId, val] of Object.entries(formData.daily_parameter_data)) {
+              const value = parseFloat(val) || 0;
+              if (value > 0) {
+                await supabase.from('daily_parameters').insert({
+                  daily_entry_id: dailyEntryId,
+                  parameter_id: paramId,
+                  value,
+                });
+              }
+            }
+          }
+
+          // Save managed products usage
+          if (formData.daily_product_usage && formData.daily_managed_products) {
+            for (const product of formData.daily_managed_products) {
+              const usage = formData.daily_product_usage[product.id];
+              if (usage) {
+                const openingStock = parseFloat(usage.opening_stock) || 0;
+                const receivedQty = parseFloat(usage.received_quantity) || 0;
+                const closingStock = parseFloat(usage.closing_stock) || 0;
+                if (openingStock > 0 || receivedQty > 0 || closingStock > 0) {
+                  const quantityUsed = openingStock + receivedQty - closingStock;
+                  await supabase.from('daily_product_usage').insert({
+                    daily_entry_id: dailyEntryId,
+                    product_id: product.id,
+                    opening_stock: openingStock,
+                    received_quantity: receivedQty,
+                    closing_stock: closingStock,
+                    quantity: quantityUsed,
+                    unit_cost_at_time: product.unit_cost,
+                  });
+                  // Update current_stock
+                  await supabase.from('managed_products').update({ current_stock: closingStock }).eq('id', product.id);
+                }
+              }
+            }
+          }
         }
 
         // --- PRICE TRACKING: save line item prices ---
@@ -737,7 +835,7 @@ export default function OCRPage() {
       {/* Main content area - 3 columns on desktop (RTL: DOM order = visual right-to-left) */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Document Queue - Right side (desktop) */}
-        <div id="onboarding-ocr-queue" className="hidden lg:block lg:w-[200px] overflow-hidden lg:border-l border-[#4C526B]">
+        <div id="onboarding-ocr-queue" className="hidden lg:block lg:w-[240px] overflow-hidden lg:border-l border-[#4C526B]">
           <DocumentQueue
             documents={documents}
             currentDocumentId={currentDocument?.id || null}

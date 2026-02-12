@@ -50,8 +50,9 @@ interface OCRFormProps {
 const DOCUMENT_TABS: { value: DocumentType; label: string }[] = [
   { value: 'invoice', label: 'חשבונית' },
   { value: 'payment', label: 'תשלום' },
-  { value: 'delivery_note', label: 'תעודת משלוח' },
+  { value: 'delivery_note', label: 'ת.משלוח' },
   { value: 'summary', label: 'מרכזת' },
+  { value: 'daily_entry', label: 'רישום יומי' },
 ];
 
 const PAYMENT_METHODS = [
@@ -152,6 +153,38 @@ export default function OCRForm({
     notes: '',
   });
 
+  // Daily Entry (רישום יומי) state
+  const [dailyEntryDate, setDailyEntryDate] = useState('');
+  const [dailyTotalRegister, setDailyTotalRegister] = useState('');
+  const [dailyDayFactor, setDailyDayFactor] = useState('1');
+  const [dailyLaborCost, setDailyLaborCost] = useState('');
+  const [dailyLaborHours, setDailyLaborHours] = useState('');
+  const [dailyDiscounts, setDailyDiscounts] = useState('');
+  const [dailyDateWarning, setDailyDateWarning] = useState<string | null>(null);
+  const [dailyDataLoading, setDailyDataLoading] = useState(false);
+  // Dynamic data from DB
+  const [dailyIncomeSources, setDailyIncomeSources] = useState<Array<{ id: string; name: string }>>([]);
+  const [dailyReceiptTypes, setDailyReceiptTypes] = useState<Array<{ id: string; name: string }>>([]);
+  const [dailyCustomParameters, setDailyCustomParameters] = useState<Array<{ id: string; name: string }>>([]);
+  const [dailyManagedProducts, setDailyManagedProducts] = useState<Array<{ id: string; name: string; unit: string; unit_cost: number; current_stock?: number }>>([]);
+  // Dynamic form data
+  const [dailyIncomeData, setDailyIncomeData] = useState<Record<string, { amount: string; orders_count: string }>>({});
+  const [dailyReceiptData, setDailyReceiptData] = useState<Record<string, string>>({});
+  const [dailyParameterData, setDailyParameterData] = useState<Record<string, string>>({});
+  const [dailyProductUsage, setDailyProductUsage] = useState<Record<string, { opening_stock: string; received_quantity: string; closing_stock: string }>>({});
+  // Pearla-specific
+  const [dailyPearlaData, setDailyPearlaData] = useState({
+    portions_count: '',
+    portions_income: '',
+    serving_supplement: '',
+    serving_income: '',
+    extras_income: '',
+    total_income: '',
+    salaried_labor_cost: '',
+    salaried_labor_overhead: '',
+    manpower_labor_cost: '',
+  });
+
   // Line items state for price tracking
   const [lineItems, setLineItems] = useState<OCRLineItem[]>([]);
   const [priceCheckDone, setPriceCheckDone] = useState(false);
@@ -226,6 +259,108 @@ export default function OCRForm({
       (li) => li.price_change_pct != null && li.price_change_pct !== 0
     );
   }, [lineItems]);
+
+  // Pearla detection for daily entry
+  const selectedBusinessName = useMemo(() => businesses.find(b => b.id === selectedBusinessId)?.name, [businesses, selectedBusinessId]);
+  const isPearla = selectedBusinessName?.includes("פרלה") || false;
+
+  // Load dynamic data for daily entry tab
+  useEffect(() => {
+    if (documentType !== 'daily_entry' || !selectedBusinessId) return;
+    setDailyDataLoading(true);
+
+    const loadDailyData = async () => {
+      const supabase = createClient();
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+      const [
+        { data: sources },
+        { data: receipts },
+        { data: parameters },
+        { data: products },
+        { data: lastEntry },
+      ] = await Promise.all([
+        supabase.from('income_sources').select('id, name').eq('business_id', selectedBusinessId).eq('is_active', true).is('deleted_at', null).order('display_order'),
+        supabase.from('receipt_types').select('id, name').eq('business_id', selectedBusinessId).eq('is_active', true).is('deleted_at', null).order('display_order'),
+        supabase.from('custom_parameters').select('id, name').eq('business_id', selectedBusinessId).eq('is_active', true).is('deleted_at', null).order('display_order'),
+        supabase.from('managed_products').select('id, name, unit, unit_cost, current_stock').eq('business_id', selectedBusinessId).eq('is_active', true).is('deleted_at', null).order('name'),
+        supabase.from('daily_entries').select('id, entry_date').eq('business_id', selectedBusinessId).lte('entry_date', yesterdayStr).order('entry_date', { ascending: false }).limit(1).maybeSingle(),
+      ]);
+
+      // Previous closing stock for product opening stock
+      const previousClosingStock: Record<string, number> = {};
+      if (lastEntry) {
+        const { data: previousUsage } = await supabase.from('daily_product_usage').select('product_id, closing_stock').eq('daily_entry_id', lastEntry.id);
+        if (previousUsage) {
+          previousUsage.forEach((u) => { previousClosingStock[u.product_id] = u.closing_stock || 0; });
+        }
+      }
+
+      setDailyIncomeSources(sources || []);
+      setDailyReceiptTypes(receipts || []);
+      setDailyCustomParameters(parameters || []);
+      setDailyManagedProducts(products || []);
+
+      // Initialize form data
+      const initIncome: Record<string, { amount: string; orders_count: string }> = {};
+      (sources || []).forEach((s) => { initIncome[s.id] = { amount: '', orders_count: '' }; });
+      setDailyIncomeData(initIncome);
+
+      const initReceipts: Record<string, string> = {};
+      (receipts || []).forEach((r) => { initReceipts[r.id] = ''; });
+      setDailyReceiptData(initReceipts);
+
+      const initParams: Record<string, string> = {};
+      (parameters || []).forEach((p) => { initParams[p.id] = ''; });
+      setDailyParameterData(initParams);
+
+      const initProducts: Record<string, { opening_stock: string; received_quantity: string; closing_stock: string }> = {};
+      (products || []).forEach((p) => {
+        const openingStock = previousClosingStock[p.id] ?? p.current_stock ?? 0;
+        initProducts[p.id] = { opening_stock: openingStock > 0 ? openingStock.toString() : '', received_quantity: '', closing_stock: '' };
+      });
+      setDailyProductUsage(initProducts);
+
+      // Set today's date
+      if (!dailyEntryDate) {
+        setDailyEntryDate(new Date().toISOString().split('T')[0]);
+      }
+
+      setDailyDataLoading(false);
+    };
+
+    loadDailyData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [documentType, selectedBusinessId]);
+
+  // Check for existing daily entry on date change
+  const checkDailyEntryDate = useCallback(async (date: string) => {
+    if (!selectedBusinessId || !date) return;
+    const supabase = createClient();
+    const { data: existingEntry } = await supabase.from('daily_entries').select('id').eq('business_id', selectedBusinessId).eq('entry_date', date).maybeSingle();
+    setDailyDateWarning(existingEntry ? 'כבר קיים רישום לתאריך זה' : null);
+
+    // Fetch previous day's closing stock
+    if (dailyManagedProducts.length > 0) {
+      const { data: prevEntry } = await supabase.from('daily_entries').select('id').eq('business_id', selectedBusinessId).lt('entry_date', date).order('entry_date', { ascending: false }).limit(1).maybeSingle();
+      if (prevEntry) {
+        const { data: prevUsage } = await supabase.from('daily_product_usage').select('product_id, closing_stock').eq('daily_entry_id', prevEntry.id);
+        if (prevUsage) {
+          setDailyProductUsage(prev => {
+            const updated = { ...prev };
+            for (const usage of prevUsage) {
+              if (updated[usage.product_id]) {
+                updated[usage.product_id] = { ...updated[usage.product_id], opening_stock: (usage.closing_stock || 0) > 0 ? (usage.closing_stock || 0).toString() : '' };
+              }
+            }
+            return updated;
+          });
+        }
+      }
+    }
+  }, [selectedBusinessId, dailyManagedProducts.length]);
 
   // Calculate VAT and total (for invoice/delivery_note tabs)
   const calculatedVat = useMemo(() => {
@@ -427,7 +562,7 @@ export default function OCRForm({
 
       if (document.document_type) {
         // Map unknown/invalid types to 'invoice' as default
-        const validTypes: DocumentType[] = ['invoice', 'payment', 'delivery_note', 'summary', 'credit_note'];
+        const validTypes: DocumentType[] = ['invoice', 'payment', 'delivery_note', 'summary', 'credit_note', 'daily_entry'];
         const resolvedType = validTypes.includes(document.document_type as DocumentType)
           ? (document.document_type as DocumentType)
           : 'invoice';
@@ -584,6 +719,51 @@ export default function OCRForm({
   const handleSubmit = () => {
     if (!selectedBusinessId) {
       alert('נא לבחור עסק');
+      return;
+    }
+
+    if (documentType === 'daily_entry') {
+      // Daily entry validation
+      if (!dailyEntryDate) {
+        alert('נא לבחור תאריך');
+        return;
+      }
+      if (dailyDateWarning) {
+        if (!confirm('כבר קיים רישום לתאריך זה. האם להמשיך?')) return;
+      }
+      const formData: OCRFormData = {
+        business_id: selectedBusinessId,
+        document_type: 'daily_entry',
+        expense_type: 'current',
+        supplier_id: '',
+        document_date: dailyEntryDate,
+        document_number: '',
+        amount_before_vat: '0',
+        vat_amount: '0',
+        total_amount: '0',
+        notes: '',
+        is_paid: false,
+        daily_entry_date: dailyEntryDate,
+        daily_total_register: dailyTotalRegister,
+        daily_day_factor: dailyDayFactor,
+        daily_labor_cost: dailyLaborCost,
+        daily_labor_hours: dailyLaborHours,
+        daily_discounts: dailyDiscounts,
+        daily_income_data: dailyIncomeData,
+        daily_receipt_data: dailyReceiptData,
+        daily_parameter_data: dailyParameterData,
+        daily_product_usage: dailyProductUsage,
+        daily_managed_products: dailyManagedProducts.map(p => ({ id: p.id, unit_cost: p.unit_cost })),
+        ...(isPearla && { daily_pearla_data: {
+          portions_count: dailyPearlaData.portions_count,
+          serving_supplement: dailyPearlaData.serving_supplement,
+          extras_income: dailyPearlaData.extras_income,
+          salaried_labor_cost: dailyPearlaData.salaried_labor_cost,
+          manpower_labor_cost: dailyPearlaData.manpower_labor_cost,
+        }}),
+      };
+      clearDraft();
+      onApprove(formData);
       return;
     }
 
@@ -1268,6 +1448,286 @@ export default function OCRForm({
     </div>
   );
 
+  // Render Daily Entry tab form (רישום יומי)
+  const renderDailyEntryForm = () => {
+    if (dailyDataLoading) {
+      return (
+        <div className="flex items-center justify-center py-8">
+          <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          <span className="mr-2 text-[#7B91B0]">טוען נתונים...</span>
+        </div>
+      );
+    }
+
+    const handleDailyPearlaChange = (field: string, value: string) => {
+      setDailyPearlaData(prev => ({ ...prev, [field]: value }));
+    };
+
+    return (
+      <div className="flex flex-col gap-4">
+        {/* תאריך */}
+        <div className="flex flex-col gap-[3px]">
+          <label className="text-white text-[15px] font-medium text-right">תאריך</label>
+          <input
+            type="date"
+            value={dailyEntryDate}
+            onChange={(e) => {
+              setDailyEntryDate(e.target.value);
+              checkDailyEntryDate(e.target.value);
+            }}
+            className={`w-full h-[50px] bg-transparent text-white text-right rounded-[10px] px-[10px] [color-scheme:dark] border ${dailyDateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'}`}
+          />
+          {dailyDateWarning && <span className="text-[12px] text-[#FFA500] text-right mt-[3px]">{dailyDateWarning}</span>}
+        </div>
+
+        {/* יום חלקי/יום מלא */}
+        <div className="flex flex-col gap-[3px]">
+          <label className="text-white text-[15px] font-medium text-right">יום חלקי/יום מלא</label>
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.1"
+            min="0"
+            max="1"
+            value={dailyDayFactor}
+            onChange={(e) => setDailyDayFactor(e.target.value)}
+            className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+          />
+        </div>
+
+        {isPearla ? (
+          <>
+            {/* Pearla-specific fields */}
+            <div className="flex flex-col gap-[3px]">
+              <label className="text-white text-[15px] font-medium text-right">כמות מנות</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={dailyPearlaData.portions_count}
+                onChange={(e) => handleDailyPearlaChange('portions_count', e.target.value)}
+                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-[3px]">
+              <label className="text-white text-[15px] font-medium text-right">תוספת הגשה בש&quot;ח</label>
+              <input
+                type="tel"
+                inputMode="numeric"
+                value={dailyPearlaData.serving_supplement}
+                onChange={(e) => handleDailyPearlaChange('serving_supplement', e.target.value)}
+                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-[3px]">
+              <label className="text-white text-[15px] font-medium text-right">סה&quot;כ הכנסות אקסטרות</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={dailyPearlaData.extras_income}
+                onChange={(e) => handleDailyPearlaChange('extras_income', e.target.value)}
+                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-[3px]">
+              <label className="text-white text-[15px] font-medium text-right">סה&quot;כ עלות עובדים שכירים</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={dailyPearlaData.salaried_labor_cost}
+                onChange={(e) => handleDailyPearlaChange('salaried_labor_cost', e.target.value)}
+                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-[3px]">
+              <label className="text-white text-[15px] font-medium text-right">סה&quot;כ עלות עובדי כ&quot;א</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={dailyPearlaData.manpower_labor_cost}
+                onChange={(e) => handleDailyPearlaChange('manpower_labor_cost', e.target.value)}
+                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Regular business fields */}
+            <div className="flex flex-col gap-[3px]">
+              <label className="text-white text-[15px] font-medium text-right">סה&quot;כ קופה</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={dailyTotalRegister}
+                onChange={(e) => setDailyTotalRegister(e.target.value)}
+                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+              />
+            </div>
+
+            {/* מקורות הכנסה */}
+            {dailyIncomeSources.length > 0 && (
+              <div className="flex flex-col gap-4 mt-2">
+                <div className="text-[#7B91B0] border-b border-[#4C526B] pb-2 text-right"><span className="font-medium">מקורות הכנסה</span></div>
+                {dailyIncomeSources.map((source) => (
+                  <div key={source.id} className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-[3px]">
+                      <label className="text-white text-[15px] font-medium text-right">סה&quot;כ {source.name}</label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        placeholder="0"
+                        value={dailyIncomeData[source.id]?.amount || ''}
+                        onChange={(e) => setDailyIncomeData(prev => ({ ...prev, [source.id]: { ...prev[source.id], amount: e.target.value } }))}
+                        className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-[3px]">
+                      <label className="text-white text-[15px] font-medium text-right">כמות הזמנות {source.name}</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="0"
+                        value={dailyIncomeData[source.id]?.orders_count || ''}
+                        onChange={(e) => setDailyIncomeData(prev => ({ ...prev, [source.id]: { ...prev[source.id], orders_count: e.target.value } }))}
+                        className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* תקבולים */}
+            {dailyReceiptTypes.length > 0 && (
+              <div className="flex flex-col gap-4 mt-2">
+                <div className="text-[#7B91B0] border-b border-[#4C526B] pb-2 text-right"><span className="font-medium">תקבולים</span></div>
+                {dailyReceiptTypes.map((receipt) => (
+                  <div key={receipt.id} className="flex flex-col gap-[3px]">
+                    <label className="text-white text-[15px] font-medium text-right">{receipt.name}</label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={dailyReceiptData[receipt.id] || ''}
+                      onChange={(e) => setDailyReceiptData(prev => ({ ...prev, [receipt.id]: e.target.value }))}
+                      className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* פרמטרים נוספים */}
+            {dailyCustomParameters.length > 0 && (
+              <div className="flex flex-col gap-4 mt-2">
+                <div className="text-[#7B91B0] border-b border-[#4C526B] pb-2 text-right"><span className="font-medium">פרמטרים נוספים</span></div>
+                {dailyCustomParameters.map((param) => (
+                  <div key={param.id} className="flex flex-col gap-[3px]">
+                    <label className="text-white text-[15px] font-medium text-right">{param.name}</label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={dailyParameterData[param.id] || ''}
+                      onChange={(e) => setDailyParameterData(prev => ({ ...prev, [param.id]: e.target.value }))}
+                      className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* עלויות עובדים */}
+            <div className="flex flex-col gap-[3px]">
+              <label className="text-white text-[15px] font-medium text-right">סה&quot;כ עלות עובדים יומית</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={dailyLaborCost}
+                onChange={(e) => setDailyLaborCost(e.target.value)}
+                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-[3px]">
+              <label className="text-white text-[15px] font-medium text-right">כמות שעות עובדים</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={dailyLaborHours}
+                onChange={(e) => setDailyLaborHours(e.target.value)}
+                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-[3px]">
+              <label className="text-white text-[15px] font-medium text-right">זיכויים+ביטולים+הנחות ב-₪</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={dailyDiscounts}
+                onChange={(e) => setDailyDiscounts(e.target.value)}
+                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+              />
+            </div>
+
+            {/* מוצרים מנוהלים */}
+            {dailyManagedProducts.length > 0 && (
+              <div className="flex flex-col gap-4 mt-2">
+                <div className="text-[#7B91B0] border-b border-[#4C526B] pb-2 text-right"><span className="font-medium">מוצרים מנוהלים</span></div>
+                {dailyManagedProducts.map((product) => (
+                  <div key={product.id} className="border border-[#4C526B] rounded-[10px] p-4 flex flex-col gap-3">
+                    <div className="text-white font-medium text-right"><span>{product.name}</span></div>
+                    <div className="flex flex-col gap-[3px]">
+                      <label className="text-white text-[15px] font-medium text-right">מלאי פתיחה ({product.unit})</label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        placeholder="0"
+                        value={dailyProductUsage[product.id]?.opening_stock || ''}
+                        onChange={(e) => setDailyProductUsage(prev => ({ ...prev, [product.id]: { ...prev[product.id], opening_stock: e.target.value } }))}
+                        className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-[3px]">
+                      <label className="text-white text-[15px] font-medium text-right">כמה {product.unit} {product.name} קיבלנו היום?</label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        placeholder="0"
+                        value={dailyProductUsage[product.id]?.received_quantity || ''}
+                        onChange={(e) => setDailyProductUsage(prev => ({ ...prev, [product.id]: { ...prev[product.id], received_quantity: e.target.value } }))}
+                        className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-[3px]">
+                      <label className="text-white text-[15px] font-medium text-right">כמה {product.unit} {product.name} נשאר?</label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        placeholder="0"
+                        value={dailyProductUsage[product.id]?.closing_stock || ''}
+                        onChange={(e) => setDailyProductUsage(prev => ({ ...prev, [product.id]: { ...prev[product.id], closing_stock: e.target.value } }))}
+                        className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
   // Render Payment tab form (aligned with payments page new payment form)
   const renderPaymentForm = () => (
     <div className="flex flex-col gap-[15px]">
@@ -1656,7 +2116,7 @@ export default function OCRForm({
             key={tab.value}
             type="button"
             onClick={() => setDocumentType(tab.value)}
-            className={`flex-1 py-[12px] text-[14px] font-medium transition-colors ${
+            className={`flex-1 py-[12px] text-[12px] font-medium transition-colors ${
               documentType === tab.value
                 ? 'text-white border-b-2 border-[#29318A] bg-[#29318A]/10'
                 : 'text-white/50 border-b-2 border-transparent hover:text-white/70'
@@ -1672,6 +2132,7 @@ export default function OCRForm({
         {(documentType === 'invoice' || documentType === 'delivery_note' || documentType === 'credit_note') && renderInvoiceForm()}
         {documentType === 'payment' && renderPaymentForm()}
         {documentType === 'summary' && renderSummaryForm()}
+        {documentType === 'daily_entry' && renderDailyEntryForm()}
       </div>
 
       {/* Action buttons - fixed at bottom */}
@@ -1680,14 +2141,14 @@ export default function OCRForm({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isLoading || (documentType === 'summary' && (!selectedBusinessId || !summarySupplierId || !summaryInvoiceNumber || !summaryTotalAmount || !summaryIsClosed))}
+            disabled={isLoading || (documentType === 'summary' && (!selectedBusinessId || !summarySupplierId || !summaryInvoiceNumber || !summaryTotalAmount || !summaryIsClosed)) || (documentType === 'daily_entry' && (!selectedBusinessId || !dailyEntryDate))}
             className={`flex-1 h-[50px] text-white text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-              documentType === 'summary'
+              documentType === 'summary' || documentType === 'daily_entry'
                 ? 'bg-gradient-to-r from-[#0075FF] to-[#00D4FF]'
                 : 'bg-[#22c55e] hover:bg-[#16a34a]'
             }`}
           >
-            {isLoading ? 'שומר...' : documentType === 'summary' ? 'שמירה' : 'אישור וקליטה'}
+            {isLoading ? 'שומר...' : documentType === 'summary' || documentType === 'daily_entry' ? 'שמירה' : 'אישור וקליטה'}
           </button>
           <button
             type="button"

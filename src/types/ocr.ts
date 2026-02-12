@@ -4,7 +4,7 @@ export type DocumentSource = 'telegram' | 'whatsapp' | 'email' | 'upload';
 
 export type DocumentStatus = 'pending' | 'reviewing' | 'approved' | 'rejected';
 
-export type DocumentType = 'invoice' | 'delivery_note' | 'credit_note' | 'payment' | 'summary';
+export type DocumentType = 'invoice' | 'delivery_note' | 'credit_note' | 'payment' | 'summary' | 'daily_entry';
 
 export type ExpenseType = 'goods' | 'current';
 
@@ -104,6 +104,26 @@ export interface OCRFormData {
   summary_is_closed?: string;
   // Line items for price tracking
   line_items?: OCRLineItem[];
+  // Daily entry (רישום יומי) fields
+  daily_entry_date?: string;
+  daily_total_register?: string;
+  daily_day_factor?: string;
+  daily_labor_cost?: string;
+  daily_labor_hours?: string;
+  daily_discounts?: string;
+  daily_income_data?: Record<string, { amount: string; orders_count: string }>;
+  daily_receipt_data?: Record<string, string>;
+  daily_parameter_data?: Record<string, string>;
+  daily_product_usage?: Record<string, { opening_stock: string; received_quantity: string; closing_stock: string }>;
+  daily_managed_products?: Array<{ id: string; unit_cost: number }>;
+  // Pearla-specific daily entry fields
+  daily_pearla_data?: {
+    portions_count: string;
+    serving_supplement: string;
+    extras_income: string;
+    salaried_labor_cost: string;
+    manpower_labor_cost: string;
+  };
 }
 
 // Helper functions
@@ -124,6 +144,7 @@ export function getDocumentTypeLabel(type: DocumentType): string {
     credit_note: 'זיכוי',
     payment: 'תשלום',
     summary: 'מרכזת',
+    daily_entry: 'רישום יומי',
   };
   return labels[type];
 }
@@ -136,4 +157,14 @@ export function getSourceIcon(source: DocumentSource): string {
     upload: '📤',
   };
   return icons[source];
+}
+
+export function getSourceLabel(source: DocumentSource): string {
+  const labels: Record<DocumentSource, string> = {
+    telegram: 'טלגרם',
+    whatsapp: 'וואטסאפ',
+    email: 'מייל',
+    upload: 'העלאה',
+  };
+  return labels[source];
 }
