@@ -745,13 +745,14 @@ export default function ExpensesPage() {
     };
 
     // Calculate label position at the middle of the arc
+    const pct = ((percent as number) * 100);
+    const showLabel = pct >= 5;
+    const isFullCircle = Math.abs(endAngle - startAngle) >= 359;
     const midAngleDeg = (startAngle + endAngle) / 2;
     const midAngleRad = midAngleDeg * (Math.PI / 180);
     const midRadius = ((innerRadius as number) + (outerRadius as number)) / 2;
-    const labelX = (cx as number) + midRadius * Math.cos(midAngleRad);
-    const labelY = (cy as number) - midRadius * Math.sin(midAngleRad);
-    const pct = ((percent as number) * 100);
-    const showLabel = pct >= 5;
+    const labelX = isFullCircle ? (cx as number) : (cx as number) + midRadius * Math.cos(midAngleRad);
+    const labelY = isFullCircle ? (cy as number) : (cy as number) - midRadius * Math.sin(midAngleRad);
 
     if (!isActive) {
       return (

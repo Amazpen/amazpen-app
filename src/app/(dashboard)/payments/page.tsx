@@ -1022,13 +1022,14 @@ export default function PaymentsPage() {
     };
 
     // Calculate label position at ~60% of the radius (center of pie slice)
+    const pct = ((percent as number) * 100);
+    const showLabel = pct >= 5;
+    const isFullCircle = Math.abs(endAngle - startAngle) >= 359;
     const midAngleDeg = (startAngle + endAngle) / 2;
     const midAngleRad = midAngleDeg * (Math.PI / 180);
     const labelRadius = (outerRadius as number) * 0.6;
-    const labelX = (cx as number) + labelRadius * Math.cos(midAngleRad);
-    const labelY = (cy as number) - labelRadius * Math.sin(midAngleRad);
-    const pct = ((percent as number) * 100);
-    const showLabel = pct >= 5;
+    const labelX = isFullCircle ? (cx as number) : (cx as number) + labelRadius * Math.cos(midAngleRad);
+    const labelY = isFullCircle ? (cy as number) : (cy as number) - labelRadius * Math.sin(midAngleRad);
 
     if (!isActive) {
       return (
@@ -1321,7 +1322,7 @@ export default function PaymentsPage() {
       </div>
 
       {/* Chart and Summary Section */}
-      <div id="onboarding-payments-chart" className="bg-[#0F1535] rounded-[20px] p-[20px_10px_10px] mt-[10px]">
+      <div id="onboarding-payments-chart" className="bg-[#0F1535] rounded-[20px] p-[20px_0px_10px] mt-[10px]">
         {/* Header - Title and Total - hidden when no data */}
         {paymentMethodsData.length > 0 && (
           <div className="flex items-center justify-between px-[10px]">
