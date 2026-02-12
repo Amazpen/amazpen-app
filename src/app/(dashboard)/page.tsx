@@ -2534,7 +2534,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
-                      <div className="flex flex-col ml-[10px]">
+                      <div className="flex flex-col">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                           <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborDiffColor}`}>{formatPercent(noLaborData ? 0 : (detailedSummary?.laborCostDiffPct || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
@@ -2544,7 +2544,7 @@ export default function DashboardPage() {
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                         </div>
                       </div>
-                      <div className="flex flex-col mr-[10px]">
+                      <div className="flex flex-col">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                           <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevMonthColor}`}>{formatPercent(noLaborData ? 0 : (detailedSummary?.laborCostPrevMonthChange || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
@@ -2650,7 +2650,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
-                      <div className="flex flex-col ml-[10px]">
+                      <div className="flex flex-col">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                           <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatPercentWithSign(noFoodData ? 0 : (detailedSummary?.foodCostDiffPct || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
@@ -2660,7 +2660,7 @@ export default function DashboardPage() {
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                         </div>
                       </div>
-                      <div className="flex flex-col mr-[10px]">
+                      <div className="flex flex-col">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                           <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevMonthColor}`}>{formatPercentWithSign(noFoodData ? 0 : (detailedSummary?.foodCostPrevMonthChange || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
@@ -2720,7 +2720,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
-                      <div className="flex flex-col ml-[10px]">
+                      <div className="flex flex-col">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                           <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${diffColor}`}>
                             {formatPercentWithSign(diffPct)}
@@ -2734,7 +2734,7 @@ export default function DashboardPage() {
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                         </div>
                       </div>
-                      <div className="flex flex-col mr-[10px]">
+                      <div className="flex flex-col">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                           <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${noProdData ? 'text-white' : product.prevMonthChange > 0 ? 'text-red-500' : product.prevMonthChange < 0 ? 'text-green-500' : 'text-white'}`}>
                             {formatPercentWithSign(noProdData ? 0 : product.prevMonthChange)}
@@ -2781,7 +2781,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
-                  <div className="flex flex-col ml-[10px]">
+                  <div className="flex flex-col">
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                       <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expDiffColor}`}>
                         {formatPercentWithSign(noExpData ? 0 : (detailedSummary?.currentExpensesDiffPct || 0))}
@@ -2795,7 +2795,7 @@ export default function DashboardPage() {
                       <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                     </div>
                   </div>
-                  <div className="flex flex-col mr-[10px]">
+                  <div className="flex flex-col">
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                       <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expPrevMonthColor}`}>
                         {formatPercentWithSign(noExpData ? 0 : (detailedSummary?.currentExpensesPrevMonthChange || 0))}
