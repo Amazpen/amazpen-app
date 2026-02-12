@@ -2879,7 +2879,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyComposedChart data={trendsChartData} barGap={4} margin={{ top: 5, right: 45, left: 40, bottom: 5 }}>
+                    <LazyComposedChart data={trendsChartData} barGap={4} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <defs>
                         <linearGradient id="colorSalesActual" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#00E096" stopOpacity={0.8}/>
@@ -2900,6 +2900,7 @@ export default function DashboardPage() {
                       <LazyYAxis
                         yAxisId="left"
                         orientation="right"
+                        width={40}
                         tick={{ fill: '#7B91B0', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
@@ -2908,6 +2909,7 @@ export default function DashboardPage() {
                       <LazyYAxis
                         yAxisId="right"
                         orientation="left"
+                        width={35}
                         tick={{ fill: '#7B91B0', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
@@ -3023,7 +3025,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyBarChart data={orderAvgChartData} barGap={2} margin={{ top: 5, right: 45, left: 5, bottom: 5 }}>
+                    <LazyBarChart data={orderAvgChartData} barGap={2} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
@@ -3033,6 +3035,7 @@ export default function DashboardPage() {
                       />
                       <LazyYAxis
                         orientation="right"
+                        width={40}
                         tick={{ fill: '#7B91B0', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
@@ -3130,7 +3133,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyBarChart data={foodCostChartData} barGap={4} margin={{ top: 5, right: 45, left: 5, bottom: 5 }}>
+                    <LazyBarChart data={foodCostChartData} barGap={4} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
@@ -3140,6 +3143,7 @@ export default function DashboardPage() {
                       />
                       <LazyYAxis
                         orientation="right"
+                        width={45}
                         tick={{ fill: '#7B91B0', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
@@ -3207,7 +3211,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyAreaChart data={laborCostChartData} margin={{ top: 5, right: 40, left: 5, bottom: 5 }}>
+                    <LazyAreaChart data={laborCostChartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <defs>
                         <linearGradient id="colorLaborActual" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#00E096" stopOpacity={0.4}/>
@@ -3227,6 +3231,7 @@ export default function DashboardPage() {
                       />
                       <LazyYAxis
                         orientation="right"
+                        width={35}
                         tick={{ fill: '#7B91B0', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
@@ -3338,7 +3343,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyBarChart data={managedProductChartData} barGap={4} margin={{ top: 5, right: 45, left: 5, bottom: 5 }}>
+                    <LazyBarChart data={managedProductChartData} barGap={4} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
@@ -3348,6 +3353,7 @@ export default function DashboardPage() {
                       />
                       <LazyYAxis
                         orientation="right"
+                        width={45}
                         tick={{ fill: '#7B91B0', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
