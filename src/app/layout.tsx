@@ -100,7 +100,8 @@ export default function RootLayout({
                   var splash = document.getElementById('app-splash');
                   if (splash) {
                     splash.style.opacity = '0';
-                    setTimeout(function() { splash.remove(); }, 300);
+                    splash.style.pointerEvents = 'none';
+                    setTimeout(function() { splash.style.display = 'none'; }, 300);
                   }
                 }
                 // Hide after app hydrates or after max 3 seconds
