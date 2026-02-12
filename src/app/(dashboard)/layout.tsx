@@ -383,6 +383,7 @@ export default function DashboardLayout({
   const title = pageTitles[pathname] || "דשבורד";
   const activeKey = menuItems.find(item => item.href === pathname)?.key || "dashboard";
   const isAdminPage = adminMenuItems.some(item => pathname.startsWith(item.href));
+  const isOcrPage = pathname === '/ocr';
 
   const handleMenuClick = (item: typeof menuItems[0], e: React.MouseEvent) => {
     if (item.requiresBusiness && selectedBusinesses.length === 0) {
@@ -457,7 +458,7 @@ export default function DashboardLayout({
         {/* Sidebar Overlay - Mobile only */}
         {isMenuOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-[1502] lg:hidden"
+            className={`fixed inset-0 bg-black/50 z-[1502] ${isOcrPage ? '' : 'lg:hidden'}`}
             onClick={() => setIsMenuOpen(false)}
             aria-hidden="true"
           />
@@ -467,7 +468,7 @@ export default function DashboardLayout({
         <nav
           role="navigation"
           aria-label="תפריט ראשי"
-          className={`fixed top-0 right-0 h-full w-[50%] max-w-[250px] bg-[#111056] z-[1503] transform transition-transform duration-300 ease-in-out p-[20px] pb-[55px] lg:translate-x-0 lg:w-[220px] lg:max-w-none lg:shadow-lg ${
+          className={`fixed top-0 right-0 h-full w-[50%] max-w-[250px] bg-[#111056] z-[1503] transform transition-transform duration-300 ease-in-out p-[20px] pb-[55px] ${isOcrPage ? '' : 'lg:translate-x-0'} lg:w-[220px] lg:max-w-none lg:shadow-lg ${
             isMenuOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -475,7 +476,7 @@ export default function DashboardLayout({
             type="button"
             title="סגור תפריט"
             onClick={() => setIsMenuOpen(false)}
-            className="absolute top-4 left-4 w-8 h-8 flex items-center justify-center text-white/70 hover:text-white transition-colors lg:hidden"
+            className={`absolute top-4 left-4 w-8 h-8 flex items-center justify-center text-white/70 hover:text-white transition-colors ${isOcrPage ? '' : 'lg:hidden'}`}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -668,7 +669,7 @@ export default function DashboardLayout({
         )}
 
         {/* Fixed Header - Always visible, offset by sidebar on desktop */}
-        <header role="banner" aria-label="כותרת עליונה" className="fixed top-0 left-0 right-0 lg:right-[220px] z-50 bg-[#0f1231] flex justify-between items-center px-3 sm:px-4 py-3 sm:py-3 min-h-[60px] sm:min-h-[56px]">
+        <header role="banner" aria-label="כותרת עליונה" className={`fixed top-0 left-0 right-0 ${isOcrPage ? '' : 'lg:right-[220px]'} z-50 bg-[#0f1231] flex justify-between items-center px-3 sm:px-4 py-3 sm:py-3 min-h-[60px] sm:min-h-[56px]`}>
           {/* Right side - Menu and Title */}
           <div className="flex items-center gap-[8px]">
             <button
@@ -676,7 +677,7 @@ export default function DashboardLayout({
               aria-label="תפריט"
               title="תפריט"
               onClick={() => setIsMenuOpen(true)}
-              className="w-[44px] h-[44px] sm:w-[40px] sm:h-[40px] flex items-center justify-center text-[#4C526B] cursor-pointer touch-manipulation lg:hidden"
+              className={`w-[44px] h-[44px] sm:w-[40px] sm:h-[40px] flex items-center justify-center text-[#4C526B] cursor-pointer touch-manipulation ${isOcrPage ? '' : 'lg:hidden'}`}
             >
               <svg width="30" height="30" viewBox="0 0 32 32" fill="none" className="sm:w-8 sm:h-8">
                 <path d="M5 8H27M5 16H27M5 24H27" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -867,7 +868,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Main Content - with top padding for fixed header, right margin for sidebar on desktop */}
-        <main role="main" aria-label="תוכן ראשי" className="pt-[60px] sm:pt-[56px] lg:mr-[220px]">
+        <main role="main" aria-label="תוכן ראשי" className={`pt-[60px] sm:pt-[56px] ${isOcrPage ? '' : 'lg:mr-[220px]'}`}>
           {children}
         </main>
 
