@@ -925,6 +925,7 @@ export default function PaymentsPage() {
                     installments_count: installmentsCount,
                     installment_number: inst.number,
                     reference_number: reference || null,
+                    check_number: pm.checkNumber || null,
                     due_date: inst.dateForInput || null,
                   });
               }
@@ -939,6 +940,7 @@ export default function PaymentsPage() {
                   installments_count: 1,
                   installment_number: 1,
                   reference_number: reference || null,
+                  check_number: pm.checkNumber || null,
                   due_date: paymentDate || null,
                 });
             }
@@ -994,6 +996,7 @@ export default function PaymentsPage() {
     method: string;
     amount: string;
     installments: string;
+    checkNumber: string;
     customInstallments: Array<{
       number: number;
       date: string;
@@ -1003,7 +1006,7 @@ export default function PaymentsPage() {
   }
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodEntry[]>([
-    { id: 1, method: "", amount: "", installments: "1", customInstallments: [] }
+    { id: 1, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: [] }
   ]);
 
   // Calculate totals
@@ -1049,7 +1052,7 @@ export default function PaymentsPage() {
     const newId = Math.max(...paymentMethods.map(p => p.id)) + 1;
     setPaymentMethods(prev => [
       ...prev,
-      { id: newId, method: "", amount: "", installments: "1", customInstallments: [] }
+      { id: newId, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: [] }
     ]);
   };
 
@@ -1220,7 +1223,7 @@ export default function PaymentsPage() {
     setPaymentDate(new Date().toISOString().split("T")[0]);
     setExpenseType("purchases");
     setSelectedSupplier("");
-    setPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", customInstallments: [] }]);
+    setPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: [] }]);
     setReference("");
     setNotes("");
     setReceiptFile(null);
@@ -2290,6 +2293,20 @@ export default function PaymentsPage() {
                         ))}
                       </select>
                     </div>
+
+                    {/* Check Number - only shown when payment method is check */}
+                    {pm.method === "check" && (
+                      <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={pm.checkNumber}
+                          onChange={(e) => updatePaymentMethodField(pm.id, "checkNumber", e.target.value)}
+                          placeholder="מספר צ׳ק"
+                          className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px] ltr-num"
+                        />
+                      </div>
+                    )}
 
                     {/* Payment Amount */}
                     <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
