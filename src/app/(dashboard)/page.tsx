@@ -3156,11 +3156,11 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex flex-row-reverse justify-center gap-6 mt-3">
                   <div className="flex flex-row-reverse items-center gap-2">
-                    <span className="text-[#7B91B0] text-[11px]">יעד</span>
+                    <span className="text-white text-[11px]">יעד</span>
                     <div className="w-[10px] h-[10px] bg-[#0095FF] rounded-[2px]"></div>
                   </div>
                   <div className="flex flex-row-reverse items-center gap-2">
-                    <span className="text-[#7B91B0] text-[11px]">בפועל</span>
+                    <span className="text-white text-[11px]">בפועל</span>
                     <div className="w-[10px] h-[10px] bg-[#00E096] rounded-[2px]"></div>
                   </div>
                 </div>
@@ -3366,11 +3366,11 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex flex-row-reverse justify-center gap-6 mt-3">
                   <div className="flex flex-row-reverse items-center gap-2">
-                    <span className="text-[#7B91B0] text-[11px]">יעד</span>
+                    <span className="text-white text-[11px]">יעד</span>
                     <div className="w-[10px] h-[10px] bg-[#0095FF] rounded-[2px]"></div>
                   </div>
                   <div className="flex flex-row-reverse items-center gap-2">
-                    <span className="text-[#7B91B0] text-[11px]">בפועל</span>
+                    <span className="text-white text-[11px]">בפועל</span>
                     <div className="w-[10px] h-[10px] bg-[#00E096] rounded-[2px]"></div>
                   </div>
                 </div>
