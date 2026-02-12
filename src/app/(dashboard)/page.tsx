@@ -2944,19 +2944,19 @@ export default function DashboardPage() {
                 {/* Legend */}
                 <div className="flex flex-row-reverse justify-center flex-wrap gap-4 mt-3">
                   <div className="flex flex-row-reverse items-center gap-2">
-                    <span className="text-[#7B91B0] text-[10px]">מכירות בפועל</span>
+                    <span className="text-white text-[10px]">מכירות בפועל</span>
                     <div className="w-[10px] h-[10px] bg-[#00E096] rounded-[2px]"></div>
                   </div>
                   <div className="flex flex-row-reverse items-center gap-2">
-                    <span className="text-[#7B91B0] text-[10px]">יעד מכירות</span>
+                    <span className="text-white text-[10px]">יעד מכירות</span>
                     <div className="w-[10px] h-[10px] bg-[#0095FF] rounded-[2px]"></div>
                   </div>
                   <div className="flex flex-row-reverse items-center gap-2">
-                    <span className="text-[#7B91B0] text-[10px]">עלות עובדים %</span>
+                    <span className="text-white text-[10px]">עלות עובדים %</span>
                     <div className="w-[10px] h-[10px] bg-[#FACC15] rounded-full"></div>
                   </div>
                   <div className="flex flex-row-reverse items-center gap-2">
-                    <span className="text-[#7B91B0] text-[10px]">עלות מכר %</span>
+                    <span className="text-white text-[10px]">עלות מכר %</span>
                     <div className="w-[10px] h-[10px] bg-[#EF4444] rounded-full"></div>
                   </div>
                 </div>
