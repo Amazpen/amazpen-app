@@ -1181,14 +1181,14 @@ export default function PaymentsPage() {
               </button>
 
               {/* Header - method name and total */}
-              <div className="flex items-center justify-between mx-[10px] mb-[15px]">
+              <div className="flex flex-row-reverse items-center justify-between mx-[10px] mb-[15px]">
+                <span className="text-[25px] font-semibold text-white text-center">{selectedMethodPopup.name}</span>
                 <div className="flex flex-col items-center">
                   <span className="text-[25px] font-semibold text-white text-center ltr-num">
                     ₪{selectedMethodPopup.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                   <span className="text-[14px] text-white text-center">כולל מע&apos;מ</span>
                 </div>
-                <span className="text-[25px] font-semibold text-white text-center">{selectedMethodPopup.name}</span>
               </div>
 
               {/* Table header */}
