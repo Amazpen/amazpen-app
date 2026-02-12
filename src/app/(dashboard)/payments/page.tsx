@@ -1881,7 +1881,7 @@ export default function PaymentsPage() {
         {/* Table */}
         <div className="w-full flex flex-col">
           {/* Table Header */}
-          <div className="flex items-center gap-[5px] bg-white/5 rounded-t-[7px] p-[5px_3px] mb-[10px]">
+          <div className="flex items-center gap-[5px] bg-[#29318A] rounded-t-[7px] p-[5px_3px] mb-[10px]">
             <div className="w-[55px] flex-shrink-0 text-center">
               <span className="text-[14px]">תאריך</span>
             </div>
