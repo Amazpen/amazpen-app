@@ -189,7 +189,9 @@ export function DailyEntriesModal({
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return `₪${amount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    const abs = Math.abs(amount);
+    const formatted = abs.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    return amount < 0 ? `-₪${formatted}` : `₪${formatted}`;
   };
 
   // Get month and year for header
@@ -1472,7 +1474,7 @@ export function DailyEntriesModal({
                                       key={source.income_source_id}
                                       className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
                                     >
-                                      <span className="ltr-num">{target > 0 ? `₪${diff.toFixed(1)}` : "-"}</span>
+                                      <span className="ltr-num">{target > 0 ? `${diff < 0 ? "-" : ""}₪${Math.abs(diff).toFixed(1)}` : "-"}</span>
                                     </div>
                                   );
                                 })}
@@ -1701,7 +1703,7 @@ export function DailyEntriesModal({
                                       key={source.income_source_id}
                                       className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
                                     >
-                                      <span className="ltr-num">{target > 0 ? `₪${diff.toFixed(1)}` : "-"}</span>
+                                      <span className="ltr-num">{target > 0 ? `${diff < 0 ? "-" : ""}₪${Math.abs(diff).toFixed(1)}` : "-"}</span>
                                     </div>
                                   );
                                 })}
