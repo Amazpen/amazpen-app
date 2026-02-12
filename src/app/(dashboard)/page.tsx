@@ -2368,7 +2368,7 @@ export default function DashboardPage() {
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>
                             {formatCurrencyFull(source.avgAmount)}
                           </span>
-                          <span className={`text-[16px] font-normal text-center leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>({formatCurrencyWithSign(source.ordersCount === 0 ? 0 : source.avgTicketDiff)})</span>
+                          <span className={`text-[14px] font-normal text-center leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>({formatCurrencyWithSign(source.ordersCount === 0 ? 0 : source.avgTicketDiff)})</span>
                         </div>
                         <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>
                           {formatCurrencyFull(source.totalAmount)}
