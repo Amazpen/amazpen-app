@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useDashboard } from "../layout";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
@@ -71,6 +72,7 @@ function parseAttachmentUrls(raw: string | null): string[] {
 export default function SuppliersPage() {
   const { selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
+  const router = useRouter();
 
   // Draft persistence for add/edit supplier form
   const supplierDraftKey = `supplierForm:draft:${selectedBusinesses[0] || "none"}`;
@@ -117,9 +119,9 @@ export default function SuppliersPage() {
       amountToPay: number;
     };
   } | null>(null);
-  const [detailDateRange, setDetailDateRange] = useState({
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
+  const [detailMonth, setDetailMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [detailActiveTab, setDetailActiveTab] = useState<"invoices" | "payments">("invoices");
   const [supplierInvoices, setSupplierInvoices] = useState<Array<{
@@ -684,6 +686,42 @@ export default function SuppliersPage() {
     }
   };
 
+  // Fetch monthly data for a specific month for the selected supplier
+  const fetchMonthlyData = useCallback(async (supplier: SupplierWithBalance, monthDate: Date) => {
+    const supabase = createClient();
+    const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+    const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+
+    const { data: monthlyInvoices } = await supabase
+      .from("invoices")
+      .select("total_amount")
+      .eq("supplier_id", supplier.id)
+      .is("deleted_at", null)
+      .gte("invoice_date", monthStart.toISOString().split("T")[0])
+      .lte("invoice_date", monthEnd.toISOString().split("T")[0]);
+
+    const monthlyPurchases = monthlyInvoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+
+    const { data: monthlyPayments } = await supabase
+      .from("payments")
+      .select("total_amount")
+      .eq("supplier_id", supplier.id)
+      .is("deleted_at", null)
+      .gte("payment_date", monthStart.toISOString().split("T")[0])
+      .lte("payment_date", monthEnd.toISOString().split("T")[0]);
+
+    const monthlyPaid = monthlyPayments?.reduce((sum, pay) => sum + Number(pay.total_amount), 0) || 0;
+
+    let expectedPaymentDate: string | null = null;
+    if (supplier.payment_terms_days) {
+      const expectedDate = new Date(monthEnd);
+      expectedDate.setDate(expectedDate.getDate() + supplier.payment_terms_days);
+      expectedPaymentDate = expectedDate.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
+    }
+
+    return { expectedPaymentDate, monthlyPurchases, monthlyPaid, amountToPay: monthlyPurchases - monthlyPaid };
+  }, []);
+
   // Handle opening supplier detail popup
   const handleOpenSupplierDetail = async (supplier: SupplierWithBalance) => {
     setSelectedSupplier(supplier);
@@ -716,15 +754,14 @@ export default function SuppliersPage() {
 
     setShowSupplierDetailPopup(true);
 
+    // Reset to current month
+    const now = new Date();
+    setDetailMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+
     // Fetch supplier financial data
     const supabase = createClient();
 
     try {
-      // Get current month date range
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
       // Fetch total purchases (invoices) for this supplier
       const { data: invoicesData } = await supabase
         .from("invoices")
@@ -743,42 +780,14 @@ export default function SuppliersPage() {
 
       const totalPaid = paymentsData?.reduce((sum, pay) => sum + Number(pay.total_amount), 0) || 0;
 
-      // Fetch monthly purchases
-      const { data: monthlyInvoices } = await supabase
-        .from("invoices")
-        .select("total_amount")
-        .eq("supplier_id", supplier.id)
-        .is("deleted_at", null)
-        .gte("invoice_date", monthStart.toISOString().split("T")[0])
-        .lte("invoice_date", monthEnd.toISOString().split("T")[0]);
-
-      const monthlyPurchases = monthlyInvoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
-
-      // Fetch monthly payments
-      const { data: monthlyPayments } = await supabase
-        .from("payments")
-        .select("total_amount")
-        .eq("supplier_id", supplier.id)
-        .is("deleted_at", null)
-        .gte("payment_date", monthStart.toISOString().split("T")[0])
-        .lte("payment_date", monthEnd.toISOString().split("T")[0]);
-
-      const monthlyPaid = monthlyPayments?.reduce((sum, pay) => sum + Number(pay.total_amount), 0) || 0;
-
-      // Calculate expected payment date based on payment terms
-      let expectedPaymentDate: string | null = null;
-      if (supplier.payment_terms_days) {
-        const expectedDate = new Date(monthEnd);
-        expectedDate.setDate(expectedDate.getDate() + supplier.payment_terms_days);
-        expectedPaymentDate = expectedDate.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
-      }
+      // Fetch monthly data for current month
+      const monthlyData = await fetchMonthlyData(supplier, new Date(now.getFullYear(), now.getMonth(), 1));
 
       // For suppliers with previous obligations (loans), calculate loan balance
       let displayTotalPurchases = totalPurchases;
       let displayRemainingBalance = totalPurchases - totalPaid;
 
       if (supplier.has_previous_obligations && supplier.obligation_total_amount) {
-        // For loans: show obligation total and remaining loan balance
         displayTotalPurchases = supplier.obligation_total_amount;
         displayRemainingBalance = supplier.obligation_total_amount - totalPaid;
       }
@@ -787,12 +796,7 @@ export default function SuppliersPage() {
         totalPurchases: displayTotalPurchases,
         totalPaid,
         remainingBalance: displayRemainingBalance,
-        monthlyData: {
-          expectedPaymentDate,
-          monthlyPurchases,
-          monthlyPaid,
-          amountToPay: monthlyPurchases - monthlyPaid,
-        },
+        monthlyData,
       });
 
       // Fetch invoices list for this supplier
@@ -1793,9 +1797,37 @@ export default function SuppliersPage() {
             <div className="bg-[#29318A]/30 rounded-[10px] p-[15px]">
               {/* Month selector */}
               <div className="flex items-center justify-center gap-[10px] mb-[15px]">
-                <span className="text-[14px] text-white font-medium">
-                  חודש {new Date().toLocaleDateString("he-IL", { month: "long", year: "numeric" })}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const next = new Date(detailMonth.getFullYear(), detailMonth.getMonth() + 1, 1);
+                    setDetailMonth(next);
+                    if (selectedSupplier) {
+                      const monthlyData = await fetchMonthlyData(selectedSupplier, next);
+                      setSupplierDetailData(prev => prev ? { ...prev, monthlyData } : prev);
+                    }
+                  }}
+                  className="text-white/60 hover:text-white transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <span className="text-[14px] text-white font-medium min-w-[120px] text-center">
+                  חודש {detailMonth.toLocaleDateString("he-IL", { month: "long", year: "numeric" })}
                 </span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const prev = new Date(detailMonth.getFullYear(), detailMonth.getMonth() - 1, 1);
+                    setDetailMonth(prev);
+                    if (selectedSupplier) {
+                      const monthlyData = await fetchMonthlyData(selectedSupplier, prev);
+                      setSupplierDetailData(p => p ? { ...p, monthlyData } : p);
+                    }
+                  }}
+                  className="text-white/60 hover:text-white transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
               </div>
 
               <div className="flex flex-col gap-[10px]">
@@ -1828,6 +1860,10 @@ export default function SuppliersPage() {
               {/* Payment Button */}
               <button
                 type="button"
+                onClick={() => {
+                  setShowSupplierDetailPopup(false);
+                  router.push("/payments");
+                }}
                 className="w-full mt-[15px] bg-[#29318A] text-white text-[16px] font-semibold py-[12px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
               >
                 לתשלום
