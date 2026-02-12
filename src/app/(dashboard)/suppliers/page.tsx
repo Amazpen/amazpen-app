@@ -924,7 +924,7 @@ export default function SuppliersPage() {
         {/* Total Open Payment - פתוח לתשלום: בימין, הסכום בשמאל */}
         <div className="flex items-center justify-center gap-[3px]">
           <span className={`text-[23px] font-bold ${totalOpenPayment < 0 ? "text-[#0BB783]" : totalOpenPayment > 0 ? "text-[#F64E60]" : "text-white"}`}>פתוח לתשלום:</span>
-          <span className={`text-[23px] font-bold ${totalOpenPayment < 0 ? "text-[#0BB783]" : totalOpenPayment > 0 ? "text-[#F64E60]" : "text-white"}`}>
+          <span dir="ltr" className={`text-[23px] font-bold ${totalOpenPayment < 0 ? "text-[#0BB783]" : totalOpenPayment > 0 ? "text-[#F64E60]" : "text-white"}`}>
             ₪{totalOpenPayment < 0 ? "-" : ""}{Math.abs(totalOpenPayment).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
           </span>
         </div>
@@ -1085,7 +1085,7 @@ export default function SuppliersPage() {
                     <span className="text-[18px] font-normal text-white text-center leading-[1.4]">
                       נותר לתשלום
                     </span>
-                    <span className={`text-[18px] font-semibold text-center leading-[1.4] ${supplier.remainingPayment < 0 ? "text-[#0BB783]" : supplier.remainingPayment > 0 ? "text-[#F64E60]" : "text-white"}`}>
+                    <span dir="ltr" className={`text-[18px] font-semibold text-center leading-[1.4] ${supplier.remainingPayment < 0 ? "text-[#0BB783]" : supplier.remainingPayment > 0 ? "text-[#F64E60]" : "text-white"}`}>
                       ₪{supplier.remainingPayment < 0 ? "-" : ""}{Math.abs(supplier.remainingPayment).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                     </span>
                     <span className="text-[16px] font-bold text-white text-center leading-[1.4]">
