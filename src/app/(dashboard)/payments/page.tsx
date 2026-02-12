@@ -31,6 +31,16 @@ interface PaymentMethodSummary {
 }
 
 // Recent payment display
+interface LinkedInvoice {
+  id: string;
+  invoiceNumber: string | null;
+  date: string;
+  subtotal: number;
+  vatAmount: number;
+  totalAmount: number;
+  attachmentUrl: string | null;
+}
+
 interface RecentPaymentDisplay {
   id: string;
   date: string;
@@ -39,10 +49,15 @@ interface RecentPaymentDisplay {
   installments: string;
   amount: number;
   totalAmount: number;
+  subtotal: number;
+  vatAmount: number;
   notes: string | null;
   receiptUrl: string | null;
   reference: string | null;
   checkNumber: string | null;
+  createdBy: string | null;
+  createdAt: string | null;
+  linkedInvoice: LinkedInvoice | null;
 }
 
 // Open invoice from database
@@ -193,6 +208,7 @@ export default function PaymentsPage() {
   const [paymentMethodsData, setPaymentMethodsData] = useState<PaymentMethodSummary[]>([]);
   const [recentPaymentsData, setRecentPaymentsData] = useState<RecentPaymentDisplay[]>([]);
   const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null);
+  const [showLinkedInvoices, setShowLinkedInvoices] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -378,7 +394,9 @@ export default function PaymentsPage() {
           .select(`
             *,
             supplier:suppliers(id, name),
-            payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number)
+            payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number),
+            invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url),
+            creator:profiles!payments_created_by_fkey(full_name)
           `)
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
@@ -423,31 +441,18 @@ export default function PaymentsPage() {
           setPaymentMethodsData(methodsSummary);
 
           // Transform recent payments to display format
-          interface PaymentFromDB {
-            id: string;
-            payment_date: string;
-            total_amount: number;
-            notes: string | null;
-            receipt_url: string | null;
-            reference: string | null;
-            check_number: string | null;
-            supplier: { id: string; name: string } | null;
-            payment_splits: Array<{
-              id: string;
-              payment_method: string;
-              amount: number;
-              installments_count: number | null;
-              installment_number: number | null;
-              due_date: string | null;
-              check_number: string | null;
-            }>;
-          }
-
-          const recentDisplay: RecentPaymentDisplay[] = (paymentsData as PaymentFromDB[]).map((p) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const recentDisplay: RecentPaymentDisplay[] = (paymentsData as any[]).map((p) => {
             const firstSplit = p.payment_splits?.[0];
             const installmentInfo = firstSplit?.installments_count && firstSplit?.installment_number
               ? `${firstSplit.installment_number}/${firstSplit.installments_count}`
               : "1/1";
+
+            // Calculate subtotal/vat from total (assume 18% VAT if not from invoice)
+            const total = Number(p.total_amount);
+            const inv = p.invoice;
+            const subtotal = inv ? Number(inv.subtotal) : Math.round(total / 1.18 * 100) / 100;
+            const vatAmount = inv ? Number(inv.vat_amount) : Math.round((total - subtotal) * 100) / 100;
 
             return {
               id: p.id,
@@ -455,12 +460,25 @@ export default function PaymentsPage() {
               supplier: p.supplier?.name || "לא ידוע",
               paymentMethod: paymentMethodNames[firstSplit?.payment_method || "other"] || "אחר",
               installments: installmentInfo,
-              amount: firstSplit ? Number(firstSplit.amount) : Number(p.total_amount),
-              totalAmount: Number(p.total_amount),
+              amount: firstSplit ? Number(firstSplit.amount) : total,
+              totalAmount: total,
+              subtotal,
+              vatAmount,
               notes: p.notes || null,
               receiptUrl: p.receipt_url || null,
-              reference: p.reference || null,
-              checkNumber: firstSplit?.check_number || p.check_number || null,
+              reference: firstSplit?.reference_number || null,
+              checkNumber: firstSplit?.check_number || null,
+              createdBy: p.creator?.full_name || null,
+              createdAt: p.created_at ? formatDateString(p.created_at.split("T")[0]) : null,
+              linkedInvoice: inv ? {
+                id: inv.id,
+                invoiceNumber: inv.invoice_number,
+                date: formatDateString(inv.invoice_date),
+                subtotal: Number(inv.subtotal),
+                vatAmount: Number(inv.vat_amount),
+                totalAmount: Number(inv.total_amount),
+                attachmentUrl: inv.attachment_url,
+              } : null,
             };
           });
 
@@ -1399,47 +1417,153 @@ export default function PaymentsPage() {
 
                 {/* Expanded Details */}
                 {expandedPaymentId === payment.id && (
-                  <div className="flex flex-col gap-[8px] p-[10px] mt-[5px] border-t border-white/10">
-                    {payment.reference && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] text-white/50">אסמכתא</span>
-                        <span className="text-[13px] font-medium ltr-num">{payment.reference}</span>
+                  <div className="flex flex-col gap-[10px] mt-[5px]">
+                    {/* Header: פרטים נוספים + action icons */}
+                    <div className="flex items-center justify-between border-b border-white/20 pb-[8px] px-[7px]">
+                      <div className="flex items-center gap-[5px]">
+                        {payment.receiptUrl && (
+                          <button
+                            type="button"
+                            onClick={() => window.open(payment.receiptUrl!, '_blank')}
+                            className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                            title="צפייה בקבלה"
+                          >
+                            <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                              <circle cx="8.5" cy="8.5" r="1.5"/>
+                              <polyline points="21 15 16 10 5 21"/>
+                            </svg>
+                          </button>
+                        )}
+                        {payment.receiptUrl && (
+                          <a
+                            href={payment.receiptUrl}
+                            download
+                            className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                            title="הורדה"
+                          >
+                            <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                              <polyline points="7 10 12 15 17 10"/>
+                              <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                          </a>
+                        )}
                       </div>
-                    )}
-                    {payment.checkNumber && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] text-white/50">מספר צ׳ק</span>
-                        <span className="text-[13px] font-medium ltr-num">{payment.checkNumber}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-white/50">סכום תשלום</span>
-                      <span className="text-[13px] font-medium ltr-num">₪{payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <span className="text-[16px] font-medium">פרטים נוספים</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[12px] text-white/50">סה״כ עסקה</span>
-                      <span className="text-[13px] font-medium ltr-num">₪{payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+
+                    {/* Details row */}
+                    <div className="flex items-center justify-between px-[7px] flex-wrap gap-y-[8px]">
+                      {payment.createdBy && (
+                        <div className="flex flex-col items-center min-w-[60px]">
+                          <span className="text-[13px] text-[#979797]">תאריך הזנה</span>
+                          <span className="text-[13px] ltr-num">{payment.createdAt || "-"}</span>
+                        </div>
+                      )}
+                      {payment.createdBy && (
+                        <div className="flex flex-col items-center min-w-[60px]">
+                          <span className="text-[13px] text-[#979797]">הוזן ע&quot;י</span>
+                          <span className="text-[13px]">{payment.createdBy}</span>
+                        </div>
+                      )}
+                      <div className="flex flex-col items-center min-w-[60px]">
+                        <span className="text-[13px] text-[#979797]">סכום לפני מע&quot;מ</span>
+                        <span className="text-[13px] ltr-num">₪{payment.subtotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex flex-col items-center min-w-[60px]">
+                        <span className="text-[13px] text-[#979797]">סכום כולל מע&quot;מ</span>
+                        <span className="text-[13px] ltr-num">₪{payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
                     </div>
-                    {payment.notes && (
-                      <div className="flex flex-col gap-[3px]">
-                        <span className="text-[12px] text-white/50">הערות</span>
-                        <span className="text-[13px] text-white/80 text-right">{payment.notes}</span>
+
+                    {/* Extra info */}
+                    {(payment.reference || payment.checkNumber || payment.notes) && (
+                      <div className="flex flex-col gap-[5px] px-[7px]">
+                        {payment.reference && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-[13px] text-[#979797]">אסמכתא</span>
+                            <span className="text-[13px] ltr-num">{payment.reference}</span>
+                          </div>
+                        )}
+                        {payment.checkNumber && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-[13px] text-[#979797]">מספר צ׳ק</span>
+                            <span className="text-[13px] ltr-num">{payment.checkNumber}</span>
+                          </div>
+                        )}
+                        {payment.notes && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-[13px] text-[#979797]">הערות</span>
+                            <span className="text-[13px] text-right max-w-[60%]">{payment.notes}</span>
+                          </div>
+                        )}
                       </div>
                     )}
-                    {payment.receiptUrl && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] text-white/50">קבלה/אישור</span>
+
+                    {/* Linked Invoices */}
+                    {payment.linkedInvoice && (
+                      <div className="flex flex-col gap-[8px] border border-white/30 rounded-[7px] p-[3px] mx-[3px]">
                         <button
                           type="button"
-                          onClick={() => window.open(payment.receiptUrl!, '_blank')}
-                          className="flex items-center gap-[5px] text-[13px] text-[#00E096] hover:underline"
+                          onClick={() => setShowLinkedInvoices(showLinkedInvoices === payment.id ? null : payment.id)}
+                          className="bg-[#5F6BEA] text-white text-[15px] font-medium py-[5px] px-[14px] rounded-[7px] self-end cursor-pointer hover:bg-[#4E59D9] transition-colors"
                         >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                            <circle cx="12" cy="12" r="3"/>
-                          </svg>
-                          צפייה
+                          הצגת חשבוניות מקושרות
                         </button>
+
+                        {showLinkedInvoices === payment.id && (
+                          <div className="flex flex-col gap-[2px]">
+                            <span className="text-[13px] font-bold text-right px-[5px]">
+                              סה&quot;כ סכום חשבוניות: ₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            {/* Header */}
+                            <div className="flex items-center justify-between gap-[3px] border-b border-white/20 min-h-[40px] px-[3px]">
+                              <div className="flex items-center gap-[5px] min-w-[45px]">
+                                <span className="text-[13px]">פעולות</span>
+                              </div>
+                              <span className="text-[13px] w-[65px] text-center">סכום אחרי מע&quot;מ</span>
+                              <span className="text-[13px] w-[65px] text-center">סכום לפני מע&quot;מ</span>
+                              <span className="text-[13px] w-[65px] text-center">אסמכתא</span>
+                              <span className="text-[13px] min-w-[50px] text-right">תאריך</span>
+                            </div>
+                            {/* Invoice row */}
+                            <div className="flex items-center justify-between gap-[3px] min-h-[45px] px-[3px] rounded-[7px]">
+                              <div className="flex items-center gap-[5px] min-w-[45px]">
+                                {payment.linkedInvoice.attachmentUrl && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => window.open(payment.linkedInvoice!.attachmentUrl!, '_blank')}
+                                      className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                    >
+                                      <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                      </svg>
+                                    </button>
+                                    <a
+                                      href={payment.linkedInvoice.attachmentUrl}
+                                      download
+                                      className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                    >
+                                      <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                        <polyline points="7 10 12 15 17 10"/>
+                                        <line x1="12" y1="15" x2="12" y2="3"/>
+                                      </svg>
+                                    </a>
+                                  </>
+                                )}
+                              </div>
+                              <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL")}</span>
+                              <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.linkedInvoice.subtotal.toLocaleString("he-IL")}</span>
+                              <span className="text-[13px] w-[65px] text-center ltr-num">{payment.linkedInvoice.invoiceNumber || "-"}</span>
+                              <span className="text-[13px] min-w-[50px] text-right ltr-num">{payment.linkedInvoice.date}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
