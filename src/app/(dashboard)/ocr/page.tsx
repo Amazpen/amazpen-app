@@ -734,27 +734,17 @@ export default function OCRPage() {
         </button>
       </div>
 
-      {/* Main content area - 3 columns on desktop */}
+      {/* Main content area - 3 columns on desktop (RTL: DOM order = visual right-to-left) */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-        {/* OCR Form - Left side (desktop) / Tab 2 (mobile) */}
-        <div
-          id="onboarding-ocr-form"
-          className={`lg:w-[420px] lg:block ${
-            !showMobileViewer ? 'flex-1' : 'hidden'
-          } lg:border-r border-[#4C526B] overflow-hidden`}
-        >
-          <OCRForm
-            document={currentDocument}
-            suppliers={suppliers}
-            coordinatorSuppliers={coordinatorSuppliers}
-            businesses={businesses}
-            selectedBusinessId={selectedBusinessId}
-            onBusinessChange={setSelectedBusinessId}
-            onApprove={handleApprove}
-            onReject={handleReject}
-            onDelete={handleDelete}
-            onSkip={handleSkip}
-            isLoading={isLoading}
+        {/* Document Queue - Right side (desktop) */}
+        <div id="onboarding-ocr-queue" className="hidden lg:block lg:w-[200px] overflow-hidden lg:border-l border-[#4C526B]">
+          <DocumentQueue
+            documents={documents}
+            currentDocumentId={currentDocument?.id || null}
+            onSelectDocument={handleSelectDocument}
+            filterStatus={filterStatus}
+            onFilterChange={setFilterStatus}
+            vertical={true}
           />
         </div>
 
@@ -779,20 +769,30 @@ export default function OCRPage() {
                 <polyline points="21 15 16 10 5 21" />
               </svg>
               <p className="mt-4 text-lg">אין מסמך להצגה</p>
-              <p className="mt-1 text-sm">בחר מסמך מהתור בצד שמאל</p>
+              <p className="mt-1 text-sm">בחר מסמך מהתור</p>
             </div>
           )}
         </div>
 
-        {/* Document Queue - Right side (desktop) */}
-        <div id="onboarding-ocr-queue" className="hidden lg:block lg:w-[200px] overflow-hidden lg:border-r border-[#4C526B]">
-          <DocumentQueue
-            documents={documents}
-            currentDocumentId={currentDocument?.id || null}
-            onSelectDocument={handleSelectDocument}
-            filterStatus={filterStatus}
-            onFilterChange={setFilterStatus}
-            vertical={true}
+        {/* OCR Form - Left side (desktop) / Tab 2 (mobile) */}
+        <div
+          id="onboarding-ocr-form"
+          className={`lg:w-[420px] lg:block ${
+            !showMobileViewer ? 'flex-1' : 'hidden'
+          } lg:border-r border-[#4C526B] overflow-hidden`}
+        >
+          <OCRForm
+            document={currentDocument}
+            suppliers={suppliers}
+            coordinatorSuppliers={coordinatorSuppliers}
+            businesses={businesses}
+            selectedBusinessId={selectedBusinessId}
+            onBusinessChange={setSelectedBusinessId}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            onDelete={handleDelete}
+            onSkip={handleSkip}
+            isLoading={isLoading}
           />
         </div>
       </div>
