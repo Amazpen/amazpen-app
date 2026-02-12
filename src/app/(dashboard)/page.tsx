@@ -2363,16 +2363,16 @@ export default function DashboardPage() {
                 return (
                   <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_5px] min-h-[155px] w-full">
                     <div className="flex flex-row-reverse justify-between items-center w-full">
-                      <div className="flex flex-col items-center ml-[9px]">
-                        <div className="flex flex-row-reverse items-start gap-[10px]">
-                          <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>
-                            {formatCurrencyFull(source.avgAmount)}
-                          </span>
+                      <div className="flex flex-row-reverse items-start gap-[10px] ml-[9px]">
+                        <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>
+                          {formatCurrencyFull(source.avgAmount)}
+                        </span>
+                        <div className="flex flex-col items-center">
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>
                             {formatCurrencyFull(source.totalAmount)}
                           </span>
+                          <span className={`text-[16px] font-normal text-center leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>({formatCurrencyWithSign(source.ordersCount === 0 ? 0 : source.avgTicketDiff)})</span>
                         </div>
-                        <span className={`text-[16px] font-normal text-center leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>({formatCurrencyWithSign(source.ordersCount === 0 ? 0 : source.avgTicketDiff)})</span>
                       </div>
                       <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
