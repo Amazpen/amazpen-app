@@ -1122,7 +1122,7 @@ export default function GoalsPage() {
                                   )}
 
                                   {/* Child Name with expand arrow */}
-                                  <div className="flex-1 flex flex-row-reverse items-center justify-end gap-[3px]">
+                                  <div className="flex-1 flex flex-row-reverse items-center justify-start gap-[3px]">
                                     <span className="text-[14px] font-normal text-white text-right">
                                       {child.name}
                                     </span>
