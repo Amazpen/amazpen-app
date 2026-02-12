@@ -1172,29 +1172,31 @@ export default function PaymentsPage() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Close button */}
-              <button
-                type="button"
-                onClick={() => setSelectedMethodPopup(null)}
-                className="opacity-50 hover:opacity-100 transition-opacity mb-[10px]"
-              >
-                <X size={24} className="text-white" />
-              </button>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSelectedMethodPopup(null)}
+                  className="opacity-50 hover:opacity-100 transition-opacity mb-[10px]"
+                >
+                  <X size={24} className="text-white" />
+                </button>
+              </div>
 
               {/* Header - method name and total */}
-              <div className="flex flex-row-reverse items-center justify-between mx-[10px] mb-[15px]">
-                <span className="text-[25px] font-semibold text-white text-center">{selectedMethodPopup.name}</span>
+              <div className="flex items-center justify-between mx-[10px] mb-[15px]">
                 <div className="flex flex-col items-center">
                   <span className="text-[25px] font-semibold text-white text-center ltr-num">
                     ₪{selectedMethodPopup.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                   <span className="text-[14px] text-white text-center">כולל מע&apos;מ</span>
                 </div>
+                <span className="text-[25px] font-semibold text-white text-center">{selectedMethodPopup.name}</span>
               </div>
 
               {/* Table header */}
-              <div className="flex items-center justify-between min-h-[40px] border-b border-white/20 px-[5px]">
+              <div className="flex flex-row-reverse items-center justify-between min-h-[40px] border-b border-white/20 px-[5px]">
                 <span className="text-[16px] font-medium text-white w-[85px] text-center">סכום התשלום</span>
-                <span className="text-[16px] font-medium text-white flex-1 text-right">שם ספק</span>
+                <span className="text-[16px] font-medium text-white flex-1 text-left">שם ספק</span>
               </div>
 
               {/* Supplier rows */}
@@ -1202,14 +1204,14 @@ export default function PaymentsPage() {
                 {(methodSupplierBreakdown[selectedMethodPopup.id] || []).map((entry, idx) => (
                   <div
                     key={entry.supplierName}
-                    className={`flex items-center justify-between min-h-[40px] px-[5px] pt-[10px] ${
+                    className={`flex flex-row-reverse items-center justify-between min-h-[40px] px-[5px] pt-[10px] ${
                       idx > 0 ? "border-t border-white/20" : ""
                     }`}
                   >
                     <span className="text-[14px] font-bold text-white w-[85px] text-center ltr-num">
                       ₪{entry.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                    <span className="text-[14px] font-bold text-white flex-1 text-right">{entry.supplierName}</span>
+                    <span className="text-[14px] font-bold text-white flex-1 text-left">{entry.supplierName}</span>
                   </div>
                 ))}
               </div>
