@@ -1727,7 +1727,7 @@ export default function ExpensesPage() {
                     }`}
                   >
                     <span
-                      className={`w-[12px] h-[12px] rounded-full flex-shrink-0 mr-[8px] ${
+                      className={`w-[12px] h-[12px] rounded-full flex-shrink-0 mr-[8px] ml-[5px] ${
                         index % 8 === 0 ? 'bg-[#FF6B6B]' :
                         index % 8 === 1 ? 'bg-[#4ECDC4]' :
                         index % 8 === 2 ? 'bg-[#45B7D1]' :
