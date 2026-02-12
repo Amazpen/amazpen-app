@@ -39,6 +39,10 @@ interface RecentPaymentDisplay {
   installments: string;
   amount: number;
   totalAmount: number;
+  notes: string | null;
+  receiptUrl: string | null;
+  reference: string | null;
+  checkNumber: string | null;
 }
 
 // Open invoice from database
@@ -188,6 +192,7 @@ export default function PaymentsPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [paymentMethodsData, setPaymentMethodsData] = useState<PaymentMethodSummary[]>([]);
   const [recentPaymentsData, setRecentPaymentsData] = useState<RecentPaymentDisplay[]>([]);
+  const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -373,7 +378,7 @@ export default function PaymentsPage() {
           .select(`
             *,
             supplier:suppliers(id, name),
-            payment_splits(id, payment_method, amount, installments_count, installment_number, due_date)
+            payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number)
           `)
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
@@ -422,6 +427,10 @@ export default function PaymentsPage() {
             id: string;
             payment_date: string;
             total_amount: number;
+            notes: string | null;
+            receipt_url: string | null;
+            reference: string | null;
+            check_number: string | null;
             supplier: { id: string; name: string } | null;
             payment_splits: Array<{
               id: string;
@@ -430,6 +439,7 @@ export default function PaymentsPage() {
               installments_count: number | null;
               installment_number: number | null;
               due_date: string | null;
+              check_number: string | null;
             }>;
           }
 
@@ -447,6 +457,10 @@ export default function PaymentsPage() {
               installments: installmentInfo,
               amount: firstSplit ? Number(firstSplit.amount) : Number(p.total_amount),
               totalAmount: Number(p.total_amount),
+              notes: p.notes || null,
+              receiptUrl: p.receipt_url || null,
+              reference: p.reference || null,
+              checkNumber: firstSplit?.check_number || p.check_number || null,
             };
           });
 
@@ -1348,15 +1362,16 @@ export default function PaymentsPage() {
             ) : recentPaymentsData.map((payment) => (
               <div
                 key={payment.id}
-                className="bg-white/5 rounded-[7px] p-[7px_3px]"
+                className={`bg-white/5 rounded-[7px] p-[7px_3px] border transition-colors ${expandedPaymentId === payment.id ? 'border-white' : 'border-transparent'}`}
               >
                 <button
                   type="button"
+                  onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
                   className="flex items-center gap-[5px] w-full p-[5px_3px] min-h-[45px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] cursor-pointer"
                 >
                   {/* Date */}
                   <div className="w-[55px] flex-shrink-0 flex items-center justify-start gap-0">
-                    <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className="text-white/50 flex-shrink-0">
+                    <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${expandedPaymentId === payment.id ? 'rotate-90' : ''} text-white/50`}>
                       <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     <span className="text-[13px] font-medium ltr-num">{payment.date}</span>
@@ -1381,6 +1396,54 @@ export default function PaymentsPage() {
                     </span>
                   </div>
                 </button>
+
+                {/* Expanded Details */}
+                {expandedPaymentId === payment.id && (
+                  <div className="flex flex-col gap-[8px] p-[10px] mt-[5px] border-t border-white/10">
+                    {payment.reference && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] text-white/50">אסמכתא</span>
+                        <span className="text-[13px] font-medium ltr-num">{payment.reference}</span>
+                      </div>
+                    )}
+                    {payment.checkNumber && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] text-white/50">מספר צ׳ק</span>
+                        <span className="text-[13px] font-medium ltr-num">{payment.checkNumber}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-white/50">סכום תשלום</span>
+                      <span className="text-[13px] font-medium ltr-num">₪{payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-white/50">סה״כ עסקה</span>
+                      <span className="text-[13px] font-medium ltr-num">₪{payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    {payment.notes && (
+                      <div className="flex flex-col gap-[3px]">
+                        <span className="text-[12px] text-white/50">הערות</span>
+                        <span className="text-[13px] text-white/80 text-right">{payment.notes}</span>
+                      </div>
+                    )}
+                    {payment.receiptUrl && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[12px] text-white/50">קבלה/אישור</span>
+                        <button
+                          type="button"
+                          onClick={() => window.open(payment.receiptUrl!, '_blank')}
+                          className="flex items-center gap-[5px] text-[13px] text-[#00E096] hover:underline"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                          צפייה
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
