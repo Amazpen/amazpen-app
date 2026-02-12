@@ -2826,7 +2826,7 @@ export default function DashboardPage() {
             <div id="onboarding-charts" className="flex flex-col lg:grid lg:grid-cols-2 gap-[15px] mt-[15px]">
               {/* 1. מגמות Chart (Trends) - דינמי */}
               {isInitialLoad && trendsChartData.length === 0 ? (
-              <div className="data-card-new rounded-[10px] p-4">
+              <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <div className="h-[22px] w-[80px] rounded-[6px] bg-white/10 animate-pulse" />
                   <div className="h-[28px] w-[70px] rounded-[5px] bg-white/10 animate-pulse" />
@@ -2869,7 +2869,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               ) : trendsChartData.length > 0 && (
-              <div className="data-card-new rounded-[10px] p-4">
+              <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">מגמות</h3>
                   <select aria-label="בחר תקופה" title="בחר תקופה" className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1">
@@ -2965,7 +2965,7 @@ export default function DashboardPage() {
 
               {/* 2. ממוצע הכנסה Chart - היסטורי לפי חודשים */}
               {isInitialLoad && orderAvgChartData.length === 0 ? (
-              <div className="data-card-new rounded-[10px] p-4">
+              <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <div className="h-[22px] w-[100px] rounded-[6px] bg-white/10 animate-pulse" />
                   <div className="h-[28px] w-[70px] rounded-[5px] bg-white/10 animate-pulse" />
@@ -3011,7 +3011,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               ) : orderAvgChartData.length > 0 && incomeSourcesSummary.length > 0 ? (
-              <div className="data-card-new rounded-[10px] p-4">
+              <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">ממוצע הכנסה</h3>
                   <select
@@ -3076,7 +3076,7 @@ export default function DashboardPage() {
 
               {/* 2.5 ניהול עלות מכר Chart */}
               {isInitialLoad && foodCostChartData.length === 0 ? (
-              <div className="data-card-new rounded-[10px] p-4">
+              <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <div className="h-[22px] w-[120px] rounded-[6px] bg-white/10 animate-pulse" />
                   <div className="h-[28px] w-[70px] rounded-[5px] bg-white/10 animate-pulse" />
@@ -3119,7 +3119,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               ) : foodCostChartData.length > 0 ? (
-              <div className="data-card-new rounded-[10px] p-4">
+              <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">ניהול עלות מכר</h3>
                   <select
@@ -3169,7 +3169,7 @@ export default function DashboardPage() {
 
               {/* 3. עלות עבודה Chart - Area Chart */}
               {isInitialLoad && laborCostChartData.length === 0 ? (
-              <div className="data-card-new rounded-[10px] p-4">
+              <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <div className="h-[22px] w-[90px] rounded-[6px] bg-white/10 animate-pulse" />
                   <div className="h-[28px] w-[70px] rounded-[5px] bg-white/10 animate-pulse" />
@@ -3197,7 +3197,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               ) : laborCostChartData.length > 0 ? (
-              <div className="data-card-new rounded-[10px] p-4">
+              <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">עלות עבודה</h3>
                   <select
@@ -3284,7 +3284,7 @@ export default function DashboardPage() {
 
               {/* 4. מוצר מנוהל Chart */}
               {isInitialLoad && managedProductChartData.length === 0 ? (
-              <div className="data-card-new rounded-[10px] p-4">
+              <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <div className="h-[22px] w-[80px] rounded-[6px] bg-white/10 animate-pulse" />
                   <div className="h-[28px] w-[70px] rounded-[5px] bg-white/10 animate-pulse" />
@@ -3329,7 +3329,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               ) : managedProductChartData.length > 0 && managedProductsSummary.length > 0 ? (
-              <div className="data-card-new rounded-[10px] p-4">
+              <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">{managedProductsSummary[0]?.name || 'מוצר מנוהל'}</h3>
                   <select
