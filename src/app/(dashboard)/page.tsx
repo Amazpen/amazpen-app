@@ -57,7 +57,7 @@ const SafeChartContainer = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <div ref={containerRef} className="w-full h-[220px]">
+    <div ref={containerRef} className="w-full h-[280px]">
       {dimensions && dimensions.width > 0 && dimensions.height > 0 ? (
         <LazyResponsiveContainer width={dimensions.width} height={dimensions.height}>
           {children}
@@ -82,6 +82,10 @@ const LazyComposedChart = dynamic(
 );
 const LazyLine = dynamic(
   () => import("recharts").then((mod) => ({ default: mod.Line })),
+  { ssr: false }
+);
+const LazyCartesianGrid = dynamic(
+  () => import("recharts").then((mod) => ({ default: mod.CartesianGrid })),
   { ssr: false }
 );
 
@@ -2533,8 +2537,8 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
-                      <div className="flex flex-col">
+                    <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
+                      <div className="flex flex-col ml-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                           <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborDiffColor}`}>{formatPercent(noLaborData ? 0 : (detailedSummary?.laborCostDiffPct || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
@@ -2544,12 +2548,12 @@ export default function DashboardPage() {
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                         </div>
                       </div>
-                      <div className="flex flex-col">
+                      <div className="flex flex-col mr-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                           <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevMonthColor}`}>{formatPercent(noLaborData ? 0 : (detailedSummary?.laborCostPrevMonthChange || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
                         </div>
-                        <div className="flex flex-row-reverse justify-end items-center gap-[5px]">
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                           <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevYearColor}`}>{formatPercent(noLaborData ? 0 : (detailedSummary?.laborCostPrevYearChange || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
                         </div>
@@ -2649,8 +2653,8 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
-                      <div className="flex flex-col">
+                    <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
+                      <div className="flex flex-col ml-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                           <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatPercentWithSign(noFoodData ? 0 : (detailedSummary?.foodCostDiffPct || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
@@ -2660,7 +2664,7 @@ export default function DashboardPage() {
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                         </div>
                       </div>
-                      <div className="flex flex-col">
+                      <div className="flex flex-col mr-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                           <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodPrevMonthColor}`}>{formatPercentWithSign(noFoodData ? 0 : (detailedSummary?.foodCostPrevMonthChange || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
@@ -2719,8 +2723,8 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
-                      <div className="flex flex-col">
+                    <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
+                      <div className="flex flex-col ml-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                           <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${diffColor}`}>
                             {formatPercentWithSign(diffPct)}
@@ -2734,7 +2738,7 @@ export default function DashboardPage() {
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                         </div>
                       </div>
-                      <div className="flex flex-col">
+                      <div className="flex flex-col mr-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                           <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${noProdData ? 'text-white' : product.prevMonthChange > 0 ? 'text-red-500' : product.prevMonthChange < 0 ? 'text-green-500' : 'text-white'}`}>
                             {formatPercentWithSign(noProdData ? 0 : product.prevMonthChange)}
@@ -2780,8 +2784,8 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[10px]">
-                  <div className="flex flex-col">
+                <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
+                  <div className="flex flex-col ml-[10px]">
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                       <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expDiffColor}`}>
                         {formatPercentWithSign(noExpData ? 0 : (detailedSummary?.currentExpensesDiffPct || 0))}
@@ -2795,7 +2799,7 @@ export default function DashboardPage() {
                       <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                     </div>
                   </div>
-                  <div className="flex flex-col">
+                  <div className="flex flex-col mr-[10px]">
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                       <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expPrevMonthColor}`}>
                         {formatPercentWithSign(noExpData ? 0 : (detailedSummary?.currentExpensesPrevMonthChange || 0))}
@@ -2875,7 +2879,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[220px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyComposedChart data={trendsChartData} barGap={4}>
+                    <LazyComposedChart data={trendsChartData} barGap={4} margin={{ top: 5, right: 45, left: 40, bottom: 5 }}>
                       <defs>
                         <linearGradient id="colorSalesActual" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#00E096" stopOpacity={0.8}/>
@@ -3018,7 +3022,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[220px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyBarChart data={orderAvgChartData} barGap={2}>
+                    <LazyBarChart data={orderAvgChartData} barGap={2} margin={{ top: 5, right: 45, left: 5, bottom: 5 }}>
                       <LazyXAxis
                         dataKey="month"
                         tick={{ fill: '#7B91B0', fontSize: 9 }}
@@ -3124,7 +3128,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[220px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyBarChart data={foodCostChartData} barGap={4}>
+                    <LazyBarChart data={foodCostChartData} barGap={4} margin={{ top: 5, right: 45, left: 5, bottom: 5 }}>
                       <LazyXAxis
                         dataKey="month"
                         tick={{ fill: '#7B91B0', fontSize: 9 }}
@@ -3200,7 +3204,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[220px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyAreaChart data={laborCostChartData}>
+                    <LazyAreaChart data={laborCostChartData} margin={{ top: 5, right: 40, left: 5, bottom: 5 }}>
                       <defs>
                         <linearGradient id="colorLaborActual" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#00E096" stopOpacity={0.4}/>
@@ -3330,7 +3334,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[220px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyBarChart data={managedProductChartData} barGap={4}>
+                    <LazyBarChart data={managedProductChartData} barGap={4} margin={{ top: 5, right: 45, left: 5, bottom: 5 }}>
                       <LazyXAxis
                         dataKey="month"
                         tick={{ fill: '#7B91B0', fontSize: 9 }}
