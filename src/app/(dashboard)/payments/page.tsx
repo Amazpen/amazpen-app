@@ -353,7 +353,8 @@ export default function PaymentsPage() {
         setPaymentMethods(prev => {
           const updated = [...prev];
           const amountStr = selectedTotal.toFixed(2).replace(/\.?0+$/, "") || "0";
-          updated[0] = { ...updated[0], amount: amountStr, customInstallments: generateInstallments(parseInt(updated[0].installments) || 1, selectedTotal, paymentDate) };
+          const startDate = updated[0].customInstallments.length > 0 ? updated[0].customInstallments[0].dateForInput : paymentDate;
+          updated[0] = { ...updated[0], amount: amountStr, customInstallments: generateInstallments(parseInt(updated[0].installments) || 1, selectedTotal, startDate) };
           return updated;
         });
       }
@@ -1014,7 +1015,8 @@ export default function PaymentsPage() {
       return [];
     }
 
-    const installmentAmount = totalAmount / numInstallments;
+    const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
+    const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
     const startDate = startDateStr ? new Date(startDateStr) : new Date();
 
     const result = [];
@@ -1026,14 +1028,23 @@ export default function PaymentsPage() {
         number: i + 1,
         date: date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
         dateForInput: date.toISOString().split("T")[0],
-        amount: installmentAmount,
+        amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
       });
     }
 
     return result;
   };
 
-  // Add new payment method entry
+  // Get the effective start date for new installments:
+  // Use the first payment method's first installment date if customized, otherwise fall back to paymentDate
+  const getEffectiveStartDate = () => {
+    if (paymentMethods.length > 0 && paymentMethods[0].customInstallments.length > 0) {
+      return paymentMethods[0].customInstallments[0].dateForInput;
+    }
+    return paymentDate;
+  };
+
+  // Add new payment method entry - inherits the first payment method's start date
   const addPaymentMethodEntry = () => {
     const newId = Math.max(...paymentMethods.map(p => p.id)) + 1;
     setPaymentMethods(prev => [
@@ -1056,11 +1067,32 @@ export default function PaymentsPage() {
 
       const updated = { ...p, [field]: value };
 
-      // Regenerate installments when amount or installments count changes
-      if (field === "amount" || field === "installments") {
-        const numInstallments = parseInt(field === "installments" ? value : p.installments) || 1;
-        const totalAmount = parseFloat((field === "amount" ? value : p.amount).replace(/[^\d.]/g, "")) || 0;
-        updated.customInstallments = generateInstallments(numInstallments, totalAmount, paymentDate);
+      // Regenerate installments when installments count changes
+      if (field === "installments") {
+        const numInstallments = parseInt(value) || 1;
+        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+        // Use the first installment date of this payment method if available, otherwise effective start date
+        const startDate = p.customInstallments.length > 0 ? p.customInstallments[0].dateForInput : getEffectiveStartDate();
+        updated.customInstallments = generateInstallments(numInstallments, totalAmount, startDate);
+      }
+
+      // When amount changes, recalculate installment amounts but keep dates
+      if (field === "amount") {
+        const numInstallments = parseInt(p.installments) || 1;
+        const totalAmount = parseFloat(value.replace(/[^\d.]/g, "")) || 0;
+        if (p.customInstallments.length > 0 && totalAmount > 0) {
+          const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
+          const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
+          updated.customInstallments = p.customInstallments.map((inst, idx) => ({
+            ...inst,
+            amount: idx === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
+          }));
+        } else if (totalAmount > 0 && numInstallments > 1) {
+          const startDate = getEffectiveStartDate();
+          updated.customInstallments = generateInstallments(numInstallments, totalAmount, startDate);
+        } else {
+          updated.customInstallments = [];
+        }
       }
 
       return updated;
@@ -1093,28 +1125,27 @@ export default function PaymentsPage() {
       const updatedInstallments = [...p.customInstallments];
       if (updatedInstallments[installmentIndex]) {
         // Cap the amount to the total so a single installment can't exceed it
-        const cappedAmount = Math.min(amount, totalAmount);
+        const cappedAmount = Math.min(Math.round(amount * 100) / 100, totalAmount);
         updatedInstallments[installmentIndex] = {
           ...updatedInstallments[installmentIndex],
           amount: cappedAmount,
         };
         // Distribute the remainder equally among the other installments
-        const remaining = totalAmount - cappedAmount;
-        const otherCount = updatedInstallments.length - 1;
-        if (otherCount > 0) {
-          const perOther = Math.floor((remaining / otherCount) * 100) / 100;
+        const remaining = Math.round((totalAmount - cappedAmount) * 100) / 100;
+        const otherIndices = updatedInstallments.map((_, idx) => idx).filter(idx => idx !== installmentIndex);
+        if (otherIndices.length > 0) {
+          const perOther = Math.floor((remaining / otherIndices.length) * 100) / 100;
           let distributed = 0;
-          updatedInstallments.forEach((inst, idx) => {
-            if (idx !== installmentIndex) {
-              if (idx === updatedInstallments.findLastIndex((_, i) => i !== installmentIndex)) {
-                // Last "other" installment gets the remainder to avoid rounding issues
-                updatedInstallments[idx] = { ...inst, amount: Math.round((remaining - distributed) * 100) / 100 };
-              } else {
-                updatedInstallments[idx] = { ...inst, amount: perOther };
-                distributed += perOther;
-              }
+          for (let i = 0; i < otherIndices.length; i++) {
+            const idx = otherIndices[i];
+            if (i === otherIndices.length - 1) {
+              // Last "other" installment gets the remainder to avoid rounding issues
+              updatedInstallments[idx] = { ...updatedInstallments[idx], amount: Math.round((remaining - distributed) * 100) / 100 };
+            } else {
+              updatedInstallments[idx] = { ...updatedInstallments[idx], amount: perOther };
+              distributed += perOther;
             }
-          });
+          }
         }
       }
       return { ...p, customInstallments: updatedInstallments };
@@ -1126,7 +1157,7 @@ export default function PaymentsPage() {
     return customInstallments.reduce((sum, item) => sum + item.amount, 0);
   };
 
-  // Update installments when payment date changes
+  // Update installments when payment date changes - only for payment methods that haven't been customized
   useEffect(() => {
     setPaymentMethods(prev => prev.map(p => {
       const numInstallments = parseInt(p.installments) || 1;
@@ -1185,9 +1216,7 @@ export default function PaymentsPage() {
     setShowOpenInvoices(false);
   }, [selectedSupplier, selectedBusinesses]);
 
-  const handleClosePopup = () => {
-    setShowAddPaymentPopup(false);
-    // Reset form
+  const resetForm = () => {
     setPaymentDate(new Date().toISOString().split("T")[0]);
     setExpenseType("purchases");
     setSelectedSupplier("");
@@ -1196,11 +1225,16 @@ export default function PaymentsPage() {
     setNotes("");
     setReceiptFile(null);
     setReceiptPreview(null);
-    // Reset open invoices state
     setOpenInvoices([]);
     setShowOpenInvoices(false);
     setSelectedInvoiceIds(new Set());
     setExpandedMonths(new Set());
+    clearPaymentDraft();
+  };
+
+  const handleClosePopup = () => {
+    setShowAddPaymentPopup(false);
+    resetForm();
   };
 
   // Show message if no business selected
@@ -2263,9 +2297,14 @@ export default function PaymentsPage() {
                         type="text"
                         inputMode="decimal"
                         value={pm.amount}
-                        onChange={(e) => updatePaymentMethodField(pm.id, "amount", e.target.value)}
-                        placeholder="₪0.00 סכום"
-                        className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                          // Allow only numbers and a single decimal point
+                          const val = e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+                          updatePaymentMethodField(pm.id, "amount", val);
+                        }}
+                        placeholder="סכום"
+                        className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px] ltr-num"
                       />
                     </div>
 
@@ -2311,7 +2350,7 @@ export default function PaymentsPage() {
                             {pm.customInstallments.map((item, index) => (
                               <div key={item.number} className="flex items-center gap-[8px]">
                                 <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
-                                <div className="flex-1 h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] relative flex items-center justify-center">
+                                <div className="flex-1 relative">
                                   <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num">
                                     {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
                                   </span>
@@ -2320,7 +2359,7 @@ export default function PaymentsPage() {
                                     title={`תאריך תשלום ${item.number}`}
                                     value={item.dateForInput}
                                     onChange={(e) => handleInstallmentDateChange(pm.id, index, e.target.value)}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] opacity-0 cursor-pointer"
                                   />
                                 </div>
                                 <div className="flex-1 relative">
@@ -2328,7 +2367,8 @@ export default function PaymentsPage() {
                                     type="text"
                                     inputMode="decimal"
                                     title={`סכום תשלום ${item.number}`}
-                                    value={item.amount.toFixed(2)}
+                                    value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
+                                    onFocus={(e) => e.target.select()}
                                     onChange={(e) => handleInstallmentAmountChange(pm.id, index, e.target.value)}
                                     className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                                   />
@@ -2449,15 +2489,25 @@ export default function PaymentsPage() {
                 </div>
               </div>
 
-              {/* Submit Button */}
-              <button
-                type="button"
-                onClick={handleSavePayment}
-                disabled={isSaving || isUploadingReceipt}
-                className="w-full bg-[#29318A] text-white text-[18px] font-semibold py-[14px] rounded-[10px] mt-[20px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50"
-              >
-                {isSaving ? "שומר..." : isUploadingReceipt ? "מעלה קובץ..." : "הוספת תשלום"}
-              </button>
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-[10px] mt-[20px]">
+                <button
+                  type="button"
+                  onClick={handleSavePayment}
+                  disabled={isSaving || isUploadingReceipt}
+                  className="w-full bg-[#29318A] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50"
+                >
+                  {isSaving ? "שומר..." : isUploadingReceipt ? "מעלה קובץ..." : "הוספת תשלום"}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  disabled={isSaving}
+                  className="w-full text-white/60 text-[16px] font-medium py-[10px] rounded-[10px] transition-colors hover:text-white hover:bg-white/10 disabled:opacity-50"
+                >
+                  איפוס טופס
+                </button>
+              </div>
             </div>
         </SheetContent>
       </Sheet>
