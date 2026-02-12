@@ -1568,32 +1568,32 @@ export function DailyEntriesModal({
                                   יעד
                                 </div>
                                 <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">{formatCurrency(0)}</span>
+                                  <span className="ltr-num">{goalsData ? formatCurrency(goalsData.revenueTarget) : "-"}</span>
                                 </div>
                                 {entryDetails?.incomeBreakdown.map((source) => (
                                   <div
                                     key={source.income_source_id}
                                     className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
                                   >
-                                    <span className="ltr-num">₪0</span>
+                                    <span className="ltr-num">{goalsData?.incomeSourceTargets[source.income_source_id] ? `₪${goalsData.incomeSourceTargets[source.income_source_id]}` : "-"}</span>
                                   </div>
                                 ))}
                                 <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">0%</span>
+                                  <span className="ltr-num">{goalsData?.laborCostTargetPct ? `${goalsData.laborCostTargetPct}%` : "-"}</span>
                                 </div>
                                 {entryDetails?.productUsage.map((product) => (
                                   <div
                                     key={product.product_id}
                                     className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
                                   >
-                                    <span className="ltr-num">0%</span>
+                                    <span className="ltr-num">{goalsData?.productTargetPcts[product.product_id] != null ? `${goalsData.productTargetPcts[product.product_id]}%` : "-"}</span>
                                   </div>
                                 ))}
                                 <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">0%</span>
+                                  <span className="ltr-num">{goalsData?.foodCostTargetPct ? `${goalsData.foodCostTargetPct}%` : "-"}</span>
                                 </div>
                                 <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">{formatCurrency(0)}</span>
+                                  <span className="ltr-num">{goalsData?.currentExpensesTarget ? formatCurrency(goalsData.currentExpensesTarget) : "-"}</span>
                                 </div>
                               </div>
                             </div>
@@ -1647,32 +1647,32 @@ export function DailyEntriesModal({
                                   סה&quot;כ
                                 </div>
                                 <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">{formatCurrency(0)}</span>
+                                  <span className="ltr-num">{formatCurrency(monthlyCumulative?.totalIncome || 0)}</span>
                                 </div>
                                 {entryDetails?.incomeBreakdown.map((source) => (
                                   <div
                                     key={source.income_source_id}
                                     className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
                                   >
-                                    <span className="ltr-num">₪0</span>
+                                    <span className="ltr-num">{formatCurrency(monthlyCumulative?.incomeSourceTotals[source.income_source_id]?.avgTicket || 0)}</span>
                                   </div>
                                 ))}
                                 <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">0%</span>
+                                  <span className="ltr-num">{(monthlyCumulative?.laborCostPct || 0).toFixed(2)}%</span>
                                 </div>
                                 {entryDetails?.productUsage.map((product) => (
                                   <div
                                     key={product.product_id}
                                     className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
                                   >
-                                    <span className="ltr-num">0%</span>
+                                    <span className="ltr-num">{(monthlyCumulative?.productCosts[product.product_id]?.costPct || 0).toFixed(2)}%</span>
                                   </div>
                                 ))}
                                 <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">0%</span>
+                                  <span className="ltr-num">{(monthlyCumulative?.foodCostPct || 0).toFixed(2)}%</span>
                                 </div>
                                 <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">{formatCurrency(0)}</span>
+                                  <span className="ltr-num">{formatCurrency(monthlyCumulative?.currentExpenses || 0)}</span>
                                 </div>
                               </div>
 
@@ -1681,34 +1681,76 @@ export function DailyEntriesModal({
                                 <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">
                                   הפרש
                                 </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">0%</span>
-                                </div>
-                                {entryDetails?.incomeBreakdown.map((source) => (
-                                  <div
-                                    key={source.income_source_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
-                                  >
-                                    <span className="ltr-num">₪0</span>
-                                  </div>
-                                ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">0%</span>
-                                </div>
-                                {entryDetails?.productUsage.map((product) => (
-                                  <div
-                                    key={product.product_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
-                                  >
-                                    <span className="ltr-num">0%</span>
-                                  </div>
-                                ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">0%</span>
-                                </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">{formatCurrency(0)}</span>
-                                </div>
+                                {/* סה"כ קופה - הפרש מיעד חודשי */}
+                                {(() => {
+                                  const target = goalsData?.revenueTarget || 0;
+                                  const actual = monthlyCumulative?.totalIncome || 0;
+                                  const diffPct = target > 0 ? ((actual / target) - 1) * 100 : 0;
+                                  return (
+                                    <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diffPct >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                      <span className="ltr-num">{target > 0 ? `${diffPct.toFixed(1)}%` : "-"}</span>
+                                    </div>
+                                  );
+                                })()}
+                                {entryDetails?.incomeBreakdown.map((source) => {
+                                  const target = goalsData?.incomeSourceTargets[source.income_source_id] || 0;
+                                  const avg = monthlyCumulative?.incomeSourceTotals[source.income_source_id]?.avgTicket || 0;
+                                  const diff = target > 0 ? avg - target : 0;
+                                  return (
+                                    <div
+                                      key={source.income_source_id}
+                                      className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
+                                    >
+                                      <span className="ltr-num">{target > 0 ? `₪${diff.toFixed(1)}` : "-"}</span>
+                                    </div>
+                                  );
+                                })}
+                                {/* ע. עובדים - הפרש */}
+                                {(() => {
+                                  const actual = monthlyCumulative?.laborCostPct || 0;
+                                  const target = goalsData?.laborCostTargetPct || 0;
+                                  const diff = target > 0 ? actual - target : 0;
+                                  return (
+                                    <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                      <span className="ltr-num">{target > 0 ? `${diff.toFixed(1)}%` : "-"}</span>
+                                    </div>
+                                  );
+                                })()}
+                                {entryDetails?.productUsage.map((product) => {
+                                  const actual = monthlyCumulative?.productCosts[product.product_id]?.costPct || 0;
+                                  const target = goalsData?.productTargetPcts[product.product_id] || 0;
+                                  const diff = target > 0 ? actual - target : 0;
+                                  return (
+                                    <div
+                                      key={product.product_id}
+                                      className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
+                                    >
+                                      <span className="ltr-num">{target > 0 ? `${diff.toFixed(2)}%` : "-"}</span>
+                                    </div>
+                                  );
+                                })}
+                                {/* עלות מכר - הפרש */}
+                                {(() => {
+                                  const actual = monthlyCumulative?.foodCostPct || 0;
+                                  const target = goalsData?.foodCostTargetPct || 0;
+                                  const diff = target > 0 ? actual - target : 0;
+                                  return (
+                                    <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                      <span className="ltr-num">{target > 0 ? `${diff.toFixed(2)}%` : "-"}</span>
+                                    </div>
+                                  );
+                                })()}
+                                {/* הוצאות שוטפות - הפרש */}
+                                {(() => {
+                                  const actual = monthlyCumulative?.currentExpenses || 0;
+                                  const target = goalsData?.currentExpensesTarget || 0;
+                                  const diff = target > 0 ? actual - target : 0;
+                                  return (
+                                    <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                      <span className="ltr-num">{target > 0 ? formatCurrency(diff) : "-"}</span>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>
