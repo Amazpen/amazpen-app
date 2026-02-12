@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
 import { X } from "lucide-react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
@@ -1012,6 +1012,41 @@ export default function PaymentsPage() {
   // Calculate totals
   const totalPayments = paymentMethodsData.reduce((sum, item) => sum + item.amount, 0);
 
+  // Active index for interactive pie chart hover
+  const [activePaymentIndex, setActivePaymentIndex] = useState<number | undefined>(undefined);
+
+  // Custom shape renderer for full pie chart (recharts v3 uses shape prop with isActive)
+  const renderPaymentShape = (props: PieSectorDataItem & { isActive: boolean; index: number }) => {
+    const { cx, cy, outerRadius, startAngle, endAngle, fill, isActive, payload, percent } = props as PieSectorDataItem & {
+      isActive: boolean; payload: { name: string; amount: number }; percent: number;
+    };
+
+    if (!isActive) {
+      return <Sector cx={cx} cy={cy} outerRadius={outerRadius} startAngle={startAngle} endAngle={endAngle} fill={fill} />;
+    }
+
+    const midAngle = ((startAngle + endAngle) / 2) * (Math.PI / 180);
+    const pullX = cx + 6 * Math.cos(midAngle);
+    const pullY = cy - 6 * Math.sin(midAngle);
+    return (
+      <g>
+        <Sector cx={pullX} cy={pullY} outerRadius={(outerRadius as number) + 8}
+          startAngle={startAngle} endAngle={endAngle} fill={fill} />
+        <Sector cx={pullX} cy={pullY} outerRadius={(outerRadius as number) + 14} innerRadius={(outerRadius as number) + 10}
+          startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.3} />
+        <text x={cx} y={cy - 18} textAnchor="middle" fill="#fff" fontSize={14} fontWeight="bold">
+          {payload.name}
+        </text>
+        <text x={cx} y={cy + 6} textAnchor="middle" fill="#fff" fontSize={22} fontWeight="bold" direction="ltr">
+          {`₪${payload.amount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+        </text>
+        <text x={cx} y={cy + 26} textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize={13}>
+          {`${(percent * 100).toFixed(1)}%`}
+        </text>
+      </g>
+    );
+  };
+
   // Generate initial installments breakdown
   const generateInstallments = (numInstallments: number, totalAmount: number, startDateStr: string) => {
     if (numInstallments < 1 || totalAmount === 0) {
@@ -1292,22 +1327,36 @@ export default function PaymentsPage() {
               <span className="text-[18px] text-white/50">אין נתוני תשלומים</span>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={350} minWidth={1} minHeight={1}>
-              <PieChart>
-                <Pie
-                  data={paymentMethodsData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={140}
-                  dataKey="amount"
-                  stroke="none"
-                >
-                  {paymentMethodsData.map((entry) => (
-                    <Cell key={entry.id} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="relative w-full h-[350px]">
+              <ResponsiveContainer width="100%" height={350} minWidth={1} minHeight={1}>
+                <PieChart>
+                  <Pie
+                    data={paymentMethodsData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={140}
+                    dataKey="amount"
+                    stroke="none"
+                    animationBegin={0}
+                    animationDuration={800}
+                    animationEasing="ease-out"
+                    shape={renderPaymentShape}
+                    onMouseEnter={(_, index) => setActivePaymentIndex(index)}
+                    onMouseLeave={() => setActivePaymentIndex(undefined)}
+                  >
+                    {paymentMethodsData.map((entry) => (
+                      <Cell key={entry.id} fill={entry.color} style={{ cursor: "pointer", outline: "none" }} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Center info - shown when hovering a segment */}
+              {activePaymentIndex === undefined && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[16px] text-white/50">העבר עכבר לפרטים</span>
+                </div>
+              )}
+            </div>
           )}
         </div>
 

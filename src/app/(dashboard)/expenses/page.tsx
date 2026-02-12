@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -724,6 +725,47 @@ export default function ExpensesPage() {
 
   // Chart colors - used in both chart and table
   const chartColors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8", "#F7DC6F"];
+
+  // Active index for interactive donut chart hover
+  const [activeExpenseIndex, setActiveExpenseIndex] = useState<number | undefined>(undefined);
+
+  // Recharts data with colors
+  const rechartsExpenseData = useMemo(() => {
+    return chartDataSource.map((item, index) => ({
+      ...item,
+      displayName: (item as { name?: string }).name || (item as { category?: string }).category || "",
+      fill: chartColors[index % chartColors.length],
+    }));
+  }, [chartDataSource]);
+
+  // Custom shape renderer for donut chart (recharts v3 uses shape prop with isActive)
+  const renderDonutShape = (props: PieSectorDataItem & { isActive: boolean; index: number }) => {
+    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, isActive, payload, percent } = props as PieSectorDataItem & {
+      isActive: boolean; payload: { displayName: string; amount: number }; percent: number;
+    };
+
+    if (!isActive) {
+      return <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius} startAngle={startAngle} endAngle={endAngle} fill={fill} />;
+    }
+
+    return (
+      <g>
+        <Sector cx={cx} cy={cy} innerRadius={(innerRadius as number) - 4} outerRadius={(outerRadius as number) + 8}
+          startAngle={startAngle} endAngle={endAngle} fill={fill} />
+        <Sector cx={cx} cy={cy} innerRadius={(outerRadius as number) + 12} outerRadius={(outerRadius as number) + 16}
+          startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.4} />
+        <text x={cx} y={cy - 22} textAnchor="middle" fill="#fff" fontSize={14} fontWeight="bold">
+          {payload.displayName}
+        </text>
+        <text x={cx} y={cy + 2} textAnchor="middle" fill="#fff" fontSize={24} fontWeight="bold" direction="ltr">
+          {`₪${payload.amount.toLocaleString()}`}
+        </text>
+        <text x={cx} y={cy + 24} textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize={14}>
+          {`${(percent * 100).toFixed(1)}%`}
+        </text>
+      </g>
+    );
+  };
 
   // Handle saving new expense
   const handleSaveExpense = async () => {
@@ -1557,64 +1599,39 @@ export default function ExpensesPage() {
               <span className="text-[18px] text-white/50">אין נתוני הוצאות</span>
             </div>
           ) : (
-            /* Dynamic Donut Chart */
-            <div className="relative w-[280px] h-[280px]">
-              {/* Outer ring */}
-              <svg className="w-full h-full" viewBox="0 0 100 100">
-                {/* Background circle */}
-                <circle cx="50" cy="50" r="40" fill="none" stroke="#29318A" strokeWidth="15"/>
-                {/* Dynamic segments with percentage labels */}
-                {(() => {
-                  let offset = 0;
-                  const elements: React.ReactNode[] = [];
-                  chartDataSource.forEach((item, index) => {
-                    // Draw segment
-                    elements.push(
-                      <circle
-                        key={item.id}
-                        cx="50"
-                        cy="50"
-                        r="40"
-                        fill="none"
-                        stroke={chartColors[index % chartColors.length]}
-                        strokeWidth="15"
-                        strokeDasharray={`${item.percentage} ${100 - item.percentage}`}
-                        strokeDashoffset={-offset}
-                        transform="rotate(-90 50 50)"
-                      />
-                    );
-                    // Add percentage label for segments >= 5%
-                    if (item.percentage >= 5) {
-                      const midAngle = ((offset + item.percentage / 2) / 100) * 2 * Math.PI - Math.PI / 2;
-                      const labelX = 50 + 40 * Math.cos(midAngle);
-                      const labelY = 50 + 40 * Math.sin(midAngle);
-                      elements.push(
-                        <text
-                          key={`label-${item.id}`}
-                          x={labelX}
-                          y={labelY}
-                          textAnchor="middle"
-                          dominantBaseline="central"
-                          fill="#fff"
-                          fontSize="4"
-                          fontWeight="bold"
-                          style={{ textShadow: "0 0 2px rgba(0,0,0,0.8)" }}
-                        >
-                          {item.percentage.toFixed(0)}%
-                        </text>
-                      );
-                    }
-                    offset += item.percentage;
-                  });
-                  return elements;
-                })()}
-              </svg>
-              {/* Center text */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[18px] font-bold">סה&apos;&apos;כ הוצאות</span>
-                <span className="text-[35px] font-bold ltr-num">₪{totalExpenses.toLocaleString()}</span>
-                <span className="text-[18px] font-bold ltr-num">{totalPercentage.toFixed(2)}%</span>
-              </div>
+            /* Interactive Donut Chart */
+            <div className="relative w-full h-[350px]">
+              <ResponsiveContainer width="100%" height={350}>
+                <PieChart>
+                  <Pie
+                    data={rechartsExpenseData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={85}
+                    outerRadius={130}
+                    dataKey="amount"
+                    stroke="none"
+                    animationBegin={0}
+                    animationDuration={800}
+                    animationEasing="ease-out"
+                    shape={renderDonutShape}
+                    onMouseEnter={(_, index) => setActiveExpenseIndex(index)}
+                    onMouseLeave={() => setActiveExpenseIndex(undefined)}
+                  >
+                    {rechartsExpenseData.map((entry) => (
+                      <Cell key={entry.id} fill={entry.fill} style={{ cursor: "pointer", outline: "none" }} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Center text - shown when no segment is hovered */}
+              {activeExpenseIndex === undefined && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[18px] font-bold">סה&apos;&apos;כ הוצאות</span>
+                  <span className="text-[35px] font-bold ltr-num">₪{totalExpenses.toLocaleString()}</span>
+                  <span className="text-[18px] font-bold ltr-num">{totalPercentage.toFixed(2)}%</span>
+                </div>
+              )}
             </div>
           )}
         </div>
