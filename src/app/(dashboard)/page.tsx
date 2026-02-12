@@ -2893,7 +2893,7 @@ export default function DashboardPage() {
                       <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
-                        tick={{ fill: '#7B91B0', fontSize: 11 }}
+                        tick={{ fill: '#ffffff', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                       />
@@ -2901,7 +2901,7 @@ export default function DashboardPage() {
                         yAxisId="left"
                         orientation="right"
                         width={40}
-                        tick={{ fill: '#7B91B0', fontSize: 10 }}
+                        tick={{ fill: '#ffffff', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(value) => `${value/1000}k`}
@@ -2910,7 +2910,7 @@ export default function DashboardPage() {
                         yAxisId="right"
                         orientation="left"
                         width={35}
-                        tick={{ fill: '#7B91B0', fontSize: 10 }}
+                        tick={{ fill: '#ffffff', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                         domain={[0, 100]}
@@ -3029,14 +3029,14 @@ export default function DashboardPage() {
                       <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
-                        tick={{ fill: '#7B91B0', fontSize: 11 }}
+                        tick={{ fill: '#ffffff', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <LazyYAxis
                         orientation="right"
                         width={40}
-                        tick={{ fill: '#7B91B0', fontSize: 10 }}
+                        tick={{ fill: '#ffffff', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(value) => `₪${value}`}
@@ -3137,14 +3137,14 @@ export default function DashboardPage() {
                       <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
-                        tick={{ fill: '#7B91B0', fontSize: 11 }}
+                        tick={{ fill: '#ffffff', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <LazyYAxis
                         orientation="right"
                         width={45}
-                        tick={{ fill: '#7B91B0', fontSize: 10 }}
+                        tick={{ fill: '#ffffff', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(value) => value >= 1000 ? `₪${(value/1000).toFixed(0)}k` : `₪${value}`}
@@ -3225,14 +3225,14 @@ export default function DashboardPage() {
                       <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
-                        tick={{ fill: '#7B91B0', fontSize: 11 }}
+                        tick={{ fill: '#ffffff', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <LazyYAxis
                         orientation="right"
                         width={35}
-                        tick={{ fill: '#7B91B0', fontSize: 10 }}
+                        tick={{ fill: '#ffffff', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                         domain={[0, 100]}
@@ -3347,14 +3347,14 @@ export default function DashboardPage() {
                       <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
-                        tick={{ fill: '#7B91B0', fontSize: 11 }}
+                        tick={{ fill: '#ffffff', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <LazyYAxis
                         orientation="right"
                         width={45}
-                        tick={{ fill: '#7B91B0', fontSize: 10 }}
+                        tick={{ fill: '#ffffff', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(value) => value >= 1000 ? `₪${(value/1000).toFixed(0)}k` : `₪${value}`}
