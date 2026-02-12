@@ -456,11 +456,11 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
         {/* Details - left side */}
         <div className="flex-1 p-1.5 flex flex-col justify-between min-w-0 text-right">
           {/* Source */}
-          <div className="flex items-center justify-end gap-1">
+          <div className="flex flex-row-reverse items-center justify-start gap-1">
+            <span className="text-[12px] flex-shrink-0">{getSourceIcon(document.source)}</span>
             <span className="text-[10px] text-white/70 font-medium truncate">
               {getSourceLabel(document.source)}
             </span>
-            <span className="text-[12px] flex-shrink-0">{getSourceIcon(document.source)}</span>
           </div>
 
           {/* Sender */}
