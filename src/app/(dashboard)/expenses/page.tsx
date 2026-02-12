@@ -274,7 +274,8 @@ export default function ExpensesPage() {
       return [];
     }
 
-    const installmentAmount = totalAmount / numInstallments;
+    const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
+    const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
     const startDate = startDateStr ? new Date(startDateStr) : new Date();
 
     const result = [];
@@ -286,11 +287,19 @@ export default function ExpensesPage() {
         number: i + 1,
         date: date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
         dateForInput: date.toISOString().split("T")[0],
-        amount: installmentAmount,
+        amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
       });
     }
 
     return result;
+  };
+
+  // Get the effective start date for new installments in popup
+  const getPopupEffectiveStartDate = () => {
+    if (popupPaymentMethods.length > 0 && popupPaymentMethods[0].customInstallments.length > 0) {
+      return popupPaymentMethods[0].customInstallments[0].dateForInput;
+    }
+    return paymentDate;
   };
 
   // Add new payment method entry to popup
@@ -316,11 +325,31 @@ export default function ExpensesPage() {
 
       const updated = { ...p, [field]: value };
 
-      // Regenerate installments when amount or installments count changes
-      if (field === "amount" || field === "installments") {
-        const numInstallments = parseInt(field === "installments" ? value : p.installments) || 1;
-        const totalAmount = parseFloat((field === "amount" ? value : p.amount).replace(/[^\d.]/g, "")) || 0;
-        updated.customInstallments = generatePopupInstallments(numInstallments, totalAmount, paymentDate);
+      // Regenerate installments when installments count changes
+      if (field === "installments") {
+        const numInstallments = parseInt(value) || 1;
+        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+        const startDate = p.customInstallments.length > 0 ? p.customInstallments[0].dateForInput : getPopupEffectiveStartDate();
+        updated.customInstallments = generatePopupInstallments(numInstallments, totalAmount, startDate);
+      }
+
+      // When amount changes, recalculate installment amounts but keep dates
+      if (field === "amount") {
+        const numInstallments = parseInt(p.installments) || 1;
+        const totalAmount = parseFloat(value.replace(/[^\d.]/g, "")) || 0;
+        if (p.customInstallments.length > 0 && totalAmount > 0) {
+          const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
+          const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
+          updated.customInstallments = p.customInstallments.map((inst, idx) => ({
+            ...inst,
+            amount: idx === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
+          }));
+        } else if (totalAmount > 0 && numInstallments > 1) {
+          const startDate = getPopupEffectiveStartDate();
+          updated.customInstallments = generatePopupInstallments(numInstallments, totalAmount, startDate);
+        } else {
+          updated.customInstallments = [];
+        }
       }
 
       return updated;
@@ -352,26 +381,25 @@ export default function ExpensesPage() {
       const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
       const updatedInstallments = [...p.customInstallments];
       if (updatedInstallments[installmentIndex]) {
-        const cappedAmount = Math.min(amount, totalAmount);
+        const cappedAmount = Math.min(Math.round(amount * 100) / 100, totalAmount);
         updatedInstallments[installmentIndex] = {
           ...updatedInstallments[installmentIndex],
           amount: cappedAmount,
         };
-        const remaining = totalAmount - cappedAmount;
-        const otherCount = updatedInstallments.length - 1;
-        if (otherCount > 0) {
-          const perOther = Math.floor((remaining / otherCount) * 100) / 100;
+        const remaining = Math.round((totalAmount - cappedAmount) * 100) / 100;
+        const otherIndices = updatedInstallments.map((_, idx) => idx).filter(idx => idx !== installmentIndex);
+        if (otherIndices.length > 0) {
+          const perOther = Math.floor((remaining / otherIndices.length) * 100) / 100;
           let distributed = 0;
-          updatedInstallments.forEach((inst, idx) => {
-            if (idx !== installmentIndex) {
-              if (idx === updatedInstallments.findLastIndex((_, i) => i !== installmentIndex)) {
-                updatedInstallments[idx] = { ...inst, amount: Math.round((remaining - distributed) * 100) / 100 };
-              } else {
-                updatedInstallments[idx] = { ...inst, amount: perOther };
-                distributed += perOther;
-              }
+          for (let i = 0; i < otherIndices.length; i++) {
+            const idx = otherIndices[i];
+            if (i === otherIndices.length - 1) {
+              updatedInstallments[idx] = { ...updatedInstallments[idx], amount: Math.round((remaining - distributed) * 100) / 100 };
+            } else {
+              updatedInstallments[idx] = { ...updatedInstallments[idx], amount: perOther };
+              distributed += perOther;
             }
-          });
+          }
         }
       }
       return { ...p, customInstallments: updatedInstallments };
@@ -2635,13 +2663,14 @@ export default function ExpensesPage() {
                               <input
                                 type="text"
                                 inputMode="decimal"
-                                value={pm.amount ? `₪${parseFloat(pm.amount.replace(/[^\d.]/g, "") || "0").toLocaleString("he-IL")}` : ""}
+                                value={pm.amount}
+                                onFocus={(e) => e.target.select()}
                                 onChange={(e) => {
-                                  const rawValue = e.target.value.replace(/[^\d.]/g, "");
-                                  updatePopupPaymentMethodField(pm.id, "amount", rawValue);
+                                  const val = e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+                                  updatePopupPaymentMethodField(pm.id, "amount", val);
                                 }}
-                                placeholder="₪0.00 סכום"
-                                className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
+                                placeholder="סכום"
+                                className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px] ltr-num"
                               />
                             </div>
 
@@ -2685,7 +2714,7 @@ export default function ExpensesPage() {
                                     {pm.customInstallments.map((item, index) => (
                                       <div key={item.number} className="flex items-center gap-[8px]">
                                         <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
-                                        <div className="flex-1 h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] relative flex items-center justify-center">
+                                        <div className="flex-1 relative">
                                           <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num">
                                             {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
                                           </span>
@@ -2694,7 +2723,7 @@ export default function ExpensesPage() {
                                             title={`תאריך תשלום ${item.number}`}
                                             value={item.dateForInput}
                                             onChange={(e) => handlePopupInstallmentDateChange(pm.id, index, e.target.value)}
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                            className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] opacity-0 cursor-pointer"
                                           />
                                         </div>
                                         <div className="flex-1 relative">
@@ -2702,7 +2731,8 @@ export default function ExpensesPage() {
                                             type="text"
                                             inputMode="decimal"
                                             title={`סכום תשלום ${item.number}`}
-                                            value={item.amount.toFixed(2)}
+                                            value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
+                                            onFocus={(e) => e.target.select()}
                                             onChange={(e) => handlePopupInstallmentAmountChange(pm.id, index, e.target.value)}
                                             className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                                           />
@@ -3278,14 +3308,14 @@ export default function ExpensesPage() {
                       <input
                         type="text"
                         inputMode="decimal"
-                        value={pm.amount ? `₪${parseFloat(pm.amount.replace(/[^\d.]/g, "") || "0").toLocaleString("he-IL")}` : ""}
+                        value={pm.amount}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => {
-                          // Remove formatting and keep only numbers
-                          const rawValue = e.target.value.replace(/[^\d.]/g, "");
-                          updatePopupPaymentMethodField(pm.id, "amount", rawValue);
+                          const val = e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+                          updatePopupPaymentMethodField(pm.id, "amount", val);
                         }}
-                        placeholder="₪0 סכום"
-                        className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
+                        placeholder="סכום"
+                        className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px] ltr-num"
                       />
                     </div>
 
@@ -3331,19 +3361,25 @@ export default function ExpensesPage() {
                             {pm.customInstallments.map((item, index) => (
                               <div key={item.number} className="flex items-center gap-[8px]">
                                 <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
-                                <input
-                                  type="date"
-                                  title={`תאריך תשלום ${item.number}`}
-                                  value={item.dateForInput}
-                                  onChange={(e) => handlePopupInstallmentDateChange(pm.id, index, e.target.value)}
-                                  className="flex-1 h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px]"
-                                />
+                                <div className="flex-1 relative">
+                                  <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num">
+                                    {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
+                                  </span>
+                                  <input
+                                    type="date"
+                                    title={`תאריך תשלום ${item.number}`}
+                                    value={item.dateForInput}
+                                    onChange={(e) => handlePopupInstallmentDateChange(pm.id, index, e.target.value)}
+                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] opacity-0 cursor-pointer"
+                                  />
+                                </div>
                                 <div className="flex-1 relative">
                                   <input
                                     type="text"
                                     inputMode="decimal"
                                     title={`סכום תשלום ${item.number}`}
-                                    value={item.amount.toFixed(2)}
+                                    value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
+                                    onFocus={(e) => e.target.select()}
                                     onChange={(e) => handlePopupInstallmentAmountChange(pm.id, index, e.target.value)}
                                     className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                                   />
