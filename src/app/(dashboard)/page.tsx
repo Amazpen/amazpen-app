@@ -2831,7 +2831,7 @@ export default function DashboardPage() {
                   <div className="h-[22px] w-[80px] rounded-[6px] bg-white/10 animate-pulse" />
                   <div className="h-[28px] w-[70px] rounded-[5px] bg-white/10 animate-pulse" />
                 </div>
-                <div className="h-[220px] w-full flex items-end justify-around gap-2 px-4 pb-8">
+                <div className="h-[280px] w-full flex items-end justify-around gap-2 px-4 pb-8">
                   {/* Skeleton bars */}
                   <div className="flex gap-1">
                     <div className="w-[16px] rounded-t-[4px] bg-white/10 animate-pulse skeleton-bar-h-65" />
@@ -2877,7 +2877,7 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
+                <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
                     <LazyComposedChart data={trendsChartData} barGap={4} margin={{ top: 5, right: 45, left: 40, bottom: 5 }}>
                       <defs>
@@ -2890,16 +2890,17 @@ export default function DashboardPage() {
                           <stop offset="95%" stopColor="#0095FF" stopOpacity={0.3}/>
                         </linearGradient>
                       </defs>
+                      <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
-                        tick={{ fill: '#7B91B0', fontSize: 9 }}
+                        tick={{ fill: '#7B91B0', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <LazyYAxis
                         yAxisId="left"
                         orientation="right"
-                        tick={{ fill: '#7B91B0', fontSize: 8 }}
+                        tick={{ fill: '#7B91B0', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(value) => `${value/1000}k`}
@@ -2907,7 +2908,7 @@ export default function DashboardPage() {
                       <LazyYAxis
                         yAxisId="right"
                         orientation="left"
-                        tick={{ fill: '#7B91B0', fontSize: 8 }}
+                        tick={{ fill: '#7B91B0', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                         domain={[0, 100]}
@@ -2967,7 +2968,7 @@ export default function DashboardPage() {
                   <div className="h-[22px] w-[100px] rounded-[6px] bg-white/10 animate-pulse" />
                   <div className="h-[28px] w-[70px] rounded-[5px] bg-white/10 animate-pulse" />
                 </div>
-                <div className="h-[220px] w-full flex items-end justify-around gap-3 px-4 pb-8">
+                <div className="h-[280px] w-full flex items-end justify-around gap-3 px-4 pb-8">
                   {/* Skeleton bars - 2 per group for income sources */}
                   <div className="flex gap-[2px]">
                     <div className="w-[12px] rounded-t-[4px] bg-[#FFA800]/20 animate-pulse skeleton-bar-h-70" />
@@ -3020,18 +3021,19 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
+                <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
                     <LazyBarChart data={orderAvgChartData} barGap={2} margin={{ top: 5, right: 45, left: 5, bottom: 5 }}>
+                      <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
-                        tick={{ fill: '#7B91B0', fontSize: 9 }}
+                        tick={{ fill: '#7B91B0', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <LazyYAxis
                         orientation="right"
-                        tick={{ fill: '#7B91B0', fontSize: 8 }}
+                        tick={{ fill: '#7B91B0', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(value) => `₪${value}`}
@@ -3076,7 +3078,7 @@ export default function DashboardPage() {
                   <div className="h-[22px] w-[120px] rounded-[6px] bg-white/10 animate-pulse" />
                   <div className="h-[28px] w-[70px] rounded-[5px] bg-white/10 animate-pulse" />
                 </div>
-                <div className="h-[220px] w-full flex items-end justify-around gap-4 px-4 pb-8">
+                <div className="h-[280px] w-full flex items-end justify-around gap-4 px-4 pb-8">
                   {/* Skeleton bars - 2 per group */}
                   <div className="flex gap-1">
                     <div className="w-[16px] rounded-t-[4px] bg-[#0095FF]/20 animate-pulse skeleton-bar-h-60" />
@@ -3126,18 +3128,19 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
+                <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
                     <LazyBarChart data={foodCostChartData} barGap={4} margin={{ top: 5, right: 45, left: 5, bottom: 5 }}>
+                      <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
-                        tick={{ fill: '#7B91B0', fontSize: 9 }}
+                        tick={{ fill: '#7B91B0', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <LazyYAxis
                         orientation="right"
-                        tick={{ fill: '#7B91B0', fontSize: 8 }}
+                        tick={{ fill: '#7B91B0', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(value) => value >= 1000 ? `₪${(value/1000).toFixed(0)}k` : `₪${value}`}
@@ -3167,7 +3170,7 @@ export default function DashboardPage() {
                   <div className="h-[22px] w-[90px] rounded-[6px] bg-white/10 animate-pulse" />
                   <div className="h-[28px] w-[70px] rounded-[5px] bg-white/10 animate-pulse" />
                 </div>
-                <div className="h-[220px] w-full relative px-4 pb-8">
+                <div className="h-[280px] w-full relative px-4 pb-8">
                   {/* Skeleton area chart waves */}
                   <div className="absolute inset-0 flex items-end">
                     <svg className="w-full h-[180px]" viewBox="0 0 300 180" preserveAspectRatio="none">
@@ -3202,7 +3205,7 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
+                <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
                     <LazyAreaChart data={laborCostChartData} margin={{ top: 5, right: 40, left: 5, bottom: 5 }}>
                       <defs>
@@ -3215,15 +3218,16 @@ export default function DashboardPage() {
                           <stop offset="95%" stopColor="#0095FF" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
+                      <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
-                        tick={{ fill: '#7B91B0', fontSize: 9 }}
+                        tick={{ fill: '#7B91B0', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <LazyYAxis
                         orientation="right"
-                        tick={{ fill: '#7B91B0', fontSize: 8 }}
+                        tick={{ fill: '#7B91B0', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                         domain={[0, 100]}
@@ -3280,7 +3284,7 @@ export default function DashboardPage() {
                   <div className="h-[22px] w-[80px] rounded-[6px] bg-white/10 animate-pulse" />
                   <div className="h-[28px] w-[70px] rounded-[5px] bg-white/10 animate-pulse" />
                 </div>
-                <div className="h-[220px] w-full flex items-end justify-around gap-4 px-4 pb-8">
+                <div className="h-[280px] w-full flex items-end justify-around gap-4 px-4 pb-8">
                   {/* Skeleton bars - 2 per group */}
                   <div className="flex gap-1">
                     <div className="w-[16px] rounded-t-[4px] bg-[#0095FF]/20 animate-pulse skeleton-bar-h-55" />
@@ -3332,18 +3336,19 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
+                <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
                     <LazyBarChart data={managedProductChartData} barGap={4} margin={{ top: 5, right: 45, left: 5, bottom: 5 }}>
+                      <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
-                        tick={{ fill: '#7B91B0', fontSize: 9 }}
+                        tick={{ fill: '#7B91B0', fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <LazyYAxis
                         orientation="right"
-                        tick={{ fill: '#7B91B0', fontSize: 8 }}
+                        tick={{ fill: '#7B91B0', fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(value) => value >= 1000 ? `₪${(value/1000).toFixed(0)}k` : `₪${value}`}
