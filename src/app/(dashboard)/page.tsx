@@ -2873,7 +2873,7 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full" dir="ltr">
+                <div className="h-[220px] w-full bg-[#0f1535] rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
                     <LazyComposedChart data={trendsChartData} barGap={4}>
                       <defs>
@@ -3016,7 +3016,7 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full" dir="ltr">
+                <div className="h-[220px] w-full bg-[#0f1535] rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
                     <LazyBarChart data={orderAvgChartData} barGap={2}>
                       <LazyXAxis
@@ -3122,7 +3122,7 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full" dir="ltr">
+                <div className="h-[220px] w-full bg-[#0f1535] rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
                     <LazyBarChart data={foodCostChartData} barGap={4}>
                       <LazyXAxis
@@ -3198,7 +3198,7 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full" dir="ltr">
+                <div className="h-[220px] w-full bg-[#0f1535] rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
                     <LazyAreaChart data={laborCostChartData}>
                       <defs>
@@ -3328,7 +3328,7 @@ export default function DashboardPage() {
                     <option>החודש</option>
                   </select>
                 </div>
-                <div className="h-[220px] w-full" dir="ltr">
+                <div className="h-[220px] w-full bg-[#0f1535] rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
                     <LazyBarChart data={managedProductChartData} barGap={4}>
                       <LazyXAxis
