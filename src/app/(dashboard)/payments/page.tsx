@@ -1141,7 +1141,8 @@ export default function PaymentsPage() {
               <button
                 key={method.id}
                 type="button"
-                className={`flex items-center justify-between gap-[10px] p-[5px] min-h-[50px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] ${
+                onClick={() => setSelectedMethodPopup(method)}
+                className={`flex items-center justify-between gap-[10px] p-[5px] min-h-[50px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] cursor-pointer ${
                   index > 0 ? "border-t border-white/10" : ""
                 }`}
               >
@@ -1157,6 +1158,63 @@ export default function PaymentsPage() {
             ))}
           </div>
         </div>
+        )}
+
+        {/* Payment Method Supplier Breakdown Popup */}
+        {selectedMethodPopup && (
+          <div className="fixed inset-0 z-[2000] flex items-center justify-center p-[10px]" onClick={() => setSelectedMethodPopup(null)}>
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/50" />
+            {/* Popup */}
+            <div
+              className="relative bg-[#0f1535] rounded-[10px] p-[10px] w-full max-w-[350px] min-h-[300px] max-h-[500px] overflow-y-auto z-[2002]"
+              style={{ boxShadow: "rgba(0, 0, 0, 0.2) 0px 0px 20px 0px" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close button */}
+              <button
+                type="button"
+                onClick={() => setSelectedMethodPopup(null)}
+                className="opacity-50 hover:opacity-100 transition-opacity mb-[10px]"
+              >
+                <X size={24} className="text-white" />
+              </button>
+
+              {/* Header - method name and total */}
+              <div className="flex items-center justify-between mx-[10px] mb-[15px]">
+                <div className="flex flex-col items-center">
+                  <span className="text-[25px] font-semibold text-white text-center ltr-num">
+                    ₪{selectedMethodPopup.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-[14px] text-white text-center">כולל מע&apos;מ</span>
+                </div>
+                <span className="text-[25px] font-semibold text-white text-center">{selectedMethodPopup.name}</span>
+              </div>
+
+              {/* Table header */}
+              <div className="flex items-center justify-between min-h-[40px] border-b border-white/20 px-[5px]">
+                <span className="text-[16px] font-medium text-white w-[85px] text-center">סכום התשלום</span>
+                <span className="text-[16px] font-medium text-white flex-1 text-right">שם ספק</span>
+              </div>
+
+              {/* Supplier rows */}
+              <div className="flex flex-col">
+                {(methodSupplierBreakdown[selectedMethodPopup.id] || []).map((entry, idx) => (
+                  <div
+                    key={entry.supplierName}
+                    className={`flex items-center justify-between min-h-[40px] px-[5px] pt-[10px] ${
+                      idx > 0 ? "border-t border-white/20" : ""
+                    }`}
+                  >
+                    <span className="text-[14px] font-bold text-white w-[85px] text-center ltr-num">
+                      ₪{entry.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-[14px] font-bold text-white flex-1 text-right">{entry.supplierName}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Action Buttons - only show when there's data */}
