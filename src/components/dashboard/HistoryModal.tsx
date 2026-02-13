@@ -779,7 +779,7 @@ export function HistoryModal({
       >
         <VisuallyHidden.Root><SheetTitle>נתוני עבר - {cardTitle}</SheetTitle></VisuallyHidden.Root>
         {/* Header */}
-        <div className="flex flex-row-reverse justify-between items-center w-full px-[15px] pt-[15px] pb-[10px]">
+        <div className="flex justify-between items-center w-full px-[15px] pt-[15px] pb-[10px]">
           <button
             type="button"
             onClick={onClose}
