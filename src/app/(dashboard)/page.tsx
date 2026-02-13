@@ -545,7 +545,7 @@ export default function DashboardPage() {
         : '';
       const subject = `סיכום יומי ליום ${dayName} ${dateStr}${businessName ? ' | ' + businessName : ''} - המצפן`;
 
-      const response = await fetch('https://n8n.brainboxai.io/webhook/daily-push-email', {
+      const response = await fetch('/api/daily-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to: 'netn114@gmail.com', subject, html: fullHtml }),
