@@ -1,10 +1,20 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronDown, ArrowRight } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
+
+// Dynamic imports for Recharts (no SSR)
+const LazyAreaChart = dynamic(() => import("recharts").then((mod) => ({ default: mod.AreaChart })), { ssr: false });
+const LazyArea = dynamic(() => import("recharts").then((mod) => ({ default: mod.Area })), { ssr: false });
+const LazyXAxis = dynamic(() => import("recharts").then((mod) => ({ default: mod.XAxis })), { ssr: false });
+const LazyYAxis = dynamic(() => import("recharts").then((mod) => ({ default: mod.YAxis })), { ssr: false });
+const LazyCartesianGrid = dynamic(() => import("recharts").then((mod) => ({ default: mod.CartesianGrid })), { ssr: false });
+const LazyTooltip = dynamic(() => import("recharts").then((mod) => ({ default: mod.Tooltip })), { ssr: false });
+const LazyResponsiveContainer = dynamic(() => import("recharts").then((mod) => ({ default: mod.ResponsiveContainer })), { ssr: false });
 
 const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 
@@ -33,6 +43,43 @@ const formatPercent = (value: number) => {
   }
   return `${value.toFixed(2)}%`;
 };
+
+// Format currency abbreviated for chart axis (e.g. 500K, 1.2M)
+const formatCurrencyAbbrev = (value: number) => {
+  if (value >= 1000000) return `₪${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `₪${(value / 1000).toFixed(0)}K`;
+  return `₪${value}`;
+};
+
+// Safe chart container with ResizeObserver
+function SafeChartContainer({ children, height = 250 }: { children: React.ReactNode; height?: number }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height: h } = entry.contentRect;
+        if (width > 0 && h > 0) {
+          setDimensions({ width, height: h });
+        }
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} className="w-full" style={{ height }}>
+      {dimensions && dimensions.width > 0 && dimensions.height > 0 ? (
+        <LazyResponsiveContainer width={dimensions.width} height={dimensions.height}>
+          {children}
+        </LazyResponsiveContainer>
+      ) : null}
+    </div>
+  );
+}
 
 interface MonthData {
   month: number;
@@ -849,6 +896,74 @@ export function HistoryModal({
             )}
           </div>
         </div>
+
+        {/* Area Chart */}
+        {!isLoading && monthlyData.length > 0 && (
+          <div className="px-[5px] pb-[25px]">
+            <div className="rounded-[20px] p-[15px_10px_10px] overflow-hidden" style={{ backgroundColor: 'rgb(41, 49, 138)' }}>
+              <h3 className="text-white text-[16px] font-semibold text-center mb-[10px]">
+                {cardTitle} - מגמה חודשית
+              </h3>
+              <div dir="ltr">
+                <SafeChartContainer height={250}>
+                  <LazyAreaChart
+                    data={monthlyData.map(row => ({
+                      name: row.monthName,
+                      value: isCostCard ? (row.valuePct ?? 0) : row.value,
+                    }))}
+                    margin={{ top: 5, right: 15, left: 5, bottom: 5 }}
+                  >
+                    <defs>
+                      <linearGradient id="historyGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#00E096" stopOpacity={0.4} />
+                        <stop offset="95%" stopColor="#00E096" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
+                    <LazyXAxis
+                      dataKey="name"
+                      tick={{ fill: '#7B91B0', fontSize: 12 }}
+                      axisLine={{ stroke: '#7B91B0', strokeOpacity: 0.3 }}
+                      tickLine={false}
+                    />
+                    <LazyYAxis
+                      tick={{ fill: '#7B91B0', fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v: number) => isCostCard ? `${v.toFixed(1)}%` : formatCurrencyAbbrev(v)}
+                      width={60}
+                    />
+                    <LazyTooltip
+                      contentStyle={{
+                        backgroundColor: '#0f1535',
+                        border: '1px solid #4C526B',
+                        borderRadius: '8px',
+                        color: '#fff',
+                        fontSize: '13px',
+                        direction: 'rtl',
+                      }}
+                      formatter={(value: unknown) => {
+                        const v = Number(value) || 0;
+                        return [isCostCard ? `${v.toFixed(2)}%` : formatCurrencyFull(v), cardTitle];
+                      }}
+                      labelStyle={{ color: '#7B91B0' }}
+                    />
+                    <LazyArea
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#00E096"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#historyGradient)"
+                      dot={{ fill: '#00E096', strokeWidth: 2, r: 4 }}
+                      activeDot={{ fill: '#00E096', strokeWidth: 2, r: 6 }}
+                    />
+                  </LazyAreaChart>
+                </SafeChartContainer>
+              </div>
+            </div>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );
