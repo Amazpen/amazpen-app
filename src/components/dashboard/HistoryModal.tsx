@@ -783,96 +783,69 @@ export function HistoryModal({
         </div>
 
         {/* Table */}
-        <div className="px-[10px] pb-[25px]">
-          <div className="rounded-[20px] p-[10px_10px_25px] overflow-hidden" style={{ backgroundColor: 'rgb(41, 49, 138)' }}>
+        <div className="px-[5px] pb-[25px]">
+          <div className="rounded-[20px] p-[5px_5px_25px] overflow-hidden" style={{ backgroundColor: 'rgb(41, 49, 138)' }}>
             {isLoading ? (
               <div className="flex items-center justify-center py-[60px]">
                 <div className="text-white/50 text-[16px] animate-pulse">טוען נתונים...</div>
               </div>
             ) : (
-              <div className="flex flex-row-reverse gap-[3px] w-full">
-                {/* Column: שינוי משנה שעברה % */}
-                <div className="flex-1 flex flex-col gap-[5px]">
-                  <div className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] min-h-[50px] flex items-end justify-center">
-                    שינוי משנה שעברה<br/>%
-                  </div>
-                  <div className="border border-white rounded-[10px] p-[5px] flex flex-col gap-[10px]">
-                    {monthlyData.map(row => (
-                      <div key={`yoy-${row.month}`} className="flex items-center justify-center min-h-[21px]">
-                        <span className={`text-[13px] lg:text-[15px] font-normal text-center leading-[1.4] ltr-num ${getYoyColor(row.yoyChangePct)}`}>
-                          {row.value === 0 && (row.valuePct === null || row.valuePct === 0) ? '0%' : formatPercentWithSign(row.yoyChangePct)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Column: הפרש מהיעד % */}
-                <div className="flex-1 flex flex-col gap-[5px]">
-                  <div className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] min-h-[50px] flex items-end justify-center">
-                    הפרש מהיעד<br/>%
-                  </div>
-                  <div className="border border-white rounded-[10px] p-[5px] flex flex-col gap-[10px]">
-                    {monthlyData.map(row => (
-                      <div key={`diff-${row.month}`} className="flex items-center justify-center min-h-[21px]">
-                        <span className={`text-[13px] lg:text-[15px] font-normal text-center leading-[1.4] ltr-num ${getDiffColor(row.targetDiffPct)}`}>
-                          {row.value === 0 && (row.valuePct === null || row.valuePct === 0) ? '0%' : formatPercentWithSign(row.targetDiffPct)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Column: Value % (for cost cards) */}
-                {isCostCard && (
-                  <div className="flex-1 flex flex-col gap-[5px]">
-                    <div className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] min-h-[50px] flex items-end justify-center whitespace-pre-line">
-                      {cardTitle}{"\n"}(%)
-                    </div>
-                    <div className="border border-white rounded-[10px] p-[5px] flex flex-col gap-[10px]">
-                      {monthlyData.map(row => (
-                        <div key={`pct-${row.month}`} className="flex items-center justify-center min-h-[21px]">
-                          <span className={`text-[13px] lg:text-[15px] font-normal text-center leading-[1.4] ltr-num ${getValueColor(row)}`}>
-                            {row.valuePct !== null ? formatPercent(row.valuePct) : '0%'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Column: Value ₪ */}
-                <div className="flex-1 flex flex-col gap-[5px]">
-                  <div className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] min-h-[50px] flex items-end justify-center whitespace-pre-line">
-                    {cardTitle}{"\n"}(₪)
-                  </div>
-                  <div className="border border-white rounded-[10px] p-[5px] flex flex-col gap-[10px]">
-                    {monthlyData.map(row => (
-                      <div key={`val-${row.month}`} className="flex items-center justify-center min-h-[21px]">
-                        <span className={`text-[13px] lg:text-[15px] font-normal text-center leading-[1.4] ltr-num ${getValueColor(row)}`}>
-                          {formatCurrencyFull(row.value)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Column: חודש */}
-                <div className="flex flex-col gap-[5px]" style={{ minWidth: '55px' }}>
-                  <div className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] min-h-[50px] flex items-end justify-center">
-                    חודש
-                  </div>
-                  <div className="border border-white rounded-[10px] p-[5px] flex flex-col gap-[10px]">
-                    {monthlyData.map(row => (
-                      <div key={`month-${row.month}`} className="flex items-center justify-center min-h-[21px]">
-                        <span className="text-white text-[13px] lg:text-[15px] font-normal text-center leading-[1.4]">
+              <table className="w-full border-separate" style={{ borderSpacing: '3px 0' }} dir="rtl">
+                <thead>
+                  <tr>
+                    <th className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom min-w-[55px]">
+                      חודש
+                    </th>
+                    <th className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom whitespace-pre-line">
+                      {cardTitle}{"\n"}(₪)
+                    </th>
+                    {isCostCard && (
+                      <th className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom whitespace-pre-line">
+                        {cardTitle}{"\n"}(%)
+                      </th>
+                    )}
+                    <th className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
+                      הפרש מהיעד<br/>%
+                    </th>
+                    <th className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
+                      שינוי משנה שעברה<br/>%
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthlyData.map((row, idx) => (
+                    <tr key={row.month}>
+                      <td className={`text-center p-[5px] ${idx === 0 ? 'border border-white rounded-tr-[10px]' : idx === 11 ? 'border border-white rounded-br-[10px]' : 'border-x border-white'}`}>
+                        <span className="text-white text-[13px] lg:text-[15px] font-normal leading-[1.4]">
                           {row.monthName}
                         </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+                      </td>
+                      <td className={`text-center p-[5px] ${idx === 0 ? 'border border-white rounded-tr-[10px] rounded-tl-[10px]' : idx === 11 ? 'border border-white rounded-br-[10px] rounded-bl-[10px]' : 'border-x border-white'} ${!isCostCard && idx === 0 ? 'rounded-tl-[10px]' : ''} ${!isCostCard && idx === 11 ? 'rounded-bl-[10px]' : ''}`}>
+                        <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getValueColor(row)}`}>
+                          {formatCurrencyFull(row.value)}
+                        </span>
+                      </td>
+                      {isCostCard && (
+                        <td className={`text-center p-[5px] ${idx === 0 ? 'border border-white rounded-tr-[10px] rounded-tl-[10px]' : idx === 11 ? 'border border-white rounded-br-[10px] rounded-bl-[10px]' : 'border-x border-white'}`}>
+                          <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getValueColor(row)}`}>
+                            {row.valuePct !== null ? formatPercent(row.valuePct) : '0%'}
+                          </span>
+                        </td>
+                      )}
+                      <td className={`text-center p-[5px] ${idx === 0 ? 'border border-white rounded-tr-[10px] rounded-tl-[10px]' : idx === 11 ? 'border border-white rounded-br-[10px] rounded-bl-[10px]' : 'border-x border-white'}`}>
+                        <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getDiffColor(row.targetDiffPct)}`}>
+                          {row.value === 0 && (row.valuePct === null || row.valuePct === 0) ? '0%' : formatPercentWithSign(row.targetDiffPct)}
+                        </span>
+                      </td>
+                      <td className={`text-center p-[5px] ${idx === 0 ? 'border border-white rounded-tl-[10px]' : idx === 11 ? 'border border-white rounded-bl-[10px]' : 'border-x border-white'}`}>
+                        <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getYoyColor(row.yoyChangePct)}`}>
+                          {row.value === 0 && (row.valuePct === null || row.valuePct === 0) ? '0%' : formatPercentWithSign(row.yoyChangePct)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
