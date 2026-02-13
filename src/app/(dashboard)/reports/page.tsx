@@ -506,28 +506,34 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      {/* Bottom Summary Cards */}
-      <section id="onboarding-reports-summary" aria-label="סיכום רווחים" className="flex flex-col gap-[10px]">
-        {/* Operating Profit */}
-        <div className="bg-[#0F1535] rounded-[10px] p-[10px] min-h-[50px] flex flex-row-reverse items-center justify-between">
-          <div className="flex flex-row-reverse items-center gap-[10px]">
-            <span className={`text-[16px] font-bold ltr-num leading-[1.4] ${summary.operatingProfitPct >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+      {/* Total Profit/Loss Summary */}
+      <section aria-label="סיכום רווח והפסד" className="bg-[#0F1535] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px]">
+        <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">סה&quot;כ רווח / הפסד</span>
+        <div className="flex flex-row-reverse items-center gap-[5px] flex-1">
+          <div className="flex flex-col items-center w-[57px]">
+            <span className="text-[14px] font-bold ltr-num leading-[1.4]">{formatCurrency(summary.revenueTarget - summary.expensesTarget)}</span>
+            <span className={`text-[14px] font-semibold ltr-num leading-[1.4] ${summary.revenueTarget > 0 ? "text-[#17DB4E]" : "text-white"}`}>
+              {summary.revenueTarget > 0 ? (((summary.revenueTarget - summary.expensesTarget) / summary.revenueTarget) * 100).toFixed(1) : "0.0"}%
+            </span>
+          </div>
+          <div className="flex flex-col items-center w-[57px]">
+            <span className="text-[14px] font-bold ltr-num leading-[1.4]">{formatCurrency(summary.operatingProfit)}</span>
+            <span className={`text-[14px] font-semibold ltr-num leading-[1.4] ${summary.operatingProfitPct >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
               {summary.operatingProfitPct.toFixed(1)}%
             </span>
-            <span className="text-[18px] font-bold ltr-num leading-[1.4]">₪{summary.operatingProfit.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
           </div>
-          <span className="text-[18px] font-bold leading-[1.4]">רווח תפעולי</span>
-        </div>
-
-        {/* Net Profit */}
-        <div className="bg-[#0F1535] rounded-[10px] p-[10px] min-h-[50px] flex flex-row-reverse items-center justify-between">
-          <div className="flex flex-row-reverse items-center gap-[10px]">
-            <span className={`text-[16px] font-bold ltr-num leading-[1.4] ${summary.netProfitPct >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
-              {summary.netProfitPct.toFixed(1)}%
+          <div className="flex flex-col items-center w-[62px]">
+            <span className={`text-[14px] font-bold ltr-num leading-[1.4] ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+              {formatCurrency(summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget))}
             </span>
-            <span className="text-[18px] font-bold ltr-num leading-[1.4]">₪{summary.netProfit.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
           </div>
-          <span className="text-[18px] font-bold leading-[1.4]">רווח נקי</span>
+          <div className="flex flex-col items-center w-[62px]">
+            <span className={`text-[14px] font-bold ltr-num leading-[1.4] ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+              {(summary.revenueTarget - summary.expensesTarget) !== 0
+                ? (((summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget)) / Math.abs(summary.revenueTarget - summary.expensesTarget)) * 100).toFixed(2)
+                : "0.00"}%
+            </span>
+          </div>
         </div>
       </section>
     </article>
