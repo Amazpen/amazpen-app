@@ -669,7 +669,7 @@ export default function CashFlowPage() {
 
       {/* ============= MAIN TRENDS CHART ============= */}
       {!isLoading && chartData.length > 0 && (
-        <section className="bg-[#0F1535] rounded-[10px] p-[15px]">
+        <section className="bg-[#0F1535] rounded-[10px] p-[8px]">
           <h2 className="text-[18px] font-bold mb-[10px] text-right">מגמות תזרים</h2>
           <div className="w-full" dir="ltr">
             <SafeChartContainer height={280}>

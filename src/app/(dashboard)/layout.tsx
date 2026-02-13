@@ -156,13 +156,12 @@ const PaymentsIcon = ({ active }: { active?: boolean }) => (
   </svg>
 );
 
-// Cash flow icon - arrows in/out
+// Cash flow icon - banknotes/money
 const CashFlowIcon = ({ active }: { active?: boolean }) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={active ? "text-white" : "text-white/70"}>
-    <path d="M12 2v20M12 2l-4 4M12 2l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.5"/>
-    <path d="M5 12H1m0 0l3-3m-3 3l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M19 12h4m0 0l-3-3m3 3l-3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <rect x="2" y="6" width="20" height="12" rx="2" stroke="currentColor" strokeWidth="2"/>
     <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
+    <path d="M2 10h2M20 10h2M2 14h2M20 14h2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
   </svg>
 );
 
