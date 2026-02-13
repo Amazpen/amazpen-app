@@ -2071,7 +2071,7 @@ export default function DashboardPage() {
                   {[...Array(7)].map((_, i) => (
                     <div
                       key={`data-skeleton-${i}`}
-                      className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_0px] min-h-[155px] w-full"
+                      className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full"
                     >
                       <div className="flex flex-row-reverse justify-between items-center w-full">
                         <div className="h-[28px] w-[100px] rounded-[6px] bg-white/10 animate-pulse ml-[9px]" />
@@ -2112,7 +2112,7 @@ export default function DashboardPage() {
               ) : (
                 <>
               {/* סה"כ הכנסות Card */}
-              <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_0px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('totalIncome', 'סה"כ מכירות')}>
+              <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('totalIncome', 'סה"כ מכירות')}>
                 <div className="flex flex-row-reverse justify-between items-center w-full">
                   <span className={`text-[20px] font-bold leading-[1.4] ltr-num ml-[9px] ${(detailedSummary?.totalIncome || 0) === 0 ? 'text-white' : (detailedSummary?.targetDiffPct || 0) < 0 ? 'text-red-500' : (detailedSummary?.targetDiffPct || 0) > 0 ? 'text-green-500' : 'text-white'}`}>
                     {formatCurrencyFull(detailedSummary?.totalIncome || 0)}
@@ -2210,7 +2210,7 @@ export default function DashboardPage() {
                 // Pearla business: Income source 1 (מנות) - same layout, hide avgAmount/diff, show only totalAmount + quantity
                 if (isPearla && index === 0) {
                   return (
-                    <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_0px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('incomeSource', source.name, source.id)}>
+                    <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('incomeSource', source.name, source.id)}>
                       <div className="flex flex-row-reverse justify-between items-center w-full">
                         <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
                           <div className="flex flex-col min-h-[50px] max-h-[50px] hidden">
@@ -2266,7 +2266,7 @@ export default function DashboardPage() {
                 // Pearla business: Income source 2 (הגשה) - custom labels
                 if (isPearla && index === 1) {
                   return (
-                    <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_0px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('incomeSource', source.name, source.id)}>
+                    <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('incomeSource', source.name, source.id)}>
                       <div className="flex flex-row-reverse justify-between items-center w-full">
                         <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
                           <div className="flex flex-col min-h-[50px] max-h-[50px] hidden">
@@ -2322,7 +2322,7 @@ export default function DashboardPage() {
                 // Pearla business: Income source 3 (אקסטרות) - custom labels
                 if (isPearla && index === 2) {
                   return (
-                    <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_0px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('incomeSource', source.name, source.id)}>
+                    <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('incomeSource', source.name, source.id)}>
                       <div className="flex flex-row-reverse justify-between items-center w-full">
                         <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
                           <div className="flex flex-col min-h-[50px] max-h-[50px] hidden">
@@ -2377,7 +2377,7 @@ export default function DashboardPage() {
 
                 // Default layout for all other businesses/sources
                 return (
-                  <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_0px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('incomeSource', source.name, source.id)}>
+                  <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('incomeSource', source.name, source.id)}>
                     <div className="flex flex-row-reverse justify-between items-center w-full">
                       <div className="flex flex-row-reverse items-start gap-[10px] ml-[9px]">
                         <div className="flex flex-col items-center">
@@ -2442,7 +2442,7 @@ export default function DashboardPage() {
 
                 if (isPearla) {
                   return (
-                    <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_0px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('laborCost', 'עלות עובדים')}>
+                    <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('laborCost', 'עלות עובדים')}>
                       <div className="flex flex-row-reverse justify-between items-center w-full gap-[15px]">
                         <div className="flex flex-row items-center gap-[10px] ml-[9px]">
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${laborDiffColor}`}>
@@ -2525,7 +2525,7 @@ export default function DashboardPage() {
                 }
 
                 return (
-                  <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_0px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('laborCost', 'עלות עובדים')}>
+                  <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('laborCost', 'עלות עובדים')}>
                     <div className="flex flex-row-reverse justify-between items-center w-full">
                       <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
                         <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${laborDiffColor}`}>
@@ -2590,7 +2590,7 @@ export default function DashboardPage() {
 
                 if (isPearla) {
                   return (
-                    <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_0px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('foodCost', 'עלות מכר')}>
+                    <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('foodCost', 'עלות מכר')}>
                       <div className="flex flex-row-reverse justify-between items-center w-full">
                         <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${foodDiffColor}`}>
@@ -2645,7 +2645,7 @@ export default function DashboardPage() {
                 }
 
                 return (
-                  <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_0px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('foodCost', 'עלות מכר')}>
+                  <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('foodCost', 'עלות מכר')}>
                     <div className="flex flex-row-reverse justify-between items-center w-full">
                       <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
                         <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${foodDiffColor}`}>
@@ -2714,7 +2714,7 @@ export default function DashboardPage() {
                 const diffColor = noProdData ? 'text-white' : diffPct > 0 ? 'text-red-500' : diffPct < 0 ? 'text-green-500' : 'text-white';
 
                 return (
-                  <div key={product.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_0px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('managedProduct', product.name, product.id)}>
+                  <div key={product.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('managedProduct', product.name, product.id)}>
                     <div className="flex flex-row-reverse justify-between items-center w-full">
                       <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
                         <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${diffColor}`}>
@@ -2776,7 +2776,7 @@ export default function DashboardPage() {
                 const expPrevMonthColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevMonthChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white';
                 const expPrevYearColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevYearChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white';
                 return (
-              <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[15px_0px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('currentExpenses', 'הוצאות שוטפות')}>
+              <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('currentExpenses', 'הוצאות שוטפות')}>
                 <div className="flex flex-row-reverse justify-between items-center w-full">
                   <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
                     <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${expDiffColor}`}>
