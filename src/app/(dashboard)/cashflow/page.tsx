@@ -578,7 +578,7 @@ export default function CashFlowPage() {
                 key={g}
                 type="button"
                 onClick={() => handleGranularityChange(g)}
-                className={`px-[12px] py-[6px] text-[14px] font-bold transition-colors ${
+                className={`px-[12px] py-[8px] text-[14px] font-bold transition-colors ${
                   granularity === g && !drillDownGranularity
                     ? "bg-[#29318A] text-white"
                     : "text-white/70 hover:text-white hover:bg-white/5"
@@ -733,8 +733,8 @@ export default function CashFlowPage() {
                 </div>
                 <div className="flex flex-col gap-[2px] mt-[5px]">
                   {incomeBreakdown.map((src) => (
-                    <div key={src.id} className="flex flex-row-reverse items-center justify-between py-[4px] border-t border-white/10">
-                      <div className="flex flex-row-reverse items-center gap-[5px]">
+                    <div key={src.id} className="flex items-center justify-between py-[4px] border-t border-white/10">
+                      <div className="flex items-center gap-[5px]">
                         <span className="w-[12px] h-[12px] rounded-full flex-shrink-0" style={{ backgroundColor: src.color }} />
                         <span className="text-[13px]">{src.name}</span>
                       </div>
@@ -768,8 +768,8 @@ export default function CashFlowPage() {
                 </div>
                 <div className="flex flex-col gap-[2px] mt-[5px]">
                   {paymentMethodData.map((pm) => (
-                    <div key={pm.id} className="flex flex-row-reverse items-center justify-between py-[4px] border-t border-white/10">
-                      <div className="flex flex-row-reverse items-center gap-[5px]">
+                    <div key={pm.id} className="flex items-center justify-between py-[4px] border-t border-white/10">
+                      <div className="flex items-center gap-[5px]">
                         <span className={`w-[12px] h-[12px] rounded-full flex-shrink-0 ${pm.colorClass}`} />
                         <span className="text-[13px]">{pm.name}</span>
                       </div>
@@ -811,8 +811,8 @@ export default function CashFlowPage() {
             {expenseTypeData.length > 0 && (
               <div className="flex flex-col gap-[2px] mt-[5px]">
                 {expenseTypeData.map((et) => (
-                  <div key={et.type} className="flex flex-row-reverse items-center justify-between py-[4px] border-t border-white/10">
-                    <div className="flex flex-row-reverse items-center gap-[5px]">
+                  <div key={et.type} className="flex items-center justify-between py-[4px] border-t border-white/10">
+                    <div className="flex items-center gap-[5px]">
                       <span className="w-[12px] h-[12px] rounded-full flex-shrink-0" style={{ backgroundColor: et.color }} />
                       <span className="text-[13px]">{et.label}</span>
                     </div>
