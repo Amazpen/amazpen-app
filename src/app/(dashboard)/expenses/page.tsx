@@ -2014,7 +2014,7 @@ export default function ExpensesPage() {
               <div
                 key={invoice.id}
                 className={`bg-transparent rounded-[7px] p-[7px_3px] border transition-colors ${
-                  expandedInvoiceId === invoice.id ? 'border-white' : 'border-transparent'
+                  expandedInvoiceId === invoice.id ? 'border-white' : invoice.status === 'בבירור' ? 'border-[#FFA500]' : 'border-transparent'
                 }`}
               >
                 {/* Main Row */}
