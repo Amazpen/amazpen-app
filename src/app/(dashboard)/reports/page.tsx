@@ -399,7 +399,7 @@ export default function ReportsPage() {
       {/* Expenses Section */}
       <section id="onboarding-reports-categories" aria-label="פירוט הוצאות" className="bg-[#0F1535] rounded-[10px] p-[7px_0_7px_0] min-h-[40px] flex flex-col">
         {/* Header Row */}
-        <div className="flex flex-row-reverse items-center justify-between min-h-[40px] gap-[10px] px-[7px] mb-[15px]">
+        <div className="flex items-center justify-end min-h-[40px] gap-[10px] px-[7px] mb-[15px]">
           <span className="text-[20px] font-bold leading-[1.4]">פירוט ההוצאות</span>
         </div>
 
