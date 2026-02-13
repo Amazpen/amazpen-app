@@ -570,16 +570,8 @@ export default function CashFlowPage() {
       {/* ============= HEADER + CONTROLS ============= */}
       <section className="bg-[#0F1535] rounded-[10px] p-[12px] flex flex-col gap-[10px]">
         {/* Controls Row */}
-        <div className="flex flex-row-reverse items-center justify-between gap-[10px] flex-wrap">
-          {dateRange && (
-            <DateRangePicker
-              dateRange={activeRange || dateRange}
-              onChange={handleDateRangeChange}
-              variant="compact"
-            />
-          )}
-
-          {/* Granularity Toggle */}
+        <div className="flex items-center justify-between gap-[10px] flex-wrap">
+          {/* Granularity Toggle - right side in RTL */}
           <div className="flex items-center border border-[#4C526B] rounded-[7px] overflow-hidden">
             {(["daily", "weekly", "monthly"] as const).map((g) => (
               <button
@@ -596,6 +588,15 @@ export default function CashFlowPage() {
               </button>
             ))}
           </div>
+
+          {/* Date picker - left side in RTL */}
+          {dateRange && (
+            <DateRangePicker
+              dateRange={activeRange || dateRange}
+              onChange={handleDateRangeChange}
+              variant="compact"
+            />
+          )}
         </div>
 
         {/* Drill-down breadcrumb */}
