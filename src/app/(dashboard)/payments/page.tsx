@@ -490,9 +490,23 @@ export default function PaymentsPage() {
           }
           setMethodSupplierBreakdown(breakdown);
 
+          // Fetch ALL payments (no date filter) for the recent payments list
+          const { data: allPaymentsData } = await supabase
+            .from("payments")
+            .select(`
+              *,
+              supplier:suppliers(id, name),
+              payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number),
+              invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url),
+              creator:profiles!payments_created_by_fkey(full_name)
+            `)
+            .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
+            .order("payment_date", { ascending: false });
+
           // Transform recent payments to display format
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const recentDisplay: RecentPaymentDisplay[] = (paymentsData as any[]).map((p) => {
+          const recentDisplay: RecentPaymentDisplay[] = ((allPaymentsData || []) as any[]).map((p) => {
             const firstSplit = p.payment_splits?.[0];
             const installmentInfo = firstSplit?.installments_count && firstSplit?.installment_number
               ? `${firstSplit.installment_number}/${firstSplit.installments_count}`
