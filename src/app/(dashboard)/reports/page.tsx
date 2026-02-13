@@ -544,18 +544,13 @@ export default function ReportsPage() {
       </section>
 
       {/* Total Profit/Loss Summary */}
-      <section aria-label="סיכום רווח והפסד" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px]">
-        <div className="flex flex-row-reverse items-center gap-[5px]">
-          <div className="flex flex-col items-center w-[62px]">
-            <span className={`text-[14px] font-bold ltr-num leading-[1.4] ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
-              {(summary.revenueTarget - summary.expensesTarget) !== 0
-                ? (((summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget)) / Math.abs(summary.revenueTarget - summary.expensesTarget)) * 100).toFixed(2)
-                : "0.00"}%
-            </span>
-          </div>
-          <div className="flex flex-col items-center w-[62px]">
-            <span className={`text-[14px] font-bold ltr-num leading-[1.4] ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
-              {formatCurrency(summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget))}
+      <section aria-label="סיכום רווח והפסד" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex items-center justify-between gap-[5px]" dir="rtl">
+        <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">סה&quot;כ רווח / הפסד</span>
+        <div className="flex items-center gap-[5px]">
+          <div className="flex flex-col items-center w-[57px]">
+            <span className="text-[14px] font-bold ltr-num leading-[1.4]">{formatCurrency(summary.revenueTarget - summary.expensesTarget)}</span>
+            <span className={`text-[14px] font-semibold ltr-num leading-[1.4] ${summary.revenueTarget > 0 ? "text-[#17DB4E]" : "text-white"}`}>
+              {summary.revenueTarget > 0 ? (((summary.revenueTarget - summary.expensesTarget) / summary.revenueTarget) * 100).toFixed(1) : "0.0"}%
             </span>
           </div>
           <div className="flex flex-col items-center w-[57px]">
@@ -564,24 +559,26 @@ export default function ReportsPage() {
               {summary.operatingProfitPct.toFixed(1)}%
             </span>
           </div>
-          <div className="flex flex-col items-center w-[57px]">
-            <span className="text-[14px] font-bold ltr-num leading-[1.4]">{formatCurrency(summary.revenueTarget - summary.expensesTarget)}</span>
-            <span className={`text-[14px] font-semibold ltr-num leading-[1.4] ${summary.revenueTarget > 0 ? "text-[#17DB4E]" : "text-white"}`}>
-              {summary.revenueTarget > 0 ? (((summary.revenueTarget - summary.expensesTarget) / summary.revenueTarget) * 100).toFixed(1) : "0.0"}%
+          <div className="flex flex-col items-center w-[62px]">
+            <span className={`text-[14px] font-bold ltr-num leading-[1.4] ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+              {formatCurrency(summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget))}
+            </span>
+          </div>
+          <div className="flex flex-col items-center w-[62px]">
+            <span className={`text-[14px] font-bold ltr-num leading-[1.4] ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+              {(summary.revenueTarget - summary.expensesTarget) !== 0
+                ? (((summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget)) / Math.abs(summary.revenueTarget - summary.expensesTarget)) * 100).toFixed(2)
+                : "0.00"}%
             </span>
           </div>
         </div>
-        <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">סה&quot;כ רווח / הפסד</span>
       </section>
 
       {/* Prior Liabilities */}
       <section aria-label="התחייבויות קודמות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-col justify-center gap-0">
-        <button
-          type="button"
-          onClick={() => setShowPriorLiabilities(!showPriorLiabilities)}
-          className="flex flex-row-reverse items-center justify-between gap-[5px] min-h-[60px] cursor-pointer hover:opacity-80 transition-opacity"
-        >
-          <div className="flex flex-row-reverse items-center gap-[5px] mr-[120px]">
+        <div className="flex items-center justify-between gap-[5px] min-h-[60px]" dir="rtl">
+          <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">התחייבויות קודמות</span>
+          <div className="flex items-center gap-[5px]">
             <span className={`text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(priorLiabilities)}
             </span>
@@ -589,17 +586,17 @@ export default function ReportsPage() {
               {formatCurrency(priorLiabilities)}
             </span>
           </div>
-          <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">התחייבויות קודמות</span>
-        </button>
+        </div>
       </section>
 
       {/* Cash Flow Forecast */}
-      <section aria-label="צפי תזרים" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px] mb-[25px]">
-        <div className="flex flex-row-reverse items-center gap-[5px]">
+      <section aria-label="צפי תזרים" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex items-center justify-between gap-[5px] mb-[25px]" dir="rtl">
+        <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">צפי תזרים</span>
+        <div className="flex items-center gap-[5px]">
           <div className="flex flex-col items-center w-[70px]">
-            <span className="text-[14px] font-medium leading-[1.4] text-center">הפרש ב-₪</span>
-            <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.actual - cashFlowForecast.target >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
-              {formatCurrency(cashFlowForecast.actual - cashFlowForecast.target)}
+            <span className="text-[14px] font-medium leading-[1.4] text-center">יעד</span>
+            <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.target >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+              {formatCurrency(cashFlowForecast.target)}
             </span>
           </div>
           <div className="flex flex-col items-center w-[70px]">
@@ -609,13 +606,12 @@ export default function ReportsPage() {
             </span>
           </div>
           <div className="flex flex-col items-center w-[70px]">
-            <span className="text-[14px] font-medium leading-[1.4] text-center">יעד</span>
-            <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.target >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
-              {formatCurrency(cashFlowForecast.target)}
+            <span className="text-[14px] font-medium leading-[1.4] text-center">הפרש ב-₪</span>
+            <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.actual - cashFlowForecast.target >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+              {formatCurrency(cashFlowForecast.actual - cashFlowForecast.target)}
             </span>
           </div>
         </div>
-        <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">צפי תזרים</span>
       </section>
     </article>
   );
