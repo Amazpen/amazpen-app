@@ -575,7 +575,8 @@ export default function ReportsPage() {
       </section>
 
       {/* Prior Liabilities */}
-      <section aria-label="התחייבויות קודמות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px]">
+      <section aria-label="התחייבויות קודמות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center gap-[5px]">
+        <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">התחייבויות קודמות</span>
         <div className="flex flex-row-reverse items-center gap-[5px]">
           <span className={`text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
             {formatCurrency(priorLiabilities)}
@@ -584,7 +585,6 @@ export default function ReportsPage() {
             {formatCurrency(priorLiabilities)}
           </span>
         </div>
-        <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">התחייבויות קודמות</span>
       </section>
 
       {/* Cash Flow Forecast */}
