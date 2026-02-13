@@ -2030,7 +2030,7 @@ export default function DashboardPage() {
       {hasSelectedBusinesses && (
         <div className="expanded-section mt-2 space-y-1">
           {/* Action Buttons */}
-            <div id="onboarding-daily-entry" className="flex flex-row justify-between items-center gap-[5px] lg:gap-[15px] mt-[30px]">
+            <div id="onboarding-daily-entry" className="flex flex-row justify-between items-center gap-[5px] lg:gap-[15px]">
               <div className="flex flex-row items-center gap-[5px]">
                 {realBusinessId ? (
                   <DailyEntryForm
