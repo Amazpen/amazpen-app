@@ -98,7 +98,6 @@ export default function ReportsPage() {
     netProfit: 0,
     netProfitPct: 0,
   });
-  const [isLoading, setIsLoading] = useState(true);
   const [priorLiabilities, setPriorLiabilities] = useState(0);
   const [showPriorLiabilities, setShowPriorLiabilities] = useState(false);
   const [cashFlowForecast, setCashFlowForecast] = useState({ target: 0, actual: 0 });
@@ -111,11 +110,9 @@ export default function ReportsPage() {
 
       if (selectedBusinesses.length === 0 || isNaN(year) || isNaN(month)) {
         setExpenseCategories([]);
-        setIsLoading(false);
         return;
       }
 
-      setIsLoading(true);
       const supabase = createClient();
 
       try {
@@ -273,7 +270,6 @@ export default function ReportsPage() {
       } catch (error) {
         console.error("Error fetching reports data:", error);
       } finally {
-        setIsLoading(false);
       }
     };
 
@@ -314,13 +310,6 @@ export default function ReportsPage() {
 
   return (
     <article aria-label="דוח רווח והפסד" className="text-white p-[10px] pb-[80px] flex flex-col gap-[10px]">
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-[40px]">
-          <div className="text-white/70">טוען נתונים...</div>
-        </div>
-      )}
-
       {/* Header Section - Title with Pig Icon */}
       <section aria-labelledby="report-title" className="bg-[#0F1535] rounded-[10px] p-[7px] min-h-[70px] flex items-center justify-start gap-[10px]">
         <div className="flex flex-row-reverse items-center gap-[3px]">
