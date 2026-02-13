@@ -563,19 +563,20 @@ export default function ReportsPage() {
       {/* Cash Flow Forecast */}
       <section aria-label="צפי תזרים" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px] mb-[25px]">
         <div className="flex flex-row-reverse items-center gap-[5px]">
-          <div className="flex flex-col items-center w-[70px]">
+          <span className="w-[60px]" />
+          <div className="flex flex-col items-center w-[62px]">
             <span className="text-[14px] font-medium leading-[1.4] text-center">הפרש ב-₪</span>
             <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.actual - cashFlowForecast.target > 0 ? "text-[#17DB4E]" : cashFlowForecast.actual - cashFlowForecast.target < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(cashFlowForecast.actual - cashFlowForecast.target)}
             </span>
           </div>
-          <div className="flex flex-col items-center w-[70px]">
+          <div className="flex flex-col items-center w-[62px]">
             <span className="text-[14px] font-medium leading-[1.4] text-center">בפועל</span>
             <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.actual > 0 ? "text-[#17DB4E]" : cashFlowForecast.actual < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(cashFlowForecast.actual)}
             </span>
           </div>
-          <div className="flex flex-col items-center w-[70px]">
+          <div className="flex flex-col items-center w-[62px]">
             <span className="text-[14px] font-medium leading-[1.4] text-center">יעד</span>
             <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.target > 0 ? "text-[#17DB4E]" : cashFlowForecast.target < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(cashFlowForecast.target)}
