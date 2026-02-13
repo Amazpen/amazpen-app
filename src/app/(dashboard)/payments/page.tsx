@@ -1857,7 +1857,7 @@ export default function PaymentsPage() {
             </svg>
             <select
               title="סינון לפי"
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer [&>option]:!bg-[#1B2559] [&>option]:!text-white"
             >
               <option value="">בחר/י סינון</option>
               <option value="date">תאריך התשלום</option>
