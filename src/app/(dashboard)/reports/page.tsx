@@ -556,8 +556,8 @@ export default function ReportsPage() {
           <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center text-white hidden">
             {formatCurrency(0)}
           </span>
-          <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">התחייבויות קודמות</span>
         </div>
+        <span className="text-[18px] font-bold text-right leading-[1.4] flex-shrink-0">התחייבויות קודמות</span>
       </section>
 
       {/* Cash Flow Forecast */}
