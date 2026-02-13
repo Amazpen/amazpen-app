@@ -542,22 +542,22 @@ export default function ReportsPage() {
       </section>
 
       {/* Prior Liabilities */}
-      <section aria-label="התחייבויות קודמות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px] overflow-hidden">
-        <div className="flex flex-row-reverse items-center gap-[5px] flex-1">
-          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center invisible">
+      <section aria-label="התחייבויות קודמות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px]">
+        <div className="flex flex-row-reverse items-center gap-[5px]">
+          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[60px] text-center invisible">
             {formatCurrency(priorLiabilities)}
           </span>
-          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center invisible">
+          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[62px] text-center invisible">
             {formatCurrency(priorLiabilities)}
           </span>
-          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center text-white hidden">
-            {formatCurrency(0)}
+          <span className={`text-[15px] font-bold ltr-num leading-[1.4] w-[62px] text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+            {formatCurrency(priorLiabilities)}
           </span>
-          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center text-white hidden">
-            {formatCurrency(0)}
+          <span className={`text-[15px] font-bold ltr-num leading-[1.4] w-[62px] text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+            {formatCurrency(priorLiabilities)}
           </span>
         </div>
-        <span className="text-[18px] font-bold text-right leading-[1.4] flex-shrink-0">התחייבויות קודמות</span>
+        <span className="text-[18px] font-bold text-right leading-[1.4]">התחייבויות קודמות</span>
       </section>
 
       {/* Cash Flow Forecast */}
