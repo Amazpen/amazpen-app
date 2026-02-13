@@ -408,7 +408,7 @@ export default function ReportsPage() {
       </section>
 
       {/* Expenses Section */}
-      <section id="onboarding-reports-categories" aria-label="פירוט הוצאות" className="bg-[#0F1535] rounded-[10px] p-[7px_0_7px_7px] min-h-[40px] flex flex-col">
+      <section id="onboarding-reports-categories" aria-label="פירוט הוצאות" className="bg-[#0F1535] rounded-[10px] p-[7px_0_7px_0] min-h-[40px] flex flex-col">
         {/* Header Row */}
         <div className="flex flex-row-reverse items-center justify-between min-h-[40px] gap-[10px] px-[7px] mb-[15px]">
           <div className="flex flex-row-reverse items-center gap-[5px]">
@@ -530,16 +530,16 @@ export default function ReportsPage() {
         {/* Total Expenses Row */}
         <div className="flex flex-row-reverse items-center justify-between bg-[#2C3595] rounded-[10px] p-[7px] mt-[10px] min-h-[60px]">
           <div className="flex flex-row-reverse items-center gap-[5px]">
-            <span className={`text-[14px] font-bold w-[60px] text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+            <span className={`text-[15px] font-bold w-[60px] text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
               {summary.expensesTarget > 0 ? (((summary.expensesTarget - summary.totalExpenses) / summary.expensesTarget) * 100).toFixed(2) : "0.00"}%
             </span>
-            <span className={`text-[14px] font-bold w-[62px] text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+            <span className={`text-[15px] font-bold w-[62px] text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
               {formatDifference(summary.expensesTarget - summary.totalExpenses)}
             </span>
-            <span className="text-[14px] font-bold w-[62px] text-center ltr-num leading-[1.4]">{formatCurrency(summary.totalExpenses)}</span>
-            <span className="text-[14px] font-bold w-[62px] text-center ltr-num leading-[1.4]">{formatCurrency(summary.expensesTarget)}</span>
+            <span className="text-[15px] font-bold w-[62px] text-center ltr-num leading-[1.4]">{formatCurrency(summary.totalExpenses)}</span>
+            <span className="text-[15px] font-bold w-[62px] text-center ltr-num leading-[1.4]">{formatCurrency(summary.expensesTarget)}</span>
           </div>
-          <span className="text-[16px] font-bold text-right leading-[1.4]">סה&quot;כ הוצאות</span>
+          <span className="text-[18px] font-bold text-right leading-[1.4]">סה&quot;כ הוצאות</span>
         </div>
       </section>
 
@@ -582,6 +582,12 @@ export default function ReportsPage() {
           </span>
           <span className={`text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
             {formatCurrency(priorLiabilities)}
+          </span>
+          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center text-white">
+            {formatCurrency(0)}
+          </span>
+          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center text-white">
+            {formatCurrency(0)}
           </span>
         </div>
         <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">התחייבויות קודמות</span>
