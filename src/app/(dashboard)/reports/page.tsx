@@ -411,28 +411,6 @@ export default function ReportsPage() {
       <section id="onboarding-reports-categories" aria-label="פירוט הוצאות" className="bg-[#0F1535] rounded-[10px] p-[7px_0_7px_0] min-h-[40px] flex flex-col">
         {/* Header Row */}
         <div className="flex flex-row-reverse items-center justify-between min-h-[40px] gap-[10px] px-[7px] mb-[15px]">
-          <div className="flex flex-row-reverse items-center gap-[5px]">
-            <button
-              type="button"
-              aria-label="ייצוא PDF"
-              className="flex flex-row-reverse items-center justify-center gap-[5px] bg-[#29318A] text-white text-[14px] font-semibold px-[10px] py-[6px] rounded-[7px] transition-colors hover:bg-[#3D44A0] min-h-[35px]"
-            >
-              <span>ייצוא PDF</span>
-              <svg width="16" height="16" viewBox="0 0 24 25" fill="none" aria-hidden="true">
-                <path d="M21.3651 24.7672H4.97061C4.92049 24.7514 4.87205 24.7302 4.82026 24.7206C3.69155 24.5069 2.88747 23.9453 2.53444 22.9962C2.38298 22.5894 2.39913 22.134 2.35848 21.6993C2.3362 21.4649 2.35458 21.2271 2.35458 20.9951C2.14409 20.9822 1.97426 20.9879 1.81277 20.9591C1.19802 20.8505 0.84109 20.4298 0.839977 19.8121C0.836636 18.3182 0.838306 16.8239 0.83942 15.33C0.83942 14.7147 0.82717 14.0994 0.852227 13.4851C0.875058 12.9269 1.37064 12.5239 2.01936 12.4951C2.12572 12.4903 2.23207 12.4946 2.35458 12.4946C2.35458 12.362 2.35458 12.2674 2.35458 12.1723C2.35458 9.09624 2.35291 6.02065 2.35514 2.94458C2.35681 1.33737 3.65535 0.218671 5.51798 0.21771C9.19423 0.216269 12.8705 0.218671 16.5462 0.213867C16.7394 0.213867 16.8703 0.266224 17.0045 0.381985C19.2569 2.32542 21.5126 4.26598 23.7745 6.20078C23.9416 6.34344 24 6.48513 24 6.68255C23.9945 11.764 23.9961 16.845 23.9956 21.9265C23.9956 22.0461 23.9933 22.1662 23.9867 22.2858C23.9399 23.0831 23.5373 23.7201 22.8218 24.2196C22.393 24.5189 21.884 24.651 21.3651 24.7677V24.7672Z" fill="white"/>
-              </svg>
-            </button>
-            <button
-              type="button"
-              aria-label="ייצוא CSV"
-              className="flex flex-row-reverse items-center justify-center gap-[5px] bg-[#29318A] text-white text-[14px] font-semibold px-[10px] py-[6px] rounded-[7px] transition-colors hover:bg-[#3D44A0] min-h-[35px]"
-            >
-              <span>ייצוא CSV</span>
-              <svg width="16" height="16" viewBox="0 0 27 26" fill="none" aria-hidden="true">
-                <path d="M26.7777 8.10355C26.7771 7.85852 26.6411 7.57598 26.4397 7.40124C24.0363 5.31474 21.5839 3.20022 19.2129 1.15598L18.4637 0.5097C18.3977 0.453193 18.33 0.403808 18.27 0.360597C18.2457 0.343027 18.221 0.325458 18.1973 0.307413L18.0729 0.213867H8.01227L7.95227 0.228588C7.85043 0.25423 7.74584 0.276548 7.63464 0.30029C7.37646 0.355373 7.10948 0.412356 6.84855 0.515399C5.12939 1.19301 4.21339 2.40864 4.20073 4.03026C4.18917 5.48568 4.19137 6.96485 4.19413 8.3951C4.19523 9.01716 4.19633 9.63922 4.19633 10.2618V10.5998C3.32381 10.5998 2.45185 10.5998 1.57933 10.5998C0.598925 10.5998 0.316527 10.7684 0 11.542V17.6557C0.123308 18.0949 0.367172 18.4477 0.91325 18.5679C1.05252 18.5987 1.20225 18.6049 1.34703 18.6054C1.4808 18.6054 1.61456 18.6054 1.74833 18.6059H4.19633V18.7194C4.19633 18.7901 4.19633 18.8528 4.19633 18.9155C4.19798 19.207 4.19523 19.5048 4.19247 19.793C4.18587 20.4426 4.17926 21.1145 4.2266 21.7788C4.29431 22.7309 4.77709 23.608 5.58519 24.249C6.3878 24.8853 7.44362 25.2367 8.55945 25.2377C10.3981 25.2396 12.4002 25.241 14.5025 25.241C16.8145 25.241 19.2471 25.2391 21.7154 25.2339C22.2934 25.2324 22.9491 25.231 23.5617 25.1004C25.4818 24.6911 26.7755 23.2409 26.7815 21.492C26.7975 16.8665 26.7881 12.1559 26.7782 8.10402L26.7777 8.10355Z" fill="white"/>
-              </svg>
-            </button>
-          </div>
           <span className="text-[20px] font-bold leading-[1.4]">פירוט ההוצאות</span>
         </div>
 
@@ -583,10 +561,10 @@ export default function ReportsPage() {
           <span className={`text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
             {formatCurrency(priorLiabilities)}
           </span>
-          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center text-white">
+          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center text-white hidden">
             {formatCurrency(0)}
           </span>
-          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center text-white">
+          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center text-white hidden">
             {formatCurrency(0)}
           </span>
         </div>
