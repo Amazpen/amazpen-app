@@ -2056,6 +2056,14 @@ export default function DashboardPage() {
                 >
                   הצגת/עריכת נתונים
                 </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    className="action-btn-primary text-white text-center font-bold text-sm leading-none rounded-[7px] py-[7px] px-[10px] min-h-[40px] cursor-pointer"
+                  >
+                    שליחת פוש יומי
+                  </button>
+                )}
               </div>
               {/* Date picker for single business users */}
               {isSingleBusiness && dateRange && (
