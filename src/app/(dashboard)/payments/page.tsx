@@ -1489,7 +1489,7 @@ export default function PaymentsPage() {
               onClick={() => setShowForecast(!showForecast)}
               className={`flex-1 text-white text-[14px] sm:text-[16px] font-semibold py-[6px] px-[5px] rounded-tl-[5px] rounded-tr-[5px] rounded-br-[20px] rounded-bl-[5px] min-h-[40px] sm:min-h-[50px] flex items-center justify-center gap-[5px] sm:gap-[8px] transition-colors ${showForecast ? "bg-[#3D44A0]" : "bg-[#29318A] hover:bg-[#3D44A0]"}`}
             >
-              <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${showForecast ? "rotate-90" : ""}`}>
+              <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${showForecast ? "-rotate-90" : ""}`}>
                 <path d="M12 10L18 16L12 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span>צפי תשלומים קדימה</span>
