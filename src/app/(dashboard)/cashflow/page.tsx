@@ -568,7 +568,7 @@ export default function CashFlowPage() {
   return (
     <article aria-label="תזרים מזומנים" className="text-white p-[10px] pb-[80px] flex flex-col gap-[10px]">
       {/* ============= HEADER + CONTROLS ============= */}
-      <section className="bg-[#0F1535] rounded-[10px] p-[12px] flex flex-col gap-[10px]">
+      <section className="bg-[#0F1535] rounded-[10px] flex flex-col gap-[10px]">
         {/* Controls Row */}
         <div className="flex items-center justify-between gap-[10px] flex-wrap">
           {/* Granularity Toggle - right side in RTL */}
