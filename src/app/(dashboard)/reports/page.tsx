@@ -99,6 +99,9 @@ export default function ReportsPage() {
     netProfitPct: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [priorLiabilities, setPriorLiabilities] = useState(0);
+  const [showPriorLiabilities, setShowPriorLiabilities] = useState(false);
+  const [cashFlowForecast, setCashFlowForecast] = useState({ target: 0, actual: 0 });
 
   // Fetch data from Supabase
   useEffect(() => {
@@ -154,6 +157,36 @@ export default function ReportsPage() {
           .is("deleted_at", null)
           .gte("entry_date", startDate)
           .lte("entry_date", endDate);
+
+        // Fetch prior liabilities (payment splits due this month from payments created before this month)
+        const { data: priorSplits } = await supabase
+          .from("payment_splits")
+          .select(`
+            amount,
+            payment:payments!inner(id, business_id, deleted_at, created_at)
+          `)
+          .gte("due_date", startDate)
+          .lte("due_date", endDate)
+          .is("payment.deleted_at", null)
+          .in("payment.business_id", selectedBusinesses)
+          .lt("payment.created_at", startDate);
+
+        const totalPriorLiabilities = (priorSplits || []).reduce((sum, s) => sum + Number(s.amount || 0), 0);
+        setPriorLiabilities(totalPriorLiabilities);
+
+        // Fetch all payment splits due this month (cash flow forecast actual)
+        const { data: allSplits } = await supabase
+          .from("payment_splits")
+          .select(`
+            amount,
+            payment:payments!inner(id, business_id, deleted_at)
+          `)
+          .gte("due_date", startDate)
+          .lte("due_date", endDate)
+          .is("payment.deleted_at", null)
+          .in("payment.business_id", selectedBusinesses);
+
+        const totalForecastActual = (allSplits || []).reduce((sum, s) => sum + Number(s.amount || 0), 0);
 
         // Calculate totals
         const totalRevenue = (dailyEntries || []).reduce((sum, d) => sum + Number(d.total_register || 0), 0);
@@ -229,9 +262,13 @@ export default function ReportsPage() {
           expensesTarget,
           operatingProfit,
           operatingProfitPct,
-          netProfit: operatingProfit, // Simplified - would need more data for actual net profit
+          netProfit: operatingProfit,
           netProfitPct: operatingProfitPct,
         });
+
+        // Cash flow forecast: target = revenue target - expenses target, actual = total splits due this month
+        const forecastTarget = Number(goal?.revenue_target || 0) - expensesTarget;
+        setCashFlowForecast({ target: forecastTarget, actual: totalForecastActual });
 
       } catch (error) {
         console.error("Error fetching reports data:", error);
@@ -533,6 +570,56 @@ export default function ReportsPage() {
                 ? (((summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget)) / Math.abs(summary.revenueTarget - summary.expensesTarget)) * 100).toFixed(2)
                 : "0.00"}%
             </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Prior Liabilities */}
+      <section aria-label="התחייבויות קודמות" className="bg-[#0F1535] rounded-[10px] p-[7px] min-h-[70px] flex flex-col justify-center gap-0">
+        <button
+          type="button"
+          onClick={() => setShowPriorLiabilities(!showPriorLiabilities)}
+          className="flex flex-row-reverse items-center justify-between gap-[5px] min-h-[60px] cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <div className="flex flex-row-reverse items-center justify-end gap-[5px] w-max">
+            <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">התחייבויות קודמות</span>
+          </div>
+          <div className="flex flex-row-reverse items-center gap-[5px] flex-1 pr-[57px]">
+            <span className={`text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+              {formatCurrency(priorLiabilities)}
+            </span>
+            <span className={`text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+              {formatCurrency(priorLiabilities)}
+            </span>
+          </div>
+        </button>
+      </section>
+
+      {/* Cash Flow Forecast */}
+      <section aria-label="צפי תזרים" className="bg-[#0F1535] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px] mb-[25px]">
+        <div className="flex flex-row-reverse items-center justify-end w-[76px]">
+          <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">צפי תזרים</span>
+        </div>
+        <div className="flex flex-row-reverse items-center justify-between flex-1">
+          <div className="flex flex-row-reverse items-center gap-[5px] flex-1 pr-[3px]">
+            <div className="flex flex-col items-center w-[70px]">
+              <span className="text-[14px] font-medium leading-[1.4] text-center">יעד</span>
+              <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.target >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+                {formatCurrency(cashFlowForecast.target)}
+              </span>
+            </div>
+            <div className="flex flex-col items-center w-[70px]">
+              <span className="text-[14px] font-medium leading-[1.4] text-center">בפועל</span>
+              <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.actual >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+                {formatCurrency(cashFlowForecast.actual)}
+              </span>
+            </div>
+            <div className="flex flex-col items-center w-[70px]">
+              <span className="text-[14px] font-medium leading-[1.4] text-center">הפרש ב-₪</span>
+              <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.actual - cashFlowForecast.target >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+                {formatCurrency(cashFlowForecast.actual - cashFlowForecast.target)}
+              </span>
+            </div>
           </div>
         </div>
       </section>
