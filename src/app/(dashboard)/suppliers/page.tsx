@@ -278,6 +278,44 @@ export default function SuppliersPage() {
         .select("*")
         .in("business_id", selectedBusinesses);
 
+      // Fetch current month invoices per supplier (total_amount = with VAT)
+      const now = new Date();
+      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+      const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`;
+      const supplierIds = (suppliersData || []).map((s: any) => s.id);
+
+      const { data: monthlyInvoicesData } = supplierIds.length > 0
+        ? await supabase
+            .from("invoices")
+            .select("supplier_id, total_amount")
+            .in("supplier_id", supplierIds)
+            .is("deleted_at", null)
+            .gte("invoice_date", monthStart)
+            .lte("invoice_date", monthEnd)
+        : { data: [] };
+
+      // Sum invoices per supplier
+      const supplierMonthlyPurchases = new Map<string, number>();
+      for (const inv of monthlyInvoicesData || []) {
+        const prev = supplierMonthlyPurchases.get(inv.supplier_id) || 0;
+        supplierMonthlyPurchases.set(inv.supplier_id, prev + Number(inv.total_amount));
+      }
+
+      // Fetch revenue targets for current month per business
+      const { data: goalsData } = await supabase
+        .from("goals")
+        .select("business_id, revenue_target")
+        .in("business_id", selectedBusinesses)
+        .eq("year", now.getFullYear())
+        .eq("month", now.getMonth() + 1)
+        .is("deleted_at", null);
+
+      // Map business_id -> revenue_target
+      const revenueTargetMap = new Map<string, number>();
+      for (const g of goalsData || []) {
+        revenueTargetMap.set(g.business_id, Number(g.revenue_target) || 0);
+      }
+
       // Merge supplier data with balance info
       const suppliersWithBalance: SupplierWithBalance[] = (suppliersData || []).map((supplier) => {
         const balance = balanceData?.find((b) => b.supplier_id === supplier.id);
@@ -294,10 +332,15 @@ export default function SuppliersPage() {
           remainingPayment = balance?.balance || 0;
         }
 
+        // Calculate revenue percentage: (monthly purchases with VAT / revenue target) * 100
+        const monthlyPurchases = supplierMonthlyPurchases.get(supplier.id) || 0;
+        const revenueTarget = revenueTargetMap.get(supplier.business_id) || 0;
+        const revenuePercentage = revenueTarget > 0 ? (monthlyPurchases / revenueTarget) * 100 : 0;
+
         return {
           ...supplier,
           remainingPayment,
-          revenuePercentage: 0, // TODO: Calculate from income data
+          revenuePercentage,
         };
       });
 
