@@ -975,19 +975,17 @@ export default function GoalsPage() {
             </div>
           </div>
 
-          {/* Loading State */}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-[40px]">
-              <div className="text-white/70">טוען נתונים...</div>
-            </div>
-          ) : (
-            /* Goal Items */
-            <div className="flex flex-col">
-              {data.length === 0 ? (
-                <div className="flex items-center justify-center py-[40px]">
-                  <span className="text-[16px] text-white/50">אין נתונים להצגה</span>
-                </div>
-              ) : data.map((item) => {
+          {/* Goal Items */}
+          <div className="flex flex-col">
+            {isLoading && data.length === 0 ? (
+              <div className="flex items-center justify-center py-[40px]">
+                <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+              </div>
+            ) : data.length === 0 ? (
+              <div className="flex items-center justify-center py-[40px]">
+                <span className="text-[16px] text-white/50">אין נתונים להצגה</span>
+              </div>
+            ) : data.map((item) => {
                 const percentage = item.target > 0 ? (item.actual / item.target) * 100 : 0;
                 const diff = item.target - item.actual; // Positive means under budget (good for expenses)
                 const isKpi = activeTab === "kpi";
@@ -1174,7 +1172,6 @@ export default function GoalsPage() {
                 );
               })}
             </div>
-          )}
         </div>
 
       </div>
