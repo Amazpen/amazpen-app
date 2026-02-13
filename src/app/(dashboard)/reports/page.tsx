@@ -582,7 +582,7 @@ export default function ReportsPage() {
             </span>
           </div>
         </div>
-        <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">צפי תזרים</span>
+        <span className="text-[18px] font-bold text-right leading-[1.4]">צפי תזרים</span>
       </section>
     </article>
   );
