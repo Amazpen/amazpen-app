@@ -14,14 +14,14 @@ interface ExpenseCategoryDisplay {
   actual: string;
   difference: string;
   remaining: string;
-  isPositive: boolean;
+  diffRaw: number;
   subcategories: {
     name: string;
     target: string;
     actual: string;
     difference: string;
     remaining: string;
-    isPositive: boolean;
+    diffRaw: number;
   }[];
 }
 
@@ -224,7 +224,7 @@ export default function ReportsPage() {
               actual: formatCurrency(actual),
               difference: formatDifference(diff),
               remaining: formatPercentage(remaining),
-              isPositive: diff >= 0,
+              diffRaw: diff,
             };
           });
 
@@ -241,7 +241,7 @@ export default function ReportsPage() {
             actual: formatCurrency(parentActual),
             difference: formatDifference(parentDiff),
             remaining: formatPercentage(parentRemaining),
-            isPositive: parentDiff >= 0,
+            diffRaw: parentDiff,
             subcategories: childrenWithData,
           };
         }).filter(cat => parseFloat(cat.actual.replace(/[₪K,]/g, "")) > 0 || cat.subcategories.length > 0);
@@ -328,10 +328,10 @@ export default function ReportsPage() {
           <div className="flex flex-row-reverse items-center gap-[10px] flex-1">
             <span className="text-[18px] font-bold ltr-num">₪{summary.operatingProfit.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             <div className="flex flex-row-reverse items-center gap-[2px] flex-1">
-              <svg width="15" height="15" viewBox="0 0 32 32" fill="none" className={summary.operatingProfitPct >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"} aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 32 32" fill="none" className={summary.operatingProfitPct > 0 ? "text-[#17DB4E]" : summary.operatingProfitPct < 0 ? "text-[#F64E60]" : "text-white"} aria-hidden="true">
                 <path d={summary.operatingProfitPct >= 0 ? "M16 26V6M16 6L6 16M16 6L26 16" : "M16 6V26M16 26L6 16M16 26L26 16"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              <span className={`text-[16px] font-bold ltr-num ${summary.operatingProfitPct >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>{summary.operatingProfitPct.toFixed(2)}%</span>
+              <span className={`text-[16px] font-bold ltr-num ${summary.operatingProfitPct > 0 ? "text-[#17DB4E]" : summary.operatingProfitPct < 0 ? "text-[#F64E60]" : "text-white"}`}>{summary.operatingProfitPct.toFixed(2)}%</span>
             </div>
           </div>
           <span className="text-[20px] font-bold leading-[1.4]">סה&quot;כ תוצאות רווח/הפסד</span>
@@ -374,13 +374,13 @@ export default function ReportsPage() {
         <div className="flex flex-row-reverse items-center gap-[5px]">
           <div className="flex flex-col items-center w-[62px]">
             <span className="text-[14px] font-medium leading-[1.4]">הפרש ב-%</span>
-            <span className={`text-[15px] font-bold ltr-num leading-[1.4] ${summary.totalRevenue >= summary.revenueTarget ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+            <span className={`text-[15px] font-bold ltr-num leading-[1.4] ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {summary.revenueTarget > 0 ? ((summary.totalRevenue / summary.revenueTarget) * 100).toFixed(2) : "0.00"}%
             </span>
           </div>
           <div className="flex flex-col items-center w-[65px]">
             <span className="text-[14px] font-medium leading-[1.4]">הפרש ב-₪</span>
-            <span className={`text-[15px] font-bold ltr-num leading-[1.4] ${summary.totalRevenue - summary.revenueTarget >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+            <span className={`text-[15px] font-bold ltr-num leading-[1.4] ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(summary.totalRevenue - summary.revenueTarget)}
             </span>
           </div>
@@ -433,10 +433,10 @@ export default function ReportsPage() {
                 }`}
               >
                 <div className="flex flex-row-reverse items-center gap-[5px]">
-                  <span className={`text-[14px] font-bold w-[60px] text-center ltr-num leading-[1.4] ${category.isPositive ? 'text-[#17DB4E]' : 'text-[#F64E60]'}`}>
+                  <span className={`text-[14px] font-bold w-[60px] text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                     {category.remaining}
                   </span>
-                  <span className={`text-[14px] font-bold w-[62px] text-center ltr-num leading-[1.4] ${category.isPositive ? 'text-[#17DB4E]' : 'text-[#F64E60]'}`}>
+                  <span className={`text-[14px] font-bold w-[62px] text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                     {category.difference}
                   </span>
                   <span className="text-[14px] font-bold w-[62px] text-center ltr-num leading-[1.4]">
@@ -472,10 +472,10 @@ export default function ReportsPage() {
                       }`}
                     >
                       <div className="flex flex-row-reverse items-center gap-[5px]">
-                        <span className={`text-[13px] font-medium w-[60px] text-center ltr-num leading-[1.4] ${sub.isPositive ? 'text-[#17DB4E]' : 'text-[#F64E60]'}`}>
+                        <span className={`text-[13px] font-medium w-[60px] text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                           {sub.remaining}
                         </span>
-                        <span className={`text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4] ${sub.isPositive ? 'text-[#17DB4E]' : 'text-[#F64E60]'}`}>
+                        <span className={`text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                           {sub.difference}
                         </span>
                         <span className="text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4]">
@@ -497,10 +497,10 @@ export default function ReportsPage() {
         {/* Total Expenses Row */}
         <div className="flex flex-row-reverse items-center justify-between bg-[#2C3595] rounded-[10px] p-[7px] mt-[10px] min-h-[60px]">
           <div className="flex flex-row-reverse items-center gap-[5px]">
-            <span className={`text-[15px] font-bold w-[60px] text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+            <span className={`text-[15px] font-bold w-[60px] text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses > 0 ? "text-[#17DB4E]" : summary.expensesTarget - summary.totalExpenses < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {summary.expensesTarget > 0 ? (((summary.expensesTarget - summary.totalExpenses) / summary.expensesTarget) * 100).toFixed(2) : "0.00"}%
             </span>
-            <span className={`text-[15px] font-bold w-[62px] text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+            <span className={`text-[15px] font-bold w-[62px] text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses > 0 ? "text-[#17DB4E]" : summary.expensesTarget - summary.totalExpenses < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatDifference(summary.expensesTarget - summary.totalExpenses)}
             </span>
             <span className="text-[15px] font-bold w-[62px] text-center ltr-num leading-[1.4]">{formatCurrency(summary.totalExpenses)}</span>
@@ -514,20 +514,20 @@ export default function ReportsPage() {
       <section aria-label="סיכום רווח והפסד" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px]">
         <div className="flex flex-row-reverse items-center gap-[5px]">
           <div className="flex flex-col items-center w-[62px]">
-            <span className={`text-[14px] font-bold ltr-num leading-[1.4] ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+            <span className={`text-[14px] font-bold ltr-num leading-[1.4] ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) > 0 ? "text-[#17DB4E]" : summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {(summary.revenueTarget - summary.expensesTarget) !== 0
                 ? (((summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget)) / Math.abs(summary.revenueTarget - summary.expensesTarget)) * 100).toFixed(2)
                 : "0.00"}%
             </span>
           </div>
           <div className="flex flex-col items-center w-[62px]">
-            <span className={`text-[14px] font-bold ltr-num leading-[1.4] ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+            <span className={`text-[14px] font-bold ltr-num leading-[1.4] ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) > 0 ? "text-[#17DB4E]" : summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget))}
             </span>
           </div>
           <div className="flex flex-col items-center w-[57px]">
             <span className="text-[14px] font-bold ltr-num leading-[1.4]">{formatCurrency(summary.operatingProfit)}</span>
-            <span className={`text-[14px] font-semibold ltr-num leading-[1.4] ${summary.operatingProfitPct >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+            <span className={`text-[14px] font-semibold ltr-num leading-[1.4] ${summary.operatingProfitPct > 0 ? "text-[#17DB4E]" : summary.operatingProfitPct < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {summary.operatingProfitPct.toFixed(1)}%
             </span>
           </div>
@@ -565,19 +565,19 @@ export default function ReportsPage() {
         <div className="flex flex-row-reverse items-center gap-[5px]">
           <div className="flex flex-col items-center w-[70px]">
             <span className="text-[14px] font-medium leading-[1.4] text-center">הפרש ב-₪</span>
-            <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.actual - cashFlowForecast.target >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+            <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.actual - cashFlowForecast.target > 0 ? "text-[#17DB4E]" : cashFlowForecast.actual - cashFlowForecast.target < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(cashFlowForecast.actual - cashFlowForecast.target)}
             </span>
           </div>
           <div className="flex flex-col items-center w-[70px]">
             <span className="text-[14px] font-medium leading-[1.4] text-center">בפועל</span>
-            <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.actual >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+            <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.actual > 0 ? "text-[#17DB4E]" : cashFlowForecast.actual < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(cashFlowForecast.actual)}
             </span>
           </div>
           <div className="flex flex-col items-center w-[70px]">
             <span className="text-[14px] font-medium leading-[1.4] text-center">יעד</span>
-            <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.target >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+            <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.target > 0 ? "text-[#17DB4E]" : cashFlowForecast.target < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(cashFlowForecast.target)}
             </span>
           </div>
