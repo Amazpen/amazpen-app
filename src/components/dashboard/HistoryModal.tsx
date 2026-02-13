@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronDown, ArrowRight } from "lucide-react";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 
@@ -729,6 +730,7 @@ export function HistoryModal({
         className="h-[calc(100vh-60px)] h-[calc(100dvh-60px)] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
         showCloseButton={false}
       >
+        <VisuallyHidden.Root><SheetTitle>נתוני עבר - {cardTitle}</SheetTitle></VisuallyHidden.Root>
         {/* Header */}
         <div className="flex flex-row-reverse justify-between items-center w-full px-[15px] pt-[15px] pb-[10px]">
           <button
