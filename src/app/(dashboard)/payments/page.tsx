@@ -233,6 +233,11 @@ export default function PaymentsPage() {
   const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null);
   const [showLinkedInvoices, setShowLinkedInvoices] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasMorePayments, setHasMorePayments] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [paymentsOffset, setPaymentsOffset] = useState(0);
+  const paymentsListRef = useRef<HTMLDivElement>(null);
+  const PAYMENTS_PAGE_SIZE = 20;
   const [isSaving, setIsSaving] = useState(false);
 
   // Add payment form state
@@ -490,7 +495,7 @@ export default function PaymentsPage() {
           }
           setMethodSupplierBreakdown(breakdown);
 
-          // Fetch ALL payments (no date filter) for the recent payments list
+          // Fetch first page of payments (no date filter) for the recent payments list
           const { data: allPaymentsData } = await supabase
             .from("payments")
             .select(`
@@ -502,51 +507,13 @@ export default function PaymentsPage() {
             `)
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
-            .order("payment_date", { ascending: false });
+            .order("payment_date", { ascending: false })
+            .range(0, PAYMENTS_PAGE_SIZE - 1);
 
-          // Transform recent payments to display format
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const recentDisplay: RecentPaymentDisplay[] = ((allPaymentsData || []) as any[]).map((p) => {
-            const firstSplit = p.payment_splits?.[0];
-            const installmentInfo = firstSplit?.installments_count && firstSplit?.installment_number
-              ? `${firstSplit.installment_number}/${firstSplit.installments_count}`
-              : "1/1";
-
-            // Calculate subtotal/vat from total (assume 18% VAT if not from invoice)
-            const total = Number(p.total_amount);
-            const inv = p.invoice;
-            const subtotal = inv ? Number(inv.subtotal) : Math.round(total / 1.18 * 100) / 100;
-            const vatAmount = inv ? Number(inv.vat_amount) : Math.round((total - subtotal) * 100) / 100;
-
-            return {
-              id: p.id,
-              date: formatDateString(p.payment_date),
-              supplier: p.supplier?.name || "לא ידוע",
-              paymentMethod: paymentMethodNames[firstSplit?.payment_method || "other"] || "אחר",
-              installments: installmentInfo,
-              amount: firstSplit ? Number(firstSplit.amount) : total,
-              totalAmount: total,
-              subtotal,
-              vatAmount,
-              notes: p.notes || null,
-              receiptUrl: p.receipt_url || null,
-              reference: firstSplit?.reference_number || null,
-              checkNumber: firstSplit?.check_number || null,
-              createdBy: p.creator?.full_name || null,
-              createdAt: p.created_at ? formatDateString(p.created_at.split("T")[0]) : null,
-              linkedInvoice: inv ? {
-                id: inv.id,
-                invoiceNumber: inv.invoice_number,
-                date: formatDateString(inv.invoice_date),
-                subtotal: Number(inv.subtotal),
-                vatAmount: Number(inv.vat_amount),
-                totalAmount: Number(inv.total_amount),
-                attachmentUrl: inv.attachment_url,
-              } : null,
-            };
-          });
-
+          const recentDisplay = transformPaymentsData(allPaymentsData || []);
           setRecentPaymentsData(recentDisplay);
+          setPaymentsOffset(recentDisplay.length);
+          setHasMorePayments(recentDisplay.length >= PAYMENTS_PAGE_SIZE);
         }
       } catch (error) {
         console.error("Error fetching payments data:", error);
@@ -557,6 +524,87 @@ export default function PaymentsPage() {
 
     fetchData();
   }, [selectedBusinesses, dateRange, refreshTrigger]);
+
+  // Transform raw payment data to display format
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const transformPaymentsData = (rawData: any[]): RecentPaymentDisplay[] => {
+    return rawData.map((p) => {
+      const firstSplit = p.payment_splits?.[0];
+      const installmentInfo = firstSplit?.installments_count && firstSplit?.installment_number
+        ? `${firstSplit.installment_number}/${firstSplit.installments_count}`
+        : "1/1";
+      const total = Number(p.total_amount);
+      const inv = p.invoice;
+      const subtotal = inv ? Number(inv.subtotal) : Math.round(total / 1.18 * 100) / 100;
+      const vatAmount = inv ? Number(inv.vat_amount) : Math.round((total - subtotal) * 100) / 100;
+      return {
+        id: p.id,
+        date: formatDateString(p.payment_date),
+        supplier: p.supplier?.name || "לא ידוע",
+        paymentMethod: paymentMethodNames[firstSplit?.payment_method || "other"] || "אחר",
+        installments: installmentInfo,
+        amount: firstSplit ? Number(firstSplit.amount) : total,
+        totalAmount: total,
+        subtotal,
+        vatAmount,
+        notes: p.notes || null,
+        receiptUrl: p.receipt_url || null,
+        reference: firstSplit?.reference_number || null,
+        checkNumber: firstSplit?.check_number || null,
+        createdBy: p.creator?.full_name || null,
+        createdAt: p.created_at ? formatDateString(p.created_at.split("T")[0]) : null,
+        linkedInvoice: inv ? {
+          id: inv.id,
+          invoiceNumber: inv.invoice_number,
+          date: formatDateString(inv.invoice_date),
+          subtotal: Number(inv.subtotal),
+          vatAmount: Number(inv.vat_amount),
+          totalAmount: Number(inv.total_amount),
+          attachmentUrl: inv.attachment_url,
+        } : null,
+      };
+    });
+  };
+
+  // Load more payments (infinite scroll)
+  const loadMorePayments = useCallback(async () => {
+    if (isLoadingMore || !hasMorePayments || selectedBusinesses.length === 0) return;
+    setIsLoadingMore(true);
+    const supabase = createClient();
+    try {
+      const { data } = await supabase
+        .from("payments")
+        .select(`
+          *,
+          supplier:suppliers(id, name),
+          payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number),
+          invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url),
+          creator:profiles!payments_created_by_fkey(full_name)
+        `)
+        .in("business_id", selectedBusinesses)
+        .is("deleted_at", null)
+        .order("payment_date", { ascending: false })
+        .range(paymentsOffset, paymentsOffset + PAYMENTS_PAGE_SIZE - 1);
+
+      const newPayments = transformPaymentsData(data || []);
+      setRecentPaymentsData(prev => [...prev, ...newPayments]);
+      setPaymentsOffset(prev => prev + newPayments.length);
+      setHasMorePayments(newPayments.length >= PAYMENTS_PAGE_SIZE);
+    } catch (error) {
+      console.error("Error loading more payments:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMorePayments, selectedBusinesses, paymentsOffset]);
+
+  // Scroll handler for infinite scroll
+  const handlePaymentsScroll = useCallback(() => {
+    const el = paymentsListRef.current;
+    if (!el) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50) {
+      loadMorePayments();
+    }
+  }, [loadMorePayments]);
 
   // Fetch forecast data (upcoming payment splits)
   const fetchForecast = useCallback(async () => {
@@ -1944,7 +1992,7 @@ export default function PaymentsPage() {
           </div>
 
           {/* Table Rows */}
-          <div className="flex flex-col gap-[10px]">
+          <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="flex flex-col gap-[10px] max-h-[450px] overflow-y-auto">
             {recentPaymentsData.length === 0 ? (
               <div className="flex items-center justify-center py-[40px]">
                 <span className="text-[16px] text-white/50">אין תשלומים להצגה</span>
@@ -2142,6 +2190,11 @@ export default function PaymentsPage() {
                 )}
               </div>
             ))}
+            {isLoadingMore && (
+              <div className="flex items-center justify-center py-[15px]">
+                <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+              </div>
+            )}
           </div>
         </div>
       </div>

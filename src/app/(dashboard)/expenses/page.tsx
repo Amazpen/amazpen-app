@@ -155,6 +155,11 @@ export default function ExpensesPage() {
   const [categoryData, setCategoryData] = useState<ExpenseCategorySummary[]>([]); // For expenses tab - by category with drill-down
   const [recentInvoices, setRecentInvoices] = useState<InvoiceDisplay[]>([]);
   const [_isLoading, setIsLoading] = useState(true);
+  const [hasMoreInvoices, setHasMoreInvoices] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [invoicesOffset, setInvoicesOffset] = useState(0);
+  const invoicesListRef = useRef<HTMLDivElement>(null);
+  const INVOICES_PAGE_SIZE = 20;
   const [isSaving, setIsSaving] = useState(false);
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set()); // For drill-down (supports multiple)
 
@@ -461,6 +466,28 @@ export default function ExpensesPage() {
         const startDate = formatLocalDate(dateRange.start);
         const endDate = formatLocalDate(dateRange.end);
 
+        // Fetch first page of invoices (no date filter) for the list
+        const { data: invoicesListData } = await supabase
+          .from("invoices")
+          .select(`
+            *,
+            supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
+            creator:profiles!invoices_created_by_fkey(full_name)
+          `)
+          .in("business_id", selectedBusinesses)
+          .is("deleted_at", null)
+          .eq("invoice_type", activeTab === "expenses" ? "current" : activeTab === "employees" ? "employees" : "goods")
+          .order("invoice_date", { ascending: false })
+          .range(0, INVOICES_PAGE_SIZE - 1);
+
+        if (invoicesListData) {
+          const displayInvoices = transformInvoicesData(invoicesListData);
+          setRecentInvoices(displayInvoices);
+          setInvoicesOffset(displayInvoices.length);
+          setHasMoreInvoices(displayInvoices.length >= INVOICES_PAGE_SIZE);
+        }
+
+        // Also fetch date-filtered invoices for the chart/summary
         const { data: invoicesData } = await supabase
           .from("invoices")
           .select(`
@@ -473,31 +500,7 @@ export default function ExpensesPage() {
           .gte("invoice_date", startDate)
           .lte("invoice_date", endDate)
           .eq("invoice_type", activeTab === "expenses" ? "current" : activeTab === "employees" ? "employees" : "goods")
-          .order("invoice_date", { ascending: false })
-          .limit(50);
-
-        if (invoicesData) {
-          // Transform to display format
-          const displayInvoices: InvoiceDisplay[] = invoicesData.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => ({
-            id: inv.id,
-            date: formatDateString(inv.invoice_date),
-            supplier: inv.supplier?.name || "לא ידוע",
-            reference: inv.invoice_number || "",
-            amount: Number(inv.total_amount),
-            amountWithVat: Number(inv.total_amount),
-            amountBeforeVat: Number(inv.subtotal),
-            status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
-            enteredBy: inv.creator?.full_name || "מערכת",
-            entryDate: formatDateString(inv.created_at),
-            notes: inv.notes || "",
-            attachmentUrl: inv.attachment_url || null,
-            attachmentUrls: parseAttachmentUrls(inv.attachment_url),
-            clarificationReason: inv.clarification_reason || null,
-            isFixed: inv.supplier?.is_fixed_expense || false,
-            linkedPayments: [], // Will be fetched separately if needed
-          }));
-          setRecentInvoices(displayInvoices);
-        }
+          .order("invoice_date", { ascending: false });
 
         // Fetch expense categories for table summary
         const { data: categoriesData } = await supabase
@@ -616,6 +619,68 @@ export default function ExpensesPage() {
 
     fetchData();
   }, [selectedBusinesses, dateRange, activeTab, refreshTrigger]);
+
+  // Transform raw invoice data to display format
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const transformInvoicesData = (rawData: any[]): InvoiceDisplay[] => {
+    return rawData.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => ({
+      id: inv.id,
+      date: formatDateString(inv.invoice_date),
+      supplier: inv.supplier?.name || "לא ידוע",
+      reference: inv.invoice_number || "",
+      amount: Number(inv.total_amount),
+      amountWithVat: Number(inv.total_amount),
+      amountBeforeVat: Number(inv.subtotal),
+      status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
+      enteredBy: inv.creator?.full_name || "מערכת",
+      entryDate: formatDateString(inv.created_at),
+      notes: inv.notes || "",
+      attachmentUrl: inv.attachment_url || null,
+      attachmentUrls: parseAttachmentUrls(inv.attachment_url),
+      clarificationReason: inv.clarification_reason || null,
+      isFixed: inv.supplier?.is_fixed_expense || false,
+      linkedPayments: [],
+    }));
+  };
+
+  // Load more invoices (infinite scroll)
+  const loadMoreInvoices = useCallback(async () => {
+    if (isLoadingMore || !hasMoreInvoices || selectedBusinesses.length === 0) return;
+    setIsLoadingMore(true);
+    const supabase = createClient();
+    try {
+      const { data } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
+          creator:profiles!invoices_created_by_fkey(full_name)
+        `)
+        .in("business_id", selectedBusinesses)
+        .is("deleted_at", null)
+        .eq("invoice_type", activeTab === "expenses" ? "current" : activeTab === "employees" ? "employees" : "goods")
+        .order("invoice_date", { ascending: false })
+        .range(invoicesOffset, invoicesOffset + INVOICES_PAGE_SIZE - 1);
+
+      const newInvoices = transformInvoicesData(data || []);
+      setRecentInvoices(prev => [...prev, ...newInvoices]);
+      setInvoicesOffset(prev => prev + newInvoices.length);
+      setHasMoreInvoices(newInvoices.length >= INVOICES_PAGE_SIZE);
+    } catch (error) {
+      console.error("Error loading more invoices:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMoreInvoices, selectedBusinesses, invoicesOffset, activeTab]);
+
+  // Scroll handler for infinite scroll
+  const handleInvoicesScroll = useCallback(() => {
+    const el = invoicesListRef.current;
+    if (!el) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 50) {
+      loadMoreInvoices();
+    }
+  }, [loadMoreInvoices]);
 
   // Close status menu and filter menu when clicking outside
   useEffect(() => {
@@ -1978,7 +2043,7 @@ export default function ExpensesPage() {
           </div>
 
           {/* Table Rows */}
-          <div className="max-h-[450px] overflow-y-auto flex flex-col gap-[5px]">
+          <div ref={invoicesListRef} onScroll={handleInvoicesScroll} className="max-h-[450px] overflow-y-auto flex flex-col gap-[5px]">
             {(() => {
               const searchVal = filterValue.trim().toLowerCase();
               let filtered = recentInvoices.filter((inv) => {
@@ -2283,6 +2348,11 @@ export default function ExpensesPage() {
               );
             });
             })()}
+            {isLoadingMore && (
+              <div className="flex items-center justify-center py-[15px]">
+                <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+              </div>
+            )}
           </div>
         </div>
       </div>
