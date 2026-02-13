@@ -544,10 +544,10 @@ export default function ReportsPage() {
       {/* Prior Liabilities */}
       <section aria-label="התחייבויות קודמות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px]">
         <div className="flex flex-row-reverse items-center gap-[5px] flex-1">
-          <span className={`text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center invisible">
             {formatCurrency(priorLiabilities)}
           </span>
-          <span className={`text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center invisible">
             {formatCurrency(priorLiabilities)}
           </span>
           <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[65px] text-center text-white hidden">
