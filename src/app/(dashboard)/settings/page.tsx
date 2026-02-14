@@ -39,7 +39,8 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [isSendingReset, setIsSendingReset] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [emailConfirm, setEmailConfirm] = useState("");
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [fullName, setFullName] = useState("");
@@ -171,25 +172,17 @@ export default function SettingsPage() {
     setIsSaving(false);
   };
 
-  // Handle forgot password - send reset link to email
-  const handleForgotPassword = async () => {
-    if (!profile?.email) return;
-    setIsSendingReset(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    if (error) {
-      showToast("שגיאה בשליחת הקישור", "error");
-    } else {
-      showToast("קישור לאיפוס סיסמה נשלח למייל שלך", "success");
-    }
-    setIsSendingReset(false);
-  };
-
-  // Handle password change
+  // Handle password change (with current password)
   const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    if (!forgotMode && !currentPassword) {
+      showToast("יש להזין סיסמה נוכחית", "error");
+      return;
+    }
+    if (forgotMode && emailConfirm.trim().toLowerCase() !== profile?.email?.toLowerCase()) {
+      showToast("כתובת המייל אינה תואמת", "error");
+      return;
+    }
+    if (!newPassword || !confirmPassword) {
       showToast("יש למלא את כל השדות", "error");
       return;
     }
@@ -206,19 +199,21 @@ export default function SettingsPage() {
 
     const supabase = createClient();
 
-    // Verify current password by trying to sign in
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: profile?.email || "",
-      password: currentPassword,
-    });
+    // If not forgot mode, verify current password first
+    if (!forgotMode) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: profile?.email || "",
+        password: currentPassword,
+      });
 
-    if (signInError) {
-      showToast("הסיסמה הנוכחית שגויה", "error");
-      setIsChangingPassword(false);
-      return;
+      if (signInError) {
+        showToast("הסיסמה הנוכחית שגויה", "error");
+        setIsChangingPassword(false);
+        return;
+      }
     }
 
-    // Update to new password
+    // Update to new password (works because user session is active)
     const { error: updateError } = await supabase.auth.updateUser({
       password: newPassword,
     });
@@ -230,6 +225,8 @@ export default function SettingsPage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      setEmailConfirm("");
+      setForgotMode(false);
       setShowPasswordSection(false);
     }
 
@@ -418,44 +415,64 @@ export default function SettingsPage() {
 
             {showPasswordSection && (
               <div className="space-y-[12px] mt-[4px] p-[16px] bg-[#29318A]/20 rounded-[10px] border border-white/5">
-                {/* Current Password */}
-                <div className="flex flex-col gap-[6px]">
-                  <label className="text-[13px] font-medium text-white/70">סיסמה נוכחית</label>
-                  <div className="relative">
+                {/* Current Password or Forgot Mode */}
+                {forgotMode ? (
+                  <div className="flex flex-col gap-[6px]">
+                    <label className="text-[13px] font-medium text-white/70">אימות זהות — הזן את כתובת המייל שלך</label>
                     <input
-                      type={showCurrentPassword ? "text" : "password"}
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      placeholder="הזן סיסמה נוכחית..."
-                      className="w-full h-[44px] bg-[#29318A]/40 text-white text-[14px] text-right rounded-[10px] border border-white/10 outline-none px-[15px] pe-[44px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
+                      type="email"
+                      value={emailConfirm}
+                      onChange={(e) => setEmailConfirm(e.target.value)}
+                      placeholder="הזן כתובת מייל לאימות..."
+                      dir="ltr"
+                      className="w-full h-[44px] bg-[#29318A]/40 text-white text-[14px] text-left rounded-[10px] border border-white/10 outline-none px-[15px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                      className="absolute left-[12px] top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+                      onClick={() => { setForgotMode(false); setEmailConfirm(""); }}
+                      className="text-[12px] text-[#FFA412] hover:text-[#FFB94A] transition-colors self-start mt-[2px]"
                     >
-                      {showCurrentPassword ? (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" strokeLinecap="round" strokeLinejoin="round"/>
-                          <line x1="1" y1="1" x2="23" y2="23" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      ) : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" strokeLinecap="round" strokeLinejoin="round"/>
-                          <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      )}
+                      יש לי סיסמה נוכחית
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    disabled={isSendingReset}
-                    className="text-[12px] text-[#FFA412] hover:text-[#FFB94A] transition-colors self-start mt-[2px] disabled:opacity-50"
-                  >
-                    {isSendingReset ? "שולח..." : "שכחתי סיסמה"}
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex flex-col gap-[6px]">
+                    <label className="text-[13px] font-medium text-white/70">סיסמה נוכחית</label>
+                    <div className="relative">
+                      <input
+                        type={showCurrentPassword ? "text" : "password"}
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="הזן סיסמה נוכחית..."
+                        className="w-full h-[44px] bg-[#29318A]/40 text-white text-[14px] text-right rounded-[10px] border border-white/10 outline-none px-[15px] pe-[44px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute left-[12px] top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+                      >
+                        {showCurrentPassword ? (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" strokeLinecap="round" strokeLinejoin="round"/>
+                            <line x1="1" y1="1" x2="23" y2="23" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        ) : (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" strokeLinecap="round" strokeLinejoin="round"/>
+                            <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setForgotMode(true); setCurrentPassword(""); }}
+                      className="text-[12px] text-[#FFA412] hover:text-[#FFB94A] transition-colors self-start mt-[2px]"
+                    >
+                      לא זוכר סיסמה נוכחית?
+                    </button>
+                  </div>
+                )}
 
                 {/* New Password */}
                 <div className="flex flex-col gap-[6px]">
@@ -504,7 +521,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={handleChangePassword}
-                  disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
+                  disabled={isChangingPassword || (!forgotMode && !currentPassword) || (forgotMode && !emailConfirm) || !newPassword || !confirmPassword}
                   className="w-full h-[44px] bg-[#FFA412] text-white text-[14px] font-bold rounded-[10px] transition-all duration-200 hover:bg-[#FFB94A] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-[4px]"
                 >
                   {isChangingPassword ? (
