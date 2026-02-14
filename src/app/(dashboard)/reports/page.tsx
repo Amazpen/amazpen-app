@@ -273,7 +273,7 @@ export default function ReportsPage() {
 
         setSummary({
           totalRevenue,
-          revenueTarget: Number(goal?.revenue_target || 0),
+          revenueTarget: Number(goal?.revenue_target || 0) / vatDivisor,
           totalExpenses,
           expensesTarget,
           operatingProfit,
