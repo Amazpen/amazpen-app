@@ -382,7 +382,7 @@ export default function DashboardPage() {
       const avgPerOrder = totalOrders > 0 ? s.totalIncome / totalOrders : 0;
 
       // Inline styles for email compatibility (Gmail strips CSS classes)
-      const cellStyle = 'color:#fff;font-size:12px;height:24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);padding:2px 4px;';
+      const cellStyle = 'color:#fff;font-size:12px;height:24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);padding:2px 4px;direction:ltr;';
       const headerCellStyle = 'color:#fff;font-size:11px;font-weight:bold;text-align:center;height:24px;border-bottom:1px solid rgba(255,255,255,0.1);padding:2px 4px;white-space:nowrap;';
       const labelCellStyle = 'color:#fff;font-size:12px;height:24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);padding:2px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
       const redColor = '#f87171';
