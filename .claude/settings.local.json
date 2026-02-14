@@ -150,7 +150,15 @@
       "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit --pretty src/app/\\\\\\(dashboard\\\\\\)/admin/payments/page.tsx)",
       "Bash(git checkout:*)",
       "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit --pretty src/app/\\\\\\(dashboard\\\\\\)/suppliers/page.tsx)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(/c/Program Files/nodejs/npx.cmd web-push generate-vapid-keys)",
+      "Bash(/c/Program Files/nodejs/npm.cmd install web-push)",
+      "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit src/app/api/ai/chat/route.ts)",
+      "Bash(/c/Program Files/nodejs/npm.cmd install ai @ai-sdk/openai zod)",
+      "Bash(/c/Program Files/nodejs/npm.cmd ls @ai-sdk/react)",
+      "Bash(/c/Program Files/nodejs/npm.cmd ls ai)",
+      "Bash(/c/Program Files/nodejs/npm.cmd install @ai-sdk/react)",
+      "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit --strict src/app/api/ai/chat/route.ts)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -139,7 +139,7 @@ export default function ReportsPage() {
 
         const { data: invoicesData } = await supabase
           .from("invoices")
-          .select("subtotal, supplier:suppliers(expense_category_id, expense_type)")
+          .select("subtotal, supplier_id, supplier:suppliers(name, expense_category_id, expense_type)")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .eq("invoice_type", "current")
@@ -149,7 +149,7 @@ export default function ReportsPage() {
         // Fetch supplier budgets with category info
         const { data: supplierBudgetsData } = await supabase
           .from("supplier_budgets")
-          .select("budget_amount, supplier:suppliers(expense_category_id, expense_type)")
+          .select("budget_amount, supplier_id, supplier:suppliers(name, expense_category_id, expense_type)")
           .in("business_id", selectedBusinesses)
           .eq("year", year)
           .eq("month", month)
@@ -207,19 +207,26 @@ export default function ReportsPage() {
         const vatDivisor = vatPercentage > 0 ? 1 + vatPercentage : 1;
         const totalRevenue = totalRegister / vatDivisor;
 
-        // Calculate actual totals by category + separate goods/current totals
+        // Calculate actual totals by category + separate goods/current totals + per-supplier tracking
         const categoryActuals = new Map<string, number>();
+        const supplierActuals = new Map<string, number>();
+        const supplierNames = new Map<string, string>();
         let totalGoodsExpenses = 0;
         let totalCurrentExpenses = 0;
         if (invoicesData) {
           for (const inv of invoicesData) {
-            const supplier = inv.supplier as unknown as { expense_category_id: string | null; expense_type: string | null } | null;
+            const supplier = inv.supplier as unknown as { name: string | null; expense_category_id: string | null; expense_type: string | null } | null;
             const catId = supplier?.expense_category_id;
             const expType = supplier?.expense_type;
+            const supplierId = (inv as unknown as { supplier_id: string | null }).supplier_id;
             const amount = Number(inv.subtotal);
             if (catId) {
               const current = categoryActuals.get(catId) || 0;
               categoryActuals.set(catId, current + amount);
+            }
+            if (supplierId) {
+              supplierActuals.set(supplierId, (supplierActuals.get(supplierId) || 0) + amount);
+              if (supplier?.name) supplierNames.set(supplierId, supplier.name);
             }
             if (expType === "goods_purchases") {
               totalGoodsExpenses += amount;
@@ -229,15 +236,21 @@ export default function ReportsPage() {
           }
         }
 
-        // Build supplier budget targets by category
+        // Build supplier budget targets by category + per-supplier budgets for goods
         const categoryBudgets = new Map<string, number>();
+        const supplierBudgets = new Map<string, number>();
         if (supplierBudgetsData) {
           for (const sb of supplierBudgetsData) {
-            const supplier = sb.supplier as unknown as { expense_category_id: string | null; expense_type: string | null } | null;
+            const supplier = sb.supplier as unknown as { name: string | null; expense_category_id: string | null; expense_type: string | null } | null;
             const catId = supplier?.expense_category_id;
+            const supplierId = (sb as unknown as { supplier_id: string | null }).supplier_id;
             if (catId) {
               const current = categoryBudgets.get(catId) || 0;
               categoryBudgets.set(catId, current + Number(sb.budget_amount || 0));
+            }
+            if (supplierId && supplier?.expense_type === "goods_purchases") {
+              supplierBudgets.set(supplierId, Number(sb.budget_amount || 0));
+              if (supplier?.name) supplierNames.set(supplierId, supplier.name);
             }
           }
         }
@@ -255,28 +268,61 @@ export default function ReportsPage() {
         const childCategories = (categoriesData || []).filter(c => c.parent_id);
 
         const displayCategories: ExpenseCategoryDisplay[] = parentCategories.map(parent => {
-          const children = childCategories.filter(c => c.parent_id === parent.id);
-          const childrenWithData = children.map(child => {
-            const actual = categoryActuals.get(child.id) || 0;
-            const target = categoryBudgets.get(child.id) || 0;
-            const diff = target - actual;
-            const remaining = target > 0 ? ((target - actual) / target) * 100 : 0;
-
-            return {
-              name: child.name,
-              target: formatCurrency(target),
-              actual: formatCurrency(actual),
-              difference: formatDifference(diff),
-              remaining: formatPercentage(remaining),
-              diffRaw: diff,
-            };
-          });
-
-          // Sum up children for parent
           const isGoodsCost = parent.name === "עלות מכר";
+          const children = childCategories.filter(c => c.parent_id === parent.id);
+
+          // For "עלות מכר": show individual goods_purchases suppliers instead of subcategories
+          let subcategoriesData: ExpenseCategoryDisplay["subcategories"];
+          if (isGoodsCost) {
+            // Build supplier list from all goods_purchases suppliers that have budget or actuals
+            const goodsSupplierIds = new Set<string>();
+            supplierBudgets.forEach((_, id) => goodsSupplierIds.add(id));
+            supplierActuals.forEach((_, id) => {
+              // Only add if it's a goods supplier (check via invoicesData)
+              if (invoicesData?.some(inv => {
+                const sid = (inv as unknown as { supplier_id: string | null }).supplier_id;
+                const sup = inv.supplier as unknown as { expense_type: string | null } | null;
+                return sid === id && sup?.expense_type === "goods_purchases";
+              })) {
+                goodsSupplierIds.add(id);
+              }
+            });
+
+            subcategoriesData = Array.from(goodsSupplierIds).map(supplierId => {
+              const actual = supplierActuals.get(supplierId) || 0;
+              const target = supplierBudgets.get(supplierId) || 0;
+              const diff = target - actual;
+              const remaining = target > 0 ? ((target - actual) / target) * 100 : 0;
+              return {
+                name: supplierNames.get(supplierId) || "ספק לא ידוע",
+                target: formatCurrency(target),
+                actual: formatCurrency(actual),
+                difference: formatDifference(diff),
+                remaining: formatPercentage(remaining),
+                diffRaw: diff,
+              };
+            }).filter(s => parseFloat(s.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(s.target.replace(/[₪K,]/g, "")) > 0)
+              .sort((a, b) => parseFloat(b.actual.replace(/[₪K,]/g, "")) - parseFloat(a.actual.replace(/[₪K,]/g, "")));
+          } else {
+            subcategoriesData = children.map(child => {
+              const actual = categoryActuals.get(child.id) || 0;
+              const target = categoryBudgets.get(child.id) || 0;
+              const diff = target - actual;
+              const remaining = target > 0 ? ((target - actual) / target) * 100 : 0;
+              return {
+                name: child.name,
+                target: formatCurrency(target),
+                actual: formatCurrency(actual),
+                difference: formatDifference(diff),
+                remaining: formatPercentage(remaining),
+                diffRaw: diff,
+              };
+            });
+          }
+
+          // Sum up for parent
           const childrenActual = children.reduce((sum, c) => sum + (categoryActuals.get(c.id) || 0), 0) || categoryActuals.get(parent.id) || 0;
           const childrenBudget = children.reduce((sum, c) => sum + (categoryBudgets.get(c.id) || 0), 0) || categoryBudgets.get(parent.id) || 0;
-          // For "עלות מכר": use totalGoodsExpenses (all goods_purchases invoices) since suppliers may not have expense_category_id
           const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : childrenActual;
           const parentTarget = isGoodsCost ? foodCostTarget : childrenBudget;
           const parentDiff = parentTarget - parentActual;
@@ -290,9 +336,9 @@ export default function ReportsPage() {
             difference: formatDifference(parentDiff),
             remaining: formatPercentage(parentRemaining),
             diffRaw: parentDiff,
-            subcategories: childrenWithData,
+            subcategories: subcategoriesData,
           };
-        }).filter(cat => parseFloat(cat.actual.replace(/[₪K,]/g, "")) > 0 || cat.subcategories.length > 0);
+        }).filter(cat => parseFloat(cat.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(cat.target.replace(/[₪K,]/g, "")) > 0 || cat.subcategories.length > 0);
 
         setExpenseCategories(displayCategories);
 
