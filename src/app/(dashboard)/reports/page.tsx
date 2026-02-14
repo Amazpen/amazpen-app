@@ -146,10 +146,10 @@ export default function ReportsPage() {
           .gte("invoice_date", startDate)
           .lte("invoice_date", endDate);
 
-        // Fetch daily entries for revenue
+        // Fetch daily entries for revenue, labor cost and manager cost
         const { data: dailyEntries } = await supabase
           .from("daily_entries")
-          .select("total_register")
+          .select("total_register, labor_cost, manager_daily_cost")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .gte("entry_date", startDate)
@@ -185,8 +185,18 @@ export default function ReportsPage() {
 
         const totalForecastActual = (allSplits || []).reduce((sum, s) => sum + Number(s.amount || 0), 0);
 
+        // Goal for this month
+        const goal = goalsData?.[0];
+
         // Calculate totals
-        const totalRevenue = (dailyEntries || []).reduce((sum, d) => sum + Number(d.total_register || 0), 0);
+        const totalRegister = (dailyEntries || []).reduce((sum, d) => sum + Number(d.total_register || 0), 0);
+        const totalLaborCost = (dailyEntries || []).reduce((sum, d) => sum + Number(d.labor_cost || 0), 0);
+        const totalManagerCost = (dailyEntries || []).reduce((sum, d) => sum + Number(d.manager_daily_cost || 0), 0);
+
+        // VAT divisor from goal
+        const vatPercentage = Number(goal?.vat_percentage || 0);
+        const vatDivisor = vatPercentage > 0 ? 1 + vatPercentage / 100 : 1;
+        const totalRevenue = totalRegister / vatDivisor;
 
         // Calculate actual totals by category
         const categoryActuals = new Map<string, number>();
@@ -202,7 +212,6 @@ export default function ReportsPage() {
         }
 
         // Build expense categories display
-        const goal = goalsData?.[0];
         const totalExpenses = Array.from(categoryActuals.values()).reduce((sum, val) => sum + val, 0);
         const expensesTarget = Number(goal?.current_expenses_target || 0);
 
@@ -249,7 +258,8 @@ export default function ReportsPage() {
         setExpenseCategories(displayCategories);
 
         // Calculate summary
-        const operatingProfit = totalRevenue - totalExpenses;
+        // Formula: (סה"כ קופה/מע"מ - הוצאות חשבוניות - עלות מנהל כולל העמסה - עלות עובדים כולל העמסה) / (סה"כ קופה/מע"מ)
+        const operatingProfit = totalRevenue - totalExpenses - totalManagerCost - totalLaborCost;
         const operatingProfitPct = totalRevenue > 0 ? (operatingProfit / totalRevenue) * 100 : 0;
 
         setSummary({
