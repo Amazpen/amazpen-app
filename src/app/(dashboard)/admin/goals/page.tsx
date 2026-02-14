@@ -905,7 +905,7 @@ export default function AdminGoalsPage() {
                       <td className="sticky right-0 z-10 bg-[#0F1535] px-4 py-3 text-sm font-bold">סה״כ</td>
                       <td></td>
                       {hebrewMonths.map((m) => (
-                        <td key={m.value} className="px-1 py-3 text-center text-xs font-semibold text-[#4956D4]">
+                        <td key={m.value} className="px-1 py-3 text-center text-xs font-semibold text-white">
                           ₪{getMonthTotal(m.value).toLocaleString()}
                         </td>
                       ))}
