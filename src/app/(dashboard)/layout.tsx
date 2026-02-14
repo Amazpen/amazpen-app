@@ -447,6 +447,22 @@ export default function DashboardLayout({
     setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
+  const deleteNotification = async (notificationId: number) => {
+    const supabase = createClient();
+    await supabase
+      .from("notifications")
+      .delete()
+      .eq("id", notificationId);
+
+    setNotifications(prev => {
+      const deleted = prev.find(n => n.id === notificationId);
+      if (deleted && !deleted.is_read) {
+        setUnreadCount(c => Math.max(0, c - 1));
+      }
+      return prev.filter(n => n.id !== notificationId);
+    });
+  };
+
   const markAllAsRead = async () => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -850,9 +866,26 @@ export default function DashboardLayout({
                                 <p className={`text-[14px] font-medium leading-[1.4] ${notification.is_read ? "text-white/70" : "text-white"}`}>
                                   {notification.title}
                                 </p>
-                                {!notification.is_read && (
-                                  <div className="w-[8px] h-[8px] bg-[#FFA412] rounded-full flex-shrink-0 mt-[6px]"></div>
-                                )}
+                                <div className="flex items-center gap-[6px] flex-shrink-0">
+                                  {!notification.is_read && (
+                                    <div className="w-[8px] h-[8px] bg-[#FFA412] rounded-full"></div>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteNotification(notification.id);
+                                    }}
+                                    className="w-[24px] h-[24px] flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-white/30 hover:text-white/70"
+                                    aria-label="מחק התראה"
+                                    title="מחק"
+                                  >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <line x1="18" y1="6" x2="6" y2="18" strokeLinecap="round" />
+                                      <line x1="6" y1="6" x2="18" y2="18" strokeLinecap="round" />
+                                    </svg>
+                                  </button>
+                                </div>
                               </div>
                               {notification.message && (
                                 <p className="text-[12px] text-white/50 leading-[1.4] mt-[4px] line-clamp-2">
