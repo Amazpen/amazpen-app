@@ -92,7 +92,7 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
 
       {/* Title */}
       <h1 className="text-white text-[22px] font-bold mb-2 text-center">
-        שלום! אני העוזר החכם של המצפן
+        שלום! אני דדי, העוזר החכם של המצפן
       </h1>
 
       {/* Subtitle */}

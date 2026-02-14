@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { ArrowUp, Mic, Square } from "lucide-react";
+import { ArrowUp, Mic, Square, Camera } from "lucide-react";
 
 interface AiChatInputProps {
   onSend: (message: string) => void;
@@ -134,6 +134,16 @@ export function AiChatInput({ onSend, disabled }: AiChatInputProps) {
           ) : (
             <Mic className="w-5 h-5" />
           )}
+        </button>
+        {/* OCR button */}
+        <button
+          type="button"
+          disabled={isBusy}
+          title="צלם וזהה טקסט"
+          aria-label="צלם וזהה טקסט"
+          className="flex-shrink-0 w-[44px] h-[44px] rounded-full bg-[#29318A] hover:bg-[#3a43a0] flex items-center justify-center text-white transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <Camera className="w-5 h-5" />
         </button>
         <textarea
           ref={textareaRef}

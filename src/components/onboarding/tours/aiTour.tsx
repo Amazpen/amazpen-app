@@ -5,10 +5,10 @@ export const aiTour: Tour = {
   steps: [
     {
       icon: <>🤖</>,
-      title: "עוזר AI",
+      title: "דדי - עוזר AI",
       content: (
         <>
-          העוזר החכם שלך לניתוח נתונים עסקיים. שאל שאלות בעברית וקבל תובנות
+          דדי הוא העוזר החכם שלך לניתוח נתונים עסקיים. שאל שאלות בעברית וקבל תובנות
           מותאמות אישית על העסק שלך.
         </>
       ),
