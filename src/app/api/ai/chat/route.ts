@@ -193,7 +193,11 @@ ${getRoleInstructions(userRole)}
 
 ### getMonthlySummary ⭐ (העדפה ראשונה!)
 **השתמש בכלי זה לכל שאלה על ביצועי החודש, סיכום, השוואה ליעד, צפי.**
-מחזיר הכל מחושב: הכנסות, הכנסה לפני מע"מ, צפי חודשי, עלות עובדים (סכום + אחוז), עלות מכר (סכום + אחוז), הוצאות שוטפות, הפרשים מיעדים.
+מחזיר שורה מלאה מטבלת business_monthly_metrics עם **הכל מחושב**:
+הכנסות, הכנסה לפני מע"מ, צפי חודשי, ממוצע יומי, ימי עבודה,
+עלות עובדים (סכום + % + יעד + הפרש), עלות מכר (סכום + % + יעד + הפרש),
+הוצאות שוטפות, מוצרים מנוהלים (עד 3), פירוט במקום/במשלוח (סכום + כמות + ממוצע),
+השוואה לחודש קודם + שנה שעברה, וכל פרמטרי החישוב (מע"מ, מרקאפ, משכורת מנהל).
 **קריאה אחת — תשובה מלאה. אין צורך בשום כלי נוסף.**
 
 ### queryDatabase
@@ -247,7 +251,7 @@ ${getRoleInstructions(userRole)}
 --   discounts, waste, day_factor, total_income_breakdown, food_cost,
 --   labor_cost_pct, food_cost_pct, notes, created_by
 
--- monthly_summaries: סיכומים חודשיים מחושבים (כולל היסטוריה)
+-- monthly_summaries: סיכומים חודשיים היסטוריים (מיובא מ-CSV, לתקופות ללא daily_entries)
 -- Columns: id (uuid PK), business_id (uuid FK), year (int), month (int),
 --   actual_work_days, total_income, monthly_pace,
 --   labor_cost_pct, labor_cost_amount, food_cost_pct, food_cost_amount,
@@ -257,6 +261,25 @@ ${getRoleInstructions(userRole)}
 --   sales_budget_diff_pct, labor_budget_diff_pct, food_cost_budget_diff,
 --   sales_yoy_change_pct, labor_cost_yoy_change_pct, food_cost_yoy_change_pct
 -- NOTE: percentage columns = decimals (0.325 = 32.5%). Use for historical months without daily_entries.
+
+-- business_monthly_metrics: מדדים חודשיים מחושבים מרוכזים (מתעדכנים אוטומטית)
+-- ⭐ זו הטבלה המועדפת לכל שאלה על ביצועים חודשיים! שורה אחת = כל המידע.
+-- Columns: id (uuid PK), business_id (uuid FK), year (int), month (int),
+--   actual_work_days, actual_day_factors, expected_work_days,
+--   total_income, income_before_vat, monthly_pace, daily_avg,
+--   revenue_target, target_diff_pct, target_diff_amount,
+--   labor_cost_amount, labor_cost_pct, labor_target_pct, labor_diff_pct, labor_diff_amount,
+--   food_cost_amount, food_cost_pct, food_target_pct, food_diff_pct, food_diff_amount,
+--   current_expenses_amount, current_expenses_pct, current_expenses_target_pct, current_expenses_diff_pct, current_expenses_diff_amount,
+--   managed_product_1_name, managed_product_1_cost, managed_product_1_pct, managed_product_1_target_pct, managed_product_1_diff_pct,
+--   managed_product_2_name, managed_product_2_cost, managed_product_2_pct, managed_product_2_target_pct, managed_product_2_diff_pct,
+--   managed_product_3_name, managed_product_3_cost, managed_product_3_pct, managed_product_3_target_pct, managed_product_3_diff_pct,
+--   private_income, private_orders_count, private_avg_ticket,
+--   business_income, business_orders_count, business_avg_ticket,
+--   prev_month_income, prev_month_change_pct, prev_year_income, prev_year_change_pct,
+--   vat_pct, markup_pct, manager_salary, manager_daily_cost,
+--   total_labor_hours, total_discounts, computed_at (timestamptz)
+-- NOTE: כל האחוזים כבר בפורמט אחוזי (32.5 = 32.5%). computed_at מציין מתי חושב.
 
 -- invoices: חשבוניות ספקים
 -- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK),
@@ -594,6 +617,64 @@ async function computeMonthlySummary(
   };
 }
 
+/** Store computed metrics to business_monthly_metrics (fire-and-forget) */
+function storeMetricsInBackground(
+  adminSb: AnySupabaseClient,
+  bizId: string,
+  year: number,
+  month: number,
+  summary: Awaited<ReturnType<typeof computeMonthlySummary>>
+) {
+  const r2 = (v: number | null | undefined) =>
+    v === null || v === undefined ? null : Math.round(v * 100) / 100;
+
+  const row = {
+    business_id: bizId,
+    year,
+    month,
+    actual_work_days: summary.actuals.workDays,
+    actual_day_factors: summary.actuals.sumDayFactors,
+    expected_work_days: summary.actuals.expectedWorkDays,
+    total_income: summary.actuals.totalIncome,
+    income_before_vat: summary.actuals.incomeBeforeVat,
+    monthly_pace: summary.actuals.monthlyPace,
+    daily_avg: summary.actuals.dailyAvgBeforeVat,
+    revenue_target: summary.targets.revenueTarget,
+    target_diff_pct: summary.targets.targetDiffPct,
+    target_diff_amount: null, // not available from old computeMonthlySummary
+    labor_cost_amount: summary.costs.laborCostTotal,
+    labor_cost_pct: summary.costs.laborCostPct,
+    labor_target_pct: summary.targets.laborTargetPct,
+    labor_diff_pct: summary.targets.laborDiffPct,
+    labor_diff_amount: null,
+    food_cost_amount: summary.costs.foodCost,
+    food_cost_pct: summary.costs.foodCostPct,
+    food_target_pct: summary.targets.foodTargetPct,
+    food_diff_pct: summary.targets.foodDiffPct,
+    food_diff_amount: null,
+    current_expenses_amount: summary.costs.currentExpenses,
+    current_expenses_pct: summary.costs.currentExpensesPct,
+    current_expenses_target_pct: null,
+    current_expenses_diff_pct: null,
+    current_expenses_diff_amount: null,
+    vat_pct: r2(summary.params.vatPct),
+    markup_pct: r2(summary.params.markup),
+    manager_salary: r2(summary.params.managerSalary),
+    manager_daily_cost: null,
+    total_labor_hours: summary.actuals.totalLaborHours,
+    total_discounts: summary.actuals.totalDiscounts,
+    computed_at: new Date().toISOString(),
+  };
+
+  adminSb
+    .from("business_monthly_metrics")
+    .upsert(row, { onConflict: "business_id,year,month" })
+    .then(({ error }: { error: unknown }) => {
+      if (error) console.error("[storeMetrics] upsert error:", error);
+      else console.log(`[storeMetrics] saved ${bizId} ${year}/${month}`);
+    });
+}
+
 function buildTools(
   adminSupabase: AnySupabaseClient,
   businessId: string,
@@ -601,7 +682,7 @@ function buildTools(
 ) {
   return {
     getMonthlySummary: tool({
-      description: "Get a complete pre-calculated monthly business summary including income, labor cost, food cost, current expenses, monthly pace, targets, and variances. Use this as the FIRST tool for any question about monthly performance, 'how is the month going', summaries, or comparisons to goals. Returns all data already computed — no need for additional calculate calls.",
+      description: "Get a complete pre-calculated monthly business summary from the business_monthly_metrics table. Includes: income, income before VAT, monthly pace, daily avg, labor cost (amount + %), food cost (amount + %), current expenses, managed products, private/business breakdown, targets & diffs, prev month/year comparisons, and calculation params. Use this as the FIRST tool for any question about monthly performance, 'how is the month going', summaries, or comparisons to goals. Returns all data already computed — no need for additional calculate calls.",
       inputSchema: z.object({
         businessId: z.string().describe("Business UUID"),
         year: z.number().describe("Year (e.g., 2026)"),
@@ -610,7 +691,37 @@ function buildTools(
       execute: async ({ businessId: bizId, year, month }) => {
         console.log(`[AI Tool] getMonthlySummary: ${bizId} ${year}/${month}`);
         try {
-          return await computeMonthlySummary(adminSupabase, bizId, year, month);
+          // Try reading from cached metrics table first
+          const { data: cached } = await adminSupabase
+            .from("business_monthly_metrics")
+            .select("*")
+            .eq("business_id", bizId)
+            .eq("year", year)
+            .eq("month", month)
+            .maybeSingle();
+
+          const now = new Date();
+          const isCurrentMonth =
+            year === now.getFullYear() && month === now.getMonth() + 1;
+          const STALE_MS = 30 * 60 * 1000; // 30 minutes
+
+          if (cached && cached.computed_at) {
+            const age = now.getTime() - new Date(cached.computed_at).getTime();
+            // For current month, refresh if older than 30 min; for past months, always use cache
+            if (!isCurrentMonth || age < STALE_MS) {
+              console.log(`[AI Tool] getMonthlySummary: using cached metrics (age=${Math.round(age / 60000)}m)`);
+              return cached;
+            }
+          }
+
+          // No cache or stale → compute fresh and store
+          console.log(`[AI Tool] getMonthlySummary: computing fresh metrics`);
+          const fresh = await computeMonthlySummary(adminSupabase, bizId, year, month);
+
+          // Store in background (don't block the response)
+          storeMetricsInBackground(adminSupabase, bizId, year, month, fresh);
+
+          return fresh;
         } catch (e) {
           console.error("[AI Tool] getMonthlySummary error:", e);
           return { error: e instanceof Error ? e.message : "Failed to compute summary" };
