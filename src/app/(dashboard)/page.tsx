@@ -10,6 +10,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { useToast } from "@/components/ui/toast";
 
 // ============================================================================
 // LAZY LOADED CHART COMPONENTS - Recharts (~200KB) loaded only when needed
@@ -298,6 +299,7 @@ const formatLocalDate = (date: Date) => {
 
 export default function DashboardPage() {
   const { selectedBusinesses, toggleBusiness, setSelectedBusinesses } = useDashboard();
+  const { showToast } = useToast();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [realBusinessId, setRealBusinessId] = useState<string | null>(null);
@@ -364,7 +366,7 @@ export default function DashboardPage() {
   // Send daily push email via n8n webhook
   const handleDailyPush = useCallback(async () => {
     if (!detailedSummary || !dateRange) {
-      alert("אין נתונים לשליחה");
+      showToast("אין נתונים לשליחה", "warning");
       return;
     }
     setIsSendingPush(true);
@@ -486,16 +488,16 @@ export default function DashboardPage() {
       });
 
       if (response.ok) {
-        alert("המייל נשלח בהצלחה!");
+        showToast("הפוש נשלח בהצלחה!", "success");
       } else {
-        alert("שגיאה בשליחת המייל");
+        showToast("שגיאה בשליחת הפוש", "error");
       }
     } catch {
-      alert("שגיאה בשליחת המייל");
+      showToast("שגיאה בשליחת הפוש", "error");
     } finally {
       setIsSendingPush(false);
     }
-  }, [detailedSummary, dateRange, managedProductsSummary, incomeSourcesSummary, selectedBusinesses, businessCards]);
+  }, [detailedSummary, dateRange, managedProductsSummary, incomeSourcesSummary, selectedBusinesses, businessCards, showToast]);
 
   // Realtime subscription - refresh data when changes occur
   const handleRealtimeChange = useCallback(() => {
