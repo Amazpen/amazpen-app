@@ -98,6 +98,10 @@ CRITICAL RULES:
 13. NEVER use UNION or UNION ALL.
 14. NEVER include SQL comments (-- or /* */).
 15. NEVER reference business_id values other than '${businessId}'.
+16. If the user asks MULTIPLE questions in one message, focus on the FIRST/MAIN question and generate a single comprehensive query. Prefer a broader query that covers all the data needed.
+17. ALWAYS JOIN with public.businesses to include business name (b.name) in the SELECT — NEVER expose raw business_id UUIDs in results.
+18. When calculating monthly pace, ALWAYS include business_schedule data: JOIN public.business_schedule bs ON bs.business_id = '${businessId}' to get expected work days.
+19. When querying food cost or labor cost, ALWAYS also fetch the relevant goal targets and income_before_vat components so the response can show percentages and comparisons.
 
 DATABASE SCHEMA:
 
@@ -195,6 +199,10 @@ DATABASE SCHEMA:
 -- Columns: id (uuid PK), name (text), business_type (text), tax_id (text),
 --   vat_percentage (numeric), markup_percentage (numeric),
 --   manager_monthly_salary (numeric), currency (text)
+
+-- business_schedule: Weekly schedule with day_factor per day of week (for monthly pace calculation)
+-- Columns: id (uuid PK), business_id (uuid FK), day_of_week (integer, 0=Sunday..6=Saturday), day_factor (numeric, e.g. 1=full day, 0.5=half day, 0=closed)
+-- Use this to calculate expected_monthly_work_days: for each day in the calendar month, look up its day_of_week and sum all day_factors.
 
 -- business_credit_cards: Credit cards for the business
 -- Columns: id (uuid PK), business_id (uuid FK), card_name (text),
@@ -335,7 +343,7 @@ total_register / count(entries) or total_register / SUM(day_factor) for the peri
 FEW-SHOT EXAMPLES (input → output):
 
 User: "מה סך ההכנסות החודש?"
-SQL: SELECT COALESCE(SUM(de.total_register), 0) AS total_income, COALESCE(SUM(de.day_factor), 0) AS actual_work_days, COUNT(de.id) AS entries_count FROM public.daily_entries de WHERE de.business_id = '${businessId}' AND de.entry_date >= date_trunc('month', CURRENT_DATE) AND de.deleted_at IS NULL LIMIT 500
+SQL: SELECT b.name AS business_name, COALESCE(SUM(de.total_register), 0) AS total_income, COALESCE(SUM(de.day_factor), 0) AS actual_work_days, COUNT(de.id) AS entries_count, g.revenue_target, COALESCE(g.vat_percentage, b.vat_percentage, 0) AS vat_pct FROM public.daily_entries de JOIN public.businesses b ON b.id = de.business_id LEFT JOIN public.goals g ON g.business_id = de.business_id AND g.year = EXTRACT(YEAR FROM CURRENT_DATE)::int AND g.month = EXTRACT(MONTH FROM CURRENT_DATE)::int AND g.deleted_at IS NULL WHERE de.business_id = '${businessId}' AND de.entry_date >= date_trunc('month', CURRENT_DATE) AND de.deleted_at IS NULL GROUP BY b.name, g.revenue_target, g.vat_percentage, b.vat_percentage LIMIT 500
 
 User: "מי הספק הכי יקר?"
 SQL: SELECT s.name AS supplier_name, SUM(i.total_amount) AS total_spent FROM public.invoices i JOIN public.suppliers s ON s.id = i.supplier_id WHERE i.business_id = '${businessId}' AND i.invoice_date >= date_trunc('month', CURRENT_DATE) AND i.deleted_at IS NULL AND s.deleted_at IS NULL GROUP BY s.name ORDER BY total_spent DESC LIMIT 5
@@ -344,7 +352,7 @@ User: "מה עלות העובדים?"
 SQL: SELECT COALESCE(SUM(de.labor_cost), 0) AS raw_labor_cost, COALESCE(SUM(de.day_factor), 0) AS actual_work_days, COALESCE(SUM(de.total_register), 0) AS total_income, b.manager_monthly_salary, COALESCE(g.markup_percentage, b.markup_percentage, 1) AS markup, COALESCE(g.vat_percentage, b.vat_percentage, 0) AS vat_pct, g.labor_cost_target_pct FROM public.daily_entries de JOIN public.businesses b ON b.id = de.business_id LEFT JOIN public.goals g ON g.business_id = de.business_id AND g.year = EXTRACT(YEAR FROM CURRENT_DATE)::int AND g.month = EXTRACT(MONTH FROM CURRENT_DATE)::int AND g.deleted_at IS NULL WHERE de.business_id = '${businessId}' AND de.entry_date >= date_trunc('month', CURRENT_DATE) AND de.deleted_at IS NULL GROUP BY b.manager_monthly_salary, b.markup_percentage, b.vat_percentage, g.markup_percentage, g.vat_percentage, g.labor_cost_target_pct LIMIT 500
 
 User: "מה עלות המכר?"
-SQL: SELECT COALESCE(SUM(i.subtotal), 0) AS food_cost FROM public.invoices i JOIN public.suppliers s ON s.id = i.supplier_id WHERE i.business_id = '${businessId}' AND s.expense_type = 'goods_purchases' AND s.is_active = true AND s.deleted_at IS NULL AND i.invoice_date >= date_trunc('month', CURRENT_DATE) AND i.deleted_at IS NULL LIMIT 500
+SQL: SELECT b.name AS business_name, COALESCE(SUM(i.subtotal), 0) AS food_cost, COALESCE(SUM(de_agg.total_register), 0) AS total_income, COALESCE(g.vat_percentage, b.vat_percentage, 0) AS vat_pct, g.food_cost_target_pct FROM public.invoices i JOIN public.suppliers s ON s.id = i.supplier_id JOIN public.businesses b ON b.id = i.business_id LEFT JOIN (SELECT business_id, SUM(total_register) AS total_register FROM public.daily_entries WHERE business_id = '${businessId}' AND entry_date >= date_trunc('month', CURRENT_DATE) AND deleted_at IS NULL GROUP BY business_id) de_agg ON de_agg.business_id = i.business_id LEFT JOIN public.goals g ON g.business_id = i.business_id AND g.year = EXTRACT(YEAR FROM CURRENT_DATE)::int AND g.month = EXTRACT(MONTH FROM CURRENT_DATE)::int AND g.deleted_at IS NULL WHERE i.business_id = '${businessId}' AND s.expense_type = 'goods_purchases' AND s.deleted_at IS NULL AND i.invoice_date >= date_trunc('month', CURRENT_DATE) AND i.deleted_at IS NULL GROUP BY b.name, g.vat_percentage, b.vat_percentage, g.food_cost_target_pct LIMIT 500
 
 User: "מה המצב מול היעדים?"
 SQL: SELECT COALESCE(SUM(de.total_register), 0) AS total_income, COALESCE(SUM(de.labor_cost), 0) AS raw_labor_cost, COALESCE(SUM(de.day_factor), 0) AS actual_work_days, b.manager_monthly_salary, COALESCE(g.markup_percentage, b.markup_percentage, 1) AS markup, COALESCE(g.vat_percentage, b.vat_percentage, 0) AS vat_pct, g.revenue_target, g.labor_cost_target_pct, g.food_cost_target_pct, g.current_expenses_target FROM public.daily_entries de JOIN public.businesses b ON b.id = de.business_id LEFT JOIN public.goals g ON g.business_id = de.business_id AND g.year = EXTRACT(YEAR FROM CURRENT_DATE)::int AND g.month = EXTRACT(MONTH FROM CURRENT_DATE)::int AND g.deleted_at IS NULL WHERE de.business_id = '${businessId}' AND de.entry_date >= date_trunc('month', CURRENT_DATE) AND de.deleted_at IS NULL GROUP BY b.manager_monthly_salary, b.markup_percentage, b.vat_percentage, g.markup_percentage, g.vat_percentage, g.revenue_target, g.labor_cost_target_pct, g.food_cost_target_pct, g.current_expenses_target LIMIT 500
@@ -354,6 +362,12 @@ SQL: SELECT sb.supplier_name, sb.total_invoiced, sb.total_paid, sb.balance FROM 
 
 User: "השווה לי את ספק X חודש שעבר"
 SQL: SELECT EXTRACT(MONTH FROM i.invoice_date) AS month, EXTRACT(YEAR FROM i.invoice_date) AS year, COUNT(i.id) AS invoice_count, COALESCE(SUM(i.subtotal), 0) AS total_subtotal, COALESCE(SUM(i.total_amount), 0) AS total_with_vat FROM public.invoices i JOIN public.suppliers s ON s.id = i.supplier_id WHERE i.business_id = '${businessId}' AND s.name ILIKE '%X%' AND i.invoice_date >= date_trunc('month', CURRENT_DATE - interval '2 months') AND i.deleted_at IS NULL AND s.deleted_at IS NULL GROUP BY EXTRACT(MONTH FROM i.invoice_date), EXTRACT(YEAR FROM i.invoice_date) ORDER BY year, month LIMIT 500
+
+User: "מה הצפי החודשי?" / "מה הקצב?"
+SQL: SELECT b.name AS business_name, COALESCE(SUM(de.total_register), 0) AS total_income, COALESCE(SUM(de.day_factor), 0) AS actual_day_factors, COUNT(de.id) AS entries_count, g.revenue_target, COALESCE(g.vat_percentage, b.vat_percentage, 0) AS vat_pct FROM public.daily_entries de JOIN public.businesses b ON b.id = de.business_id LEFT JOIN public.goals g ON g.business_id = de.business_id AND g.year = EXTRACT(YEAR FROM CURRENT_DATE)::int AND g.month = EXTRACT(MONTH FROM CURRENT_DATE)::int AND g.deleted_at IS NULL WHERE de.business_id = '${businessId}' AND de.entry_date >= date_trunc('month', CURRENT_DATE) AND de.deleted_at IS NULL GROUP BY b.name, g.revenue_target, g.vat_percentage, b.vat_percentage LIMIT 500
+
+User: "איך היום השתווה לממוצע?" / "מה המגמה בהכנסות?"
+SQL: SELECT b.name AS business_name, de.entry_date, de.total_register, de.day_factor, de.labor_cost, de.labor_hours FROM public.daily_entries de JOIN public.businesses b ON b.id = de.business_id WHERE de.business_id = '${businessId}' AND de.entry_date >= date_trunc('month', CURRENT_DATE) AND de.deleted_at IS NULL ORDER BY de.entry_date DESC LIMIT 500
 
 User: "איזה יום היה הכי חזק החודש?"
 SQL: SELECT de.entry_date, de.total_register, de.day_factor, de.labor_cost FROM public.daily_entries de WHERE de.business_id = '${businessId}' AND de.entry_date >= date_trunc('month', CURRENT_DATE) AND de.deleted_at IS NULL ORDER BY de.total_register DESC LIMIT 10
@@ -394,6 +408,9 @@ CRITICAL RULES:
 13. Today's date is ${today}. Current date and time in Israel: ${israelTime}.
 14. NEVER use UNION or UNION ALL.
 15. NEVER include SQL comments (-- or /* */).
+16. ALWAYS include b.name AS business_name in SELECT — NEVER expose raw business_id UUIDs in results.
+17. If the user asks MULTIPLE questions in one message, focus on the MAIN question and generate a single comprehensive query.
+18. When querying labor/food cost, ALWAYS also fetch goal targets and income components so the response can show percentages.
 
 AVAILABLE BUSINESSES:
 ${bizList}
@@ -478,6 +495,10 @@ DATABASE SCHEMA:
 -- expense_categories: Hierarchical expense categories
 -- Columns: id (uuid PK), business_id (uuid FK), parent_id (uuid FK self-ref),
 --   name (text), description (text), display_order (integer), is_active (boolean), deleted_at
+
+-- business_schedule: Weekly schedule with day_factor per day of week (for monthly pace calculation)
+-- Columns: id (uuid PK), business_id (uuid FK), day_of_week (integer, 0=Sunday..6=Saturday), day_factor (numeric, e.g. 1=full day, 0.5=half day, 0=closed)
+-- Use this to calculate expected_monthly_work_days: for each day in the calendar month, look up its day_of_week and sum all day_factors.
 
 -- business_credit_cards: Credit cards for the business
 -- Columns: id (uuid PK), business_id (uuid FK), card_name (text),
@@ -592,9 +613,10 @@ function getRoleInstructions(userRole: string): string {
 - הצע שאלות פשוטות: "רוצה לראות את ההכנסות של היום?" או "אפשר לבדוק כמה הזמנות היו."`;
 }
 
-function buildResponseSystemPrompt(userName: string, userRole: string, pageHint: string): string {
+function buildResponseSystemPrompt(userName: string, userRole: string, pageHint: string, businessName?: string): string {
   const israelTime = new Date().toLocaleString("he-IL", { timeZone: "Asia/Jerusalem", dateStyle: "full", timeStyle: "short" });
-  const userContext = userName ? `המשתמש: ${userName} (${userRole}). פנה אליו בשמו הפרטי.` : "";
+  const bizContext = businessName ? `\nהעסק הנבחר: "${businessName}". השתמש בשם הזה — אסור להציג מזהי UUID.` : "";
+  const userContext = userName ? `המשתמש: ${userName} (${userRole}). פנה אליו בשמו הפרטי.${bizContext}` : bizContext;
   const pageSection = pageHint ? `\nהמשתמש הגיע מתוך: ${pageHint}. התאם את התשובה לנושא הדף שממנו הגיע — אם השאלה קשורה, העדף מידע רלוונטי לדף הזה.` : "";
   const roleSection = getRoleInstructions(userRole);
 
@@ -780,6 +802,9 @@ ${roleSection}
 • אסור לתת מחירים של חברת המצפן
 • אסור להבטיח תוצאות ספציפיות
 • אם יש חריגה שלילית - הוסף המלצה בתוך הסיכום (לא בנפרד!)
+• **אסור להציג UUID/מזהי עסק** — אם יש בתוצאות שם עסק (business_name/name), השתמש בו. אם אין — אמור "העסק שלך" ולא "עסק עם מזהה abc..."
+• כשמציגים אחוזים (עלות עובדים, עלות מכר) — **תמיד** הוסף: הפרש מהיעד, סכום ההפרש בש"ח, והשוואה לחודש קודם
+• כשמציגים צפי חודשי — **תמיד** פרט: ימי עבודה בפועל, ממוצע יומי, ימי עבודה צפויים בחודש, ויעד
 
 ## פורמט גרף
 אם הנתונים תומכים בהמחשה (השוואות, מגמות, התפלגויות עם 2+ נקודות נתונים), הוסף בלוק קוד בסוף התשובה עם תג "chart-json":
@@ -1099,6 +1124,17 @@ export async function POST(request: NextRequest) {
   // Non-admin must provide a businessId
   if (!isAdmin && !businessId) {
     return jsonResponse({ error: "חסרים נתונים" }, 400);
+  }
+
+  // Fetch business name for context (used in response prompt)
+  let businessName = "";
+  if (businessId) {
+    const { data: biz } = await serverSupabase
+      .from("businesses")
+      .select("name")
+      .eq("id", businessId)
+      .single();
+    businessName = biz?.name || "";
   }
 
   // Admin: always fetch all businesses (needed for cross-business queries even when a business is selected)
@@ -1485,7 +1521,7 @@ export async function POST(request: NextRequest) {
     const responseStream = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
-        { role: "system", content: buildResponseSystemPrompt(userName, userRole, pageHint) },
+        { role: "system", content: buildResponseSystemPrompt(userName, userRole, pageHint, businessName) },
         {
           role: "user",
           content: userContent,
