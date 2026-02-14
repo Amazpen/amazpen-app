@@ -146,6 +146,15 @@ export default function ReportsPage() {
           .gte("invoice_date", startDate)
           .lte("invoice_date", endDate);
 
+        // Fetch supplier budgets with category info
+        const { data: supplierBudgetsData } = await supabase
+          .from("supplier_budgets")
+          .select("budget_amount, supplier:suppliers(expense_category_id, expense_type)")
+          .in("business_id", selectedBusinesses)
+          .eq("year", year)
+          .eq("month", month)
+          .is("deleted_at", null);
+
         // Fetch daily entries for revenue, labor cost and manager cost
         const { data: dailyEntries } = await supabase
           .from("daily_entries")
@@ -220,6 +229,19 @@ export default function ReportsPage() {
           }
         }
 
+        // Build supplier budget targets by category
+        const categoryBudgets = new Map<string, number>();
+        if (supplierBudgetsData) {
+          for (const sb of supplierBudgetsData) {
+            const supplier = sb.supplier as unknown as { expense_category_id: string | null; expense_type: string | null } | null;
+            const catId = supplier?.expense_category_id;
+            if (catId) {
+              const current = categoryBudgets.get(catId) || 0;
+              categoryBudgets.set(catId, current + Number(sb.budget_amount || 0));
+            }
+          }
+        }
+
         // Build expense categories display
         const totalExpenses = Array.from(categoryActuals.values()).reduce((sum, val) => sum + val, 0);
         const expensesTarget = Number(goal?.current_expenses_target || 0);
@@ -236,7 +258,7 @@ export default function ReportsPage() {
           const children = childCategories.filter(c => c.parent_id === parent.id);
           const childrenWithData = children.map(child => {
             const actual = categoryActuals.get(child.id) || 0;
-            const target = 0;
+            const target = categoryBudgets.get(child.id) || 0;
             const diff = target - actual;
             const remaining = target > 0 ? ((target - actual) / target) * 100 : 0;
 
@@ -253,9 +275,10 @@ export default function ReportsPage() {
           // Sum up children for parent
           const isGoodsCost = parent.name === "עלות מכר";
           const childrenActual = children.reduce((sum, c) => sum + (categoryActuals.get(c.id) || 0), 0) || categoryActuals.get(parent.id) || 0;
+          const childrenBudget = children.reduce((sum, c) => sum + (categoryBudgets.get(c.id) || 0), 0) || categoryBudgets.get(parent.id) || 0;
           // For "עלות מכר": use totalGoodsExpenses (all goods_purchases invoices) since suppliers may not have expense_category_id
           const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : childrenActual;
-          const parentTarget = isGoodsCost ? foodCostTarget : 0;
+          const parentTarget = isGoodsCost ? foodCostTarget : childrenBudget;
           const parentDiff = parentTarget - parentActual;
           const parentRemaining = parentTarget > 0 ? ((parentTarget - parentActual) / parentTarget) * 100 : 0;
 
