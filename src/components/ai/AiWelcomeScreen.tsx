@@ -79,8 +79,8 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
       </button>
 
       {/* AI Bot Icon */}
-      <div className="w-[72px] h-[72px] rounded-full bg-[#6366f1]/20 flex items-center justify-center mb-5">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-white">
+      <div className="w-[36px] h-[36px] rounded-full bg-[#6366f1]/20 flex items-center justify-center mb-5">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white">
           <rect x="3" y="11" width="18" height="10" rx="3" stroke="currentColor" strokeWidth="1.5" />
           <circle cx="9" cy="16" r="1.5" fill="currentColor" />
           <circle cx="15" cy="16" r="1.5" fill="currentColor" />
