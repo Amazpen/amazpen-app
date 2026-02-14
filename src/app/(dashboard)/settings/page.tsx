@@ -32,6 +32,13 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [fullName, setFullName] = useState("");
@@ -161,6 +168,55 @@ export default function SettingsPage() {
     }
 
     setIsSaving(false);
+  };
+
+  // Handle password change
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      showToast("יש למלא את כל השדות", "error");
+      return;
+    }
+    if (newPassword.length < 6) {
+      showToast("הסיסמה החדשה חייבת להכיל לפחות 6 תווים", "error");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showToast("הסיסמאות אינן תואמות", "error");
+      return;
+    }
+
+    setIsChangingPassword(true);
+
+    const supabase = createClient();
+
+    // Verify current password by trying to sign in
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: profile?.email || "",
+      password: currentPassword,
+    });
+
+    if (signInError) {
+      showToast("הסיסמה הנוכחית שגויה", "error");
+      setIsChangingPassword(false);
+      return;
+    }
+
+    // Update to new password
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (updateError) {
+      showToast("שגיאה בעדכון הסיסמה", "error");
+    } else {
+      showToast("הסיסמה עודכנה בהצלחה", "success");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowPasswordSection(false);
+    }
+
+    setIsChangingPassword(false);
   };
 
   const displayAvatar = avatarPreview || avatarUrl;
@@ -325,6 +381,119 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+
+          {/* Change Password */}
+          <div className="flex flex-col gap-[8px]">
+            <button
+              type="button"
+              onClick={() => setShowPasswordSection(!showPasswordSection)}
+              className="w-full h-[48px] bg-[#29318A]/40 text-white/80 text-[14px] font-medium rounded-[10px] border border-white/10 hover:border-[#FFA412]/50 transition-colors flex items-center justify-center gap-[8px]"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M7 11V7a5 5 0 0110 0v4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span>שינוי סיסמה</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform duration-200 ${showPasswordSection ? 'rotate-180' : ''}`}>
+                <polyline points="6 9 12 15 18 9" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+
+            {showPasswordSection && (
+              <div className="space-y-[12px] mt-[4px] p-[16px] bg-[#29318A]/20 rounded-[10px] border border-white/5">
+                {/* Current Password */}
+                <div className="flex flex-col gap-[6px]">
+                  <label className="text-[13px] font-medium text-white/70">סיסמה נוכחית</label>
+                  <div className="relative">
+                    <input
+                      type={showCurrentPassword ? "text" : "password"}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="הזן סיסמה נוכחית..."
+                      className="w-full h-[44px] bg-[#29318A]/40 text-white text-[14px] text-right rounded-[10px] border border-white/10 outline-none px-[15px] pe-[44px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute left-[12px] top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+                    >
+                      {showCurrentPassword ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" strokeLinecap="round" strokeLinejoin="round"/>
+                          <line x1="1" y1="1" x2="23" y2="23" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" strokeLinecap="round" strokeLinejoin="round"/>
+                          <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* New Password */}
+                <div className="flex flex-col gap-[6px]">
+                  <label className="text-[13px] font-medium text-white/70">סיסמה חדשה</label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="הזן סיסמה חדשה (מינימום 6 תווים)..."
+                      className="w-full h-[44px] bg-[#29318A]/40 text-white text-[14px] text-right rounded-[10px] border border-white/10 outline-none px-[15px] pe-[44px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute left-[12px] top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+                    >
+                      {showNewPassword ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" strokeLinecap="round" strokeLinejoin="round"/>
+                          <line x1="1" y1="1" x2="23" y2="23" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" strokeLinecap="round" strokeLinejoin="round"/>
+                          <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div className="flex flex-col gap-[6px]">
+                  <label className="text-[13px] font-medium text-white/70">אימות סיסמה חדשה</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="הזן שוב את הסיסמה החדשה..."
+                    className="w-full h-[44px] bg-[#29318A]/40 text-white text-[14px] text-right rounded-[10px] border border-white/10 outline-none px-[15px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
+                  />
+                </div>
+
+                {/* Change Password Button */}
+                <button
+                  type="button"
+                  onClick={handleChangePassword}
+                  disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword}
+                  className="w-full h-[44px] bg-[#FFA412] text-white text-[14px] font-bold rounded-[10px] transition-all duration-200 hover:bg-[#FFB94A] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-[4px]"
+                >
+                  {isChangingPassword ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>מעדכן...</span>
+                    </>
+                  ) : (
+                    "עדכן סיסמה"
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Save Button */}
           {hasChanges && (
