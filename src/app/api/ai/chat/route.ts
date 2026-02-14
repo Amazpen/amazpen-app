@@ -1101,9 +1101,9 @@ export async function POST(request: NextRequest) {
     return jsonResponse({ error: "חסרים נתונים" }, 400);
   }
 
-  // Admin cross-business mode: fetch all businesses for the SQL prompt
+  // Admin: always fetch all businesses (needed for cross-business queries even when a business is selected)
   let allBusinesses: Array<{ id: string; name: string }> = [];
-  if (isAdmin && !businessId) {
+  if (isAdmin) {
     const { data: businesses } = await serverSupabase
       .from("businesses")
       .select("id, name")
@@ -1309,7 +1309,10 @@ export async function POST(request: NextRequest) {
   // =========================================================================
   // SQL path: generate SQL → execute → stream formatted response
   // =========================================================================
-  const isAdminCrossBiz = isAdmin && !businessId;
+
+  // Detect cross-business intent: admin asking to compare/view all businesses
+  const crossBizKeywords = /השווה|כל העסקים|בין העסקים|כלל העסקים|לכל העסקים|כל עסק|חוצה עסקים|בין עסקים|cross|all businesses/i;
+  const isAdminCrossBiz = isAdmin && (!businessId || crossBizKeywords.test(message));
 
   // Save user message to DB
   if (sessionId) {
