@@ -3,7 +3,8 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Bot, Copy, Check } from "lucide-react";
-import type { AiMessage } from "@/types/ai";
+import type { UIMessage } from "ai";
+import type { AiChartData } from "@/types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
 
 const LazyBarChart = dynamic(
@@ -98,27 +99,26 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-}
-
 interface AiMessageBubbleProps {
-  message: AiMessage;
+  message: UIMessage;
   thinkingStatus?: string | null;
+  getChartData: (message: UIMessage) => AiChartData | undefined;
+  getDisplayText: (message: UIMessage) => string;
 }
 
-export function AiMessageBubble({ message, thinkingStatus }: AiMessageBubbleProps) {
+export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisplayText }: AiMessageBubbleProps) {
   const isUser = message.role === "user";
+  const displayText = getDisplayText(message);
+  const chartData = isUser ? undefined : getChartData(message);
 
   if (isUser) {
     return (
       <div className="group flex flex-col items-end gap-1" dir="rtl">
         <div className="max-w-[80%] bg-[#6366f1] text-white text-[14px] leading-relaxed px-4 py-2.5 rounded-[16px] rounded-tl-[4px]">
-          {message.content}
+          {displayText}
         </div>
         <div className="flex items-center gap-1 px-1">
-          <span className="text-white/30 text-[11px]">{formatTime(message.timestamp)}</span>
-          <CopyButton text={message.content} />
+          <CopyButton text={displayText} />
         </div>
       </div>
     );
@@ -130,7 +130,7 @@ export function AiMessageBubble({ message, thinkingStatus }: AiMessageBubbleProp
         <AiIcon />
         <div className="flex-1 min-w-0">
           <div className="bg-[#29318A] text-white px-4 py-3 rounded-[16px] rounded-tr-[4px]">
-            {!message.content && thinkingStatus ? (
+            {!displayText && thinkingStatus ? (
               <div className="flex gap-2 items-center h-[20px]">
                 <span className="text-white/60 text-[13px]">{thinkingStatus}</span>
                 <div className="flex gap-1.5 items-center">
@@ -140,19 +140,19 @@ export function AiMessageBubble({ message, thinkingStatus }: AiMessageBubbleProp
                 </div>
               </div>
             ) : (
-              <AiMarkdownRenderer content={message.content} />
+              <AiMarkdownRenderer content={displayText} />
             )}
-            {message.chartData && (
+            {chartData && (
               <div className="mt-3 bg-[#0F1535] rounded-[12px] p-3">
                 <p className="text-white/70 text-[12px] font-medium mb-2" dir="rtl">
-                  {message.chartData.title}
+                  {chartData.title}
                 </p>
                 <SafeChartContainer>
                   <LazyResponsiveContainer width="100%" height="100%">
-                    <LazyBarChart data={message.chartData.data} barGap={4}>
+                    <LazyBarChart data={chartData.data} barGap={4}>
                       <LazyCartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                       <LazyXAxis
-                        dataKey={message.chartData.xAxisKey}
+                        dataKey={chartData.xAxisKey}
                         tick={{ fill: "#7B91B0", fontSize: 11 }}
                         axisLine={false}
                         tickLine={false}
@@ -173,7 +173,7 @@ export function AiMessageBubble({ message, thinkingStatus }: AiMessageBubbleProp
                         }}
                         labelStyle={{ color: "#7B91B0" }}
                       />
-                      {message.chartData.dataKeys.map((dk) => (
+                      {chartData.dataKeys.map((dk) => (
                         <LazyBar
                           key={dk.key}
                           dataKey={dk.key}
@@ -187,7 +187,7 @@ export function AiMessageBubble({ message, thinkingStatus }: AiMessageBubbleProp
                 </SafeChartContainer>
                 {/* Chart legend */}
                 <div className="flex flex-row-reverse justify-center flex-wrap gap-3 mt-2">
-                  {message.chartData.dataKeys.map((dk) => (
+                  {chartData.dataKeys.map((dk) => (
                     <div key={dk.key} className="flex flex-row-reverse items-center gap-1.5">
                       <span className="text-white/50 text-[11px]">{dk.label}</span>
                       <div
@@ -202,9 +202,8 @@ export function AiMessageBubble({ message, thinkingStatus }: AiMessageBubbleProp
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-between px-1 mr-[36px]" dir="ltr" style={{ width: "calc(100% - 36px)" }}>
-        <CopyButton text={message.content} />
-        <span className="text-white/30 text-[11px]">{formatTime(message.timestamp)}</span>
+      <div className="flex items-center px-1 mr-[36px]">
+        <CopyButton text={displayText} />
       </div>
     </div>
   );

@@ -1,16 +1,19 @@
 "use client";
 
 import { useRef, useEffect, useCallback } from "react";
-import type { AiMessage } from "@/types/ai";
+import type { UIMessage } from "ai";
+import type { AiChartData } from "@/types/ai";
 import { AiMessageBubble } from "./AiMessageBubble";
 
 interface AiMessageListProps {
-  messages: AiMessage[];
+  messages: UIMessage[];
   isLoading: boolean;
   thinkingStatus?: string | null;
+  getChartData: (message: UIMessage) => AiChartData | undefined;
+  getDisplayText: (message: UIMessage) => string;
 }
 
-export function AiMessageList({ messages, isLoading, thinkingStatus }: AiMessageListProps) {
+export function AiMessageList({ messages, isLoading, thinkingStatus, getChartData, getDisplayText }: AiMessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
@@ -40,6 +43,8 @@ export function AiMessageList({ messages, isLoading, thinkingStatus }: AiMessage
           key={message.id}
           message={message}
           thinkingStatus={isLoading && idx === messages.length - 1 ? thinkingStatus : null}
+          getChartData={getChartData}
+          getDisplayText={getDisplayText}
         />
       ))}
       <div ref={bottomRef} />
