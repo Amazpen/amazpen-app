@@ -185,12 +185,16 @@ ${getRoleInstructions(userRole)}
 <tools-usage>
 ## כלל יעילות קריטי — חובה!
 **יש לך מקסימום 2 סיבובי כלים (steps) לפני שחובה לכתוב תשובה!**
-סיבוב 1: queryDatabase (כל השאילתות יחד) + getGoals + getBusinessSchedule — הכל בבת אחת.
-סיבוב 2: אם חסר משהו ספציפי — קריאה נוספת אחת.
-אחרי זה: **חשב בראש** (חיבור, חילוק, אחוזים — אתה מודל שפה, אתה יכול!) וכתוב תשובה.
-**אל תשתמש ב-calculate בכלל אלא אם נדרש חישוב מורכב מאוד.** חישובים פשוטים כמו חילוק ואחוזים — עשה בעצמך.
+- שאלת סיכום חודשי / "איך החודש?" / ביצועים → **getMonthlySummary בלבד** (קריאה אחת, הכל מחושב!)
+- שאלה ספציפית (ספקים, חשבוניות, עובדים) → queryDatabase
+- **אל תשתמש ב-calculate** — כל החישובים כבר מוכנים ב-getMonthlySummary.
 
 ## מתי להשתמש בכלים
+
+### getMonthlySummary ⭐ (העדפה ראשונה!)
+**השתמש בכלי זה לכל שאלה על ביצועי החודש, סיכום, השוואה ליעד, צפי.**
+מחזיר הכל מחושב: הכנסות, הכנסה לפני מע"מ, צפי חודשי, עלות עובדים (סכום + אחוז), עלות מכר (סכום + אחוז), הוצאות שוטפות, הפרשים מיעדים.
+**קריאה אחת — תשובה מלאה. אין צורך בשום כלי נוסף.**
 
 ### queryDatabase
 השתמש בכלי זה **לכל שאלה שדורשת נתונים עסקיים**: הכנסות, הוצאות, ספקים, חשבוניות, יעדים, עלויות, עובדים, תשלומים, סיכומים.
@@ -438,12 +442,182 @@ async function execReadOnlyQuery(sb: AnySupabaseClient, sql: string) {
   return sb.rpc("read_only_query", { sql_query: sql });
 }
 
+// ---------------------------------------------------------------------------
+// Server-side monthly summary computation
+// ---------------------------------------------------------------------------
+async function computeMonthlySummary(
+  sb: AnySupabaseClient,
+  bizId: string,
+  year: number,
+  month: number
+) {
+  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const nextMonth = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`;
+
+  // 1. Daily entries aggregation
+  const { data: dailyAgg } = await execReadOnlyQuery(sb,
+    `SELECT
+       COALESCE(SUM(total_register), 0) as total_income,
+       COALESCE(SUM(labor_cost), 0) as total_labor_cost,
+       COALESCE(SUM(labor_hours), 0) as total_labor_hours,
+       COALESCE(SUM(discounts), 0) as total_discounts,
+       COALESCE(SUM(day_factor), 0) as sum_day_factors,
+       COUNT(*) as work_days
+     FROM public.daily_entries
+     WHERE business_id = '${bizId}'
+       AND entry_date >= '${monthStart}'
+       AND entry_date < '${nextMonth}'
+       AND deleted_at IS NULL`
+  );
+  const daily = Array.isArray(dailyAgg) && dailyAgg[0] ? dailyAgg[0] : {
+    total_income: 0, total_labor_cost: 0, total_labor_hours: 0,
+    total_discounts: 0, sum_day_factors: 0, work_days: 0,
+  };
+
+  // 2. Invoices: food cost (goods_purchases) and current expenses
+  const { data: invoiceAgg } = await execReadOnlyQuery(sb,
+    `SELECT
+       COALESCE(SUM(CASE WHEN s.expense_type = 'goods_purchases' THEN i.subtotal ELSE 0 END), 0) as food_cost,
+       COALESCE(SUM(CASE WHEN s.expense_type = 'current_expenses' THEN i.subtotal ELSE 0 END), 0) as current_expenses,
+       COALESCE(SUM(i.subtotal), 0) as total_expenses
+     FROM public.invoices i
+     JOIN public.suppliers s ON s.id = i.supplier_id
+     WHERE i.business_id = '${bizId}'
+       AND i.invoice_date >= '${monthStart}'
+       AND i.invoice_date < '${nextMonth}'
+       AND i.deleted_at IS NULL`
+  );
+  const invoices = Array.isArray(invoiceAgg) && invoiceAgg[0] ? invoiceAgg[0] : {
+    food_cost: 0, current_expenses: 0, total_expenses: 0,
+  };
+
+  // 3. Goals
+  const { data: goalsData } = await sb
+    .from("goals")
+    .select("*")
+    .eq("business_id", bizId)
+    .eq("year", year)
+    .eq("month", month)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  // 4. Business defaults
+  const { data: bizData } = await sb
+    .from("businesses")
+    .select("name, vat_percentage, markup_percentage, manager_monthly_salary")
+    .eq("id", bizId)
+    .single();
+
+  // 5. Schedule (expected work days)
+  const { data: scheduleData } = await sb
+    .from("business_schedule")
+    .select("day_of_week, day_factor")
+    .eq("business_id", bizId)
+    .order("day_of_week");
+
+  const scheduleMap = new Map<number, number>();
+  if (scheduleData) {
+    for (const row of scheduleData) {
+      scheduleMap.set(row.day_of_week, Number(row.day_factor) || 0);
+    }
+  }
+  const daysInMonth = new Date(year, month, 0).getDate();
+  let expectedWorkDays = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dow = new Date(year, month - 1, d).getDay();
+    expectedWorkDays += scheduleMap.get(dow) ?? 1;
+  }
+
+  // 6. Compute everything
+  const vatPct = goalsData?.vat_percentage ?? bizData?.vat_percentage ?? 0.18;
+  const markup = goalsData?.markup_percentage ?? bizData?.markup_percentage ?? 1;
+  const managerSalary = Number(bizData?.manager_monthly_salary) || 0;
+
+  const totalIncome = Number(daily.total_income) || 0;
+  const incomeBeforeVat = totalIncome / (1 + vatPct);
+  const sumDayFactors = Number(daily.sum_day_factors) || 0;
+  const workDays = Number(daily.work_days) || 0;
+
+  const dailyAvg = sumDayFactors > 0 ? incomeBeforeVat / sumDayFactors : 0;
+  const monthlyPace = dailyAvg * expectedWorkDays;
+
+  const managerDailyCost = expectedWorkDays > 0 ? managerSalary / expectedWorkDays : 0;
+  const laborCostTotal = (Number(daily.total_labor_cost) + managerDailyCost * workDays) * markup;
+  const laborCostPct = incomeBeforeVat > 0 ? (laborCostTotal / incomeBeforeVat) * 100 : 0;
+
+  const foodCost = Number(invoices.food_cost) || 0;
+  const foodCostPct = incomeBeforeVat > 0 ? (foodCost / incomeBeforeVat) * 100 : 0;
+
+  const currentExpenses = Number(invoices.current_expenses) || 0;
+  const currentExpensesPct = incomeBeforeVat > 0 ? (currentExpenses / incomeBeforeVat) * 100 : 0;
+
+  const revenueTarget = Number(goalsData?.revenue_target) || 0;
+  const targetDiffPct = revenueTarget > 0 ? ((monthlyPace / revenueTarget) - 1) * 100 : null;
+
+  const laborTarget = Number(goalsData?.labor_cost_target_pct) || 0;
+  const laborDiffPct = laborTarget > 0 ? laborCostPct - laborTarget : null;
+
+  const foodTarget = Number(goalsData?.food_cost_target_pct) || 0;
+  const foodDiffPct = foodTarget > 0 ? foodCostPct - foodTarget : null;
+
+  return {
+    businessName: bizData?.name || "",
+    period: { year, month, monthStart, daysInMonth },
+    actuals: {
+      totalIncome: Math.round(totalIncome),
+      incomeBeforeVat: Math.round(incomeBeforeVat),
+      workDays,
+      sumDayFactors: Math.round(sumDayFactors * 100) / 100,
+      dailyAvgBeforeVat: Math.round(dailyAvg),
+      monthlyPace: Math.round(monthlyPace),
+      expectedWorkDays: Math.round(expectedWorkDays * 100) / 100,
+      totalDiscounts: Math.round(Number(daily.total_discounts)),
+      totalLaborHours: Math.round(Number(daily.total_labor_hours)),
+    },
+    costs: {
+      laborCostTotal: Math.round(laborCostTotal),
+      laborCostPct: Math.round(laborCostPct * 100) / 100,
+      foodCost: Math.round(foodCost),
+      foodCostPct: Math.round(foodCostPct * 100) / 100,
+      currentExpenses: Math.round(currentExpenses),
+      currentExpensesPct: Math.round(currentExpensesPct * 100) / 100,
+    },
+    targets: {
+      revenueTarget,
+      laborTargetPct: laborTarget,
+      foodTargetPct: foodTarget,
+      targetDiffPct: targetDiffPct !== null ? Math.round(targetDiffPct * 100) / 100 : null,
+      laborDiffPct: laborDiffPct !== null ? Math.round(laborDiffPct * 100) / 100 : null,
+      foodDiffPct: foodDiffPct !== null ? Math.round(foodDiffPct * 100) / 100 : null,
+    },
+    params: { vatPct, markup, managerSalary },
+  };
+}
+
 function buildTools(
   adminSupabase: AnySupabaseClient,
   businessId: string,
   isAdmin: boolean
 ) {
   return {
+    getMonthlySummary: tool({
+      description: "Get a complete pre-calculated monthly business summary including income, labor cost, food cost, current expenses, monthly pace, targets, and variances. Use this as the FIRST tool for any question about monthly performance, 'how is the month going', summaries, or comparisons to goals. Returns all data already computed — no need for additional calculate calls.",
+      inputSchema: z.object({
+        businessId: z.string().describe("Business UUID"),
+        year: z.number().describe("Year (e.g., 2026)"),
+        month: z.number().describe("Month (1-12)"),
+      }),
+      execute: async ({ businessId: bizId, year, month }) => {
+        console.log(`[AI Tool] getMonthlySummary: ${bizId} ${year}/${month}`);
+        try {
+          return await computeMonthlySummary(adminSupabase, bizId, year, month);
+        } catch (e) {
+          console.error("[AI Tool] getMonthlySummary error:", e);
+          return { error: e instanceof Error ? e.message : "Failed to compute summary" };
+        }
+      },
+    }),
+
     queryDatabase: tool({
       description: "Execute a read-only SQL query (SELECT/WITH only) against the PostgreSQL business database. Use for any business data: income, expenses, suppliers, invoices, goals, employees, payments. Always prefix tables with public. and filter by business_id.",
       inputSchema: z.object({
@@ -839,7 +1013,7 @@ export async function POST(request: NextRequest) {
     system: systemPrompt,
     messages: modelMessages,
     tools,
-    stopWhen: stepCountIs(4),
+    stopWhen: stepCountIs(5),
     temperature: 0.6,
     maxOutputTokens: 4000,
     onStepFinish: async ({ toolCalls }) => {
