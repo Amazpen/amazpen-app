@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ToastProvider } from "@/components/ui/toast";
 import { InstallPrompt } from "@/components/ui/install-prompt";
 import { UpdatePrompt } from "@/components/ui/update-prompt";
+import { PushPrompt } from "@/components/ui/push-prompt";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { ConsolidatedInvoiceModal } from "@/components/dashboard/ConsolidatedInvoiceModal";
 // import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
@@ -908,6 +909,7 @@ export default function DashboardLayout({
     </DashboardContext.Provider>
     <InstallPrompt />
     <UpdatePrompt />
+    <PushPrompt />
     </ToastProvider>
   );
 }
