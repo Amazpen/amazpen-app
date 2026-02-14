@@ -193,9 +193,9 @@ export default function ReportsPage() {
         const totalLaborCost = (dailyEntries || []).reduce((sum, d) => sum + Number(d.labor_cost || 0), 0);
         const totalManagerCost = (dailyEntries || []).reduce((sum, d) => sum + Number(d.manager_daily_cost || 0), 0);
 
-        // VAT divisor from goal
+        // VAT divisor from goal (vat_percentage stored as decimal, e.g. 0.18 for 18%)
         const vatPercentage = Number(goal?.vat_percentage || 0);
-        const vatDivisor = vatPercentage > 0 ? 1 + vatPercentage / 100 : 1;
+        const vatDivisor = vatPercentage > 0 ? 1 + vatPercentage : 1;
         const totalRevenue = totalRegister / vatDivisor;
 
         // Calculate actual totals by category + separate goods/current totals
