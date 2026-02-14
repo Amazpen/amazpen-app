@@ -209,40 +209,47 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
     <div id="onboarding-ai-input" className="flex-shrink-0 border-t border-white/10 bg-[#0F1535] px-4 py-3">
       {/* Selected files preview — square thumbnails */}
       {selectedFiles.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3 px-1" dir="rtl">
-          {selectedFiles.map((file, idx) => (
-            <div
-              key={`${file.name}-${idx}`}
-              className="relative group w-[64px] h-[64px] rounded-[10px] overflow-hidden bg-[#29318A] border border-white/10 flex-shrink-0"
-            >
-              {filePreviews[idx] ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={filePreviews[idx]!}
-                  alt={file.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-1">
-                  <FileText className="w-5 h-5 text-white/50" />
-                  <span className="text-[9px] text-white/40 uppercase font-medium">PDF</span>
-                </div>
-              )}
-              {/* Remove button */}
-              <button
-                type="button"
-                onClick={() => removeFile(idx)}
-                className="absolute top-0.5 left-0.5 w-[18px] h-[18px] rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                aria-label="הסר קובץ"
+        <div className="mb-3" dir="rtl">
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <span className="text-[11px] text-white/50">
+              {selectedFiles.length} {selectedFiles.length === 1 ? "קובץ" : "קבצים"} מחכים לשליחה
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2 px-1">
+            {selectedFiles.map((file, idx) => (
+              <div
+                key={`${file.name}-${idx}`}
+                className="relative w-[72px] h-[72px] rounded-[10px] overflow-hidden bg-[#29318A] border-2 border-[#6366f1]/40 flex-shrink-0 shadow-lg shadow-[#6366f1]/10"
               >
-                <X className="w-3 h-3 text-white" />
-              </button>
-              {/* File name tooltip on hover */}
-              <div className="absolute bottom-0 inset-x-0 bg-black/60 px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-[8px] text-white/80 block truncate">{file.name}</span>
+                {filePreviews[idx] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={filePreviews[idx]!}
+                    alt={file.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                    <FileText className="w-5 h-5 text-white/50" />
+                    <span className="text-[9px] text-white/40 uppercase font-medium">PDF</span>
+                  </div>
+                )}
+                {/* Remove button — always visible */}
+                <button
+                  type="button"
+                  onClick={() => removeFile(idx)}
+                  className="absolute top-1 left-1 w-[20px] h-[20px] rounded-full bg-black/70 flex items-center justify-center"
+                  aria-label="הסר קובץ"
+                >
+                  <X className="w-3 h-3 text-white" />
+                </button>
+                {/* File name at bottom */}
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-1 py-1">
+                  <span className="text-[8px] text-white/90 block truncate leading-tight">{file.name}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
       <div className="flex items-end gap-3" dir="rtl">
