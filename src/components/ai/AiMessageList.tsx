@@ -3,7 +3,7 @@
 import { useRef, useEffect, useCallback } from "react";
 import type { UIMessage } from "ai";
 import type { AiChartData } from "@/types/ai";
-import { AiMessageBubble } from "./AiMessageBubble";
+import { AiMessageBubble, AiThinkingBubble } from "./AiMessageBubble";
 
 interface AiMessageListProps {
   messages: UIMessage[];
@@ -47,6 +47,9 @@ export function AiMessageList({ messages, isLoading, thinkingStatus, getChartDat
           getDisplayText={getDisplayText}
         />
       ))}
+      {isLoading && messages.length > 0 && messages[messages.length - 1].role === "user" && (
+        <AiThinkingBubble status={thinkingStatus || "חושב..."} />
+      )}
       <div ref={bottomRef} />
     </div>
   );

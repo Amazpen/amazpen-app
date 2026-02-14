@@ -209,3 +209,26 @@ export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisp
   );
 }
 
+/** Standalone thinking bubble shown before assistant message arrives */
+export function AiThinkingBubble({ status }: { status: string }) {
+  return (
+    <div className="flex flex-col items-start gap-1" dir="rtl">
+      <div className="flex items-start gap-2 w-full">
+        <AiIcon />
+        <div className="flex-1 min-w-0">
+          <div className="bg-[#29318A] text-white px-4 py-3 rounded-[16px] rounded-tr-[4px]">
+            <div className="flex gap-2 items-center h-[20px]">
+              <span className="text-white/60 text-[13px]">{status}</span>
+              <div className="flex gap-1.5 items-center">
+                <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:0ms]" />
+                <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:150ms]" />
+                <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:300ms]" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
