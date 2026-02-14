@@ -511,6 +511,19 @@ export default function DashboardPage() {
                 is_read: false,
               }));
               await supabase.from("notifications").insert(notifications);
+
+              // Send web push notifications
+              const memberUserIds = members.map(m => m.user_id);
+              await fetch('/api/push/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userIds: memberUserIds,
+                  title: `סיכום יומי נשלח - ${dayName} ${dateStr}`,
+                  message: businessName ? `הפוש היומי נשלח בהצלחה עבור ${businessName}` : 'הפוש היומי נשלח בהצלחה',
+                  url: '/',
+                }),
+              }).catch(() => {});
             }
           }
         } catch {

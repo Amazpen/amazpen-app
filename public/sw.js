@@ -1,4 +1,4 @@
-// BUILD_TIME=1771017503843
+// BUILD_TIME=1771027977204
 const CACHE_NAME = 'amazpen-v1';
 const STATIC_ASSETS = [
   '/',
@@ -35,6 +35,40 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+// Push notification received
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || 'המצפן';
+  const options = {
+    body: data.message || '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    dir: 'rtl',
+    lang: 'he',
+    tag: data.tag || 'amazpen-notification',
+    data: { url: data.url || '/' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Notification click - open/focus the app
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.focus();
+          if ('navigate' in client) client.navigate(url);
+          return;
+        }
+      }
+      return clients.openWindow(url);
+    })
+  );
 });
 
 // Fetch event - network first, fallback to cache
