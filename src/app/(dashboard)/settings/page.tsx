@@ -372,33 +372,36 @@ export default function SettingsPage() {
         {/* Push Notifications */}
         <div className="border-t border-white/10 my-[25px]" />
         <div>
-          <h3 className="text-white text-[16px] font-bold mb-[12px]">התראות פוש</h3>
-          <p className="text-white/50 text-[13px] mb-[12px]">קבלו התראות גם כשהדפדפן סגור</p>
-          {!isSupported ? (
-            <p className="text-white/40 text-[13px]">הדפדפן אינו תומך בהתראות פוש</p>
-          ) : permission === 'denied' ? (
-            <p className="text-white/40 text-[13px]">הרשאת התראות נחסמה. יש לשנות בהגדרות הדפדפן</p>
-          ) : (
-            <button
-              type="button"
-              onClick={async () => {
-                if (isSubscribed) {
-                  const ok = await unsubscribe();
-                  showToast(ok ? 'התראות פוש בוטלו' : 'שגיאה בביטול התראות', ok ? 'info' : 'error');
-                } else {
-                  const ok = await subscribe();
-                  showToast(ok ? 'התראות פוש הופעלו!' : 'שגיאה בהפעלת התראות', ok ? 'success' : 'error');
-                }
-              }}
-              disabled={pushLoading}
-              className={`w-full h-[48px] ${isSubscribed ? 'bg-[#EB5757] hover:bg-[#D14545]' : 'bg-[#3CD856] hover:bg-[#2FC44A]'} text-white text-[15px] font-bold rounded-[10px] transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-[10px] ${pushLoading ? 'opacity-50' : ''}`}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                <path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" strokeLinecap="round"/>
-                <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21" strokeLinecap="round"/>
-              </svg>
-              {pushLoading ? 'טוען...' : isSubscribed ? 'ביטול התראות פוש' : 'הפעלת התראות פוש'}
-            </button>
+          <div className="flex items-center justify-between mb-[4px]">
+            <h3 className="text-white text-[16px] font-bold">התראות פוש</h3>
+            {isSupported && permission !== 'denied' && (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isSubscribed}
+                aria-label="התראות פוש"
+                disabled={pushLoading}
+                onClick={async () => {
+                  if (isSubscribed) {
+                    const ok = await unsubscribe();
+                    showToast(ok ? 'התראות פוש בוטלו' : 'שגיאה בביטול התראות', ok ? 'info' : 'error');
+                  } else {
+                    const ok = await subscribe();
+                    showToast(ok ? 'התראות פוש הופעלו!' : 'שגיאה בהפעלת התראות', ok ? 'success' : 'error');
+                  }
+                }}
+                className={`relative w-[52px] h-[28px] rounded-full transition-colors duration-200 ${pushLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isSubscribed ? 'bg-[#3CD856]' : 'bg-white/20'}`}
+              >
+                <span className={`absolute top-[3px] w-[22px] h-[22px] bg-white rounded-full shadow transition-all duration-200 ${isSubscribed ? 'left-[3px]' : 'left-[27px]'}`} />
+              </button>
+            )}
+          </div>
+          <p className="text-white/50 text-[13px]">קבלו התראות גם כשהדפדפן סגור</p>
+          {!isSupported && (
+            <p className="text-white/40 text-[13px] mt-[8px]">הדפדפן אינו תומך בהתראות פוש</p>
+          )}
+          {isSupported && permission === 'denied' && (
+            <p className="text-white/40 text-[13px] mt-[8px]">הרשאת התראות נחסמה. יש לשנות בהגדרות הדפדפן</p>
           )}
         </div>
 
