@@ -70,7 +70,7 @@ async function ocrScannedPdf(file: File): Promise<string> {
 }
 
 interface AiChatInputProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, ocrContext?: string) => void;
   onFilesSelected?: (files: File[]) => void;
   disabled?: boolean;
 }
@@ -111,20 +111,23 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
         const ocrResults = await Promise.all(selectedFiles.map(ocrFile));
         const ocrTexts = ocrResults.filter((t) => t.length > 0);
 
-        // Build message: user text + OCR results
-        const parts: string[] = [];
-        if (trimmed) parts.push(trimmed);
+        // Build OCR context (hidden from chat, sent to AI only)
+        const ocrParts: string[] = [];
         if (ocrTexts.length > 0) {
           for (let i = 0; i < ocrTexts.length; i++) {
             const fileName = selectedFiles[i].name;
-            parts.push(`📄 תוכן מ-"${fileName}":\n${ocrTexts[i]}`);
+            ocrParts.push(`תוכן מ-"${fileName}":\n${ocrTexts[i]}`);
           }
         }
+        const ocrContext = ocrParts.join("\n\n");
 
-        const fullMessage = parts.join("\n\n");
-        if (fullMessage.trim()) {
-          onSend(fullMessage.trim());
-        }
+        // Display message: user text or file summary
+        const fileNames = selectedFiles.map((f) => f.name).join(", ");
+        const displayMessage = trimmed
+          ? `${trimmed}\n📎 ${fileNames}`
+          : `📎 העלאת מסמך: ${fileNames}`;
+
+        onSend(displayMessage, ocrContext || undefined);
 
         // Clear files after processing
         setSelectedFiles([]);

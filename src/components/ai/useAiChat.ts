@@ -91,6 +91,7 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
         businessId: businessId || "",
         sessionId: sessionIdRef.current || "",
         pageContext: pageContextRef.current || "",
+        ocrContext: ocrContextRef.current || "",
       }),
     }),
     onError: (error) => {
@@ -152,11 +153,15 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
     }
   }, [businessId]);
 
+  // OCR context to attach to the next request (not shown in chat bubble)
+  const ocrContextRef = useRef<string>("");
+
   // Wrapped send that ensures session exists first
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, ocrContext?: string) => {
       if ((!isAdmin && !businessId) || !content.trim()) return;
       setLastError(null);
+      ocrContextRef.current = ocrContext || "";
       await ensureSession();
       sendMessage({ text: content });
     },

@@ -867,6 +867,7 @@ export async function POST(request: NextRequest) {
   let businessId = typeof body.businessId === "string" ? body.businessId : "";
   const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
   const pageContext = typeof body.pageContext === "string" ? body.pageContext : "";
+  const ocrContext = typeof body.ocrContext === "string" ? body.ocrContext : "";
 
   // Extract messages from the AI SDK UIMessage format
   const uiMessages: UIMessage[] = Array.isArray(body.messages) ? body.messages : [];
@@ -980,15 +981,26 @@ export async function POST(request: NextRequest) {
   // 6. Page context
   const pageHint = getPageContextHint(pageContext);
 
-  // 7. Convert UIMessages to model messages
+  // 7. Inject OCR context into the last user message (hidden from chat UI, visible to AI)
+  if (ocrContext) {
+    const lastUiMsg = uiMessages[uiMessages.length - 1];
+    if (lastUiMsg?.role === "user" && lastUiMsg.parts) {
+      lastUiMsg.parts.push({
+        type: "text" as const,
+        text: `\n\n<ocr-document>\n${ocrContext}\n</ocr-document>`,
+      });
+    }
+  }
+
+  // 8. Convert UIMessages to model messages
   const modelMessages = await convertToModelMessages(uiMessages);
 
-  // 8. Save user message to DB
+  // 9. Save user message to DB (save only the display text, not OCR)
   if (sessionId) {
     saveMessageToDB(supabaseUrl, serviceRoleKey, sessionId, "user", lastUserText);
   }
 
-  // 9. Build tools & system prompt
+  // 10. Build tools & system prompt
   const adminSupabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
