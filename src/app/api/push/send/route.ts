@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import webpush from 'web-push'
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const webpush = require('web-push')
 
 export async function POST(request: NextRequest) {
   const { userIds, title, message, url } = await request.json()
