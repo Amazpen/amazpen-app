@@ -489,6 +489,33 @@ export default function DashboardPage() {
 
       if (response.ok) {
         showToast("הפוש נשלח בהצלחה!", "success");
+
+        // Insert notification for all business users
+        try {
+          const supabase = createClient();
+          const businessId = selectedBusinesses[0];
+          if (businessId) {
+            const { data: members } = await supabase
+              .from("business_members")
+              .select("user_id")
+              .eq("business_id", businessId)
+              .is("deleted_at", null);
+
+            if (members && members.length > 0) {
+              const notifications = members.map(m => ({
+                user_id: m.user_id,
+                business_id: businessId,
+                title: `סיכום יומי נשלח - ${dayName} ${dateStr}`,
+                message: businessName ? `הפוש היומי נשלח בהצלחה עבור ${businessName}` : 'הפוש היומי נשלח בהצלחה',
+                type: 'success',
+                is_read: false,
+              }));
+              await supabase.from("notifications").insert(notifications);
+            }
+          }
+        } catch {
+          // Notification insert failed silently - email was already sent
+        }
       } else {
         showToast("שגיאה בשליחת הפוש", "error");
       }

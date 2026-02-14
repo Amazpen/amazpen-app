@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, createContext, useContext, useCallback } from "react";
+import { useState, useEffect, createContext, useContext, useCallback, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -245,6 +245,7 @@ export default function DashboardLayout({
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isCoordinatorModalOpen, setIsCoordinatorModalOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const prevUnreadCount = useRef(-1);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [profileImageLoaded, setProfileImageLoaded] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -347,6 +348,31 @@ export default function DashboardLayout({
     fetchNotifications,
     true
   );
+
+  // Play notification sound when new unread notifications arrive
+  useEffect(() => {
+    if (unreadCount > prevUnreadCount.current && prevUnreadCount.current > -1) {
+      try {
+        const ctx = new AudioContext();
+        // Bell tone: two short beeps
+        [0, 0.15].forEach(offset => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = 830;
+          gain.gain.setValueAtTime(0.3, ctx.currentTime + offset);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.12);
+          osc.start(ctx.currentTime + offset);
+          osc.stop(ctx.currentTime + offset + 0.12);
+        });
+      } catch {
+        // Audio not supported
+      }
+    }
+    prevUnreadCount.current = unreadCount;
+  }, [unreadCount]);
 
   // Load from localStorage on mount
   useEffect(() => {
