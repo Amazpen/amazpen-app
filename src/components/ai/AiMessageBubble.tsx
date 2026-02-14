@@ -126,11 +126,12 @@ function getProposedAction(message: UIMessage): AiProposedAction | null {
 interface AiMessageBubbleProps {
   message: UIMessage;
   thinkingStatus?: string | null;
+  errorText?: string;
   getChartData: (message: UIMessage) => AiChartData | undefined;
   getDisplayText: (message: UIMessage) => string;
 }
 
-export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisplayText }: AiMessageBubbleProps) {
+export function AiMessageBubble({ message, thinkingStatus, errorText, getChartData, getDisplayText }: AiMessageBubbleProps) {
   const isUser = message.role === "user";
   const displayText = getDisplayText(message);
   const chartData = isUser ? undefined : getChartData(message);
@@ -167,7 +168,7 @@ export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisp
             ) : displayText ? (
               <AiMarkdownRenderer content={displayText} />
             ) : !proposedAction && !chartData ? (
-              <span className="text-white/50 text-[13px]">לא הצלחתי לייצר תשובה. נסה לשאול שוב.</span>
+              <span className="text-white/50 text-[13px]">{errorText ? `שגיאה: ${errorText}` : "לא הצלחתי לייצר תשובה. נסה לשאול שוב."}</span>
             ) : null}
             {chartData && (
               <div className="mt-3 bg-[#0F1535] rounded-[12px] p-2 sm:p-3 overflow-x-auto">

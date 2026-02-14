@@ -68,6 +68,7 @@ function getThinkingStatus(messages: UIMessage[], status: string): string | null
 
 export function useAiChat(businessId: string | undefined, isAdmin = false) {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [lastError, setLastError] = useState<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const pageContextRef = useRef<string>("");
 
@@ -94,6 +95,9 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
     }),
     onError: (error) => {
       console.error("[AI Chat] Error:", error);
+      // Try to extract a meaningful error message
+      const msg = error instanceof Error ? error.message : String(error);
+      setLastError(msg);
     },
   });
 
@@ -152,6 +156,7 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
   const handleSend = useCallback(
     async (content: string) => {
       if ((!isAdmin && !businessId) || !content.trim()) return;
+      setLastError(null);
       await ensureSession();
       sendMessage({ text: content });
     },
@@ -181,6 +186,7 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
     isLoading,
     thinkingStatus,
     isLoadingHistory,
+    lastError,
     sendMessage: handleSend,
     clearChat,
     getChartData,

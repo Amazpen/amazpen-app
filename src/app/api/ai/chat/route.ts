@@ -825,15 +825,24 @@ export async function POST(request: NextRequest) {
   });
 
   // 10. Stream response with Vercel AI SDK
+  console.log(`[AI Chat] Starting stream: user=${userName}, role=${userRole}, business=${businessName}(${businessId}), messages=${modelMessages.length}, promptLength=${systemPrompt.length}`);
+
   const result = streamText({
     model: openai("gpt-4.1-mini"),
     system: systemPrompt,
     messages: modelMessages,
     tools,
-    stopWhen: stepCountIs(8),
+    stopWhen: stepCountIs(12),
     temperature: 0.6,
     maxOutputTokens: 4000,
-    onFinish: async ({ text }) => {
+    onError: ({ error }) => {
+      console.error("[AI Stream] Error during streaming:", error);
+    },
+    onFinish: async ({ text, steps, finishReason }) => {
+      console.log(`[AI Stream] Finished: reason=${finishReason}, textLength=${text?.length || 0}, steps=${steps?.length || 0}`);
+      if (!text && steps?.length) {
+        console.warn("[AI Stream] No text generated after tool calls. Steps:", JSON.stringify(steps.map(s => ({ toolCalls: s.toolCalls?.map(tc => tc.toolName), text: s.text?.slice(0, 100) }))));
+      }
       if (!sessionId || !text) return;
 
       // Extract chart data from text if present
