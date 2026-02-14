@@ -444,6 +444,7 @@ export default function SettingsPage() {
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
                         placeholder="הזן סיסמה נוכחית..."
+                        autoComplete="current-password"
                         className="w-full h-[44px] bg-[#29318A]/40 text-white text-[14px] text-right rounded-[10px] border border-white/10 outline-none px-[15px] pe-[44px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
                       />
                       <button
@@ -467,7 +468,7 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => { setForgotMode(true); setCurrentPassword(""); }}
-                      className="text-[12px] text-[#FFA412] hover:text-[#FFB94A] transition-colors self-start mt-[2px]"
+                      className="text-[12px] text-[#FFA412] hover:text-[#FFB94A] transition-colors self-end mt-[2px]"
                     >
                       לא זוכר סיסמה נוכחית?
                     </button>
@@ -483,6 +484,7 @@ export default function SettingsPage() {
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="הזן סיסמה חדשה (מינימום 6 תווים)..."
+                      autoComplete="new-password"
                       className="w-full h-[44px] bg-[#29318A]/40 text-white text-[14px] text-right rounded-[10px] border border-white/10 outline-none px-[15px] pe-[44px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
                     />
                     <button
@@ -513,6 +515,7 @@ export default function SettingsPage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="הזן שוב את הסיסמה החדשה..."
+                    autoComplete="new-password"
                     className="w-full h-[44px] bg-[#29318A]/40 text-white text-[14px] text-right rounded-[10px] border border-white/10 outline-none px-[15px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
                   />
                 </div>
