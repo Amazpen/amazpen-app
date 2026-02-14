@@ -64,23 +64,23 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
   const suggestions = isAdmin ? adminSuggestions : userSuggestions;
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 relative" dir="rtl">
+    <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-8 relative overflow-y-auto" dir="rtl">
       {/* Close button */}
       <button
         type="button"
         onClick={() => router.back()}
         title="סגור"
-        className="absolute top-4 left-4 w-[36px] h-[36px] rounded-full hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
+        className="absolute top-3 left-3 sm:top-4 sm:left-4 w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded-full hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="18" y1="6" x2="6" y2="18" />
           <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
       </button>
 
       {/* AI Bot Icon */}
-      <div className="w-[80px] h-[80px] rounded-full bg-[#6366f1]/20 flex items-center justify-center mb-5">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-white">
+      <div className="w-[60px] h-[60px] sm:w-[80px] sm:h-[80px] rounded-full bg-[#6366f1]/20 flex items-center justify-center mb-3 sm:mb-5">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" className="text-white sm:w-[40px] sm:h-[40px]">
           <rect x="3" y="11" width="18" height="10" rx="3" stroke="currentColor" strokeWidth="1.5" />
           <circle cx="9" cy="16" r="1.5" fill="currentColor" />
           <circle cx="15" cy="16" r="1.5" fill="currentColor" />
@@ -91,18 +91,18 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
       </div>
 
       {/* Title */}
-      <h1 className="text-white text-[22px] font-bold mb-2 text-center">
+      <h1 className="text-white text-[18px] sm:text-[22px] font-bold mb-1.5 sm:mb-2 text-center">
         שלום! אני דדי, העוזר החכם של המצפן
       </h1>
 
       {/* Subtitle */}
-      <p className="text-white/50 text-[14px] text-center mb-2 max-w-[400px]">
+      <p className="text-white/50 text-[13px] sm:text-[14px] text-center mb-2 max-w-[400px] px-2">
         אפשר לשאול אותי כל שאלה על הנתונים העסקיים שלך ואני אענה עם ניתוחים, טבלאות וגרפים
       </p>
 
       {/* Admin badge */}
       {isAdmin && (
-        <div className="flex items-center gap-1.5 bg-[#FFA412]/15 text-[#FFA412] text-[12px] font-medium px-3 py-1 rounded-full mb-6">
+        <div className="flex items-center gap-1.5 bg-[#FFA412]/15 text-[#FFA412] text-[11px] sm:text-[12px] font-medium px-3 py-1 rounded-full mb-4 sm:mb-6">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
@@ -110,16 +110,16 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
         </div>
       )}
 
-      {!isAdmin && <div className="mb-6" />}
+      {!isAdmin && <div className="mb-4 sm:mb-6" />}
 
       {/* Suggestion cards */}
-      <div id="onboarding-ai-suggestions" className="w-full max-w-[500px] grid grid-cols-2 gap-3">
+      <div id="onboarding-ai-suggestions" className="w-full max-w-[500px] grid grid-cols-1 min-[400px]:grid-cols-2 gap-2 sm:gap-3">
         {suggestions.map((suggestion) => (
           <button
             key={suggestion.text}
             type="button"
             onClick={() => onSuggestionClick(suggestion.text)}
-            className="flex items-center gap-3 bg-[#29318A] hover:bg-[#3D44A0] text-white text-[13px] text-right p-3 rounded-[12px] transition-colors cursor-pointer active:scale-[0.98]"
+            className="flex items-center gap-2 sm:gap-3 bg-[#29318A] hover:bg-[#3D44A0] text-white text-[12px] sm:text-[13px] text-right p-2.5 sm:p-3 rounded-[10px] sm:rounded-[12px] transition-colors cursor-pointer active:scale-[0.98]"
           >
             <span className="flex-shrink-0 text-white">
               {iconMap[suggestion.icon]}

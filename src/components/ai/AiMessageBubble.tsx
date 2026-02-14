@@ -56,7 +56,7 @@ function SafeChartContainer({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div ref={containerRef} className="w-full h-[200px]">
+    <div ref={containerRef} className="w-full h-[160px] sm:h-[200px]">
       {dimensions && children}
     </div>
   );
@@ -65,8 +65,8 @@ function SafeChartContainer({ children }: { children: React.ReactNode }) {
 // AI bot icon
 function AiIcon() {
   return (
-    <div className="flex-shrink-0 w-[28px] h-[28px] rounded-full bg-[#6366f1]/20 flex items-center justify-center">
-      <Bot className="w-4 h-4 text-white" />
+    <div className="flex-shrink-0 w-[24px] h-[24px] sm:w-[28px] sm:h-[28px] rounded-full bg-[#6366f1]/20 flex items-center justify-center">
+      <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
     </div>
   );
 }
@@ -88,7 +88,7 @@ function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-white/10"
+      className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 sm:p-1 rounded hover:bg-white/10"
       title="העתק"
     >
       {copied ? (
@@ -139,8 +139,8 @@ export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisp
   if (isUser) {
     return (
       <div className="group flex flex-col items-end gap-1" dir="rtl">
-        <div className="max-w-[80%] bg-[#6366f1] text-white text-[14px] leading-relaxed px-4 py-2.5 rounded-[16px] rounded-tl-[4px]">
-          {displayText}
+        <div className="max-w-[88%] sm:max-w-[80%] lg:max-w-[70%] bg-[#6366f1] text-white text-[13px] sm:text-[14px] leading-relaxed px-3 sm:px-4 py-2 sm:py-2.5 rounded-[16px] rounded-tl-[4px] break-words">
+          <div className="whitespace-pre-wrap [overflow-wrap:anywhere]">{displayText}</div>
         </div>
         <div className="flex items-center gap-1 px-1">
           <CopyButton text={displayText} />
@@ -151,10 +151,10 @@ export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisp
 
   return (
     <div className="group flex flex-col items-start gap-1" dir="rtl">
-      <div className="flex items-start gap-2 w-full">
+      <div className="flex items-start gap-1.5 sm:gap-2 w-full">
         <AiIcon />
         <div className="flex-1 min-w-0">
-          <div className="bg-[#29318A] text-white px-4 py-3 rounded-[16px] rounded-tr-[4px]">
+          <div className="bg-[#29318A] text-white px-3 sm:px-4 py-2.5 sm:py-3 rounded-[16px] rounded-tr-[4px] overflow-hidden">
             {!displayText && thinkingStatus ? (
               <div className="flex gap-2 items-center h-[20px]">
                 <span className="text-white/60 text-[13px]">{thinkingStatus}</span>
@@ -170,8 +170,8 @@ export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisp
               <span className="text-white/50 text-[13px]">לא הצלחתי לייצר תשובה. נסה לשאול שוב.</span>
             ) : null}
             {chartData && (
-              <div className="mt-3 bg-[#0F1535] rounded-[12px] p-3">
-                <p className="text-white/70 text-[12px] font-medium mb-2" dir="rtl">
+              <div className="mt-3 bg-[#0F1535] rounded-[12px] p-2 sm:p-3 overflow-x-auto">
+                <p className="text-white/70 text-[11px] sm:text-[12px] font-medium mb-2" dir="rtl">
                   {chartData.title}
                 </p>
                 <SafeChartContainer>
@@ -180,15 +180,15 @@ export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisp
                       <LazyCartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                       <LazyXAxis
                         dataKey={chartData.xAxisKey}
-                        tick={{ fill: "#7B91B0", fontSize: 11 }}
+                        tick={{ fill: "#7B91B0", fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
                       />
                       <LazyYAxis
-                        tick={{ fill: "#7B91B0", fontSize: 11 }}
+                        tick={{ fill: "#7B91B0", fontSize: 10 }}
                         axisLine={false}
                         tickLine={false}
-                        width={60}
+                        width={45}
                       />
                       <LazyTooltip
                         contentStyle={{
@@ -213,12 +213,12 @@ export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisp
                   </LazyResponsiveContainer>
                 </SafeChartContainer>
                 {/* Chart legend */}
-                <div className="flex flex-row-reverse justify-center flex-wrap gap-3 mt-2">
+                <div className="flex flex-row-reverse justify-center flex-wrap gap-2 sm:gap-3 mt-2">
                   {chartData.dataKeys.map((dk) => (
-                    <div key={dk.key} className="flex flex-row-reverse items-center gap-1.5">
-                      <span className="text-white/50 text-[11px]">{dk.label}</span>
+                    <div key={dk.key} className="flex flex-row-reverse items-center gap-1 sm:gap-1.5">
+                      <span className="text-white/50 text-[10px] sm:text-[11px]">{dk.label}</span>
                       <div
-                        className="w-[10px] h-[10px] rounded-[2px]"
+                        className="w-[8px] h-[8px] sm:w-[10px] sm:h-[10px] rounded-[2px]"
                         style={{ backgroundColor: dk.color }}
                       />
                     </div>
@@ -232,7 +232,7 @@ export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisp
           </div>
         </div>
       </div>
-      <div className="flex items-center px-1 mr-[36px]">
+      <div className="flex items-center px-1 mr-[30px] sm:mr-[36px]">
         <CopyButton text={displayText} />
       </div>
     </div>
@@ -243,10 +243,10 @@ export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisp
 export function AiThinkingBubble({ status }: { status: string }) {
   return (
     <div className="flex flex-col items-start gap-1" dir="rtl">
-      <div className="flex items-start gap-2 w-full">
+      <div className="flex items-start gap-1.5 sm:gap-2 w-full">
         <AiIcon />
         <div className="flex-1 min-w-0">
-          <div className="bg-[#29318A] text-white px-4 py-3 rounded-[16px] rounded-tr-[4px]">
+          <div className="bg-[#29318A] text-white px-3 sm:px-4 py-2.5 sm:py-3 rounded-[16px] rounded-tr-[4px]">
             <div className="flex gap-2 items-center h-[20px]">
               <span className="text-white/60 text-[13px]">{status}</span>
               <div className="flex gap-1.5 items-center">
@@ -261,4 +261,3 @@ export function AiThinkingBubble({ status }: { status: string }) {
     </div>
   );
 }
-

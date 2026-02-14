@@ -32,9 +32,9 @@ function formatDate(dateStr?: string) {
 
 function DetailRow({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
-    <div className="flex justify-between items-baseline text-[12px]">
-      <span className="text-white/50">{label}:</span>
-      <span className={bold ? "text-white font-medium" : "text-white/80"}>{value}</span>
+    <div className="flex justify-between items-baseline gap-2 text-[11px] sm:text-[12px]">
+      <span className="text-white/50 flex-shrink-0">{label}:</span>
+      <span className={`text-start truncate ${bold ? "text-white font-medium" : "text-white/80"}`}>{value}</span>
     </div>
   );
 }
@@ -140,23 +140,23 @@ export function AiActionCard({ action }: AiActionCardProps) {
   }
 
   return (
-    <div className="mt-3 bg-[#1a1f4e] rounded-[12px] p-4 border border-[#6366f1]/30" dir="rtl">
+    <div className="mt-3 bg-[#1a1f4e] rounded-[10px] sm:rounded-[12px] p-3 sm:p-4 border border-[#6366f1]/30" dir="rtl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-white font-medium text-[14px]">{ACTION_TITLES[action.actionType]}</h4>
-        <div className={`text-[11px] ${confidenceColor}`}>
+      <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
+        <h4 className="text-white font-medium text-[13px] sm:text-[14px]">{ACTION_TITLES[action.actionType]}</h4>
+        <div className={`text-[10px] sm:text-[11px] flex-shrink-0 ${confidenceColor}`}>
           ביטחון: {Math.round(action.confidence * 100)}%
         </div>
       </div>
 
       {/* Reasoning */}
-      <p className="text-white/70 text-[12px] mb-3">{action.reasoning}</p>
+      <p className="text-white/70 text-[11px] sm:text-[12px] mb-2 sm:mb-3">{action.reasoning}</p>
 
       {/* Supplier warning */}
       {needsSupplierCreation && (
-        <div className="mb-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-start gap-2">
-          <AlertTriangle className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
-          <div className="text-[11px] text-yellow-200">
+        <div className="mb-2 sm:mb-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-start gap-1.5 sm:gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+          <div className="text-[10px] sm:text-[11px] text-yellow-200">
             <strong>שימו לב:</strong> הספק &quot;{action.supplierLookup?.name}&quot; לא נמצא במערכת.
             יש ליצור ספק חדש לפני אישור הפעולה.
           </div>
@@ -218,12 +218,12 @@ export function AiActionCard({ action }: AiActionCardProps) {
       )}
 
       {/* Action buttons */}
-      <div className="flex gap-2">
+      <div className="flex gap-1.5 sm:gap-2">
         <button
           type="button"
           onClick={handleConfirm}
           disabled={status === "confirming" || needsSupplierCreation}
-          className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-[13px] font-medium py-2 px-3 rounded-lg transition-colors"
+          className="flex-1 flex items-center justify-center gap-1 sm:gap-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-[12px] sm:text-[13px] font-medium py-2 px-2 sm:px-3 rounded-lg transition-colors"
         >
           {status === "confirming" ? (
             <>
@@ -232,8 +232,8 @@ export function AiActionCard({ action }: AiActionCardProps) {
             </>
           ) : (
             <>
-              <Check className="w-4 h-4" />
-              <span>{needsSupplierCreation ? "יש ליצור ספק תחילה" : "אישור"}</span>
+              <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="truncate">{needsSupplierCreation ? "יש ליצור ספק תחילה" : "אישור"}</span>
             </>
           )}
         </button>
@@ -241,9 +241,9 @@ export function AiActionCard({ action }: AiActionCardProps) {
           type="button"
           onClick={handleReject}
           disabled={status === "confirming"}
-          className="flex items-center justify-center gap-1.5 bg-red-600/20 hover:bg-red-600/30 disabled:opacity-50 text-red-300 text-[13px] font-medium py-2 px-3 rounded-lg transition-colors"
+          className="flex items-center justify-center gap-1 sm:gap-1.5 bg-red-600/20 hover:bg-red-600/30 disabled:opacity-50 text-red-300 text-[12px] sm:text-[13px] font-medium py-2 px-2 sm:px-3 rounded-lg transition-colors"
         >
-          <X className="w-4 h-4" />
+          <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>ביטול</span>
         </button>
       </div>
@@ -252,7 +252,7 @@ export function AiActionCard({ action }: AiActionCardProps) {
         <div className="mt-2 text-center">
           <a
             href="/suppliers"
-            className="inline-flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
+            className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
           >
             <Building2 className="w-3 h-3" />
             עבור לדף ספקים ליצירת ספק חדש

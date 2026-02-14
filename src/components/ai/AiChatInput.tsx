@@ -305,20 +305,20 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
   const isBusy = disabled || isTranscribing || isProcessingOcr;
 
   return (
-    <div id="onboarding-ai-input" className="flex-shrink-0 border-t border-white/10 bg-[#0F1535] px-4 py-3">
+    <div id="onboarding-ai-input" className="flex-shrink-0 border-t border-white/10 bg-[#0F1535] px-2 sm:px-4 py-2 sm:py-3">
       {/* Selected files preview — square thumbnails */}
       {selectedFiles.length > 0 && (
-        <div className="mb-3" dir="rtl">
-          <div className="flex items-center gap-2 mb-2 px-1">
+        <div className="mb-2 sm:mb-3" dir="rtl">
+          <div className="flex items-center gap-2 mb-1.5 sm:mb-2 px-1">
             <span className="text-[11px] text-white/50">
               {selectedFiles.length} {selectedFiles.length === 1 ? "קובץ" : "קבצים"} מחכים לשליחה
             </span>
           </div>
-          <div className="flex flex-wrap gap-2 px-1">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2 px-1">
             {selectedFiles.map((file, idx) => (
               <div
                 key={`${file.name}-${idx}`}
-                className="relative w-[72px] h-[72px] rounded-[10px] overflow-hidden bg-[#29318A] border-2 border-[#6366f1]/40 flex-shrink-0 shadow-lg shadow-[#6366f1]/10"
+                className="relative w-[56px] h-[56px] sm:w-[72px] sm:h-[72px] rounded-[8px] sm:rounded-[10px] overflow-hidden bg-[#29318A] border-2 border-[#6366f1]/40 flex-shrink-0 shadow-lg shadow-[#6366f1]/10"
               >
                 {filePreviews[idx] ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -328,30 +328,30 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-1">
-                    <FileText className="w-5 h-5 text-white/50" />
-                    <span className="text-[9px] text-white/40 uppercase font-medium">PDF</span>
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 sm:gap-1">
+                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white/50" />
+                    <span className="text-[8px] sm:text-[9px] text-white/40 uppercase font-medium">PDF</span>
                   </div>
                 )}
                 {/* Remove button — always visible */}
                 <button
                   type="button"
                   onClick={() => removeFile(idx)}
-                  className="absolute top-1 left-1 w-[20px] h-[20px] rounded-full bg-black/70 flex items-center justify-center"
+                  className="absolute top-0.5 left-0.5 sm:top-1 sm:left-1 w-[18px] h-[18px] sm:w-[20px] sm:h-[20px] rounded-full bg-black/70 flex items-center justify-center"
                   aria-label="הסר קובץ"
                 >
-                  <X className="w-3 h-3 text-white" />
+                  <X className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                 </button>
                 {/* File name at bottom */}
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-1 py-1">
-                  <span className="text-[8px] text-white/90 block truncate leading-tight">{file.name}</span>
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-0.5 sm:px-1 py-0.5 sm:py-1">
+                  <span className="text-[7px] sm:text-[8px] text-white/90 block truncate leading-tight">{file.name}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
       )}
-      <div className="flex items-end gap-3" dir="rtl">
+      <div className="flex items-end gap-1.5 sm:gap-3" dir="rtl">
         {/* Mic button - right side in RTL */}
         <button
           type="button"
@@ -359,16 +359,16 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
           disabled={isBusy && !isRecording}
           title={isRecording ? "עצור הקלטה" : "הקלט הודעה קולית"}
           aria-label={isRecording ? "עצור הקלטה" : "הקלט הודעה קולית"}
-          className={`flex-shrink-0 w-[44px] h-[44px] rounded-full flex items-center justify-center text-white transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
+          className={`flex-shrink-0 w-[38px] h-[38px] sm:w-[44px] sm:h-[44px] rounded-full flex items-center justify-center text-white transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
             isRecording
               ? "bg-red-500 hover:bg-red-600 animate-pulse"
               : "bg-[#29318A] hover:bg-[#3a43a0]"
           }`}
         >
           {isRecording ? (
-            <Square className="w-4 h-4" />
+            <Square className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           ) : (
-            <Mic className="w-5 h-5" />
+            <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
           )}
         </button>
         {/* File/Camera button */}
@@ -378,13 +378,13 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
           disabled={isBusy || selectedFiles.length >= MAX_FILES}
           title="צלם או העלה מסמך"
           aria-label="צלם או העלה מסמך"
-          className={`relative flex-shrink-0 w-[44px] h-[44px] rounded-full bg-[#29318A] hover:bg-[#3a43a0] flex items-center justify-center text-white transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
+          className={`relative flex-shrink-0 w-[38px] h-[38px] sm:w-[44px] sm:h-[44px] rounded-full bg-[#29318A] hover:bg-[#3a43a0] flex items-center justify-center text-white transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
             selectedFiles.length > 0 ? "ring-2 ring-[#6366f1]" : ""
           }`}
         >
-          <Camera className="w-5 h-5" />
+          <Camera className="w-4 h-4 sm:w-5 sm:h-5" />
           {selectedFiles.length > 0 && (
-            <span className="absolute -top-1 -left-1 w-[18px] h-[18px] rounded-full bg-[#6366f1] text-[10px] font-bold flex items-center justify-center">
+            <span className="absolute -top-1 -left-1 w-[16px] h-[16px] sm:w-[18px] sm:h-[18px] rounded-full bg-[#6366f1] text-[9px] sm:text-[10px] font-bold flex items-center justify-center">
               {selectedFiles.length}
             </span>
           )}
@@ -406,7 +406,7 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
           placeholder={isProcessingOcr ? "מזהה טקסט מהקבצים..." : isTranscribing ? "ממלל הודעה קולית..." : "שאל שאלה על העסק שלך..."}
           disabled={isBusy}
           rows={1}
-          className="flex-1 resize-none bg-[#29318A] text-white text-[15px] leading-[24px] rounded-[14px] px-4 py-3 placeholder:text-white/40 outline-none focus:ring-2 focus:ring-[#6366f1]/50 transition-shadow disabled:opacity-50 scrollbar-thin"
+          className="flex-1 resize-none bg-[#29318A] text-white text-[14px] sm:text-[15px] leading-[22px] sm:leading-[24px] rounded-[12px] sm:rounded-[14px] px-3 sm:px-4 py-2 sm:py-3 placeholder:text-white/40 outline-none focus:ring-2 focus:ring-[#6366f1]/50 transition-shadow disabled:opacity-50 scrollbar-thin"
         />
         {/* Send button - left side in RTL */}
         <button
@@ -415,12 +415,12 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
           disabled={(!value.trim() && selectedFiles.length === 0) || isBusy}
           title="שלח הודעה"
           aria-label="שלח הודעה"
-          className="flex-shrink-0 w-[44px] h-[44px] rounded-full bg-[#6366f1] flex items-center justify-center text-white transition-all hover:bg-[#5558e6] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#6366f1] disabled:active:scale-100"
+          className="flex-shrink-0 w-[38px] h-[38px] sm:w-[44px] sm:h-[44px] rounded-full bg-[#6366f1] flex items-center justify-center text-white transition-all hover:bg-[#5558e6] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#6366f1] disabled:active:scale-100"
         >
           {isProcessingOcr ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
           ) : (
-            <ArrowUp className="w-5 h-5 -rotate-45" />
+            <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5 -rotate-45" />
           )}
         </button>
       </div>
