@@ -381,164 +381,98 @@ export default function DashboardPage() {
       const totalOrders = (s.privateCount || 0) + (s.businessCount || 0);
       const avgPerOrder = totalOrders > 0 ? s.totalIncome / totalOrders : 0;
 
-      // Build managed product rows for daily table
-      const managedProductRows = managedProductsSummary.map(p => {
-        const actualPct = s.incomeBeforeVat && p.totalCost > 0 ? (p.totalCost / s.incomeBeforeVat) * 100 : 0;
-        const diffPct = p.targetPct ? actualPct - p.targetPct : 0;
-        const diffColor = diffPct > 0 ? 'text-red-400' : diffPct < 0 ? 'text-green-400' : 'text-white';
-        return `<div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate" title="${p.name}">${p.name} (%)</div>`;
-      }).join('');
-
-      const managedProductValues = managedProductsSummary.map(p => {
-        const actualPct = s.incomeBeforeVat && p.totalCost > 0 ? (p.totalCost / s.incomeBeforeVat) * 100 : 0;
-        return `<div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">${actualPct.toFixed(2)}%</span></div>`;
-      }).join('');
-
-      const managedProductQuantities = managedProductsSummary.map(p => {
-        return `<div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">${Math.round(p.totalQuantity)}</span></div>`;
-      }).join('');
-
-      const managedProductDiffs = managedProductsSummary.map(p => {
-        const actualPct = s.incomeBeforeVat && p.totalCost > 0 ? (p.totalCost / s.incomeBeforeVat) * 100 : 0;
-        const diffPct = p.targetPct ? actualPct - p.targetPct : 0;
-        const color = diffPct > 0 ? 'text-red-400' : diffPct < 0 ? 'text-green-400' : 'text-white';
-        return `<div class="text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${color}"><span class="ltr-num">${diffPct !== 0 ? diffPct.toFixed(2) + '%' : '-'}</span></div>`;
-      }).join('');
+      // Inline styles for email compatibility (Gmail strips CSS classes)
+      const cellStyle = 'color:#fff;font-size:12px;height:24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);padding:2px 4px;';
+      const headerCellStyle = 'color:#fff;font-size:11px;font-weight:bold;text-align:center;height:24px;border-bottom:1px solid rgba(255,255,255,0.1);padding:2px 4px;white-space:nowrap;';
+      const labelCellStyle = 'color:#fff;font-size:12px;height:24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);padding:2px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      const redColor = '#f87171';
+      const greenColor = '#4ade80';
+      const diffColor = (val: number, invert = false) => {
+        if (val === 0) return '#fff';
+        if (invert) return val > 0 ? redColor : greenColor;
+        return val < 0 ? redColor : val > 0 ? greenColor : '#fff';
+      };
 
       // Income source rows
       const privateSource = incomeSourcesSummary.find(src => src.incomeType === 'private');
       const businessSource = incomeSourcesSummary.find(src => src.incomeType === 'business');
-
       const privateAvg = privateSource?.avgAmount || 0;
       const businessAvg = businessSource?.avgAmount || 0;
       const privateAvgTarget = privateSource?.avgTicketTarget || 0;
       const businessAvgTarget = businessSource?.avgTicketTarget || 0;
       const privateDiff = privateAvgTarget ? privateAvg - privateAvgTarget : 0;
       const businessDiff = businessAvgTarget ? businessAvg - businessAvgTarget : 0;
-
-      // Target diff for total revenue
       const revTargetDiffPct = s.targetDiffPct || 0;
 
-      // Build goals/targets table
-      const goalsHtml = `<div class="bg-[#0F1535] rounded-[10px] border-2 border-[#FFCF00] p-[7px] flex-1 min-w-0">
-        <div class="text-[#FFCF00] text-[14px] md:text-[16px] font-bold text-center mb-[10px]">פרמטר / יעד</div>
-        <div class="flex gap-[3px] w-full" dir="rtl">
-          <div class="flex flex-col gap-[2px] flex-1 min-w-0">
-            <div class="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">פרמטר</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">סה"כ קופה כולל מע"מ</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate" title="במקום">במקום</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate" title="במשלוח">במשלוח</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">ע. עובדים (%)</div>
-            ${managedProductsSummary.map(p => `<div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate" title="${p.name}">עלות ${p.name} (%)</div>`).join('')}
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">עלות מכר</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">הוצאות שוטפות</div>
-          </div>
-          <div class="flex flex-col gap-[2px] flex-1 min-w-0">
-            <div class="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">יעד</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">₪${Math.round(s.revenueTarget).toLocaleString('he-IL')}</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">₪${Math.round(privateAvgTarget).toLocaleString('he-IL')}</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">₪${Math.round(businessAvgTarget).toLocaleString('he-IL')}</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">${Math.round(s.laborCostTargetPct)}%</span></div>
-            ${managedProductsSummary.map(p => `<div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">${p.targetPct ? p.targetPct + '%' : '-'}</span></div>`).join('')}
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">${Math.round(s.foodCostTargetPct)}%</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">-</span></div>
-          </div>
-        </div>
-      </div>`;
+      // Helper to build a table section
+      const buildTable = (title: string, headers: string[], rows: string[][]) => {
+        const headerRow = headers.map(h => `<th style="${headerCellStyle}">${h}</th>`).join('');
+        const bodyRows = rows.map(row => {
+          const cells = row.map((cell, i) => {
+            const st = i === 0 ? labelCellStyle : cellStyle;
+            return `<td style="${st}">${cell}</td>`;
+          }).join('');
+          return `<tr>${cells}</tr>`;
+        }).join('');
+        return `<div style="background:#0F1535;border-radius:10px;border:2px solid #FFCF00;padding:7px;margin-bottom:10px;">
+          <div style="color:#FFCF00;font-size:16px;font-weight:bold;text-align:center;margin-bottom:10px;">${title}</div>
+          <table style="width:100%;border-collapse:collapse;direction:rtl;" dir="rtl">
+            <tr>${headerRow}</tr>
+            ${bodyRows}
+          </table>
+        </div>`;
+      };
 
-      // Build monthly cumulative table
-      const cumulativeHtml = `<div class="bg-[#0F1535] rounded-[10px] border-2 border-[#FFCF00] p-[7px] flex-1 min-w-0">
-        <div class="text-[#FFCF00] text-[14px] md:text-[16px] font-bold text-center mb-[10px]">מצטבר חודש ${monthName}, ${year}</div>
-        <div class="flex gap-[3px] w-full" dir="rtl">
-          <div class="flex flex-col gap-[2px] min-w-[60px] max-w-[75px] flex-shrink-0">
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 font-bold"></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">סה"כ קופה</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate" title="במקום">במקום</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate" title="במשלוח">במשלוח</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">ע. עובדים</div>
-            ${managedProductsSummary.map(p => `<div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate" title="${p.name}">${p.name}</div>`).join('')}
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">עלות מכר</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">הוצאות שוטפות</div>
-          </div>
-          <div class="flex flex-col gap-[2px] flex-1 min-w-0">
-            <div class="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">סה"כ</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">₪${Math.round(s.totalIncome).toLocaleString('he-IL')}</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">₪${privateAvg.toFixed(2)}</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">₪${businessAvg.toFixed(2)}</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">${s.laborCostPct.toFixed(2)}%</span></div>
-            ${managedProductsSummary.map(p => {
-              const pct = s.incomeBeforeVat && p.totalCost > 0 ? (p.totalCost / s.incomeBeforeVat) * 100 : 0;
-              return `<div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">${pct.toFixed(2)}%</span></div>`;
-            }).join('')}
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">${s.foodCostPct.toFixed(2)}%</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">₪${Math.round(s.currentExpenses).toLocaleString('he-IL')}</span></div>
-          </div>
-          <div class="flex flex-col gap-[2px] flex-1 min-w-0">
-            <div class="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">הפרש</div>
-            <div class="text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${revTargetDiffPct < 0 ? 'text-red-400' : revTargetDiffPct > 0 ? 'text-green-400' : 'text-white'}"><span class="ltr-num">${revTargetDiffPct.toFixed(1)}%</span></div>
-            <div class="text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${privateDiff < 0 ? 'text-red-400' : privateDiff > 0 ? 'text-green-400' : 'text-white'}"><span class="ltr-num">${privateDiff < 0 ? '-' : ''}₪${Math.abs(privateDiff).toFixed(1)}</span></div>
-            <div class="text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${businessDiff < 0 ? 'text-red-400' : businessDiff > 0 ? 'text-green-400' : 'text-white'}"><span class="ltr-num">${businessDiff > 0 ? '' : businessDiff < 0 ? '-' : ''}₪${Math.abs(businessDiff).toFixed(1)}</span></div>
-            <div class="text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${s.laborCostDiffPct > 0 ? 'text-red-400' : s.laborCostDiffPct < 0 ? 'text-green-400' : 'text-white'}"><span class="ltr-num">${s.laborCostDiffPct > 0 ? '' : '-'}${Math.abs(s.laborCostDiffPct).toFixed(1)}%</span></div>
-            ${managedProductsSummary.map(p => {
-              const actualPct = s.incomeBeforeVat && p.totalCost > 0 ? (p.totalCost / s.incomeBeforeVat) * 100 : 0;
-              const diff = p.targetPct ? actualPct - p.targetPct : 0;
-              const color = diff > 0 ? 'text-red-400' : diff < 0 ? 'text-green-400' : 'text-white';
-              return `<div class="text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${color}"><span class="ltr-num">${diff !== 0 ? diff.toFixed(2) + '%' : '-'}</span></div>`;
-            }).join('')}
-            <div class="text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${s.foodCostDiffPct > 0 ? 'text-red-400' : s.foodCostDiffPct < 0 ? 'text-green-400' : 'text-white'}"><span class="ltr-num">${s.foodCostDiffPct !== 0 ? (s.foodCostDiffPct > 0 ? '' : '-') + Math.abs(s.foodCostDiffPct).toFixed(2) + '%' : '-'}</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">-</span></div>
-          </div>
-        </div>
-      </div>`;
+      // Managed products data
+      const mpData = managedProductsSummary.map(p => {
+        const pct = s.incomeBeforeVat && p.totalCost > 0 ? (p.totalCost / s.incomeBeforeVat) * 100 : 0;
+        const diff = p.targetPct ? pct - p.targetPct : 0;
+        return { name: p.name, pct, qty: Math.round(p.totalQuantity), targetPct: p.targetPct, diff };
+      });
 
-      // Build daily summary table
-      const dailyHtml = `<div class="bg-[#0F1535] rounded-[10px] border-2 border-[#FFCF00] p-[7px] flex-1 min-w-0">
-        <div class="text-[#FFCF00] text-[14px] md:text-[16px] font-bold text-center mb-[10px]">הסיכום היומי ליום ${dayName}, ${dateStr}</div>
-        <div class="flex gap-[3px] w-full" dir="rtl">
-          <div class="flex flex-col gap-[2px] min-w-[70px] max-w-[85px] flex-shrink-0">
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 font-bold"></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">סה"כ קופה כולל מע"מ</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate" title="במקום">במקום</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate" title="במשלוח">במשלוח</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">ע. עובדים (%)</div>
-            ${managedProductRows}
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">עלות מכר</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">הוצאות שוטפות</div>
-          </div>
-          <div class="flex flex-col gap-[2px] flex-1 min-w-0">
-            <div class="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10 whitespace-nowrap">סה"כ יומי</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">₪${Math.round(s.totalIncome).toLocaleString('he-IL')}</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">₪${Math.round(s.privateIncome).toLocaleString('he-IL')}</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">₪${Math.round(s.businessIncome).toLocaleString('he-IL')}</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">${s.laborCostPct.toFixed(2)}%</span></div>
-            ${managedProductValues}
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">${s.foodCostPct.toFixed(2)}%</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">₪${Math.round(s.currentExpenses).toLocaleString('he-IL')}</span></div>
-          </div>
-          <div class="flex flex-col gap-[2px] flex-1 min-w-0">
-            <div class="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">כמות</div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">${s.privateCount}</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">${s.businessCount}</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">${totalOrders}</span></div>
-            ${managedProductQuantities}
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"></div>
-          </div>
-          <div class="flex flex-col gap-[2px] flex-1 min-w-0">
-            <div class="text-white text-[10px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10 whitespace-nowrap">הפרש מהיעד</div>
-            <div class="text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${revTargetDiffPct < 0 ? 'text-red-400' : revTargetDiffPct > 0 ? 'text-green-400' : 'text-white'}"><span class="ltr-num">${revTargetDiffPct.toFixed(1)}%</span></div>
-            <div class="text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${privateDiff < 0 ? 'text-red-400' : privateDiff > 0 ? 'text-green-400' : 'text-white'}"><span class="ltr-num">${privateDiff < 0 ? '-' : ''}₪${Math.abs(privateDiff).toFixed(1)}</span></div>
-            <div class="text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${businessDiff < 0 ? 'text-red-400' : businessDiff > 0 ? 'text-green-400' : 'text-white'}"><span class="ltr-num">${businessDiff > 0 ? '' : businessDiff < 0 ? '-' : ''}₪${Math.abs(businessDiff).toFixed(1)}</span></div>
-            <div class="text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${s.laborCostDiffPct > 0 ? 'text-red-400' : s.laborCostDiffPct < 0 ? 'text-green-400' : 'text-white'}"><span class="ltr-num">${s.laborCostDiffPct > 0 ? '' : '-'}${Math.abs(s.laborCostDiffPct).toFixed(2)}%</span></div>
-            ${managedProductDiffs}
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">-</span></div>
-            <div class="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"><span class="ltr-num">-</span></div>
-          </div>
-        </div>
-      </div>`;
+      // === Daily Summary Table ===
+      const dailyRows: string[][] = [
+        ['סה"כ קופה כולל מע"מ', `₪${Math.round(s.totalIncome).toLocaleString('he-IL')}`, '', `<span style="color:${diffColor(revTargetDiffPct)}">${revTargetDiffPct.toFixed(1)}%</span>`],
+        ['במקום', `₪${Math.round(s.privateIncome).toLocaleString('he-IL')}`, `${s.privateCount}`, `<span style="color:${diffColor(privateDiff)}">${privateDiff < 0 ? '-' : ''}₪${Math.abs(privateDiff).toFixed(1)}</span>`],
+        ['במשלוח', `₪${Math.round(s.businessIncome).toLocaleString('he-IL')}`, `${s.businessCount}`, `<span style="color:${diffColor(businessDiff)}">${businessDiff < 0 ? '-' : ''}₪${Math.abs(businessDiff).toFixed(1)}</span>`],
+        ['ע. עובדים (%)', `${s.laborCostPct.toFixed(2)}%`, `${totalOrders}`, `<span style="color:${diffColor(s.laborCostDiffPct, true)}">${s.laborCostDiffPct > 0 ? '' : '-'}${Math.abs(s.laborCostDiffPct).toFixed(2)}%</span>`],
+        ...mpData.map(p => [
+          `${p.name} (%)`, `${p.pct.toFixed(2)}%`, `${p.qty}`,
+          `<span style="color:${diffColor(p.diff, true)}">${p.diff !== 0 ? p.diff.toFixed(2) + '%' : '-'}</span>`
+        ]),
+        ['עלות מכר', `${s.foodCostPct.toFixed(2)}%`, '', '-'],
+        ['הוצאות שוטפות', `₪${Math.round(s.currentExpenses).toLocaleString('he-IL')}`, '', '-'],
+      ];
+      const dailyHtml = buildTable(`הסיכום היומי ליום ${dayName}, ${dateStr}`, ['', 'סה"כ יומי', 'כמות', 'הפרש מהיעד'], dailyRows);
 
-      const fullHtml = `<div class="flex flex-col md:flex-row-reverse gap-[10px]">${dailyHtml}${goalsHtml}${cumulativeHtml}</div>`;
+      // === Goals/Targets Table ===
+      const goalsRows: string[][] = [
+        ['סה"כ קופה כולל מע"מ', `₪${Math.round(s.revenueTarget).toLocaleString('he-IL')}`],
+        ['במקום', `₪${Math.round(privateAvgTarget).toLocaleString('he-IL')}`],
+        ['במשלוח', `₪${Math.round(businessAvgTarget).toLocaleString('he-IL')}`],
+        ['ע. עובדים (%)', `${Math.round(s.laborCostTargetPct)}%`],
+        ...mpData.map(p => [`עלות ${p.name} (%)`, p.targetPct ? `${p.targetPct}%` : '-']),
+        ['עלות מכר', `${Math.round(s.foodCostTargetPct)}%`],
+        ['הוצאות שוטפות', '-'],
+      ];
+      const goalsHtml = buildTable('פרמטר / יעד', ['פרמטר', 'יעד'], goalsRows);
+
+      // === Monthly Cumulative Table ===
+      const cumulativeRows: string[][] = [
+        ['סה"כ קופה', `₪${Math.round(s.totalIncome).toLocaleString('he-IL')}`, `<span style="color:${diffColor(revTargetDiffPct)}">${revTargetDiffPct.toFixed(1)}%</span>`],
+        ['במקום', `₪${privateAvg.toFixed(2)}`, `<span style="color:${diffColor(privateDiff)}">${privateDiff < 0 ? '-' : ''}₪${Math.abs(privateDiff).toFixed(1)}</span>`],
+        ['במשלוח', `₪${businessAvg.toFixed(2)}`, `<span style="color:${diffColor(businessDiff)}">${businessDiff < 0 ? '-' : ''}₪${Math.abs(businessDiff).toFixed(1)}</span>`],
+        ['ע. עובדים', `${s.laborCostPct.toFixed(2)}%`, `<span style="color:${diffColor(s.laborCostDiffPct, true)}">${s.laborCostDiffPct > 0 ? '' : '-'}${Math.abs(s.laborCostDiffPct).toFixed(1)}%</span>`],
+        ...mpData.map(p => [
+          p.name, `${p.pct.toFixed(2)}%`,
+          `<span style="color:${diffColor(p.diff, true)}">${p.diff !== 0 ? p.diff.toFixed(2) + '%' : '-'}</span>`
+        ]),
+        ['עלות מכר', `${s.foodCostPct.toFixed(2)}%`, `<span style="color:${diffColor(s.foodCostDiffPct, true)}">${s.foodCostDiffPct !== 0 ? Math.abs(s.foodCostDiffPct).toFixed(2) + '%' : '-'}</span>`],
+        ['הוצאות שוטפות', `₪${Math.round(s.currentExpenses).toLocaleString('he-IL')}`, '-'],
+      ];
+      const cumulativeHtml = buildTable(`מצטבר חודש ${monthName}, ${year}`, ['', 'סה"כ', 'הפרש'], cumulativeRows);
+
+      const fullHtml = `<div style="direction:rtl;font-family:Arial,sans-serif;">${dailyHtml}${goalsHtml}${cumulativeHtml}</div>`;
 
       const businessName = selectedBusinesses.length === 1
         ? businessCards.find(b => b.id === selectedBusinesses[0])?.name || ''
