@@ -139,7 +139,7 @@ export default function ReportsPage() {
 
         const { data: invoicesData } = await supabase
           .from("invoices")
-          .select("subtotal, supplier:suppliers(expense_category_id)")
+          .select("subtotal, supplier:suppliers(expense_category_id, expense_type)")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .eq("invoice_type", "current")
@@ -198,15 +198,24 @@ export default function ReportsPage() {
         const vatDivisor = vatPercentage > 0 ? 1 + vatPercentage / 100 : 1;
         const totalRevenue = totalRegister / vatDivisor;
 
-        // Calculate actual totals by category
+        // Calculate actual totals by category + separate goods/current totals
         const categoryActuals = new Map<string, number>();
+        let totalGoodsExpenses = 0;
+        let totalCurrentExpenses = 0;
         if (invoicesData) {
           for (const inv of invoicesData) {
-            const supplier = inv.supplier as unknown as { expense_category_id: string | null } | null;
+            const supplier = inv.supplier as unknown as { expense_category_id: string | null; expense_type: string | null } | null;
             const catId = supplier?.expense_category_id;
+            const expType = supplier?.expense_type;
+            const amount = Number(inv.subtotal);
             if (catId) {
               const current = categoryActuals.get(catId) || 0;
-              categoryActuals.set(catId, current + Number(inv.subtotal));
+              categoryActuals.set(catId, current + amount);
+            }
+            if (expType === "goods_purchases") {
+              totalGoodsExpenses += amount;
+            } else if (expType === "current_expenses") {
+              totalCurrentExpenses += amount;
             }
           }
         }
@@ -258,8 +267,8 @@ export default function ReportsPage() {
         setExpenseCategories(displayCategories);
 
         // Calculate summary
-        // Formula: (סה"כ קופה/מע"מ - הוצאות חשבוניות - עלות מנהל כולל העמסה - עלות עובדים כולל העמסה) / (סה"כ קופה/מע"מ)
-        const operatingProfit = totalRevenue - totalExpenses - totalManagerCost - totalLaborCost;
+        // Formula: (סה"כ קופה/מע"מ - קניות סחורה - הוצאות שוטפות - עלות מנהל כולל העמסה - עלות עובדים כולל העמסה) / (סה"כ קופה/מע"מ)
+        const operatingProfit = totalRevenue - totalGoodsExpenses - totalCurrentExpenses - totalManagerCost - totalLaborCost;
         const operatingProfitPct = totalRevenue > 0 ? (operatingProfit / totalRevenue) * 100 : 0;
 
         setSummary({
