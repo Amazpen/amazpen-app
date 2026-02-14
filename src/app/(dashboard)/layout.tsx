@@ -343,6 +343,46 @@ export default function DashboardLayout({
     fetchNotifications();
   }, [fetchNotifications]);
 
+  // One-time AI agent "דדי" welcome notification
+  useEffect(() => {
+    const sendAiWelcomeNotification = async () => {
+      if (localStorage.getItem("ai_welcome_notification_sent") === "true") return;
+
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Check if this user already has an AI welcome notification
+      const { data: existing } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("title", "הכירו את דדי — הסוכן החכם של המצפן")
+        .maybeSingle();
+
+      if (existing) {
+        localStorage.setItem("ai_welcome_notification_sent", "true");
+        return;
+      }
+
+      await supabase.from("notifications").insert({
+        user_id: user.id,
+        title: "הכירו את דדי — הסוכן החכם של המצפן",
+        message: "דדי יכול לנתח נתונים עסקיים, להציג טבלאות וגרפים, לעזור בתכנון תקציב ולענות על כל שאלה. נסו עכשיו!",
+        type: "info",
+        is_read: false,
+        link: "/ai",
+      });
+
+      localStorage.setItem("ai_welcome_notification_sent", "true");
+      fetchNotifications();
+    };
+
+    if (isMounted) {
+      sendAiWelcomeNotification();
+    }
+  }, [isMounted, fetchNotifications]);
+
   // Global Realtime subscription for all important tables
   useMultiTableRealtime(
     ["notifications", "businesses", "daily_entries", "tasks", "invoices", "payments", "suppliers", "goals"],
@@ -891,6 +931,24 @@ export default function DashboardLayout({
                                 <p className="text-[12px] text-white/50 leading-[1.4] mt-[4px] line-clamp-2">
                                   {notification.message}
                                 </p>
+                              )}
+                              {notification.link === "/ai" && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!notification.is_read) markNotificationAsRead(notification.id);
+                                    router.push("/ai");
+                                    setIsNotificationsOpen(false);
+                                  }}
+                                  className="mt-[8px] px-[14px] py-[6px] bg-[#6366f1] text-white text-[12px] font-bold rounded-[8px] hover:bg-[#7c7ff7] transition-colors inline-flex items-center gap-[6px]"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M12 2a4 4 0 014 4v2a4 4 0 01-8 0V6a4 4 0 014-4z" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <path d="M8 14h8l2 8H6l2-8z" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                  דברו עם דדי
+                                </button>
                               )}
                               <p className="text-[11px] text-white/30 mt-[6px]" suppressHydrationWarning>
                                 {formatTimeAgo(notification.created_at)}
