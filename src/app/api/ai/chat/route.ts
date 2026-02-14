@@ -683,7 +683,7 @@ export async function POST(request: NextRequest) {
     return jsonResponse({ error: "בקשה לא תקינה" }, 400);
   }
 
-  const businessId = typeof body.businessId === "string" ? body.businessId : "";
+  let businessId = typeof body.businessId === "string" ? body.businessId : "";
   const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
   const pageContext = typeof body.pageContext === "string" ? body.pageContext : "";
 
@@ -735,8 +735,21 @@ export async function POST(request: NextRequest) {
   let userRole = "";
   const isAdmin = profile?.is_admin === true;
 
+  // For non-admin users without a selected business, auto-detect their first business
   if (!isAdmin && !businessId) {
-    return jsonResponse({ error: "חסרים נתונים — משתמש לא admin וללא businessId" }, 400);
+    const { data: firstMembership } = await serverSupabase
+      .from("business_members")
+      .select("business_id")
+      .eq("user_id", user.id)
+      .is("deleted_at", null)
+      .limit(1)
+      .maybeSingle();
+
+    if (firstMembership?.business_id) {
+      businessId = firstMembership.business_id;
+    } else {
+      return jsonResponse({ error: "לא נמצא עסק משויך למשתמש" }, 400);
+    }
   }
 
   // Fetch business name
