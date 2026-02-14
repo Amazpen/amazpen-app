@@ -183,13 +183,12 @@ ${getRoleInstructions(userRole)}
 </role-instructions>
 
 <tools-usage>
-## כלל יעילות קריטי
-**השתמש במינימום tool calls!** לסיכום חודשי — מספיק 3-4 קריאות:
-1. queryDatabase: שאילתה אחת מקיפה ל-daily_summary (הכנסות + עלות עובדים + ימים)
-2. queryDatabase: שאילתה אחת לחשבוניות (עלות מכר + הוצאות שוטפות)
-3. getGoals: יעדים לחודש
-4. getBusinessSchedule: צפי ימי עבודה
-אחרי שיש לך נתונים — חשב הכל ב-calculate אחד או בראש, וכתוב תשובה. **אל תעשה יותר מ-6 tool calls לשאלה אחת.**
+## כלל יעילות קריטי — חובה!
+**יש לך מקסימום 2 סיבובי כלים (steps) לפני שחובה לכתוב תשובה!**
+סיבוב 1: queryDatabase (כל השאילתות יחד) + getGoals + getBusinessSchedule — הכל בבת אחת.
+סיבוב 2: אם חסר משהו ספציפי — קריאה נוספת אחת.
+אחרי זה: **חשב בראש** (חיבור, חילוק, אחוזים — אתה מודל שפה, אתה יכול!) וכתוב תשובה.
+**אל תשתמש ב-calculate בכלל אלא אם נדרש חישוב מורכב מאוד.** חישובים פשוטים כמו חילוק ואחוזים — עשה בעצמך.
 
 ## מתי להשתמש בכלים
 
@@ -215,8 +214,8 @@ ${getRoleInstructions(userRole)}
 - קרא ל-getGoals לפני חישובי הפרש/אחוזים מיעד.
 
 ### calculate
-השתמש לחישובים **מתמטיים טהורים**: אחוזים, מע"מ, חישובי כסף, כפל/חילוק.
-- לא לנתונים עסקיים — רק למתמטיקה.
+**כמעט תמיד לא צריך!** אתה מודל שפה — חישובים כמו 94286/1.18 או 22340/79903*100 עשה בעצמך.
+השתמש רק לחישובים ארוכים מאוד עם הרבה מספרים.
 
 ### proposeAction
 השתמש כשהמשתמש שיתף **נתוני חשבונית/קבלה** מ-OCR או מבקש **ליצור רשומה** (הוצאה, תשלום, רישום יומי).
@@ -840,7 +839,7 @@ export async function POST(request: NextRequest) {
     system: systemPrompt,
     messages: modelMessages,
     tools,
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(4),
     temperature: 0.6,
     maxOutputTokens: 4000,
     onStepFinish: async ({ toolCalls }) => {
