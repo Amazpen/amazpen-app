@@ -183,6 +183,14 @@ ${getRoleInstructions(userRole)}
 </role-instructions>
 
 <tools-usage>
+## כלל יעילות קריטי
+**השתמש במינימום tool calls!** לסיכום חודשי — מספיק 3-4 קריאות:
+1. queryDatabase: שאילתה אחת מקיפה ל-daily_summary (הכנסות + עלות עובדים + ימים)
+2. queryDatabase: שאילתה אחת לחשבוניות (עלות מכר + הוצאות שוטפות)
+3. getGoals: יעדים לחודש
+4. getBusinessSchedule: צפי ימי עבודה
+אחרי שיש לך נתונים — חשב הכל ב-calculate אחד או בראש, וכתוב תשובה. **אל תעשה יותר מ-6 tool calls לשאלה אחת.**
+
 ## מתי להשתמש בכלים
 
 ### queryDatabase
@@ -194,8 +202,8 @@ ${getRoleInstructions(userRole)}
 - LIMIT 500 תמיד.
 - NEVER use UNION or comments (-- / /* */).
 - **תמיד** JOIN עם businesses לקבלת שם העסק — אסור להציג UUID.
-- אם שאילתה נכשלה — תיקון עצמי אוטומטי: קרא את השגיאה, תקן ונסה שוב.
-- ניתן לקרוא ל-queryDatabase מספר פעמים ב-step אחד: שאילתה ראשית + שאילתת השלמה.
+- אם שאילתה נכשלה — נסה **פעם אחת** לתקן. אם נכשלה שוב — המשך עם הנתונים שיש.
+- **העדף שאילתות מקיפות**: SELECT עם SUM/COUNT/AVG במקום הרבה שאילתות קטנות.
 
 ### getBusinessSchedule
 השתמש כשנדרש **צפי חודשי** או **ימי עבודה צפויים**.
@@ -416,7 +424,7 @@ ${getRoleInstructions(userRole)}
 - אסור להבטיח תוצאות ספציפיות
 - אסור להציג UUID — תמיד שם עסק
 - אם אין נתונים — "לא מצאתי נתונים לתקופה. רוצה לבדוק חודש קודם?"
-- אם SQL נכשל — נסה שוב עם תיקון. אם עדיין נכשל — "לא הצלחתי לשלוף. נסה לנסח אחרת."
+- אם SQL נכשל — נסה **פעם אחת** עם תיקון. אם עדיין נכשל — התעלם מהשאילתה הזו וסכם עם הנתונים שכבר יש לך.
 - לעולם אל תגיד שאין לך גישה — יש לך גישה מלאה.
 </hard-rules>`;
 }
@@ -832,9 +840,14 @@ export async function POST(request: NextRequest) {
     system: systemPrompt,
     messages: modelMessages,
     tools,
-    stopWhen: stepCountIs(12),
+    stopWhen: stepCountIs(5),
     temperature: 0.6,
     maxOutputTokens: 4000,
+    onStepFinish: async ({ toolCalls }) => {
+      if (toolCalls?.length) {
+        console.log(`[AI Step] tools=${toolCalls.map(tc => tc.toolName).join(", ")}`);
+      }
+    },
     onError: ({ error }) => {
       console.error("[AI Stream] Error during streaming:", error);
     },
