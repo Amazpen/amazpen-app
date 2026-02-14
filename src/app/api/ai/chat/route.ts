@@ -209,6 +209,16 @@ ${getRoleInstructions(userRole)}
 ### calculate
 השתמש לחישובים **מתמטיים טהורים**: אחוזים, מע"מ, חישובי כסף, כפל/חילוק.
 - לא לנתונים עסקיים — רק למתמטיקה.
+
+### proposeAction
+השתמש כשהמשתמש שיתף **נתוני חשבונית/קבלה** מ-OCR או מבקש **ליצור רשומה** (הוצאה, תשלום, רישום יומי).
+- זהה את סוג הפעולה: expense (חשבונית/הוצאה), payment (תשלום), daily_entry (רישום יומי).
+- חלץ את **כל** הנתונים הרלוונטיים מההודעה או מתמליל ה-OCR.
+- ציון ביטחון: 0.9+ = נתונים מלאים וברורים, 0.7-0.9 = נתונים חלקיים, <0.7 = לא ברור.
+- הסבר בעברית למה אתה מציע את הפעולה.
+- **חשוב**: תמיד השתמש בפורמט תאריך YYYY-MM-DD.
+- אם זיהית שם ספק — הכלי יחפש אוטומטית אם הספק קיים במערכת.
+- הנתונים יוצגו למשתמש ככרטיס אישור — הוא יוכל לאשר או לבטל.
 </tools-usage>
 
 <database-schema>
@@ -574,6 +584,80 @@ function buildTools(
         }
       },
     }),
+
+    proposeAction: tool({
+      description: "Propose a business action (create expense/invoice, payment, or daily entry) for user confirmation. Use when user shares invoice/receipt data from OCR or asks to create a record. Returns structured data displayed as a confirmation card in the chat.",
+      inputSchema: z.object({
+        actionType: z.enum(["expense", "payment", "daily_entry"]).describe("Type of action to propose"),
+        confidence: z.number().min(0).max(1).describe("Confidence score 0-1 for extraction quality"),
+        reasoning: z.string().describe("Brief Hebrew explanation of why you're proposing this action"),
+        expenseData: z.object({
+          supplier_name: z.string().optional().describe("Supplier name as extracted"),
+          invoice_date: z.string().optional().describe("Invoice date in YYYY-MM-DD format"),
+          invoice_number: z.string().optional().describe("Invoice number"),
+          subtotal: z.number().optional().describe("Amount before VAT"),
+          vat_amount: z.number().optional().describe("VAT amount"),
+          total_amount: z.number().optional().describe("Total amount including VAT"),
+          invoice_type: z.string().optional().describe("current or goods"),
+          notes: z.string().optional().describe("Additional notes"),
+        }).optional(),
+        paymentData: z.object({
+          supplier_name: z.string().optional().describe("Supplier name"),
+          payment_date: z.string().optional().describe("Payment date in YYYY-MM-DD format"),
+          total_amount: z.number().optional().describe("Payment amount"),
+          payment_method: z.enum(["cash", "check", "bank_transfer", "credit_card", "bit", "paybox", "other"]).optional(),
+          check_number: z.string().optional(),
+          reference_number: z.string().optional(),
+          notes: z.string().optional(),
+        }).optional(),
+        dailyEntryData: z.object({
+          entry_date: z.string().optional().describe("Entry date in YYYY-MM-DD format"),
+          total_register: z.number().optional().describe("Total register amount"),
+          labor_cost: z.number().optional().describe("Labor cost"),
+          labor_hours: z.number().optional(),
+          discounts: z.number().optional(),
+          notes: z.string().optional(),
+        }).optional(),
+      }),
+      execute: async ({ actionType, confidence, reasoning, expenseData, paymentData, dailyEntryData }) => {
+        console.log(`[AI Tool] proposeAction: ${actionType} — ${reasoning}`);
+
+        // Supplier lookup if name provided
+        let resolvedSupplierId: string | null = null;
+        let supplierLookup: { found: boolean; id?: string; name?: string; needsCreation?: boolean } | null = null;
+
+        const supplierName = actionType === "expense" ? expenseData?.supplier_name : paymentData?.supplier_name;
+
+        if (supplierName && businessId) {
+          const { data: suppliers } = await adminSupabase
+            .from("suppliers")
+            .select("id, name")
+            .eq("business_id", businessId)
+            .ilike("name", `%${supplierName}%`)
+            .is("deleted_at", null)
+            .limit(1);
+
+          if (suppliers && suppliers.length > 0) {
+            resolvedSupplierId = suppliers[0].id;
+            supplierLookup = { found: true, id: suppliers[0].id, name: suppliers[0].name };
+          } else {
+            supplierLookup = { found: false, needsCreation: true, name: supplierName };
+          }
+        }
+
+        return {
+          success: true,
+          actionType,
+          confidence,
+          reasoning,
+          businessId,
+          expenseData: expenseData ? { ...expenseData, supplier_id: resolvedSupplierId || undefined } : undefined,
+          paymentData: paymentData ? { ...paymentData, supplier_id: resolvedSupplierId || undefined } : undefined,
+          dailyEntryData,
+          supplierLookup,
+        };
+      },
+    }),
   };
 }
 
@@ -733,7 +817,7 @@ export async function POST(request: NextRequest) {
     system: systemPrompt,
     messages: modelMessages,
     tools,
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(8),
     temperature: 0.6,
     maxOutputTokens: 4000,
     onFinish: async ({ text }) => {

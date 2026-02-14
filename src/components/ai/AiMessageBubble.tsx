@@ -4,8 +4,9 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Bot, Copy, Check } from "lucide-react";
 import type { UIMessage } from "ai";
-import type { AiChartData } from "@/types/ai";
+import type { AiChartData, AiProposedAction } from "@/types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
+import { AiActionCard } from "./AiActionCard";
 
 const LazyBarChart = dynamic(
   () => import("recharts").then((mod) => ({ default: mod.BarChart })),
@@ -99,6 +100,29 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+/** Extract proposeAction tool result from message parts */
+function getProposedAction(message: UIMessage): AiProposedAction | null {
+  if (message.role !== "assistant") return null;
+
+  for (const part of message.parts) {
+    // AI SDK v6: tool parts have type "tool-{toolName}" (e.g. "tool-proposeAction")
+    if (part.type === "tool-proposeAction") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toolPart = part as any;
+      if (
+        toolPart.state === "output-available" &&
+        toolPart.output
+      ) {
+        const result = toolPart.output as Record<string, unknown>;
+        if (result.success === true && result.actionType) {
+          return result as unknown as AiProposedAction;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 interface AiMessageBubbleProps {
   message: UIMessage;
   thinkingStatus?: string | null;
@@ -110,6 +134,7 @@ export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisp
   const isUser = message.role === "user";
   const displayText = getDisplayText(message);
   const chartData = isUser ? undefined : getChartData(message);
+  const proposedAction = isUser ? null : getProposedAction(message);
 
   if (isUser) {
     return (
@@ -139,9 +164,11 @@ export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisp
                   <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:300ms]" />
                 </div>
               </div>
-            ) : (
+            ) : displayText ? (
               <AiMarkdownRenderer content={displayText} />
-            )}
+            ) : !proposedAction && !chartData ? (
+              <span className="text-white/50 text-[13px]">לא הצלחתי לייצר תשובה. נסה לשאול שוב.</span>
+            ) : null}
             {chartData && (
               <div className="mt-3 bg-[#0F1535] rounded-[12px] p-3">
                 <p className="text-white/70 text-[12px] font-medium mb-2" dir="rtl">
@@ -198,6 +225,9 @@ export function AiMessageBubble({ message, thinkingStatus, getChartData, getDisp
                   ))}
                 </div>
               </div>
+            )}
+            {proposedAction && (
+              <AiActionCard action={proposedAction} />
             )}
           </div>
         </div>

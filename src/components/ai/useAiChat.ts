@@ -46,6 +46,7 @@ function getThinkingStatus(messages: UIMessage[], status: string): string | null
     getBusinessSchedule: "בודק לוח עבודה...",
     getGoals: "בודק יעדים...",
     calculate: "מחשב...",
+    proposeAction: "מכין הצעה...",
   };
 
   for (const part of lastMsg.parts) {
