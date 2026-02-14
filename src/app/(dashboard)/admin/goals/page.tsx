@@ -367,7 +367,7 @@ export default function AdminGoalsPage() {
         // Add budgets for new suppliers that didn't exist in the previous month
         const coveredSupplierIds = new Set(prevBudgets.map((b) => b.supplier_id));
         const missingSuppliers = suppliers.filter(
-          (s) => !s.has_previous_obligations && !coveredSupplierIds.has(s.id)
+          (s) => !coveredSupplierIds.has(s.id)
         );
 
         if (missingSuppliers.length > 0) {
@@ -383,7 +383,6 @@ export default function AdminGoalsPage() {
       } else {
         // Create budgets from supplier fixed expenses
         const newBudgets = suppliers
-          .filter((s) => !s.has_previous_obligations)
           .map((s) => ({
             supplier_id: s.id,
             business_id: selectedBusinessId,

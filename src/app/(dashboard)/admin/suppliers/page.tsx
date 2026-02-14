@@ -465,7 +465,6 @@ export default function AdminSuppliersPage() {
         const currentMonth = now.getMonth() + 1;
 
         const budgetRecords = insertedSuppliers
-          .filter(s => !s.has_previous_obligations)
           .map(s => ({
             supplier_id: s.id,
             business_id: selectedBusinessId,
