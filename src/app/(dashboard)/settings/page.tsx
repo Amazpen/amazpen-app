@@ -414,7 +414,7 @@ export default function SettingsPage() {
             </button>
 
             {showPasswordSection && (
-              <div className="space-y-[12px] mt-[4px] p-[16px] bg-[#29318A]/20 rounded-[10px] border border-white/5">
+              <form onSubmit={(e) => { e.preventDefault(); handleChangePassword(); }} className="space-y-[12px] mt-[4px] p-[16px] bg-[#29318A]/20 rounded-[10px] border border-white/5">
                 {/* Current Password or Forgot Mode */}
                 {forgotMode ? (
                   <div className="flex flex-col gap-[6px]">
@@ -519,8 +519,7 @@ export default function SettingsPage() {
 
                 {/* Change Password Button */}
                 <button
-                  type="button"
-                  onClick={handleChangePassword}
+                  type="submit"
                   disabled={isChangingPassword || (!forgotMode && !currentPassword) || (forgotMode && !emailConfirm) || !newPassword || !confirmPassword}
                   className="w-full h-[44px] bg-[#FFA412] text-white text-[14px] font-bold rounded-[10px] transition-all duration-200 hover:bg-[#FFB94A] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-[4px]"
                 >
@@ -533,7 +532,7 @@ export default function SettingsPage() {
                     "עדכן סיסמה"
                   )}
                 </button>
-              </div>
+              </form>
             )}
           </div>
 

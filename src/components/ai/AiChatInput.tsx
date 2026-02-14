@@ -1,11 +1,73 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { ArrowUp, Mic, Square, Camera, X, FileText } from "lucide-react";
+import { ArrowUp, Mic, Square, Camera, X, FileText, Loader2 } from "lucide-react";
 
 const MAX_FILES = 10;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"];
+
+/** Send a file to the OCR API and return extracted text.
+ *  For PDFs: first tries server-side text extraction.
+ *  If that returns empty (scanned PDF), renders first page to image client-side and OCRs it. */
+async function ocrFile(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch("/api/ai/ocr", { method: "POST", body: formData });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "שגיאה" }));
+    throw new Error(err.error || "OCR failed");
+  }
+  const data = await res.json();
+
+  // If we got text, return it
+  if (data.text && data.text.trim().length > 0) return data.text;
+
+  // For PDFs with no extracted text (scanned), render to image and OCR
+  if (file.type === "application/pdf") {
+    return ocrScannedPdf(file);
+  }
+
+  return "";
+}
+
+/** Render a scanned PDF's pages to images and OCR them client-side via Google Vision */
+async function ocrScannedPdf(file: File): Promise<string> {
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+
+  const results: string[] = [];
+  const pagesToProcess = Math.min(pdf.numPages, 5);
+
+  for (let i = 1; i <= pagesToProcess; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 2.0 });
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvas, viewport }).promise;
+
+    // Convert canvas to blob and send as image
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/png")
+    );
+    if (!blob) continue;
+
+    const imageFile = new File([blob], `page-${i}.png`, { type: "image/png" });
+    const fd = new FormData();
+    fd.append("file", imageFile);
+    const res = await fetch("/api/ai/ocr", { method: "POST", body: fd });
+    if (res.ok) {
+      const d = await res.json();
+      if (d.text) results.push(d.text);
+    }
+  }
+
+  return results.join("\n\n").trim();
+}
 
 interface AiChatInputProps {
   onSend: (message: string) => void;
@@ -17,6 +79,7 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
   const [value, setValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isProcessingOcr, setIsProcessingOcr] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -36,15 +99,51 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
     adjustHeight();
   }, [value, adjustHeight]);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const trimmed = value.trim();
-    if (!trimmed || disabled) return;
-    onSend(trimmed);
+    const hasFiles = selectedFiles.length > 0;
+    if ((!trimmed && !hasFiles) || disabled) return;
+
+    // If there are files, process them through OCR first
+    if (hasFiles) {
+      setIsProcessingOcr(true);
+      try {
+        const ocrResults = await Promise.all(selectedFiles.map(ocrFile));
+        const ocrTexts = ocrResults.filter((t) => t.length > 0);
+
+        // Build message: user text + OCR results
+        const parts: string[] = [];
+        if (trimmed) parts.push(trimmed);
+        if (ocrTexts.length > 0) {
+          for (let i = 0; i < ocrTexts.length; i++) {
+            const fileName = selectedFiles[i].name;
+            parts.push(`📄 תוכן מ-"${fileName}":\n${ocrTexts[i]}`);
+          }
+        }
+
+        const fullMessage = parts.join("\n\n");
+        if (fullMessage.trim()) {
+          onSend(fullMessage.trim());
+        }
+
+        // Clear files after processing
+        setSelectedFiles([]);
+        onFilesSelected?.([]);
+      } catch {
+        // OCR failed — send just the text if available
+        if (trimmed) onSend(trimmed);
+      } finally {
+        setIsProcessingOcr(false);
+      }
+    } else {
+      onSend(trimmed);
+    }
+
     setValue("");
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
-  }, [value, disabled, onSend]);
+  }, [value, disabled, onSend, selectedFiles, onFilesSelected]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -203,7 +302,7 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
     };
   }, [selectedFiles]);
 
-  const isBusy = disabled || isTranscribing;
+  const isBusy = disabled || isTranscribing || isProcessingOcr;
 
   return (
     <div id="onboarding-ai-input" className="flex-shrink-0 border-t border-white/10 bg-[#0F1535] px-4 py-3">
@@ -304,7 +403,7 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isTranscribing ? "ממלל הודעה קולית..." : "שאל שאלה על העסק שלך..."}
+          placeholder={isProcessingOcr ? "מזהה טקסט מהקבצים..." : isTranscribing ? "ממלל הודעה קולית..." : "שאל שאלה על העסק שלך..."}
           disabled={isBusy}
           rows={1}
           className="flex-1 resize-none bg-[#29318A] text-white text-[15px] leading-[24px] rounded-[14px] px-4 py-3 placeholder:text-white/40 outline-none focus:ring-2 focus:ring-[#6366f1]/50 transition-shadow disabled:opacity-50 scrollbar-thin"
@@ -313,12 +412,16 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
         <button
           type="button"
           onClick={handleSend}
-          disabled={!value.trim() || isBusy}
+          disabled={(!value.trim() && selectedFiles.length === 0) || isBusy}
           title="שלח הודעה"
           aria-label="שלח הודעה"
           className="flex-shrink-0 w-[44px] h-[44px] rounded-full bg-[#6366f1] flex items-center justify-center text-white transition-all hover:bg-[#5558e6] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-[#6366f1] disabled:active:scale-100"
         >
-          <ArrowUp className="w-5 h-5 -rotate-45" />
+          {isProcessingOcr ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <ArrowUp className="w-5 h-5 -rotate-45" />
+          )}
         </button>
       </div>
     </div>
