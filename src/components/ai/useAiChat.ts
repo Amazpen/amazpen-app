@@ -51,16 +51,16 @@ function getThinkingStatus(messages: UIMessage[], status: string): string | null
   for (const part of lastMsg.parts) {
     if (part.type.startsWith("tool-") || part.type === "dynamic-tool") {
       const toolPart = part as { type: string; toolName?: string; state?: string };
-      if (toolPart.state === "call" || toolPart.state === "partial-call") {
+      if (toolPart.state === "input-streaming" || toolPart.state === "input-available") {
         const toolName = toolPart.toolName || part.type.replace("tool-", "");
         return statusMap[toolName] || "מעבד...";
       }
     }
   }
 
-  // If streaming with no text yet, show thinking
+  // If no text yet (submitted or streaming), show thinking
   const hasText = lastMsg.parts.some((p) => p.type === "text" && (p as { text: string }).text.length > 0);
-  if (!hasText && status === "streaming") return "חושב...";
+  if (!hasText) return "חושב...";
 
   return null;
 }
