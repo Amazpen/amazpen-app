@@ -690,7 +690,7 @@ export async function POST(request: NextRequest) {
   // Extract messages from the AI SDK UIMessage format
   const uiMessages: UIMessage[] = Array.isArray(body.messages) ? body.messages : [];
   if (uiMessages.length === 0) {
-    return jsonResponse({ error: "חסרים נתונים" }, 400);
+    return jsonResponse({ error: "חסרים נתונים — אין הודעות בבקשה" }, 400);
   }
 
   // Get the last user message text
@@ -700,7 +700,7 @@ export async function POST(request: NextRequest) {
     : "";
 
   if (!lastUserText) {
-    return jsonResponse({ error: "חסרים נתונים" }, 400);
+    return jsonResponse({ error: `חסרים נתונים — הודעה אחרונה: role=${lastMsg?.role}, parts=${JSON.stringify(lastMsg?.parts?.map(p => p.type))}` }, 400);
   }
   if (lastUserText.length > 2000) {
     return jsonResponse({ error: "ההודעה ארוכה מדי (מקסימום 2000 תווים)" }, 400);
@@ -736,7 +736,7 @@ export async function POST(request: NextRequest) {
   const isAdmin = profile?.is_admin === true;
 
   if (!isAdmin && !businessId) {
-    return jsonResponse({ error: "חסרים נתונים" }, 400);
+    return jsonResponse({ error: "חסרים נתונים — משתמש לא admin וללא businessId" }, 400);
   }
 
   // Fetch business name
