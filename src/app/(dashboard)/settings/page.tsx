@@ -39,6 +39,7 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [fullName, setFullName] = useState("");
@@ -168,6 +169,22 @@ export default function SettingsPage() {
     }
 
     setIsSaving(false);
+  };
+
+  // Handle forgot password - send reset link to email
+  const handleForgotPassword = async () => {
+    if (!profile?.email) return;
+    setIsSendingReset(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(profile.email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) {
+      showToast("שגיאה בשליחת הקישור", "error");
+    } else {
+      showToast("קישור לאיפוס סיסמה נשלח למייל שלך", "success");
+    }
+    setIsSendingReset(false);
   };
 
   // Handle password change
@@ -430,6 +447,14 @@ export default function SettingsPage() {
                       )}
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={isSendingReset}
+                    className="text-[12px] text-[#FFA412] hover:text-[#FFB94A] transition-colors self-start mt-[2px] disabled:opacity-50"
+                  >
+                    {isSendingReset ? "שולח..." : "שכחתי סיסמה"}
+                  </button>
                 </div>
 
                 {/* New Password */}
