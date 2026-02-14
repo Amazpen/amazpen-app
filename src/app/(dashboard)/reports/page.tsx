@@ -224,6 +224,10 @@ export default function ReportsPage() {
         const totalExpenses = Array.from(categoryActuals.values()).reduce((sum, val) => sum + val, 0);
         const expensesTarget = Number(goal?.current_expenses_target || 0);
 
+        // Calculate food cost (עלות מכר) target: (food_cost_target_pct / 100) * (revenue_target / vatDivisor)
+        const foodCostTargetPct = Number(goal?.food_cost_target_pct || 0);
+        const foodCostTarget = (foodCostTargetPct / 100) * totalRevenue;
+
         // Group categories by parent
         const parentCategories = (categoriesData || []).filter(c => !c.parent_id);
         const childCategories = (categoriesData || []).filter(c => c.parent_id);
@@ -232,7 +236,7 @@ export default function ReportsPage() {
           const children = childCategories.filter(c => c.parent_id === parent.id);
           const childrenWithData = children.map(child => {
             const actual = categoryActuals.get(child.id) || 0;
-            const target = 0; // Would need per-category budgets
+            const target = 0;
             const diff = target - actual;
             const remaining = target > 0 ? ((target - actual) / target) * 100 : 0;
 
@@ -247,8 +251,11 @@ export default function ReportsPage() {
           });
 
           // Sum up children for parent
-          const parentActual = children.reduce((sum, c) => sum + (categoryActuals.get(c.id) || 0), 0) || categoryActuals.get(parent.id) || 0;
-          const parentTarget = 0;
+          const isGoodsCost = parent.name === "עלות מכר";
+          const childrenActual = children.reduce((sum, c) => sum + (categoryActuals.get(c.id) || 0), 0) || categoryActuals.get(parent.id) || 0;
+          // For "עלות מכר": use totalGoodsExpenses (all goods_purchases invoices) since suppliers may not have expense_category_id
+          const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : childrenActual;
+          const parentTarget = isGoodsCost ? foodCostTarget : 0;
           const parentDiff = parentTarget - parentActual;
           const parentRemaining = parentTarget > 0 ? ((parentTarget - parentActual) / parentTarget) * 100 : 0;
 
