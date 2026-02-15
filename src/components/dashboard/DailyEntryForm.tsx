@@ -985,17 +985,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                   )}
                 </FormField>
 
-                <FormField label='סה"כ קופה'>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    placeholder="0"
-                    value={formData.total_register}
-                    onChange={(e) => handleChange("total_register", e.target.value)}
-                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-                  />
-                </FormField>
-
                 {/* יום חלקי/יום מלא - רק לאדמין */}
                 {isAdmin && (
                   <FormField label="יום חלקי/יום מלא">
@@ -1012,6 +1001,17 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     />
                   </FormField>
                 )}
+
+                <FormField label='סה"כ קופה'>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={formData.total_register}
+                    onChange={(e) => handleChange("total_register", e.target.value)}
+                    className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                  />
+                </FormField>
 
                 {/* מקורות הכנסה - דינמי */}
                 {incomeSources.length > 0 && (
@@ -1040,44 +1040,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                           />
                         </FormField>
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* תקבולים - דינמי */}
-                {receiptTypes.length > 0 && (
-                  <div className="flex flex-col gap-4 mt-2">
-                    <SectionHeader title="תקבולים" />
-                    {receiptTypes.map((receipt) => (
-                      <FormField key={receipt.id} label={receipt.name}>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          placeholder="0"
-                          value={receiptData[receipt.id] || ""}
-                          onChange={(e) => handleReceiptChange(receipt.id, e.target.value)}
-                          className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-                        />
-                      </FormField>
-                    ))}
-                  </div>
-                )}
-
-                {/* פרמטרים נוספים - דינמי */}
-                {customParameters.length > 0 && (
-                  <div className="flex flex-col gap-4 mt-2">
-                    <SectionHeader title="פרמטרים נוספים" />
-                    {customParameters.map((param) => (
-                      <FormField key={param.id} label={param.name}>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          placeholder="0"
-                          value={parameterData[param.id] || ""}
-                          onChange={(e) => handleParameterChange(param.id, e.target.value)}
-                          className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
-                        />
-                      </FormField>
                     ))}
                   </div>
                 )}
@@ -1169,6 +1131,44 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                   />
                 </FormField>
+
+                {/* תקבולים - דינמי */}
+                {receiptTypes.length > 0 && (
+                  <div className="flex flex-col gap-4 mt-2">
+                    <SectionHeader title="תקבולים" />
+                    {receiptTypes.map((receipt) => (
+                      <FormField key={receipt.id} label={receipt.name}>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="0"
+                          value={receiptData[receipt.id] || ""}
+                          onChange={(e) => handleReceiptChange(receipt.id, e.target.value)}
+                          className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                        />
+                      </FormField>
+                    ))}
+                  </div>
+                )}
+
+                {/* פרמטרים נוספים - דינמי */}
+                {customParameters.length > 0 && (
+                  <div className="flex flex-col gap-4 mt-2">
+                    <SectionHeader title="פרמטרים נוספים" />
+                    {customParameters.map((param) => (
+                      <FormField key={param.id} label={param.name}>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder="0"
+                          value={parameterData[param.id] || ""}
+                          onChange={(e) => handleParameterChange(param.id, e.target.value)}
+                          className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
+                        />
+                      </FormField>
+                    ))}
+                  </div>
+                )}
 
                 <FormField label="זיכויים+ביטולים+הנחות ב-₪">
                   <Input
