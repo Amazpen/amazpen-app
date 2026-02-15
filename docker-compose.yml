@@ -11,7 +11,6 @@ services:
         - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
         - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
         - NEXT_PUBLIC_DISABLE_REALTIME=${NEXT_PUBLIC_DISABLE_REALTIME:-false}
-    container_name: amazpen-app
     restart: unless-stopped
     expose:
       - "3000"
