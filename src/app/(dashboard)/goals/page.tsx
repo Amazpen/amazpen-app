@@ -16,6 +16,7 @@ interface GoalItem {
   actual: number;
   unit?: string; // ₪ or %
   editable?: boolean;
+  isExpense?: boolean; // true = lower is better (costs), false = higher is better (revenue/avg ticket)
   children?: GoalItem[];
   supplierIds?: string[]; // supplier IDs mapped to this category (for budget editing)
 }
@@ -606,6 +607,7 @@ export default function GoalsPage() {
             actual: Math.round(actualAvg),
             unit: "₪",
             editable: true,
+            isExpense: false,
           };
         });
 
@@ -633,6 +635,7 @@ export default function GoalsPage() {
               actual: actualPct,
               unit: "%",
               editable: true,
+              isExpense: true,
             };
           });
 
@@ -644,6 +647,7 @@ export default function GoalsPage() {
             actual: totalRevenue,
             unit: "₪",
             editable: true,
+            isExpense: false,
           },
           ...avgTicketItems,
           {
@@ -653,6 +657,7 @@ export default function GoalsPage() {
             actual: laborPct,
             unit: "%",
             editable: true,
+            isExpense: true,
           },
           {
             id: "food-pct",
@@ -661,6 +666,7 @@ export default function GoalsPage() {
             actual: foodPct,
             unit: "%",
             editable: true,
+            isExpense: true,
           },
           ...managedProductItems,
           {
@@ -670,6 +676,7 @@ export default function GoalsPage() {
             actual: totalCurrentExpenses,
             unit: "₪",
             editable: true,
+            isExpense: true,
           },
           {
             id: "goods-expenses",
@@ -678,6 +685,7 @@ export default function GoalsPage() {
             actual: totalGoodsCost,
             unit: "₪",
             editable: true,
+            isExpense: true,
           },
         ];
         setKpiData(kpiItems);
@@ -987,14 +995,18 @@ export default function GoalsPage() {
               </div>
             ) : data.map((item) => {
                 const percentage = item.target > 0 ? (item.actual / item.target) * 100 : 0;
-                const diff = item.target - item.actual; // Positive means under budget (good for expenses)
                 const isKpi = activeTab === "kpi";
                 const isCurrent = activeTab === "vs-current";
-                const isRevenueType = item.name.includes("הכנסות");
-                const statusColor = getStatusColor(percentage, !isRevenueType);
+                const isGoods = activeTab === "vs-goods";
+                // For vs-current and vs-goods tabs, everything is an expense
+                // For KPI tab, use the item's isExpense flag
+                const isExpense = (isCurrent || isGoods) ? true : (item.isExpense !== false);
+                // For expenses: positive diff = under budget (good)
+                // For revenue/income: positive diff = exceeded target (good)
+                const diff = isExpense ? (item.target - item.actual) : (item.actual - item.target);
+                const statusColor = getStatusColor(percentage, isExpense);
                 const hasChildren = item.children && item.children.length > 0;
                 const hasSuppliers = item.supplierIds && item.supplierIds.length > 0;
-                const isGoods = activeTab === "vs-goods";
                 const isExpandable = (isCurrent || isGoods) && (hasChildren || hasSuppliers);
                 const isExpanded = expandedGoalId === item.id;
 
