@@ -1479,7 +1479,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       )}
 
       {/* Add Team Member Form */}
-      <div className="bg-[#0F1535] rounded-[15px] p-[8px]">
+      <form className="bg-[#0F1535] rounded-[15px] p-[8px]" onSubmit={(e) => e.preventDefault()}>
         <h3 className="text-[15px] font-bold text-white text-right mb-[10px]">הוספת משתמש חדש</h3>
 
         {/* Email */}
@@ -1506,6 +1506,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
             <input
               type="password"
+              autoComplete="new-password"
               value={newMemberPassword}
               onChange={(e) => setNewMemberPassword(e.target.value)}
               placeholder="לפחות 6 תווים"
@@ -1648,7 +1649,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         >
           + הוסף משתמש
         </button>
-      </div>
+      </form>
 
       {/* New Team Members List */}
       {teamMembers.filter(m => !m.isExisting).length > 0 && (
