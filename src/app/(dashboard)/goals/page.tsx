@@ -79,9 +79,11 @@ function ProgressBar({ percentage, reverse = false }: { percentage: number; reve
 }
 
 // Status indicator based on percentage
-function getStatusColor(percentage: number, isExpense: boolean = true): string {
+function getStatusColor(percentage: number, isExpense: boolean = true, actual: number = 0, target: number = 0): string {
   if (isExpense) {
     // For expenses: under budget is good (green), over is bad (red)
+    // Special case: no target but has actual expenses = red
+    if (target === 0 && actual > 0) return "text-[#F64E60]";
     if (percentage <= 100) return "text-[#17DB4E]";
     return "text-[#F64E60]";
   } else {
@@ -1001,9 +1003,9 @@ export default function GoalsPage() {
                 // For vs-current and vs-goods tabs, everything is an expense
                 // For KPI tab, use the item's isExpense flag
                 const isExpense = (isCurrent || isGoods) ? true : (item.isExpense !== false);
-                // Always: target - actual
-                const diff = item.target - item.actual;
-                const statusColor = getStatusColor(percentage, isExpense);
+                // Always: actual - target
+                const diff = item.actual - item.target;
+                const statusColor = getStatusColor(percentage, isExpense, item.actual, item.target);
                 const hasChildren = item.children && item.children.length > 0;
                 const hasSuppliers = item.supplierIds && item.supplierIds.length > 0;
                 const isExpandable = (isCurrent || isGoods) && (hasChildren || hasSuppliers);
@@ -1083,8 +1085,8 @@ export default function GoalsPage() {
                         {hasChildren ? (
                           item.children!.map((child, childIdx) => {
                             const childPct = child.target > 0 ? (child.actual / child.target) * 100 : 0;
-                            const childDiff = child.target - child.actual;
-                            const childStatusColor = getStatusColor(childPct, true);
+                            const childDiff = child.actual - child.target;
+                            const childStatusColor = getStatusColor(childPct, true, child.actual, child.target);
                             const childHasSuppliers = child.supplierIds && child.supplierIds.length > 0;
                             const isChildExpanded = expandedChildId === child.id;
 
