@@ -688,6 +688,15 @@ export default function EditBusinessPage({ params }: PageProps) {
           .eq("business_id", businessId);
       }
 
+      // Update existing products (unit + unit_cost)
+      const existingProducts = managedProducts.filter(p => p.id);
+      for (const p of existingProducts) {
+        await supabase
+          .from("managed_products")
+          .update({ unit: p.unit, unit_cost: p.unitCost, updated_at: new Date().toISOString() })
+          .eq("id", p.id);
+      }
+
       const newProducts = managedProducts.filter(p => !p.id);
       if (newProducts.length > 0) {
         await supabase.from("managed_products").insert(
@@ -1366,8 +1375,31 @@ export default function EditBusinessPage({ params }: PageProps) {
                 <span className="text-[14px] text-white font-medium">{product.name}</span>
               </div>
               <div className="flex items-center gap-[8px]">
-                <span className="text-[12px] text-white/60 bg-[#4956D4]/30 px-[6px] py-[2px] rounded">{product.unit}</span>
-                <span className="text-[12px] text-white/80 bg-[#4956D4]/40 px-[6px] py-[2px] rounded">₪{product.unitCost}</span>
+                <input
+                  type="text"
+                  value={product.unit}
+                  onChange={(e) => {
+                    const updated = [...managedProducts];
+                    updated[index] = { ...updated[index], unit: e.target.value };
+                    setManagedProducts(updated);
+                  }}
+                  className="w-[70px] text-[12px] text-white/80 bg-[#4956D4]/30 px-[6px] py-[2px] rounded border border-transparent focus:border-[#4956D4] outline-none text-center"
+                />
+                <div className="flex items-center bg-[#4956D4]/40 rounded overflow-hidden">
+                  <span className="text-[12px] text-white/60 px-[4px]">₪</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={product.unitCost}
+                    onChange={(e) => {
+                      const updated = [...managedProducts];
+                      updated[index] = { ...updated[index], unitCost: parseFloat(e.target.value) || 0 };
+                      setManagedProducts(updated);
+                    }}
+                    className="w-[60px] text-[12px] text-white/80 bg-transparent px-[4px] py-[2px] border-none outline-none text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
               </div>
             </div>
           ))}
