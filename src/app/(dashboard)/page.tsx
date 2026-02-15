@@ -2326,7 +2326,7 @@ export default function DashboardPage() {
                       <>
                         <div className="flex flex-row-reverse justify-center items-center gap-[10px] ml-[25px] invisible">
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num text-white`}>
-                            {formatCurrencyFull(detailedSummary?.monthlyPace || 0)}
+                            {formatCurrencyFull(Math.round(detailedSummary?.monthlyPace || 0))}
                           </span>
                           <span className="text-[20px] font-bold text-white leading-[1.4]">צפי חודשי</span>
                         </div>
@@ -2359,7 +2359,7 @@ export default function DashboardPage() {
                     <>
                       <div className="flex flex-row-reverse justify-center items-center gap-[10px] ml-[25px]">
                         <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${(detailedSummary?.monthlyPace || 0) === 0 ? 'text-white' : (detailedSummary?.targetDiffPct || 0) < 0 ? 'text-red-500' : (detailedSummary?.targetDiffPct || 0) > 0 ? 'text-green-500' : 'text-white'}`}>
-                          {formatCurrencyFull(detailedSummary?.monthlyPace || 0)}
+                          {formatCurrencyFull(Math.round(detailedSummary?.monthlyPace || 0))}
                         </span>
                         <span className="text-[20px] font-bold text-white leading-[1.4]">צפי חודשי</span>
                       </div>
