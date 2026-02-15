@@ -117,6 +117,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const [parameterData, setParameterData] = useState<Record<string, string>>({});
   const [productUsage, setProductUsage] = useState<Record<string, ProductUsageData>>({});
   const [dateWarning, setDateWarning] = useState<string | null>(null);
+  const latestDateCheck = useRef<string>("");
 
   const getToday = () => new Date().toISOString().split("T")[0];
 
@@ -321,22 +322,19 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       });
       setProductUsage(initialProducts);
 
-      // Check if today's date already has an entry (only in create mode)
-      if (!editingEntry) {
-        const today = new Date().toISOString().split("T")[0];
-        const { data: todayEntry } = await supabase
-          .from("daily_entries")
-          .select("id")
-          .eq("business_id", businessId)
-          .eq("entry_date", today)
-          .maybeSingle();
-        if (todayEntry) {
-          setDateWarning("כבר קיים רישום לתאריך זה");
+      // Restore draft after all state is initialized, then check date
+      setTimeout(() => {
+        restoreDraft();
+        // After draft restore, check the actual date in the form (may differ from today)
+        // We read formData via a setState callback to get the latest value after restoreDraft
+        if (!editingEntry) {
+          setFormData(prev => {
+            const dateToCheck = prev.entry_date || new Date().toISOString().split("T")[0];
+            checkDateAndUpdateStock(dateToCheck);
+            return prev;
+          });
         }
-      }
-
-      // Restore draft after all state is initialized
-      setTimeout(() => restoreDraft(), 0);
+      }, 0);
     } catch (err) {
       console.error("Error loading form data:", err);
     } finally {
@@ -483,6 +481,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   // Check if an entry exists for the selected date + fetch previous day closing stock
   const checkDateAndUpdateStock = async (date: string) => {
     if (!businessId || !date) return;
+    latestDateCheck.current = date;
     const supabase = createClient();
 
     // Check if entry already exists for this date (skip in edit mode for same date)
@@ -493,6 +492,9 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       .eq("entry_date", date)
       .maybeSingle();
 
+    // Ignore stale response if user already changed to a different date
+    if (latestDateCheck.current !== date) return;
+
     if (existingEntry && (!editingEntry || editingEntry.id !== existingEntry.id)) {
       setDateWarning("כבר קיים רישום לתאריך זה");
     } else {
@@ -500,6 +502,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
     }
 
     // Fetch the closest previous entry's closing stock for managed products
+    if (latestDateCheck.current !== date) return;
     if (managedProducts.length > 0) {
       const { data: prevEntry } = await supabase
         .from("daily_entries")
@@ -510,6 +513,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         .limit(1)
         .maybeSingle();
 
+      if (latestDateCheck.current !== date) return;
       if (prevEntry) {
         const { data: prevUsage } = await supabase
           .from("daily_product_usage")
