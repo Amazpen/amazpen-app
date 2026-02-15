@@ -11,6 +11,7 @@ import { uploadFile } from "@/lib/uploadFile";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { generateUUID } from "@/lib/utils";
 
 // Category type from database
 interface ExpenseCategory {
@@ -467,7 +468,7 @@ export default function SuppliersPage() {
       let documentUrl: string | null = editingSupplierData.document_url || null;
       if (attachedFile) {
         const fileExt = attachedFile.name.split(".").pop();
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const fileName = `${generateUUID()}.${fileExt}`;
         const filePath = `supplier-documents/${editingSupplierData.business_id}/${fileName}`;
 
         const result = await uploadFile(attachedFile, filePath, "assets");
@@ -614,7 +615,7 @@ export default function SuppliersPage() {
       let documentUrl: string | null = null;
       if (attachedFile) {
         const fileExt = attachedFile.name.split(".").pop();
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const fileName = `${generateUUID()}.${fileExt}`;
         const filePath = `supplier-documents/${selectedBusinesses[0]}/${fileName}`;
 
         const result = await uploadFile(attachedFile, filePath, "assets");
@@ -630,7 +631,7 @@ export default function SuppliersPage() {
       let obligationDocumentUrl: string | null = null;
       if (obligationDocument) {
         const fileExt = obligationDocument.name.split(".").pop();
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const fileName = `${generateUUID()}.${fileExt}`;
         const filePath = `supplier-obligations/${selectedBusinesses[0]}/${fileName}`;
 
         const result = await uploadFile(obligationDocument, filePath, "assets");
@@ -2437,7 +2438,7 @@ export default function SuppliersPage() {
                               setIsUploadingObligationDoc(true);
                               try {
                                 const fileExt = file.name.split(".").pop();
-                                const fileName = `${crypto.randomUUID()}.${fileExt}`;
+                                const fileName = `${generateUUID()}.${fileExt}`;
                                 const filePath = `supplier-obligations/${selectedSupplier.business_id}/${fileName}`;
                                 const result = await uploadFile(file, filePath, "assets");
                                 if (result.success && result.publicUrl) {
@@ -2485,7 +2486,7 @@ export default function SuppliersPage() {
                             setIsUploadingObligationDoc(true);
                             try {
                               const fileExt = file.name.split(".").pop();
-                              const fileName = `${crypto.randomUUID()}.${fileExt}`;
+                              const fileName = `${generateUUID()}.${fileExt}`;
                               const filePath = `supplier-obligations/${selectedSupplier.business_id}/${fileName}`;
                               const result = await uploadFile(file, filePath, "assets");
                               if (result.success && result.publicUrl) {

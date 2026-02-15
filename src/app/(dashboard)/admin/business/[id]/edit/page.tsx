@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { convertPdfToImage } from "@/lib/pdfToImage";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { generateUUID } from "@/lib/utils";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -445,7 +446,7 @@ export default function EditBusinessPage({ params }: PageProps) {
     setIsUploadingMemberAvatar(true);
     try {
       const fileExt = file.name.split(".").pop();
-      const fileName = `avatars/${crypto.randomUUID()}-${Date.now()}.${fileExt}`;
+      const fileName = `avatars/${generateUUID()}-${Date.now()}.${fileExt}`;
 
       const result = await uploadFile(file, fileName, "assets");
 
@@ -515,7 +516,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         }
 
         const fileExt = fileToUpload.name.split(".").pop();
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const fileName = `${generateUUID()}.${fileExt}`;
         const filePath = `business-logos/${fileName}`;
 
         const result = await uploadFile(fileToUpload, filePath, "assets");

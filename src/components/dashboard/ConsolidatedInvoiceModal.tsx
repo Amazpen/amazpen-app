@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { generateUUID } from "@/lib/utils";
 import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
 
 interface Business {
@@ -247,7 +248,7 @@ export function ConsolidatedInvoiceModal({
         }
 
         const fileExt = file.name.split(".").pop();
-        const fileName = `consolidated-invoices/${crypto.randomUUID()}-${Date.now()}.${fileExt}`;
+        const fileName = `consolidated-invoices/${generateUUID()}-${Date.now()}.${fileExt}`;
 
         const result = await uploadFile(file, fileName, "assets");
 

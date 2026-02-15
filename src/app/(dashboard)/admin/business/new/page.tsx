@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { convertPdfToImage } from "@/lib/pdfToImage";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { generateUUID } from "@/lib/utils";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -482,7 +483,7 @@ export default function NewBusinessPage() {
     setIsUploadingMemberAvatar(true);
     try {
       const fileExt = file.name.split(".").pop();
-      const fileName = `avatars/${crypto.randomUUID()}-${Date.now()}.${fileExt}`;
+      const fileName = `avatars/${generateUUID()}-${Date.now()}.${fileExt}`;
 
       const result = await uploadFile(file, fileName, "assets");
 
@@ -620,7 +621,7 @@ export default function NewBusinessPage() {
         }
 
         const fileExt = fileToUpload.name.split(".").pop();
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const fileName = `${generateUUID()}.${fileExt}`;
         const filePath = `business-logos/${fileName}`;
 
         const result = await uploadFile(fileToUpload, filePath, "assets");
@@ -1500,7 +1501,7 @@ export default function NewBusinessPage() {
       </div>
 
       {/* Add Team Member Form */}
-      <div className="bg-[#0F1535] rounded-[15px] p-[8px]">
+      <form className="bg-[#0F1535] rounded-[15px] p-[8px]" onSubmit={(e) => e.preventDefault()}>
         <h3 className="text-[15px] font-bold text-white text-right mb-[10px]">הוספת משתמש</h3>
 
         {/* Mode Toggle: New / Existing */}
@@ -1510,7 +1511,7 @@ export default function NewBusinessPage() {
             onClick={() => { setAddMode("new"); setSelectedExistingUser(null); setExistingUserSearch(""); setExistingUserResults([]); }}
             className={`flex-1 h-[38px] rounded-[10px] text-[13px] font-medium transition-all ${
               addMode === "new"
-                ? "bg-gradient-to-r from-[#0075FF] to-[#00D4FF] text-white"
+                ? "bg-[#29318A] text-white"
                 : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
             }`}
           >
@@ -1834,13 +1835,13 @@ export default function NewBusinessPage() {
               type="button"
               onClick={handleAddTeamMember}
               disabled={!newMemberEmail.trim() || !newMemberPassword.trim() || newMemberPassword.length < 6}
-              className="w-full h-[45px] bg-gradient-to-r from-[#0075FF] to-[#00D4FF] text-white text-[14px] font-bold rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-[45px] bg-[#29318A] text-white text-[14px] font-bold rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               + הוסף משתמש חדש
             </button>
           </>
         )}
-      </div>
+      </form>
 
       {/* Team Members List */}
       {teamMembers.length > 0 && (
@@ -1901,7 +1902,7 @@ export default function NewBusinessPage() {
       {/* Info if no members added */}
       {teamMembers.length === 0 && (
         <div className="bg-[#0075FF]/10 border border-[#0075FF]/30 rounded-[10px] p-[12px]">
-          <p className="text-[13px] text-[#0075FF] text-right">
+          <p className="text-[13px] text-white text-right">
             ניתן ליצור את העסק ללא משתמשים ולהוסיף אותם מאוחר יותר
           </p>
         </div>
@@ -2266,7 +2267,7 @@ export default function NewBusinessPage() {
               suppressHydrationWarning
               className={`relative w-[36px] h-[36px] rounded-full flex items-center justify-center text-[14px] font-bold transition-all duration-300 z-10 ${
                 step === currentStep
-                  ? "bg-gradient-to-br from-[#0075FF] to-[#00D4FF] text-white shadow-[0_0_15px_rgba(0,117,255,0.4)]"
+                  ? "bg-[#29318A] text-white shadow-[0_0_15px_rgba(41,49,138,0.4)]"
                   : step < currentStep
                   ? "bg-gradient-to-br from-[#00C853] to-[#69F0AE] text-white cursor-pointer hover:scale-110"
                   : "bg-[#29318A]/50 text-white/50"

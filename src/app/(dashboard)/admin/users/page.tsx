@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { generateUUID } from "@/lib/utils";
 
 // Role labels in Hebrew
 const roleLabels: Record<string, string> = {
@@ -131,7 +132,7 @@ export default function AdminUsersPage() {
   // Upload avatar to Supabase Storage
   const uploadAvatar = async (file: File, userId?: string): Promise<string | null> => {
     const fileExt = file.name.split(".").pop();
-    const fileName = `avatars/${userId || crypto.randomUUID()}-${Date.now()}.${fileExt}`;
+    const fileName = `avatars/${userId || generateUUID()}-${Date.now()}.${fileExt}`;
 
     const result = await uploadFile(file, fileName, "assets");
 
