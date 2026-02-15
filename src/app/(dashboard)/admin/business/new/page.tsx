@@ -2211,7 +2211,7 @@ export default function NewBusinessPage() {
 
       {csvSuppliers.length === 0 && !csvParsingDone && (
         <div className="bg-[#0075FF]/10 border border-[#0075FF]/30 rounded-[10px] p-[12px]">
-          <p className="text-[13px] text-[#0075FF] text-right">
+          <p className="text-[13px] text-white text-right">
             שלב זה אופציונלי - ניתן להוסיף ספקים גם לאחר יצירת העסק.
           </p>
         </div>
