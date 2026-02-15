@@ -625,7 +625,7 @@ export default function GoalsPage() {
           .filter(p => p.target_pct !== null)
           .map(product => {
             const actualCost = productCostAgg[product.id] || 0;
-            const actualPct = totalRevenue > 0 ? (actualCost / totalRevenue) * 100 : 0;
+            const actualPct = incomeBeforeVat > 0 ? (actualCost / incomeBeforeVat) * 100 : 0;
             return {
               id: `product-${product.id}`,
               name: `יעד ${product.name} (%)`,
