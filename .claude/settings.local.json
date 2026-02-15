@@ -158,7 +158,15 @@
       "Bash(/c/Program Files/nodejs/npm.cmd ls @ai-sdk/react)",
       "Bash(/c/Program Files/nodejs/npm.cmd ls ai)",
       "Bash(/c/Program Files/nodejs/npm.cmd install @ai-sdk/react)",
-      "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit --strict src/app/api/ai/chat/route.ts)"
+      "Bash(/c/Program Files/nodejs/npx.cmd tsc --noEmit --strict src/app/api/ai/chat/route.ts)",
+      "mcp__dokploy__application-saveEnvironment",
+      "Bash(# Try pg-meta API to get tables curl -s -H \"\"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3Njk4NTY4NTYsImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlzcyI6InN1cGFiYXNlIn0.xiCQ1cYHf5gj9vr28wVcbgF0y4e2zH48GHSyyrRE21A\"\" -H \"\"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3Njk4NTY4NTYsImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlzcyI6InN1cGFiYXNlIn0.xiCQ1cYHf5gj9vr28wVcbgF0y4e2zH48GHSyyrRE21A\"\" \"\"https://amazpen.supabase.brainboxai.io/pg/tables?included_schemas=public\"\" | python -m json.tool)",
+      "Bash(SERVICE_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzExNTM2NTMsImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlzcyI6InN1cGFiYXNlIn0.jO_qu5aNUaOZ0YBdfW5MbzdML-csEU9QkqoTGAx5yzY\")",
+      "Bash(echo:*)",
+      "Bash(PGPASSWORD=qjavilccedcd9vd3inkh9wd0uv2xatzu psql:*)",
+      "mcp__dokploy__domain-delete",
+      "mcp__dokploy__domain-generateDomain",
+      "mcp__dokploy__domain-update"
     ]
   },
   "enableAllProjectMcpServers": true,
