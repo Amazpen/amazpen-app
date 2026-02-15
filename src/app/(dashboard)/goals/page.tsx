@@ -80,9 +80,10 @@ function ProgressBar({ percentage, reverse = false }: { percentage: number; reve
 
 // Status indicator based on percentage
 function getStatusColor(percentage: number, isExpense: boolean = true, actual: number = 0, target: number = 0): string {
+  // If diff is 0 (actual equals target, or both are 0) → white
+  if (actual === target) return "text-white";
   if (isExpense) {
     // For expenses: under budget is good (green), over is bad (red)
-    // Special case: no target but has actual expenses = red
     if (target === 0 && actual > 0) return "text-[#F64E60]";
     if (percentage <= 100) return "text-[#17DB4E]";
     return "text-[#F64E60]";
