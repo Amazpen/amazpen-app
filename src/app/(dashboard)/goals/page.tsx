@@ -111,7 +111,7 @@ function formatPercent(value: number): string {
 
 // Format difference
 function formatDiff(diff: number, unit: string = "₪"): string {
-  const sign = diff >= 0 ? "+" : "";
+  const sign = diff > 0 ? "+" : "";
   if (unit === "%") {
     if (Number.isInteger(diff) || diff % 1 === 0) {
       return `${sign}${Math.round(diff)}%`;
