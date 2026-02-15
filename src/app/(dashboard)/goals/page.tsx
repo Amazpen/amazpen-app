@@ -1001,9 +1001,8 @@ export default function GoalsPage() {
                 // For vs-current and vs-goods tabs, everything is an expense
                 // For KPI tab, use the item's isExpense flag
                 const isExpense = (isCurrent || isGoods) ? true : (item.isExpense !== false);
-                // For expenses: positive diff = under budget (good)
-                // For revenue/income: positive diff = exceeded target (good)
-                const diff = isExpense ? (item.target - item.actual) : (item.actual - item.target);
+                // Always: target - actual
+                const diff = item.target - item.actual;
                 const statusColor = getStatusColor(percentage, isExpense);
                 const hasChildren = item.children && item.children.length > 0;
                 const hasSuppliers = item.supplierIds && item.supplierIds.length > 0;
