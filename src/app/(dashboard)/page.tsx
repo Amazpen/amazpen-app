@@ -256,19 +256,19 @@ const formatCurrencyFull = (amount: number) => {
   const isNegative = amount < 0;
   const absAmount = Math.abs(amount);
   const sign = isNegative ? '-' : '';
-  if (absAmount === 0) return `${sign}₪0`;
-  const formatted = absAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const isWholeNumber = absAmount % 1 === 0;
+  const formatted = absAmount.toLocaleString("he-IL", { minimumFractionDigits: isWholeNumber ? 0 : 2, maximumFractionDigits: isWholeNumber ? 0 : 2 });
   return `${sign}₪${formatted}`;
 };
 
-// Format currency as full number with sign (e.g., +₪8,500.00 or -₪8,500.00)
+// Format currency as full number with sign (e.g., +₪8,500 or -₪8,500.50)
 const formatCurrencyFullWithSign = (amount: number) => {
   const isNegative = amount < 0;
   const isPositive = amount > 0;
   const absAmount = Math.abs(amount);
   const sign = isNegative ? '-' : isPositive ? '+' : '';
-  if (absAmount === 0) return `${sign}₪0`;
-  const formatted = absAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const isWholeNumber = absAmount % 1 === 0;
+  const formatted = absAmount.toLocaleString("he-IL", { minimumFractionDigits: isWholeNumber ? 0 : 2, maximumFractionDigits: isWholeNumber ? 0 : 2 });
   return `${sign}₪${formatted}`;
 };
 
