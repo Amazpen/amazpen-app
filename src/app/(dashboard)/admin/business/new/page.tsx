@@ -1697,6 +1697,7 @@ export default function NewBusinessPage() {
               <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
                 <input
                   type="password"
+                  autoComplete="new-password"
                   value={newMemberPassword}
                   onChange={(e) => setNewMemberPassword(e.target.value)}
                   placeholder="לפחות 6 תווים"
