@@ -2529,8 +2529,43 @@ export default function PaymentsPage() {
           {/* Title */}
           <h2 className="text-[24px] font-bold text-center">תשלומים אחרונים ששולמו</h2>
 
-          {/* Empty div for spacing */}
-          <div className="w-[20px]" />
+          {/* Download CSV Button */}
+          <button
+            type="button"
+            title="הורדת תשלומים"
+            className="opacity-50 hover:opacity-100 cursor-pointer transition-opacity"
+            onClick={() => {
+              const headers = ["תאריך", "ספק", "אמצעי תשלום", "מס׳ צ׳ק", "כמות תשלומים", "סכום", "אסמכתא", "הערות"];
+              const rows: string[][] = [];
+              for (const payment of recentPaymentsData) {
+                for (const split of payment.rawSplits) {
+                  rows.push([
+                    split.due_date ? new Date(split.due_date).toLocaleDateString("he-IL") : payment.date,
+                    `"${payment.supplier.replace(/"/g, '""')}"`,
+                    paymentMethodNames[split.payment_method] || split.payment_method,
+                    split.check_number || "-",
+                    split.installments_count ? `${split.installment_number || 1}/${split.installments_count}` : "1",
+                    split.amount.toString(),
+                    split.reference_number || payment.reference || "-",
+                    `"${(payment.notes || "").replace(/"/g, '""')}"`,
+                  ]);
+                }
+              }
+              const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+              const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = `payments_${new Date().toISOString().split("T")[0]}.csv`;
+              link.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-white">
+              <path d="M16 4V22M16 22L10 16M16 22L22 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M6 28H26" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
         </div>
 
         {/* Table */}
