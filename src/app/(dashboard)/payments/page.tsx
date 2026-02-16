@@ -2483,11 +2483,11 @@ export default function PaymentsPage() {
                   {/* Amount */}
                   <div className="w-[70px] flex-shrink-0 flex flex-col items-center">
                     <span className="text-[13px] font-medium ltr-num">
-                      ₪{group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₪{group.totalAmount % 1 === 0 ? group.totalAmount.toLocaleString("he-IL") : group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     {totalMethodGroups > 1 && (
                       <span className="text-[11px] font-medium ltr-num text-white/70">
-                        (₪{payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })})
+                        (₪{payment.totalAmount % 1 === 0 ? payment.totalAmount.toLocaleString("he-IL") : payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                       </span>
                     )}
                   </div>
