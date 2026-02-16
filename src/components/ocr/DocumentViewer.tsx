@@ -4,10 +4,21 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 
 interface DocumentViewerProps {
   imageUrl: string;
+  fileType?: string;
   onCrop?: (croppedImageUrl: string) => void;
 }
 
-export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps) {
+function isPdfUrl(url: string, fileType?: string): boolean {
+  if (fileType?.toLowerCase() === 'pdf' || fileType?.toLowerCase() === 'application/pdf') return true;
+  try {
+    const pathname = new URL(url).pathname;
+    return pathname.toLowerCase().endsWith('.pdf');
+  } catch {
+    return url.toLowerCase().includes('.pdf');
+  }
+}
+
+export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentViewerProps) {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -19,6 +30,8 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
   const [cropStart, setCropStart] = useState({ x: 0, y: 0 });
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+
+  const isPdf = isPdfUrl(imageUrl, fileType);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -327,36 +340,52 @@ export default function DocumentViewer({ imageUrl, onCrop }: DocumentViewerProps
           position: 'relative',
           height: 'calc(100% - 48px)',
           overflow: 'hidden',
-          cursor: isCropping ? 'crosshair' : isDragging ? 'grabbing' : 'grab',
+          cursor: isPdf ? 'default' : isCropping ? 'crosshair' : isDragging ? 'grabbing' : 'grab',
         }}
       >
-        {/* Error state */}
-        {imageError && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#EB5757', flexDirection: 'column', gap: '8px' }}>
-            <p>שגיאה בטעינת התמונה</p>
-            <a href={imageUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4C9AFF', textDecoration: 'underline', fontSize: '14px' }}>פתח תמונה בחלון חדש</a>
-          </div>
-        )}
+        {/* PDF viewer */}
+        {isPdf ? (
+          <iframe
+            src={imageUrl}
+            title="מסמך PDF"
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none',
+              background: '#fff',
+            }}
+          />
+        ) : (
+          <>
+            {/* Error state */}
+            {imageError && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#EB5757', flexDirection: 'column', gap: '8px' }}>
+                <p>שגיאה בטעינת התמונה</p>
+                <a href={imageUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4C9AFF', textDecoration: 'underline', fontSize: '14px' }}>פתח תמונה בחלון חדש</a>
+              </div>
+            )}
 
-        {/* Image */}
-        <img
-          ref={imageRef}
-          src={imageUrl}
-          alt="מסמך"
-          onLoad={() => setImageLoaded(true)}
-          onError={() => setImageError(true)}
-          style={{
-            display: imageError ? 'none' : 'block',
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            userSelect: 'none',
-            transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
-            transformOrigin: 'center center',
-            transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-          }}
-          draggable={false}
-        />
+            {/* Image */}
+            <img
+              ref={imageRef}
+              src={imageUrl}
+              alt="מסמך"
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageError(true)}
+              style={{
+                display: imageError ? 'none' : 'block',
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                userSelect: 'none',
+                transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
+                transformOrigin: 'center center',
+                transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+              }}
+              draggable={false}
+            />
+          </>
+        )}
 
         {/* Crop overlay */}
         {isCropping && cropArea.width > 0 && cropArea.height > 0 && (

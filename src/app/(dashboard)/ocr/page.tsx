@@ -857,6 +857,7 @@ export default function OCRPage() {
           {currentDocument ? (
             <DocumentViewer
               imageUrl={currentDocument.image_url}
+              fileType={currentDocument.file_type}
               onCrop={handleCrop}
             />
           ) : (

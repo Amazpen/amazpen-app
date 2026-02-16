@@ -288,10 +288,35 @@ interface DocumentCardProps {
   onClick: () => void;
 }
 
+function isPdfDocument(doc: OCRDocument): boolean {
+  const ft = doc.file_type?.toLowerCase();
+  if (ft === 'pdf' || ft === 'application/pdf') return true;
+  try {
+    const pathname = new URL(doc.image_url).pathname;
+    return pathname.toLowerCase().endsWith('.pdf');
+  } catch {
+    return doc.image_url?.toLowerCase().includes('.pdf') ?? false;
+  }
+}
+
+// PDF icon placeholder for thumbnails
+function PdfThumbnail({ size = 32 }: { size?: number }) {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1a1f3d]">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+      </svg>
+      <span className="text-[10px] text-red-400 font-bold mt-1">PDF</span>
+    </div>
+  );
+}
+
 // Horizontal card for bottom queue
 function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const isPdf = isPdfDocument(document);
 
   return (
     <button
@@ -306,7 +331,9 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
     >
       {/* Image thumbnail */}
       <div className="relative w-full h-[100px] bg-[#0a0d1f]">
-        {!imageError ? (
+        {isPdf ? (
+          <PdfThumbnail size={32} />
+        ) : !imageError ? (
           <>
             <img
               src={document.image_url}
@@ -418,7 +445,9 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
       <div className="flex flex-row-reverse bg-[#0F1535]">
         {/* Small image thumbnail - right side */}
         <div className="relative w-[56px] h-[80px] flex-shrink-0 bg-[#0a0d1f]">
-          {!imageError ? (
+          {isPdfDocument(document) ? (
+            <PdfThumbnail size={20} />
+          ) : !imageError ? (
             <>
               <img
                 src={document.image_url}
