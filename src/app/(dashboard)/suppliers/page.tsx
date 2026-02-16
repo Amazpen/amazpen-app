@@ -184,6 +184,7 @@ export default function SuppliersPage() {
   const [paymentTerms, setPaymentTerms] = useState("");
   const [vatRequired, setVatRequired] = useState<"yes" | "no" | "partial">("yes");
   const [isFixedExpense, setIsFixedExpense] = useState(false);
+  const [isSupplierActive, setIsSupplierActive] = useState(true);
   const [chargeDay, setChargeDay] = useState("");
   const [monthlyExpenseAmount, setMonthlyExpenseAmount] = useState("");
   const [primaryPaymentMethod, setPrimaryPaymentMethod] = useState("");
@@ -265,7 +266,7 @@ export default function SuppliersPage() {
         .select("*")
         .in("business_id", selectedBusinesses)
         .is("deleted_at", null)
-        .eq("is_active", true)
+        .order("is_active", { ascending: false, nullsFirst: false })
         .order("name");
 
       if (error) {
@@ -422,6 +423,7 @@ export default function SuppliersPage() {
     // Reset edit mode
     setIsEditingSupplier(false);
     setEditingSupplierData(null);
+    setIsSupplierActive(true);
   };
 
   // Handle edit supplier - fills form with existing data
@@ -448,6 +450,7 @@ export default function SuppliersPage() {
     setFixedNote(selectedSupplier.notes || "");
     setHasPreviousObligations(selectedSupplier.has_previous_obligations || false);
     setWaitingForCoordinator(selectedSupplier.waiting_for_coordinator || false);
+    setIsSupplierActive(selectedSupplier.is_active !== false);
 
     // Close detail popup and open add/edit modal
     setShowSupplierDetailPopup(false);
@@ -465,6 +468,23 @@ export default function SuppliersPage() {
     const supabase = createClient();
 
     try {
+      // Check if trying to deactivate supplier with open invoices
+      if (editingSupplierData.is_active !== false && !isSupplierActive) {
+        const { data: openInvoices } = await supabase
+          .from("invoices")
+          .select("id")
+          .eq("supplier_id", editingSupplierData.id)
+          .in("status", ["pending", "clarification"])
+          .is("deleted_at", null)
+          .limit(1);
+
+        if (openInvoices && openInvoices.length > 0) {
+          showToast("לא ניתן לעדכן סטטוס לספק עם יתרה פתוחה", "warning");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       // Upload document if provided
       let documentUrl: string | null = editingSupplierData.document_url || null;
       if (attachedFile) {
@@ -505,6 +525,7 @@ export default function SuppliersPage() {
           document_url: documentUrl,
           has_previous_obligations: hasPreviousObligations,
           waiting_for_coordinator: waitingForCoordinator,
+          is_active: isSupplierActive,
         })
         .eq("id", editingSupplierData.id);
 
@@ -1116,8 +1137,12 @@ export default function SuppliersPage() {
                   key={supplier.id}
                   type="button"
                   onClick={() => handleOpenSupplierDetail(supplier)}
-                  className="bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#3D44A0] cursor-pointer"
+                  className={`bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#3D44A0] cursor-pointer relative ${supplier.is_active === false ? "opacity-40" : ""}`}
                 >
+                  {/* Inactive Badge */}
+                  {supplier.is_active === false && (
+                    <span className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">לא פעיל</span>
+                  )}
                   {/* Supplier Name */}
                   <div className="w-[120px] text-center">
                     <span className="text-[18px] font-bold text-white leading-[1.4]">
@@ -1244,6 +1269,29 @@ export default function SuppliersPage() {
                       )}
                     </svg>
                     <span className="text-[15px] font-semibold text-[#979797]">הוצאה קבועה</span>
+                  </button>
+                )}
+
+                {/* Active/Inactive toggle - only in edit mode */}
+                {isEditingSupplier && (
+                  <button
+                    type="button"
+                    onClick={() => setIsSupplierActive(!isSupplierActive)}
+                    className="flex items-center gap-[3px]"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className={isSupplierActive ? "text-[#0BB783]" : "text-[#F64E60]"}>
+                      {isSupplierActive ? (
+                        <>
+                          <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                          <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </>
+                      ) : (
+                        <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                    <span className={`text-[15px] font-semibold ${isSupplierActive ? "text-[#0BB783]" : "text-[#F64E60]"}`}>
+                      {isSupplierActive ? "ספק פעיל" : "ספק לא פעיל"}
+                    </span>
                   </button>
                 )}
               </div>
