@@ -2457,21 +2457,17 @@ export default function PaymentsPage() {
                   onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
                   className={`flex items-center gap-[5px] w-full p-[5px_3px] min-h-[45px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] cursor-pointer ${groupIdx > 0 ? 'border-t border-white/10' : ''}`}
                 >
-                  {/* Date - only show on first row */}
+                  {/* Date */}
                   <div className="w-[55px] flex-shrink-0 flex items-center justify-start gap-0">
-                    {groupIdx === 0 ? (
-                      <>
-                        <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${expandedPaymentId === payment.id ? 'rotate-90' : ''} text-white/50`}>
-                          <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                        <span className="text-[13px] font-medium ltr-num">{payment.date}</span>
-                      </>
-                    ) : <span className="w-[14px]" />}
+                    <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${expandedPaymentId === payment.id && groupIdx === 0 ? 'rotate-90' : ''} ${groupIdx === 0 ? 'text-white/50' : 'text-transparent'}`}>
+                      <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span className="text-[13px] font-medium ltr-num">{payment.date}</span>
                   </div>
 
-                  {/* Supplier - only show on first row */}
+                  {/* Supplier */}
                   <span className="text-[13px] font-medium flex-1 text-center leading-tight">
-                    {groupIdx === 0 ? payment.supplier : ""}
+                    {payment.supplier}
                   </span>
 
                   {/* Payment split index */}
