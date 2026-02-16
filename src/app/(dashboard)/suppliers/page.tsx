@@ -457,6 +457,37 @@ export default function SuppliersPage() {
     setIsAddSupplierModalOpen(true);
   };
 
+  // Handle delete supplier (soft delete) - only if no invoices or payments exist
+  const handleDeleteSupplier = async () => {
+    if (!selectedSupplier) return;
+
+    // Check if supplier has any invoices or payments
+    if (supplierInvoices.length > 0 || supplierPayments.length > 0) {
+      showToast("לא ניתן למחוק ספק עם חשבוניות או תשלומים", "warning");
+      return;
+    }
+
+    if (!confirm("האם למחוק את הספק?")) return;
+
+    const supabase = createClient();
+    try {
+      const { error } = await supabase
+        .from("suppliers")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", selectedSupplier.id);
+
+      if (error) throw error;
+
+      showToast("הספק נמחק בהצלחה", "success");
+      setShowSupplierDetailPopup(false);
+      setSelectedSupplier(null);
+      setRefreshTrigger(prev => prev + 1);
+    } catch (error) {
+      console.error("Error deleting supplier:", error);
+      showToast("שגיאה במחיקת הספק", "error");
+    }
+  };
+
   // Handle update supplier
   const handleUpdateSupplier = async () => {
     if (!editingSupplierData || !supplierName.trim()) {
@@ -1777,17 +1808,36 @@ export default function SuppliersPage() {
                 <X className="w-6 h-6" />
               </button>
               <SheetTitle className="text-white text-xl font-bold">פרטי ספק</SheetTitle>
-              <button
-                type="button"
-                title="עריכה"
-                onClick={handleEditSupplier}
-                className="w-[24px] h-[24px] flex items-center justify-center text-white/70 hover:text-white"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
+              <div className="flex items-center gap-[8px]">
+                {/* Delete button - only show if supplier has no invoices/payments */}
+                {supplierInvoices.length === 0 && supplierPayments.length === 0 && (
+                  <button
+                    type="button"
+                    title="מחיקת ספק"
+                    onClick={handleDeleteSupplier}
+                    className="w-[24px] h-[24px] flex items-center justify-center text-[#F64E60]/70 hover:text-[#F64E60] transition-colors"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                      <line x1="10" y1="11" x2="10" y2="17"/>
+                      <line x1="14" y1="11" x2="14" y2="17"/>
+                    </svg>
+                  </button>
+                )}
+                {/* Edit button */}
+                <button
+                  type="button"
+                  title="עריכה"
+                  onClick={handleEditSupplier}
+                  className="w-[24px] h-[24px] flex items-center justify-center text-white/70 hover:text-white"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </SheetHeader>
           {selectedSupplier && (
