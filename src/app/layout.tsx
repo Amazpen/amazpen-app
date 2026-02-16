@@ -128,8 +128,8 @@ export default function RootLayout({
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').then(function(reg) {
-                    // Check for updates only when user returns to the tab
+                  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(function(reg) {
+                    // Check for updates when user returns to the tab
                     document.addEventListener('visibilitychange', function() {
                       if (document.visibilityState === 'visible') {
                         reg.update();

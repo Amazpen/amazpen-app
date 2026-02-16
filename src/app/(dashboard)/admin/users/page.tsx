@@ -326,24 +326,23 @@ export default function AdminUsersPage() {
   const handleDeleteUser = async (userId: string, userEmail: string) => {
     if (!confirm(`האם אתה בטוח שברצונך למחוק את ${userEmail}?`)) return;
 
-    const supabase = createClient();
+    try {
+      const res = await fetch("/api/admin/delete-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
 
-    // Delete from business_members first
-    await supabase
-      .from("business_members")
-      .delete()
-      .eq("user_id", userId);
+      const data = await res.json();
 
-    // Then delete profile
-    const { error } = await supabase
-      .from("profiles")
-      .delete()
-      .eq("id", userId);
-
-    if (error) {
+      if (!res.ok) {
+        showToast(data.error || "שגיאה במחיקת המשתמש", "error");
+      } else {
+        showToast("המשתמש נמחק בהצלחה", "success");
+        fetchUsers();
+      }
+    } catch {
       showToast("שגיאה במחיקת המשתמש", "error");
-    } else {
-      fetchUsers();
     }
   };
 
