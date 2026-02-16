@@ -2586,7 +2586,7 @@ export default function PaymentsPage() {
                         <button
                           type="button"
                           onClick={() => setShowLinkedInvoices(showLinkedInvoices === payment.id ? null : payment.id)}
-                          className="bg-[#5F6BEA] text-white text-[15px] font-medium py-[5px] px-[14px] rounded-[7px] self-end cursor-pointer hover:bg-[#4E59D9] transition-colors"
+                          className="bg-[#5F6BEA] text-white text-[15px] font-medium py-[5px] px-[14px] rounded-[7px] self-start cursor-pointer hover:bg-[#4E59D9] transition-colors"
                         >
                           הצגת חשבוניות מקושרות
                         </button>
@@ -3215,6 +3215,28 @@ export default function PaymentsPage() {
                   />
                 </div>
               </div>
+
+              {/* Amount Mismatch Warning */}
+              {selectedInvoiceIds.size > 0 && (() => {
+                const invoicesTotal = openInvoices
+                  .filter(inv => selectedInvoiceIds.has(inv.id))
+                  .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+                const paymentTotal = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount) || 0), 0);
+                const diff = Math.abs(invoicesTotal - paymentTotal);
+                if (paymentTotal > 0 && diff > 0.01) {
+                  return (
+                    <div className="flex items-center gap-[8px] bg-yellow-500/10 border border-yellow-500/40 rounded-[10px] p-[10px]">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+                        <path d="M12 9v4m0 4h.01M10.29 3.86l-8.8 15.36A2 2 0 003.24 22h17.53a2 2 0 001.75-2.78l-8.8-15.36a2 2 0 00-3.44 0z" stroke="#EAB308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span className="text-[14px] text-yellow-400">
+                        שים לב: סכום התשלום (₪{paymentTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) {paymentTotal > invoicesTotal ? "גבוה" : "נמוך"} מסכום החשבוניות (₪{invoicesTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) — הפרש: ₪{diff.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               {/* Action Buttons */}
               <div className="flex flex-col gap-[10px] mt-[20px]">
