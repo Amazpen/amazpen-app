@@ -154,7 +154,7 @@ export function HistoryModal({
     };
 
     fetchAvailableYears();
-  }, [isOpen, businessIds]);
+  }, [isOpen, businessIds, year]);
 
   const fetchData = useCallback(async () => {
     if (!isOpen || businessIds.length === 0) return;

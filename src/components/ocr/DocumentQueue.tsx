@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import type { OCRDocument, DocumentStatus } from '@/types/ocr';
 import { getStatusLabel, getSourceIcon, getSourceLabel, getDocumentTypeLabel } from '@/types/ocr';
 
@@ -36,7 +37,7 @@ export default function DocumentQueue({
   const [canScrollDown, setCanScrollDown] = useState(false);
 
   // Check scroll position
-  const checkScrollPosition = () => {
+  const checkScrollPosition = useCallback(() => {
     const container = scrollContainerRef.current;
     if (container) {
       if (vertical) {
@@ -47,13 +48,13 @@ export default function DocumentQueue({
         setCanScrollRight(container.scrollLeft < container.scrollWidth - container.clientWidth - 10);
       }
     }
-  };
+  }, [vertical]);
 
   useEffect(() => {
     checkScrollPosition();
     window.addEventListener('resize', checkScrollPosition);
     return () => window.removeEventListener('resize', checkScrollPosition);
-  }, [documents, vertical]);
+  }, [documents, vertical, checkScrollPosition]);
 
   const scroll = (direction: 'left' | 'right' | 'up' | 'down') => {
     const container = scrollContainerRef.current;
@@ -383,12 +384,14 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
           <PdfThumbnail url={document.image_url} />
         ) : !imageError ? (
           <>
-            <img
+            <Image
               src={document.image_url}
               alt="תמונת מסמך"
               className={`w-full h-full object-cover transition-opacity ${
                 imageLoaded ? 'opacity-100' : 'opacity-0'
               }`}
+              fill
+              unoptimized
               onLoad={() => setImageLoaded(true)}
               onError={() => setImageError(true)}
             />
@@ -497,12 +500,14 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
             <PdfThumbnail url={document.image_url} />
           ) : !imageError ? (
             <>
-              <img
+              <Image
                 src={document.image_url}
                 alt="תמונת מסמך"
                 className={`w-full h-full object-cover transition-opacity ${
                   imageLoaded ? 'opacity-100' : 'opacity-0'
                 }`}
+                fill
+                unoptimized
                 onLoad={() => setImageLoaded(true)}
                 onError={() => setImageError(true)}
               />

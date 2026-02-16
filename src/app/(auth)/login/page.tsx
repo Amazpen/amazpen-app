@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -57,10 +58,13 @@ export default function LoginPage() {
     >
       {/* Logo and Header */}
       <div className="flex flex-col items-center mb-[30px]">
-        <img
+        <Image
           src="https://ae8ccc76b2d94d531551691b1d6411c9.cdn.bubble.io/cdn-cgi/image/w=192,h=91,f=auto,dpr=2,fit=contain/f1740495696315x242439751655884480/logo%20white.png"
           alt="Amazpen Logo"
           className="w-[160px] h-auto mb-[8px]"
+          width={160}
+          height={76}
+          unoptimized
         />
         <h1 className="text-[28px] font-bold text-white mb-[4px]">המצפן כניסה</h1>
         <p className="text-[14px] text-white/60 text-center">

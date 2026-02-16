@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Assistant, Poppins } from "next/font/google";
+import Image from "next/image";
 import "./globals.css";
 
 const assistant = Assistant({
@@ -79,9 +80,12 @@ export default function RootLayout({
             transition: 'opacity 0.3s ease-out',
           }}
         >
-          <img
+          <Image
             src="https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png"
             alt="Amazpen"
+            width={400}
+            height={189}
+            unoptimized
             style={{
               width: '70vw',
               maxWidth: '400px',

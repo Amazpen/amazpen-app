@@ -2,6 +2,7 @@
 
 import { useState, useEffect, createContext, useContext, useCallback, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ToastProvider } from "@/components/ui/toast";
@@ -587,19 +588,25 @@ export default function DashboardLayout({
           <div className="flex flex-col h-full overflow-y-auto mt-[40px] lg:mt-[10px]">
             {/* Amazpen System Logo - Fixed/Static */}
             <div className="flex justify-center my-[15px]">
-              <img
+              <Image
                 src="https://ae8ccc76b2d94d531551691b1d6411c9.cdn.bubble.io/cdn-cgi/image/w=192,h=88,f=auto,dpr=2,fit=contain/f1740495696315x242439751655884480/logo%20white.png"
                 alt="Amazpen"
                 className="w-[143px] h-[66px] object-contain"
+                width={143}
+                height={66}
+                unoptimized
               />
             </div>
 
             {/* Business Name */}
             <div className="flex items-center justify-end gap-[10px] p-[7px] rounded-[10px] mb-[10px]">
-              <img
+              <Image
                 src="https://ae8ccc76b2d94d531551691b1d6411c9.cdn.bubble.io/f1725470298167x485496868385594050/userlogin.svg"
                 alt=""
                 className="w-[30px] h-[30px] rounded-[5px]"
+                width={30}
+                height={30}
+                unoptimized
               />
               <span className="text-white text-[16px] font-medium text-right flex-1" suppressHydrationWarning>
                 {businessName || "עסק"}
@@ -796,10 +803,13 @@ export default function DashboardLayout({
                 <div className="absolute inset-0 bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded-full" />
               )}
               {userProfile?.avatar_url && (
-                <img
+                <Image
                   src={userProfile.avatar_url}
                   alt="Profile"
                   className={`w-full h-full object-cover transition-opacity duration-300 ${profileImageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                  width={34}
+                  height={34}
+                  unoptimized
                   onLoad={() => setProfileImageLoaded(true)}
                   onError={() => setProfileImageLoaded(true)}
                 />

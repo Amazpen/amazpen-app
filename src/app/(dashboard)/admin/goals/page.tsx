@@ -103,6 +103,7 @@ export default function AdminGoalsPage() {
       if (!selectedMonth) setSelectedMonth(new Date().getMonth() + 1);
       setIsMounted(true);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedMonth/selectedYear are persisted initial values; setSelectedMonth/setSelectedYear are stable setters from usePersistedState. Adding them would cause unnecessary re-runs.
   }, [isMounted]);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -148,6 +149,7 @@ export default function AdminGoalsPage() {
     };
 
     loadBusinesses();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Runs once on mount. selectedBusinessId/setSelectedBusinessId are persisted initial values used for default selection only.
   }, []);
 
   // Load data when business/month/year changes

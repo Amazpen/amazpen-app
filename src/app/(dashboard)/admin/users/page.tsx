@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
@@ -556,10 +557,13 @@ export default function AdminUsersPage() {
                 {/* Avatar */}
                 <div className="w-[50px] h-[50px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
                   {user.avatar_url ? (
-                    <img
+                    <Image
                       src={user.avatar_url}
                       alt={user.full_name || "User"}
                       className="w-full h-full object-cover"
+                      width={50}
+                      height={50}
+                      unoptimized
                     />
                   ) : (
                     <span className="text-white text-[20px] font-bold">
@@ -645,10 +649,13 @@ export default function AdminUsersPage() {
                 {/* Avatar */}
                 <div className="w-[50px] h-[50px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
                   {member.profiles.avatar_url ? (
-                    <img
+                    <Image
                       src={member.profiles.avatar_url}
                       alt={member.profiles.full_name || "User"}
                       className="w-full h-full object-cover"
+                      width={50}
+                      height={50}
+                      unoptimized
                     />
                   ) : (
                     <span className="text-white text-[20px] font-bold">
@@ -798,10 +805,13 @@ export default function AdminUsersPage() {
                   {/* Preview */}
                   <div className="w-[50px] h-[50px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
                     {newUserAvatarUrl ? (
-                      <img
+                      <Image
                         src={newUserAvatarUrl}
                         alt="תצוגה מקדימה"
                         className="w-full h-full object-cover"
+                        width={50}
+                        height={50}
+                        unoptimized
                       />
                     ) : (
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-white/50">
@@ -985,10 +995,13 @@ export default function AdminUsersPage() {
             <div className="flex items-center gap-[12px] mb-[20px] bg-[#4A56D4]/20 rounded-[10px] p-[12px]">
               <div className="w-[50px] h-[50px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
                 {editingUser.avatar_url ? (
-                  <img
+                  <Image
                     src={editingUser.avatar_url}
                     alt={editingUser.full_name || "User"}
                     className="w-full h-full object-cover"
+                    width={50}
+                    height={50}
+                    unoptimized
                   />
                 ) : (
                   <span className="text-white text-[20px] font-bold">
@@ -1039,10 +1052,13 @@ export default function AdminUsersPage() {
                   {/* Preview */}
                   <div className="w-[50px] h-[50px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
                     {editUserAvatarUrl ? (
-                      <img
+                      <Image
                         src={editUserAvatarUrl}
                         alt="תצוגה מקדימה"
                         className="w-full h-full object-cover"
+                        width={50}
+                        height={50}
+                        unoptimized
                       />
                     ) : (
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-white/50">

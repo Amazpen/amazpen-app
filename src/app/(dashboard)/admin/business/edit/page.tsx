@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
 interface Business {
@@ -140,10 +141,13 @@ export default function EditBusinessSelectPage() {
                 {/* Logo */}
                 <div className="w-[50px] h-[50px] rounded-[10px] bg-[#4956D4]/30 flex items-center justify-center overflow-hidden flex-shrink-0">
                   {business.logo_url ? (
-                    <img
+                    <Image
                       src={business.logo_url}
                       alt={business.name}
                       className="w-full h-full object-cover"
+                      width={50}
+                      height={50}
+                      unoptimized
                     />
                   ) : (
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-white/50">

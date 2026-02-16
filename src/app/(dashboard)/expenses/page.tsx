@@ -730,6 +730,7 @@ export default function ExpensesPage() {
     };
 
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- transformInvoicesData is a plain function (not stateful), defined below; adding it would require memoization for no benefit.
   }, [selectedBusinesses, dateRange, activeTab, refreshTrigger]);
 
   // Transform raw invoice data to display format
@@ -783,6 +784,7 @@ export default function ExpensesPage() {
     } finally {
       setIsLoadingMore(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- transformInvoicesData is a plain function (not stateful); adding it would require wrapping in useCallback for no benefit.
   }, [isLoadingMore, hasMoreInvoices, selectedBusinesses, invoicesOffset, activeTab]);
 
   // Scroll handler for infinite scroll
@@ -913,6 +915,7 @@ export default function ExpensesPage() {
       displayName: (item as { name?: string }).name || (item as { category?: string }).category || "",
       fill: chartColors[index % chartColors.length],
     }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- chartColors is a static array defined outside the memo; it never changes.
   }, [chartDataSource]);
 
   // Custom shape renderer for donut chart (recharts v3 uses shape prop with isActive)

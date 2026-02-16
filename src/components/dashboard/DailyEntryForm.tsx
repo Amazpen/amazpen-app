@@ -212,6 +212,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         }
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAllData is defined below as a non-memoized async function; adding it would require useCallback wrapping and would not change behavior since it only depends on businessId (already in deps).
   }, [isOpen, businessId, editingEntry]);
 
   const loadAllData = async () => {

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
@@ -1106,7 +1107,7 @@ export default function NewBusinessPage() {
                   <span className="text-[10px] text-green-400">יומר לתמונה בעת השמירה</span>
                 </div>
               ) : (
-                <img src={logoPreview} alt="Logo preview" className="max-h-[80px] max-w-[150px] object-contain rounded-[5px]" />
+                <Image src={logoPreview} alt="Logo preview" className="max-h-[80px] max-w-[150px] object-contain rounded-[5px]" width={150} height={80} unoptimized />
               )}
               <button
                 type="button"
@@ -1570,7 +1571,7 @@ export default function NewBusinessPage() {
                   >
                     <div className="w-[36px] h-[36px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
                       {user.avatar_url ? (
-                        <img src={user.avatar_url} alt={user.full_name || user.email} className="w-full h-full object-cover" />
+                        <Image src={user.avatar_url} alt={user.full_name || user.email} className="w-full h-full object-cover" width={36} height={36} unoptimized />
                       ) : (
                         <span className="text-white text-[14px] font-bold">
                           {(user.full_name || user.email || "?")[0].toUpperCase()}
@@ -1600,7 +1601,7 @@ export default function NewBusinessPage() {
               <div className="flex items-center gap-[10px] bg-[#29318A]/30 border border-[#4956D4]/50 rounded-[10px] p-[10px] mb-[10px]">
                 <div className="w-[40px] h-[40px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
                   {selectedExistingUser.avatar_url ? (
-                    <img src={selectedExistingUser.avatar_url} alt={selectedExistingUser.full_name || selectedExistingUser.email} className="w-full h-full object-cover" />
+                    <Image src={selectedExistingUser.avatar_url} alt={selectedExistingUser.full_name || selectedExistingUser.email} className="w-full h-full object-cover" width={40} height={40} unoptimized />
                   ) : (
                     <span className="text-white text-[16px] font-bold">
                       {(selectedExistingUser.full_name || selectedExistingUser.email || "?")[0].toUpperCase()}
@@ -1741,10 +1742,13 @@ export default function NewBusinessPage() {
                 {/* Preview */}
                 <div className="w-[45px] h-[45px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
                   {newMemberAvatarUrl ? (
-                    <img
+                    <Image
                       src={newMemberAvatarUrl}
                       alt="תצוגה מקדימה"
                       className="w-full h-full object-cover"
+                      width={45}
+                      height={45}
+                      unoptimized
                     />
                   ) : (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white/50">
@@ -1883,10 +1887,13 @@ export default function NewBusinessPage() {
                 {/* Avatar */}
                 <div className="w-[40px] h-[40px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
                   {member.avatar_url ? (
-                    <img
+                    <Image
                       src={member.avatar_url}
                       alt={member.name || member.email}
                       className="w-full h-full object-cover"
+                      width={40}
+                      height={40}
+                      unoptimized
                     />
                   ) : (
                     <span className="text-white text-[16px] font-bold">

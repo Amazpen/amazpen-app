@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { uploadFile } from "@/lib/uploadFile";
 import { useToast } from "@/components/ui/toast";
@@ -303,10 +304,13 @@ export default function SettingsPage() {
           <div className="relative group mb-[12px]">
             <div className="w-[100px] h-[100px] rounded-full overflow-hidden border-[3px] border-[#29318A] bg-[#29318A] flex items-center justify-center">
               {displayAvatar ? (
-                <img
+                <Image
                   src={displayAvatar}
                   alt="תמונת פרופיל"
                   className="w-full h-full object-cover"
+                  width={100}
+                  height={100}
+                  unoptimized
                 />
               ) : (
                 <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">

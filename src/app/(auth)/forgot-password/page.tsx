@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
 export default function ForgotPasswordPage() {
@@ -76,10 +77,13 @@ export default function ForgotPasswordPage() {
     >
       {/* Logo and Header */}
       <div className="flex flex-col items-center gap-[15px] mb-[30px]">
-        <img
+        <Image
           src="https://ae8ccc76b2d94d531551691b1d6411c9.cdn.bubble.io/cdn-cgi/image/w=192,h=91,f=auto,dpr=2,fit=contain/f1740495696315x242439751655884480/logo%20white.png"
           alt="Amazpen Logo"
           className="w-[140px] h-auto"
+          width={140}
+          height={66}
+          unoptimized
         />
         <h1 className="text-[24px] font-bold text-white">שחזור סיסמה</h1>
         <p className="text-[14px] text-white/60 text-center">

@@ -162,7 +162,7 @@ export default function OCRPage() {
       };
       fetchBusinesses();
     }
-  }, [isCheckingAuth, isAdmin, selectedBusinessId]);
+  }, [isCheckingAuth, isAdmin, selectedBusinessId, setSelectedBusinessId]);
 
   // Fetch suppliers when selected business changes
   useEffect(() => {
@@ -224,7 +224,7 @@ export default function OCRPage() {
       const supabase = createClient();
       supabase.from('ocr_documents').update({ status: 'reviewing' }).eq('id', document.id);
     }
-  }, []);
+  }, [setSelectedBusinessId, setFilterStatus]);
 
   // Handle form approval - saves to Supabase based on document type
   const handleApprove = useCallback(

@@ -271,6 +271,7 @@ export default function PaymentsPage() {
         end: new Date(),
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Runs once on mount to hydrate from persisted savedDateRange. Adding savedDateRange would re-trigger on every save.
   }, []);
 
   const handleDateRangeChange = useCallback((range: { start: Date; end: Date }) => {
@@ -627,6 +628,7 @@ export default function PaymentsPage() {
     };
 
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- transformPaymentsData is a plain function (not stateful); adding it would require memoization for no benefit.
   }, [selectedBusinesses, dateRange, refreshTrigger]);
 
   // Transform raw payment data to display format
@@ -719,6 +721,7 @@ export default function PaymentsPage() {
     } finally {
       setIsLoadingMore(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- transformPaymentsData is a plain function (not stateful); adding it would require wrapping in useCallback for no benefit.
   }, [isLoadingMore, hasMorePayments, selectedBusinesses, paymentsOffset]);
 
   // Scroll handler for infinite scroll

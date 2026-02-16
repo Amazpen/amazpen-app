@@ -292,6 +292,7 @@ export default function CashFlowPage() {
       });
     }
     setGranularity(savedGranularity);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Runs once on mount to hydrate from persisted values. Adding savedDateRange/savedGranularity would re-trigger on every save.
   }, []);
 
   const handleDateRangeChange = useCallback(
@@ -523,7 +524,7 @@ export default function CashFlowPage() {
     };
 
     fetchData();
-  }, [activeRange, activeGranularity, selectedBusinesses, refreshTrigger]);
+  }, [activeRange, activeGranularity, selectedBusinesses, refreshTrigger, supabase]);
 
   // ============================================================================
   // DRILL-DOWN

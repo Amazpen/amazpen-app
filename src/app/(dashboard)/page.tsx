@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useDashboard } from "./layout";
 import { DailyEntryForm } from "@/components/dashboard/DailyEntryForm";
 import { DailyEntriesModal } from "@/components/dashboard/DailyEntriesModal";
@@ -797,7 +798,8 @@ export default function DashboardPage() {
     };
 
     fetchBusinesses();
-  }, [dateRange, refreshTrigger]); // Removed selectedBusinesses and setSelectedBusinesses from deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedBusinesses is intentionally excluded: this effect loads ALL businesses and sets selectedBusinesses inside it; including it would cause an infinite loop. setSelectedBusinesses is stable.
+  }, [dateRange, refreshTrigger]);
 
   // Update realBusinessId when selectedBusinesses changes
   useEffect(() => {
@@ -2130,10 +2132,13 @@ export default function DashboardPage() {
                 {/* Business Image */}
                 <div className="w-[50px] h-[50px] rounded-[10px] overflow-hidden flex-shrink-0 flex items-center justify-center bg-white/10">
                   {card.logo_url ? (
-                    <img
+                    <Image
                       src={card.logo_url}
                       alt={card.name}
                       className="w-full h-full object-cover"
+                      width={50}
+                      height={50}
+                      unoptimized
                     />
                   ) : (
                     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">

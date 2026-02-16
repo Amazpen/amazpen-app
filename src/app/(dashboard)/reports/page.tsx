@@ -73,6 +73,7 @@ export default function ReportsPage() {
       if (!selectedYear) setSelectedYear(String(new Date().getFullYear()));
       setIsMounted(true);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedMonth/selectedYear are persisted initial values; setSelectedMonth/setSelectedYear are stable setters. Adding them would cause unnecessary re-runs.
   }, [isMounted]);
 
   // Realtime subscription

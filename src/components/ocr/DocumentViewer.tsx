@@ -365,7 +365,8 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
               </div>
             )}
 
-            {/* Image */}
+            {/* Image - using native img for ref access needed by crop functionality */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               ref={imageRef}
               src={imageUrl}
