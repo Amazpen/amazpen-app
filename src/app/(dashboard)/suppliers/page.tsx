@@ -140,6 +140,7 @@ export default function SuppliersPage() {
     entryDate: string;
   }>>([]);
   const [expandedSupplierInvoiceId, setExpandedSupplierInvoiceId] = useState<string | null>(null);
+  const [expandedSupplierPaymentId, setExpandedSupplierPaymentId] = useState<string | null>(null);
   const [supplierPayments, setSupplierPayments] = useState<Array<{
     id: string;
     date: string;
@@ -2035,6 +2036,18 @@ export default function SuppliersPage() {
                                 <div className="flex items-center justify-between border-b border-white/35 pb-[10px]">
                                   <span className="text-[16px] font-medium text-white ml-[7px]">פרטים נוספים</span>
                                   <div className="flex items-center gap-[6px]">
+                                    {/* Edit Icon */}
+                                    <button
+                                      type="button"
+                                      title="עריכת הוצאה"
+                                      onClick={() => router.push(`/expenses?edit=${invoice.id}`)}
+                                      className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors cursor-pointer"
+                                    >
+                                      <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                      </svg>
+                                    </button>
                                     {/* Image/View Icon - only show if has attachments */}
                                     {invoice.attachmentUrls.length > 0 && (
                                       <button
@@ -2146,11 +2159,27 @@ export default function SuppliersPage() {
                       supplierPayments.map((payment) => (
                         <div
                           key={payment.id}
-                          className="bg-white/5 rounded-[7px] p-[7px_3px]"
+                          className={`rounded-[7px] p-[7px_3px] transition-colors ${
+                            expandedSupplierPaymentId === payment.id ? "bg-white/10 border border-white/20" : "bg-white/5"
+                          }`}
                         >
-                          <div className="grid grid-cols-[0.8fr_1fr_0.9fr_0.8fr] w-full p-[5px_5px] items-center">
-                            {/* Date */}
-                            <span className="text-[12px] text-center ltr-num">{payment.date}</span>
+                          {/* Row - Clickable to expand */}
+                          <button
+                            type="button"
+                            onClick={() => setExpandedSupplierPaymentId(expandedSupplierPaymentId === payment.id ? null : payment.id)}
+                            className="grid grid-cols-[0.8fr_1fr_0.9fr_0.8fr] w-full p-[5px_5px] items-center cursor-pointer"
+                          >
+                            {/* Date with expand arrow */}
+                            <div className="flex items-center justify-center gap-[4px]">
+                              <svg
+                                width="12" height="12" viewBox="0 0 32 32"
+                                fill="none"
+                                className={`flex-shrink-0 transition-transform text-white/50 ${expandedSupplierPaymentId === payment.id ? 'rotate-90' : ''}`}
+                              >
+                                <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                              <span className="text-[12px] ltr-num">{payment.date}</span>
+                            </div>
                             {/* Payment Method */}
                             <span className="text-[12px] text-center leading-tight">{payment.method}</span>
                             {/* Amount */}
@@ -2159,7 +2188,49 @@ export default function SuppliersPage() {
                             </span>
                             {/* Reference */}
                             <span className="text-[12px] text-center ltr-num truncate px-[2px]">{payment.reference}</span>
-                          </div>
+                          </button>
+
+                          {/* Expanded Content */}
+                          {expandedSupplierPaymentId === payment.id && (
+                            <div className="flex flex-col gap-[10px] p-[5px] mt-[10px]">
+                              <div className="border border-white/50 rounded-[7px] p-[3px] flex flex-col gap-[15px]">
+                                <div className="flex items-center justify-between border-b border-white/35 pb-[10px]">
+                                  <span className="text-[16px] font-medium text-white ml-[7px]">פרטים נוספים</span>
+                                  <div className="flex items-center gap-[6px]">
+                                    {/* Edit Icon */}
+                                    <button
+                                      type="button"
+                                      title="עריכת תשלום"
+                                      onClick={() => router.push(`/payments?edit=${payment.id}`)}
+                                      className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors cursor-pointer"
+                                    >
+                                      <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                                {/* Details Grid */}
+                                <div className="flex flex-row-reverse items-center justify-between px-[7px]">
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-[14px] text-[#979797]">סכום</span>
+                                    <span className="text-[14px] text-white ltr-num">₪{payment.amount.toLocaleString()}</span>
+                                  </div>
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-[14px] text-[#979797]">אמצעי תשלום</span>
+                                    <span className="text-[14px] text-white">{payment.method}</span>
+                                  </div>
+                                  {payment.reference && (
+                                    <div className="flex flex-col items-center">
+                                      <span className="text-[14px] text-[#979797]">אסמכתא</span>
+                                      <span className="text-[14px] text-white ltr-num">{payment.reference}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))
                     )}

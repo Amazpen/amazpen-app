@@ -1314,6 +1314,37 @@ export default function ExpensesPage() {
     setEditAttachmentPreviews([]);
   };
 
+  // Handle deep-link edit from supplier card (?edit=invoiceId)
+  useEffect(() => {
+    if (typeof window === "undefined" || selectedBusinesses.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get("edit");
+    if (!editId) return;
+
+    // Clear the query param immediately
+    window.history.replaceState({}, "", "/expenses");
+
+    const fetchAndEdit = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
+          creator:profiles!invoices_created_by_fkey(full_name)
+        `)
+        .eq("id", editId)
+        .maybeSingle();
+
+      if (data) {
+        const invoice = transformInvoicesData([data])[0];
+        handleEditInvoice(invoice);
+      }
+    };
+    fetchAndEdit();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBusinesses]);
+
   // Handle file selection for edit
   const handleEditFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;

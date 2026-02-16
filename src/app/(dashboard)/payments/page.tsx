@@ -1117,7 +1117,7 @@ export default function PaymentsPage() {
                     installments_count: installmentsCount,
                     installment_number: inst.number,
                     reference_number: reference || null,
-                    check_number: pm.checkNumber || null,
+                    check_number: (pm.method === "check" && inst.checkNumber) ? inst.checkNumber : (pm.checkNumber || null),
                     due_date: inst.dateForInput || null,
                   });
               }
@@ -1204,7 +1204,7 @@ export default function PaymentsPage() {
 
     if (splitsByMethod.size > 0) {
       let entryId = 1;
-      const entries: { id: number; method: string; amount: string; installments: string; checkNumber: string; customInstallments: Array<{ number: number; date: string; dateForInput: string; amount: number; manuallyEdited?: boolean }> }[] = [];
+      const entries: { id: number; method: string; amount: string; installments: string; checkNumber: string; customInstallments: Array<{ number: number; date: string; dateForInput: string; amount: number; checkNumber?: string; manuallyEdited?: boolean }> }[] = [];
 
       for (const [, splits] of splitsByMethod) {
         const totalForMethod = splits.reduce((sum, s) => sum + s.amount, 0);
@@ -1216,6 +1216,7 @@ export default function PaymentsPage() {
               date: s.due_date ? new Date(s.due_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "",
               dateForInput: s.due_date || "",
               amount: s.amount,
+              checkNumber: s.check_number || "",
               manuallyEdited: true,
             }))
           : [];
@@ -1244,6 +1245,39 @@ export default function PaymentsPage() {
     setEditingPaymentId(payment.id);
     setShowAddPaymentPopup(true);
   };
+
+  // Handle deep-link edit from supplier card (?edit=paymentId)
+  useEffect(() => {
+    if (typeof window === "undefined" || selectedBusinesses.length === 0 || suppliers.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get("edit");
+    if (!editId) return;
+
+    // Clear the query param immediately
+    window.history.replaceState({}, "", "/payments");
+
+    const fetchAndEdit = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("payments")
+        .select(`
+          *,
+          supplier:suppliers(id, name),
+          payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number),
+          invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url),
+          creator:profiles!payments_created_by_fkey(full_name)
+        `)
+        .eq("id", editId)
+        .maybeSingle();
+
+      if (data) {
+        const payment = transformPaymentsData([data])[0];
+        handleEditPayment(payment);
+      }
+    };
+    fetchAndEdit();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBusinesses, suppliers]);
 
   // Update existing payment
   const handleUpdatePayment = async () => {
@@ -1327,7 +1361,7 @@ export default function PaymentsPage() {
                   installments_count: installmentsCount,
                   installment_number: inst.number,
                   reference_number: reference || null,
-                  check_number: pm.checkNumber || null,
+                  check_number: (pm.method === "check" && inst.checkNumber) ? inst.checkNumber : (pm.checkNumber || null),
                   due_date: inst.dateForInput || null,
                 });
             }
@@ -1431,6 +1465,7 @@ export default function PaymentsPage() {
       date: string;
       dateForInput: string;
       amount: number;
+      checkNumber?: string;
       manuallyEdited?: boolean;
     }>;
   }
@@ -1517,6 +1552,7 @@ export default function PaymentsPage() {
         date: date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
         dateForInput: date.toISOString().split("T")[0],
         amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
+        checkNumber: "",
       });
     }
 
@@ -1642,6 +1678,21 @@ export default function PaymentsPage() {
             }
           }
         }
+      }
+      return { ...p, customInstallments: updatedInstallments };
+    }));
+  };
+
+  // Handle installment check number change for a specific payment method
+  const handleInstallmentCheckNumberChange = (paymentMethodId: number, installmentIndex: number, newCheckNumber: string) => {
+    setPaymentMethods(prev => prev.map(p => {
+      if (p.id !== paymentMethodId) return p;
+      const updatedInstallments = [...p.customInstallments];
+      if (updatedInstallments[installmentIndex]) {
+        updatedInstallments[installmentIndex] = {
+          ...updatedInstallments[installmentIndex],
+          checkNumber: newCheckNumber,
+        };
       }
       return { ...p, customInstallments: updatedInstallments };
     }));
@@ -2915,8 +2966,8 @@ export default function PaymentsPage() {
                       </select>
                     </div>
 
-                    {/* Check Number - only shown when payment method is check */}
-                    {pm.method === "check" && (
+                    {/* Check Number - only shown when payment method is check and single installment */}
+                    {pm.method === "check" && (parseInt(pm.installments) || 1) <= 1 && (
                       <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
                         <input
                           type="text"
@@ -2981,6 +3032,9 @@ export default function PaymentsPage() {
                         <div className="mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
                           <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
+                            {pm.method === "check" && (
+                              <span className="text-[14px] font-medium text-white/70 flex-1 text-center">מס׳ צ׳ק</span>
+                            )}
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">סכום</span>
                           </div>
@@ -2988,6 +3042,19 @@ export default function PaymentsPage() {
                             {pm.customInstallments.map((item, index) => (
                               <div key={item.number} className="flex items-center gap-[8px]">
                                 <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
+                                {pm.method === "check" && (
+                                  <div className="flex-1">
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      title={`מספר צ׳ק תשלום ${item.number}`}
+                                      value={item.checkNumber || ""}
+                                      onChange={(e) => handleInstallmentCheckNumberChange(pm.id, index, e.target.value)}
+                                      placeholder="מס׳ צ׳ק"
+                                      className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                    />
+                                  </div>
+                                )}
                                 <div className="flex-1 relative h-[36px] overflow-hidden">
                                   <input
                                     type="text"
@@ -3023,7 +3090,8 @@ export default function PaymentsPage() {
                             const isMismatch = Math.abs(installmentsTotal - pmTotal) > 0.01;
                             return (
                               <div className="flex items-center gap-[8px] border-t border-[#4C526B] pt-[8px] mt-[8px]">
-                                <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה&quot;כ</span>
+                                <span className="text-[14px] font-bold text-white flex-1 text-center">סה&quot;כ</span>
+                                {pm.method === "check" && <span className="flex-1"></span>}
                                 <span className="flex-1"></span>
                                 <span className={`text-[14px] font-bold ltr-num flex-1 text-center ${isMismatch ? 'text-red-400' : 'text-white'}`}>
                                   ₪{installmentsTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
