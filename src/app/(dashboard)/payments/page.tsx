@@ -41,6 +41,7 @@ interface LinkedInvoice {
   vatAmount: number;
   totalAmount: number;
   attachmentUrl: string | null;
+  notes: string | null;
 }
 
 interface RecentPaymentDisplay {
@@ -534,7 +535,7 @@ export default function PaymentsPage() {
             *,
             supplier:suppliers(id, name),
             payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number),
-            invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url),
+            invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes),
             creator:profiles!payments_created_by_fkey(full_name)
           `)
           .in("business_id", selectedBusinesses)
@@ -607,7 +608,7 @@ export default function PaymentsPage() {
               *,
               supplier:suppliers(id, name),
               payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number),
-              invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url),
+              invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes),
               creator:profiles!payments_created_by_fkey(full_name)
             `)
             .in("business_id", selectedBusinesses)
@@ -676,6 +677,7 @@ export default function PaymentsPage() {
           vatAmount: Number(inv.vat_amount),
           totalAmount: Number(inv.total_amount),
           attachmentUrl: inv.attachment_url,
+          notes: inv.notes || null,
         } : null,
         linkedInvoiceId: p.invoice_id || null,
         rawSplits: (p.payment_splits || []).map((s: { id: string; payment_method: string; amount: number; installments_count: number | null; installment_number: number | null; due_date: string | null; check_number: string | null; reference_number: string | null }) => ({
@@ -704,7 +706,7 @@ export default function PaymentsPage() {
           *,
           supplier:suppliers(id, name),
           payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number),
-          invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url),
+          invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes),
           creator:profiles!payments_created_by_fkey(full_name)
         `)
         .in("business_id", selectedBusinesses)
@@ -1273,7 +1275,7 @@ export default function PaymentsPage() {
           *,
           supplier:suppliers(id, name),
           payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number),
-          invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url),
+          invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes),
           creator:profiles!payments_created_by_fkey(full_name)
         `)
         .eq("id", editId)
@@ -2445,21 +2447,21 @@ export default function PaymentsPage() {
               }
               const totalMethodGroups = methodGroups.length;
 
+              return methodGroups.map((group, groupIdx) => {
+              const rowKey = `${payment.id}:${groupIdx}`;
               return (
               <div
-                key={payment.id}
-                className={`bg-white/5 rounded-[7px] p-[7px_3px] border transition-colors ${expandedPaymentId === payment.id ? 'border-white' : 'border-transparent'}`}
+                key={rowKey}
+                className={`bg-white/5 rounded-[7px] p-[7px_3px] border transition-colors ${expandedPaymentId === rowKey ? 'border-white' : 'border-transparent'}`}
               >
-                {methodGroups.map((group, groupIdx) => (
                 <button
-                  key={groupIdx}
                   type="button"
-                  onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
-                  className={`flex items-center gap-[5px] w-full p-[5px_3px] min-h-[45px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] cursor-pointer ${groupIdx > 0 ? 'border-t border-white/10' : ''}`}
+                  onClick={() => setExpandedPaymentId(expandedPaymentId === rowKey ? null : rowKey)}
+                  className="flex items-center gap-[5px] w-full p-[5px_3px] min-h-[45px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] cursor-pointer"
                 >
                   {/* Date */}
                   <div className="w-[55px] flex-shrink-0 flex items-center justify-start gap-0">
-                    <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${expandedPaymentId === payment.id && groupIdx === 0 ? 'rotate-90' : ''} ${groupIdx === 0 ? 'text-white/50' : 'text-transparent'}`}>
+                    <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${expandedPaymentId === rowKey ? 'rotate-90' : ''} text-white/50`}>
                       <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     <span className="text-[13px] font-medium ltr-num">{payment.date}</span>
@@ -2485,10 +2487,9 @@ export default function PaymentsPage() {
                     </span>
                   </div>
                 </button>
-                ))}
 
                 {/* Expanded Details */}
-                {expandedPaymentId === payment.id && (
+                {expandedPaymentId === rowKey && (
                   <div className="flex flex-col gap-[10px] mt-[5px]">
                     {/* Header: פרטים נוספים + action icons */}
                     <div className="flex items-center justify-between border-b border-white/20 pb-[8px] px-[7px]" dir="rtl">
@@ -2692,6 +2693,13 @@ export default function PaymentsPage() {
                               <span className="text-[13px] w-[65px] text-center ltr-num">{payment.linkedInvoice.invoiceNumber || "-"}</span>
                               <span className="text-[13px] min-w-[50px] text-right ltr-num">{payment.linkedInvoice.date}</span>
                             </div>
+                            {/* Invoice Notes */}
+                            {payment.linkedInvoice.notes && (
+                              <div className="flex items-start gap-[8px] px-[5px] pt-[5px] border-t border-white/10">
+                                <span className="text-[12px] text-[#979797] flex-shrink-0">הערות:</span>
+                                <span className="text-[12px] text-white/70 text-right">{payment.linkedInvoice.notes}</span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -2700,6 +2708,7 @@ export default function PaymentsPage() {
                 )}
               </div>
               );
+              });
             })}
             {isLoadingMore && (
               <div className="flex items-center justify-center py-[15px]">
