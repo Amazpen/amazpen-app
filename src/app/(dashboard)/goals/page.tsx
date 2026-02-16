@@ -719,6 +719,26 @@ export default function GoalsPage() {
 
   const data = getData();
 
+  // Ensure a goals row exists for the current business/year/month, return goal id
+  const ensureGoalRow = useCallback(async (supabase: ReturnType<typeof createClient>, businessId: string, year: number, month: number) => {
+    const { data: existing } = await supabase.from("goals")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("year", year)
+      .eq("month", month)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (existing) return existing.id;
+
+    const { data: created } = await supabase.from("goals")
+      .insert({ business_id: businessId, year, month })
+      .select("id")
+      .single();
+
+    return created?.id || null;
+  }, []);
+
   // Save KPI target to DB
   const saveTargetToDB = useCallback(async (id: string, value: number) => {
     const supabase = createClient();
@@ -726,47 +746,69 @@ export default function GoalsPage() {
     const month = parseInt(selectedMonth);
 
     try {
-      if (id === "revenue") {
-        await supabase.from("goals").update({ revenue_target: value, updated_at: new Date().toISOString() })
-          .in("business_id", selectedBusinesses).eq("year", year).eq("month", month);
-      } else if (id === "labor-pct") {
-        await supabase.from("goals").update({ labor_cost_target_pct: value, updated_at: new Date().toISOString() })
-          .in("business_id", selectedBusinesses).eq("year", year).eq("month", month);
-      } else if (id === "food-pct") {
-        await supabase.from("goals").update({ food_cost_target_pct: value, updated_at: new Date().toISOString() })
-          .in("business_id", selectedBusinesses).eq("year", year).eq("month", month);
-      } else if (id.startsWith("avg-ticket-") && goalId) {
-        const incomeSourceId = id.replace("avg-ticket-", "");
-        // Check if record exists
-        const { data: existing } = await supabase.from("income_source_goals")
-          .select("id").eq("goal_id", goalId).eq("income_source_id", incomeSourceId).maybeSingle();
-        if (existing) {
-          await supabase.from("income_source_goals")
-            .update({ avg_ticket_target: value, updated_at: new Date().toISOString() })
-            .eq("id", existing.id);
-        } else {
-          await supabase.from("income_source_goals").insert({
-            goal_id: goalId,
-            income_source_id: incomeSourceId,
-            avg_ticket_target: value,
-          });
+      // Map goal field names
+      const goalFieldMap: Record<string, string> = {
+        "revenue": "revenue_target",
+        "labor-pct": "labor_cost_target_pct",
+        "food-pct": "food_cost_target_pct",
+        "current-expenses": "current_expenses_target",
+        "goods-expenses": "goods_expenses_target",
+      };
+
+      if (goalFieldMap[id]) {
+        // Ensure goal row exists for each selected business
+        for (const businessId of selectedBusinesses) {
+          const gId = await ensureGoalRow(supabase, businessId, year, month);
+          if (gId) {
+            await supabase.from("goals")
+              .update({ [goalFieldMap[id]]: value, updated_at: new Date().toISOString() })
+              .eq("id", gId);
+          }
+        }
+        // Update goalId state if it was null
+        if (!goalId && selectedBusinesses.length > 0) {
+          const { data: newGoal } = await supabase.from("goals")
+            .select("id")
+            .eq("business_id", selectedBusinesses[0])
+            .eq("year", year)
+            .eq("month", month)
+            .is("deleted_at", null)
+            .maybeSingle();
+          if (newGoal) setGoalId(newGoal.id);
+        }
+      } else if (id.startsWith("avg-ticket-")) {
+        // Ensure goal row exists first
+        let currentGoalId = goalId;
+        if (!currentGoalId && selectedBusinesses.length > 0) {
+          currentGoalId = await ensureGoalRow(supabase, selectedBusinesses[0], year, month);
+          if (currentGoalId) setGoalId(currentGoalId);
+        }
+        if (currentGoalId) {
+          const incomeSourceId = id.replace("avg-ticket-", "");
+          const { data: existing } = await supabase.from("income_source_goals")
+            .select("id").eq("goal_id", currentGoalId).eq("income_source_id", incomeSourceId).maybeSingle();
+          if (existing) {
+            await supabase.from("income_source_goals")
+              .update({ avg_ticket_target: value, updated_at: new Date().toISOString() })
+              .eq("id", existing.id);
+          } else {
+            await supabase.from("income_source_goals").insert({
+              goal_id: currentGoalId,
+              income_source_id: incomeSourceId,
+              avg_ticket_target: value,
+            });
+          }
         }
       } else if (id.startsWith("product-")) {
         const productId = id.replace("product-", "");
         await supabase.from("managed_products")
           .update({ target_pct: value, updated_at: new Date().toISOString() })
           .eq("id", productId);
-      } else if (id === "current-expenses") {
-        await supabase.from("goals").update({ current_expenses_target: value, updated_at: new Date().toISOString() })
-          .in("business_id", selectedBusinesses).eq("year", year).eq("month", month);
-      } else if (id === "goods-expenses") {
-        await supabase.from("goals").update({ goods_expenses_target: value, updated_at: new Date().toISOString() })
-          .in("business_id", selectedBusinesses).eq("year", year).eq("month", month);
       }
     } catch (error) {
       console.error("Error saving KPI target:", error);
     }
-  }, [selectedBusinesses, selectedYear, selectedMonth, goalId]);
+  }, [selectedBusinesses, selectedYear, selectedMonth, goalId, ensureGoalRow]);
 
   // Handle KPI target change with debounced save
   const handleTargetChange = (id: string, newTarget: string) => {
