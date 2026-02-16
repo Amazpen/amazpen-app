@@ -2988,7 +2988,7 @@ export default function PaymentsPage() {
                             {pm.customInstallments.map((item, index) => (
                               <div key={item.number} className="flex items-center gap-[8px]">
                                 <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
-                                <div className="flex-1 relative">
+                                <div className="flex-1 relative h-[36px] overflow-hidden">
                                   <input
                                     type="text"
                                     readOnly
@@ -3000,7 +3000,7 @@ export default function PaymentsPage() {
                                     title={`תאריך תשלום ${item.number}`}
                                     value={item.dateForInput}
                                     onChange={(e) => handleInstallmentDateChange(pm.id, index, e.target.value)}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    className="absolute top-0 left-0 w-full h-[36px] opacity-0 cursor-pointer"
                                   />
                                 </div>
                                 <div className="flex-1 relative">
