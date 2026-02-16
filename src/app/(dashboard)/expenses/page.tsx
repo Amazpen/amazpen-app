@@ -104,8 +104,20 @@ interface InvoiceDisplay {
   attachmentUrls: string[];
   clarificationReason: string | null;
   isFixed: boolean;
-  linkedPayments: { id: string; amount: number; method: string; installments: number; date: string }[];
+  linkedPayments: { id: string; amount: number; method: string; methodKey: string; installments: number; date: string; checkNumber: string | null }[];
 }
+
+const paymentMethodNames: Record<string, string> = {
+  "bank_transfer": "העברה בנקאית",
+  "cash": "מזומן",
+  "check": "צ'ק",
+  "bit": "ביט",
+  "paybox": "פייבוקס",
+  "credit_card": "כרטיס אשראי",
+  "other": "אחר",
+  "credit_companies": "חברות הקפה",
+  "standing_order": "הוראת קבע",
+};
 
 // Expense summary for chart (by supplier)
 interface ExpenseSummary {
@@ -593,7 +605,8 @@ export default function ExpensesPage() {
           .select(`
             *,
             supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
-            creator:profiles!invoices_created_by_fkey(full_name)
+            creator:profiles!invoices_created_by_fkey(full_name),
+            payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
           `)
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
@@ -745,24 +758,47 @@ export default function ExpensesPage() {
   // Transform raw invoice data to display format
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const transformInvoicesData = (rawData: any[]): InvoiceDisplay[] => {
-    return rawData.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => ({
-      id: inv.id,
-      date: formatDateString(inv.invoice_date),
-      supplier: inv.supplier?.name || "לא ידוע",
-      reference: inv.invoice_number || "",
-      amount: Number(inv.total_amount),
-      amountWithVat: Number(inv.total_amount),
-      amountBeforeVat: Number(inv.subtotal),
-      status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
-      enteredBy: inv.creator?.full_name || "מערכת",
-      entryDate: formatDateString(inv.created_at),
-      notes: inv.notes || "",
-      attachmentUrl: inv.attachment_url || null,
-      attachmentUrls: parseAttachmentUrls(inv.attachment_url),
-      clarificationReason: inv.clarification_reason || null,
-      isFixed: inv.supplier?.is_fixed_expense || false,
-      linkedPayments: [],
-    }));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return rawData.map((inv: any) => {
+      // Build linked payments from joined data
+      const linkedPayments: InvoiceDisplay["linkedPayments"] = [];
+      if (inv.payments && Array.isArray(inv.payments)) {
+        for (const payment of inv.payments) {
+          if (payment.payment_splits && Array.isArray(payment.payment_splits)) {
+            for (const split of payment.payment_splits) {
+              linkedPayments.push({
+                id: payment.id,
+                amount: Number(split.amount),
+                method: paymentMethodNames[split.payment_method] || "אחר",
+                methodKey: split.payment_method,
+                installments: split.installments_count || 1,
+                date: formatDateString(payment.payment_date),
+                checkNumber: split.check_number || null,
+              });
+            }
+          }
+        }
+      }
+
+      return {
+        id: inv.id,
+        date: formatDateString(inv.invoice_date),
+        supplier: inv.supplier?.name || "לא ידוע",
+        reference: inv.invoice_number || "",
+        amount: Number(inv.total_amount),
+        amountWithVat: Number(inv.total_amount),
+        amountBeforeVat: Number(inv.subtotal),
+        status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
+        enteredBy: inv.creator?.full_name || "מערכת",
+        entryDate: formatDateString(inv.created_at),
+        notes: inv.notes || "",
+        attachmentUrl: inv.attachment_url || null,
+        attachmentUrls: parseAttachmentUrls(inv.attachment_url),
+        clarificationReason: inv.clarification_reason || null,
+        isFixed: inv.supplier?.is_fixed_expense || false,
+        linkedPayments,
+      };
+    });
   };
 
   // Load more invoices (infinite scroll)
@@ -776,7 +812,8 @@ export default function ExpensesPage() {
         .select(`
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
-          creator:profiles!invoices_created_by_fkey(full_name)
+          creator:profiles!invoices_created_by_fkey(full_name),
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
         `)
         .in("business_id", selectedBusinesses)
         .is("deleted_at", null)
@@ -1343,7 +1380,8 @@ export default function ExpensesPage() {
         .select(`
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
-          creator:profiles!invoices_created_by_fkey(full_name)
+          creator:profiles!invoices_created_by_fkey(full_name),
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
         `)
         .eq("id", editId)
         .maybeSingle();
@@ -1699,7 +1737,8 @@ export default function ExpensesPage() {
         .select(`
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
-          creator:profiles!invoices_created_by_fkey(full_name)
+          creator:profiles!invoices_created_by_fkey(full_name),
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
         `)
         .in("business_id", selectedBusinesses)
         .eq("supplier_id", supplierId)
@@ -2476,42 +2515,41 @@ export default function ExpensesPage() {
 
                     {/* Linked Payments Section - only show if has payments */}
                     {invoice.linkedPayments.length > 0 && (
-                      <div className="border border-white/20 rounded-[7px] p-[7px] flex flex-col gap-[10px]">
+                      <div className="flex flex-col gap-[8px] border border-white/30 rounded-[7px] p-[3px] mx-[3px]">
                         <button
                           type="button"
                           onClick={() => setShowLinkedPayments(showLinkedPayments === invoice.id ? null : invoice.id)}
-                          className="bg-[#29318A] text-white text-[16px] font-medium py-[5px] px-[14px] rounded-[7px] self-start"
+                          className="bg-[#29318A] text-white text-[15px] font-medium py-[5px] px-[14px] rounded-[7px] self-start cursor-pointer hover:bg-[#3D44A0] transition-colors"
                         >
                           הצגת תשלומים מקושרים ({invoice.linkedPayments.length})
                         </button>
 
                         {/* Linked Payments List */}
                         {showLinkedPayments === invoice.id && (
-                          <div className="flex flex-col gap-[5px]">
-                            {invoice.linkedPayments.map((payment) => (
-                              <div
-                                key={payment.id}
-                                className="flex items-center justify-between p-[5px] rounded-[10px] min-h-[50px]"
-                              >
-                                <div className="flex items-center gap-[5px] opacity-50">
-                                  <button type="button" title="עריכה" className="w-[20px] h-[20px]">
-                                    <svg viewBox="0 0 32 32" fill="currentColor" className="w-full h-full text-white"/>
-                                  </button>
-                                  <button type="button" title="מחיקה" className="w-[20px] h-[20px]">
-                                    <svg viewBox="0 0 32 32" fill="currentColor" className="w-full h-full text-white"/>
-                                  </button>
-                                </div>
-                                <span className="text-[14px] text-white text-center ltr-num w-[65px]">₪{payment.amount.toLocaleString()}</span>
-                                <span className="text-[14px] text-white text-center flex-1">{payment.method}</span>
-                                <span className="text-[14px] text-white text-center flex-1">{payment.installments}</span>
+                          <div className="flex flex-col gap-[2px]">
+                            {/* Total */}
+                            <span className="text-[13px] font-bold text-right px-[5px]">
+                              סה&quot;כ תשלומים: ₪{invoice.linkedPayments.reduce((sum, p) => sum + p.amount, 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            {/* Header */}
+                            <div dir="rtl" className="flex items-center justify-between gap-[3px] border-b border-white/20 min-h-[40px] px-[3px]">
+                              <span className="text-[13px] min-w-[50px] text-center">תאריך</span>
+                              <span className="text-[13px] w-[65px] text-center">אמצעי תשלום</span>
+                              <span className="text-[13px] w-[65px] text-center">תשלומים</span>
+                              <span className="text-[13px] w-[65px] text-center">סכום</span>
+                            </div>
+                            {/* Payment rows */}
+                            {invoice.linkedPayments.map((payment, pIdx) => (
+                              <div key={pIdx} dir="rtl" className="flex items-center justify-between gap-[3px] min-h-[40px] px-[3px] rounded-[7px] hover:bg-white/5">
+                                <span className="text-[13px] min-w-[50px] text-center ltr-num">{payment.date}</span>
                                 <div className="w-[65px] text-center">
-                                  <span className="text-[14px] text-white ltr-num">{payment.date || '-'}</span>
+                                  <span className="text-[13px]">{payment.method}</span>
+                                  {payment.checkNumber && (
+                                    <span className="text-[11px] text-white/50 block">צ׳ק {payment.checkNumber}</span>
+                                  )}
                                 </div>
-                                <div className="flex items-center justify-end gap-0 w-[60px]">
-                                  <svg width="15" height="15" viewBox="0 0 32 32" fill="none" className="text-white/50">
-                                    <path d="M12 10L18 16L12 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                  </svg>
-                                </div>
+                                <span className="text-[13px] w-[65px] text-center ltr-num">{payment.installments > 1 ? payment.installments : "1"}</span>
+                                <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.amount % 1 === 0 ? payment.amount.toLocaleString("he-IL") : payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                             ))}
                           </div>
