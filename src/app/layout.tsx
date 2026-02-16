@@ -136,11 +136,9 @@ export default function RootLayout({
                 }
 
                 function trackUpdate(reg) {
-                  // Already a waiting worker
                   if (reg.waiting) {
                     notifySwUpdate(reg.waiting);
                   }
-                  // Always listen for future updates
                   reg.addEventListener('updatefound', function() {
                     var newWorker = reg.installing;
                     if (!newWorker) return;
@@ -155,12 +153,36 @@ export default function RootLayout({
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(function(reg) {
                     trackUpdate(reg);
-                    // Check for updates when user returns to the tab
+
+                    // Throttled update check - max once per 30 seconds
+                    var lastCheck = 0;
+                    function checkForUpdate() {
+                      var now = Date.now();
+                      if (now - lastCheck < 30000) return;
+                      lastCheck = now;
+                      reg.update();
+                    }
+
+                    // Check when user returns to tab
                     document.addEventListener('visibilitychange', function() {
-                      if (document.visibilityState === 'visible') {
-                        reg.update();
-                      }
+                      if (document.visibilityState === 'visible') checkForUpdate();
                     });
+
+                    // Check on SPA navigation (Next.js uses pushState/replaceState)
+                    var origPush = history.pushState;
+                    var origReplace = history.replaceState;
+                    history.pushState = function() {
+                      origPush.apply(this, arguments);
+                      checkForUpdate();
+                    };
+                    history.replaceState = function() {
+                      origReplace.apply(this, arguments);
+                      checkForUpdate();
+                    };
+                    window.addEventListener('popstate', function() { checkForUpdate(); });
+
+                    // Also check on every fetch response (detects deploy via changed HTML)
+                    window.addEventListener('focus', function() { checkForUpdate(); });
                   }).catch(function() {});
                 });
 
