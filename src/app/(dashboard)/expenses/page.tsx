@@ -115,6 +115,76 @@ interface ExpenseCategorySummary {
   suppliers: { id: string; name: string; amount: number; percentage: number; isFixed?: boolean }[];
 }
 
+// PDF Thumbnail component - renders first page of a PDF URL as an image
+function PdfThumbnail({ url, className, onClick }: { url: string; className?: string; onClick?: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pdfjsLib = await import("pdfjs-dist") as any;
+        if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+        }
+        const loadingTask = pdfjsLib.getDocument(url);
+        const pdf = await loadingTask.promise;
+        if (cancelled) return;
+        const page = await pdf.getPage(1);
+        const canvas = canvasRef.current;
+        if (!canvas || cancelled) return;
+        const desiredWidth = 140; // 2x for retina on 70px thumbnail
+        const unscaledViewport = page.getViewport({ scale: 1 });
+        const scale = desiredWidth / unscaledViewport.width;
+        const viewport = page.getViewport({ scale });
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (page.render as any)({ canvasContext: ctx, viewport }).promise;
+        if (!cancelled) setLoaded(true);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [url]);
+
+  if (error) {
+    return (
+      <div className={className} onClick={onClick} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onClick?.()}>
+        <div className="w-full h-full flex items-center justify-center bg-white/5">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={className} onClick={onClick} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onClick?.()}>
+      <canvas
+        ref={canvasRef}
+        className={`w-full h-full object-cover ${loaded ? '' : 'hidden'}`}
+        style={{ display: loaded ? 'block' : 'none' }}
+      />
+      {!loaded && (
+        <div className="w-full h-full flex items-center justify-center bg-white/5">
+          <div className="w-[20px] h-[20px] border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ExpensesPage() {
   const router = useRouter();
   const { selectedBusinesses } = useDashboard();
@@ -239,6 +309,9 @@ export default function ExpensesPage() {
   const [statusClarificationFile, setStatusClarificationFile] = useState<File | null>(null);
   const [statusClarificationFilePreview, setStatusClarificationFilePreview] = useState<string | null>(null);
   const [isSavingClarification, setIsSavingClarification] = useState(false);
+
+  // Document viewer popup state (fullscreen preview)
+  const [viewerDocUrl, setViewerDocUrl] = useState<string | null>(null);
 
   // Payment popup for existing invoice (when changing status to "paid")
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
@@ -843,10 +916,10 @@ export default function ExpensesPage() {
           {payload.displayName}
         </text>
         <text x={cx} y={cy + 2} textAnchor="middle" fill="#fff" fontSize={24} fontWeight="bold" direction="ltr">
-          {`₪${payload.amount.toLocaleString()}`}
+          {`₪${payload.amount % 1 === 0 ? payload.amount.toLocaleString("he-IL", { maximumFractionDigits: 0 }) : payload.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         </text>
         <text x={cx} y={cy + 24} textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize={14}>
-          {`${(percent * 100).toFixed(1)}%`}
+          {`${((percent as number) * 100) % 1 === 0 ? ((percent as number) * 100).toFixed(0) : ((percent as number) * 100).toFixed(2)}%`}
         </text>
       </g>
     );
@@ -1743,8 +1816,8 @@ export default function ExpensesPage() {
               {activeExpenseIndex === undefined && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-[18px] font-bold">סה&apos;&apos;כ הוצאות</span>
-                  <span className="text-[35px] font-bold ltr-num">₪{totalExpenses.toLocaleString()}</span>
-                  <span className="text-[18px] font-bold ltr-num">{totalPercentage.toFixed(2)}%</span>
+                  <span className="text-[35px] font-bold ltr-num">₪{totalExpenses % 1 === 0 ? totalExpenses.toLocaleString("he-IL", { maximumFractionDigits: 0 }) : totalExpenses.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-[18px] font-bold ltr-num">{totalPercentage % 1 === 0 ? totalPercentage.toFixed(0) : totalPercentage.toFixed(2)}%</span>
                 </div>
               )}
             </div>
@@ -2287,18 +2360,11 @@ export default function ExpensesPage() {
                             <button
                               key={idx}
                               type="button"
-                              onClick={() => window.open(url, '_blank')}
-                              className="border border-white/20 rounded-[8px] overflow-hidden w-[70px] h-[70px] hover:border-white/50 transition-colors"
+                              onClick={() => setViewerDocUrl(url)}
+                              className="border border-white/20 rounded-[8px] overflow-hidden w-[70px] h-[70px] hover:border-white/50 transition-colors cursor-pointer"
                             >
-                              {url.endsWith(".pdf") ? (
-                                <div className="w-full h-full flex items-center justify-center bg-white/5">
-                                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                    <polyline points="14 2 14 8 20 8"/>
-                                    <line x1="16" y1="13" x2="8" y2="13"/>
-                                    <line x1="16" y1="17" x2="8" y2="17"/>
-                                  </svg>
-                                </div>
+                              {url.toLowerCase().endsWith(".pdf") ? (
+                                <PdfThumbnail url={url} className="w-full h-full" />
                               ) : (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" />
@@ -3796,6 +3862,57 @@ export default function ExpensesPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Fullscreen Document Viewer Popup */}
+      {viewerDocUrl && typeof window !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80"
+          onClick={() => setViewerDocUrl(null)}
+        >
+          {/* Close button */}
+          <button
+            type="button"
+            onClick={() => setViewerDocUrl(null)}
+            className="absolute top-[16px] right-[16px] z-10 w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer"
+          >
+            <X size={24} className="text-white" />
+          </button>
+          {/* Open in new tab button */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); window.open(viewerDocUrl, '_blank'); }}
+            className="absolute top-[16px] left-[16px] z-10 flex items-center gap-[6px] px-[12px] py-[8px] rounded-full bg-black/60 hover:bg-black/80 transition-colors text-white text-[13px] cursor-pointer"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            פתח בכרטיסייה חדשה
+          </button>
+          {/* Document content */}
+          <div
+            className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {viewerDocUrl.toLowerCase().endsWith(".pdf") ? (
+              <iframe
+                src={viewerDocUrl}
+                className="w-[90vw] h-[90vh] rounded-[12px] border border-white/20"
+                title="תצוגת מסמך"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={viewerDocUrl}
+                alt="תצוגת מסמך"
+                className="max-w-[90vw] max-h-[90vh] object-contain rounded-[12px]"
+              />
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Clarification Popup - when changing status to "בבירור" */}
       {showClarificationPopup && typeof window !== 'undefined' && createPortal(
