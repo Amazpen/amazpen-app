@@ -298,50 +298,29 @@ export default function GoalsPage() {
           }
         });
 
-        // Build current expenses data (only parent categories, with children for drill-down)
+        // Build current expenses data - flat list of all categories (each with its own suppliers)
         const currentData: GoalItem[] = (categoriesData || [])
-          .filter(cat => !cat.parent_id) // Only top-level categories
           .map((cat) => {
-            const childCats = (categoriesData || []).filter(c => c.parent_id === cat.id);
-            let totalActual = categoryActuals.get(cat.id) || 0;
-            let totalTarget = categoryTargets.get(cat.id) || 0;
-
-            // Find suppliers for this parent category directly
-            const parentSupplierIds = (suppliersData || [])
+            const catSupplierIds = (suppliersData || [])
               .filter(s => s.expense_category_id === cat.id && s.expense_type === "current_expenses")
               .map(s => s.id);
 
-            const children: GoalItem[] = childCats.map(child => {
-              const childActual = categoryActuals.get(child.id) || 0;
-              const childTarget = categoryTargets.get(child.id) || 0;
-              totalActual += childActual;
-              totalTarget += childTarget;
-              // Find suppliers for this child category
-              const childSupplierIds = (suppliersData || [])
-                .filter(s => s.expense_category_id === child.id && s.expense_type === "current_expenses")
-                .map(s => s.id);
-              return {
-                id: child.id,
-                name: child.name,
-                target: childTarget,
-                actual: childActual,
-                unit: "₪",
-                editable: true,
-                supplierIds: childSupplierIds,
-              };
-            });
+            // Skip categories that have no suppliers and no data
+            const catActual = categoryActuals.get(cat.id) || 0;
+            const catTarget = categoryTargets.get(cat.id) || 0;
+            if (catSupplierIds.length === 0 && catActual === 0 && catTarget === 0) return null;
 
             return {
               id: cat.id,
               name: cat.name,
-              target: totalTarget,
-              actual: totalActual,
+              target: catTarget,
+              actual: catActual,
               unit: "₪",
-              editable: children.length === 0, // editable only if no children (leaf category)
-              supplierIds: parentSupplierIds,
-              children: children.length > 0 ? children : undefined,
+              editable: true,
+              supplierIds: catSupplierIds,
             };
-          });
+          })
+          .filter(Boolean) as GoalItem[];
         setCurrentExpensesData(currentData);
 
         // ============================================
@@ -885,26 +864,13 @@ export default function GoalsPage() {
   }, [selectedBusinesses, selectedYear, selectedMonth]);
 
   // Handle current expenses target change (for vs-current tab)
-  const handleCurrentExpenseTargetChange = (item: GoalItem, newTarget: string, isChild: boolean, parentId?: string) => {
+  const handleCurrentExpenseTargetChange = (item: GoalItem, newTarget: string, isChild: boolean = false, parentId?: string) => {
     const numValue = parseFloat(newTarget) || 0;
 
-    if (isChild && parentId) {
-      // Update child target and recalculate parent total
-      setCurrentExpensesData(prev => prev.map(parent => {
-        if (parent.id !== parentId || !parent.children) return parent;
-        const updatedChildren = parent.children.map(child =>
-          child.id === item.id ? { ...child, target: numValue } : child
-        );
-        // Parent target = sum of children targets (parent's own suppliers are already in children or direct)
-        const newParentTarget = updatedChildren.reduce((sum, c) => sum + c.target, 0);
-        return { ...parent, children: updatedChildren, target: newParentTarget };
-      }));
-    } else {
-      // Update parent without children directly
-      setCurrentExpensesData(prev => prev.map(i =>
-        i.id === item.id ? { ...i, target: numValue } : i
-      ));
-    }
+    // Update the category target directly (flat structure for vs-current)
+    setCurrentExpensesData(prev => prev.map(i =>
+      i.id === item.id ? { ...i, target: numValue } : i
+    ));
 
     // Debounce save to DB
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -1052,6 +1018,8 @@ export default function GoalsPage() {
                 const hasChildren = item.children && item.children.length > 0;
                 const hasSuppliers = item.supplierIds && item.supplierIds.length > 0;
                 const isExpandable = (isCurrent || isGoods) && (hasChildren || hasSuppliers);
+                // For vs-current, categories are flat (no children), so always editable
+                const isFlatEditable = isCurrent && item.editable;
                 const isExpanded = expandedGoalId === item.id;
 
                 return (
@@ -1075,7 +1043,7 @@ export default function GoalsPage() {
                       </span>
 
                       {/* Target - editable for KPI and vs-current */}
-                      {((isKpi || isCurrent) && item.editable && !hasChildren) ? (
+                      {((isKpi && item.editable && !hasChildren) || isFlatEditable) ? (
                         <div className="w-[80px] flex items-center justify-center gap-0" onClick={(e) => e.stopPropagation()}>
                           {item.unit === "₪" && focusedInputId !== item.id && <span className="text-[14px] font-bold text-white ltr-num">₪</span>}
                           <input
@@ -1124,8 +1092,21 @@ export default function GoalsPage() {
                     {/* Expanded Content */}
                     {isExpanded && isExpandable && (
                       <div className="bg-white/5 rounded-[7px] mx-[7px] mb-[3px]">
-                        {/* If has sub-categories, show them with expandable suppliers */}
-                        {hasChildren ? (
+                        {/* For vs-current: flat categories, show suppliers directly */}
+                        {/* For vs-goods: may have children hierarchy */}
+                        {isCurrent ? (
+                          /* Show suppliers directly under category */
+                          hasSuppliers && item.supplierIds!.map((sId, sIdx) => (
+                            <div
+                              key={sId}
+                              className={`flex items-center justify-end p-[8px_10px] ${sIdx < item.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
+                            >
+                              <span className="text-[13px] text-white/70 text-right">
+                                {supplierNamesMap.get(sId) || sId}
+                              </span>
+                            </div>
+                          ))
+                        ) : hasChildren ? (
                           item.children!.map((child, childIdx) => {
                             const childPct = child.target > 0 ? (child.actual / child.target) * 100 : 0;
                             const childDiff = child.actual - child.target;
@@ -1152,28 +1133,10 @@ export default function GoalsPage() {
                                     {formatCurrency(child.actual)}
                                   </span>
 
-                                  {/* Target - editable for vs-current children */}
-                                  {isCurrent && child.editable ? (
-                                    <div className="w-[80px] flex items-center justify-center gap-0" onClick={(e) => e.stopPropagation()}>
-                                      {focusedInputId !== child.id && <span className="text-[14px] font-normal text-white ltr-num">₪</span>}
-                                      <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        title={`יעד עבור ${child.name}`}
-                                        value={child.target.toLocaleString("en-US")}
-                                        onChange={(e) => handleCurrentExpenseTargetChange(child, e.target.value.replace(/,/g, ""), true, item.id)}
-                                        onFocus={() => setFocusedInputId(child.id)}
-                                        onBlur={() => setFocusedInputId(null)}
-                                        style={{ width: focusedInputId === child.id ? '80px' : `${Math.max(1, String(child.target.toLocaleString("en-US")).length)}ch` }}
-                                        className="text-[14px] font-normal text-white text-center bg-transparent border-none outline-none ltr-num"
-                                        placeholder="0"
-                                      />
-                                    </div>
-                                  ) : (
-                                    <span className="w-[80px] text-[14px] font-normal text-white text-center ltr-num">
-                                      {formatCurrency(child.target)}
-                                    </span>
-                                  )}
+                                  {/* Target */}
+                                  <span className="w-[80px] text-[14px] font-normal text-white text-center ltr-num">
+                                    {formatCurrency(child.target)}
+                                  </span>
 
                                   {/* Child Name with expand arrow */}
                                   <div className="flex-1 flex flex-row-reverse items-center justify-start gap-[3px]">

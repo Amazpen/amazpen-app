@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -15,6 +15,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 export function PushPrompt() {
   const [show, setShow] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Don't show if not supported
@@ -29,10 +30,12 @@ export function PushPrompt() {
       reg.pushManager.getSubscription().then((sub) => {
         if (!sub) {
           // Small delay so it doesn't pop immediately
-          setTimeout(() => setShow(true), 3000);
+          timerRef.current = setTimeout(() => setShow(true), 3000);
         }
       });
     });
+
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, []);
 
   const handleEnable = useCallback(async () => {

@@ -175,7 +175,10 @@
       "WebFetch(domain:whatwebcando.today)",
       "WebFetch(domain:blog.logicwind.com)",
       "WebFetch(domain:deanhume.com)",
-      "mcp__n8n-render__tools_documentation"
+      "mcp__n8n-render__tools_documentation",
+      "Bash(git hash-object:*)",
+      "mcp__dokploy__application-readAppMonitoring",
+      "mcp__dokploy__application-cancelDeployment"
     ]
   },
   "enableAllProjectMcpServers": true,

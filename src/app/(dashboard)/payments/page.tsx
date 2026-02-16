@@ -273,7 +273,7 @@ export default function PaymentsPage() {
   useEffect(() => {
     if (showAddPaymentPopup) {
       paymentDraftRestored.current = false;
-      setTimeout(() => {
+      const t = setTimeout(() => {
         const draft = restorePaymentDraft();
         if (draft) {
           if (draft.paymentDate) setPaymentDate(draft.paymentDate as string);
@@ -284,6 +284,7 @@ export default function PaymentsPage() {
         }
         paymentDraftRestored.current = true;
       }, 0);
+      return () => clearTimeout(t);
     }
   }, [showAddPaymentPopup, restorePaymentDraft]);
 
