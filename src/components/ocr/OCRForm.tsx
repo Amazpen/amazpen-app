@@ -1282,31 +1282,24 @@ export default function OCRForm({
           )}
 
           {/* Items table */}
-          <div className="overflow-hidden">
-            <table className="w-full text-[13px] table-fixed">
-              <colgroup>
-                <col className="w-[calc(100%-195px)]" />
-                <col className="w-[45px]" />
-                <col className="w-[65px]" />
-                <col className="w-[60px]" />
-                <col className="w-[25px]" />
-              </colgroup>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]" style={{ minWidth: 320 }}>
               <thead>
-                <tr className="border-b border-[#4C526B] text-white/60">
+                <tr className="border-b border-[#4C526B] text-white/60 whitespace-nowrap">
                   <th className="text-right py-[6px] pr-[4px]">פריט</th>
-                  <th className="text-center py-[6px]">כמות</th>
-                  <th className="text-center py-[6px]">מחיר</th>
-                  <th className="text-center py-[6px]">סה&quot;כ</th>
-                  <th></th>
+                  <th className="text-center py-[6px] w-[50px]">כמות</th>
+                  <th className="text-center py-[6px] w-[75px]">מחיר</th>
+                  <th className="text-center py-[6px] w-[75px]">סה&quot;כ</th>
+                  <th className="w-[28px]"></th>
                 </tr>
               </thead>
               <tbody>
                 {lineItems.map((li, idx) => (
-                  <tr key={idx} className="border-b border-[#4C526B]/50">
-                    <td className="text-right py-[6px] pr-[4px] text-white truncate max-w-0" title={li.description || '-'}>{li.description || '-'}</td>
+                  <tr key={idx} className="border-b border-[#4C526B]/50 whitespace-nowrap">
+                    <td className="text-right py-[6px] pr-[4px] text-white max-w-[120px] overflow-hidden text-ellipsis" title={li.description || '-'}>{li.description || '-'}</td>
                     <td className="text-center py-[6px] text-white/70 ltr-num">{li.quantity || '-'}</td>
                     <td className="text-center py-[6px] ltr-num leading-tight">
-                      <span className="text-white text-[12px]">&#8362;{li.unit_price?.toFixed(2) || '0'}</span>
+                      <span className="text-white">&#8362;{li.unit_price?.toFixed(2) || '0'}</span>
                       {priceCheckDone && li.price_change_pct != null && li.price_change_pct !== 0 && (
                         <span className={`block text-[9px] ${(li.price_change_pct || 0) > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
                           {li.price_change_pct > 0 ? '\u25B2' : '\u25BC'}{Math.abs(li.price_change_pct).toFixed(1)}%
@@ -1316,7 +1309,7 @@ export default function OCRForm({
                         <span className="block text-[9px] text-[#00D4FF]">חדש</span>
                       )}
                     </td>
-                    <td className="text-center py-[6px] text-white/70 ltr-num text-[12px]">&#8362;{li.total?.toFixed(2) || '0'}</td>
+                    <td className="text-center py-[6px] text-white/70 ltr-num">&#8362;{li.total?.toFixed(2) || '0'}</td>
                     <td className="text-center py-[6px]">
                       <button
                         type="button"

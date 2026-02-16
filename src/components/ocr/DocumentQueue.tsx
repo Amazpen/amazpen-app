@@ -299,11 +299,38 @@ function isPdfDocument(doc: OCRDocument): boolean {
   }
 }
 
-// PDF preview thumbnail using Google Docs Viewer for reliable rendering
+// PDF thumbnail - renders first page using pdf.js canvas
 function PdfThumbnail({ url }: { url: string }) {
-  const [loaded, setLoaded] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [rendered, setRendered] = useState(false);
   const [error, setError] = useState(false);
-  const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+
+  useEffect(() => {
+    let cancelled = false;
+    async function renderPdf() {
+      try {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+        const pdf = await pdfjsLib.getDocument(url).promise;
+        const page = await pdf.getPage(1);
+        const canvas = canvasRef.current;
+        if (!canvas || cancelled) return;
+        const viewport = page.getViewport({ scale: 1 });
+        const scale = Math.max(canvas.clientWidth / viewport.width, canvas.clientHeight / viewport.height);
+        const scaledViewport = page.getViewport({ scale });
+        canvas.width = scaledViewport.width;
+        canvas.height = scaledViewport.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        await page.render({ canvasContext: ctx, viewport: scaledViewport, canvas } as never).promise;
+        if (!cancelled) setRendered(true);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    }
+    renderPdf();
+    return () => { cancelled = true; };
+  }, [url]);
 
   if (error) {
     return (
@@ -319,24 +346,15 @@ function PdfThumbnail({ url }: { url: string }) {
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-white">
-      {!loaded && (
+      {!rendered && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#0a0d1f]">
           <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
         </div>
       )}
-      <iframe
-        src={viewerUrl}
-        title="תצוגה מקדימה PDF"
-        className="pointer-events-none"
-        style={{
-          width: '100%',
-          height: '100%',
-          border: 'none',
-          opacity: loaded ? 1 : 0,
-        }}
-        tabIndex={-1}
-        onLoad={() => setLoaded(true)}
-        onError={() => setError(true)}
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full object-cover"
+        style={{ opacity: rendered ? 1 : 0 }}
       />
     </div>
   );
