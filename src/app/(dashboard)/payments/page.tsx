@@ -300,6 +300,7 @@ export default function PaymentsPage() {
   const [updateConfirmation, setUpdateConfirmation] = useState<{ changes: Array<{ label: string; before: string; after: string }>; onConfirm: () => void } | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [filterBy, setFilterBy] = useState<string>("");
+  const [filterValue, setFilterValue] = useState<string>("");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -2535,9 +2536,24 @@ export default function PaymentsPage() {
             title="הורדת תשלומים"
             className="opacity-50 hover:opacity-100 cursor-pointer transition-opacity"
             onClick={() => {
+              const searchVal = filterValue.trim().toLowerCase();
+              const filtered = recentPaymentsData.filter((payment) => {
+                if (!filterBy || !searchVal) return true;
+                switch (filterBy) {
+                  case "date": return payment.date.includes(searchVal);
+                  case "supplier": return payment.supplier.toLowerCase().includes(searchVal);
+                  case "paymentNumber": return payment.checkNumber?.includes(searchVal) || payment.rawSplits.some(s => s.check_number?.includes(searchVal));
+                  case "reference": return (payment.reference || "").toLowerCase().includes(searchVal);
+                  case "installments": return payment.installments.includes(searchVal);
+                  case "amount": return payment.totalAmount.toLocaleString().includes(searchVal) || payment.totalAmount.toString().includes(searchVal) || payment.rawSplits.some(s => s.amount.toString().includes(searchVal));
+                  case "totalPaid": return payment.totalAmount.toLocaleString().includes(searchVal) || payment.totalAmount.toString().includes(searchVal);
+                  case "notes": return (payment.notes || "").toLowerCase().includes(searchVal);
+                  default: return true;
+                }
+              });
               const headers = ["תאריך", "ספק", "אמצעי תשלום", "מס׳ צ׳ק", "כמות תשלומים", "סכום", "אסמכתא", "הערות"];
               const rows: string[][] = [];
-              for (const payment of recentPaymentsData) {
+              for (const payment of filtered) {
                 for (const split of payment.rawSplits) {
                   rows.push([
                     split.due_date ? new Date(split.due_date).toLocaleDateString("he-IL") : payment.date,
@@ -2568,6 +2584,36 @@ export default function PaymentsPage() {
           </button>
         </div>
 
+        {/* Filter Input Bar */}
+        {filterBy && (
+          <div className="flex items-center gap-[10px] px-[10px]">
+            <span className="text-[13px] text-white/60 whitespace-nowrap">
+              {filterBy === "date" ? "תאריך:" : filterBy === "supplier" ? "ספק:" : filterBy === "paymentNumber" ? "מספר תשלום:" : filterBy === "reference" ? "אסמכתא:" : filterBy === "installments" ? "תשלומים:" : filterBy === "amount" ? "סכום:" : filterBy === "totalPaid" ? "סך תשלום:" : "הערות:"}
+            </span>
+            <input
+              type="text"
+              value={filterValue}
+              onChange={(e) => setFilterValue(e.target.value)}
+              placeholder={
+                filterBy === "date" ? "לדוגמה: 01.02" :
+                filterBy === "supplier" ? "הקלד שם ספק..." :
+                filterBy === "amount" ? "הקלד סכום..." :
+                filterBy === "reference" ? "הקלד אסמכתא..." :
+                "הקלד טקסט..."
+              }
+              className="flex-1 bg-white/10 text-white text-[13px] rounded-[7px] px-[10px] py-[6px] outline-none placeholder:text-white/30"
+            />
+            <button
+              type="button"
+              title="ניקוי סינון"
+              onClick={() => { setFilterBy(""); setFilterValue(""); }}
+              className="text-white/50 hover:text-white transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
         {/* Table */}
         <div className="w-full flex flex-col">
           {/* Table Header */}
@@ -2583,11 +2629,27 @@ export default function PaymentsPage() {
 
           {/* Table Rows */}
           <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="flex flex-col gap-[10px] max-h-[450px] overflow-y-auto">
-            {recentPaymentsData.length === 0 ? (
+            {(() => {
+              const searchVal = filterValue.trim().toLowerCase();
+              const filteredPayments = recentPaymentsData.filter((payment) => {
+                if (!filterBy || !searchVal) return true;
+                switch (filterBy) {
+                  case "date": return payment.date.includes(searchVal);
+                  case "supplier": return payment.supplier.toLowerCase().includes(searchVal);
+                  case "paymentNumber": return payment.checkNumber?.includes(searchVal) || payment.rawSplits.some(s => s.check_number?.includes(searchVal));
+                  case "reference": return (payment.reference || "").toLowerCase().includes(searchVal);
+                  case "installments": return payment.installments.includes(searchVal);
+                  case "amount": return payment.totalAmount.toLocaleString().includes(searchVal) || payment.totalAmount.toString().includes(searchVal) || payment.rawSplits.some(s => s.amount.toString().includes(searchVal));
+                  case "totalPaid": return payment.totalAmount.toLocaleString().includes(searchVal) || payment.totalAmount.toString().includes(searchVal);
+                  case "notes": return (payment.notes || "").toLowerCase().includes(searchVal);
+                  default: return true;
+                }
+              });
+              return filteredPayments.length === 0 ? (
               <div className="flex items-center justify-center py-[40px]">
                 <span className="text-[16px] text-white/50">אין תשלומים להצגה</span>
               </div>
-            ) : recentPaymentsData.map((payment) => {
+            ) : filteredPayments.map((payment) => {
               // Group splits by payment method for row display
               const methodGroups: Array<{ method: string; methodName: string; totalAmount: number; splits: typeof payment.rawSplits }> = [];
               const methodMap = new Map<string, typeof methodGroups[0]>();
@@ -2926,7 +2988,8 @@ export default function PaymentsPage() {
               </div>
               );
               });
-            })}
+            });
+            })()}
             {isLoadingMore && (
               <div className="flex items-center justify-center py-[15px]">
                 <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
