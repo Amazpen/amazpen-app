@@ -2533,8 +2533,7 @@ export default function PaymentsPage() {
           {/* Download CSV Button */}
           <button
             type="button"
-            title="הורדת תשלומים"
-            className="opacity-50 hover:opacity-100 cursor-pointer transition-opacity"
+            className="flex flex-col items-center gap-[5px] cursor-pointer"
             onClick={() => {
               const searchVal = filterValue.trim().toLowerCase();
               const filtered = recentPaymentsData.filter((payment) => {
@@ -2577,10 +2576,11 @@ export default function PaymentsPage() {
               URL.revokeObjectURL(url);
             }}
           >
-            <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-white">
+            <svg width="30" height="30" viewBox="0 0 32 32" fill="none" className="text-white">
               <path d="M16 4V22M16 22L10 16M16 22L22 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M6 28H26" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
+            <span className="text-[12px] text-white text-center">הורדת תשלומים</span>
           </button>
         </div>
 
