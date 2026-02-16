@@ -405,12 +405,50 @@ export default function ExpensesPage() {
 
       const updated = { ...p, [field]: value };
 
-      // Regenerate installments when installments count changes
+      // Update installments when installments count changes - preserve existing dates
       if (field === "installments") {
         const numInstallments = parseInt(value) || 1;
         const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
-        const startDate = p.customInstallments.length > 0 ? p.customInstallments[0].dateForInput : getPopupEffectiveStartDate();
-        updated.customInstallments = generatePopupInstallments(numInstallments, totalAmount, startDate);
+
+        if (numInstallments <= 1 || totalAmount === 0) {
+          updated.customInstallments = [];
+        } else {
+          const existing = p.customInstallments;
+          const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
+          const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
+
+          if (numInstallments > existing.length && existing.length > 0) {
+            // Growing: keep existing installments, add new ones after the last date
+            const lastExistingDate = existing[existing.length - 1].dateForInput;
+            const kept = existing.map((inst, idx) => ({
+              ...inst,
+              amount: idx === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
+            }));
+            const newOnes = [];
+            for (let i = existing.length; i < numInstallments; i++) {
+              const date = new Date(lastExistingDate);
+              date.setMonth(date.getMonth() + (i - existing.length + 1));
+              newOnes.push({
+                number: i + 1,
+                date: date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
+                dateForInput: date.toISOString().split("T")[0],
+                amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
+              });
+            }
+            updated.customInstallments = [...kept, ...newOnes];
+          } else if (numInstallments < existing.length) {
+            // Shrinking: keep first N installments, recalculate amounts
+            updated.customInstallments = existing.slice(0, numInstallments).map((inst, idx) => ({
+              ...inst,
+              number: idx + 1,
+              amount: idx === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
+            }));
+          } else {
+            // No existing installments or same count - generate fresh
+            const startDate = existing.length > 0 ? existing[0].dateForInput : getPopupEffectiveStartDate();
+            updated.customInstallments = generatePopupInstallments(numInstallments, totalAmount, startDate);
+          }
+        }
       }
 
       // When amount changes, recalculate installment amounts but keep dates
@@ -2915,7 +2953,7 @@ export default function ExpensesPage() {
                                   </div>
                                   <div className="flex flex-col gap-[8px] max-h-[200px] overflow-y-auto">
                                     {pm.customInstallments.map((item, index) => (
-                                      <div key={item.number} className="flex items-center gap-[8px]">
+                                      <div key={`${pm.id}-${item.number}`} className="flex items-center gap-[8px]">
                                         <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
                                         <div className="flex-1 relative">
                                           <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num">
@@ -3577,7 +3615,7 @@ export default function ExpensesPage() {
                           </div>
                           <div className="flex flex-col gap-[8px] max-h-[200px] overflow-y-auto">
                             {pm.customInstallments.map((item, index) => (
-                              <div key={item.number} className="flex items-center gap-[8px]">
+                              <div key={`${pm.id}-${item.number}`} className="flex items-center gap-[8px]">
                                 <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
                                 <div className="flex-1 relative">
                                   <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num">
