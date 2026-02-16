@@ -2485,6 +2485,11 @@ export default function PaymentsPage() {
                     <span className="text-[13px] font-medium ltr-num">
                       ₪{group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
+                    {totalMethodGroups > 1 && (
+                      <span className="text-[11px] font-medium ltr-num text-white/70">
+                        (₪{payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })})
+                      </span>
+                    )}
                   </div>
                 </button>
 
