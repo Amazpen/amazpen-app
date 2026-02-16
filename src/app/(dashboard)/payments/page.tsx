@@ -1580,12 +1580,27 @@ export default function PaymentsPage() {
   };
 
   // Add new payment method entry - inherits the first payment method's start date
+  // If the last entry was a check with a check number, auto-increment it
   const addPaymentMethodEntry = () => {
     const newId = Math.max(...paymentMethods.map(p => p.id)) + 1;
     const startDate = getEffectiveStartDate();
+    const lastEntry = paymentMethods[paymentMethods.length - 1];
+    let newCheckNumber = "";
+    let newMethod = "";
+    if (lastEntry && lastEntry.method === "check") {
+      newMethod = "check";
+      // Get the check number from the last entry (single or last installment)
+      const lastCheckNum = lastEntry.checkNumber ||
+        (lastEntry.customInstallments.length > 0
+          ? lastEntry.customInstallments[lastEntry.customInstallments.length - 1].checkNumber
+          : "");
+      if (lastCheckNum && /^\d+$/.test(lastCheckNum)) {
+        newCheckNumber = String(parseInt(lastCheckNum) + 1);
+      }
+    }
     setPaymentMethods(prev => [
       ...prev,
-      { id: newId, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: generateInstallments(1, 0, startDate) }
+      { id: newId, method: newMethod, amount: "", installments: "1", checkNumber: newCheckNumber, customInstallments: generateInstallments(1, 0, startDate) }
     ]);
   };
 
@@ -2643,7 +2658,7 @@ export default function PaymentsPage() {
                         <button
                           type="button"
                           onClick={() => setShowLinkedInvoices(showLinkedInvoices === payment.id ? null : payment.id)}
-                          className="bg-[#5F6BEA] text-white text-[15px] font-medium py-[5px] px-[14px] rounded-[7px] self-start cursor-pointer hover:bg-[#4E59D9] transition-colors"
+                          className="bg-[#29318A] text-white text-[15px] font-medium py-[5px] px-[14px] rounded-[7px] self-start cursor-pointer hover:bg-[#3D44A0] transition-colors"
                         >
                           הצגת חשבוניות מקושרות
                         </button>
@@ -3165,10 +3180,10 @@ export default function PaymentsPage() {
                             {pm.customInstallments.length > 1 && (
                               <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
                             )}
+                            <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
                             {pm.method === "check" && (
                               <span className="text-[14px] font-medium text-white/70 flex-1 text-center">מס׳ צ׳ק</span>
                             )}
-                            <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">סכום</span>
                           </div>
                           <div className="flex flex-col gap-[8px] max-h-[200px] overflow-y-auto">
