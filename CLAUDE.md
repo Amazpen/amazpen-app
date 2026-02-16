@@ -32,12 +32,29 @@ Docker runs on port **3001** (to avoid Dokploy conflict).
 ### Route Groups
 - `src/app/(auth)/` — Public auth pages (login, forgot-password)
 - `src/app/(dashboard)/` — Protected pages, nested under dashboard layout with business context
-- `src/app/api/` — API routes (ai, upload, push notifications, admin, health)
+- `src/app/api/` — API routes (ai, upload, push notifications, admin, health, daily-push, metrics)
+
+### DashboardContext (Key State Management)
+The main app state lives in `src/app/(dashboard)/layout.tsx` — **not** in a separate contexts/ folder. It defines `DashboardContext` inline, providing:
+- `selectedBusinesses` — multi-business selection state shared across all dashboard pages
+- `isAdmin` — role check derived from user profile
+- `refreshProfile()` — re-fetches user/business data
+
+Access via `useDashboard()` hook (exported from the same layout file).
 
 ### Supabase Clients
 - **Browser:** `src/lib/supabase/client.ts` — singleton via `createBrowserClient()`
 - **Server:** `src/lib/supabase/server.ts` — per-request via `createServerClient()` with cookie handling
-- **Middleware:** `middleware.ts` — auth check on every request, redirects unauthenticated users to `/login`
+- **Middleware:** `middleware.ts` — auth check on every request, redirects unauthenticated users to `/login`. API routes are excluded from middleware matching.
+
+### Component Organization
+- `src/components/ui/` — shadcn/ui primitives + app-wide UI (toast, install-prompt, update-prompt, push-prompt)
+- `src/components/dashboard/` — Dashboard-specific widgets and modals
+- `src/components/ai/` — AI chat interface components
+- `src/components/ocr/` — Document OCR scanning and queue components
+
+### Types
+Core domain types in `src/types/index.ts`: User, Business, BusinessSchedule, UserBusiness, Supplier, Expense, Payment, Goal, etc. Additional type files: `ai.ts`, `ocr.ts`, `price-tracking.ts`.
 
 ### AI Chat System (`/api/ai/chat`)
 - Rate limited (20 req/min per user)
@@ -45,11 +62,28 @@ Docker runs on port **3001** (to avoid Dokploy conflict).
 - Tool calls: `getMonthlySummary`, `queryDatabase` (read-only SQL), `getBusinessSchedule`, `getGoals`, `calculate`, `proposeAction`
 - Conversations persisted in `ai_chat_sessions` / `ai_chat_messages` tables
 
+### OCR System
+- `/api/ai/ocr` — Processes uploaded document images via OpenAI vision
+- `src/components/ocr/` — Document queue UI with PDF viewer support (uses `pdfjs-dist`)
+- Supports PDF-to-image conversion via `src/lib/pdfToImage.ts`
+
 ### Role-Based Access
-Roles stored in `business_members` table: admin, owner, manager, employee. Admin pages under `(dashboard)/admin/`.
+Roles defined in `src/types/index.ts` as `UserRole`: admin, owner, employee. Stored in `business_members` table. Admin pages under `(dashboard)/admin/`.
 
 ### Real-time
-Supabase Realtime via `useRealtimeSubscription` hook. Can be disabled with `NEXT_PUBLIC_DISABLE_REALTIME=true`.
+Supabase Realtime via `useRealtimeSubscription` and `useMultiTableRealtime` hooks. Can be disabled with `NEXT_PUBLIC_DISABLE_REALTIME=true`.
+
+### PWA / Service Worker
+The app is a Progressive Web App with:
+- `public/sw.js` — Service worker with cache busting (build timestamp injected by `next.config.ts`)
+- Push notifications via `web-push` library and `/api/push/` endpoints
+- Install prompt (`InstallPrompt`) and update prompt (`UpdatePrompt`) components
+- `public/manifest.json` — PWA manifest
+
+### Docker / Deployment
+- `next.config.ts` uses `output: 'standalone'` for Docker builds
+- Multi-stage Dockerfile: deps → builder → runner (node:20-alpine)
+- Docker exposes port **3001** (to avoid Dokploy conflict)
 
 ## RTL & Hebrew Requirements
 
@@ -67,6 +101,7 @@ This is a Hebrew RTL application (`<html lang="he" dir="rtl">`):
 - **Supabase queries:** Use `.maybeSingle()` by default, only `.single()` when row is guaranteed to exist
 - **RLS policies:** Always split into separate SELECT/INSERT/UPDATE/DELETE — never `FOR ALL`
 - **Path alias:** `@/*` maps to `src/*`
+- **Custom hooks:** `src/hooks/` — `useFormDraft` (form persistence), `usePersistedState` (localStorage wrapper), `usePushSubscription`, `use-mobile` (responsive breakpoint)
 
 ## Environment Variables
 

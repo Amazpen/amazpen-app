@@ -712,10 +712,7 @@ export default function OCRPage() {
       setIsLoading(true);
       try {
         const supabase = createClient();
-        // Delete related data first (foreign key constraints)
-        await supabase.from('ocr_extracted_data').delete().eq('document_id', documentId);
-        await supabase.from('ocr_document_crops').delete().eq('document_id', documentId);
-        // Delete the document itself
+        // Delete the document - all related records cascade automatically
         const { error } = await supabase.from('ocr_documents').delete().eq('id', documentId);
         if (error) throw error;
 
