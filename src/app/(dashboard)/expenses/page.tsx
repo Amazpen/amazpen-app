@@ -2322,7 +2322,7 @@ export default function ExpensesPage() {
                           }, 0);
                         }
                       }}
-                      className={`text-[12px] font-bold px-[8px] py-[5px] rounded-full cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap ${
+                      className={`text-[12px] font-bold px-[14px] py-[5px] rounded-full cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap ${
                         isFixedPending ? 'bg-[#bc76ff]' :
                         invoice.status === 'שולם' ? 'bg-[#00E096]' :
                         invoice.status === 'בבירור' ? 'bg-[#FFA500]' : 'bg-[#29318A]'

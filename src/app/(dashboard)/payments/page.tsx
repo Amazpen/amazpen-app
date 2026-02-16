@@ -287,6 +287,8 @@ export default function PaymentsPage() {
 
   const [showAddPaymentPopup, setShowAddPaymentPopup] = useState(false);
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [originalPaymentSnapshot, setOriginalPaymentSnapshot] = useState<{ date: string; totalAmount: number; splits: Array<{ method: string; amount: number; dueDate: string | null; installmentNumber: number | null }> } | null>(null);
+  const [updateConfirmation, setUpdateConfirmation] = useState<{ changes: Array<{ label: string; before: string; after: string }>; onConfirm: () => void } | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [filterBy, setFilterBy] = useState<string>("");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -1253,6 +1255,18 @@ export default function PaymentsPage() {
       setSelectedInvoiceIds(new Set());
     }
 
+    // Store original snapshot for change detection
+    setOriginalPaymentSnapshot({
+      date: payment.rawDate,
+      totalAmount: payment.totalAmount,
+      splits: payment.rawSplits.map(s => ({
+        method: s.payment_method,
+        amount: s.amount,
+        dueDate: s.due_date,
+        installmentNumber: s.installment_number,
+      })),
+    });
+
     setEditingPaymentId(payment.id);
     setShowAddPaymentPopup(true);
   };
@@ -1290,7 +1304,64 @@ export default function PaymentsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBusinesses, suppliers]);
 
-  // Update existing payment
+  // Detect changes between original and current payment for confirmation popup
+  const detectPaymentChanges = () => {
+    if (!originalPaymentSnapshot) return [];
+    const changes: Array<{ label: string; before: string; after: string }> = [];
+    const formatDate = (d: string) => d ? new Date(d).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
+    const formatAmount = (n: number) => `₪${n.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const getMethodLabel = (m: string) => paymentMethodOptions.find(o => o.value === m)?.label || m;
+
+    // Check payment date change
+    if (paymentDate !== originalPaymentSnapshot.date) {
+      changes.push({ label: "תאריך תשלום", before: formatDate(originalPaymentSnapshot.date), after: formatDate(paymentDate) });
+    }
+
+    // Check total amount change
+    const newTotal = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0), 0);
+    if (Math.abs(newTotal - originalPaymentSnapshot.totalAmount) > 0.01) {
+      changes.push({ label: "סכום כולל", before: formatAmount(originalPaymentSnapshot.totalAmount), after: formatAmount(newTotal) });
+    }
+
+    // Check individual split changes (amounts and dates)
+    const newSplits: Array<{ method: string; amount: number; dueDate: string | null; installmentNumber: number }> = [];
+    for (const pm of paymentMethods) {
+      if (pm.customInstallments.length > 0) {
+        for (const inst of pm.customInstallments) {
+          newSplits.push({ method: pm.method, amount: inst.amount, dueDate: inst.dateForInput || null, installmentNumber: inst.number });
+        }
+      } else {
+        const amount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+        if (amount > 0) newSplits.push({ method: pm.method, amount, dueDate: paymentDate, installmentNumber: 1 });
+      }
+    }
+
+    const oldSplits = originalPaymentSnapshot.splits;
+    // Compare matching splits by index
+    const maxLen = Math.max(oldSplits.length, newSplits.length);
+    for (let i = 0; i < maxLen; i++) {
+      const old = oldSplits[i];
+      const cur = newSplits[i];
+      const instLabel = maxLen > 1 ? ` (תשלום ${i + 1})` : "";
+
+      if (old && cur) {
+        if (Math.abs(old.amount - cur.amount) > 0.01) {
+          changes.push({ label: `סכום${instLabel}`, before: formatAmount(old.amount), after: formatAmount(cur.amount) });
+        }
+        if ((old.dueDate || "") !== (cur.dueDate || "")) {
+          changes.push({ label: `תאריך${instLabel}`, before: formatDate(old.dueDate || ""), after: formatDate(cur.dueDate || "") });
+        }
+      } else if (old && !cur) {
+        changes.push({ label: `${getMethodLabel(old.method)}${instLabel}`, before: formatAmount(old.amount), after: "הוסר" });
+      } else if (!old && cur) {
+        changes.push({ label: `${getMethodLabel(cur.method)}${instLabel}`, before: "חדש", after: formatAmount(cur.amount) });
+      }
+    }
+
+    return changes;
+  };
+
+  // Update payment - check for amount/date changes and show confirmation if needed
   const handleUpdatePayment = async () => {
     if (!editingPaymentId || !selectedSupplier || !paymentDate || paymentMethods.every(pm => !pm.amount)) {
       showToast("נא למלא את כל השדות הנדרשים", "warning");
@@ -1309,7 +1380,21 @@ export default function PaymentsPage() {
       }
     }
 
+    // Detect changes in amount or date fields
+    const changes = detectPaymentChanges();
+    if (changes.length > 0) {
+      setUpdateConfirmation({ changes, onConfirm: executeUpdatePayment });
+      return;
+    }
+
+    // No significant changes - save directly
+    await executeUpdatePayment();
+  };
+
+  // Execute the actual update (called after confirmation)
+  const executeUpdatePayment = async () => {
     setIsSaving(true);
+    setUpdateConfirmation(null);
     const supabase = createClient();
 
     try {
@@ -1714,6 +1799,7 @@ export default function PaymentsPage() {
   };
 
   // Handle installment check number change for a specific payment method
+  // Auto-increment subsequent installment check numbers if they are empty or were auto-filled
   const handleInstallmentCheckNumberChange = (paymentMethodId: number, installmentIndex: number, newCheckNumber: string) => {
     setPaymentMethods(prev => prev.map(p => {
       if (p.id !== paymentMethodId) return p;
@@ -1723,6 +1809,20 @@ export default function PaymentsPage() {
           ...updatedInstallments[installmentIndex],
           checkNumber: newCheckNumber,
         };
+        // Auto-fill subsequent installments with incremented check numbers
+        if (/^\d+$/.test(newCheckNumber)) {
+          let nextNum = parseInt(newCheckNumber);
+          for (let i = installmentIndex + 1; i < updatedInstallments.length; i++) {
+            nextNum++;
+            // Only auto-fill if the field is empty or contains a number (was auto-filled before)
+            if (!updatedInstallments[i].checkNumber || /^\d+$/.test(updatedInstallments[i].checkNumber || "")) {
+              updatedInstallments[i] = {
+                ...updatedInstallments[i],
+                checkNumber: String(nextNum),
+              };
+            }
+          }
+        }
       }
       return { ...p, customInstallments: updatedInstallments };
     }));
@@ -1812,6 +1912,8 @@ export default function PaymentsPage() {
   const handleClosePopup = () => {
     setShowAddPaymentPopup(false);
     setEditingPaymentId(null);
+    setOriginalPaymentSnapshot(null);
+    setUpdateConfirmation(null);
     resetForm();
   };
 
@@ -3112,20 +3214,6 @@ export default function PaymentsPage() {
                       </select>
                     </div>
 
-                    {/* Check Number - only shown when payment method is check and single installment */}
-                    {pm.method === "check" && (parseInt(pm.installments) || 1) <= 1 && (
-                      <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={pm.checkNumber}
-                          onChange={(e) => updatePaymentMethodField(pm.id, "checkNumber", e.target.value)}
-                          placeholder="מספר צ׳ק"
-                          className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px] ltr-num"
-                        />
-                      </div>
-                    )}
-
                     {/* Payment Amount */}
                     <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
                       <input
@@ -3192,19 +3280,6 @@ export default function PaymentsPage() {
                                 {pm.customInstallments.length > 1 && (
                                   <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
                                 )}
-                                {pm.method === "check" && (
-                                  <div className="flex-1">
-                                    <input
-                                      type="text"
-                                      inputMode="numeric"
-                                      title={`מספר צ׳ק תשלום ${item.number}`}
-                                      value={item.checkNumber || ""}
-                                      onChange={(e) => handleInstallmentCheckNumberChange(pm.id, index, e.target.value)}
-                                      placeholder="מס׳ צ׳ק"
-                                      className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
-                                    />
-                                  </div>
-                                )}
                                 <div className="flex-1 relative h-[36px] overflow-hidden">
                                   <input
                                     type="text"
@@ -3220,6 +3295,19 @@ export default function PaymentsPage() {
                                     className="absolute inset-0 w-full h-[36px] opacity-0 cursor-pointer"
                                   />
                                 </div>
+                                {pm.method === "check" && (
+                                  <div className="flex-1">
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      title={`מספר צ׳ק תשלום ${item.number}`}
+                                      value={item.checkNumber || ""}
+                                      onChange={(e) => handleInstallmentCheckNumberChange(pm.id, index, e.target.value)}
+                                      placeholder="מס׳ צ׳ק"
+                                      className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                    />
+                                  </div>
+                                )}
                                 <div className="flex-1 relative">
                                   <input
                                     type="text"
@@ -3249,6 +3337,20 @@ export default function PaymentsPage() {
                               </div>
                             );
                           })()}
+                        </div>
+                      )}
+
+                      {/* Check Number - shown after date for single installment check */}
+                      {pm.method === "check" && (parseInt(pm.installments) || 1) <= 1 && (
+                        <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] mt-[10px]">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={pm.checkNumber}
+                            onChange={(e) => updatePaymentMethodField(pm.id, "checkNumber", e.target.value)}
+                            placeholder="מספר צ׳ק"
+                            className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px] ltr-num"
+                          />
                         </div>
                       )}
                     </div>
@@ -3459,6 +3561,47 @@ export default function PaymentsPage() {
                 className="max-w-[90vw] max-h-[90vh] object-contain rounded-[12px]"
               />
             )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Update Confirmation Popup */}
+      {updateConfirmation && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50" onClick={() => setUpdateConfirmation(null)}>
+          <div dir="rtl" className="bg-[#1A1F4E] rounded-[14px] border border-white/20 shadow-2xl p-[20px] w-[360px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[16px] font-bold text-white text-center mb-[15px]">אישור עדכון תשלום</h3>
+            <p className="text-[14px] text-white/70 text-center mb-[15px]">השינויים הבאים זוהו:</p>
+
+            <div className="flex flex-col gap-[10px] mb-[20px]">
+              {updateConfirmation.changes.map((change, i) => (
+                <div key={i} className="bg-[#0F1535] rounded-[10px] p-[10px] border border-[#4C526B]">
+                  <span className="text-[13px] font-medium text-white/70 block mb-[6px]">{change.label}</span>
+                  <div className="flex items-center gap-[8px]">
+                    <span className="text-[14px] text-red-400 ltr-num flex-1 text-center line-through">{change.before}</span>
+                    <span className="text-[14px] text-white/50">←</span>
+                    <span className="text-[14px] text-green-400 ltr-num flex-1 text-center font-bold">{change.after}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-[10px]">
+              <button
+                type="button"
+                onClick={() => updateConfirmation.onConfirm()}
+                className="flex-1 bg-[#29318A] text-white text-[14px] font-bold py-[10px] rounded-[10px] hover:bg-[#3D44A0] transition-colors cursor-pointer"
+              >
+                אישור עדכון
+              </button>
+              <button
+                type="button"
+                onClick={() => setUpdateConfirmation(null)}
+                className="flex-1 bg-transparent border border-[#4C526B] text-white text-[14px] font-bold py-[10px] rounded-[10px] hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                ביטול
+              </button>
+            </div>
           </div>
         </div>,
         document.body
