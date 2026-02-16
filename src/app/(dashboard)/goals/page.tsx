@@ -357,54 +357,30 @@ export default function GoalsPage() {
           }
         });
 
-        // Build hierarchical goods data by category
+        // Build flat goods data - each category shown directly with its suppliers
         const goodsData: GoalItem[] = (categoriesData || [])
-          .filter(cat => !cat.parent_id)
           .map((cat) => {
-            const childCats = (categoriesData || []).filter(c => c.parent_id === cat.id);
-            let totalActual = goodsCategoryActuals.get(cat.id) || 0;
-            let totalTarget = goodsCategoryTargets.get(cat.id) || 0;
-
-            const parentSupplierIds = goodsSuppliers
+            const catSupplierIds = goodsSuppliers
               .filter(s => s.expense_category_id === cat.id)
               .map(s => s.id);
 
-            const children: GoalItem[] = childCats.map(child => {
-              const childActual = goodsCategoryActuals.get(child.id) || 0;
-              const childTarget = goodsCategoryTargets.get(child.id) || 0;
-              totalActual += childActual;
-              totalTarget += childTarget;
-              const childSupplierIds = goodsSuppliers
-                .filter(s => s.expense_category_id === child.id)
-                .map(s => s.id);
-              return {
-                id: child.id,
-                name: child.name,
-                target: childTarget,
-                actual: childActual,
-                unit: "₪",
-                supplierIds: childSupplierIds,
-              };
-            });
+            const catActual = goodsCategoryActuals.get(cat.id) || 0;
+            const catTarget = goodsCategoryTargets.get(cat.id) || 0;
+
+            // Skip categories that have no goods suppliers and no data
+            if (catSupplierIds.length === 0 && catActual === 0 && catTarget === 0) return null;
 
             return {
               id: cat.id,
               name: cat.name,
-              target: totalTarget,
-              actual: totalActual,
+              target: catTarget,
+              actual: catActual,
               unit: "₪",
-              supplierIds: parentSupplierIds,
-              children: children.length > 0 ? children : undefined,
+              editable: true,
+              supplierIds: catSupplierIds,
             };
           })
-          // Only include categories that have goods suppliers (directly or via children)
-          .filter(cat => {
-            const hasDirectSuppliers = cat.supplierIds && cat.supplierIds.length > 0;
-            const hasChildSuppliers = cat.children?.some(c => c.supplierIds && c.supplierIds.length > 0);
-            const hasActual = cat.actual > 0;
-            const hasTarget = cat.target > 0;
-            return hasDirectSuppliers || hasChildSuppliers || hasActual || hasTarget;
-          });
+          .filter(Boolean) as GoalItem[];
 
         // Add total row
         const goodsTotalActual = goodsData.reduce((sum, g) => sum + g.actual, 0);
@@ -882,6 +858,22 @@ export default function GoalsPage() {
     }, 800);
   };
 
+  // Handle goods purchase target change (for vs-goods tab)
+  const handleGoodsTargetChange = (item: GoalItem, newTarget: string) => {
+    const numValue = parseFloat(newTarget) || 0;
+
+    setGoodsPurchaseData(prev => prev.map(i =>
+      i.id === item.id ? { ...i, target: numValue } : i
+    ));
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      if (item.supplierIds && item.supplierIds.length > 0) {
+        saveCategoryTargetToDB(item.supplierIds, numValue);
+      }
+    }, 800);
+  };
+
   // Show message if no business selected
   if (selectedBusinesses.length === 0) {
     return (
@@ -1019,8 +1011,8 @@ export default function GoalsPage() {
                 const hasChildren = item.children && item.children.length > 0;
                 const hasSuppliers = item.supplierIds && item.supplierIds.length > 0;
                 const isExpandable = (isCurrent || isGoods) && (hasChildren || hasSuppliers);
-                // For vs-current, categories are flat (no children), so always editable
-                const isFlatEditable = isCurrent && item.editable;
+                // For vs-current and vs-goods, categories are flat, so editable
+                const isFlatEditable = (isCurrent || isGoods) && item.editable;
                 const isExpanded = expandedGoalId === item.id;
 
                 return (
@@ -1056,6 +1048,8 @@ export default function GoalsPage() {
                               const val = e.target.value.replace(/,/g, "");
                               if (isKpi) {
                                 handleTargetChange(item.id, val);
+                              } else if (isGoods) {
+                                handleGoodsTargetChange(item, val);
                               } else {
                                 handleCurrentExpenseTargetChange(item, val, false);
                               }
@@ -1090,102 +1084,19 @@ export default function GoalsPage() {
                       </div>
                     </div>
 
-                    {/* Expanded Content */}
-                    {isExpanded && isExpandable && (
+                    {/* Expanded Content - show suppliers directly under category */}
+                    {isExpanded && isExpandable && hasSuppliers && (
                       <div className="bg-white/5 rounded-[7px] mx-[7px] mb-[3px]">
-                        {/* For vs-current: flat categories, show suppliers directly */}
-                        {/* For vs-goods: may have children hierarchy */}
-                        {isCurrent ? (
-                          /* Show suppliers directly under category */
-                          hasSuppliers && item.supplierIds!.map((sId, sIdx) => (
-                            <div
-                              key={sId}
-                              className={`flex items-center justify-end p-[8px_10px] ${sIdx < item.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
-                            >
-                              <span className="text-[13px] text-white/70 text-right">
-                                {supplierNamesMap.get(sId) || sId}
-                              </span>
-                            </div>
-                          ))
-                        ) : hasChildren ? (
-                          item.children!.map((child, childIdx) => {
-                            const childPct = child.target > 0 ? (child.actual / child.target) * 100 : 0;
-                            const childDiff = child.actual - child.target;
-                            const childStatusColor = getStatusColor(childPct, true, child.actual, child.target);
-                            const childHasSuppliers = child.supplierIds && child.supplierIds.length > 0;
-                            const isChildExpanded = expandedChildId === child.id;
-
-                            return (
-                              <div key={child.id} className="flex flex-col">
-                                <div
-                                  className={`flex flex-row items-center justify-between gap-[5px] p-[7px] min-h-[50px] ${childHasSuppliers ? 'cursor-pointer' : ''} ${childIdx < item.children!.length - 1 && !isChildExpanded ? 'border-b border-white/5' : ''}`}
-                                  onClick={childHasSuppliers ? () => setExpandedChildId(isChildExpanded ? null : child.id) : undefined}
-                                >
-                                  {/* Progress/Status */}
-                                  <div className="flex flex-col items-center gap-[3px]">
-                                    <span className={`text-[12px] font-medium ltr-num ${childStatusColor}`}>
-                                      {formatDiff(childDiff, child.unit)}
-                                    </span>
-                                    <ProgressBar percentage={childPct} reverse />
-                                  </div>
-
-                                  {/* Actual */}
-                                  <span className="w-[80px] text-[14px] font-normal text-white text-center ltr-num">
-                                    {formatCurrency(child.actual)}
-                                  </span>
-
-                                  {/* Target */}
-                                  <span className="w-[80px] text-[14px] font-normal text-white text-center ltr-num">
-                                    {formatCurrency(child.target)}
-                                  </span>
-
-                                  {/* Child Name with expand arrow */}
-                                  <div className="flex-1 flex flex-row-reverse items-center justify-start gap-[3px]">
-                                    {childHasSuppliers && (
-                                      <svg
-                                        width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
-                                        className={`flex-shrink-0 transition-transform duration-200 ${isChildExpanded ? 'rotate-180' : ''}`}
-                                      >
-                                        <polyline points="6 9 12 15 18 9" strokeLinecap="round" strokeLinejoin="round" />
-                                      </svg>
-                                    )}
-                                    <span className="text-[14px] font-normal text-white text-right">
-                                      {child.name}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* Suppliers under this child category */}
-                                {isChildExpanded && childHasSuppliers && (
-                                  <div className="bg-white/3 mx-[10px] mb-[5px] rounded-[5px] border-b border-white/5">
-                                    {child.supplierIds!.map((sId, sIdx) => (
-                                      <div
-                                        key={sId}
-                                        className={`flex items-center justify-end p-[6px_10px] ${sIdx < child.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
-                                      >
-                                        <span className="text-[13px] text-white/70 text-right">
-                                          {supplierNamesMap.get(sId) || sId}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })
-                        ) : (
-                          /* Leaf category - show suppliers directly */
-                          hasSuppliers && item.supplierIds!.map((sId, sIdx) => (
-                            <div
-                              key={sId}
-                              className={`flex items-center justify-end p-[8px_10px] ${sIdx < item.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
-                            >
-                              <span className="text-[13px] text-white/70 text-right">
-                                {supplierNamesMap.get(sId) || sId}
-                              </span>
-                            </div>
-                          ))
-                        )}
+                        {item.supplierIds!.map((sId, sIdx) => (
+                          <div
+                            key={sId}
+                            className={`flex items-center justify-end p-[8px_10px] ${sIdx < item.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
+                          >
+                            <span className="text-[13px] text-white/70 text-right">
+                              {supplierNamesMap.get(sId) || sId}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
