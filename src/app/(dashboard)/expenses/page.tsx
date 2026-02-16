@@ -104,7 +104,7 @@ interface InvoiceDisplay {
   attachmentUrls: string[];
   clarificationReason: string | null;
   isFixed: boolean;
-  linkedPayments: { id: string; totalAmount: number; date: string; methods: { method: string; methodKey: string; amount: number; installments: number; checkNumber: string | null }[] }[];
+  linkedPayments: { id: string; amount: number; method: string; date: string }[];
 }
 
 const paymentMethodNames: Record<string, string> = {
@@ -760,25 +760,19 @@ export default function ExpensesPage() {
   const transformInvoicesData = (rawData: any[]): InvoiceDisplay[] => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return rawData.map((inv: any) => {
-      // Build linked payments from joined data — grouped by payment ID
+      // Build linked payments from joined data — each split as its own row
       const linkedPayments: InvoiceDisplay["linkedPayments"] = [];
       if (inv.payments && Array.isArray(inv.payments)) {
         for (const payment of inv.payments) {
           if (payment.payment_splits && Array.isArray(payment.payment_splits)) {
-            const methods = payment.payment_splits.map((split: { amount: number; payment_method: string; installments_count: number | null; check_number: string | null }) => ({
-              method: paymentMethodNames[split.payment_method] || "אחר",
-              methodKey: split.payment_method,
-              amount: Number(split.amount),
-              installments: split.installments_count || 1,
-              checkNumber: split.check_number || null,
-            }));
-            const totalAmount = methods.reduce((sum: number, m: { amount: number }) => sum + m.amount, 0);
-            linkedPayments.push({
-              id: payment.id,
-              totalAmount,
-              date: formatDateString(payment.payment_date),
-              methods,
-            });
+            for (const split of payment.payment_splits) {
+              linkedPayments.push({
+                id: payment.id + "-" + split.id,
+                amount: Number(split.amount),
+                method: paymentMethodNames[split.payment_method] || "אחר",
+                date: formatDateString(payment.payment_date),
+              });
+            }
           }
         }
       }
@@ -2532,7 +2526,7 @@ export default function ExpensesPage() {
                           <div className="flex flex-col gap-[4px]">
                             {/* Total */}
                             <span className="text-[13px] font-bold text-right px-[5px]">
-                              סה&quot;כ תשלומים: ₪{invoice.linkedPayments.reduce((sum, p) => sum + p.totalAmount, 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              סה&quot;כ תשלומים: ₪{invoice.linkedPayments.reduce((sum, p) => sum + p.amount, 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                             {/* Header */}
                             <div dir="rtl" className="flex items-center justify-between gap-[3px] border-b border-white/20 min-h-[40px] px-[3px]">
@@ -2540,25 +2534,12 @@ export default function ExpensesPage() {
                               <span className="text-[13px] flex-1 text-center">אמצעי תשלום</span>
                               <span className="text-[13px] w-[65px] text-center">סכום</span>
                             </div>
-                            {/* Payment rows - grouped by payment */}
+                            {/* Payment rows - each split as its own row */}
                             {invoice.linkedPayments.map((payment) => (
                               <div key={payment.id} dir="rtl" className="flex items-center justify-between gap-[3px] min-h-[40px] px-[3px] rounded-[7px] hover:bg-white/5">
                                 <span className="text-[13px] min-w-[50px] text-center ltr-num">{payment.date}</span>
-                                <div className="flex-1 text-center">
-                                  {payment.methods.map((m, mIdx) => (
-                                    <div key={mIdx} className="text-[13px]">
-                                      <span>{m.method}</span>
-                                      {m.checkNumber && <span className="text-[11px] text-white/50 mr-1">צ׳ק {m.checkNumber}</span>}
-                                      {payment.methods.length > 1 && (
-                                        <span className="text-[11px] text-white/50 mr-1 ltr-num">
-                                          (₪{m.amount % 1 === 0 ? m.amount.toLocaleString("he-IL") : m.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                                        </span>
-                                      )}
-                                      {m.installments > 1 && <span className="text-[11px] text-white/50 mr-1">{m.installments} תשלומים</span>}
-                                    </div>
-                                  ))}
-                                </div>
-                                <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.totalAmount % 1 === 0 ? payment.totalAmount.toLocaleString("he-IL") : payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="text-[13px] flex-1 text-center">{payment.method}</span>
+                                <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.amount % 1 === 0 ? payment.amount.toLocaleString("he-IL") : payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                             ))}
                           </div>
@@ -3357,13 +3338,7 @@ export default function ExpensesPage() {
                       <div key={idx} className="flex flex-col items-center gap-[4px]">
                         <div className="relative border border-[#4C526B] rounded-[8px] overflow-hidden w-[100px] h-[100px]">
                           {isPdfUrl(preview) ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-white/5 cursor-pointer" onClick={() => window.open(preview, '_blank')}>
-                              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E53E3E" strokeWidth="1.5" className="mb-[2px]">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                <polyline points="14 2 14 8 20 8"/>
-                              </svg>
-                              <span className="text-[9px] font-bold text-[#E53E3E]">PDF</span>
-                            </div>
+                            <PdfThumbnail url={preview} className="w-full h-full cursor-pointer" onClick={() => window.open(preview, '_blank')} />
                           ) : (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
