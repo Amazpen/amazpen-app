@@ -2988,8 +2988,8 @@ export default function PaymentsPage() {
                             {pm.customInstallments.map((item, index) => (
                               <div key={item.number} className="flex items-center gap-[8px]">
                                 <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
-                                <div className="flex-1 relative">
-                                  <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num z-[1]">
+                                <label className="flex-1 relative cursor-pointer">
+                                  <span className="flex items-center justify-center w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white ltr-num">
                                     {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
                                   </span>
                                   <input
@@ -2997,10 +2997,9 @@ export default function PaymentsPage() {
                                     title={`תאריך תשלום ${item.number}`}
                                     value={item.dateForInput}
                                     onChange={(e) => handleInstallmentDateChange(pm.id, index, e.target.value)}
-                                    dir="ltr"
-                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-transparent text-center focus:outline-none focus:border-white/50 px-[5px] cursor-pointer [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                   />
-                                </div>
+                                </label>
                                 <div className="flex-1 relative">
                                   <input
                                     type="text"
