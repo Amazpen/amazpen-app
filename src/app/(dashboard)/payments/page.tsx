@@ -2424,50 +2424,72 @@ export default function PaymentsPage() {
               <div className="flex items-center justify-center py-[40px]">
                 <span className="text-[16px] text-white/50">אין תשלומים להצגה</span>
               </div>
-            ) : recentPaymentsData.map((payment) => (
+            ) : recentPaymentsData.map((payment) => {
+              // Group splits by payment method for row display
+              const methodGroups: Array<{ method: string; methodName: string; totalAmount: number; splits: typeof payment.rawSplits }> = [];
+              const methodMap = new Map<string, typeof methodGroups[0]>();
+              for (const split of payment.rawSplits) {
+                const key = split.payment_method;
+                if (!methodMap.has(key)) {
+                  const group = { method: key, methodName: paymentMethodNames[key] || "אחר", totalAmount: 0, splits: [] as typeof payment.rawSplits };
+                  methodMap.set(key, group);
+                  methodGroups.push(group);
+                }
+                const g = methodMap.get(key)!;
+                g.totalAmount += split.amount;
+                g.splits.push(split);
+              }
+              // Fallback if no splits
+              if (methodGroups.length === 0) {
+                methodGroups.push({ method: payment.paymentMethodKey, methodName: payment.paymentMethod, totalAmount: payment.totalAmount, splits: [] });
+              }
+              const totalMethodGroups = methodGroups.length;
+
+              return (
               <div
                 key={payment.id}
                 className={`bg-white/5 rounded-[7px] p-[7px_3px] border transition-colors ${expandedPaymentId === payment.id ? 'border-white' : 'border-transparent'}`}
               >
+                {methodGroups.map((group, groupIdx) => (
                 <button
+                  key={groupIdx}
                   type="button"
                   onClick={() => setExpandedPaymentId(expandedPaymentId === payment.id ? null : payment.id)}
-                  className="flex items-center gap-[5px] w-full p-[5px_3px] min-h-[45px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] cursor-pointer"
+                  className={`flex items-center gap-[5px] w-full p-[5px_3px] min-h-[45px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] cursor-pointer ${groupIdx > 0 ? 'border-t border-white/10' : ''}`}
                 >
-                  {/* Date */}
+                  {/* Date - only show on first row */}
                   <div className="w-[55px] flex-shrink-0 flex items-center justify-start gap-0">
-                    <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${expandedPaymentId === payment.id ? 'rotate-90' : ''} text-white/50`}>
-                      <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span className="text-[13px] font-medium ltr-num">{payment.date}</span>
+                    {groupIdx === 0 ? (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${expandedPaymentId === payment.id ? 'rotate-90' : ''} text-white/50`}>
+                          <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <span className="text-[13px] font-medium ltr-num">{payment.date}</span>
+                      </>
+                    ) : <span className="w-[14px]" />}
                   </div>
 
-                  {/* Supplier */}
-                  <span className="text-[13px] font-medium flex-1 text-center leading-tight">{payment.supplier}</span>
+                  {/* Supplier - only show on first row */}
+                  <span className="text-[13px] font-medium flex-1 text-center leading-tight">
+                    {groupIdx === 0 ? payment.supplier : ""}
+                  </span>
 
-                  {/* Installments */}
-                  <span className="text-[13px] font-medium w-[45px] flex-shrink-0 text-center ltr-num">{payment.installments}</span>
+                  {/* Payment split index */}
+                  <span className="text-[13px] font-medium w-[45px] flex-shrink-0 text-center ltr-num">
+                    {totalMethodGroups > 1 ? `${groupIdx + 1}/${totalMethodGroups}` : payment.installments}
+                  </span>
 
                   {/* Payment Method */}
-                  <div className="w-[55px] flex-shrink-0 flex flex-col items-center leading-tight">
-                    {(() => {
-                      const uniqueMethods = [...new Set(payment.rawSplits.map(s => s.payment_method))];
-                      if (uniqueMethods.length <= 1) {
-                        return <span className="text-[13px] font-medium">{payment.paymentMethod}</span>;
-                      }
-                      return uniqueMethods.map((m, i) => (
-                        <span key={i} className="text-[12px] font-medium">{paymentMethodNames[m] || "אחר"}</span>
-                      ));
-                    })()}
-                  </div>
+                  <span className="text-[13px] font-medium w-[55px] flex-shrink-0 text-center leading-tight">{group.methodName}</span>
 
                   {/* Amount */}
                   <div className="w-[70px] flex-shrink-0 flex flex-col items-center">
                     <span className="text-[13px] font-medium ltr-num">
-                      ₪{payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₪{group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </button>
+                ))}
 
                 {/* Expanded Details */}
                 {expandedPaymentId === payment.id && (
@@ -2681,7 +2703,8 @@ export default function PaymentsPage() {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
             {isLoadingMore && (
               <div className="flex items-center justify-center py-[15px]">
                 <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
