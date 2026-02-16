@@ -46,8 +46,12 @@ interface LinkedInvoice {
 interface RecentPaymentDisplay {
   id: string;
   date: string;
+  rawDate: string;
   supplier: string;
+  supplierId: string;
+  expenseType: string;
   paymentMethod: string;
+  paymentMethodKey: string;
   installments: string;
   amount: number;
   totalAmount: number;
@@ -60,6 +64,8 @@ interface RecentPaymentDisplay {
   createdBy: string | null;
   createdAt: string | null;
   linkedInvoice: LinkedInvoice | null;
+  linkedInvoiceId: string | null;
+  rawSplits: Array<{ id: string; payment_method: string; amount: number; installments_count: number | null; installment_number: number | null; due_date: string | null; check_number: string | null; reference_number: string | null }>;
 }
 
 // Open invoice from database
@@ -278,6 +284,7 @@ export default function PaymentsPage() {
   const paymentDraftRestored = useRef(false);
 
   const [showAddPaymentPopup, setShowAddPaymentPopup] = useState(false);
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [filterBy, setFilterBy] = useState<string>("");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -350,9 +357,9 @@ export default function PaymentsPage() {
     }
   }, [savePaymentDraftData]);
 
-  // Restore payment draft when popup opens
+  // Restore payment draft when popup opens (only for new payment, not edit)
   useEffect(() => {
-    if (showAddPaymentPopup) {
+    if (showAddPaymentPopup && !editingPaymentId) {
       paymentDraftRestored.current = false;
       const t = setTimeout(() => {
         const draft = restorePaymentDraft();
@@ -367,7 +374,10 @@ export default function PaymentsPage() {
       }, 0);
       return () => clearTimeout(t);
     }
-  }, [showAddPaymentPopup, restorePaymentDraft]);
+    if (editingPaymentId) {
+      paymentDraftRestored.current = true;
+    }
+  }, [showAddPaymentPopup, editingPaymentId, restorePaymentDraft]);
 
   // Supplier filtering by expense type
   const expenseTypeMap = { expenses: "current_expenses", purchases: "goods_purchases", employees: "employee_costs" } as const;
@@ -626,8 +636,17 @@ export default function PaymentsPage() {
       return {
         id: p.id,
         date: formatDateString(p.payment_date),
+        rawDate: p.payment_date,
         supplier: p.supplier?.name || "לא ידוע",
+        supplierId: p.supplier?.id || "",
+        expenseType: (() => {
+          const s = suppliers.find(s => s.id === p.supplier?.id);
+          if (s?.expense_type === "goods_purchases") return "purchases";
+          if (s?.expense_type === "employee_costs") return "employees";
+          return "expenses";
+        })(),
         paymentMethod: paymentMethodNames[firstSplit?.payment_method || "other"] || "אחר",
+        paymentMethodKey: firstSplit?.payment_method || "other",
         installments: installmentInfo,
         amount: firstSplit ? Number(firstSplit.amount) : total,
         totalAmount: total,
@@ -648,6 +667,17 @@ export default function PaymentsPage() {
           totalAmount: Number(inv.total_amount),
           attachmentUrl: inv.attachment_url,
         } : null,
+        linkedInvoiceId: p.invoice_id || null,
+        rawSplits: (p.payment_splits || []).map((s: { id: string; payment_method: string; amount: number; installments_count: number | null; installment_number: number | null; due_date: string | null; check_number: string | null; reference_number: string | null }) => ({
+          id: s.id,
+          payment_method: s.payment_method,
+          amount: Number(s.amount),
+          installments_count: s.installments_count,
+          installment_number: s.installment_number,
+          due_date: s.due_date,
+          check_number: s.check_number,
+          reference_number: s.reference_number,
+        })),
       };
     });
   };
@@ -1152,6 +1182,243 @@ export default function PaymentsPage() {
     }
   };
 
+  // Edit payment - pre-populate the form and open Sheet
+  const handleEditPayment = (payment: RecentPaymentDisplay) => {
+    // Set expense type first so supplier list filters correctly
+    setExpenseType(payment.expenseType as "expenses" | "purchases" | "employees");
+    setSelectedSupplier(payment.supplierId);
+    setPaymentDate(payment.rawDate);
+    setNotes(payment.notes || "");
+    setReference(payment.reference || "");
+    setReceiptFile(null);
+    setReceiptPreview(payment.receiptUrl || null);
+
+    // Build payment methods from raw splits
+    // Group splits by payment_method to reconstruct payment method entries
+    const splitsByMethod = new Map<string, typeof payment.rawSplits>();
+    for (const split of payment.rawSplits) {
+      const key = `${split.payment_method}:${split.check_number || ""}`;
+      if (!splitsByMethod.has(key)) splitsByMethod.set(key, []);
+      splitsByMethod.get(key)!.push(split);
+    }
+
+    if (splitsByMethod.size > 0) {
+      let entryId = 1;
+      const entries: { id: number; method: string; amount: string; installments: string; checkNumber: string; customInstallments: Array<{ number: number; date: string; dateForInput: string; amount: number; manuallyEdited?: boolean }> }[] = [];
+
+      for (const [, splits] of splitsByMethod) {
+        const totalForMethod = splits.reduce((sum, s) => sum + s.amount, 0);
+        const installmentsCount = splits[0].installments_count || 1;
+
+        const customInstallments = splits.length > 1 || installmentsCount > 1
+          ? splits.map(s => ({
+              number: s.installment_number || 1,
+              date: s.due_date ? new Date(s.due_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "",
+              dateForInput: s.due_date || "",
+              amount: s.amount,
+              manuallyEdited: true,
+            }))
+          : [];
+
+        entries.push({
+          id: entryId++,
+          method: splits[0].payment_method,
+          amount: totalForMethod.toString(),
+          installments: installmentsCount.toString(),
+          checkNumber: splits[0].check_number || "",
+          customInstallments,
+        });
+      }
+      setPaymentMethods(entries);
+    } else {
+      setPaymentMethods([{ id: 1, method: "", amount: payment.totalAmount.toString(), installments: "1", checkNumber: "", customInstallments: [] }]);
+    }
+
+    // Set linked invoices
+    if (payment.linkedInvoiceId) {
+      setSelectedInvoiceIds(new Set([payment.linkedInvoiceId]));
+    } else {
+      setSelectedInvoiceIds(new Set());
+    }
+
+    setEditingPaymentId(payment.id);
+    setShowAddPaymentPopup(true);
+  };
+
+  // Update existing payment
+  const handleUpdatePayment = async () => {
+    if (!editingPaymentId || !selectedSupplier || !paymentDate || paymentMethods.every(pm => !pm.amount)) {
+      showToast("נא למלא את כל השדות הנדרשים", "warning");
+      return;
+    }
+
+    // Validate installments sum
+    for (const pm of paymentMethods) {
+      if (pm.customInstallments.length > 0) {
+        const pmTotal = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+        const installmentsTotal = getInstallmentsTotal(pm.customInstallments);
+        if (Math.abs(installmentsTotal - pmTotal) > 0.01) {
+          showToast(`סכום התשלומים (${installmentsTotal.toFixed(2)}) לא תואם לסכום לתשלום (${pmTotal.toFixed(2)})`, "warning");
+          return;
+        }
+      }
+    }
+
+    setIsSaving(true);
+    const supabase = createClient();
+
+    try {
+      const totalAmount = paymentMethods.reduce((sum, pm) => {
+        return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
+      }, 0);
+
+      // Upload new receipt if selected
+      let receiptUrl: string | null = receiptPreview; // keep existing if no new file
+      if (receiptFile) {
+        setIsUploadingReceipt(true);
+        const fileExt = receiptFile.name.split('.').pop();
+        const fileName = `receipt-${Date.now()}.${fileExt}`;
+        const filePath = `payments/${fileName}`;
+        const result = await uploadFile(receiptFile, filePath, "attachments");
+        if (result.success) {
+          receiptUrl = result.publicUrl || null;
+        }
+        setIsUploadingReceipt(false);
+      }
+
+      // Find the old payment to check if invoice link changed
+      const oldPayment = recentPaymentsData.find(p => p.id === editingPaymentId);
+
+      // Update the payment record
+      const { error: paymentError } = await supabase
+        .from("payments")
+        .update({
+          supplier_id: selectedSupplier,
+          payment_date: paymentDate,
+          total_amount: totalAmount,
+          invoice_id: selectedInvoiceIds.size > 0 ? Array.from(selectedInvoiceIds)[0] : null,
+          notes: notes || null,
+          receipt_url: receiptUrl,
+        })
+        .eq("id", editingPaymentId);
+
+      if (paymentError) throw paymentError;
+
+      // Delete old splits and recreate
+      await supabase
+        .from("payment_splits")
+        .delete()
+        .eq("payment_id", editingPaymentId);
+
+      // Create new splits
+      for (const pm of paymentMethods) {
+        const amount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+        if (amount > 0) {
+          const installmentsCount = parseInt(pm.installments) || 1;
+
+          if (pm.customInstallments.length > 0) {
+            for (const inst of pm.customInstallments) {
+              await supabase
+                .from("payment_splits")
+                .insert({
+                  payment_id: editingPaymentId,
+                  payment_method: pm.method || "other",
+                  amount: inst.amount,
+                  installments_count: installmentsCount,
+                  installment_number: inst.number,
+                  reference_number: reference || null,
+                  check_number: pm.checkNumber || null,
+                  due_date: inst.dateForInput || null,
+                });
+            }
+          } else {
+            await supabase
+              .from("payment_splits")
+              .insert({
+                payment_id: editingPaymentId,
+                payment_method: pm.method || "other",
+                amount: amount,
+                installments_count: 1,
+                installment_number: 1,
+                reference_number: reference || null,
+                check_number: pm.checkNumber || null,
+                due_date: paymentDate || null,
+              });
+          }
+        }
+      }
+
+      // If old invoice was linked and now different/removed, revert old invoice status
+      if (oldPayment?.linkedInvoiceId && !selectedInvoiceIds.has(oldPayment.linkedInvoiceId)) {
+        await supabase
+          .from("invoices")
+          .update({ status: "pending" })
+          .eq("id", oldPayment.linkedInvoiceId);
+      }
+
+      // Mark newly selected invoices as paid
+      if (selectedInvoiceIds.size > 0) {
+        const selectedInvoices = openInvoices
+          .filter(inv => selectedInvoiceIds.has(inv.id))
+          .sort((a, b) => Number(a.total_amount) - Number(b.total_amount));
+        let remainingAmount = totalAmount;
+        const paidInvoiceIds: string[] = [];
+        for (const inv of selectedInvoices) {
+          const invAmount = Number(inv.total_amount);
+          if (invAmount <= remainingAmount) {
+            paidInvoiceIds.push(inv.id);
+            remainingAmount -= invAmount;
+          }
+        }
+        if (paidInvoiceIds.length > 0) {
+          await supabase
+            .from("invoices")
+            .update({ status: "paid" })
+            .in("id", paidInvoiceIds);
+        }
+      }
+
+      showToast("התשלום עודכן בהצלחה", "success");
+      handleClosePopup();
+      setDateRange(prev => prev ? { ...prev } : prev);
+    } catch (error) {
+      console.error("Error updating payment:", error);
+      showToast("שגיאה בעדכון התשלום", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Delete payment (soft delete)
+  const handleDeletePayment = async (paymentId: string) => {
+    const supabase = createClient();
+    try {
+      const payment = recentPaymentsData.find(p => p.id === paymentId);
+
+      const { error } = await supabase
+        .from("payments")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", paymentId);
+
+      if (error) throw error;
+
+      // Revert linked invoice status
+      if (payment?.linkedInvoiceId) {
+        await supabase
+          .from("invoices")
+          .update({ status: "pending" })
+          .eq("id", payment.linkedInvoiceId);
+      }
+
+      showToast("התשלום נמחק בהצלחה", "success");
+      setExpandedPaymentId(null);
+      setDateRange(prev => prev ? { ...prev } : prev);
+    } catch (error) {
+      console.error("Error deleting payment:", error);
+      showToast("שגיאה במחיקת התשלום", "error");
+    }
+  };
+
   // Payment methods with installments - supports multiple payment methods
   interface PaymentMethodEntry {
     id: number;
@@ -1462,6 +1729,7 @@ export default function PaymentsPage() {
 
   const handleClosePopup = () => {
     setShowAddPaymentPopup(false);
+    setEditingPaymentId(null);
     resetForm();
   };
 
@@ -2138,6 +2406,36 @@ export default function PaymentsPage() {
                     <div className="flex items-center justify-between border-b border-white/20 pb-[8px] px-[7px]" dir="rtl">
                       <span className="text-[16px] font-medium">פרטים נוספים</span>
                       <div className="flex items-center gap-[5px]">
+                        {/* Edit button */}
+                        <button
+                          type="button"
+                          onClick={() => handleEditPayment(payment)}
+                          className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                          title="עריכה"
+                        >
+                          <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                        </button>
+                        {/* Delete button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm("האם למחוק את התשלום?")) {
+                              handleDeletePayment(payment.id);
+                            }
+                          }}
+                          className="w-[20px] h-[20px] text-white opacity-70 hover:text-[#F64E60] transition-opacity cursor-pointer"
+                          title="מחיקה"
+                        >
+                          <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            <line x1="10" y1="11" x2="10" y2="17"/>
+                            <line x1="14" y1="11" x2="14" y2="17"/>
+                          </svg>
+                        </button>
                         {payment.receiptUrl && (
                           <button
                             type="button"
@@ -2314,7 +2612,7 @@ export default function PaymentsPage() {
               >
                 <X className="w-6 h-6" />
               </button>
-              <SheetTitle className="text-white text-xl font-bold">הוספת תשלום חדש</SheetTitle>
+              <SheetTitle className="text-white text-xl font-bold">{editingPaymentId ? "עריכת תשלום" : "הוספת תשלום חדש"}</SheetTitle>
               <div className="w-[24px]" />
             </div>
           </SheetHeader>
@@ -2833,11 +3131,11 @@ export default function PaymentsPage() {
               <div className="flex flex-col gap-[10px] mt-[20px]">
                 <button
                   type="button"
-                  onClick={handleSavePayment}
+                  onClick={editingPaymentId ? handleUpdatePayment : handleSavePayment}
                   disabled={isSaving || isUploadingReceipt}
                   className="w-full bg-[#29318A] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50"
                 >
-                  {isSaving ? "שומר..." : isUploadingReceipt ? "מעלה קובץ..." : "הוספת תשלום"}
+                  {isSaving ? "שומר..." : isUploadingReceipt ? "מעלה קובץ..." : editingPaymentId ? "עדכון תשלום" : "הוספת תשלום"}
                 </button>
                 <button
                   type="button"
