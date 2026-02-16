@@ -1231,7 +1231,7 @@ export default function PaymentsPage() {
       }
       setPaymentMethods(entries);
     } else {
-      setPaymentMethods([{ id: 1, method: "", amount: payment.totalAmount.toString(), installments: "1", checkNumber: "", customInstallments: [] }]);
+      setPaymentMethods([{ id: 1, method: "", amount: payment.totalAmount.toString(), installments: "1", checkNumber: "", customInstallments: generateInstallments(1, payment.totalAmount, payment.rawDate) }]);
     }
 
     // Set linked invoices
@@ -1575,7 +1575,7 @@ export default function PaymentsPage() {
             ...inst,
             amount: idx === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
           }));
-        } else if (totalAmount > 0 && numInstallments > 1) {
+        } else if (totalAmount > 0) {
           const startDate = getEffectiveStartDate();
           updated.customInstallments = generateInstallments(numInstallments, totalAmount, startDate);
         } else {
