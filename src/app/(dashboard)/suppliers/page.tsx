@@ -138,9 +138,11 @@ export default function SuppliersPage() {
     attachmentUrls: string[];
     enteredBy: string;
     entryDate: string;
+    linkedPayments: { id: string; amount: number; method: string; installments: string; date: string; receiptUrl: string | null; notes: string | null }[];
   }>>([]);
   const [expandedSupplierInvoiceId, setExpandedSupplierInvoiceId] = useState<string | null>(null);
   const [expandedSupplierPaymentId, setExpandedSupplierPaymentId] = useState<string | null>(null);
+  const [showLinkedPayments, setShowLinkedPayments] = useState<string | null>(null);
   const [supplierPayments, setSupplierPayments] = useState<Array<{
     id: string;
     date: string;
@@ -906,6 +908,55 @@ export default function SuppliersPage() {
         .limit(20);
 
       if (invoicesList) {
+        // Fetch linked payments for all invoices
+        const invoiceIds = invoicesList.map((inv: Record<string, unknown>) => inv.id as string);
+        const { data: linkedPaymentsList } = await supabase
+          .from("payments")
+          .select(`
+            id,
+            invoice_id,
+            payment_date,
+            total_amount,
+            notes,
+            receipt_url,
+            payment_splits(payment_method, amount, installments_count, installment_number)
+          `)
+          .in("invoice_id", invoiceIds)
+          .is("deleted_at", null);
+
+        const paymentMethodNames: Record<string, string> = {
+          "bank_transfer": "העברה בנקאית",
+          "cash": "מזומן",
+          "check": "צ'ק",
+          "bit": "ביט",
+          "paybox": "פייבוקס",
+          "credit_card": "כרטיס אשראי",
+          "other": "אחר",
+          "credit_companies": "חברות הקפה",
+          "standing_order": "הוראת קבע",
+        };
+
+        // Group payments by invoice_id
+        const paymentsByInvoice: Record<string, Array<{ id: string; amount: number; method: string; installments: string; date: string; receiptUrl: string | null; notes: string | null }>> = {};
+        if (linkedPaymentsList) {
+          for (const pay of linkedPaymentsList) {
+            const invoiceId = pay.invoice_id as string;
+            if (!paymentsByInvoice[invoiceId]) paymentsByInvoice[invoiceId] = [];
+            const firstSplit = pay.payment_splits?.[0];
+            const installCount = firstSplit?.installments_count || 1;
+            const installNum = firstSplit?.installment_number || 1;
+            paymentsByInvoice[invoiceId].push({
+              id: pay.id,
+              amount: Number(pay.total_amount),
+              method: paymentMethodNames[firstSplit?.payment_method || "other"] || "אחר",
+              installments: installCount > 1 ? `${installNum}/${installCount}` : "1/1",
+              date: new Date(pay.payment_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
+              receiptUrl: pay.receipt_url || null,
+              notes: pay.notes || null,
+            });
+          }
+        }
+
         setSupplierInvoices(invoicesList.map((inv: Record<string, unknown>) => ({
           id: inv.id as string,
           date: new Date(inv.invoice_date as string).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
@@ -919,6 +970,7 @@ export default function SuppliersPage() {
           attachmentUrls: parseAttachmentUrls(inv.attachment_url as string | null),
           enteredBy: (inv.creator as { full_name: string } | null)?.full_name || "מערכת",
           entryDate: new Date(inv.created_at as string).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
+          linkedPayments: paymentsByInvoice[inv.id as string] || [],
         })));
       }
 
@@ -971,6 +1023,7 @@ export default function SuppliersPage() {
     setSelectedSupplier(null);
     setSupplierDetailData(null);
     setExpandedSupplierInvoiceId(null);
+    setShowLinkedPayments(null);
   };
 
   // Get category name by ID
@@ -2227,6 +2280,74 @@ export default function SuppliersPage() {
                                   </div>
                                 </div>
                               </div>
+
+                              {/* Linked Payments Section */}
+                              {invoice.linkedPayments.length > 0 && (
+                                <div className="border border-white/20 rounded-[7px] p-[7px] flex flex-col gap-[10px]">
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowLinkedPayments(showLinkedPayments === invoice.id ? null : invoice.id)}
+                                    className="bg-[#29318A] text-white text-[14px] font-medium py-[5px] px-[14px] rounded-[7px] self-start"
+                                  >
+                                    הצגת תשלומים מקושרים ({invoice.linkedPayments.length})
+                                  </button>
+
+                                  {showLinkedPayments === invoice.id && (
+                                    <div className="flex flex-col gap-[5px]">
+                                      {invoice.linkedPayments.map((payment) => (
+                                        <div
+                                          key={payment.id}
+                                          className="flex flex-col gap-[8px] p-[8px] bg-white/5 rounded-[7px]"
+                                        >
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-[6px]">
+                                              {/* View receipt */}
+                                              {payment.receiptUrl && (
+                                                <button
+                                                  type="button"
+                                                  title="צפייה בקבלה"
+                                                  onClick={() => window.open(payment.receiptUrl!, '_blank')}
+                                                  className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
+                                                >
+                                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                                                    <polyline points="21 15 16 10 5 21"/>
+                                                  </svg>
+                                                </button>
+                                              )}
+                                              {/* Download receipt */}
+                                              {payment.receiptUrl && (
+                                                <a
+                                                  href={payment.receiptUrl}
+                                                  download
+                                                  title="הורדת קבלה"
+                                                  className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
+                                                >
+                                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                    <polyline points="7 10 12 15 17 10"/>
+                                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                                  </svg>
+                                                </a>
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-[12px]">
+                                              <span className="text-[13px] text-white ltr-num">₪{payment.amount.toLocaleString()}</span>
+                                              <span className="text-[13px] text-white">{payment.method}</span>
+                                              <span className="text-[13px] text-white/70 ltr-num">{payment.installments}</span>
+                                              <span className="text-[13px] text-white/70 ltr-num">{payment.date}</span>
+                                            </div>
+                                          </div>
+                                          {payment.notes && (
+                                            <div className="text-[12px] text-white/50 text-right pr-[4px]">{payment.notes}</div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

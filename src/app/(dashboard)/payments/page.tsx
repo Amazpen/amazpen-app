@@ -2659,47 +2659,81 @@ export default function PaymentsPage() {
                               <span className="text-[13px] min-w-[50px] text-right">תאריך</span>
                             </div>
                             {/* Invoice row */}
-                            <div className="flex items-center justify-between gap-[3px] min-h-[45px] px-[3px] rounded-[7px]">
-                              <div className="flex items-center gap-[5px] min-w-[45px]">
-                                {payment.linkedInvoice.attachmentUrl && (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={() => window.open(payment.linkedInvoice!.attachmentUrl!, '_blank')}
-                                      className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
-                                    >
-                                      <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                                        <polyline points="21 15 16 10 5 21"/>
-                                      </svg>
-                                    </button>
-                                    <a
-                                      href={payment.linkedInvoice.attachmentUrl}
-                                      download
-                                      className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
-                                    >
-                                      <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                        <polyline points="7 10 12 15 17 10"/>
-                                        <line x1="12" y1="15" x2="12" y2="3"/>
-                                      </svg>
-                                    </a>
-                                  </>
-                                )}
-                              </div>
-                              <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL")}</span>
-                              <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.linkedInvoice.subtotal.toLocaleString("he-IL")}</span>
-                              <span className="text-[13px] w-[65px] text-center ltr-num">{payment.linkedInvoice.invoiceNumber || "-"}</span>
-                              <span className="text-[13px] min-w-[50px] text-right ltr-num">{payment.linkedInvoice.date}</span>
-                            </div>
-                            {/* Invoice Notes */}
-                            {payment.linkedInvoice.notes && (
-                              <div className="flex items-start gap-[8px] px-[5px] pt-[5px] border-t border-white/10">
-                                <span className="text-[12px] text-[#979797] flex-shrink-0">הערות:</span>
-                                <span className="text-[12px] text-white/70 text-right">{payment.linkedInvoice.notes}</span>
-                              </div>
-                            )}
+                            {(() => {
+                              const invoiceAttachmentUrls = parseAttachmentUrls(payment.linkedInvoice.attachmentUrl);
+                              return (
+                                <>
+                                  <div className="flex items-center justify-between gap-[3px] min-h-[45px] px-[3px] rounded-[7px]">
+                                    <div className="flex items-center gap-[5px] min-w-[45px]">
+                                      {invoiceAttachmentUrls.length > 0 && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            title="צפייה בחשבונית"
+                                            onClick={() => window.open(invoiceAttachmentUrls[0], '_blank')}
+                                            className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                          >
+                                            <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2">
+                                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                              <circle cx="8.5" cy="8.5" r="1.5"/>
+                                              <polyline points="21 15 16 10 5 21"/>
+                                            </svg>
+                                          </button>
+                                          <a
+                                            href={invoiceAttachmentUrls[0]}
+                                            download
+                                            title="הורדת חשבונית"
+                                            className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                          >
+                                            <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                              <polyline points="7 10 12 15 17 10"/>
+                                              <line x1="12" y1="15" x2="12" y2="3"/>
+                                            </svg>
+                                          </a>
+                                        </>
+                                      )}
+                                    </div>
+                                    <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL")}</span>
+                                    <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.linkedInvoice.subtotal.toLocaleString("he-IL")}</span>
+                                    <span className="text-[13px] w-[65px] text-center ltr-num">{payment.linkedInvoice.invoiceNumber || "-"}</span>
+                                    <span className="text-[13px] min-w-[50px] text-right ltr-num">{payment.linkedInvoice.date}</span>
+                                  </div>
+                                  {/* Attachment Thumbnails - show all attachments */}
+                                  {invoiceAttachmentUrls.length > 1 && (
+                                    <div className="flex flex-wrap gap-[6px] px-[5px] pt-[5px]">
+                                      {invoiceAttachmentUrls.map((url, idx) => (
+                                        <button
+                                          key={idx}
+                                          type="button"
+                                          onClick={() => window.open(url, '_blank')}
+                                          className="border border-white/20 rounded-[6px] overflow-hidden w-[50px] h-[50px] hover:border-white/50 transition-colors"
+                                        >
+                                          {url.endsWith(".pdf") ? (
+                                            <div className="w-full h-full flex items-center justify-center bg-white/5">
+                                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                                <polyline points="14 2 14 8 20 8"/>
+                                              </svg>
+                                            </div>
+                                          ) : (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" />
+                                          )}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {/* Invoice Notes */}
+                                  {payment.linkedInvoice.notes && (
+                                    <div className="flex items-start gap-[8px] px-[5px] pt-[5px] border-t border-white/10">
+                                      <span className="text-[12px] text-[#979797] flex-shrink-0">הערות:</span>
+                                      <span className="text-[12px] text-white/70 text-right">{payment.linkedInvoice.notes}</span>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>
