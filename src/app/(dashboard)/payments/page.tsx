@@ -379,6 +379,19 @@ export default function PaymentsPage() {
     }
   }, [showAddPaymentPopup, editingPaymentId, restorePaymentDraft]);
 
+  // Ensure at least 1 installment row exists when popup opens (for new payments)
+  useEffect(() => {
+    if (showAddPaymentPopup && !editingPaymentId) {
+      setPaymentMethods(prev => prev.map(pm => {
+        if (pm.customInstallments.length === 0) {
+          return { ...pm, customInstallments: generateInstallments(parseInt(pm.installments) || 1, parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0, paymentDate || new Date().toISOString().split("T")[0]) };
+        }
+        return pm;
+      }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAddPaymentPopup, editingPaymentId]);
+
   // Supplier filtering by expense type
   const expenseTypeMap = { expenses: "current_expenses", purchases: "goods_purchases", employees: "employee_costs" } as const;
   const filteredSuppliers = suppliers.filter(s =>
@@ -1210,16 +1223,14 @@ export default function PaymentsPage() {
         const totalForMethod = splits.reduce((sum, s) => sum + s.amount, 0);
         const installmentsCount = splits[0].installments_count || 1;
 
-        const customInstallments = splits.length > 1 || installmentsCount > 1
-          ? splits.map(s => ({
+        const customInstallments = splits.map(s => ({
               number: s.installment_number || 1,
               date: s.due_date ? new Date(s.due_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "",
               dateForInput: s.due_date || "",
               amount: s.amount,
               checkNumber: s.check_number || "",
               manuallyEdited: true,
-            }))
-          : [];
+            }));
 
         entries.push({
           id: entryId++,
@@ -1534,7 +1545,7 @@ export default function PaymentsPage() {
 
   // Generate initial installments breakdown
   const generateInstallments = (numInstallments: number, totalAmount: number, startDateStr: string) => {
-    if (numInstallments < 1 || totalAmount === 0) {
+    if (numInstallments < 1) {
       return [];
     }
 
@@ -1571,9 +1582,10 @@ export default function PaymentsPage() {
   // Add new payment method entry - inherits the first payment method's start date
   const addPaymentMethodEntry = () => {
     const newId = Math.max(...paymentMethods.map(p => p.id)) + 1;
+    const startDate = getEffectiveStartDate();
     setPaymentMethods(prev => [
       ...prev,
-      { id: newId, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: [] }
+      { id: newId, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: generateInstallments(1, 0, startDate) }
     ]);
   };
 
@@ -1614,8 +1626,11 @@ export default function PaymentsPage() {
         } else if (totalAmount > 0) {
           const startDate = getEffectiveStartDate();
           updated.customInstallments = generateInstallments(numInstallments, totalAmount, startDate);
+        } else if (p.customInstallments.length > 0) {
+          updated.customInstallments = p.customInstallments.map(inst => ({ ...inst, amount: 0 }));
         } else {
-          updated.customInstallments = [];
+          const startDate = getEffectiveStartDate();
+          updated.customInstallments = generateInstallments(numInstallments, 0, startDate);
         }
       }
 
@@ -1766,7 +1781,8 @@ export default function PaymentsPage() {
     setPaymentDate(new Date().toISOString().split("T")[0]);
     setExpenseType("purchases");
     setSelectedSupplier("");
-    setPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: [] }]);
+    const todayStr = new Date().toISOString().split("T")[0];
+    setPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: generateInstallments(1, 0, todayStr) }]);
     setReference("");
     setNotes("");
     setReceiptFile(null);
@@ -3031,7 +3047,9 @@ export default function PaymentsPage() {
                       {pm.customInstallments.length > 0 && (
                         <div className="mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
                           <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
-                            <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
+                            {pm.customInstallments.length > 1 && (
+                              <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
+                            )}
                             {pm.method === "check" && (
                               <span className="text-[14px] font-medium text-white/70 flex-1 text-center">מס׳ צ׳ק</span>
                             )}
@@ -3041,7 +3059,9 @@ export default function PaymentsPage() {
                           <div className="flex flex-col gap-[8px] max-h-[200px] overflow-y-auto">
                             {pm.customInstallments.map((item, index) => (
                               <div key={item.number} className="flex items-center gap-[8px]">
-                                <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
+                                {pm.customInstallments.length > 1 && (
+                                  <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
+                                )}
                                 {pm.method === "check" && (
                                   <div className="flex-1">
                                     <input
@@ -3067,7 +3087,7 @@ export default function PaymentsPage() {
                                     title={`תאריך תשלום ${item.number}`}
                                     value={item.dateForInput}
                                     onChange={(e) => handleInstallmentDateChange(pm.id, index, e.target.value)}
-                                    className="absolute top-0 left-0 w-full h-[36px] opacity-0 cursor-pointer"
+                                    className="absolute inset-0 w-full h-[36px] opacity-0 cursor-pointer"
                                   />
                                 </div>
                                 <div className="flex-1 relative">
@@ -3075,7 +3095,7 @@ export default function PaymentsPage() {
                                     type="text"
                                     inputMode="decimal"
                                     title={`סכום תשלום ${item.number}`}
-                                    value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
+                                    value={item.amount === 0 ? "" : (item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2))}
                                     onFocus={(e) => e.target.select()}
                                     onChange={(e) => handleInstallmentAmountChange(pm.id, index, e.target.value)}
                                     className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
@@ -3084,7 +3104,7 @@ export default function PaymentsPage() {
                               </div>
                             ))}
                           </div>
-                          {(() => {
+                          {pm.customInstallments.length > 1 && (() => {
                             const installmentsTotal = getInstallmentsTotal(pm.customInstallments);
                             const pmTotal = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
                             const isMismatch = Math.abs(installmentsTotal - pmTotal) > 0.01;
