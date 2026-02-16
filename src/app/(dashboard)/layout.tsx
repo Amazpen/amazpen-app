@@ -390,24 +390,43 @@ export default function DashboardLayout({
     true
   );
 
+  // Lazily create AudioContext only after user interaction
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  useEffect(() => {
+    const initAudio = () => {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioContext();
+      }
+    };
+    document.addEventListener('click', initAudio, { once: true });
+    return () => document.removeEventListener('click', initAudio);
+  }, []);
+
   // Play notification sound when new unread notifications arrive
   useEffect(() => {
     if (unreadCount > prevUnreadCount.current && prevUnreadCount.current > -1) {
       try {
-        const ctx = new AudioContext();
-        // Bell tone: two short beeps
-        [0, 0.15].forEach(offset => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.type = 'sine';
-          osc.frequency.value = 830;
-          gain.gain.setValueAtTime(0.3, ctx.currentTime + offset);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.12);
-          osc.start(ctx.currentTime + offset);
-          osc.stop(ctx.currentTime + offset + 0.12);
-        });
+        const ctx = audioCtxRef.current;
+        if (!ctx) { prevUnreadCount.current = unreadCount; return; }
+        const play = () => {
+          [0, 0.15].forEach(offset => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.value = 830;
+            gain.gain.setValueAtTime(0.3, ctx.currentTime + offset);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.12);
+            osc.start(ctx.currentTime + offset);
+            osc.stop(ctx.currentTime + offset + 0.12);
+          });
+        };
+        if (ctx.state === 'suspended') {
+          ctx.resume().then(play);
+        } else {
+          play();
+        }
       } catch {
         // Audio not supported
       }

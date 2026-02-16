@@ -111,10 +111,50 @@ export function HistoryModal({
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
   const [monthlyData, setMonthlyData] = useState<MonthData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [availableYears, setAvailableYears] = useState<number[]>([new Date().getFullYear()]);
 
-  // Generate available years (current year down to 2020)
-  const currentYear = new Date().getFullYear();
-  const availableYears = Array.from({ length: currentYear - 2019 }, (_, i) => currentYear - i);
+  // Fetch available years from database based on existing data
+  useEffect(() => {
+    if (!isOpen || businessIds.length === 0) return;
+
+    const fetchAvailableYears = async () => {
+      const supabase = createClient();
+      // Get min and max years efficiently
+      const [minResult, maxResult] = await Promise.all([
+        supabase
+          .from("daily_entries")
+          .select("entry_date")
+          .in("business_id", businessIds)
+          .is("deleted_at", null)
+          .order("entry_date", { ascending: true })
+          .limit(1),
+        supabase
+          .from("daily_entries")
+          .select("entry_date")
+          .in("business_id", businessIds)
+          .is("deleted_at", null)
+          .order("entry_date", { ascending: false })
+          .limit(1),
+      ]);
+
+      const minYear = minResult.data?.[0] ? parseInt(minResult.data[0].entry_date.substring(0, 4)) : null;
+      const maxYear = maxResult.data?.[0] ? parseInt(maxResult.data[0].entry_date.substring(0, 4)) : null;
+
+      if (minYear && maxYear) {
+        const years: number[] = [];
+        for (let y = maxYear; y >= minYear; y--) {
+          years.push(y);
+        }
+        setAvailableYears(years);
+        // If currently selected year has no data, switch to the most recent year with data
+        if (!years.includes(year)) {
+          setYear(years[0]);
+        }
+      }
+    };
+
+    fetchAvailableYears();
+  }, [isOpen, businessIds]);
 
   const fetchData = useCallback(async () => {
     if (!isOpen || businessIds.length === 0) return;
@@ -860,37 +900,41 @@ export function HistoryModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {monthlyData.map((row, idx) => (
+                  {monthlyData.map((row, idx) => {
+                    const isFirst = idx === 0;
+                    const isLast = idx === monthlyData.length - 1;
+                    return (
                     <tr key={row.month}>
-                      <td className={`text-center p-[5px] ${idx === 0 ? 'border border-white rounded-tr-[10px]' : idx === 11 ? 'border border-white rounded-br-[10px]' : 'border-x border-white'}`}>
+                      <td className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t rounded-tr-[10px]' : ''} ${isLast ? 'border-b rounded-br-[10px]' : ''}`}>
                         <span className="text-white text-[13px] lg:text-[15px] font-normal leading-[1.4]">
                           {row.monthName}
                         </span>
                       </td>
-                      <td className={`text-center p-[5px] ${idx === 0 ? 'border border-white rounded-tr-[10px] rounded-tl-[10px]' : idx === 11 ? 'border border-white rounded-br-[10px] rounded-bl-[10px]' : 'border-x border-white'} ${!isCostCard && idx === 0 ? 'rounded-tl-[10px]' : ''} ${!isCostCard && idx === 11 ? 'rounded-bl-[10px]' : ''}`}>
+                      <td className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
                         <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getValueColor(row)}`}>
                           {formatCurrencyFull(row.value)}
                         </span>
                       </td>
                       {isCostCard && (
-                        <td className={`text-center p-[5px] ${idx === 0 ? 'border border-white rounded-tr-[10px] rounded-tl-[10px]' : idx === 11 ? 'border border-white rounded-br-[10px] rounded-bl-[10px]' : 'border-x border-white'}`}>
+                        <td className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
                           <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getValueColor(row)}`}>
                             {row.valuePct !== null ? formatPercent(row.valuePct) : '0%'}
                           </span>
                         </td>
                       )}
-                      <td className={`text-center p-[5px] ${idx === 0 ? 'border border-white rounded-tr-[10px] rounded-tl-[10px]' : idx === 11 ? 'border border-white rounded-br-[10px] rounded-bl-[10px]' : 'border-x border-white'}`}>
+                      <td className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
                         <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getDiffColor(row.targetDiffPct)}`}>
                           {row.value === 0 && (row.valuePct === null || row.valuePct === 0) ? '0%' : formatPercentWithSign(row.targetDiffPct)}
                         </span>
                       </td>
-                      <td className={`text-center p-[5px] ${idx === 0 ? 'border border-white rounded-tl-[10px]' : idx === 11 ? 'border border-white rounded-bl-[10px]' : 'border-x border-white'}`}>
+                      <td className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t rounded-tl-[10px]' : ''} ${isLast ? 'border-b rounded-bl-[10px]' : ''}`}>
                         <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getYoyColor(row.yoyChangePct)}`}>
                           {row.value === 0 && (row.valuePct === null || row.valuePct === 0) ? '0%' : formatPercentWithSign(row.yoyChangePct)}
                         </span>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             )}
