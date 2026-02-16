@@ -2654,21 +2654,25 @@ export default function PaymentsPage() {
                               סה&quot;כ סכום חשבוניות: ₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                             {/* Header */}
-                            <div className="flex items-center justify-between gap-[3px] border-b border-white/20 min-h-[40px] px-[3px]">
+                            <div className="flex flex-row-reverse items-center justify-between gap-[3px] border-b border-white/20 min-h-[40px] px-[3px]">
+                              <span className="text-[13px] min-w-[50px] text-center">תאריך</span>
+                              <span className="text-[13px] w-[65px] text-center">אסמכתא</span>
+                              <span className="text-[13px] w-[65px] text-center">סכום לפני מע&quot;מ</span>
+                              <span className="text-[13px] w-[65px] text-center">סכום אחרי מע&quot;מ</span>
                               <div className="flex items-center gap-[5px] min-w-[45px]">
                                 <span className="text-[13px]">פעולות</span>
                               </div>
-                              <span className="text-[13px] w-[65px] text-center">סכום אחרי מע&quot;מ</span>
-                              <span className="text-[13px] w-[65px] text-center">סכום לפני מע&quot;מ</span>
-                              <span className="text-[13px] w-[65px] text-center">אסמכתא</span>
-                              <span className="text-[13px] min-w-[50px] text-right">תאריך</span>
                             </div>
                             {/* Invoice row */}
                             {(() => {
                               const invoiceAttachmentUrls = parseAttachmentUrls(payment.linkedInvoice.attachmentUrl);
                               return (
                                 <>
-                                  <div className="flex items-center justify-between gap-[3px] min-h-[45px] px-[3px] rounded-[7px]">
+                                  <div className="flex flex-row-reverse items-center justify-between gap-[3px] min-h-[45px] px-[3px] rounded-[7px]">
+                                    <span className="text-[13px] min-w-[50px] text-center ltr-num">{payment.linkedInvoice.date}</span>
+                                    <span className="text-[13px] w-[65px] text-center ltr-num">{payment.linkedInvoice.invoiceNumber || "-"}</span>
+                                    <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.linkedInvoice.subtotal.toLocaleString("he-IL")}</span>
+                                    <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL")}</span>
                                     <div className="flex items-center gap-[5px] min-w-[45px]">
                                       {invoiceAttachmentUrls.length > 0 && (
                                         <>
@@ -2699,10 +2703,6 @@ export default function PaymentsPage() {
                                         </>
                                       )}
                                     </div>
-                                    <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL")}</span>
-                                    <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.linkedInvoice.subtotal.toLocaleString("he-IL")}</span>
-                                    <span className="text-[13px] w-[65px] text-center ltr-num">{payment.linkedInvoice.invoiceNumber || "-"}</span>
-                                    <span className="text-[13px] min-w-[50px] text-right ltr-num">{payment.linkedInvoice.date}</span>
                                   </div>
                                   {/* Attachment Thumbnails - show all attachments */}
                                   {invoiceAttachmentUrls.length > 1 && (
