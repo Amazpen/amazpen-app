@@ -178,7 +178,13 @@
       "mcp__n8n-render__tools_documentation",
       "Bash(git hash-object:*)",
       "mcp__dokploy__application-readAppMonitoring",
-      "mcp__dokploy__application-cancelDeployment"
+      "mcp__dokploy__application-cancelDeployment",
+      "mcp__n8n__get_workflow",
+      "WebFetch(domain:n8n-lv4j.onrender.com)",
+      "mcp__n8n__list_workflows",
+      "mcp__n8n__tools_documentation",
+      "WebFetch(domain:www.npmjs.com)",
+      "mcp__n8n__search_nodes"
     ]
   },
   "enableAllProjectMcpServers": true,
