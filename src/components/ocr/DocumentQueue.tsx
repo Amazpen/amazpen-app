@@ -299,15 +299,45 @@ function isPdfDocument(doc: OCRDocument): boolean {
   }
 }
 
-// PDF icon placeholder for thumbnails
-function PdfThumbnail({ size = 32 }: { size?: number }) {
+// PDF preview thumbnail using Google Docs Viewer for reliable rendering
+function PdfThumbnail({ url }: { url: string }) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+  const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+
+  if (error) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1a1f3d]">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+        </svg>
+        <span className="text-[10px] text-red-400 font-bold mt-1">PDF</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1a1f3d]">
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-      </svg>
-      <span className="text-[10px] text-red-400 font-bold mt-1">PDF</span>
+    <div className="absolute inset-0 overflow-hidden bg-white">
+      {!loaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[#0a0d1f]">
+          <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+        </div>
+      )}
+      <iframe
+        src={viewerUrl}
+        title="תצוגה מקדימה PDF"
+        className="pointer-events-none"
+        style={{
+          width: '100%',
+          height: '100%',
+          border: 'none',
+          opacity: loaded ? 1 : 0,
+        }}
+        tabIndex={-1}
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+      />
     </div>
   );
 }
@@ -332,7 +362,7 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
       {/* Image thumbnail */}
       <div className="relative w-full h-[100px] bg-[#0a0d1f]">
         {isPdf ? (
-          <PdfThumbnail size={32} />
+          <PdfThumbnail url={document.image_url} />
         ) : !imageError ? (
           <>
             <img
@@ -446,7 +476,7 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
         {/* Small image thumbnail - right side */}
         <div className="relative w-[56px] h-[80px] flex-shrink-0 bg-[#0a0d1f]">
           {isPdfDocument(document) ? (
-            <PdfThumbnail size={20} />
+            <PdfThumbnail url={document.image_url} />
           ) : !imageError ? (
             <>
               <img
