@@ -3217,24 +3217,44 @@ export default function PaymentsPage() {
               </div>
 
               {/* Amount Mismatch Warning */}
-              {selectedInvoiceIds.size > 0 && (() => {
-                const invoicesTotal = openInvoices
-                  .filter(inv => selectedInvoiceIds.has(inv.id))
-                  .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+              {(() => {
                 const paymentTotal = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount) || 0), 0);
-                const diff = Math.abs(invoicesTotal - paymentTotal);
-                if (paymentTotal > 0 && diff > 0.01) {
+                if (paymentTotal <= 0) return null;
+
+                // Case 1: Invoices selected - compare payment to selected invoices total
+                if (selectedInvoiceIds.size > 0) {
+                  const invoicesTotal = openInvoices
+                    .filter(inv => selectedInvoiceIds.has(inv.id))
+                    .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+                  const diff = Math.abs(invoicesTotal - paymentTotal);
+                  if (diff > 0.01) {
+                    return (
+                      <div className="flex items-center gap-[8px] bg-yellow-500/10 border border-yellow-500/40 rounded-[10px] p-[10px]">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+                          <path d="M12 9v4m0 4h.01M10.29 3.86l-8.8 15.36A2 2 0 003.24 22h17.53a2 2 0 001.75-2.78l-8.8-15.36a2 2 0 00-3.44 0z" stroke="#EAB308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <span className="text-[14px] text-yellow-400">
+                          סכום התשלום (₪{paymentTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) {paymentTotal > invoicesTotal ? "גבוה" : "נמוך"} מסכום החשבוניות שנבחרו (₪{invoicesTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) — הפרש: ₪{diff.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    );
+                  }
+                }
+
+                // Case 2: Invoices visible but none selected - remind user to link
+                if (showOpenInvoices && openInvoices.length > 0 && selectedInvoiceIds.size === 0) {
                   return (
                     <div className="flex items-center gap-[8px] bg-yellow-500/10 border border-yellow-500/40 rounded-[10px] p-[10px]">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
                         <path d="M12 9v4m0 4h.01M10.29 3.86l-8.8 15.36A2 2 0 003.24 22h17.53a2 2 0 001.75-2.78l-8.8-15.36a2 2 0 00-3.44 0z" stroke="#EAB308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                       <span className="text-[14px] text-yellow-400">
-                        שים לב: סכום התשלום (₪{paymentTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) {paymentTotal > invoicesTotal ? "גבוה" : "נמוך"} מסכום החשבוניות (₪{invoicesTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) — הפרש: ₪{diff.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        יש {openInvoices.length} חשבוניות פתוחות שלא קושרו לתשלום זה. סמן חשבוניות לקישור או המשך ללא קישור.
                       </span>
                     </div>
                   );
                 }
+
                 return null;
               })()}
 
