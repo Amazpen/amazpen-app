@@ -1078,6 +1078,7 @@ export default function PaymentsPage() {
       date: string;
       dateForInput: string;
       amount: number;
+      manuallyEdited?: boolean;
     }>;
   }
 
@@ -1263,17 +1264,24 @@ export default function PaymentsPage() {
         updatedInstallments[installmentIndex] = {
           ...updatedInstallments[installmentIndex],
           amount: cappedAmount,
+          manuallyEdited: true,
         };
-        // Distribute the remainder equally among the other installments
-        const remaining = Math.round((totalAmount - cappedAmount) * 100) / 100;
-        const otherIndices = updatedInstallments.map((_, idx) => idx).filter(idx => idx !== installmentIndex);
-        if (otherIndices.length > 0) {
-          const perOther = Math.floor((remaining / otherIndices.length) * 100) / 100;
+        // Calculate total of all manually edited installments (including current)
+        const manualTotal = updatedInstallments.reduce((sum, inst, idx) => {
+          if (inst.manuallyEdited || idx === installmentIndex) return sum + inst.amount;
+          return sum;
+        }, 0);
+        // Distribute remainder only among non-edited installments
+        const remaining = Math.max(0, Math.round((totalAmount - manualTotal) * 100) / 100);
+        const autoIndices = updatedInstallments
+          .map((inst, idx) => idx)
+          .filter(idx => idx !== installmentIndex && !updatedInstallments[idx].manuallyEdited);
+        if (autoIndices.length > 0) {
+          const perOther = Math.floor((remaining / autoIndices.length) * 100) / 100;
           let distributed = 0;
-          for (let i = 0; i < otherIndices.length; i++) {
-            const idx = otherIndices[i];
-            if (i === otherIndices.length - 1) {
-              // Last "other" installment gets the remainder to avoid rounding issues
+          for (let i = 0; i < autoIndices.length; i++) {
+            const idx = autoIndices[i];
+            if (i === autoIndices.length - 1) {
               updatedInstallments[idx] = { ...updatedInstallments[idx], amount: Math.round((remaining - distributed) * 100) / 100 };
             } else {
               updatedInstallments[idx] = { ...updatedInstallments[idx], amount: perOther };
