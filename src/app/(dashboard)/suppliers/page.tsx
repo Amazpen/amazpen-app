@@ -284,7 +284,7 @@ export default function SuppliersPage() {
       const now = new Date();
       const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
       const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`;
-      const supplierIds = (suppliersData || []).map((s: any) => s.id);
+      const supplierIds = (suppliersData || []).map((s: Record<string, unknown>) => s.id);
 
       const { data: monthlyInvoicesData } = supplierIds.length > 0
         ? await supabase

@@ -864,7 +864,7 @@ export default function GoalsPage() {
   }, [selectedBusinesses, selectedYear, selectedMonth]);
 
   // Handle current expenses target change (for vs-current tab)
-  const handleCurrentExpenseTargetChange = (item: GoalItem, newTarget: string, isChild: boolean = false, parentId?: string) => {
+  const handleCurrentExpenseTargetChange = (item: GoalItem, newTarget: string, _isChild: boolean = false, _parentId?: string) => {
     const numValue = parseFloat(newTarget) || 0;
 
     // Update the category target directly (flat structure for vs-current)

@@ -90,6 +90,7 @@ export default function PriceTrackingPage() {
 
   useEffect(() => {
     if (!isCheckingAuth && isAdmin) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- async call, setState deferred
       fetchAlerts();
     }
   }, [isCheckingAuth, isAdmin, fetchAlerts]);
@@ -104,8 +105,10 @@ export default function PriceTrackingPage() {
   // Fetch supplier items when supplier changes
   useEffect(() => {
     if (!selectedSupplierId || !businessId) {
-      setSupplierItems([]);
-      setSelectedItemId(null);
+      requestAnimationFrame(() => {
+        setSupplierItems([]);
+        setSelectedItemId(null);
+      });
       return;
     }
     const fetchItems = async () => {
@@ -139,7 +142,7 @@ export default function PriceTrackingPage() {
   // Fetch price history for selected item
   useEffect(() => {
     if (!selectedItemId) {
-      setPriceHistory([]);
+      requestAnimationFrame(() => setPriceHistory([]));
       return;
     }
     const fetchHistory = async () => {

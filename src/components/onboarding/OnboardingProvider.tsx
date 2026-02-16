@@ -15,9 +15,15 @@ function OnboardingAutoStarter() {
 
   // Use refs to avoid stale closures in the timeout
   const completedToursRef = useRef(completedTours);
-  completedToursRef.current = completedTours;
   const isVisibleRef = useRef(isNextStepVisible);
-  isVisibleRef.current = isNextStepVisible;
+
+  useEffect(() => {
+    completedToursRef.current = completedTours;
+  }, [completedTours]);
+
+  useEffect(() => {
+    isVisibleRef.current = isNextStepVisible;
+  }, [isNextStepVisible]);
 
   useEffect(() => {
     const tourName = tourNameForPath[pathname];

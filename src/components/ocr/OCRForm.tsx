@@ -566,7 +566,7 @@ export default function OCRForm({
         const resolvedType = validTypes.includes(document.document_type as DocumentType)
           ? (document.document_type as DocumentType)
           : 'invoice';
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+         
         setDocumentType(resolvedType);
       }
       if (document.expense_type) {

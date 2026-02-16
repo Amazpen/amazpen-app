@@ -897,7 +897,7 @@ export default function NewBusinessPage() {
   const canProceedStep2 = true; // Schedule has defaults
   const canProceedStep3 = incomeSources.length > 0;
   const canProceedStep4 = true; // Team members are optional
-  const hasOwner = teamMembers.some(m => m.role === "owner");
+  const _hasOwner = teamMembers.some(m => m.role === "owner");
   const canSubmit = true;
 
   const renderStep1 = () => (

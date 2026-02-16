@@ -28,7 +28,7 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
   const [isCropping, setIsCropping] = useState(false);
   const [cropArea, setCropArea] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [cropStart, setCropStart] = useState({ x: 0, y: 0 });
-  const [imageLoaded, setImageLoaded] = useState(false);
+  const [_imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
   const isPdf = isPdfUrl(imageUrl, fileType);

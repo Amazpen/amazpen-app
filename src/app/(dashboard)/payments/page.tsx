@@ -320,7 +320,7 @@ export default function PaymentsPage() {
   const [recentPaymentsData, setRecentPaymentsData] = useState<RecentPaymentDisplay[]>([]);
   const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null);
   const [showLinkedInvoices, setShowLinkedInvoices] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [_isLoading, setIsLoading] = useState(true);
   const [hasMorePayments, setHasMorePayments] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [paymentsOffset, setPaymentsOffset] = useState(0);
@@ -428,11 +428,6 @@ export default function PaymentsPage() {
   const [expandedPastDates, setExpandedPastDates] = useState<Set<string>>(new Set());
   const [pastCommitments, setPastCommitments] = useState<Commitment[]>([]);
   const [showPastCommitments, setShowPastCommitments] = useState(false);
-
-  // Format date for display
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
-  };
 
   // Format date string from database
   const formatDateString = (dateStr: string) => {

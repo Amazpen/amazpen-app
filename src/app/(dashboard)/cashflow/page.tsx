@@ -378,8 +378,8 @@ export default function CashFlowPage() {
         const payments = paymentsResult.data || [];
 
         // Fetch income breakdown (depends on entries)
-        const entryIds = dailyEntries.map((e: any) => e.id);
-        let incomeBreakdownData: any[] = [];
+        const entryIds = dailyEntries.map((e: Record<string, unknown>) => e.id);
+        let incomeBreakdownData: Record<string, unknown>[] = [];
         if (entryIds.length > 0) {
           const { data } = await supabase
             .from("daily_income_breakdown")
@@ -444,10 +444,10 @@ export default function CashFlowPage() {
         // 2. Income source breakdown
         const sourceAmounts = new Map<string, number>();
         for (const item of incomeBreakdownData) {
-          const prev = sourceAmounts.get(item.income_source_id) || 0;
-          sourceAmounts.set(item.income_source_id, prev + (item.amount || 0));
+          const prev = sourceAmounts.get(item.income_source_id as string) || 0;
+          sourceAmounts.set(item.income_source_id as string, prev + (Number(item.amount) || 0));
         }
-        const sourceNameMap = new Map(incomeSources.map((s: any) => [s.id, s.name]));
+        const sourceNameMap = new Map(incomeSources.map((s: Record<string, unknown>) => [s.id as string, s.name as string]));
         const incBreakdown: IncomeSourceBreakdown[] = [];
         let colorIdx = 0;
         for (const [sourceId, amount] of sourceAmounts.entries()) {
@@ -467,12 +467,12 @@ export default function CashFlowPage() {
         // 3. Payment method breakdown
         const methodAmounts = new Map<string, number>();
         for (const payment of payments) {
-          const splits = (payment as any).payment_splits || [];
+          const splits = (payment as Record<string, unknown>).payment_splits as Record<string, unknown>[] || [];
           if (splits.length > 0) {
             for (const split of splits) {
-              const method = split.payment_method || "other";
+              const method = (split.payment_method as string) || "other";
               const prev = methodAmounts.get(method) || 0;
-              methodAmounts.set(method, prev + (split.amount || 0));
+              methodAmounts.set(method, prev + (Number(split.amount) || 0));
             }
           } else {
             const prev = methodAmounts.get("other") || 0;
@@ -498,7 +498,7 @@ export default function CashFlowPage() {
         // 4. Expense type breakdown
         const typeAmounts = new Map<string, number>();
         for (const payment of payments) {
-          const expType = (payment as any).supplier?.expense_type || "current_expenses";
+          const expType = ((payment as Record<string, unknown>).supplier as Record<string, unknown>)?.expense_type as string || "current_expenses";
           const prev = typeAmounts.get(expType) || 0;
           typeAmounts.set(expType, prev + (payment.total_amount || 0));
         }

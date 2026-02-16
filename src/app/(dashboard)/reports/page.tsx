@@ -99,7 +99,7 @@ export default function ReportsPage() {
     netProfitPct: 0,
   });
   const [priorLiabilities, setPriorLiabilities] = useState(0);
-  const [showPriorLiabilities, setShowPriorLiabilities] = useState(false);
+  // showPriorLiabilities state removed - was unused
   const [cashFlowForecast, setCashFlowForecast] = useState({ target: 0, actual: 0 });
 
   // Fetch data from Supabase

@@ -40,10 +40,15 @@ export function NumberInput({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Sync display value when external value changes (and not focused)
+  const prevValueRef = useRef(value);
   useEffect(() => {
-    if (!isFocused) {
-      setDisplayValue(formatWithCommas(value));
+    if (!isFocused && value !== prevValueRef.current) {
+      // Use requestAnimationFrame to avoid synchronous setState in effect
+      const id = requestAnimationFrame(() => setDisplayValue(formatWithCommas(value)));
+      prevValueRef.current = value;
+      return () => cancelAnimationFrame(id);
     }
+    prevValueRef.current = value;
   }, [value, isFocused]);
 
   const handleChange = useCallback(

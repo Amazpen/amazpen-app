@@ -16,18 +16,20 @@ export function UpdatePrompt() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    const id = requestAnimationFrame(() => {
+      setMounted(true);
+    });
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!("serviceWorker" in navigator)) return;
+    if (typeof window === "undefined") return () => cancelAnimationFrame(id);
+    if (!("serviceWorker" in navigator)) return () => cancelAnimationFrame(id);
 
     // Check if inline script already detected a waiting worker
     if (window.__SW_WAITING) {
-      setWaitingWorker(window.__SW_WAITING);
-      setVisible(true);
-      return;
+      const id2 = requestAnimationFrame(() => {
+        setWaitingWorker(window.__SW_WAITING);
+        setVisible(true);
+      });
+      return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
     }
 
     // Subscribe to future updates
@@ -38,10 +40,12 @@ export function UpdatePrompt() {
       };
       window.__SW_UPDATE_CALLBACKS.push(callback);
       return () => {
+        cancelAnimationFrame(id);
         const idx = window.__SW_UPDATE_CALLBACKS.indexOf(callback);
         if (idx !== -1) window.__SW_UPDATE_CALLBACKS.splice(idx, 1);
       };
     }
+    return () => cancelAnimationFrame(id);
   }, []);
 
   const handleUpdate = () => {

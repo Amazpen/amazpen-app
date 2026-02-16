@@ -19,9 +19,6 @@ interface UseRealtimeOptions {
   enabled?: boolean;
 }
 
-// Flag to track if we've already warned about realtime being unavailable
-let realtimeWarningShown = false;
-
 // Check if realtime is disabled via environment variable
 const REALTIME_DISABLED = process.env.NEXT_PUBLIC_DISABLE_REALTIME === "true";
 
@@ -99,16 +96,16 @@ export function useRealtimeSubscription({
 
     // Subscribe to the channel with error handling
     try {
-      channel.subscribe((status, err) => {
+      channel.subscribe((status) => {
         if (status === "SUBSCRIBED") {
           // Successfully connected to realtime
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           // Realtime not available
           setRealtimeAvailable(false);
-          realtimeWarningShown = true;
+          // Realtime warning noted
         }
       });
-    } catch (error) {
+    } catch {
       // WebSocket connection failed - disable realtime
       setRealtimeAvailable(false);
     }

@@ -8,7 +8,7 @@ import { usePersistedState } from "@/hooks/usePersistedState";
 import { generateUUID } from "@/lib/utils";
 
 // Role labels in Hebrew
-const roleLabels: Record<string, string> = {
+const _roleLabels: Record<string, string> = {
   owner: "בעלים",
   manager: "מנהל",
   employee: "עובד",

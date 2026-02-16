@@ -9,7 +9,7 @@ import OCRForm from '@/components/ocr/OCRForm';
 import DocumentQueue from '@/components/ocr/DocumentQueue';
 import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
 import { usePersistedState } from '@/hooks/usePersistedState';
-import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType, OCRLineItem } from '@/types/ocr';
+import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
 
 interface Business {
   id: string;

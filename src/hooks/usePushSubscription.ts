@@ -21,14 +21,20 @@ export function usePushSubscription() {
 
   useEffect(() => {
     const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
-    setIsSupported(supported)
 
-    if (!supported) {
-      setIsLoading(false)
-      return
-    }
+    // Defer state updates to avoid synchronous setState in effect
+    requestAnimationFrame(() => {
+      setIsSupported(supported)
 
-    setPermission(Notification.permission)
+      if (!supported) {
+        setIsLoading(false)
+        return
+      }
+
+      setPermission(Notification.permission)
+    })
+
+    if (!supported) return
 
     navigator.serviceWorker.ready.then((reg) => {
       reg.pushManager.getSubscription().then((sub) => {

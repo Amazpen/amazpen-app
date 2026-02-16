@@ -305,7 +305,7 @@ export function HistoryModal({
         const prevEntryIds = prevEntries.map(e => e.id);
 
         // Fetch breakdowns
-        const [breakdownResult, prevBreakdownResult, goalsResult, incomeSourceGoalsResult] = await Promise.all([
+        const [breakdownResult, prevBreakdownResult, goalsResult, _incomeSourceGoalsResult] = await Promise.all([
           entryIds.length > 0
             ? supabase
                 .from("daily_income_breakdown")
@@ -783,8 +783,7 @@ export function HistoryModal({
 
   // Determine column headers based on card type
   const isCostCard = ['laborCost', 'foodCost', 'managedProduct', 'currentExpenses'].includes(cardType);
-  const valueHeader = isCostCard ? `${cardTitle}\n(%)` : `${cardTitle}\n(₪)`;
-  const valueAmountHeader = isCostCard ? `${cardTitle}\n(₪)` : null;
+  // valueHeader / valueAmountHeader removed - unused
 
   const getValueColor = (row: MonthData) => {
     if (row.value === 0 && (row.valuePct === null || row.valuePct === 0)) return 'text-white';

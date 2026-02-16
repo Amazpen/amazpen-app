@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useDashboard } from "./layout";
 import { DailyEntryForm } from "@/components/dashboard/DailyEntryForm";
@@ -308,7 +308,7 @@ export default function DashboardPage() {
   const [businessCards, setBusinessCards] = useState<BusinessCard[]>([]);
   const [detailedSummary, setDetailedSummary] = useState<DetailedSummary | null>(null);
   const [tasks, setTasks] = useState<TaskDisplay[]>([]);
-  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+  const [_isLoadingTasks, setIsLoadingTasks] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false); // For detailed summary loading
   const [isInitialLoad, setIsInitialLoad] = useState(false); // For skeleton - only when user clicks on business
@@ -331,10 +331,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!dateRange) {
       if (savedDateRange) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+         
         setDateRange({ start: new Date(savedDateRange.start), end: new Date(savedDateRange.end) });
       } else {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+         
         setDateRange({
           start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
           end: new Date(),
@@ -383,7 +383,7 @@ export default function DashboardPage() {
 
       const s = detailedSummary;
       const totalOrders = (s.privateCount || 0) + (s.businessCount || 0);
-      const avgPerOrder = totalOrders > 0 ? s.totalIncome / totalOrders : 0;
+      const _avgPerOrder = totalOrders > 0 ? s.totalIncome / totalOrders : 0;
 
       // Inline styles for email compatibility (Gmail strips CSS classes)
       const cellStyle = 'color:#fff;font-size:12px;height:24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);padding:2px 4px;direction:ltr;';
@@ -802,7 +802,7 @@ export default function DashboardPage() {
   // Update realBusinessId when selectedBusinesses changes
   useEffect(() => {
     if (selectedBusinesses.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setRealBusinessId(selectedBusinesses[0]);
     }
   }, [selectedBusinesses]);
