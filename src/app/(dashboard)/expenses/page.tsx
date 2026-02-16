@@ -78,6 +78,15 @@ function parseAttachmentUrls(raw: string | null): string[] {
   return [raw];
 }
 
+function isPdfUrl(url: string): boolean {
+  try {
+    const pathname = new URL(url).pathname;
+    return pathname.toLowerCase().endsWith(".pdf");
+  } catch {
+    return url.toLowerCase().includes(".pdf");
+  }
+}
+
 // Invoice display for UI
 interface InvoiceDisplay {
   id: string;
@@ -2433,7 +2442,7 @@ export default function ExpensesPage() {
                               onClick={() => setViewerDocUrl(url)}
                               className="border border-white/20 rounded-[8px] overflow-hidden w-[70px] h-[70px] hover:border-white/50 transition-colors cursor-pointer"
                             >
-                              {url.toLowerCase().endsWith(".pdf") ? (
+                              {isPdfUrl(url) ? (
                                 <PdfThumbnail url={url} className="w-full h-full" />
                               ) : (
                                 // eslint-disable-next-line @next/next/no-img-element
@@ -3300,7 +3309,7 @@ export default function ExpensesPage() {
                     {editAttachmentPreviews.map((preview, idx) => (
                       <div key={idx} className="flex flex-col items-center gap-[4px]">
                         <div className="relative border border-[#4C526B] rounded-[8px] overflow-hidden w-[100px] h-[100px]">
-                          {preview.endsWith(".pdf") ? (
+                          {isPdfUrl(preview) ? (
                             <div className="w-full h-full flex flex-col items-center justify-center bg-white/5 cursor-pointer" onClick={() => window.open(preview, '_blank')}>
                               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E53E3E" strokeWidth="1.5" className="mb-[2px]">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -3965,7 +3974,7 @@ export default function ExpensesPage() {
             className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
-            {viewerDocUrl.toLowerCase().endsWith(".pdf") ? (
+            {isPdfUrl(viewerDocUrl) ? (
               <iframe
                 src={viewerDocUrl}
                 className="w-[90vw] h-[90vh] rounded-[12px] border border-white/20"
