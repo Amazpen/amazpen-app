@@ -1073,6 +1073,7 @@ export default function ExpensesPage() {
     setInvoiceNumber(invoice.reference);
     setAmountBeforeVat(invoice.amountBeforeVat.toString());
     setNotes(invoice.notes);
+    setClarificationReason(invoice.clarificationReason || "");
     // Set existing attachment previews
     setEditAttachmentPreviews(invoice.attachmentUrls);
     setEditAttachmentFiles([]);
@@ -1129,6 +1130,11 @@ export default function ExpensesPage() {
         attachment_url: attachmentUrl,
       };
 
+      // Update clarification reason if editing a "בבירור" invoice
+      if (editingInvoice.status === "בבירור") {
+        updateData.clarification_reason = clarificationReason || null;
+      }
+
       if (editingInvoice.isFixed && attachmentUrl && invoiceNumber) {
         updateData.status = "pending";
       }
@@ -1167,6 +1173,7 @@ export default function ExpensesPage() {
     setPartialVat(false);
     setVatAmount("");
     setNotes("");
+    setClarificationReason("");
     // Reset attachments
     setEditAttachmentFiles([]);
     setEditAttachmentPreviews([]);
@@ -3198,6 +3205,21 @@ export default function ExpensesPage() {
                   />
                 </div>
               </div>
+
+              {/* Clarification Reason - only show for invoices with "בבירור" status */}
+              {editingInvoice?.status === "בבירור" && (
+                <div className="flex flex-col gap-[5px]">
+                  <label className="text-[15px] font-medium text-[#FFA500] text-right">סיבת בירור</label>
+                  <div className="border border-[#FFA500]/50 rounded-[10px] min-h-[80px]">
+                    <textarea
+                      value={clarificationReason}
+                      onChange={(e) => setClarificationReason(e.target.value)}
+                      placeholder="סיבת הבירור..."
+                      className="w-full h-full min-h-[80px] bg-transparent text-white text-[16px] text-right rounded-[10px] border-none outline-none p-[10px] resize-none"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Submit and Cancel Buttons */}
               <div className="flex gap-[10px] mt-[10px] mb-[10px]">
