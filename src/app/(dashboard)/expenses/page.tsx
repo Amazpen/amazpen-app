@@ -1816,7 +1816,7 @@ export default function ExpensesPage() {
               {activeExpenseIndex === undefined && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-[18px] font-bold">סה&apos;&apos;כ הוצאות</span>
-                  <span className="text-[35px] font-bold ltr-num">₪{totalExpenses % 1 === 0 ? totalExpenses.toLocaleString("he-IL", { maximumFractionDigits: 0 }) : totalExpenses.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-[22px] font-bold ltr-num">₪{totalExpenses % 1 === 0 ? totalExpenses.toLocaleString("he-IL", { maximumFractionDigits: 0 }) : totalExpenses.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   <span className="text-[18px] font-bold ltr-num">{totalPercentage % 1 === 0 ? totalPercentage.toFixed(0) : totalPercentage.toFixed(2)}%</span>
                 </div>
               )}
