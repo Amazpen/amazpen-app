@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
 import { X } from "lucide-react";
 import { useDashboard } from "../layout";
@@ -68,6 +69,16 @@ interface OpenInvoice {
   invoice_date: string;
   total_amount: number;
   status: string;
+  attachment_url: string | null;
+  notes: string | null;
+}
+
+function parseAttachmentUrls(raw: string | null): string[] {
+  if (!raw) return [];
+  if (raw.startsWith("[")) {
+    try { return JSON.parse(raw).filter((u: unknown) => typeof u === "string" && u); } catch { return []; }
+  }
+  return [raw];
 }
 
 // Forecast: upcoming payment split with supplier info
@@ -167,6 +178,76 @@ const paymentMethodOptions = [
   { value: "credit_companies", label: "חברות הקפה" },
   { value: "standing_order", label: "הוראת קבע" },
 ];
+
+// PDF Thumbnail component - renders first page of a PDF URL as an image
+function PdfThumbnail({ url, className, onClick }: { url: string; className?: string; onClick?: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pdfjsLib = await import("pdfjs-dist") as any;
+        if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+        }
+        const loadingTask = pdfjsLib.getDocument(url);
+        const pdf = await loadingTask.promise;
+        if (cancelled) return;
+        const page = await pdf.getPage(1);
+        const canvas = canvasRef.current;
+        if (!canvas || cancelled) return;
+        const desiredWidth = 140;
+        const unscaledViewport = page.getViewport({ scale: 1 });
+        const scale = desiredWidth / unscaledViewport.width;
+        const viewport = page.getViewport({ scale });
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (page.render as any)({ canvasContext: ctx, viewport }).promise;
+        if (!cancelled) setLoaded(true);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [url]);
+
+  if (error) {
+    return (
+      <div className={className} onClick={onClick} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onClick?.()}>
+        <div className="w-full h-full flex items-center justify-center bg-white/5">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={className} onClick={onClick} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onClick?.()}>
+      <canvas
+        ref={canvasRef}
+        className={`w-full h-full object-cover ${loaded ? '' : 'hidden'}`}
+        style={{ display: loaded ? 'block' : 'none' }}
+      />
+      {!loaded && (
+        <div className="w-full h-full flex items-center justify-center bg-white/5">
+          <div className="w-[20px] h-[20px] border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function PaymentsPage() {
   const { selectedBusinesses } = useDashboard();
@@ -300,6 +381,10 @@ export default function PaymentsPage() {
   const [showOpenInvoices, setShowOpenInvoices] = useState(false);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
+  const [expandedOpenInvoiceId, setExpandedOpenInvoiceId] = useState<string | null>(null);
+
+  // Document viewer popup state (fullscreen preview)
+  const [viewerDocUrl, setViewerDocUrl] = useState<string | null>(null);
 
   // Forecast state
   const [showForecast, setShowForecast] = useState(false);
@@ -1329,7 +1414,7 @@ export default function PaymentsPage() {
       try {
         const { data, error } = await supabase
           .from("invoices")
-          .select("id, invoice_number, invoice_date, total_amount, status")
+          .select("id, invoice_number, invoice_date, total_amount, status, attachment_url, notes")
           .eq("supplier_id", selectedSupplier)
           .in("business_id", selectedBusinesses)
           .in("status", ["pending", "clarification"])
@@ -2054,7 +2139,7 @@ export default function PaymentsPage() {
                         {payment.receiptUrl && (
                           <button
                             type="button"
-                            onClick={() => window.open(payment.receiptUrl!, '_blank')}
+                            onClick={() => setViewerDocUrl(payment.receiptUrl!)}
                             className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
                             title="צפייה בקבלה"
                           >
@@ -2376,38 +2461,91 @@ export default function PaymentsPage() {
                                 </div>
 
                                 {/* Invoice Rows */}
-                                {monthInvoices.map((inv) => (
-                                  <button
-                                    key={inv.id}
-                                    type="button"
-                                    onClick={() => toggleInvoiceSelection(inv.id)}
-                                    className={`flex items-center gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 ${
+                                {monthInvoices.map((inv) => {
+                                  const attachmentUrls = parseAttachmentUrls(inv.attachment_url);
+                                  const hasDetails = attachmentUrls.length > 0 || inv.notes;
+                                  return (
+                                  <div key={inv.id} className="flex flex-col">
+                                    <div className={`flex items-center gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 ${
                                       selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""
-                                    }`}
-                                  >
-                                    <div className="w-[24px] flex-shrink-0 flex items-center justify-center">
-                                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                        {selectedInvoiceIds.has(inv.id) ? (
-                                          <>
-                                            <rect x="3" y="3" width="18" height="18" rx="3" fill="#29318A" stroke="white" strokeWidth="1.5"/>
-                                            <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                          </>
-                                        ) : (
-                                          <rect x="3" y="3" width="18" height="18" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" fill="none"/>
-                                        )}
-                                      </svg>
+                                    }`}>
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleInvoiceSelection(inv.id)}
+                                        className="flex items-center gap-[3px] flex-1 cursor-pointer"
+                                      >
+                                        <div className="w-[24px] flex-shrink-0 flex items-center justify-center">
+                                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                            {selectedInvoiceIds.has(inv.id) ? (
+                                              <>
+                                                <rect x="3" y="3" width="18" height="18" rx="3" fill="#29318A" stroke="white" strokeWidth="1.5"/>
+                                                <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                              </>
+                                            ) : (
+                                              <rect x="3" y="3" width="18" height="18" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" fill="none"/>
+                                            )}
+                                          </svg>
+                                        </div>
+                                        <span className="text-[14px] text-white flex-1 text-center ltr-num">
+                                          {new Date(inv.invoice_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                                        </span>
+                                        <span className="text-[14px] text-white flex-1 text-center ltr-num">
+                                          {inv.invoice_number || "-"}
+                                        </span>
+                                        <span className="text-[14px] text-white flex-1 text-center ltr-num">
+                                          ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                      </button>
+                                      {hasDetails && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setExpandedOpenInvoiceId(expandedOpenInvoiceId === inv.id ? null : inv.id)}
+                                          className="w-[24px] flex-shrink-0 flex items-center justify-center cursor-pointer"
+                                          title="צפייה במסמכים והערות"
+                                        >
+                                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={`transition-colors ${expandedOpenInvoiceId === inv.id ? 'text-[#bc76ff]' : 'text-white/50 hover:text-white/80'}`}>
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="12" y1="16" x2="12" y2="12"/>
+                                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                          </svg>
+                                        </button>
+                                      )}
+                                      {!hasDetails && <div className="w-[24px] flex-shrink-0" />}
                                     </div>
-                                    <span className="text-[14px] text-white flex-1 text-center ltr-num">
-                                      {new Date(inv.invoice_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
-                                    </span>
-                                    <span className="text-[14px] text-white flex-1 text-center ltr-num">
-                                      {inv.invoice_number || "-"}
-                                    </span>
-                                    <span className="text-[14px] text-white flex-1 text-center ltr-num">
-                                      ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </span>
-                                  </button>
-                                ))}
+
+                                    {/* Expanded details: attachments + notes */}
+                                    {expandedOpenInvoiceId === inv.id && hasDetails && (
+                                      <div className="flex flex-col gap-[8px] px-[10px] py-[8px] bg-white/5 rounded-[8px] mx-[5px] mb-[5px]">
+                                        {attachmentUrls.length > 0 && (
+                                          <div className="flex flex-wrap gap-[8px]">
+                                            {attachmentUrls.map((url: string, idx: number) => (
+                                              <button
+                                                key={idx}
+                                                type="button"
+                                                onClick={() => setViewerDocUrl(url)}
+                                                className="border border-white/20 rounded-[8px] overflow-hidden w-[70px] h-[70px] hover:border-white/50 transition-colors cursor-pointer"
+                                              >
+                                                {url.toLowerCase().endsWith(".pdf") ? (
+                                                  <PdfThumbnail url={url} className="w-full h-full" />
+                                                ) : (
+                                                  // eslint-disable-next-line @next/next/no-img-element
+                                                  <img src={url} alt={`מסמך ${idx + 1}`} className="w-full h-full object-cover" />
+                                                )}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        )}
+                                        {inv.notes && (
+                                          <div className="flex items-start gap-[5px]">
+                                            <span className="text-[13px] text-[#979797] flex-shrink-0">הערות:</span>
+                                            <span className="text-[13px] text-white text-right">{inv.notes}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
@@ -2711,6 +2849,57 @@ export default function PaymentsPage() {
             </div>
         </SheetContent>
       </Sheet>
+
+      {/* Fullscreen Document Viewer Popup */}
+      {viewerDocUrl && typeof window !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80"
+          onClick={() => setViewerDocUrl(null)}
+        >
+          {/* Close button */}
+          <button
+            type="button"
+            onClick={() => setViewerDocUrl(null)}
+            className="absolute top-[16px] right-[16px] z-10 w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer"
+          >
+            <X size={24} className="text-white" />
+          </button>
+          {/* Open in new tab button */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); window.open(viewerDocUrl, '_blank'); }}
+            className="absolute top-[16px] left-[16px] z-10 flex items-center gap-[6px] px-[12px] py-[8px] rounded-full bg-black/60 hover:bg-black/80 transition-colors text-white text-[13px] cursor-pointer"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            פתח בכרטיסייה חדשה
+          </button>
+          {/* Document content */}
+          <div
+            className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {viewerDocUrl.toLowerCase().endsWith(".pdf") ? (
+              <iframe
+                src={viewerDocUrl}
+                className="w-[90vw] h-[90vh] rounded-[12px] border border-white/20"
+                title="תצוגת מסמך"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={viewerDocUrl}
+                alt="תצוגת מסמך"
+                className="max-w-[90vw] max-h-[90vh] object-contain rounded-[12px]"
+              />
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
