@@ -2679,7 +2679,7 @@ export default function PaymentsPage() {
                                           <button
                                             type="button"
                                             title="צפייה בחשבונית"
-                                            onClick={() => window.open(invoiceAttachmentUrls[0], '_blank')}
+                                            onClick={() => setViewerDocUrl(invoiceAttachmentUrls[0])}
                                             className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
                                           >
                                             <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2702,38 +2702,55 @@ export default function PaymentsPage() {
                                           </a>
                                         </>
                                       )}
+                                      {(invoiceAttachmentUrls.length > 1 || payment.linkedInvoice.notes) && (
+                                        <button
+                                          type="button"
+                                          title="מסמכים והערות"
+                                          onClick={() => setExpandedOpenInvoiceId(expandedOpenInvoiceId === payment.linkedInvoice!.id ? null : payment.linkedInvoice!.id)}
+                                          className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                        >
+                                          <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <line x1="12" y1="16" x2="12" y2="12"/>
+                                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                          </svg>
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
-                                  {/* Attachment Thumbnails - show all attachments */}
-                                  {invoiceAttachmentUrls.length > 1 && (
-                                    <div className="flex flex-wrap gap-[6px] px-[5px] pt-[5px]">
-                                      {invoiceAttachmentUrls.map((url, idx) => (
-                                        <button
-                                          key={idx}
-                                          type="button"
-                                          onClick={() => window.open(url, '_blank')}
-                                          className="border border-white/20 rounded-[6px] overflow-hidden w-[50px] h-[50px] hover:border-white/50 transition-colors"
-                                        >
-                                          {url.endsWith(".pdf") ? (
-                                            <div className="w-full h-full flex items-center justify-center bg-white/5">
-                                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
-                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                                <polyline points="14 2 14 8 20 8"/>
-                                              </svg>
-                                            </div>
-                                          ) : (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" />
-                                          )}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {/* Invoice Notes */}
-                                  {payment.linkedInvoice.notes && (
-                                    <div className="flex items-start gap-[8px] px-[5px] pt-[5px] border-t border-white/10">
-                                      <span className="text-[12px] text-[#979797] flex-shrink-0">הערות:</span>
-                                      <span className="text-[12px] text-white/70 text-right">{payment.linkedInvoice.notes}</span>
+                                  {/* Expanded: Attachment Thumbnails + Notes */}
+                                  {expandedOpenInvoiceId === payment.linkedInvoice.id && (
+                                    <div className="flex flex-col gap-[8px] px-[5px] py-[8px] bg-white/5 rounded-[8px] mx-[3px] mb-[3px]">
+                                      {invoiceAttachmentUrls.length > 0 && (
+                                        <div className="flex flex-wrap gap-[6px]">
+                                          {invoiceAttachmentUrls.map((url, idx) => (
+                                            <button
+                                              key={idx}
+                                              type="button"
+                                              onClick={() => setViewerDocUrl(url)}
+                                              className="border border-white/20 rounded-[6px] overflow-hidden w-[50px] h-[50px] hover:border-white/50 transition-colors cursor-pointer"
+                                            >
+                                              {url.toLowerCase().endsWith(".pdf") ? (
+                                                <div className="w-full h-full flex items-center justify-center bg-white/5">
+                                                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">
+                                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                                    <polyline points="14 2 14 8 20 8"/>
+                                                  </svg>
+                                                </div>
+                                              ) : (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" />
+                                              )}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {payment.linkedInvoice.notes && (
+                                        <div className="flex items-start gap-[5px]">
+                                          <span className="text-[12px] text-[#979797] flex-shrink-0">הערות:</span>
+                                          <span className="text-[12px] text-white/70 text-right">{payment.linkedInvoice.notes}</span>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </>
