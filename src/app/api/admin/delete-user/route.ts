@@ -49,7 +49,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Delete from business_members first
+    // Nullify created_by references in invoices and payments (FK constraints)
+    await adminSupabase
+      .from("invoices")
+      .update({ created_by: null })
+      .eq("created_by", userId);
+
+    await adminSupabase
+      .from("payments")
+      .update({ created_by: null })
+      .eq("created_by", userId);
+
+    // Delete from business_members
     await adminSupabase
       .from("business_members")
       .delete()
