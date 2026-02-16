@@ -2449,18 +2449,23 @@ export default function PaymentsPage() {
                   <span className="text-[13px] font-medium w-[45px] flex-shrink-0 text-center ltr-num">{payment.installments}</span>
 
                   {/* Payment Method */}
-                  <span className="text-[13px] font-medium w-[55px] flex-shrink-0 text-center leading-tight">{payment.paymentMethod}</span>
+                  <div className="w-[55px] flex-shrink-0 flex flex-col items-center leading-tight">
+                    {(() => {
+                      const uniqueMethods = [...new Set(payment.rawSplits.map(s => s.payment_method))];
+                      if (uniqueMethods.length <= 1) {
+                        return <span className="text-[13px] font-medium">{payment.paymentMethod}</span>;
+                      }
+                      return uniqueMethods.map((m, i) => (
+                        <span key={i} className="text-[12px] font-medium">{paymentMethodNames[m] || "אחר"}</span>
+                      ));
+                    })()}
+                  </div>
 
                   {/* Amount */}
                   <div className="w-[70px] flex-shrink-0 flex flex-col items-center">
                     <span className="text-[13px] font-medium ltr-num">
-                      ₪{payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₪{payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                    {payment.amount !== payment.totalAmount && (
-                      <span className="text-[11px] font-medium ltr-num text-white/70">
-                        (₪{payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 1, maximumFractionDigits: 1 })})
-                      </span>
-                    )}
                   </div>
                 </button>
 
@@ -2556,19 +2561,47 @@ export default function PaymentsPage() {
                       </div>
                     </div>
 
+                    {/* Payment Methods Breakdown */}
+                    {payment.rawSplits.length > 0 && (
+                      <div className="flex flex-col gap-[5px] px-[7px]" dir="rtl">
+                        <span className="text-[13px] text-[#979797] font-medium">אמצעי תשלום</span>
+                        {(() => {
+                          // Group splits by payment method
+                          const methodGroups = new Map<string, { method: string; totalAmount: number; splits: typeof payment.rawSplits }>();
+                          for (const split of payment.rawSplits) {
+                            const key = split.payment_method;
+                            if (!methodGroups.has(key)) {
+                              methodGroups.set(key, { method: key, totalAmount: 0, splits: [] });
+                            }
+                            const group = methodGroups.get(key)!;
+                            group.totalAmount += split.amount;
+                            group.splits.push(split);
+                          }
+                          return Array.from(methodGroups.values()).map((group, idx) => (
+                            <div key={idx} className="flex items-center justify-between bg-white/5 rounded-[5px] px-[8px] py-[5px]">
+                              <div className="flex items-center gap-[8px]">
+                                <span className="text-[13px] font-medium">{paymentMethodNames[group.method] || "אחר"}</span>
+                                {group.splits.length > 1 && (
+                                  <span className="text-[11px] text-white/50">({group.splits.length} תשלומים)</span>
+                                )}
+                                {group.splits[0]?.check_number && (
+                                  <span className="text-[11px] text-white/50">צ׳ק {group.splits[0].check_number}</span>
+                                )}
+                              </div>
+                              <span className="text-[13px] font-medium ltr-num">₪{group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    )}
+
                     {/* Extra info */}
-                    {(payment.reference || payment.checkNumber || payment.notes) && (
+                    {(payment.reference || payment.notes) && (
                       <div className="flex flex-col gap-[5px] px-[7px]">
                         {payment.reference && (
                           <div className="flex items-center justify-between">
                             <span className="text-[13px] text-[#979797]">אסמכתא</span>
                             <span className="text-[13px] ltr-num">{payment.reference}</span>
-                          </div>
-                        )}
-                        {payment.checkNumber && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-[13px] text-[#979797]">מספר צ׳ק</span>
-                            <span className="text-[13px] ltr-num">{payment.checkNumber}</span>
                           </div>
                         )}
                         {payment.notes && (
