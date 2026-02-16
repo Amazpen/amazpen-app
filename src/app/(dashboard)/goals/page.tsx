@@ -122,7 +122,7 @@ function formatDiff(diff: number, unit: string = "₪"): string {
 }
 
 export default function GoalsPage() {
-  const { selectedBusinesses } = useDashboard();
+  const { selectedBusinesses, isAdmin } = useDashboard();
   const [activeTab, setActiveTab] = usePersistedState<TabType>("goals:activeTab", "vs-current");
   const [selectedMonth, setSelectedMonth] = usePersistedState("goals:selectedMonth", "");
   const [selectedYear, setSelectedYear] = usePersistedState("goals:selectedYear", "");
@@ -165,6 +165,8 @@ export default function GoalsPage() {
   const [goodsPurchaseData, setGoodsPurchaseData] = useState<GoalItem[]>([]);
   const [kpiData, setKpiData] = useState<GoalItem[]>([]);
   const [supplierNamesMap, setSupplierNamesMap] = useState<Map<string, string>>(new Map());
+  const [supplierBudgetState, setSupplierBudgetState] = useState<Map<string, number>>(new Map());
+  const [supplierActualState, setSupplierActualState] = useState<Map<string, number>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [goalId, setGoalId] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -269,6 +271,15 @@ export default function GoalsPage() {
           .is("deleted_at", null)
           .gte("invoice_date", startDate)
           .lte("invoice_date", endDate);
+
+        // Build per-supplier actual amounts
+        const perSupplierActuals = new Map<string, number>();
+        (invoicesData || []).forEach(inv => {
+          const current = perSupplierActuals.get(inv.supplier_id) || 0;
+          perSupplierActuals.set(inv.supplier_id, current + Number(inv.subtotal));
+        });
+        setSupplierBudgetState(supplierBudgetMap);
+        setSupplierActualState(perSupplierActuals);
 
         // Aggregate invoices by category for current expenses
         const categoryActuals = new Map<string, number>();
@@ -874,6 +885,36 @@ export default function GoalsPage() {
     }, 800);
   };
 
+  // Handle individual supplier budget change (admin only)
+  const handleSupplierBudgetChange = (supplierId: string, newBudget: string, categoryId: string, isGoods: boolean) => {
+    const numValue = parseFloat(newBudget) || 0;
+
+    // Update local supplier budget state
+    setSupplierBudgetState(prev => {
+      const updated = new Map(prev);
+      updated.set(supplierId, numValue);
+      return updated;
+    });
+
+    // Recalculate the category total from all its suppliers
+    const dataToUpdate = isGoods ? goodsPurchaseData : currentExpensesData;
+    const setData = isGoods ? setGoodsPurchaseData : setCurrentExpensesData;
+    const categoryItem = dataToUpdate.find(i => i.id === categoryId);
+    if (categoryItem?.supplierIds) {
+      const newCategoryTotal = categoryItem.supplierIds.reduce((sum, sId) => {
+        if (sId === supplierId) return sum + numValue;
+        return sum + (supplierBudgetState.get(sId) || 0);
+      }, 0);
+      setData(prev => prev.map(i => i.id === categoryId ? { ...i, target: newCategoryTotal } : i));
+    }
+
+    // Debounce save to DB
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveCategoryTargetToDB([supplierId], numValue);
+    }, 800);
+  };
+
   // Show message if no business selected
   if (selectedBusinesses.length === 0) {
     return (
@@ -1084,19 +1125,67 @@ export default function GoalsPage() {
                       </div>
                     </div>
 
-                    {/* Expanded Content - show suppliers directly under category */}
+                    {/* Expanded Content - show suppliers with target, actual, status */}
                     {isExpanded && isExpandable && hasSuppliers && (
                       <div className="bg-white/5 rounded-[7px] mx-[7px] mb-[3px]">
-                        {item.supplierIds!.map((sId, sIdx) => (
-                          <div
-                            key={sId}
-                            className={`flex items-center justify-end p-[8px_10px] ${sIdx < item.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
-                          >
-                            <span className="text-[13px] text-white/70 text-right">
-                              {supplierNamesMap.get(sId) || sId}
-                            </span>
-                          </div>
-                        ))}
+                        {item.supplierIds!.map((sId, sIdx) => {
+                          const sTarget = supplierBudgetState.get(sId) || 0;
+                          const sActual = supplierActualState.get(sId) || 0;
+                          const sPct = sTarget > 0 ? (sActual / sTarget) * 100 : 0;
+                          const sDiff = sActual - sTarget;
+                          const sColor = getStatusColor(sPct, true, sActual, sTarget);
+
+                          return (
+                            <div
+                              key={sId}
+                              className={`flex flex-row items-center justify-between gap-[5px] p-[7px] min-h-[42px] ${sIdx < item.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
+                            >
+                              {/* Status */}
+                              <div className="flex flex-col items-center gap-[2px]">
+                                <span className={`text-[11px] font-medium ltr-num ${sColor}`}>
+                                  {formatDiff(sDiff, "₪")}
+                                </span>
+                                <ProgressBar percentage={sPct} reverse />
+                              </div>
+
+                              {/* Actual */}
+                              <span className="w-[70px] text-[13px] font-normal text-white text-center ltr-num">
+                                {formatCurrency(sActual)}
+                              </span>
+
+                              {/* Target - editable for admin */}
+                              {isAdmin ? (
+                                <div className="w-[70px] flex items-center justify-center gap-0" onClick={(e) => e.stopPropagation()}>
+                                  {focusedInputId !== `supplier-${sId}` && <span className="text-[13px] font-normal text-white ltr-num">₪</span>}
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    title={`יעד עבור ${supplierNamesMap.get(sId) || sId}`}
+                                    value={sTarget.toLocaleString("en-US")}
+                                    onChange={(e) => {
+                                      const val = e.target.value.replace(/,/g, "");
+                                      handleSupplierBudgetChange(sId, val, item.id, isGoods);
+                                    }}
+                                    onFocus={() => setFocusedInputId(`supplier-${sId}`)}
+                                    onBlur={() => setFocusedInputId(null)}
+                                    style={{ width: focusedInputId === `supplier-${sId}` ? '70px' : `${Math.max(1, String(sTarget.toLocaleString("en-US")).length)}ch` }}
+                                    className="text-[13px] font-normal text-white text-center bg-transparent border-none outline-none ltr-num"
+                                    placeholder="0"
+                                  />
+                                </div>
+                              ) : (
+                                <span className="w-[70px] text-[13px] font-normal text-white text-center ltr-num">
+                                  {formatCurrency(sTarget)}
+                                </span>
+                              )}
+
+                              {/* Supplier Name */}
+                              <span className="flex-1 text-[13px] text-white/70 text-right" dir="rtl">
+                                {supplierNamesMap.get(sId) || sId}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
