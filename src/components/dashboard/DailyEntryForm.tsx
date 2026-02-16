@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
 import { Label } from "@/components/ui/label";
 import { useDashboard } from "@/app/(dashboard)/layout";
 import { useToast } from "@/components/ui/toast";
@@ -887,89 +888,78 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                 </FormField>
 
                 <FormField label='סה"כ הכנסות מנות'>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberInput
                     placeholder=""
                     disabled
                     value={pearlaData.portions_income}
+                    onChange={() => {}}
                     className="bg-transparent border-[#4C526B] text-white/50 text-right h-[50px] rounded-[10px]"
                   />
                 </FormField>
 
                 <FormField label='תוספת הגשה בש"ח'>
-                  <Input
-                    type="tel"
-                    inputMode="numeric"
+                  <NumberInput
                     placeholder=""
+                    inputMode="numeric"
                     value={pearlaData.serving_supplement}
-                    onChange={(e) => handlePearlaChange("serving_supplement", e.target.value)}
+                    onChange={(v) => handlePearlaChange("serving_supplement", v)}
                     className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                   />
                 </FormField>
 
                 <FormField label='סה"כ הכנסות הגשה'>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberInput
                     placeholder=""
                     disabled
                     value={pearlaData.serving_income}
+                    onChange={() => {}}
                     className="bg-transparent border-[#4C526B] text-white/50 text-right h-[50px] rounded-[10px]"
                   />
                 </FormField>
 
                 <FormField label='סה"כ הכנסות אקסטרות'>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberInput
                     placeholder=""
                     value={pearlaData.extras_income}
-                    onChange={(e) => handlePearlaChange("extras_income", e.target.value)}
+                    onChange={(v) => handlePearlaChange("extras_income", v)}
                     className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                   />
                 </FormField>
 
                 <FormField label='סה"כ הכנסות'>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberInput
                     placeholder=""
                     disabled
                     value={pearlaData.total_income}
+                    onChange={() => {}}
                     className="bg-transparent border-[#4C526B] text-white/50 text-right h-[50px] rounded-[10px]"
                   />
                 </FormField>
 
                 <FormField label='סה"כ עלות עובדים שכירים'>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberInput
                     placeholder=""
                     value={pearlaData.salaried_labor_cost}
-                    onChange={(e) => handlePearlaChange("salaried_labor_cost", e.target.value)}
+                    onChange={(v) => handlePearlaChange("salaried_labor_cost", v)}
                     className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                   />
                 </FormField>
 
                 <FormField label="עלות עובדים שכירים + העמסה">
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberInput
                     placeholder=""
                     disabled
                     value={pearlaData.salaried_labor_overhead}
+                    onChange={() => {}}
                     className="bg-transparent border-[#4C526B] text-white/50 text-right h-[50px] rounded-[10px]"
                   />
                 </FormField>
 
                 <FormField label='סה"כ עלות עובדי כ"א'>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberInput
                     placeholder=""
                     value={pearlaData.manpower_labor_cost}
-                    onChange={(e) => handlePearlaChange("manpower_labor_cost", e.target.value)}
+                    onChange={(v) => handlePearlaChange("manpower_labor_cost", v)}
                     className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                   />
                 </FormField>
@@ -1007,12 +997,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                 )}
 
                 <FormField label='סה"כ קופה'>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberInput
                     placeholder="0"
                     value={formData.total_register}
-                    onChange={(e) => handleChange("total_register", e.target.value)}
+                    onChange={(v) => handleChange("total_register", v)}
                     className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                   />
                 </FormField>
@@ -1024,12 +1012,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     {incomeSources.map((source) => (
                       <div key={source.id} className="flex flex-col gap-3">
                         <FormField label={`סה"כ ${source.name}`}>
-                          <Input
-                            type="number"
-                            inputMode="decimal"
+                          <NumberInput
                             placeholder="0"
                             value={incomeData[source.id]?.amount || ""}
-                            onChange={(e) => handleIncomeChange(source.id, "amount", e.target.value)}
+                            onChange={(v) => handleIncomeChange(source.id, "amount", v)}
                             className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                           />
                         </FormField>
@@ -1050,12 +1036,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
 
                 {/* עלויות עובדים */}
                 <FormField label='סה"כ עלות עובדים יומית'>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberInput
                     placeholder="0"
                     value={formData.labor_cost}
-                    onChange={(e) => handleChange("labor_cost", e.target.value)}
+                    onChange={(v) => handleChange("labor_cost", v)}
                     className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                   />
                 </FormField>
@@ -1142,12 +1126,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     <SectionHeader title="תקבולים" />
                     {receiptTypes.map((receipt) => (
                       <FormField key={receipt.id} label={receipt.name}>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
+                        <NumberInput
                           placeholder="0"
                           value={receiptData[receipt.id] || ""}
-                          onChange={(e) => handleReceiptChange(receipt.id, e.target.value)}
+                          onChange={(v) => handleReceiptChange(receipt.id, v)}
                           className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                         />
                       </FormField>
@@ -1161,12 +1143,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     <SectionHeader title="פרמטרים נוספים" />
                     {customParameters.map((param) => (
                       <FormField key={param.id} label={param.name}>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
+                        <NumberInput
                           placeholder="0"
                           value={parameterData[param.id] || ""}
-                          onChange={(e) => handleParameterChange(param.id, e.target.value)}
+                          onChange={(v) => handleParameterChange(param.id, v)}
                           className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                         />
                       </FormField>
@@ -1175,12 +1155,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                 )}
 
                 <FormField label="זיכויים+ביטולים+הנחות ב-₪">
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberInput
                     placeholder="0"
                     value={formData.discounts}
-                    onChange={(e) => handleChange("discounts", e.target.value)}
+                    onChange={(v) => handleChange("discounts", v)}
                     className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                   />
                 </FormField>

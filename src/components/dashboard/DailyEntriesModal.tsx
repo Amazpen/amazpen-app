@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -908,12 +909,10 @@ export function DailyEntriesModal({
                 {/* סה"כ קופה */}
                 <div className="flex flex-col gap-[3px]">
                   <Label className="text-white text-[15px] font-medium text-right">סה&quot;כ קופה</Label>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberInput
                     placeholder="0"
                     value={editFormData.total_register}
-                    onChange={(e) => setEditFormData({ ...editFormData, total_register: e.target.value })}
+                    onChange={(v) => setEditFormData({ ...editFormData, total_register: v })}
                     className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                   />
                 </div>
@@ -946,14 +945,12 @@ export function DailyEntriesModal({
                       <div key={source.id} className="flex flex-col gap-3">
                         <div className="flex flex-col gap-[3px]">
                           <Label className="text-white text-[15px] font-medium text-right">סה&quot;כ {source.name}</Label>
-                          <Input
-                            type="number"
-                            inputMode="decimal"
+                          <NumberInput
                             placeholder="0"
                             value={incomeData[source.id]?.amount || ""}
-                            onChange={(e) => setIncomeData((prev) => ({
+                            onChange={(v) => setIncomeData((prev) => ({
                               ...prev,
-                              [source.id]: { ...prev[source.id], amount: e.target.value },
+                              [source.id]: { ...prev[source.id], amount: v },
                             }))}
                             className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                           />
@@ -986,12 +983,10 @@ export function DailyEntriesModal({
                     {receiptTypes.map((receipt) => (
                       <div key={receipt.id} className="flex flex-col gap-[3px]">
                         <Label className="text-white text-[15px] font-medium text-right">{receipt.name}</Label>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
+                        <NumberInput
                           placeholder="0"
                           value={receiptData[receipt.id] || ""}
-                          onChange={(e) => setReceiptData((prev) => ({ ...prev, [receipt.id]: e.target.value }))}
+                          onChange={(v) => setReceiptData((prev) => ({ ...prev, [receipt.id]: v }))}
                           className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                         />
                       </div>
@@ -1008,12 +1003,10 @@ export function DailyEntriesModal({
                     {customParameters.map((param) => (
                       <div key={param.id} className="flex flex-col gap-[3px]">
                         <Label className="text-white text-[15px] font-medium text-right">{param.name}</Label>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
+                        <NumberInput
                           placeholder="0"
                           value={parameterData[param.id] || ""}
-                          onChange={(e) => setParameterData((prev) => ({ ...prev, [param.id]: e.target.value }))}
+                          onChange={(v) => setParameterData((prev) => ({ ...prev, [param.id]: v }))}
                           className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                         />
                       </div>
@@ -1024,12 +1017,10 @@ export function DailyEntriesModal({
                 {/* עלויות עובדים */}
                 <div className="flex flex-col gap-[3px]">
                   <Label className="text-white text-[15px] font-medium text-right">סה&quot;כ עלות עובדים יומית</Label>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberInput
                     placeholder="0"
                     value={editFormData.labor_cost}
-                    onChange={(e) => setEditFormData({ ...editFormData, labor_cost: e.target.value })}
+                    onChange={(v) => setEditFormData({ ...editFormData, labor_cost: v })}
                     className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                   />
                 </div>
@@ -1108,12 +1099,10 @@ export function DailyEntriesModal({
 
                 <div className="flex flex-col gap-[3px]">
                   <Label className="text-white text-[15px] font-medium text-right">זיכויים+ביטולים+הנחות ב-₪</Label>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
+                  <NumberInput
                     placeholder="0"
                     value={editFormData.discounts}
-                    onChange={(e) => setEditFormData({ ...editFormData, discounts: e.target.value })}
+                    onChange={(v) => setEditFormData({ ...editFormData, discounts: v })}
                     className="bg-transparent border-[#4C526B] text-white text-right h-[50px] rounded-[10px]"
                   />
                 </div>
