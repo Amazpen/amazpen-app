@@ -104,7 +104,7 @@ interface InvoiceDisplay {
   attachmentUrls: string[];
   clarificationReason: string | null;
   isFixed: boolean;
-  linkedPayments: { id: string; amount: number; method: string; methodKey: string; installments: number; date: string; checkNumber: string | null }[];
+  linkedPayments: { id: string; totalAmount: number; date: string; methods: { method: string; methodKey: string; amount: number; installments: number; checkNumber: string | null }[] }[];
 }
 
 const paymentMethodNames: Record<string, string> = {
@@ -760,22 +760,25 @@ export default function ExpensesPage() {
   const transformInvoicesData = (rawData: any[]): InvoiceDisplay[] => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return rawData.map((inv: any) => {
-      // Build linked payments from joined data
+      // Build linked payments from joined data — grouped by payment ID
       const linkedPayments: InvoiceDisplay["linkedPayments"] = [];
       if (inv.payments && Array.isArray(inv.payments)) {
         for (const payment of inv.payments) {
           if (payment.payment_splits && Array.isArray(payment.payment_splits)) {
-            for (const split of payment.payment_splits) {
-              linkedPayments.push({
-                id: payment.id,
-                amount: Number(split.amount),
-                method: paymentMethodNames[split.payment_method] || "אחר",
-                methodKey: split.payment_method,
-                installments: split.installments_count || 1,
-                date: formatDateString(payment.payment_date),
-                checkNumber: split.check_number || null,
-              });
-            }
+            const methods = payment.payment_splits.map((split: { amount: number; payment_method: string; installments_count: number | null; check_number: string | null }) => ({
+              method: paymentMethodNames[split.payment_method] || "אחר",
+              methodKey: split.payment_method,
+              amount: Number(split.amount),
+              installments: split.installments_count || 1,
+              checkNumber: split.check_number || null,
+            }));
+            const totalAmount = methods.reduce((sum: number, m: { amount: number }) => sum + m.amount, 0);
+            linkedPayments.push({
+              id: payment.id,
+              totalAmount,
+              date: formatDateString(payment.payment_date),
+              methods,
+            });
           }
         }
       }
@@ -2526,30 +2529,36 @@ export default function ExpensesPage() {
 
                         {/* Linked Payments List */}
                         {showLinkedPayments === invoice.id && (
-                          <div className="flex flex-col gap-[2px]">
+                          <div className="flex flex-col gap-[4px]">
                             {/* Total */}
                             <span className="text-[13px] font-bold text-right px-[5px]">
-                              סה&quot;כ תשלומים: ₪{invoice.linkedPayments.reduce((sum, p) => sum + p.amount, 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              סה&quot;כ תשלומים: ₪{invoice.linkedPayments.reduce((sum, p) => sum + p.totalAmount, 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                             {/* Header */}
                             <div dir="rtl" className="flex items-center justify-between gap-[3px] border-b border-white/20 min-h-[40px] px-[3px]">
                               <span className="text-[13px] min-w-[50px] text-center">תאריך</span>
-                              <span className="text-[13px] w-[65px] text-center">אמצעי תשלום</span>
-                              <span className="text-[13px] w-[65px] text-center">תשלומים</span>
+                              <span className="text-[13px] flex-1 text-center">אמצעי תשלום</span>
                               <span className="text-[13px] w-[65px] text-center">סכום</span>
                             </div>
-                            {/* Payment rows */}
-                            {invoice.linkedPayments.map((payment, pIdx) => (
-                              <div key={pIdx} dir="rtl" className="flex items-center justify-between gap-[3px] min-h-[40px] px-[3px] rounded-[7px] hover:bg-white/5">
+                            {/* Payment rows - grouped by payment */}
+                            {invoice.linkedPayments.map((payment) => (
+                              <div key={payment.id} dir="rtl" className="flex items-center justify-between gap-[3px] min-h-[40px] px-[3px] rounded-[7px] hover:bg-white/5">
                                 <span className="text-[13px] min-w-[50px] text-center ltr-num">{payment.date}</span>
-                                <div className="w-[65px] text-center">
-                                  <span className="text-[13px]">{payment.method}</span>
-                                  {payment.checkNumber && (
-                                    <span className="text-[11px] text-white/50 block">צ׳ק {payment.checkNumber}</span>
-                                  )}
+                                <div className="flex-1 text-center">
+                                  {payment.methods.map((m, mIdx) => (
+                                    <div key={mIdx} className="text-[13px]">
+                                      <span>{m.method}</span>
+                                      {m.checkNumber && <span className="text-[11px] text-white/50 mr-1">צ׳ק {m.checkNumber}</span>}
+                                      {payment.methods.length > 1 && (
+                                        <span className="text-[11px] text-white/50 mr-1 ltr-num">
+                                          (₪{m.amount % 1 === 0 ? m.amount.toLocaleString("he-IL") : m.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                                        </span>
+                                      )}
+                                      {m.installments > 1 && <span className="text-[11px] text-white/50 mr-1">{m.installments} תשלומים</span>}
+                                    </div>
+                                  ))}
                                 </div>
-                                <span className="text-[13px] w-[65px] text-center ltr-num">{payment.installments > 1 ? payment.installments : "1"}</span>
-                                <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.amount % 1 === 0 ? payment.amount.toLocaleString("he-IL") : payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.totalAmount % 1 === 0 ? payment.totalAmount.toLocaleString("he-IL") : payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                             ))}
                           </div>
