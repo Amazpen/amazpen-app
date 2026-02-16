@@ -184,12 +184,21 @@
       "mcp__n8n__list_workflows",
       "mcp__n8n__tools_documentation",
       "WebFetch(domain:www.npmjs.com)",
-      "mcp__n8n__search_nodes"
+      "mcp__n8n__search_nodes",
+      "Bash(/c/Program Files/nodejs/npx.cmd next lint --file src/app/\\\\\\(dashboard\\\\\\)/payments/page.tsx)",
+      "WebFetch(domain:db.amazpenbiz.co.il)",
+      "Bash(/c/Program Files/nodejs/npx.cmd next lint --)",
+      "Bash(/c/Program Files/nodejs/npm.cmd run lint)",
+      "Bash(/c/Program Files/nodejs/npm.cmd run lint -- --fix)",
+      "Bash(/c/Program Files/nodejs/npx.cmd eslint:*)",
+      "Bash(npx.cmd eslint:*)",
+      "Bash(/c/Program Files/nodejs/npx.cmd next lint -- --no-cache)"
     ]
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
+    "shadcn",
     "supabase-selfhosted",
-    "n8n-mcp"
+    "dokploy"
   ]
 }
