@@ -139,9 +139,8 @@ export default function RootLayout({
                   // Already a waiting worker
                   if (reg.waiting) {
                     notifySwUpdate(reg.waiting);
-                    return;
                   }
-                  // Listen for new installing worker
+                  // Always listen for future updates
                   reg.addEventListener('updatefound', function() {
                     var newWorker = reg.installing;
                     if (!newWorker) return;
