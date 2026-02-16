@@ -232,7 +232,7 @@ export default function ExpensesPage() {
   const invoicesListRef = useRef<HTMLDivElement>(null);
   const INVOICES_PAGE_SIZE = 20;
   const [isSaving, setIsSaving] = useState(false);
-  const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set()); // For drill-down (supports multiple)
+  const [expandedCategoryIds, setExpandedCategoryIds] = usePersistedState<string[]>("expenses:expandedCategories", []); // For drill-down (supports multiple)
 
   // Form state for new expense
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -875,12 +875,12 @@ export default function ExpensesPage() {
   // Always sorted by amount descending for clear chart readability
   const chartDataSource = useMemo(() => {
     if (activeTab === "purchases") return [...expensesData].sort((a, b) => b.amount - a.amount);
-    if (expandedCategoryIds.size === 0) return [...categoryData].sort((a, b) => b.amount - a.amount);
+    if (expandedCategoryIds.length === 0) return [...categoryData].sort((a, b) => b.amount - a.amount);
 
     // Build mixed chart: non-expanded categories + suppliers from expanded categories
     const result: { id: string; amount: number; percentage: number; name?: string; category?: string }[] = [];
     for (const cat of categoryData) {
-      if (expandedCategoryIds.has(cat.id) && cat.suppliers.length > 0) {
+      if (expandedCategoryIds.includes(cat.id) && cat.suppliers.length > 0) {
         // Replace this category with its individual suppliers
         for (const sup of cat.suppliers) {
           result.push({ id: sup.id, amount: sup.amount, percentage: 0, name: sup.name });
@@ -1925,9 +1925,7 @@ export default function ExpensesPage() {
                     <button
                       type="button"
                       onClick={() => setExpandedCategoryIds(prev => {
-                        const next = new Set(prev);
-                        if (next.has(cat.id)) { next.delete(cat.id); } else { next.add(cat.id); }
-                        return next;
+                        if (prev.includes(cat.id)) { return prev.filter(id => id !== cat.id); } else { return [...prev, cat.id]; }
                       })}
                       className={`flex items-center p-[5px] min-h-[50px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] w-full ${
                         index > 0 ? 'border-t border-white/10' : ''
@@ -1943,7 +1941,7 @@ export default function ExpensesPage() {
                           height="18"
                           viewBox="0 0 32 32"
                           fill="none"
-                          className={`flex-shrink-0 transition-transform ${expandedCategoryIds.has(cat.id) ? '-rotate-90' : ''}`}
+                          className={`flex-shrink-0 transition-transform ${expandedCategoryIds.includes(cat.id) ? '-rotate-90' : ''}`}
                         >
                           <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
@@ -1954,7 +1952,7 @@ export default function ExpensesPage() {
                     </button>
 
                     {/* Drill-down: Suppliers in this category */}
-                    {expandedCategoryIds.has(cat.id) && cat.suppliers.length > 0 && (
+                    {expandedCategoryIds.includes(cat.id) && cat.suppliers.length > 0 && (
                       <div className="bg-white/5 rounded-[7px] mx-[10px] mb-[5px]">
                         {cat.suppliers.map((supplier, supIndex) => {
                           // Find supplier's color from chartDataSource
