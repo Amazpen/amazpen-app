@@ -127,8 +127,35 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
+                window.__SW_UPDATE_CALLBACKS = [];
+                window.__SW_WAITING = null;
+
+                function notifySwUpdate(worker) {
+                  window.__SW_WAITING = worker;
+                  window.__SW_UPDATE_CALLBACKS.forEach(function(cb) { cb(worker); });
+                }
+
+                function trackUpdate(reg) {
+                  // Already a waiting worker
+                  if (reg.waiting) {
+                    notifySwUpdate(reg.waiting);
+                    return;
+                  }
+                  // Listen for new installing worker
+                  reg.addEventListener('updatefound', function() {
+                    var newWorker = reg.installing;
+                    if (!newWorker) return;
+                    newWorker.addEventListener('statechange', function() {
+                      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        notifySwUpdate(newWorker);
+                      }
+                    });
+                  });
+                }
+
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(function(reg) {
+                    trackUpdate(reg);
                     // Check for updates when user returns to the tab
                     document.addEventListener('visibilitychange', function() {
                       if (document.visibilityState === 'visible') {
@@ -136,6 +163,14 @@ export default function RootLayout({
                       }
                     });
                   }).catch(function() {});
+                });
+
+                // Reload when new SW takes over
+                var refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', function() {
+                  if (refreshing) return;
+                  refreshing = true;
+                  window.location.reload();
                 });
               }
             `,

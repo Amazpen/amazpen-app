@@ -3,6 +3,13 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 
+declare global {
+  interface Window {
+    __SW_UPDATE_CALLBACKS: ((worker: ServiceWorker) => void)[];
+    __SW_WAITING: ServiceWorker | null;
+  }
+}
+
 export function UpdatePrompt() {
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const [visible, setVisible] = useState(false);
@@ -13,44 +20,28 @@ export function UpdatePrompt() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator)) return;
 
-    const handleUpdate = (registration: ServiceWorkerRegistration) => {
-      const newWorker = registration.waiting;
-      if (newWorker) {
-        setWaitingWorker(newWorker);
+    // Check if inline script already detected a waiting worker
+    if (window.__SW_WAITING) {
+      setWaitingWorker(window.__SW_WAITING);
+      setVisible(true);
+      return;
+    }
+
+    // Subscribe to future updates
+    if (window.__SW_UPDATE_CALLBACKS) {
+      const callback = (worker: ServiceWorker) => {
+        setWaitingWorker(worker);
         setVisible(true);
-      }
-    };
-
-    // Check if there's already a waiting SW when the component mounts
-    navigator.serviceWorker.ready.then((registration) => {
-      if (registration.waiting) {
-        handleUpdate(registration);
-      }
-
-      // Listen for new SW updates
-      registration.addEventListener("updatefound", () => {
-        const newWorker = registration.installing;
-        if (!newWorker) return;
-
-        newWorker.addEventListener("statechange", () => {
-          if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-            // New SW is installed and there's an existing controller = update available
-            setWaitingWorker(newWorker);
-            setVisible(true);
-          }
-        });
-      });
-    });
-
-    // When the new SW takes over, reload the page
-    let refreshing = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (refreshing) return;
-      refreshing = true;
-      window.location.reload();
-    });
+      };
+      window.__SW_UPDATE_CALLBACKS.push(callback);
+      return () => {
+        const idx = window.__SW_UPDATE_CALLBACKS.indexOf(callback);
+        if (idx !== -1) window.__SW_UPDATE_CALLBACKS.splice(idx, 1);
+      };
+    }
   }, []);
 
   const handleUpdate = () => {
