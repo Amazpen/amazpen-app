@@ -771,7 +771,7 @@ export default function DashboardLayout({
           {/* Left side - Profile, Notifications, Buttons */}
           <div className="flex flex-row-reverse items-stretch gap-2 sm:gap-[5px]">
             {/* Profile Image */}
-            <div className="w-[34px] sm:w-[32px] aspect-square rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative touch-manipulation self-center" suppressHydrationWarning>
+            <Link href="/settings" className="w-[34px] sm:w-[32px] aspect-square rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative touch-manipulation self-center cursor-pointer" suppressHydrationWarning>
               {/* Skeleton loader - only show when loading AND there's an image to load */}
               {(isLoadingProfile || (!profileImageLoaded && userProfile?.avatar_url)) && (
                 <div className="absolute inset-0 bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded-full" />
@@ -792,7 +792,7 @@ export default function DashboardLayout({
                   <circle cx="12" cy="7" r="4" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               )}
-            </div>
+            </Link>
 
             {/* Notifications with red dot */}
             <div className="relative">
