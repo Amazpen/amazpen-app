@@ -24,6 +24,7 @@ interface Supplier {
   expense_category_id: string | null;
   waiting_for_coordinator: boolean;
   is_fixed_expense?: boolean;
+  vat_type?: string; // "full" | "none" | "partial"
 }
 
 // Expense category from database (used for type checking)
@@ -446,7 +447,7 @@ export default function ExpensesPage() {
         // Fetch suppliers for the selected businesses
         const { data: suppliersData } = await supabase
           .from("suppliers")
-          .select("id, name, expense_category_id, waiting_for_coordinator")
+          .select("id, name, expense_category_id, waiting_for_coordinator, vat_type")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .eq("is_active", true)
@@ -851,6 +852,22 @@ export default function ExpensesPage() {
     );
   };
 
+  // Handle supplier selection - auto-set VAT based on supplier's vat_type
+  const handleSupplierChange = useCallback((supplierId: string) => {
+    setSelectedSupplier(supplierId);
+    if (!supplierId) return;
+    const supplier = suppliers.find(s => s.id === supplierId);
+    if (!supplier) return;
+    if (supplier.vat_type === "none") {
+      setPartialVat(true);
+      setVatAmount("0");
+    } else if (supplier.vat_type === "full" || !supplier.vat_type) {
+      setPartialVat(false);
+      setVatAmount("");
+    }
+    // For "partial" vat_type, keep current state - user enters manually
+  }, [suppliers]);
+
   // Handle saving new expense
   const handleSaveExpense = async () => {
     if (!selectedSupplier || !expenseDate || !amountBeforeVat) {
@@ -1067,9 +1084,16 @@ export default function ExpensesPage() {
       setExpenseDate(`${year}-${dateParts[1]}-${dateParts[0]}`);
     }
     setExpenseType(activeTab === "expenses" ? "current" : "goods");
-    // Find supplier ID by name
+    // Find supplier ID by name and set VAT based on supplier's vat_type
     const supplier = suppliers.find(s => s.name === invoice.supplier);
     setSelectedSupplier(supplier?.id || "");
+    if (supplier?.vat_type === "none") {
+      setPartialVat(true);
+      setVatAmount("0");
+    } else if (supplier?.vat_type === "full" || !supplier?.vat_type) {
+      setPartialVat(false);
+      setVatAmount("");
+    }
     setInvoiceNumber(invoice.reference);
     setAmountBeforeVat(invoice.amountBeforeVat.toString());
     setNotes(invoice.notes);
@@ -2468,7 +2492,7 @@ export default function ExpensesPage() {
               <SupplierSearchSelect
                 suppliers={suppliers}
                 value={selectedSupplier}
-                onChange={setSelectedSupplier}
+                onChange={handleSupplierChange}
               />
 
               {/* Invoice Number */}
@@ -3098,7 +3122,7 @@ export default function ExpensesPage() {
               <SupplierSearchSelect
                 suppliers={suppliers}
                 value={selectedSupplier}
-                onChange={setSelectedSupplier}
+                onChange={handleSupplierChange}
               />
 
               {/* Invoice Number */}
