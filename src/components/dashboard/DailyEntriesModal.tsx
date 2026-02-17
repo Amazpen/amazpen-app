@@ -1376,10 +1376,10 @@ export function DailyEntriesModal({
                             <div className="flex gap-[3px] w-full" dir="rtl">
                               {/* Daily Total Column - סה"כ יומי */}
                               <div className="flex flex-col gap-[2px] flex-1 min-w-0">
-                                <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10 whitespace-nowrap">
+                                <div className="text-white text-[11px] md:text-[13px] font-bold text-center h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 whitespace-nowrap">
                                   סה&quot;כ יומי
                                 </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{formatCurrency(entry.total_register)}</span>
                                 </div>
                                 {entryDetails?.incomeBreakdown.map((source) => {
@@ -1387,67 +1387,67 @@ export function DailyEntriesModal({
                                   return (
                                     <div
                                       key={source.income_source_id}
-                                      className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                      className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
                                     >
                                       <span className="ltr-num">{formatCurrency(avgPerOrder)}</span>
                                     </div>
                                   );
                                 })}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{entry.total_register > 0 ? ((entry.labor_cost / entry.total_register) * 100).toFixed(entry.labor_cost / entry.total_register * 100 % 1 === 0 ? 0 : 2) : 0}%</span>
                                 </div>
                                 {entryDetails?.productUsage.map((product) => (
                                   <div
                                     key={product.product_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                    className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
                                   >
                                     <span className="ltr-num">{entry.total_register > 0 ? ((product.quantity * product.unit_cost) / entry.total_register * 100).toFixed(2) : 0}%</span>
                                   </div>
                                 ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">0%</span>
                                 </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{formatCurrency(0)}</span>
                                 </div>
                               </div>
 
                               {/* Quantity Column - כמות */}
                               <div className="flex flex-col gap-[2px] flex-1 min-w-0">
-                                <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[11px] md:text-[13px] font-bold text-center h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   כמות
                                 </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10" />
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10" />
                                 {entryDetails?.incomeBreakdown.map((source) => (
                                   <div
                                     key={source.income_source_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                    className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
                                   >
                                     <span className="ltr-num">{source.orders_count}</span>
                                   </div>
                                 ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{entry.labor_hours || 0}</span>
                                 </div>
                                 {entryDetails?.productUsage.map((product) => (
                                   <div
                                     key={product.product_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                    className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
                                   >
                                     <span className="ltr-num">{product.quantity}</span>
                                   </div>
                                 ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10" />
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10" />
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10" />
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10" />
                               </div>
 
                               {/* Target Diff Column - הפרש מהיעד */}
                               <div className="flex flex-col gap-[2px] flex-1 min-w-0">
-                                <div className="text-white text-[10px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10 whitespace-nowrap">
+                                <div className="text-white text-[10px] md:text-[12px] font-bold text-center h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 whitespace-nowrap">
                                   הפרש מהיעד
                                 </div>
                                 {/* סה"כ קופה - הפרש באחוזים מיעד הכנסות */}
-                                <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${goalsData && goalsData.revenueTarget > 0 ? (entry.total_register >= goalsData.revenueTarget / goalsData.workDaysInMonth ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${goalsData && goalsData.revenueTarget > 0 ? (entry.total_register >= goalsData.revenueTarget / goalsData.workDaysInMonth ? "text-green-400" : "text-red-400") : "text-white"}`}>
                                   <span className="ltr-num">{goalsData && goalsData.revenueTarget > 0 ? `${(((entry.total_register / (goalsData.revenueTarget / goalsData.workDaysInMonth)) - 1) * 100).toFixed(1)}%` : "-"}</span>
                                 </div>
                                 {/* מקורות הכנסה - הפרש ממוצע מהיעד */}
@@ -1458,7 +1458,7 @@ export function DailyEntriesModal({
                                   return (
                                     <div
                                       key={source.income_source_id}
-                                      className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
+                                      className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
                                     >
                                       <span className="ltr-num">{target > 0 ? `${diff < 0 ? "-" : ""}₪${Math.abs(diff).toFixed(1)}` : "-"}</span>
                                     </div>
@@ -1470,7 +1470,7 @@ export function DailyEntriesModal({
                                   const targetPct = goalsData?.laborCostTargetPct || 0;
                                   const diff = targetPct > 0 ? laborPct - targetPct : 0;
                                   return (
-                                    <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${targetPct > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                    <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${targetPct > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
                                       <span className="ltr-num">{targetPct > 0 ? `${diff.toFixed(1)}%` : "-"}</span>
                                     </div>
                                   );
@@ -1483,7 +1483,7 @@ export function DailyEntriesModal({
                                   return (
                                     <div
                                       key={product.product_id}
-                                      className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${targetPct > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
+                                      className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${targetPct > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
                                     >
                                       <span className="ltr-num">{targetPct > 0 ? `${diff.toFixed(2)}%` : "-"}</span>
                                     </div>
@@ -1493,13 +1493,13 @@ export function DailyEntriesModal({
                                 {(() => {
                                   const targetPct = goalsData?.foodCostTargetPct || 0;
                                   return (
-                                    <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                    <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                       <span className="ltr-num">{targetPct > 0 ? "-" : "-"}</span>
                                     </div>
                                   );
                                 })()}
                                 {/* הוצאות שוטפות - הפרש */}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">-</span>
                                 </div>
                               </div>
@@ -1515,72 +1515,72 @@ export function DailyEntriesModal({
                             <div className="flex gap-[3px] w-full" dir="rtl">
                               {/* Parameter Name Column - פרמטר */}
                               <div className="flex flex-col gap-[2px] flex-1 min-w-0">
-                                <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[11px] md:text-[13px] font-bold text-center h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   פרמטר
                                 </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   סה&quot;כ קופה כולל מע&quot;מ
                                 </div>
                                 {entryDetails?.incomeBreakdown.map((source) => (
                                   <div
                                     key={source.income_source_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate"
+                                    className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 truncate"
                                     title={source.income_source_name}
                                   >
                                     {source.income_source_name}
                                   </div>
                                 ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   ע. עובדים (%)
                                 </div>
                                 {entryDetails?.productUsage.map((product) => (
                                   <div
                                     key={product.product_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate"
+                                    className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 truncate"
                                     title={product.product_name}
                                   >
                                     עלות {product.product_name} (%)
                                   </div>
                                 ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   עלות מכר
                                 </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   הוצאות שוטפות
                                 </div>
                               </div>
 
                               {/* Target Value Column - יעד */}
                               <div className="flex flex-col gap-[2px] flex-1 min-w-0">
-                                <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[11px] md:text-[13px] font-bold text-center h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   יעד
                                 </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{goalsData ? formatCurrency(goalsData.revenueTarget) : "-"}</span>
                                 </div>
                                 {entryDetails?.incomeBreakdown.map((source) => (
                                   <div
                                     key={source.income_source_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                    className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
                                   >
                                     <span className="ltr-num">{goalsData?.incomeSourceTargets[source.income_source_id] ? `₪${goalsData.incomeSourceTargets[source.income_source_id]}` : "-"}</span>
                                   </div>
                                 ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{goalsData?.laborCostTargetPct ? `${goalsData.laborCostTargetPct}%` : "-"}</span>
                                 </div>
                                 {entryDetails?.productUsage.map((product) => (
                                   <div
                                     key={product.product_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                    className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
                                   >
                                     <span className="ltr-num">{goalsData?.productTargetPcts[product.product_id] != null ? `${goalsData.productTargetPcts[product.product_id]}%` : "-"}</span>
                                   </div>
                                 ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{goalsData?.foodCostTargetPct ? `${goalsData.foodCostTargetPct}%` : "-"}</span>
                                 </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{goalsData?.currentExpensesTarget ? formatCurrency(goalsData.currentExpensesTarget) : "-"}</span>
                                 </div>
                               </div>
@@ -1596,42 +1596,42 @@ export function DailyEntriesModal({
                             <div className="flex gap-[3px] w-full" dir="rtl">
                               {/* Cumulative Total Column - סה"כ */}
                               <div className="flex flex-col gap-[2px] flex-1 min-w-0">
-                                <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[11px] md:text-[13px] font-bold text-center h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   סה&quot;כ
                                 </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{formatCurrency(monthlyCumulative?.totalIncome || 0)}</span>
                                 </div>
                                 {entryDetails?.incomeBreakdown.map((source) => (
                                   <div
                                     key={source.income_source_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                    className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
                                   >
                                     <span className="ltr-num">{formatCurrency(monthlyCumulative?.incomeSourceTotals[source.income_source_id]?.avgTicket || 0)}</span>
                                   </div>
                                 ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{(monthlyCumulative?.laborCostPct || 0).toFixed(2)}%</span>
                                 </div>
                                 {entryDetails?.productUsage.map((product) => (
                                   <div
                                     key={product.product_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                    className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
                                   >
                                     <span className="ltr-num">{(monthlyCumulative?.productCosts[product.product_id]?.costPct || 0).toFixed(2)}%</span>
                                   </div>
                                 ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{(monthlyCumulative?.foodCostPct || 0).toFixed(2)}%</span>
                                 </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{formatCurrency(monthlyCumulative?.currentExpenses || 0)}</span>
                                 </div>
                               </div>
 
                               {/* Difference Column - הפרש */}
                               <div className="flex flex-col gap-[2px] flex-1 min-w-0">
-                                <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10">
+                                <div className="text-white text-[11px] md:text-[13px] font-bold text-center h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   הפרש
                                 </div>
                                 {/* סה"כ קופה - הפרש מיעד חודשי */}
@@ -1640,7 +1640,7 @@ export function DailyEntriesModal({
                                   const actual = monthlyCumulative?.totalIncome || 0;
                                   const diffPct = target > 0 ? ((actual / target) - 1) * 100 : 0;
                                   return (
-                                    <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diffPct >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                    <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diffPct >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
                                       <span className="ltr-num">{target > 0 ? `${diffPct.toFixed(1)}%` : "-"}</span>
                                     </div>
                                   );
@@ -1652,7 +1652,7 @@ export function DailyEntriesModal({
                                   return (
                                     <div
                                       key={source.income_source_id}
-                                      className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
+                                      className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
                                     >
                                       <span className="ltr-num">{target > 0 ? `${diff < 0 ? "-" : ""}₪${Math.abs(diff).toFixed(1)}` : "-"}</span>
                                     </div>
@@ -1664,7 +1664,7 @@ export function DailyEntriesModal({
                                   const target = goalsData?.laborCostTargetPct || 0;
                                   const diff = target > 0 ? actual - target : 0;
                                   return (
-                                    <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                    <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
                                       <span className="ltr-num">{target > 0 ? `${diff.toFixed(1)}%` : "-"}</span>
                                     </div>
                                   );
@@ -1676,7 +1676,7 @@ export function DailyEntriesModal({
                                   return (
                                     <div
                                       key={product.product_id}
-                                      className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
+                                      className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
                                     >
                                       <span className="ltr-num">{target > 0 ? `${diff.toFixed(2)}%` : "-"}</span>
                                     </div>
@@ -1688,7 +1688,7 @@ export function DailyEntriesModal({
                                   const target = goalsData?.foodCostTargetPct || 0;
                                   const diff = target > 0 ? actual - target : 0;
                                   return (
-                                    <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                    <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
                                       <span className="ltr-num">{target > 0 ? `${diff.toFixed(2)}%` : "-"}</span>
                                     </div>
                                   );
@@ -1699,7 +1699,7 @@ export function DailyEntriesModal({
                                   const target = goalsData?.currentExpensesTarget || 0;
                                   const diff = target > 0 ? actual - target : 0;
                                   return (
-                                    <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                    <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
                                       <span className="ltr-num">{target > 0 ? formatCurrency(diff) : "-"}</span>
                                     </div>
                                   );
