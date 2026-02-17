@@ -820,7 +820,8 @@ export function DailyEntriesModal({
     const vatDivisor = vatPct > 0 ? 1 + vatPct : 1;
     const monthIncomeBeforeVat = monthTotalIncome / vatDivisor;
     const monthLaborCost = allMonthEntries.reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
-    const monthLaborCostPct = monthIncomeBeforeVat > 0 ? (monthLaborCost / monthIncomeBeforeVat) * 100 : 0;
+    const monthLaborCostWithMarkup = monthLaborCost * markupPct;
+    const monthLaborCostPct = monthIncomeBeforeVat > 0 ? (monthLaborCostWithMarkup / monthIncomeBeforeVat) * 100 : 0;
 
     // Aggregate income sources for month
     const monthEntryIds = new Set(allMonthEntries.map(e => e.id));
