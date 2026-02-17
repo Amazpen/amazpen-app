@@ -78,16 +78,13 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
         </svg>
       </button>
 
-      {/* AI Bot Icon */}
-      <div className="w-[60px] h-[60px] sm:w-[80px] sm:h-[80px] rounded-full bg-[#6366f1]/20 flex items-center justify-center mb-3 sm:mb-5">
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" className="text-white sm:w-[40px] sm:h-[40px]">
-          <rect x="3" y="11" width="18" height="10" rx="3" stroke="currentColor" strokeWidth="1.5" />
-          <circle cx="9" cy="16" r="1.5" fill="currentColor" />
-          <circle cx="15" cy="16" r="1.5" fill="currentColor" />
-          <path d="M12 2v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <circle cx="12" cy="2" r="1" fill="currentColor" />
-          <path d="M1 15h2M21 15h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
+      {/* AI Bot Avatar */}
+      <div className="w-[60px] h-[60px] sm:w-[80px] sm:h-[80px] rounded-full overflow-hidden mb-3 sm:mb-5">
+        <img
+          src="https://db.amazpenbiz.co.il/storage/v1/object/public/attachments/ai/ai-avatar.png"
+          alt="דדי - העוזר החכם"
+          className="w-full h-full object-cover"
+        />
       </div>
 
       {/* Title */}
