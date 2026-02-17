@@ -101,6 +101,7 @@ interface MonthlyCumulativeData {
   foodCostPct: number;
   currentExpenses: number;
   currentExpensesPct: number;
+  actualWorkDays: number;
 }
 
 interface DailyEntriesModalProps {
@@ -859,6 +860,8 @@ export function DailyEntriesModal({
     const foodCostPct = monthIncomeBeforeVat > 0 ? (monthFoodCost / monthIncomeBeforeVat) * 100 : 0;
     const currentExpensesPct = monthIncomeBeforeVat > 0 ? (monthCurrentExpenses / monthIncomeBeforeVat) * 100 : 0;
 
+    const actualWorkDays = allMonthEntries.reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
+
     setMonthlyCumulative({
       totalIncome: monthTotalIncome,
       incomeBeforeVat: monthIncomeBeforeVat,
@@ -869,6 +872,7 @@ export function DailyEntriesModal({
       foodCostPct,
       currentExpenses: monthCurrentExpenses,
       currentExpensesPct,
+      actualWorkDays,
     });
 
     setIsLoadingDetails(false);
@@ -1658,14 +1662,23 @@ export function DailyEntriesModal({
                                 <div className="text-white text-[11px] md:text-[13px] font-bold text-center h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   הפרש
                                 </div>
-                                {/* סה"כ קופה - הפרש מיעד חודשי */}
+                                {/* סה"כ קופה - הפרש מיעד (צפי חודשי מול יעד) */}
                                 {(() => {
                                   const target = goalsData?.revenueTarget || 0;
                                   const actual = monthlyCumulative?.totalIncome || 0;
-                                  const diffPct = target > 0 ? ((actual / target) - 1) * 100 : 0;
+                                  const actualDays = monthlyCumulative?.actualWorkDays || 0;
+                                  const expectedDays = goalsData?.workDaysInMonth || 0;
+                                  if (target <= 0 || actualDays <= 0 || expectedDays <= 0) return (
+                                    <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
+                                      <span className="ltr-num">-</span>
+                                    </div>
+                                  );
+                                  const dailyAvg = actual / actualDays;
+                                  const monthlyPace = dailyAvg * expectedDays;
+                                  const diffPct = ((monthlyPace / target) - 1) * 100;
                                   return (
-                                    <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diffPct >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
-                                      <span className="ltr-num">{target > 0 ? `${diffPct.toFixed(1)}%` : "-"}</span>
+                                    <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${diffPct >= 0 ? "text-green-400" : "text-red-400"}`}>
+                                      <span className="ltr-num">{`${diffPct.toFixed(2)}%`}</span>
                                     </div>
                                   );
                                 })()}
