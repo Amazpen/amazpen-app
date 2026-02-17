@@ -2584,7 +2584,7 @@ export default function ExpensesPage() {
                             <button
                               type="button"
                               title="צפייה בתמונה"
-                              onClick={() => window.open(invoice.attachmentUrls[0], '_blank')}
+                              onClick={() => setViewerDocUrl(invoice.attachmentUrls[0])}
                               className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
                             >
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
@@ -2957,8 +2957,8 @@ export default function ExpensesPage() {
                     type="text"
                     inputMode="decimal"
                     title="סכום לפני מע״מ"
-                    value={amountBeforeVat}
-                    onChange={(e) => setAmountBeforeVat(e.target.value)}
+                    value={amountBeforeVat && !isNaN(parseFloat(amountBeforeVat)) ? (amountBeforeVat.endsWith(".") ? parseFloat(amountBeforeVat).toLocaleString("en-US", { maximumFractionDigits: 0 }) + "." : parseFloat(amountBeforeVat).toLocaleString("en-US", { maximumFractionDigits: 2 })) : amountBeforeVat}
+                    onChange={(e) => setAmountBeforeVat(e.target.value.replace(/,/g, ""))}
                     placeholder="0.00"
                     className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
                   />
@@ -2975,8 +2975,8 @@ export default function ExpensesPage() {
                       inputMode="decimal"
                       title="סכום מע״מ"
                       placeholder="0.00"
-                      value={partialVat ? vatAmount : calculatedVat.toFixed(2)}
-                      onChange={(e) => setVatAmount(e.target.value)}
+                      value={partialVat ? vatAmount : calculatedVat.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      onChange={(e) => setVatAmount(e.target.value.replace(/,/g, ""))}
                       disabled={!partialVat}
                       className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] disabled:text-white/50"
                     />
@@ -3012,7 +3012,7 @@ export default function ExpensesPage() {
                     type="text"
                     title="סכום כולל מע״מ"
                     placeholder="0.00"
-                    value={totalWithVat.toFixed(2)}
+                    value={totalWithVat.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     disabled
                     className="w-full h-full bg-transparent text-white/50 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
                   />
@@ -3627,8 +3627,8 @@ export default function ExpensesPage() {
                     type="text"
                     inputMode="decimal"
                     title="סכום לפני מע״מ"
-                    value={amountBeforeVat}
-                    onChange={(e) => setAmountBeforeVat(e.target.value)}
+                    value={amountBeforeVat && !isNaN(parseFloat(amountBeforeVat)) ? (amountBeforeVat.endsWith(".") ? parseFloat(amountBeforeVat).toLocaleString("en-US", { maximumFractionDigits: 0 }) + "." : parseFloat(amountBeforeVat).toLocaleString("en-US", { maximumFractionDigits: 2 })) : amountBeforeVat}
+                    onChange={(e) => setAmountBeforeVat(e.target.value.replace(/,/g, ""))}
                     placeholder="0.00"
                     className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
                   />
@@ -4273,7 +4273,7 @@ export default function ExpensesPage() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            window.open(inv.attachmentUrls[0], "_blank");
+                            setViewerDocUrl(inv.attachmentUrls[0]);
                           }}
                           className="w-[25px] h-[25px] flex items-center justify-center text-white/50 hover:text-white transition-colors"
                           title="צפה בקובץ"
