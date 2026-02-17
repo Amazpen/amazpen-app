@@ -1899,6 +1899,21 @@ function PaymentsPageInner() {
         } else {
           updated.customInstallments = generateInstallments(numInstallments, totalAmount, startDate);
         }
+        // Preserve check numbers from previous installments and auto-fill new ones
+        if (p.method === "check") {
+          const oldInstallments = p.customInstallments;
+          // For the first installment: use existing installment checkNumber or fall back to the single-check field (p.checkNumber)
+          const firstCheckNum = oldInstallments[0]?.checkNumber || p.checkNumber || "";
+          for (let i = 0; i < updated.customInstallments.length; i++) {
+            if (i < oldInstallments.length && oldInstallments[i].checkNumber) {
+              updated.customInstallments[i] = { ...updated.customInstallments[i], checkNumber: oldInstallments[i].checkNumber };
+            } else if (i === 0 && firstCheckNum) {
+              updated.customInstallments[i] = { ...updated.customInstallments[i], checkNumber: firstCheckNum };
+            } else if (firstCheckNum && /^\d+$/.test(firstCheckNum)) {
+              updated.customInstallments[i] = { ...updated.customInstallments[i], checkNumber: String(parseInt(firstCheckNum) + i) };
+            }
+          }
+        }
       }
 
       // When amount changes, recalculate installment amounts but keep dates
