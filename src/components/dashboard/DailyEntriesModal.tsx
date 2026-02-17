@@ -82,6 +82,7 @@ interface GoalsData {
   vatPercentage: number;
   incomeSourceTargets: Record<string, number>; // income_source_id -> avg_ticket_target
   productTargetPcts: Record<string, number>; // product_id -> target_pct
+  workDaysInMonth: number; // calculated from business_schedules
 }
 
 // Monthly cumulative data for Section 3
@@ -630,6 +631,7 @@ export function DailyEntriesModal({
       { data: incomeSourceGoalsData },
       { data: managedProductsData },
       { data: monthlyInvoices },
+      { data: scheduleData },
     ] = await Promise.all([
       // 1. Entry income breakdown
       supabase
@@ -685,6 +687,11 @@ export function DailyEntriesModal({
         .gte("invoice_date", firstOfMonth)
         .lte("invoice_date", lastOfMonth)
         .is("deleted_at", null),
+      // 11. Business schedule for working days calculation
+      supabase
+        .from("business_schedules")
+        .select("day_of_week, day_factor")
+        .eq("business_id", businessId),
     ]);
 
     // Sequential fetches that depend on parallel results
@@ -745,6 +752,27 @@ export function DailyEntriesModal({
       if (p.target_pct != null) productTargetPcts[p.id] = Number(p.target_pct);
     });
 
+    // Calculate working days in month from business schedule
+    const scheduleDayFactors: Record<number, number[]> = {};
+    (scheduleData || []).forEach((sc: { day_of_week: number; day_factor: number }) => {
+      if (!scheduleDayFactors[sc.day_of_week]) scheduleDayFactors[sc.day_of_week] = [];
+      scheduleDayFactors[sc.day_of_week].push(Number(sc.day_factor) || 0);
+    });
+    const avgScheduleDayFactors: Record<number, number> = {};
+    Object.keys(scheduleDayFactors).forEach(dow => {
+      const factors = scheduleDayFactors[Number(dow)];
+      avgScheduleDayFactors[Number(dow)] = factors.reduce((a, b) => a + b, 0) / factors.length;
+    });
+    let workDaysInMonth = 0;
+    const curDate = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    while (curDate <= lastDay) {
+      workDaysInMonth += avgScheduleDayFactors[curDate.getDay()] || 0;
+      curDate.setDate(curDate.getDate() + 1);
+    }
+    // Fallback to 26 if no schedule data
+    if (workDaysInMonth === 0) workDaysInMonth = 26;
+
     setGoalsData({
       revenueTarget: Number(goalData?.revenue_target) || 0,
       laborCostTargetPct: Number(goalData?.labor_cost_target_pct) || 0,
@@ -753,6 +781,7 @@ export function DailyEntriesModal({
       vatPercentage: vatPct,
       incomeSourceTargets,
       productTargetPcts,
+      workDaysInMonth,
     });
 
     // Build monthly cumulative (Section 3)
@@ -1450,8 +1479,8 @@ export function DailyEntriesModal({
                                   הפרש מהיעד
                                 </div>
                                 {/* סה"כ קופה - הפרש באחוזים מיעד הכנסות */}
-                                <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${goalsData && goalsData.revenueTarget > 0 ? (entry.total_register >= goalsData.revenueTarget / 26 ? "text-green-400" : "text-red-400") : "text-white"}`}>
-                                  <span className="ltr-num">{goalsData && goalsData.revenueTarget > 0 ? `${(((entry.total_register / (goalsData.revenueTarget / 26)) - 1) * 100).toFixed(1)}%` : "-"}</span>
+                                <div className={`text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 ${goalsData && goalsData.revenueTarget > 0 ? (entry.total_register >= goalsData.revenueTarget / goalsData.workDaysInMonth ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                  <span className="ltr-num">{goalsData && goalsData.revenueTarget > 0 ? `${(((entry.total_register / (goalsData.revenueTarget / goalsData.workDaysInMonth)) - 1) * 100).toFixed(1)}%` : "-"}</span>
                                 </div>
                                 {/* מקורות הכנסה - הפרש ממוצע מהיעד */}
                                 {entryDetails?.incomeBreakdown.map((source) => {
