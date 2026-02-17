@@ -90,7 +90,6 @@ function getStatusColor(percentage: number, isExpense: boolean = true, actual: n
   } else {
     // For revenue/KPI: meeting target is good
     if (percentage >= 100) return "text-[#17DB4E]";
-    if (percentage >= 80) return "text-[#FFCF00]";
     return "text-[#F64E60]";
   }
 }
@@ -173,6 +172,10 @@ export default function GoalsPage() {
   const [goalId, setGoalId] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [focusedInputId, setFocusedInputId] = useState<string | null>(null);
+  const [expectedWorkDaysInput, setExpectedWorkDaysInput] = useState<number>(0);
+  const [calculatedWorkDays, setCalculatedWorkDays] = useState<number>(0);
+  const [daysInMonth, setDaysInMonth] = useState<number>(0);
+  const workDaysSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch data from Supabase
   useEffect(() => {
@@ -463,12 +466,21 @@ export default function GoalsPage() {
         });
         const firstDay = new Date(year, month - 1, 1);
         const lastDay = new Date(year, month, 0);
-        let expectedWorkDays = 0;
+        const totalDaysInMonth = lastDay.getDate();
+        let scheduleWorkDays = 0;
         const curDate = new Date(firstDay);
         while (curDate <= lastDay) {
-          expectedWorkDays += avgScheduleDayFactors[curDate.getDay()] || 0;
+          scheduleWorkDays += avgScheduleDayFactors[curDate.getDay()] || 0;
           curDate.setDate(curDate.getDate() + 1);
         }
+
+        // Use saved expected_work_days from DB if available, otherwise use calculated
+        setCalculatedWorkDays(scheduleWorkDays);
+        setDaysInMonth(totalDaysInMonth);
+        const expectedWorkDays = (goal?.expected_work_days != null && Number(goal.expected_work_days) > 0)
+          ? Number(goal.expected_work_days)
+          : scheduleWorkDays;
+        setExpectedWorkDaysInput(expectedWorkDays);
 
         const managerDailyCost = expectedWorkDays > 0 ? totalManagerSalary / expectedWorkDays : 0;
         const actualWorkDays = (dailyEntries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
@@ -780,6 +792,57 @@ export default function GoalsPage() {
       console.error("Error saving KPI target:", error);
     }
   }, [selectedBusinesses, selectedYear, selectedMonth, goalId, ensureGoalRow]);
+
+  // Save expected work days to DB
+  const saveExpectedWorkDays = useCallback(async (value: number | null) => {
+    const supabase = createClient();
+    const year = parseInt(selectedYear);
+    const month = parseInt(selectedMonth);
+
+    try {
+      for (const businessId of selectedBusinesses) {
+        const gId = await ensureGoalRow(supabase, businessId, year, month);
+        if (gId) {
+          await supabase.from("goals")
+            .update({ expected_work_days: value, updated_at: new Date().toISOString() })
+            .eq("id", gId);
+        }
+      }
+      if (!goalId && selectedBusinesses.length > 0) {
+        const { data: newGoal } = await supabase.from("goals")
+          .select("id")
+          .eq("business_id", selectedBusinesses[0])
+          .eq("year", year)
+          .eq("month", month)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (newGoal) setGoalId(newGoal.id);
+      }
+    } catch (error) {
+      console.error("Error saving expected work days:", error);
+    }
+  }, [selectedBusinesses, selectedYear, selectedMonth, goalId, ensureGoalRow]);
+
+  // Handle expected work days change with debounced save
+  const handleExpectedWorkDaysChange = (newValue: string) => {
+    const numValue = parseFloat(newValue) || 0;
+    setExpectedWorkDaysInput(numValue);
+
+    if (workDaysSaveTimerRef.current) clearTimeout(workDaysSaveTimerRef.current);
+    workDaysSaveTimerRef.current = setTimeout(() => {
+      saveExpectedWorkDays(numValue);
+    }, 800);
+  };
+
+  // Reset expected work days to calculated value
+  const handleResetWorkDays = () => {
+    setExpectedWorkDaysInput(calculatedWorkDays);
+
+    if (workDaysSaveTimerRef.current) clearTimeout(workDaysSaveTimerRef.current);
+    workDaysSaveTimerRef.current = setTimeout(() => {
+      saveExpectedWorkDays(null);
+    }, 800);
+  };
 
   // Handle KPI target change with debounced save
   const handleTargetChange = (id: string, newTarget: string) => {
@@ -1134,6 +1197,40 @@ export default function GoalsPage() {
             </div>
           </div>
         </div>
+
+        {/* Expected Work Days - KPI tab only */}
+        {activeTab === "kpi" && (
+          <div className="mt-[10px] bg-[#29318A]/20 rounded-[10px] p-[10px]" dir="rtl">
+            <div className="flex items-center justify-between gap-[10px]">
+              <div className="flex items-center gap-[8px]">
+                <span className="text-[14px] text-white font-semibold">ימי עבודה צפויים:</span>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max={daysInMonth}
+                  value={expectedWorkDaysInput}
+                  onChange={(e) => handleExpectedWorkDaysChange(e.target.value)}
+                  className="w-[60px] h-[32px] bg-[#0F1535] text-white text-[14px] text-center rounded-[6px] border border-[#4C526B] outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  title="ימי עבודה צפויים"
+                />
+                <span className="text-[12px] text-white/50">(מתוך {daysInMonth} ימים)</span>
+              </div>
+              <div className="flex items-center gap-[8px]">
+                <span className="text-[12px] text-white/40">לפי לוח: {calculatedWorkDays.toFixed(1)}</span>
+                {expectedWorkDaysInput !== calculatedWorkDays && (
+                  <button
+                    type="button"
+                    onClick={handleResetWorkDays}
+                    className="text-[11px] text-[#4956D4] hover:text-white transition-colors"
+                  >
+                    איפוס
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Goals List */}
         <div id="onboarding-goals-table" className="mt-[15px]" dir="ltr">

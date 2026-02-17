@@ -258,8 +258,7 @@ const formatCurrencyFull = (amount: number) => {
   const isNegative = amount < 0;
   const absAmount = Math.abs(amount);
   const sign = isNegative ? '-' : '';
-  const isWholeNumber = absAmount % 1 === 0;
-  const formatted = absAmount.toLocaleString("he-IL", { minimumFractionDigits: isWholeNumber ? 0 : 2, maximumFractionDigits: isWholeNumber ? 0 : 2 });
+  const formatted = Math.round(absAmount).toLocaleString("he-IL");
   return `${sign}₪${formatted}`;
 };
 
@@ -268,9 +267,8 @@ const formatCurrencyFullWithSign = (amount: number) => {
   const isNegative = amount < 0;
   const isPositive = amount > 0;
   const absAmount = Math.abs(amount);
-  const sign = isNegative ? '-' : isPositive ? '+' : '';
-  const isWholeNumber = absAmount % 1 === 0;
-  const formatted = absAmount.toLocaleString("he-IL", { minimumFractionDigits: isWholeNumber ? 0 : 2, maximumFractionDigits: isWholeNumber ? 0 : 2 });
+  const sign = isNegative ? '-' : '';
+  const formatted = Math.round(absAmount).toLocaleString("he-IL");
   return `${sign}₪${formatted}`;
 };
 
@@ -284,11 +282,10 @@ const formatPercent = (value: number) => {
 
 // Format percentage with sign (+ for positive, - for negative)
 const formatPercentWithSign = (value: number) => {
-  const sign = value > 0 ? '+' : '';
   if (value % 1 === 0) {
-    return `${sign}${Math.round(value)}%`;
+    return `${Math.round(value)}%`;
   }
-  return `${sign}${value.toFixed(2)}%`;
+  return `${value.toFixed(2)}%`;
 };
 
 // Format local date to YYYY-MM-DD string (avoids timezone issues)
