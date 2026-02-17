@@ -333,6 +333,7 @@ export default function GoalsPage() {
             };
           })
           .filter(Boolean) as GoalItem[];
+        currentData.sort((a, b) => a.name.localeCompare(b.name, "he"));
         setCurrentExpensesData(currentData);
 
         // ============================================
@@ -392,6 +393,7 @@ export default function GoalsPage() {
             };
           })
           .filter(Boolean) as GoalItem[];
+        goodsData.sort((a, b) => a.name.localeCompare(b.name, "he"));
 
         // Add total row
         const goodsTotalActual = goodsData.reduce((sum, g) => sum + g.actual, 0);
