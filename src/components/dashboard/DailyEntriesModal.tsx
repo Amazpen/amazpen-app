@@ -1691,7 +1691,7 @@ export function DailyEntriesModal({
                                       key={source.income_source_id}
                                       className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
                                     >
-                                      <span className="ltr-num">{target > 0 ? `${diff < 0 ? "-" : ""}₪${Math.abs(diff).toFixed(1)}` : "-"}</span>
+                                      <span className="ltr-num">{target > 0 ? `(${diff >= 0 ? "+" : "-"}₪${Math.abs(Math.round(diff))})` : "-"}</span>
                                     </div>
                                   );
                                 })}
