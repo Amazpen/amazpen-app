@@ -1419,12 +1419,6 @@ export function DailyEntriesModal({
                                     <span className="ltr-num">{entry.total_register > 0 ? ((product.quantity * product.unit_cost) / entry.total_register * 100).toFixed(2) : 0}%</span>
                                   </div>
                                 ))}
-                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">0%</span>
-                                </div>
-                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">{formatCurrency(0)}</span>
-                                </div>
                               </div>
 
                               {/* Quantity Column - כמות */}
@@ -1452,8 +1446,6 @@ export function DailyEntriesModal({
                                     <span className="ltr-num">{product.quantity}</span>
                                   </div>
                                 ))}
-                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10" />
-                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10" />
                               </div>
 
                               {/* Target Diff Column - הפרש מהיעד */}
@@ -1504,19 +1496,6 @@ export function DailyEntriesModal({
                                     </div>
                                   );
                                 })}
-                                {/* עלות מכר - הפרש מיעד */}
-                                {(() => {
-                                  const targetPct = goalsData?.foodCostTargetPct || 0;
-                                  return (
-                                    <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
-                                      <span className="ltr-num">{targetPct > 0 ? "-" : "-"}</span>
-                                    </div>
-                                  );
-                                })()}
-                                {/* הוצאות שוטפות - הפרש */}
-                                <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">-</span>
-                                </div>
                               </div>
                             </div>
                           </div>
