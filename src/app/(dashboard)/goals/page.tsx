@@ -399,29 +399,7 @@ export default function GoalsPage() {
           .filter(Boolean) as GoalItem[];
         goodsData.sort((a, b) => a.name.localeCompare(b.name, "he"));
 
-        // Add total row
-        const goodsTotalActual = goodsData.reduce((sum, g) => sum + g.actual, 0);
-        const goodsTotalTarget = goodsData.reduce((sum, g) => sum + g.target, 0);
-        if (goodsData.length > 0) {
-          goodsData.unshift({
-            id: "goods-total",
-            name: 'סה"כ קניות סחורה',
-            target: Number(goal?.goods_expenses_target) || goodsTotalTarget,
-            actual: goodsTotalActual,
-            unit: "₪",
-          });
-        } else {
-          const totalActual = (invoicesData || [])
-            .filter(inv => inv.invoice_type === "goods")
-            .reduce((sum, inv) => sum + Number(inv.subtotal), 0);
-          goodsData.push({
-            id: "goods-total",
-            name: 'סה"כ קניות סחורה',
-            target: Number(goal?.goods_expenses_target) || 0,
-            actual: totalActual,
-            unit: "₪",
-          });
-        }
+        // No total row - show only suppliers
 
         setGoodsPurchaseData(goodsData);
 
