@@ -166,7 +166,8 @@ export default function GoalsPage() {
   const [kpiData, setKpiData] = useState<GoalItem[]>([]);
   const [supplierNamesMap, setSupplierNamesMap] = useState<Map<string, string>>(new Map());
   const [supplierBudgetState, setSupplierBudgetState] = useState<Map<string, number>>(new Map());
-  const [supplierActualState, setSupplierActualState] = useState<Map<string, number>>(new Map());
+  const [supplierActualCurrentState, setSupplierActualCurrentState] = useState<Map<string, number>>(new Map());
+  const [supplierActualGoodsState, setSupplierActualGoodsState] = useState<Map<string, number>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [goalId, setGoalId] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -272,14 +273,21 @@ export default function GoalsPage() {
           .gte("invoice_date", startDate)
           .lte("invoice_date", endDate);
 
-        // Build per-supplier actual amounts
-        const perSupplierActuals = new Map<string, number>();
+        // Build per-supplier actual amounts split by invoice type
+        const perSupplierCurrentActuals = new Map<string, number>();
+        const perSupplierGoodsActuals = new Map<string, number>();
         (invoicesData || []).forEach(inv => {
-          const current = perSupplierActuals.get(inv.supplier_id) || 0;
-          perSupplierActuals.set(inv.supplier_id, current + Number(inv.subtotal));
+          if (inv.invoice_type === "current") {
+            const current = perSupplierCurrentActuals.get(inv.supplier_id) || 0;
+            perSupplierCurrentActuals.set(inv.supplier_id, current + Number(inv.subtotal));
+          } else if (inv.invoice_type === "goods") {
+            const current = perSupplierGoodsActuals.get(inv.supplier_id) || 0;
+            perSupplierGoodsActuals.set(inv.supplier_id, current + Number(inv.subtotal));
+          }
         });
         setSupplierBudgetState(supplierBudgetMap);
-        setSupplierActualState(perSupplierActuals);
+        setSupplierActualCurrentState(perSupplierCurrentActuals);
+        setSupplierActualGoodsState(perSupplierGoodsActuals);
 
         // Aggregate invoices by category for current expenses
         const categoryActuals = new Map<string, number>();
@@ -1132,7 +1140,7 @@ export default function GoalsPage() {
                       <div className="bg-white/5 rounded-[7px] mx-[7px] mb-[3px]">
                         {item.supplierIds!.map((sId, sIdx) => {
                           const sTarget = supplierBudgetState.get(sId) || 0;
-                          const sActual = supplierActualState.get(sId) || 0;
+                          const sActual = (isGoods ? supplierActualGoodsState : supplierActualCurrentState).get(sId) || 0;
                           const sPct = sTarget > 0 ? (sActual / sTarget) * 100 : 0;
                           const sDiff = sActual - sTarget;
                           const sColor = getStatusColor(sPct, true, sActual, sTarget);
