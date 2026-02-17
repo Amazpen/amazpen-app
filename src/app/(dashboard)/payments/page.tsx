@@ -2810,6 +2810,7 @@ function PaymentsPageInner() {
               <span className="text-[14px]">תאריך</span>
             </div>
             <span className="text-[14px] flex-1 text-center">ספק</span>
+            <span className="text-[14px] w-[55px] flex-shrink-0 text-center">אסמכתא</span>
             <span className="text-[14px] w-[45px] flex-shrink-0 text-center">תשלומים</span>
             <span className="text-[14px] w-[55px] flex-shrink-0 text-center">אמצעי</span>
             <span className="text-[14px] w-[70px] flex-shrink-0 text-center">סכום</span>
@@ -2878,6 +2879,11 @@ function PaymentsPageInner() {
                   {/* Supplier */}
                   <span className="text-[13px] font-medium flex-1 text-center leading-tight">
                     {payment.supplier}
+                  </span>
+
+                  {/* Reference Number */}
+                  <span className="text-[13px] font-medium w-[55px] flex-shrink-0 text-center ltr-num truncate" title={group.splits[0]?.reference_number || payment.reference || ""}>
+                    {group.splits[0]?.reference_number || payment.reference || "-"}
                   </span>
 
                   {/* Payment split index */}
