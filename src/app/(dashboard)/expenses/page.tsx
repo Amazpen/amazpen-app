@@ -327,6 +327,9 @@ export default function ExpensesPage() {
   const [showClarificationPopup, setShowClarificationPopup] = useState(false);
   const [clarificationInvoiceId, setClarificationInvoiceId] = useState<string | null>(null);
   const [statusClarificationReason, setStatusClarificationReason] = useState("");
+
+  // Total sales before VAT for the selected date range (used for % מפדיון calculation)
+  const [totalSalesBeforeVat, setTotalSalesBeforeVat] = useState(0);
   const [showStatusClarificationMenu, setShowStatusClarificationMenu] = useState(true);
   const [statusClarificationFile, setStatusClarificationFile] = useState<File | null>(null);
   const [statusClarificationFilePreview, setStatusClarificationFilePreview] = useState<string | null>(null);
@@ -755,6 +758,34 @@ export default function ExpensesPage() {
           .is("deleted_at", null)
           .eq("is_active", true);
 
+        // Fetch total sales (daily_entries) for the date range to calculate % מפדיון
+        const { data: dailyEntries } = await supabase
+          .from("daily_entries")
+          .select("total_register, business_id")
+          .in("business_id", selectedBusinesses)
+          .gte("entry_date", startDate)
+          .lte("entry_date", endDate);
+
+        // Fetch VAT percentage from goals for the selected month/year
+        const targetYear = dateRange.start.getFullYear();
+        const targetMonth = dateRange.start.getMonth() + 1;
+        const { data: goalsData } = await supabase
+          .from("goals")
+          .select("business_id, vat_percentage")
+          .in("business_id", selectedBusinesses)
+          .eq("year", targetYear)
+          .eq("month", targetMonth);
+
+        // Calculate total sales before VAT
+        const totalRegister = (dailyEntries || []).reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
+        // Use average VAT percentage across selected businesses, default 17%
+        const avgVat = goalsData && goalsData.length > 0
+          ? goalsData.reduce((sum, g) => sum + (Number(g.vat_percentage) || 0.17), 0) / goalsData.length
+          : 0.17;
+        const vatDivisor = 1 + avgVat;
+        const salesBeforeVat = totalRegister / vatDivisor;
+        setTotalSalesBeforeVat(salesBeforeVat);
+
         // Calculate totals per supplier (for chart/purchases) and per category with suppliers (for expenses drill-down)
         if (invoicesData) {
           const supplierTotals = new Map<string, { name: string; total: number; categoryId: string | null }>();
@@ -817,8 +848,8 @@ export default function ExpensesPage() {
             }
           }
 
-          // Calculate total for percentage
-          const grandTotal = Array.from(supplierTotals.values()).reduce((sum, sup) => sum + sup.total, 0);
+          // Use salesBeforeVat as denominator for percentage calculations (% מפדיון)
+          const pctDenominator = salesBeforeVat;
 
           // Transform supplier data for chart/purchases tab
           const expensesSummary: ExpenseSummary[] = Array.from(supplierTotals.entries())
@@ -827,7 +858,7 @@ export default function ExpensesPage() {
               id,
               name: data.name,
               amount: data.total,
-              percentage: grandTotal > 0 ? (data.total / grandTotal) * 100 : 0,
+              percentage: pctDenominator > 0 ? (data.total / pctDenominator) * 100 : 0,
             }))
             .sort((a, b) => b.amount - a.amount);
 
@@ -840,13 +871,13 @@ export default function ExpensesPage() {
               id,
               category: data.name,
               amount: data.total,
-              percentage: grandTotal > 0 ? (data.total / grandTotal) * 100 : 0,
+              percentage: pctDenominator > 0 ? (data.total / pctDenominator) * 100 : 0,
               suppliers: Array.from(data.suppliers.entries())
                 .map(([supId, supData]) => ({
                   id: supId,
                   name: supData.name,
                   amount: supData.total,
-                  percentage: data.total > 0 ? (supData.total / data.total) * 100 : 0,
+                  percentage: pctDenominator > 0 ? (supData.total / pctDenominator) * 100 : 0,
                   isFixed: supData.isFixed,
                 }))
                 .sort((a, b) => b.amount - a.amount),
@@ -1045,18 +1076,16 @@ export default function ExpensesPage() {
         result.push({ ...cat, percentage: 0 });
       }
     }
-    // Recalculate percentages relative to global total
-    const total = result.reduce((sum, item) => sum + item.amount, 0);
+    // Recalculate percentages relative to sales before VAT (% מפדיון)
     for (const item of result) {
-      item.percentage = total > 0 ? (item.amount / total) * 100 : 0;
+      item.percentage = totalSalesBeforeVat > 0 ? (item.amount / totalSalesBeforeVat) * 100 : 0;
     }
     // Sort by amount descending for clear chart readability
     result.sort((a, b) => b.amount - a.amount);
     return result;
-  }, [activeTab, expensesData, categoryData, expandedCategoryIds]);
+  }, [activeTab, expensesData, categoryData, expandedCategoryIds, totalSalesBeforeVat]);
 
   const totalExpenses = chartDataSource.reduce((sum, item) => sum + item.amount, 0);
-  const totalPercentage = chartDataSource.reduce((sum, item) => sum + item.percentage, 0);
 
   // Chart colors - used in both chart and table
   const chartColors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8", "#F7DC6F"];
@@ -2073,9 +2102,9 @@ export default function ExpensesPage() {
               {/* Center text - shown when no segment is hovered */}
               {activeExpenseIndex === undefined && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[18px] font-bold">סה&apos;&apos;כ הוצאות</span>
+                  <span className="text-[18px] font-bold">{activeTab === "purchases" ? "קניות סחורה" : activeTab === "employees" ? "עלות עובדים" : "הוצאות שוטפות"}</span>
                   <span className="text-[22px] font-bold ltr-num">₪{totalExpenses % 1 === 0 ? totalExpenses.toLocaleString("he-IL", { maximumFractionDigits: 0 }) : totalExpenses.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  <span className="text-[18px] font-bold ltr-num">{totalPercentage % 1 === 0 ? totalPercentage.toFixed(0) : totalPercentage.toFixed(2)}%</span>
+                  <span className="text-[18px] font-bold ltr-num">{totalSalesBeforeVat > 0 ? `${((totalExpenses / totalSalesBeforeVat) * 100) % 1 === 0 ? ((totalExpenses / totalSalesBeforeVat) * 100).toFixed(0) : ((totalExpenses / totalSalesBeforeVat) * 100).toFixed(1)}%` : "—"}</span>
                 </div>
               )}
             </div>
