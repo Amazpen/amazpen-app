@@ -134,6 +134,9 @@ export function DailyEntriesModal({
   } | null>(null);
   const [goalsData, setGoalsData] = useState<GoalsData | null>(null);
   const [monthlyCumulative, setMonthlyCumulative] = useState<MonthlyCumulativeData | null>(null);
+  const [openPaymentsTotal, setOpenPaymentsTotal] = useState<number>(0);
+  const [openSuppliersTotal, setOpenSuppliersTotal] = useState<number>(0);
+  const [openCommitmentsTotal, setOpenCommitmentsTotal] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DailyEntry | null>(null);
@@ -193,6 +196,11 @@ export function DailyEntriesModal({
       month: "2-digit",
       year: "2-digit",
     });
+  };
+
+  // Format percentage without trailing zeros (e.g., 1.0% → 1%, 7.00% → 7%, 39.63% → 39.63%)
+  const formatPercent = (value: number, decimals = 2) => {
+    return `${parseFloat(value.toFixed(decimals))}%`;
   };
 
   // Format currency
@@ -639,6 +647,11 @@ export function DailyEntriesModal({
       { data: monthlyInvoices },
       { data: scheduleData },
       { data: currentExpBudgetData },
+      { data: openPaymentsData },
+      { data: allInvoicesData },
+      { data: allPaymentsData },
+      { data: allCommitmentSplitsData },
+      { data: paidCommitmentSplitsData },
     ] = await Promise.all([
       // 1. Entry income breakdown
       supabase
@@ -708,6 +721,40 @@ export function DailyEntriesModal({
         .eq("month", month)
         .eq("suppliers.expense_type", "current_expenses")
         .is("deleted_at", null),
+      // 13. Open payments - payment splits with due_date > entry date
+      supabase
+        .from("payment_splits")
+        .select("amount, payments!inner(business_id, deleted_at)")
+        .eq("payments.business_id", businessId)
+        .is("payments.deleted_at", null)
+        .gt("due_date", currentEntry?.entry_date || ""),
+      // 14. All invoices total (for open suppliers calculation)
+      supabase
+        .from("invoices")
+        .select("total_amount")
+        .eq("business_id", businessId)
+        .is("deleted_at", null),
+      // 15. All payments total (for open suppliers calculation)
+      supabase
+        .from("payments")
+        .select("total_amount")
+        .eq("business_id", businessId)
+        .is("deleted_at", null),
+      // 16. All commitment splits (installments_count > 3) - total obligations
+      supabase
+        .from("payment_splits")
+        .select("amount, installments_count, payments!inner(business_id, deleted_at)")
+        .eq("payments.business_id", businessId)
+        .is("payments.deleted_at", null)
+        .gt("installments_count", 3),
+      // 17. Paid commitment splits (due_date <= entry date) - already paid
+      supabase
+        .from("payment_splits")
+        .select("amount, installments_count, payments!inner(business_id, deleted_at)")
+        .eq("payments.business_id", businessId)
+        .is("payments.deleted_at", null)
+        .gt("installments_count", 3)
+        .lte("due_date", currentEntry?.entry_date || ""),
     ]);
 
     // Sequential fetches that depend on parallel results
@@ -875,6 +922,30 @@ export function DailyEntriesModal({
       currentExpensesPct,
       actualWorkDays,
     });
+
+    // Calculate open payments total (splits with due_date > entry date)
+    const openPayments = (openPaymentsData || []).reduce(
+      (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
+    );
+    setOpenPaymentsTotal(openPayments);
+
+    // Calculate open suppliers: total invoices - total payments (no date filter)
+    const totalInvoices = (allInvoicesData || []).reduce(
+      (sum: number, inv: Record<string, unknown>) => sum + (Number(inv.total_amount) || 0), 0
+    );
+    const totalPayments = (allPaymentsData || []).reduce(
+      (sum: number, pay: Record<string, unknown>) => sum + (Number(pay.total_amount) || 0), 0
+    );
+    setOpenSuppliersTotal(totalInvoices - totalPayments);
+
+    // Calculate open commitments: all commitment splits - paid commitment splits (due_date <= entry date)
+    const totalCommitments = (allCommitmentSplitsData || []).reduce(
+      (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
+    );
+    const paidCommitments = (paidCommitmentSplitsData || []).reduce(
+      (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
+    );
+    setOpenCommitmentsTotal(totalCommitments - paidCommitments);
 
     setIsLoadingDetails(false);
   };
@@ -1434,7 +1505,7 @@ export function DailyEntriesModal({
                                     const revenueBeforeVat = entry.total_register / vatDivisor;
                                     const laborWithMarkup = entry.labor_cost * goalsData.markupPercentage;
                                     const laborPct = revenueBeforeVat > 0 ? (laborWithMarkup / revenueBeforeVat) * 100 : 0;
-                                    return `${laborPct.toFixed(2)}%`;
+                                    return formatPercent(laborPct);
                                   })()}</span>
                                 </div>
                                 {entryDetails?.productUsage.map((product) => {
@@ -1447,7 +1518,7 @@ export function DailyEntriesModal({
                                     key={product.product_id}
                                     className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
                                   >
-                                    <span className="ltr-num">{entry.total_register > 0 ? productCostPct.toFixed(2) : 0}%</span>
+                                    <span className="ltr-num">{entry.total_register > 0 ? formatPercent(productCostPct) : "0%"}</span>
                                   </div>
                                   );
                                 })}
@@ -1479,7 +1550,7 @@ export function DailyEntriesModal({
                                 </div>
                                 {/* סה"כ קופה - הפרש באחוזים מיעד הכנסות */}
                                 <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${goalsData && goalsData.revenueTarget > 0 ? (entry.total_register >= goalsData.revenueTarget / goalsData.workDaysInMonth ? "text-green-400" : "text-red-400") : "text-white"}`}>
-                                  <span className="ltr-num">{goalsData && goalsData.revenueTarget > 0 ? `${(((entry.total_register / (goalsData.revenueTarget / goalsData.workDaysInMonth)) - 1) * 100).toFixed(1)}%` : "-"}</span>
+                                  <span className="ltr-num">{goalsData && goalsData.revenueTarget > 0 ? formatPercent(((entry.total_register / (goalsData.revenueTarget / goalsData.workDaysInMonth)) - 1) * 100) : "-"}</span>
                                 </div>
                                 {/* מקורות הכנסה - הפרש ממוצע מהיעד */}
                                 {entryDetails?.incomeBreakdown.map((source) => {
@@ -1510,7 +1581,7 @@ export function DailyEntriesModal({
                                   const diff = targetPct > 0 ? laborPct - targetPct : 0;
                                   return (
                                     <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${targetPct > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
-                                      <span className="ltr-num">{targetPct > 0 ? `${diff.toFixed(2)}%` : "-"}</span>
+                                      <span className="ltr-num">{targetPct > 0 ? formatPercent(diff) : "-"}</span>
                                     </div>
                                   );
                                 })()}
@@ -1527,7 +1598,7 @@ export function DailyEntriesModal({
                                       key={product.product_id}
                                       className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${targetPct > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
                                     >
-                                      <span className="ltr-num">{targetPct > 0 ? `${diff.toFixed(2)}%` : "-"}</span>
+                                      <span className="ltr-num">{targetPct > 0 ? formatPercent(diff) : "-"}</span>
                                     </div>
                                   );
                                 })}
@@ -1640,18 +1711,18 @@ export function DailyEntriesModal({
                                   </div>
                                 ))}
                                 <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">{(monthlyCumulative?.laborCostPct || 0).toFixed(2)}%</span>
+                                  <span className="ltr-num">{formatPercent(monthlyCumulative?.laborCostPct || 0)}</span>
                                 </div>
                                 {entryDetails?.productUsage.map((product) => (
                                   <div
                                     key={product.product_id}
                                     className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
                                   >
-                                    <span className="ltr-num">{(monthlyCumulative?.productCosts[product.product_id]?.costPct || 0).toFixed(2)}%</span>
+                                    <span className="ltr-num">{formatPercent(monthlyCumulative?.productCosts[product.product_id]?.costPct || 0)}</span>
                                   </div>
                                 ))}
                                 <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">{(monthlyCumulative?.foodCostPct || 0).toFixed(2)}%</span>
+                                  <span className="ltr-num">{formatPercent(monthlyCumulative?.foodCostPct || 0)}</span>
                                 </div>
                                 <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{formatCurrency(monthlyCumulative?.currentExpenses || 0)}</span>
@@ -1679,7 +1750,7 @@ export function DailyEntriesModal({
                                   const diffPct = ((monthlyPace / target) - 1) * 100;
                                   return (
                                     <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${diffPct >= 0 ? "text-green-400" : "text-red-400"}`}>
-                                      <span className="ltr-num">{`${diffPct.toFixed(2)}%`}</span>
+                                      <span className="ltr-num">{formatPercent(diffPct)}</span>
                                     </div>
                                   );
                                 })()}
@@ -1703,7 +1774,7 @@ export function DailyEntriesModal({
                                   const diff = target > 0 ? actual - target : 0;
                                   return (
                                     <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
-                                      <span className="ltr-num">{target > 0 ? `${diff.toFixed(1)}%` : "-"}</span>
+                                      <span className="ltr-num">{target > 0 ? formatPercent(diff) : "-"}</span>
                                     </div>
                                   );
                                 })()}
@@ -1716,7 +1787,7 @@ export function DailyEntriesModal({
                                       key={product.product_id}
                                       className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
                                     >
-                                      <span className="ltr-num">{target > 0 ? `${diff.toFixed(2)}%` : "-"}</span>
+                                      <span className="ltr-num">{target > 0 ? formatPercent(diff) : "-"}</span>
                                     </div>
                                   );
                                 })}
@@ -1727,7 +1798,7 @@ export function DailyEntriesModal({
                                   const diff = target > 0 ? actual - target : 0;
                                   return (
                                     <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
-                                      <span className="ltr-num">{target > 0 ? `${diff.toFixed(2)}%` : "-"}</span>
+                                      <span className="ltr-num">{target > 0 ? formatPercent(diff) : "-"}</span>
                                     </div>
                                   );
                                 })()}
@@ -1750,28 +1821,28 @@ export function DailyEntriesModal({
 
                         {/* Additional Info */}
                         <div className="flex flex-col gap-[5px] mt-[15px] border-t-2 border-[#FFCF00] pt-[10px]" dir="rtl">
-                          <div className="flex justify-between items-center">
+                          <div className="flex items-center">
                             <span className="text-white text-[16px] font-bold">
                               תשלומים פתוחים:
                             </span>
-                            <span className="text-white text-[16px] ltr-num">
-                              ₪0
+                            <span className="text-white text-[16px] ltr-num flex-1 text-center">
+                              {formatCurrency(openPaymentsTotal)}
                             </span>
                           </div>
-                          <div className="flex justify-between items-center">
+                          <div className="flex items-center">
                             <span className="text-white text-[16px] font-bold">
                               ספקים פתוחים:
                             </span>
-                            <span className="text-white text-[16px] ltr-num">
-                              ₪0
+                            <span className="text-white text-[16px] ltr-num flex-1 text-center">
+                              {formatCurrency(openSuppliersTotal)}
                             </span>
                           </div>
-                          <div className="flex justify-between items-center">
+                          <div className="flex items-center">
                             <span className="text-white text-[16px] font-bold">
                               התחייבויות קודמות:
                             </span>
-                            <span className="text-white text-[16px] ltr-num">
-                              ₪0
+                            <span className="text-white text-[16px] ltr-num flex-1 text-center">
+                              {formatCurrency(openCommitmentsTotal)}
                             </span>
                           </div>
                         </div>
