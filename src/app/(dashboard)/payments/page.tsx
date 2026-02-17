@@ -275,7 +275,7 @@ export default function PaymentsPage() {
 }
 
 function PaymentsPageInner() {
-  const { selectedBusinesses } = useDashboard();
+  const { selectedBusinesses, isAdmin } = useDashboard();
   const { showToast } = useToast();
   const searchParams = useSearchParams();
   const highlightPaymentId = searchParams.get("paymentId");
@@ -2914,36 +2914,40 @@ function PaymentsPageInner() {
                     <div className="flex items-center justify-between border-b border-white/20 pb-[8px] px-[7px]" dir="rtl">
                       <span className="text-[16px] font-medium">פרטים נוספים</span>
                       <div className="flex items-center gap-[5px]">
-                        {/* Edit button */}
-                        <button
-                          type="button"
-                          onClick={() => handleEditPayment(payment)}
-                          className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
-                          title="עריכה"
-                        >
-                          <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                          </svg>
-                        </button>
-                        {/* Delete button */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (confirm("האם למחוק את התשלום?")) {
-                              handleDeletePayment(payment.id);
-                            }
-                          }}
-                          className="w-[20px] h-[20px] text-white opacity-70 hover:text-[#F64E60] transition-opacity cursor-pointer"
-                          title="מחיקה"
-                        >
-                          <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6"/>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                            <line x1="10" y1="11" x2="10" y2="17"/>
-                            <line x1="14" y1="11" x2="14" y2="17"/>
-                          </svg>
-                        </button>
+                        {/* Edit button - Admin only */}
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => handleEditPayment(payment)}
+                            className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                            title="עריכה"
+                          >
+                            <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                          </button>
+                        )}
+                        {/* Delete button - Admin only */}
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm("האם למחוק את התשלום?")) {
+                                handleDeletePayment(payment.id);
+                              }
+                            }}
+                            className="w-[20px] h-[20px] text-white opacity-70 hover:text-[#F64E60] transition-opacity cursor-pointer"
+                            title="מחיקה"
+                          >
+                            <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6"/>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                              <line x1="10" y1="11" x2="10" y2="17"/>
+                              <line x1="14" y1="11" x2="14" y2="17"/>
+                            </svg>
+                          </button>
+                        )}
                         {payment.receiptUrl && (
                           <button
                             type="button"

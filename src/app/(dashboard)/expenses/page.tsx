@@ -209,7 +209,7 @@ function PdfThumbnail({ url, className, onClick }: { url: string; className?: st
 
 export default function ExpensesPage() {
   const router = useRouter();
-  const { selectedBusinesses } = useDashboard();
+  const { selectedBusinesses, isAdmin } = useDashboard();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = usePersistedState<"expenses" | "purchases" | "employees">("expenses:tab", "expenses");
   const [savedDateRange, setSavedDateRange] = usePersistedState<{ start: string; end: string } | null>("expenses:dateRange", null);
@@ -2598,32 +2598,36 @@ export default function ExpensesPage() {
                               </svg>
                             </button>
                           )}
-                          {/* Edit Icon */}
-                          <button
-                            type="button"
-                            title="עריכה"
-                            onClick={() => handleEditInvoice(invoice)}
-                            className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
-                          >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                            </svg>
-                          </button>
-                          {/* Delete Icon */}
-                          <button
-                            type="button"
-                            title="מחיקה"
-                            onClick={() => handleDeleteClick(invoice.id)}
-                            className="w-[18px] h-[18px] text-white/70 hover:text-[#F64E60] transition-colors"
-                          >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
-                              <polyline points="3 6 5 6 21 6"/>
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                              <line x1="10" y1="11" x2="10" y2="17"/>
-                              <line x1="14" y1="11" x2="14" y2="17"/>
-                            </svg>
-                          </button>
+                          {/* Edit Icon - Admin only */}
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              title="עריכה"
+                              onClick={() => handleEditInvoice(invoice)}
+                              className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                              </svg>
+                            </button>
+                          )}
+                          {/* Delete Icon - Admin only */}
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              title="מחיקה"
+                              onClick={() => handleDeleteClick(invoice.id)}
+                              className="w-[18px] h-[18px] text-white/70 hover:text-[#F64E60] transition-colors"
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                <line x1="10" y1="11" x2="10" y2="17"/>
+                                <line x1="14" y1="11" x2="14" y2="17"/>
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -4149,21 +4153,22 @@ export default function ExpensesPage() {
                       </span>
                     </span>
                     <div className="flex items-center justify-center gap-[4px]" style={{ width: 76, maxWidth: 76 }}>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Delete invoice
-                          handleDeleteClick(inv.id);
-                        }}
-                        className="w-[25px] h-[25px] flex items-center justify-center text-white/50 hover:text-white transition-colors"
-                        title="מחק"
-                      >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                          <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </button>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteClick(inv.id);
+                          }}
+                          className="w-[25px] h-[25px] flex items-center justify-center text-white/50 hover:text-white transition-colors"
+                          title="מחק"
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                      )}
                       {inv.attachmentUrls.length > 0 && (
                         <button
                           type="button"
