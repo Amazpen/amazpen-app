@@ -37,6 +37,9 @@ interface ProductUsage {
   quantity: number;
   unit: string;
   unit_cost: number;
+  opening_stock: number;
+  received_quantity: number;
+  closing_stock: number;
 }
 
 // Types for dynamic edit form data
@@ -643,7 +646,7 @@ export function DailyEntriesModal({
       // 2. Entry product usage
       supabase
         .from("daily_product_usage")
-        .select(`product_id, quantity, unit_cost_at_time, managed_products (name, unit)`)
+        .select(`product_id, quantity, unit_cost_at_time, opening_stock, received_quantity, closing_stock, managed_products (name, unit)`)
         .eq("daily_entry_id", entryId),
       // 3. Goals for this month
       supabase
@@ -737,6 +740,9 @@ export function DailyEntriesModal({
       quantity: Number(p.quantity) || 0,
       unit: (p.managed_products as { name: string; unit: string })?.unit || "",
       unit_cost: Number(p.unit_cost_at_time) || 0,
+      opening_stock: Number(p.opening_stock) || 0,
+      received_quantity: Number(p.received_quantity) || 0,
+      closing_stock: Number(p.closing_stock) || 0,
     }));
 
     setEntryDetails({ incomeBreakdown, productUsage });
@@ -1411,14 +1417,20 @@ export function DailyEntriesModal({
                                     return `${laborPct.toFixed(2)}%`;
                                   })()}</span>
                                 </div>
-                                {entryDetails?.productUsage.map((product) => (
+                                {entryDetails?.productUsage.map((product) => {
+                                  const usage = product.opening_stock + product.received_quantity - product.closing_stock;
+                                  const vatDivisor2 = goalsData?.vatPercentage && goalsData.vatPercentage > 0 ? 1 + goalsData.vatPercentage : 1;
+                                  const revenueBeforeVat2 = entry.total_register / vatDivisor2;
+                                  const productCostPct = revenueBeforeVat2 > 0 ? ((usage * product.unit_cost) / revenueBeforeVat2) * 100 : 0;
+                                  return (
                                   <div
                                     key={product.product_id}
                                     className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
                                   >
-                                    <span className="ltr-num">{entry.total_register > 0 ? ((product.quantity * product.unit_cost) / entry.total_register * 100).toFixed(2) : 0}%</span>
+                                    <span className="ltr-num">{entry.total_register > 0 ? productCostPct.toFixed(2) : 0}%</span>
                                   </div>
-                                ))}
+                                  );
+                                })}
                               </div>
 
                               {/* Quantity Column - כמות */}
@@ -1486,7 +1498,10 @@ export function DailyEntriesModal({
                                 })()}
                                 {/* מוצרים - הפרש מיעד */}
                                 {entryDetails?.productUsage.map((product) => {
-                                  const actualPct = entry.total_register > 0 ? ((product.quantity * product.unit_cost) / entry.total_register) * 100 : 0;
+                                  const usage = product.opening_stock + product.received_quantity - product.closing_stock;
+                                  const vatDiv = goalsData?.vatPercentage && goalsData.vatPercentage > 0 ? 1 + goalsData.vatPercentage : 1;
+                                  const revBeforeVat = entry.total_register / vatDiv;
+                                  const actualPct = revBeforeVat > 0 ? ((usage * product.unit_cost) / revBeforeVat) * 100 : 0;
                                   const targetPct = goalsData?.productTargetPcts[product.product_id] || 0;
                                   const diff = targetPct > 0 ? actualPct - targetPct : 0;
                                   return (
