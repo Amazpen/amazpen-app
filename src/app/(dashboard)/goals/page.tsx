@@ -377,27 +377,23 @@ export default function GoalsPage() {
           }
         });
 
-        // Build flat goods data - each category shown directly with its suppliers
-        const goodsData: GoalItem[] = (categoriesData || [])
-          .map((cat) => {
-            const catSupplierIds = goodsSuppliers
-              .filter(s => s.expense_category_id === cat.id)
-              .map(s => s.id);
+        // Build flat goods data - one row per supplier (by name)
+        const goodsData: GoalItem[] = goodsSuppliers
+          .map((supplier) => {
+            const sActual = perSupplierGoodsActuals.get(supplier.id) || 0;
+            const sTarget = supplierBudgetMap.get(supplier.id) || 0;
 
-            const catActual = goodsCategoryActuals.get(cat.id) || 0;
-            const catTarget = goodsCategoryTargets.get(cat.id) || 0;
-
-            // Skip categories that have no goods suppliers and no data
-            if (catSupplierIds.length === 0 && catActual === 0 && catTarget === 0) return null;
+            // Skip suppliers with no data
+            if (sActual === 0 && sTarget === 0) return null;
 
             return {
-              id: cat.id,
-              name: cat.name,
-              target: catTarget,
-              actual: catActual,
+              id: `goods-supplier-${supplier.id}`,
+              name: namesMap.get(supplier.id) || supplier.name,
+              target: sTarget,
+              actual: sActual,
               unit: "₪",
               editable: true,
-              supplierIds: catSupplierIds,
+              supplierIds: [supplier.id],
             };
           })
           .filter(Boolean) as GoalItem[];
@@ -1061,7 +1057,7 @@ export default function GoalsPage() {
                 const statusColor = getStatusColor(percentage, isExpense, item.actual, item.target);
                 const hasChildren = item.children && item.children.length > 0;
                 const hasSuppliers = item.supplierIds && item.supplierIds.length > 0;
-                const isExpandable = (isCurrent || isGoods) && (hasChildren || hasSuppliers);
+                const isExpandable = isCurrent && (hasChildren || hasSuppliers);
                 // For vs-current and vs-goods, categories are flat, so editable
                 const isFlatEditable = (isCurrent || isGoods) && item.editable;
                 const isExpanded = expandedGoalId === item.id;
