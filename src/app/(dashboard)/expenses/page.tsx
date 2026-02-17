@@ -345,6 +345,7 @@ export default function ExpensesPage() {
     amount: string;
     installments: string;
     checkNumber: string;
+    creditCardId: string;
     customInstallments: Array<{
       number: number;
       date: string;
@@ -353,8 +354,11 @@ export default function ExpensesPage() {
     }>;
   }
   const [popupPaymentMethods, setPopupPaymentMethods] = useState<PaymentMethodEntry[]>([
-    { id: 1, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: [] }
+    { id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }
   ]);
+
+  // Business credit cards
+  const [businessCreditCards, setBusinessCreditCards] = useState<{id: string, card_name: string, billing_day: number}[]>([]);
 
   // Payment method options for popup form
   const paymentMethodOptions = [
@@ -395,6 +399,47 @@ export default function ExpensesPage() {
     return result;
   };
 
+  // Calculate due date based on credit card billing day
+  // If payment is before billing day in same month → due on billing day same month
+  // If payment is on or after billing day → due on billing day next month
+  const calculateCreditCardDueDate = (paymentDateStr: string, billingDay: number): string => {
+    const payDate = new Date(paymentDateStr);
+    const dayOfMonth = payDate.getDate();
+
+    if (dayOfMonth < billingDay) {
+      // Due this month on billing day
+      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth(), billingDay);
+      return dueDate.toISOString().split("T")[0];
+    } else {
+      // Due next month on billing day
+      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth() + 1, billingDay);
+      return dueDate.toISOString().split("T")[0];
+    }
+  };
+
+  // Generate installments with credit card billing day logic
+  const generateCreditCardInstallments = (numInstallments: number, totalAmount: number, paymentDateStr: string, billingDay: number) => {
+    if (numInstallments <= 1 || totalAmount === 0) return [];
+
+    const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
+    const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
+    const firstDueDate = calculateCreditCardDueDate(paymentDateStr, billingDay);
+
+    const result = [];
+    for (let i = 0; i < numInstallments; i++) {
+      const date = new Date(firstDueDate);
+      date.setMonth(date.getMonth() + i);
+
+      result.push({
+        number: i + 1,
+        date: date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
+        dateForInput: date.toISOString().split("T")[0],
+        amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
+      });
+    }
+    return result;
+  };
+
   // Get the effective start date for new installments in popup
   const getPopupEffectiveStartDate = () => {
     if (popupPaymentMethods.length > 0 && popupPaymentMethods[0].customInstallments.length > 0) {
@@ -408,7 +453,7 @@ export default function ExpensesPage() {
     const newId = Math.max(...popupPaymentMethods.map(p => p.id)) + 1;
     setPopupPaymentMethods(prev => [
       ...prev,
-      { id: newId, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: [] }
+      { id: newId, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }
     ]);
   };
 
@@ -425,6 +470,11 @@ export default function ExpensesPage() {
       if (p.id !== id) return p;
 
       const updated = { ...p, [field]: value };
+
+      // Clear creditCardId when switching away from credit_card method
+      if (field === "method" && value !== "credit_card") {
+        updated.creditCardId = "";
+      }
 
       // Update installments when installments count changes - preserve existing dates
       if (field === "installments") {
@@ -466,8 +516,13 @@ export default function ExpensesPage() {
             }));
           } else {
             // No existing installments or same count - generate fresh
-            const startDate = existing.length > 0 ? existing[0].dateForInput : getPopupEffectiveStartDate();
-            updated.customInstallments = generatePopupInstallments(numInstallments, totalAmount, startDate);
+            const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
+            const effectiveDate = existing.length > 0 ? existing[0].dateForInput : getPopupEffectiveStartDate();
+            if (card && effectiveDate) {
+              updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, effectiveDate, card.billing_day);
+            } else {
+              updated.customInstallments = generatePopupInstallments(numInstallments, totalAmount, effectiveDate);
+            }
           }
         }
       }
@@ -484,8 +539,13 @@ export default function ExpensesPage() {
             amount: idx === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
           }));
         } else if (totalAmount > 0 && numInstallments > 1) {
+          const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
           const startDate = getPopupEffectiveStartDate();
-          updated.customInstallments = generatePopupInstallments(numInstallments, totalAmount, startDate);
+          if (card && startDate) {
+            updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, startDate, card.billing_day);
+          } else {
+            updated.customInstallments = generatePopupInstallments(numInstallments, totalAmount, startDate);
+          }
         } else {
           updated.customInstallments = [];
         }
@@ -587,6 +647,18 @@ export default function ExpensesPage() {
 
         if (suppliersData) {
           setSuppliers(suppliersData);
+        }
+
+        // Fetch credit cards for the selected businesses
+        const { data: creditCardsData } = await supabase
+          .from("business_credit_cards")
+          .select("id, card_name, billing_day")
+          .in("business_id", selectedBusinesses)
+          .eq("is_active", true)
+          .order("card_name");
+
+        if (creditCardsData) {
+          setBusinessCreditCards(creditCardsData);
         }
 
         // Fetch invoices for the date range (use local date format to avoid timezone issues)
@@ -1152,6 +1224,9 @@ export default function ExpensesPage() {
               if (amount > 0 && pm.method) {
                 const installmentsCount = parseInt(pm.installments) || 1;
 
+                const creditCardId = pm.method === "credit_card" && pm.creditCardId ? pm.creditCardId : null;
+                const card = creditCardId ? businessCreditCards.find(c => c.id === creditCardId) : null;
+
                 if (pm.customInstallments.length > 0) {
                   for (const inst of pm.customInstallments) {
                     await supabase
@@ -1164,10 +1239,16 @@ export default function ExpensesPage() {
                         installment_number: inst.number,
                         reference_number: paymentReference || null,
                         check_number: pm.method === "check" ? (pm.checkNumber || null) : null,
+                        credit_card_id: creditCardId,
                         due_date: inst.dateForInput || null,
                       });
                   }
                 } else {
+                  const effectiveDate = paymentDate || expenseDate;
+                  const dueDate = card && effectiveDate
+                    ? calculateCreditCardDueDate(effectiveDate, card.billing_day)
+                    : effectiveDate || null;
+
                   await supabase
                     .from("payment_splits")
                     .insert({
@@ -1178,7 +1259,8 @@ export default function ExpensesPage() {
                       installment_number: 1,
                       reference_number: paymentReference || null,
                       check_number: pm.method === "check" ? (pm.checkNumber || null) : null,
-                      due_date: paymentDate || expenseDate || null,
+                      credit_card_id: creditCardId,
+                      due_date: dueDate,
                     });
                 }
               }
@@ -1225,7 +1307,7 @@ export default function ExpensesPage() {
     setPaymentReceiptPreview(null);
     setNewAttachmentFiles([]);
     setNewAttachmentPreviews([]);
-    setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: [] }]);
+    setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }]);
     setShowClarificationMenu(false);
   };
 
@@ -1456,6 +1538,7 @@ export default function ExpensesPage() {
           amount: invoice.amountWithVat.toString(),
           installments: "1",
           checkNumber: "",
+          creditCardId: "",
           customInstallments: []
         }]);
         setShowPaymentPopup(true);
@@ -1639,6 +1722,8 @@ export default function ExpensesPage() {
           const amount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
           if (amount > 0 && pm.method) {
             const installmentsCount = parseInt(pm.installments) || 1;
+            const creditCardId = pm.method === "credit_card" && pm.creditCardId ? pm.creditCardId : null;
+            const card = creditCardId ? businessCreditCards.find(c => c.id === creditCardId) : null;
 
             if (installmentsCount > 1 && pm.customInstallments.length > 0) {
               // Create split for each installment
@@ -1653,11 +1738,16 @@ export default function ExpensesPage() {
                     installment_number: inst.number,
                     reference_number: paymentReference || null,
                     check_number: pm.method === "check" ? (pm.checkNumber || null) : null,
+                    credit_card_id: creditCardId,
                     due_date: inst.dateForInput || null,
                   });
               }
             } else {
               // Single payment
+              const dueDate = card && paymentDate
+                ? calculateCreditCardDueDate(paymentDate, card.billing_day)
+                : paymentDate || null;
+
               await supabase
                 .from("payment_splits")
                 .insert({
@@ -1668,7 +1758,8 @@ export default function ExpensesPage() {
                   installment_number: 1,
                   reference_number: paymentReference || null,
                   check_number: pm.method === "check" ? (pm.checkNumber || null) : null,
-                  due_date: paymentDate || null,
+                  credit_card_id: creditCardId,
+                  due_date: dueDate,
                 });
             }
           }
@@ -1707,7 +1798,7 @@ export default function ExpensesPage() {
     setPaymentNotes("");
     setPaymentReceiptFile(null);
     setPaymentReceiptPreview(null);
-    setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", customInstallments: [] }]);
+    setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }]);
   };
 
   // Handle opening supplier breakdown popup (from expenses detail table)
@@ -2857,6 +2948,7 @@ export default function ExpensesPage() {
                         amount,
                         installments: "1",
                         checkNumber: "",
+                        creditCardId: "",
                         customInstallments: amount ? generatePopupInstallments(1, totalWithVat, today) : [],
                       }]);
                     }
@@ -2901,6 +2993,10 @@ export default function ExpensesPage() {
                                 const numInstallments = parseInt(p.installments) || 1;
                                 const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
                                 if (numInstallments >= 1 && totalAmount > 0) {
+                                  const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
+                                  if (card) {
+                                    return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, e.target.value, card.billing_day) };
+                                  }
                                   return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, e.target.value) };
                                 }
                                 return { ...p, customInstallments: [] };
@@ -2965,6 +3061,41 @@ export default function ExpensesPage() {
                                   placeholder="מספר צ'ק..."
                                   className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px]"
                                 />
+                              </div>
+                            )}
+
+                            {/* Credit Card Selection - only show when method is credit_card */}
+                            {pm.method === "credit_card" && businessCreditCards.length > 0 && (
+                              <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                                <select
+                                  title="בחירת כרטיס אשראי"
+                                  value={pm.creditCardId}
+                                  onChange={(e) => {
+                                    const cardId = e.target.value;
+                                    setPopupPaymentMethods(prev => prev.map(p => {
+                                      if (p.id !== pm.id) return p;
+                                      const updated = { ...p, creditCardId: cardId };
+                                      const card = businessCreditCards.find(c => c.id === cardId);
+                                      const effectiveDate = paymentDate || expenseDate;
+                                      if (card && effectiveDate) {
+                                        const numInstallments = parseInt(p.installments) || 1;
+                                        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+                                        if (numInstallments > 1 && totalAmount > 0) {
+                                          updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, effectiveDate, card.billing_day);
+                                        }
+                                      }
+                                      return updated;
+                                    }));
+                                  }}
+                                  className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
+                                >
+                                  <option value="">בחר כרטיס...</option>
+                                  {businessCreditCards.map(card => (
+                                    <option key={card.id} value={card.id}>
+                                      {card.card_name} (יורד ב-{card.billing_day} לחודש)
+                                    </option>
+                                  ))}
+                                </select>
                               </div>
                             )}
 
@@ -3552,6 +3683,10 @@ export default function ExpensesPage() {
                         const numInstallments = parseInt(p.installments) || 1;
                         const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
                         if (numInstallments > 1 && totalAmount > 0) {
+                          const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
+                          if (card) {
+                            return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, e.target.value, card.billing_day) };
+                          }
                           return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, e.target.value) };
                         }
                         return { ...p, customInstallments: [] };
@@ -3618,6 +3753,40 @@ export default function ExpensesPage() {
                           placeholder="מספר צ'ק..."
                           className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px]"
                         />
+                      </div>
+                    )}
+
+                    {/* Credit Card Selection - only show when method is credit_card */}
+                    {pm.method === "credit_card" && businessCreditCards.length > 0 && (
+                      <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                        <select
+                          title="בחירת כרטיס אשראי"
+                          value={pm.creditCardId}
+                          onChange={(e) => {
+                            const cardId = e.target.value;
+                            setPopupPaymentMethods(prev => prev.map(p => {
+                              if (p.id !== pm.id) return p;
+                              const updated = { ...p, creditCardId: cardId };
+                              const card = businessCreditCards.find(c => c.id === cardId);
+                              if (card && paymentDate) {
+                                const numInstallments = parseInt(p.installments) || 1;
+                                const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+                                if (numInstallments > 1 && totalAmount > 0) {
+                                  updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, paymentDate, card.billing_day);
+                                }
+                              }
+                              return updated;
+                            }));
+                          }}
+                          className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
+                        >
+                          <option value="">בחר כרטיס...</option>
+                          {businessCreditCards.map(card => (
+                            <option key={card.id} value={card.id}>
+                              {card.card_name} (יורד ב-{card.billing_day} לחודש)
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     )}
 

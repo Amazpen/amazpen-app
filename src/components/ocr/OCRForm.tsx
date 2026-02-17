@@ -76,6 +76,7 @@ interface PaymentMethodEntry {
   amount: string;
   installments: string;
   checkNumber: string;
+  creditCardId: string;
   customInstallments: Array<{
     number: number;
     date: string;
@@ -129,12 +130,12 @@ export default function OCRForm({
   const [paymentTabReference, setPaymentTabReference] = useState('');
   const [paymentTabNotes, setPaymentTabNotes] = useState('');
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodEntry[]>([
-    { id: 1, method: '', amount: '', installments: '1', checkNumber: '', customInstallments: [] },
+    { id: 1, method: '', amount: '', installments: '1', checkNumber: '', creditCardId: '', customInstallments: [] },
   ]);
 
   // Inline payment methods for invoice "paid in full" section
   const [inlinePaymentMethods, setInlinePaymentMethods] = useState<PaymentMethodEntry[]>([
-    { id: 1, method: '', amount: '', installments: '1', checkNumber: '', customInstallments: [] },
+    { id: 1, method: '', amount: '', installments: '1', checkNumber: '', creditCardId: '', customInstallments: [] },
   ]);
 
   // Summary (מרכזת) tab state
@@ -152,6 +153,9 @@ export default function OCRForm({
     total_amount: '',
     notes: '',
   });
+
+  // Business credit cards
+  const [businessCreditCards, setBusinessCreditCards] = useState<{id: string, card_name: string, billing_day: number}[]>([]);
 
   // Daily Entry (רישום יומי) state
   const [dailyEntryDate, setDailyEntryDate] = useState('');
@@ -281,13 +285,19 @@ export default function OCRForm({
         { data: parameters },
         { data: products },
         { data: lastEntry },
+        { data: creditCardsData },
       ] = await Promise.all([
         supabase.from('income_sources').select('id, name').eq('business_id', selectedBusinessId).eq('is_active', true).is('deleted_at', null).order('display_order'),
         supabase.from('receipt_types').select('id, name').eq('business_id', selectedBusinessId).eq('is_active', true).is('deleted_at', null).order('display_order'),
         supabase.from('custom_parameters').select('id, name').eq('business_id', selectedBusinessId).eq('is_active', true).is('deleted_at', null).order('display_order'),
         supabase.from('managed_products').select('id, name, unit, unit_cost, current_stock').eq('business_id', selectedBusinessId).eq('is_active', true).is('deleted_at', null).order('name'),
         supabase.from('daily_entries').select('id, entry_date').eq('business_id', selectedBusinessId).lte('entry_date', yesterdayStr).order('entry_date', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('business_credit_cards').select('id, card_name, billing_day').eq('business_id', selectedBusinessId).eq('is_active', true).order('card_name'),
       ]);
+
+      if (creditCardsData) {
+        setBusinessCreditCards(creditCardsData);
+      }
 
       // Previous closing stock for product opening stock
       const previousClosingStock: Record<string, number> = {};
@@ -405,7 +415,7 @@ export default function OCRForm({
   // Payment methods helpers (shared for both payment tab and inline payment)
   const addPaymentMethodEntry = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[]) => {
     const newId = Math.max(...methods.map(p => p.id)) + 1;
-    setter(prev => [...prev, { id: newId, method: '', amount: '', installments: '1', checkNumber: '', customInstallments: [] }]);
+    setter(prev => [...prev, { id: newId, method: '', amount: '', installments: '1', checkNumber: '', creditCardId: '', customInstallments: [] }]);
   };
 
   const removePaymentMethodEntry = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[], id: number) => {
@@ -414,17 +424,64 @@ export default function OCRForm({
     }
   };
 
+  // Calculate due date based on credit card billing day
+  const calculateCreditCardDueDate = (paymentDateStr: string, billingDay: number): string => {
+    const payDate = new Date(paymentDateStr);
+    const dayOfMonth = payDate.getDate();
+
+    if (dayOfMonth < billingDay) {
+      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth(), billingDay);
+      return dueDate.toISOString().split('T')[0];
+    } else {
+      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth() + 1, billingDay);
+      return dueDate.toISOString().split('T')[0];
+    }
+  };
+
+  // Generate installments with credit card billing day logic
+  const generateCreditCardInstallments = (numInstallments: number, totalAmount: number, paymentDateStr: string, billingDay: number) => {
+    if (numInstallments <= 1 || totalAmount === 0) return [];
+
+    const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
+    const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
+    const firstDueDate = calculateCreditCardDueDate(paymentDateStr, billingDay);
+
+    const result = [];
+    for (let i = 0; i < numInstallments; i++) {
+      const date = new Date(firstDueDate);
+      date.setMonth(date.getMonth() + i);
+
+      result.push({
+        number: i + 1,
+        date: date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+        dateForInput: date.toISOString().split('T')[0],
+        amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
+      });
+    }
+    return result;
+  };
+
   const updatePaymentMethodField = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[], id: number, field: keyof PaymentMethodEntry, value: string, dateStr: string) => {
     setter(prev => prev.map(p => {
       if (p.id !== id) return p;
       const updated = { ...p, [field]: value };
+
+      // Clear creditCardId when switching away from credit_card method
+      if (field === 'method' && value !== 'credit_card') {
+        updated.creditCardId = '';
+      }
 
       // Regenerate installments when installments count changes
       if (field === 'installments') {
         const numInstallments = parseInt(value) || 1;
         const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
         const startDate = p.customInstallments.length > 0 ? p.customInstallments[0].dateForInput : getEffectiveStartDate(methods, dateStr);
-        updated.customInstallments = generateInstallments(numInstallments, totalAmount, startDate);
+        const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
+        if (card && startDate) {
+          updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, startDate, card.billing_day);
+        } else {
+          updated.customInstallments = generateInstallments(numInstallments, totalAmount, startDate);
+        }
       }
 
       // When amount changes, recalculate installment amounts but keep dates
@@ -440,7 +497,12 @@ export default function OCRForm({
           }));
         } else if (totalAmount > 0 && numInstallments > 1) {
           const startDate = getEffectiveStartDate(methods, dateStr);
-          updated.customInstallments = generateInstallments(numInstallments, totalAmount, startDate);
+          const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
+          if (card && startDate) {
+            updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, startDate, card.billing_day);
+          } else {
+            updated.customInstallments = generateInstallments(numInstallments, totalAmount, startDate);
+          }
         } else {
           updated.customInstallments = [];
         }
@@ -615,8 +677,8 @@ export default function OCRForm({
 
       // For payment tab, pre-fill the amount from OCR total
       const totalStr = data.total_amount?.toString() || '';
-      setPaymentMethods([{ id: 1, method: '', amount: totalStr, installments: '1', checkNumber: '', customInstallments: [] }]);
-      setInlinePaymentMethods([{ id: 1, method: '', amount: '', installments: '1', checkNumber: '', customInstallments: [] }]);
+      setPaymentMethods([{ id: 1, method: '', amount: totalStr, installments: '1', checkNumber: '', creditCardId: '', customInstallments: [] }]);
+      setInlinePaymentMethods([{ id: 1, method: '', amount: '', installments: '1', checkNumber: '', creditCardId: '', customInstallments: [] }]);
       setPaymentTabReference(data.document_number || '');
       setPaymentTabNotes('');
       setNotes('');
@@ -655,13 +717,13 @@ export default function OCRForm({
       setInlinePaymentDate('');
       setInlinePaymentReference('');
       setInlinePaymentNotes('');
-      setInlinePaymentMethods([{ id: 1, method: '', amount: '', installments: '1', checkNumber: '', customInstallments: [] }]);
+      setInlinePaymentMethods([{ id: 1, method: '', amount: '', installments: '1', checkNumber: '', creditCardId: '', customInstallments: [] }]);
       setPaymentTabDate(today);
       setPaymentTabExpenseType('expenses');
       setPaymentTabSupplierId('');
       setPaymentTabReference('');
       setPaymentTabNotes('');
-      setPaymentMethods([{ id: 1, method: '', amount: '', installments: '1', checkNumber: '', customInstallments: [] }]);
+      setPaymentMethods([{ id: 1, method: '', amount: '', installments: '1', checkNumber: '', creditCardId: '', customInstallments: [] }]);
       // Reset summary fields
       setSummarySupplierId('');
       setSummaryDate(new Date().toISOString().split('T')[0]);
@@ -967,6 +1029,40 @@ export default function OCRForm({
                 placeholder="מספר צ׳ק"
                 className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px] ltr-num"
               />
+            </div>
+          )}
+
+          {/* Credit Card Selection - only show when method is credit_card */}
+          {pm.method === 'credit_card' && businessCreditCards.length > 0 && (
+            <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+              <select
+                title="בחירת כרטיס אשראי"
+                value={pm.creditCardId}
+                onChange={(e) => {
+                  const cardId = e.target.value;
+                  setter(prev => prev.map(p => {
+                    if (p.id !== pm.id) return p;
+                    const updated = { ...p, creditCardId: cardId };
+                    const card = businessCreditCards.find(c => c.id === cardId);
+                    if (card && dateStr) {
+                      const numInstallments = parseInt(p.installments) || 1;
+                      const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
+                      if (numInstallments > 1 && totalAmount > 0) {
+                        updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, dateStr, card.billing_day);
+                      }
+                    }
+                    return updated;
+                  }));
+                }}
+                className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
+              >
+                <option value="">בחר כרטיס...</option>
+                {businessCreditCards.map(card => (
+                  <option key={card.id} value={card.id}>
+                    {card.card_name} (יורד ב-{card.billing_day} לחודש)
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 
@@ -1358,6 +1454,7 @@ export default function OCRForm({
                 amount,
                 installments: '1',
                 checkNumber: '',
+                creditCardId: '',
                 customInstallments: amount ? generateInstallments(1, totalWithVat, today) : [],
               }]);
             }

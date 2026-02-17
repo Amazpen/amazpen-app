@@ -237,6 +237,30 @@ export default function OCRPage() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
 
+        // Fetch credit cards for billing day lookup (if any payment method uses credit card)
+        const hasCreditCard = formData.payment_methods?.some(pm => pm.method === 'credit_card' && pm.creditCardId);
+        let creditCardsMap: Record<string, number> = {};
+        if (hasCreditCard && formData.business_id) {
+          const { data: cards } = await supabase
+            .from('business_credit_cards')
+            .select('id, billing_day')
+            .eq('business_id', formData.business_id)
+            .eq('is_active', true);
+          if (cards) {
+            creditCardsMap = Object.fromEntries(cards.map(c => [c.id, c.billing_day]));
+          }
+        }
+
+        // Calculate due date based on credit card billing day
+        const calcCreditCardDueDate = (paymentDateStr: string, billingDay: number): string => {
+          const payDate = new Date(paymentDateStr);
+          if (payDate.getDate() < billingDay) {
+            return new Date(payDate.getFullYear(), payDate.getMonth(), billingDay).toISOString().split('T')[0];
+          } else {
+            return new Date(payDate.getFullYear(), payDate.getMonth() + 1, billingDay).toISOString().split('T')[0];
+          }
+        };
+
         // Track created record IDs for linking back to ocr_documents
         let createdInvoiceId: string | null = null;
         let createdPaymentId: string | null = null;
@@ -293,6 +317,9 @@ export default function OCRPage() {
                 const amount = parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0;
                 if (amount > 0 && pm.method) {
                   const installmentsCount = parseInt(pm.installments) || 1;
+                  const creditCardId = pm.method === 'credit_card' && pm.creditCardId ? pm.creditCardId : null;
+                  const billingDay = creditCardId ? creditCardsMap[creditCardId] : null;
+
                   if (pm.customInstallments.length > 0) {
                     for (const inst of pm.customInstallments) {
                       await supabase.from('payment_splits').insert({
@@ -303,10 +330,16 @@ export default function OCRPage() {
                         installment_number: inst.number,
                         reference_number: formData.payment_reference || null,
                         check_number: pm.checkNumber || null,
+                        credit_card_id: creditCardId,
                         due_date: inst.dateForInput || null,
                       });
                     }
                   } else {
+                    const effectiveDate = formData.payment_date || formData.document_date;
+                    const dueDate = billingDay && effectiveDate
+                      ? calcCreditCardDueDate(effectiveDate, billingDay)
+                      : effectiveDate || null;
+
                     await supabase.from('payment_splits').insert({
                       payment_id: newPayment.id,
                       payment_method: pm.method,
@@ -315,7 +348,8 @@ export default function OCRPage() {
                       installment_number: 1,
                       reference_number: formData.payment_reference || null,
                       check_number: pm.checkNumber || null,
-                      due_date: formData.payment_date || formData.document_date || null,
+                      credit_card_id: creditCardId,
+                      due_date: dueDate,
                     });
                   }
                 }
@@ -372,6 +406,9 @@ export default function OCRPage() {
               const amount = parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0;
               if (amount > 0 && pm.method) {
                 const installmentsCount = parseInt(pm.installments) || 1;
+                const creditCardId = pm.method === 'credit_card' && pm.creditCardId ? pm.creditCardId : null;
+                const billingDay = creditCardId ? creditCardsMap[creditCardId] : null;
+
                 if (pm.customInstallments.length > 0) {
                   for (const inst of pm.customInstallments) {
                     await supabase.from('payment_splits').insert({
@@ -382,10 +419,15 @@ export default function OCRPage() {
                       installment_number: inst.number,
                       reference_number: formData.payment_reference || null,
                       check_number: pm.checkNumber || null,
+                      credit_card_id: creditCardId,
                       due_date: inst.dateForInput || null,
                     });
                   }
                 } else {
+                  const dueDate = billingDay && formData.document_date
+                    ? calcCreditCardDueDate(formData.document_date, billingDay)
+                    : formData.document_date || null;
+
                   await supabase.from('payment_splits').insert({
                     payment_id: newPayment.id,
                     payment_method: pm.method,
@@ -394,7 +436,8 @@ export default function OCRPage() {
                     installment_number: 1,
                     reference_number: formData.payment_reference || null,
                     check_number: pm.checkNumber || null,
-                    due_date: formData.document_date || null,
+                    credit_card_id: creditCardId,
+                    due_date: dueDate,
                   });
                 }
               }
