@@ -2863,18 +2863,36 @@ export default function PaymentsPage() {
                           </button>
                         )}
                         {payment.receiptUrl && (
-                          <a
-                            href={payment.receiptUrl}
-                            download
+                          <button
+                            type="button"
                             className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
                             title="הורדה"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const url = payment.receiptUrl!;
+                                const res = await fetch(url);
+                                const blob = await res.blob();
+                                const blobUrl = URL.createObjectURL(blob);
+                                const a = document.createElement("a");
+                                a.href = blobUrl;
+                                const filename = url.split("/").pop() || "receipt";
+                                a.download = filename;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(blobUrl);
+                              } catch {
+                                window.open(payment.receiptUrl!, "_blank");
+                              }
+                            }}
                           >
                             <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                               <polyline points="7 10 12 15 17 10"/>
                               <line x1="12" y1="15" x2="12" y2="3"/>
                             </svg>
-                          </a>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -3006,18 +3024,36 @@ export default function PaymentsPage() {
                                               <polyline points="21 15 16 10 5 21"/>
                                             </svg>
                                           </button>
-                                          <a
-                                            href={invoiceAttachmentUrls[0]}
-                                            download
+                                          <button
+                                            type="button"
                                             title="הורדת חשבונית"
                                             className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              try {
+                                                const url = invoiceAttachmentUrls[0];
+                                                const res = await fetch(url);
+                                                const blob = await res.blob();
+                                                const blobUrl = URL.createObjectURL(blob);
+                                                const a = document.createElement("a");
+                                                a.href = blobUrl;
+                                                const filename = url.split("/").pop() || "invoice";
+                                                a.download = filename;
+                                                document.body.appendChild(a);
+                                                a.click();
+                                                document.body.removeChild(a);
+                                                URL.revokeObjectURL(blobUrl);
+                                              } catch {
+                                                window.open(invoiceAttachmentUrls[0], "_blank");
+                                              }
+                                            }}
                                           >
                                             <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                                               <polyline points="7 10 12 15 17 10"/>
                                               <line x1="12" y1="15" x2="12" y2="3"/>
                                             </svg>
-                                          </a>
+                                          </button>
                                         </>
                                       )}
                                       {(invoiceAttachmentUrls.length > 1 || payment.linkedInvoice.notes) && (

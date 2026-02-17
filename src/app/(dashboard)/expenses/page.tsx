@@ -104,7 +104,7 @@ interface InvoiceDisplay {
   attachmentUrls: string[];
   clarificationReason: string | null;
   isFixed: boolean;
-  linkedPayments: { id: string; totalAmount: number; methods: string; date: string }[];
+  linkedPayments: { id: string; amount: number; method: string; date: string }[];
 }
 
 const paymentMethodNames: Record<string, string> = {
@@ -837,13 +837,14 @@ export default function ExpensesPage() {
       if (inv.payments && Array.isArray(inv.payments)) {
         for (const payment of inv.payments) {
           if (payment.payment_splits && Array.isArray(payment.payment_splits)) {
-            const methods = payment.payment_splits.map((s: { payment_method: string }) => paymentMethodNames[s.payment_method] || "אחר").join(" + ");
-            linkedPayments.push({
-              id: payment.id,
-              totalAmount: Number(payment.total_amount),
-              methods,
-              date: formatDateString(payment.payment_date),
-            });
+            for (const split of payment.payment_splits) {
+              linkedPayments.push({
+                id: `${payment.id}-${split.id || split.payment_method}`,
+                amount: Number(split.amount),
+                method: paymentMethodNames[split.payment_method] || "אחר",
+                date: formatDateString(payment.payment_date),
+              });
+            }
           }
         }
       }
@@ -2524,18 +2525,36 @@ export default function ExpensesPage() {
                           )}
                           {/* Download Icon - only show if has attachments */}
                           {invoice.attachmentUrls.length > 0 && (
-                            <a
-                              href={invoice.attachmentUrls[0]}
-                              download
+                            <button
+                              type="button"
                               title="הורדה"
-                              className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
+                              className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors cursor-pointer"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  const url = invoice.attachmentUrls[0];
+                                  const res = await fetch(url);
+                                  const blob = await res.blob();
+                                  const blobUrl = URL.createObjectURL(blob);
+                                  const a = document.createElement("a");
+                                  a.href = blobUrl;
+                                  const filename = url.split("/").pop() || "invoice";
+                                  a.download = filename;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  document.body.removeChild(a);
+                                  URL.revokeObjectURL(blobUrl);
+                                } catch {
+                                  window.open(invoice.attachmentUrls[0], "_blank");
+                                }
+                              }}
                             >
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                                 <polyline points="7 10 12 15 17 10"/>
                                 <line x1="12" y1="15" x2="12" y2="3"/>
                               </svg>
-                            </a>
+                            </button>
                           )}
                           {/* Edit Icon */}
                           <button
@@ -2624,7 +2643,7 @@ export default function ExpensesPage() {
                           <div className="flex flex-col gap-[4px]">
                             {/* Total */}
                             <span className="text-[13px] font-bold text-right px-[5px]">
-                              סה&quot;כ תשלומים: ₪{invoice.linkedPayments.reduce((sum, p) => sum + p.totalAmount, 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              סה&quot;כ תשלומים: ₪{invoice.linkedPayments.reduce((sum, p) => sum + p.amount, 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                             {/* Header */}
                             <div dir="rtl" className="flex items-center justify-between gap-[3px] border-b border-white/20 min-h-[40px] px-[3px]">
@@ -2636,8 +2655,8 @@ export default function ExpensesPage() {
                             {invoice.linkedPayments.map((payment) => (
                               <div key={payment.id} dir="rtl" className="flex items-center justify-between gap-[3px] min-h-[40px] px-[3px] rounded-[7px] hover:bg-white/5">
                                 <span className="text-[13px] min-w-[50px] text-center ltr-num">{payment.date}</span>
-                                <span className="text-[13px] flex-1 text-center">{payment.methods}</span>
-                                <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.totalAmount % 1 === 0 ? payment.totalAmount.toLocaleString("he-IL") : payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="text-[13px] flex-1 text-center">{payment.method}</span>
+                                <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.amount % 1 === 0 ? payment.amount.toLocaleString("he-IL") : payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                             ))}
                           </div>
