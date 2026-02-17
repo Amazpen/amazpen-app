@@ -438,6 +438,27 @@ export default function OCRForm({
     }
   };
 
+  // Calculate smart default payment date based on method
+  const getSmartPaymentDate = (method: string, invoiceDate: string, creditCardId?: string): string => {
+    if (!method) return "";
+    if (method === "credit_card") {
+      if (creditCardId) {
+        const card = businessCreditCards.find(c => c.id === creditCardId);
+        if (card) {
+          return calculateCreditCardDueDate(invoiceDate || new Date().toISOString().split("T")[0], card.billing_day);
+        }
+      }
+      const today = new Date();
+      const day = today.getDate();
+      if (day < 10) {
+        return new Date(today.getFullYear(), today.getMonth(), 10).toISOString().split("T")[0];
+      } else {
+        return new Date(today.getFullYear(), today.getMonth() + 1, 10).toISOString().split("T")[0];
+      }
+    }
+    return invoiceDate || new Date().toISOString().split("T")[0];
+  };
+
   // Generate installments with credit card billing day logic
   const generateCreditCardInstallments = (numInstallments: number, totalAmount: number, paymentDateStr: string, billingDay: number) => {
     if (numInstallments <= 1 || totalAmount === 0) return [];
@@ -461,7 +482,17 @@ export default function OCRForm({
     return result;
   };
 
-  const updatePaymentMethodField = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[], id: number, field: keyof PaymentMethodEntry, value: string, dateStr: string) => {
+  const updatePaymentMethodField = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[], id: number, field: keyof PaymentMethodEntry, value: string, dateStr: string, dateSetter?: (d: string) => void) => {
+    // Auto-set payment date when payment method is selected
+    if (dateSetter && field === 'method' && value) {
+      const smartDate = getSmartPaymentDate(value, documentDate);
+      if (smartDate) dateSetter(smartDate);
+    }
+    if (dateSetter && field === 'creditCardId' && value) {
+      const smartDate = getSmartPaymentDate('credit_card', documentDate, value);
+      if (smartDate) dateSetter(smartDate);
+    }
+
     setter(prev => prev.map(p => {
       if (p.id !== id) return p;
       const updated = { ...p, [field]: value };
@@ -975,6 +1006,7 @@ export default function OCRForm({
     methods: PaymentMethodEntry[],
     setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>,
     dateStr: string,
+    dateSetter?: (d: string) => void,
   ) => (
     <div className="flex flex-col gap-[15px]">
       <div className="flex items-center justify-between">
@@ -1008,7 +1040,7 @@ export default function OCRForm({
             <select
               title="בחירת אמצעי תשלום"
               value={pm.method}
-              onChange={(e) => updatePaymentMethodField(setter, methods, pm.id, 'method', e.target.value, dateStr)}
+              onChange={(e) => updatePaymentMethodField(setter, methods, pm.id, 'method', e.target.value, dateStr, dateSetter)}
               className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
             >
               <option value="" disabled>בחר אמצעי תשלום...</option>
@@ -1040,6 +1072,11 @@ export default function OCRForm({
                 value={pm.creditCardId}
                 onChange={(e) => {
                   const cardId = e.target.value;
+                  // Auto-set payment date when credit card is selected
+                  if (dateSetter && cardId) {
+                    const smartDate = getSmartPaymentDate('credit_card', documentDate, cardId);
+                    if (smartDate) dateSetter(smartDate);
+                  }
                   setter(prev => prev.map(p => {
                     if (p.id !== pm.id) return p;
                     const updated = { ...p, creditCardId: cardId };
@@ -1510,7 +1547,7 @@ export default function OCRForm({
               </div>
 
               {/* Payment Methods */}
-              {renderPaymentMethodsSection(inlinePaymentMethods, setInlinePaymentMethods, inlinePaymentDate)}
+              {renderPaymentMethodsSection(inlinePaymentMethods, setInlinePaymentMethods, inlinePaymentDate, setInlinePaymentDate)}
 
               {/* Payment Reference */}
               <div className="flex flex-col gap-[3px]">
@@ -1900,7 +1937,7 @@ export default function OCRForm({
       />
 
       {/* Payment Methods Section */}
-      {renderPaymentMethodsSection(paymentMethods, setPaymentMethods, paymentTabDate)}
+      {renderPaymentMethodsSection(paymentMethods, setPaymentMethods, paymentTabDate, setPaymentTabDate)}
 
       {/* Reference */}
       <div className="flex flex-col gap-[3px]">
