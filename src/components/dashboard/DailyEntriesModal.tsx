@@ -1417,14 +1417,17 @@ export function DailyEntriesModal({
                                 <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{formatCurrency(entry.total_register)}</span>
                                 </div>
-                                {entryDetails?.incomeBreakdown.map((source) => (
-                                  <div
-                                    key={source.income_source_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
-                                  >
-                                    <span className="ltr-num">{formatCurrency(source.amount)}</span>
-                                  </div>
-                                ))}
+                                {entryDetails?.incomeBreakdown.map((source) => {
+                                  const avgPerOrder = source.orders_count > 0 ? source.amount / source.orders_count : 0;
+                                  return (
+                                    <div
+                                      key={source.income_source_id}
+                                      className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10"
+                                    >
+                                      <span className="ltr-num">{formatCurrency(avgPerOrder)}</span>
+                                    </div>
+                                  );
+                                })}
                                 <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{entry.total_register > 0 ? ((entry.labor_cost / entry.total_register) * 100).toFixed(entry.labor_cost / entry.total_register * 100 % 1 === 0 ? 0 : 2) : 0}%</span>
                                 </div>
