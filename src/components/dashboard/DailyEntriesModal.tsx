@@ -1374,41 +1374,6 @@ export function DailyEntriesModal({
                             </div>
 
                             <div className="flex gap-[3px] w-full" dir="rtl">
-                              {/* Labels Column */}
-                              <div className="flex flex-col gap-[2px] min-w-[70px] max-w-[85px] flex-shrink-0">
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 font-bold" />
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  סה&quot;כ קופה כולל מע&quot;מ
-                                </div>
-                                {entryDetails?.incomeBreakdown.map((source) => (
-                                  <div
-                                    key={source.income_source_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate"
-                                    title={source.income_source_name}
-                                  >
-                                    {source.income_source_name}
-                                  </div>
-                                ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  ע. עובדים (%)
-                                </div>
-                                {entryDetails?.productUsage.map((product) => (
-                                  <div
-                                    key={product.product_id}
-                                    className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10 truncate"
-                                    title={product.product_name}
-                                  >
-                                    {product.product_name} (%)
-                                  </div>
-                                ))}
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  עלות מכר
-                                </div>
-                                <div className="text-white text-[12px] h-[24px] flex items-center justify-center border-b border-white/10">
-                                  הוצאות שוטפות
-                                </div>
-                              </div>
-
                               {/* Daily Total Column - סה"כ יומי */}
                               <div className="flex flex-col gap-[2px] flex-1 min-w-0">
                                 <div className="text-white text-[11px] font-bold text-center h-[24px] flex items-center justify-center border-b border-white/10 whitespace-nowrap">
