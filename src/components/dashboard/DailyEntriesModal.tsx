@@ -1438,14 +1438,6 @@ export function DailyEntriesModal({
                                 <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{entry.labor_hours || 0}</span>
                                 </div>
-                                {entryDetails?.productUsage.map((product) => (
-                                  <div
-                                    key={product.product_id}
-                                    className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
-                                  >
-                                    <span className="ltr-num">{product.quantity}</span>
-                                  </div>
-                                ))}
                               </div>
 
                               {/* Target Diff Column - הפרש מהיעד */}
