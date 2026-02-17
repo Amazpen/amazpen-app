@@ -192,7 +192,8 @@
       "Bash(/c/Program Files/nodejs/npm.cmd run lint -- --fix)",
       "Bash(/c/Program Files/nodejs/npx.cmd eslint:*)",
       "Bash(npx.cmd eslint:*)",
-      "Bash(/c/Program Files/nodejs/npx.cmd next lint -- --no-cache)"
+      "Bash(/c/Program Files/nodejs/npx.cmd next lint -- --no-cache)",
+      "Bash(/c/Program Files/nodejs/npx.cmd next lint --file src/app/\\\\\\(dashboard\\\\\\)/expenses/page.tsx)"
     ]
   },
   "enableAllProjectMcpServers": true,
