@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { Bot, Copy, Check } from "lucide-react";
+import { Copy, Check } from "lucide-react";
 import type { UIMessage } from "ai";
 import type { AiChartData, AiProposedAction } from "@/types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
@@ -65,8 +65,12 @@ function SafeChartContainer({ children }: { children: React.ReactNode }) {
 // AI bot icon
 function AiIcon() {
   return (
-    <div className="flex-shrink-0 w-[24px] h-[24px] sm:w-[28px] sm:h-[28px] rounded-full bg-[#6366f1]/20 flex items-center justify-center">
-      <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+    <div className="flex-shrink-0 w-[24px] h-[24px] sm:w-[28px] sm:h-[28px] rounded-full overflow-hidden">
+      <img
+        src="https://db.amazpenbiz.co.il/storage/v1/object/public/attachments/ai/ai-avatar.png"
+        alt="דדי"
+        className="w-full h-full object-cover"
+      />
     </div>
   );
 }
