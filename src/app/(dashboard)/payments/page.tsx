@@ -1139,20 +1139,28 @@ function PaymentsPageInner() {
         return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
       }, 0);
 
-      // Upload receipt if selected
+      // Upload receipts if selected
       let receiptUrl: string | null = null;
-      if (receiptFile) {
+      const filesToUpload = receiptFiles.filter(r => r.file);
+      const existingUrls = receiptFiles.filter(r => !r.file).map(r => r.preview);
+      if (filesToUpload.length > 0) {
         setIsUploadingReceipt(true);
-        const fileExt = receiptFile.name.split('.').pop();
-        const fileName = `receipt-${Date.now()}.${fileExt}`;
-        const filePath = `payments/${fileName}`;
-        const result = await uploadFile(receiptFile, filePath, "attachments");
-        if (result.success) {
-          receiptUrl = result.publicUrl || null;
-        } else {
-          console.error("Receipt upload error:", result.error);
+        const uploadedUrls: string[] = [...existingUrls];
+        for (const entry of filesToUpload) {
+          const fileExt = entry.file!.name.split('.').pop();
+          const fileName = `receipt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${fileExt}`;
+          const filePath = `payments/${fileName}`;
+          const result = await uploadFile(entry.file!, filePath, "attachments");
+          if (result.success && result.publicUrl) {
+            uploadedUrls.push(result.publicUrl);
+          } else {
+            console.error("Receipt upload error:", result.error);
+          }
         }
+        receiptUrl = uploadedUrls.length === 1 ? uploadedUrls[0] : uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : null;
         setIsUploadingReceipt(false);
+      } else if (existingUrls.length > 0) {
+        receiptUrl = existingUrls.length === 1 ? existingUrls[0] : JSON.stringify(existingUrls);
       }
 
       // Create the payment
@@ -1273,7 +1281,17 @@ function PaymentsPageInner() {
     setPaymentDate(payment.rawDate);
     setNotes(payment.notes || "");
     setReference(payment.reference || "");
-    setReceiptFiles(payment.receiptUrl ? [{ file: null, preview: payment.receiptUrl }] : []);
+    if (payment.receiptUrl) {
+      let urls: string[];
+      if (payment.receiptUrl.startsWith("[")) {
+        try { urls = JSON.parse(payment.receiptUrl).filter((u: unknown) => typeof u === "string" && u); } catch { urls = [payment.receiptUrl]; }
+      } else {
+        urls = [payment.receiptUrl];
+      }
+      setReceiptFiles(urls.map(url => ({ file: null, preview: url })));
+    } else {
+      setReceiptFiles([]);
+    }
 
     // Build payment methods from raw splits
     // Group splits by payment_method to reconstruct payment method entries
@@ -1470,18 +1488,26 @@ function PaymentsPageInner() {
         return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
       }, 0);
 
-      // Upload new receipt if selected
-      let receiptUrl: string | null = receiptPreview; // keep existing if no new file
-      if (receiptFile) {
+      // Upload new receipts if selected
+      let receiptUrl: string | null = null;
+      const filesToUpload = receiptFiles.filter(r => r.file);
+      const existingUrls = receiptFiles.filter(r => !r.file).map(r => r.preview);
+      if (filesToUpload.length > 0) {
         setIsUploadingReceipt(true);
-        const fileExt = receiptFile.name.split('.').pop();
-        const fileName = `receipt-${Date.now()}.${fileExt}`;
-        const filePath = `payments/${fileName}`;
-        const result = await uploadFile(receiptFile, filePath, "attachments");
-        if (result.success) {
-          receiptUrl = result.publicUrl || null;
+        const uploadedUrls: string[] = [...existingUrls];
+        for (const entry of filesToUpload) {
+          const fileExt = entry.file!.name.split('.').pop();
+          const fileName = `receipt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${fileExt}`;
+          const filePath = `payments/${fileName}`;
+          const result = await uploadFile(entry.file!, filePath, "attachments");
+          if (result.success && result.publicUrl) {
+            uploadedUrls.push(result.publicUrl);
+          }
         }
+        receiptUrl = uploadedUrls.length === 1 ? uploadedUrls[0] : uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : null;
         setIsUploadingReceipt(false);
+      } else if (existingUrls.length > 0) {
+        receiptUrl = existingUrls.length === 1 ? existingUrls[0] : JSON.stringify(existingUrls);
       }
 
       // Find the old payment to check if invoice link changed
@@ -2075,8 +2101,7 @@ function PaymentsPageInner() {
     setPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: generateInstallments(1, 0, todayStr) }]);
     setReference("");
     setNotes("");
-    setReceiptFile(null);
-    setReceiptPreview(null);
+    setReceiptFiles([]);
     setOpenInvoices([]);
     setShowOpenInvoices(false);
     setSelectedInvoiceIds(new Set());
@@ -3713,64 +3738,71 @@ function PaymentsPageInner() {
                 </div>
               </div>
 
-              {/* Receipt Upload */}
+              {/* Receipt Upload — multiple files with thumbnails */}
               <div className="flex flex-col gap-[3px]">
                 <div className="flex items-start">
                   <span className="text-[16px] font-medium text-white">קבלת תשלום</span>
                 </div>
-                {receiptPreview ? (
-                  <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => { setReceiptFile(null); setReceiptPreview(null); }}
-                      className="text-[#F64E60] text-[14px] hover:underline"
-                    >
-                      הסר
-                    </button>
-                    <div className="flex items-center gap-[10px]">
-                      <span className="text-[14px] text-white/70 truncate max-w-[150px]">
-                        {receiptFile?.name || "קובץ"}
-                      </span>
-                      <button
-                        type="button"
-                        title="צפייה בקובץ"
-                        onClick={() => window.open(receiptPreview, '_blank')}
-                        className="text-white/70 hover:text-white"
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                          <circle cx="8.5" cy="8.5" r="1.5"/>
-                          <polyline points="21 15 16 10 5 21"/>
-                        </svg>
-                      </button>
-                    </div>
+                {/* Existing files list */}
+                {receiptFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-[8px]">
+                    {receiptFiles.map((entry, idx) => {
+                      const isPdf = entry.preview.toLowerCase().includes(".pdf");
+                      return (
+                        <div key={idx} className="relative group border border-[#4C526B] rounded-[7px] w-[80px] h-[80px] overflow-hidden flex items-center justify-center bg-white/5">
+                          {isPdf ? (
+                            <button type="button" onClick={() => window.open(entry.preview, '_blank')} className="flex flex-col items-center gap-[2px] cursor-pointer">
+                              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/60">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                              </svg>
+                              <span className="text-[10px] text-white/50">PDF</span>
+                            </button>
+                          ) : (
+                            <button type="button" onClick={() => window.open(entry.preview, '_blank')} className="w-full h-full cursor-pointer">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={entry.preview} alt="קבלה" className="w-full h-full object-cover" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setReceiptFiles(prev => prev.filter((_, i) => i !== idx))}
+                            className="absolute top-[2px] left-[2px] w-[18px] h-[18px] bg-[#F64E60] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <span className="text-white text-[12px] leading-none">×</span>
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                ) : (
-                  <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[60px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
-                    <div className="flex items-center gap-[10px]">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                      </svg>
-                      <span className="text-[14px] text-white/50">לחץ להעלאת תמונה/מסמך</span>
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setReceiptFile(file);
-                          setReceiptPreview(URL.createObjectURL(file));
-                        }
-                      }}
-                      className="hidden"
-                    />
-                  </label>
                 )}
+                {/* Add more files button */}
+                <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[50px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
+                  <div className="flex items-center gap-[10px]">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <span className="text-[14px] text-white/50">{receiptFiles.length > 0 ? "הוסף מסמך נוסף" : "לחץ להעלאת תמונה/מסמך"}</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    multiple
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files && files.length > 0) {
+                        const newEntries = Array.from(files).map(file => ({ file, preview: URL.createObjectURL(file) }));
+                        setReceiptFiles(prev => [...prev, ...newEntries]);
+                      }
+                      e.target.value = "";
+                    }}
+                    className="hidden"
+                  />
+                </label>
                 {isUploadingReceipt && (
-                  <span className="text-[12px] text-white/50 text-center">מעלה קובץ...</span>
+                  <span className="text-[12px] text-white/50 text-center">מעלה קבצים...</span>
                 )}
               </div>
 
