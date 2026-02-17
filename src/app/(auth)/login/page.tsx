@@ -159,14 +159,7 @@ function LoginPageContent() {
 
           {/* Remember Me & Forgot Password Row */}
           <div className="flex items-center justify-between">
-            <Link
-              href="/forgot-password"
-              className="text-[13px] text-white/70 hover:text-white transition-colors underline"
-            >
-              שכחתי סיסמא
-            </Link>
             <div className="flex items-center gap-[8px]">
-              <span className="text-[13px] text-white">זכור אותי</span>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
@@ -182,7 +175,14 @@ function LoginPageContent() {
                   )}
                 </div>
               </label>
+              <span className="text-[13px] text-white">זכור אותי</span>
             </div>
+            <Link
+              href="/forgot-password"
+              className="text-[13px] text-white/70 hover:text-white transition-colors underline"
+            >
+              שכחתי סיסמא
+            </Link>
           </div>
 
           {/* Terms Agreement */}
