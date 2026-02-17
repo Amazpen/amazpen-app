@@ -252,14 +252,12 @@ function LoginPageContent() {
           </button>
         </form>
 
-        {/* Divider */}
-        <div className="flex items-center gap-[12px]">
+        {/* TODO: Enable Google OAuth when Supabase provider is configured */}
+        {/* <div className="flex items-center gap-[12px]">
           <div className="flex-1 h-[1px] bg-white/20" />
           <span className="text-[13px] text-white/50">או</span>
           <div className="flex-1 h-[1px] bg-white/20" />
         </div>
-
-        {/* Google Login Button */}
         <button
           type="button"
           onClick={handleGoogleLogin}
@@ -285,7 +283,7 @@ function LoginPageContent() {
               התחברות עם Google
             </>
           )}
-        </button>
+        </button> */}
 
         {/* Info */}
         <div className="text-center">
