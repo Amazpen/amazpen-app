@@ -367,7 +367,7 @@ export default function GoalsPage() {
         });
 
         // Aggregate goods budgets by category
-        const goodsSuppliers = (suppliersData || []).filter(s => s.expense_type === "goods");
+        const goodsSuppliers = (suppliersData || []).filter(s => s.expense_type === "goods_purchases");
         goodsSuppliers.forEach(supplier => {
           const catId = supplier.expense_category_id;
           const budget = supplierBudgetMap.get(supplier.id) || 0;
