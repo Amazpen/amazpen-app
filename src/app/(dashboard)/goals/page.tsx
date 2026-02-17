@@ -168,6 +168,7 @@ export default function GoalsPage() {
   const [supplierBudgetState, setSupplierBudgetState] = useState<Map<string, number>>(new Map());
   const [supplierActualCurrentState, setSupplierActualCurrentState] = useState<Map<string, number>>(new Map());
   const [supplierActualGoodsState, setSupplierActualGoodsState] = useState<Map<string, number>>(new Map());
+  const [supplierFixedInfoMap, setSupplierFixedInfoMap] = useState<Map<string, { isFixed: boolean; vatType: string }>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [goalId, setGoalId] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -233,7 +234,7 @@ export default function GoalsPage() {
           // 4. Suppliers with category mapping
           supabase
             .from("suppliers")
-            .select("id, name, expense_category_id, expense_type")
+            .select("id, name, expense_category_id, expense_type, is_fixed_expense, vat_type")
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
             .eq("is_active", true),
@@ -261,6 +262,7 @@ export default function GoalsPage() {
         const supplierCategoryMap = new Map<string, string>();
         const supplierExpenseTypeMap = new Map<string, string>();
         const namesMap = new Map<string, string>();
+        const fixedInfoMap = new Map<string, { isFixed: boolean; vatType: string }>();
         (suppliersData || []).forEach(s => {
           namesMap.set(s.id, s.name);
           if (s.expense_category_id) {
@@ -269,8 +271,10 @@ export default function GoalsPage() {
           if (s.expense_type) {
             supplierExpenseTypeMap.set(s.id, s.expense_type);
           }
+          fixedInfoMap.set(s.id, { isFixed: !!s.is_fixed_expense, vatType: s.vat_type || "none" });
         });
         setSupplierNamesMap(namesMap);
+        setSupplierFixedInfoMap(fixedInfoMap);
 
         const supplierBudgetMap = new Map<string, number>();
         (supplierBudgetsData || []).forEach(b => {
@@ -791,11 +795,47 @@ export default function GoalsPage() {
     }, 800);
   };
 
+  // Sync fixed expense invoice amounts when budget changes
+  const syncFixedExpenseInvoice = useCallback(async (
+    supabase: ReturnType<typeof createClient>,
+    supplierId: string,
+    newSubtotal: number,
+    startDate: string,
+    endDate: string
+  ) => {
+    const info = supplierFixedInfoMap.get(supplierId);
+    if (!info?.isFixed) return;
+
+    const vatAmount = info.vatType === "full" ? newSubtotal * 0.18 : 0;
+    const totalAmount = newSubtotal + vatAmount;
+
+    // Find existing invoices for this supplier in the month
+    const { data: existingInvoices } = await supabase
+      .from("invoices")
+      .select("id")
+      .eq("supplier_id", supplierId)
+      .in("business_id", selectedBusinesses)
+      .is("deleted_at", null)
+      .gte("invoice_date", startDate)
+      .lte("invoice_date", endDate);
+
+    if (existingInvoices && existingInvoices.length > 0) {
+      for (const inv of existingInvoices) {
+        await supabase.from("invoices")
+          .update({ subtotal: newSubtotal, vat_amount: vatAmount, total_amount: totalAmount })
+          .eq("id", inv.id);
+      }
+    }
+  }, [selectedBusinesses, supplierFixedInfoMap]);
+
   // Save current expenses category target to DB (supplier_budgets)
   const saveCategoryTargetToDB = useCallback(async (supplierIds: string[], value: number) => {
     const supabase = createClient();
     const year = parseInt(selectedYear);
     const month = parseInt(selectedMonth);
+    const startDate = `${year}-${selectedMonth}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${selectedMonth}-${String(lastDay).padStart(2, "0")}`;
 
     try {
       if (supplierIds.length === 1) {
@@ -814,6 +854,17 @@ export default function GoalsPage() {
             business_id: selectedBusinesses[0],
             year, month,
             budget_amount: value,
+          });
+        }
+        // Sync fixed expense invoice with new amount
+        await syncFixedExpenseInvoice(supabase, supplierIds[0], value, startDate, endDate);
+        // Update local actual state for immediate UI feedback
+        const info = supplierFixedInfoMap.get(supplierIds[0]);
+        if (info?.isFixed) {
+          setSupplierActualCurrentState(prev => {
+            const updated = new Map(prev);
+            updated.set(supplierIds[0], value);
+            return updated;
           });
         }
       } else if (supplierIds.length > 1) {
@@ -844,20 +895,63 @@ export default function GoalsPage() {
               budget_amount: newAmount,
             });
           }
+          // Sync fixed expense invoice with new proportional amount
+          await syncFixedExpenseInvoice(supabase, supplierId, newAmount, startDate, endDate);
+          // Update local actual state for immediate UI feedback
+          const info = supplierFixedInfoMap.get(supplierId);
+          if (info?.isFixed) {
+            setSupplierActualCurrentState(prev => {
+              const updated = new Map(prev);
+              updated.set(supplierId, newAmount);
+              return updated;
+            });
+          }
         }
       }
     } catch (error) {
       console.error("Error saving category target:", error);
     }
-  }, [selectedBusinesses, selectedYear, selectedMonth]);
+  }, [selectedBusinesses, selectedYear, selectedMonth, syncFixedExpenseInvoice, supplierFixedInfoMap]);
+
+  // Calculate new category actual after changing target for fixed expense suppliers
+  const calcNewCategoryActual = useCallback((item: GoalItem, newTarget: number, actualState: Map<string, number>, budgetState: Map<string, number>) => {
+    if (!item.supplierIds || item.supplierIds.length === 0) return item.actual;
+
+    // For single supplier - if fixed, actual = new target
+    if (item.supplierIds.length === 1) {
+      const info = supplierFixedInfoMap.get(item.supplierIds[0]);
+      return info?.isFixed ? newTarget : item.actual;
+    }
+
+    // For multiple suppliers - recalculate: fixed suppliers get proportional new amounts, non-fixed keep current actual
+    const currentTotal = item.supplierIds.reduce((sum, sId) => sum + (budgetState.get(sId) || 0), 0);
+    let newActual = 0;
+    for (const sId of item.supplierIds) {
+      const info = supplierFixedInfoMap.get(sId);
+      if (info?.isFixed) {
+        const oldBudget = budgetState.get(sId) || 0;
+        const ratio = currentTotal > 0 ? oldBudget / currentTotal : 1 / item.supplierIds.length;
+        newActual += Math.round(newTarget * ratio);
+      } else {
+        newActual += actualState.get(sId) || 0;
+      }
+    }
+    return newActual;
+  }, [supplierFixedInfoMap]);
 
   // Handle current expenses target change (for vs-current tab)
   const handleCurrentExpenseTargetChange = (item: GoalItem, newTarget: string, _isChild: boolean = false, _parentId?: string) => {
     const numValue = parseFloat(newTarget) || 0;
 
-    // Update the category target directly (flat structure for vs-current)
+    // Check if any supplier in this category is a fixed expense
+    const hasFixedSupplier = item.supplierIds?.some(sId => supplierFixedInfoMap.get(sId)?.isFixed);
+    const newActual = hasFixedSupplier
+      ? calcNewCategoryActual(item, numValue, supplierActualCurrentState, supplierBudgetState)
+      : item.actual;
+
+    // Update the category target (and actual for fixed expenses)
     setCurrentExpensesData(prev => prev.map(i =>
-      i.id === item.id ? { ...i, target: numValue } : i
+      i.id === item.id ? { ...i, target: numValue, actual: hasFixedSupplier ? newActual : i.actual } : i
     ));
 
     // Debounce save to DB
@@ -873,8 +967,14 @@ export default function GoalsPage() {
   const handleGoodsTargetChange = (item: GoalItem, newTarget: string) => {
     const numValue = parseFloat(newTarget) || 0;
 
+    // Check if this supplier is a fixed expense
+    const hasFixedSupplier = item.supplierIds?.some(sId => supplierFixedInfoMap.get(sId)?.isFixed);
+    const newActual = hasFixedSupplier
+      ? calcNewCategoryActual(item, numValue, supplierActualGoodsState, supplierBudgetState)
+      : item.actual;
+
     setGoodsPurchaseData(prev => prev.map(i =>
-      i.id === item.id ? { ...i, target: numValue } : i
+      i.id === item.id ? { ...i, target: numValue, actual: hasFixedSupplier ? newActual : i.actual } : i
     ));
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -888,6 +988,7 @@ export default function GoalsPage() {
   // Handle individual supplier budget change (admin only)
   const handleSupplierBudgetChange = (supplierId: string, newBudget: string, categoryId: string, isGoods: boolean) => {
     const numValue = parseFloat(newBudget) || 0;
+    const info = supplierFixedInfoMap.get(supplierId);
 
     // Update local supplier budget state
     setSupplierBudgetState(prev => {
@@ -895,6 +996,16 @@ export default function GoalsPage() {
       updated.set(supplierId, numValue);
       return updated;
     });
+
+    // For fixed expense suppliers, also update local actual state
+    if (info?.isFixed) {
+      const setActualState = isGoods ? setSupplierActualGoodsState : setSupplierActualCurrentState;
+      setActualState(prev => {
+        const updated = new Map(prev);
+        updated.set(supplierId, numValue);
+        return updated;
+      });
+    }
 
     // Recalculate the category total from all its suppliers
     const dataToUpdate = isGoods ? goodsPurchaseData : currentExpensesData;
@@ -905,7 +1016,17 @@ export default function GoalsPage() {
         if (sId === supplierId) return sum + numValue;
         return sum + (supplierBudgetState.get(sId) || 0);
       }, 0);
-      setData(prev => prev.map(i => i.id === categoryId ? { ...i, target: newCategoryTotal } : i));
+      // Also recalculate actual if any fixed suppliers
+      const actualState = isGoods ? supplierActualGoodsState : supplierActualCurrentState;
+      const newCategoryActual = categoryItem.supplierIds.reduce((sum, sId) => {
+        if (sId === supplierId && info?.isFixed) return sum + numValue;
+        const sInfo = supplierFixedInfoMap.get(sId);
+        if (sId === supplierId) return sum + (actualState.get(sId) || 0);
+        if (sInfo?.isFixed) return sum + (supplierBudgetState.get(sId) || 0);
+        return sum + (actualState.get(sId) || 0);
+      }, 0);
+      const hasAnyFixed = categoryItem.supplierIds.some(sId => supplierFixedInfoMap.get(sId)?.isFixed);
+      setData(prev => prev.map(i => i.id === categoryId ? { ...i, target: newCategoryTotal, ...(hasAnyFixed ? { actual: newCategoryActual } : {}) } : i));
     }
 
     // Debounce save to DB

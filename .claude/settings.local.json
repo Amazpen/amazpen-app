@@ -196,7 +196,8 @@
       "Bash(/c/Program Files/nodejs/npx.cmd next lint --file src/app/\\\\\\(dashboard\\\\\\)/expenses/page.tsx)",
       "Bash(while read f)",
       "Bash(do grep -l \"billing_day.*date\\\\|dueDate.*card\\\\|calculateDueDate\" \"$f\")",
-      "Bash(done)"
+      "Bash(done)",
+      "WebFetch(domain:jwt.io)"
     ]
   },
   "enableAllProjectMcpServers": true,
