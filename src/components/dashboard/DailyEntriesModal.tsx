@@ -1475,7 +1475,7 @@ export function DailyEntriesModal({
                                     </div>
                                   );
                                 })}
-                                {/* ע. עובדים - הפרש מיעד (בש"ח) */}
+                                {/* ע. עובדים - הפרש מיעד (באחוזים) */}
                                 {(() => {
                                   if (!goalsData || entry.total_register <= 0) return (
                                     <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
@@ -1483,16 +1483,14 @@ export function DailyEntriesModal({
                                     </div>
                                   );
                                   const vatDivisor = goalsData.vatPercentage > 0 ? 1 + goalsData.vatPercentage : 1;
+                                  const revenueBeforeVat = entry.total_register / vatDivisor;
                                   const laborWithMarkup = entry.labor_cost * goalsData.markupPercentage;
+                                  const laborPct = revenueBeforeVat > 0 ? (laborWithMarkup / revenueBeforeVat) * 100 : 0;
                                   const targetPct = goalsData.laborCostTargetPct || 0;
-                                  const dailyRevenueTarget = goalsData.revenueTarget > 0 && goalsData.workDaysInMonth > 0
-                                    ? goalsData.revenueTarget / goalsData.workDaysInMonth / vatDivisor
-                                    : 0;
-                                  const laborBudget = targetPct > 0 ? (targetPct / 100) * dailyRevenueTarget : 0;
-                                  const diff = laborBudget > 0 ? laborWithMarkup - laborBudget : 0;
+                                  const diff = targetPct > 0 ? laborPct - targetPct : 0;
                                   return (
-                                    <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${laborBudget > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
-                                      <span className="ltr-num">{laborBudget > 0 ? `${diff < 0 ? "-" : ""}₪${Math.abs(diff).toFixed(0)}` : "-"}</span>
+                                    <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${targetPct > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
+                                      <span className="ltr-num">{targetPct > 0 ? `${diff.toFixed(2)}%` : "-"}</span>
                                     </div>
                                   );
                                 })()}
