@@ -1125,7 +1125,7 @@ export default function ExpensesPage() {
           {showLabel && (
             <text x={labelX} y={labelY} textAnchor="middle" dominantBaseline="central"
               fill="#fff" fontSize={11} fontWeight="bold" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>
-              {`${pct.toFixed(0)}%`}
+              {`${pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(2)}%`}
             </text>
           )}
         </g>
@@ -2104,7 +2104,7 @@ export default function ExpensesPage() {
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-[18px] font-bold">{activeTab === "purchases" ? "קניות סחורה" : activeTab === "employees" ? "עלות עובדים" : "הוצאות שוטפות"}</span>
                   <span className="text-[22px] font-bold ltr-num">₪{totalExpenses % 1 === 0 ? totalExpenses.toLocaleString("he-IL", { maximumFractionDigits: 0 }) : totalExpenses.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  <span className="text-[18px] font-bold ltr-num">{totalSalesBeforeVat > 0 ? `${((totalExpenses / totalSalesBeforeVat) * 100) % 1 === 0 ? ((totalExpenses / totalSalesBeforeVat) * 100).toFixed(0) : ((totalExpenses / totalSalesBeforeVat) * 100).toFixed(1)}%` : "—"}</span>
+                  <span className="text-[18px] font-bold ltr-num">{totalSalesBeforeVat > 0 ? `${((totalExpenses / totalSalesBeforeVat) * 100) % 1 === 0 ? ((totalExpenses / totalSalesBeforeVat) * 100).toFixed(0) : ((totalExpenses / totalSalesBeforeVat) * 100).toFixed(2)}%` : "—"}</span>
                 </div>
               )}
             </div>
@@ -2163,7 +2163,7 @@ export default function ExpensesPage() {
                         <span className="text-[16px] text-right flex-1">{cat.category}</span>
                       </div>
                       <span className="text-[16px] flex-1 text-center ltr-num">₪{cat.amount.toLocaleString()}</span>
-                      <span className="text-[16px] flex-1 text-center ltr-num">{cat.percentage.toFixed(1)}%</span>
+                      <span className="text-[16px] flex-1 text-center ltr-num">{cat.percentage % 1 === 0 ? cat.percentage.toFixed(0) : cat.percentage.toFixed(2)}%</span>
                     </button>
 
                     {/* Drill-down: Suppliers in this category */}
@@ -2191,7 +2191,7 @@ export default function ExpensesPage() {
                               <span className={`text-[14px] flex-1 text-center ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.name}</span>
                             </div>
                             <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>₪{supplier.amount.toLocaleString()}</span>
-                            <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.percentage.toFixed(1)}%</span>
+                            <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.percentage % 1 === 0 ? supplier.percentage.toFixed(0) : supplier.percentage.toFixed(2)}%</span>
                           </button>
                           );
                         })}
@@ -2229,7 +2229,7 @@ export default function ExpensesPage() {
                     />
                     <span className="text-[16px] flex-1 text-right">{supplier.name}</span>
                     <span className="text-[16px] flex-1 text-center ltr-num">₪{supplier.amount.toLocaleString()}</span>
-                    <span className="text-[16px] flex-1 text-center ltr-num">{supplier.percentage.toFixed(1)}%</span>
+                    <span className="text-[16px] flex-1 text-center ltr-num">{supplier.percentage % 1 === 0 ? supplier.percentage.toFixed(0) : supplier.percentage.toFixed(2)}%</span>
                   </button>
                 ))
               )
