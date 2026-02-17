@@ -49,10 +49,14 @@ export function useFormDraft<T extends Record<string, unknown>>(key: string) {
     }
   }, [key]);
 
+  const resetCleared = useCallback(() => {
+    draftCleared.current = false;
+  }, []);
+
   // Reset the cleared flag when key changes (e.g., different business)
   useEffect(() => {
     draftCleared.current = false;
   }, [key]);
 
-  return { saveDraft, restoreDraft, clearDraft };
+  return { saveDraft, restoreDraft, clearDraft, resetCleared };
 }

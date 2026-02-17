@@ -39,6 +39,7 @@ interface Supplier {
   charge_day?: number;
   monthly_expense_amount?: number;
   default_payment_method?: string;
+  default_credit_card_id?: string;
   notes?: string;
   document_url?: string;
   has_previous_obligations?: boolean;
@@ -77,7 +78,7 @@ export default function SuppliersPage() {
 
   // Draft persistence for add/edit supplier form
   const supplierDraftKey = `supplierForm:draft:${selectedBusinesses[0] || "none"}`;
-  const { saveDraft: saveSupplierDraft, restoreDraft: restoreSupplierDraft, clearDraft: clearSupplierDraft } = useFormDraft(supplierDraftKey);
+  const { saveDraft: saveSupplierDraft, restoreDraft: restoreSupplierDraft, clearDraft: clearSupplierDraft, resetCleared: resetSupplierDraftCleared } = useFormDraft(supplierDraftKey);
   const supplierDraftRestored = useRef(false);
 
   const [activeTab, setActiveTab] = usePersistedState<TabType>("suppliers:tab", "current");
@@ -105,6 +106,9 @@ export default function SuppliersPage() {
   // Categories from database
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [parentCategories, setParentCategories] = useState<ExpenseCategory[]>([]);
+
+  // Credit cards from database
+  const [businessCreditCards, setBusinessCreditCards] = useState<{ id: string; card_name: string; last_four_digits: string | null }[]>([]);
 
   // Supplier detail popup state
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierWithBalance | null>(null);
@@ -190,6 +194,7 @@ export default function SuppliersPage() {
   const [chargeDay, setChargeDay] = useState("");
   const [monthlyExpenseAmount, setMonthlyExpenseAmount] = useState("");
   const [primaryPaymentMethod, setPrimaryPaymentMethod] = useState("");
+  const [selectedCreditCardId, setSelectedCreditCardId] = useState("");
   const [fixedNote, setFixedNote] = useState("");
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
 
@@ -202,7 +207,7 @@ export default function SuppliersPage() {
       obligationNumPayments, obligationMonthlyAmount,
       expenseType, category, parentCategory, paymentTerms,
       vatRequired, isFixedExpense, chargeDay, monthlyExpenseAmount,
-      primaryPaymentMethod, fixedNote,
+      primaryPaymentMethod, selectedCreditCardId, fixedNote,
     });
   }, [saveSupplierDraft, isAddSupplierModalOpen, isEditingSupplier,
     supplierName, hasPreviousObligations, waitingForCoordinator,
@@ -210,7 +215,7 @@ export default function SuppliersPage() {
     obligationNumPayments, obligationMonthlyAmount,
     expenseType, category, parentCategory, paymentTerms,
     vatRequired, isFixedExpense, chargeDay, monthlyExpenseAmount,
-    primaryPaymentMethod, fixedNote]);
+    primaryPaymentMethod, selectedCreditCardId, fixedNote]);
 
   useEffect(() => {
     if (supplierDraftRestored.current) {
@@ -221,6 +226,7 @@ export default function SuppliersPage() {
   // Restore supplier draft when modal opens (only for new, not edit)
   useEffect(() => {
     if (isAddSupplierModalOpen && !isEditingSupplier) {
+      resetSupplierDraftCleared();
       supplierDraftRestored.current = false;
       setTimeout(() => {
         const draft = restoreSupplierDraft();
@@ -242,6 +248,7 @@ export default function SuppliersPage() {
           if (draft.chargeDay) setChargeDay(draft.chargeDay as string);
           if (draft.monthlyExpenseAmount) setMonthlyExpenseAmount(draft.monthlyExpenseAmount as string);
           if (draft.primaryPaymentMethod) setPrimaryPaymentMethod(draft.primaryPaymentMethod as string);
+          if (draft.selectedCreditCardId) setSelectedCreditCardId(draft.selectedCreditCardId as string);
           if (draft.fixedNote) setFixedNote(draft.fixedNote as string);
         }
         supplierDraftRestored.current = true;
@@ -249,7 +256,7 @@ export default function SuppliersPage() {
     } else if (isEditingSupplier) {
       supplierDraftRestored.current = true;
     }
-  }, [isAddSupplierModalOpen, isEditingSupplier, restoreSupplierDraft]);
+  }, [isAddSupplierModalOpen, isEditingSupplier, restoreSupplierDraft, resetSupplierDraftCleared]);
 
   // Fetch suppliers from database
   useEffect(() => {
@@ -394,6 +401,25 @@ export default function SuppliersPage() {
     fetchCategories();
   }, [selectedBusinesses]);
 
+  // Fetch credit cards from database
+  useEffect(() => {
+    async function fetchCreditCards() {
+      if (selectedBusinesses.length === 0) {
+        setBusinessCreditCards([]);
+        return;
+      }
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("business_credit_cards")
+        .select("id, card_name, last_four_digits")
+        .in("business_id", selectedBusinesses)
+        .eq("is_active", true)
+        .order("card_name");
+      if (data) setBusinessCreditCards(data);
+    }
+    fetchCreditCards();
+  }, [selectedBusinesses]);
+
   const handleCloseAddSupplierModal = () => {
     setIsAddSupplierModalOpen(false);
     setSupplierName("");
@@ -416,6 +442,7 @@ export default function SuppliersPage() {
     setChargeDay("");
     setMonthlyExpenseAmount("");
     setPrimaryPaymentMethod("");
+    setSelectedCreditCardId("");
     setFixedNote("");
     setAttachedFile(null);
     setIsAddingCategory(false);
@@ -449,6 +476,7 @@ export default function SuppliersPage() {
     setChargeDay(selectedSupplier.charge_day?.toString() || "");
     setMonthlyExpenseAmount(selectedSupplier.monthly_expense_amount?.toString() || "");
     setPrimaryPaymentMethod(selectedSupplier.default_payment_method || "");
+    setSelectedCreditCardId(selectedSupplier.default_credit_card_id || "");
     setFixedNote(selectedSupplier.notes || "");
     setHasPreviousObligations(selectedSupplier.has_previous_obligations || false);
     setWaitingForCoordinator(selectedSupplier.waiting_for_coordinator || false);
@@ -554,6 +582,7 @@ export default function SuppliersPage() {
           charge_day: chargeDay ? parseInt(chargeDay) : null,
           monthly_expense_amount: monthlyExpenseAmount ? parseFloat(monthlyExpenseAmount) : null,
           default_payment_method: primaryPaymentMethod || null,
+          default_credit_card_id: primaryPaymentMethod === "credit" && selectedCreditCardId ? selectedCreditCardId : null,
           notes: fixedNote || null,
           document_url: documentUrl,
           has_previous_obligations: hasPreviousObligations,
@@ -721,6 +750,7 @@ export default function SuppliersPage() {
           charge_day: chargeDay ? parseInt(chargeDay) : null,
           monthly_expense_amount: monthlyExpenseAmount ? parseFloat(monthlyExpenseAmount) : null,
           default_payment_method: primaryPaymentMethod || null,
+          default_credit_card_id: primaryPaymentMethod === "credit" && selectedCreditCardId ? selectedCreditCardId : null,
           notes: fixedNote || null,
           document_url: documentUrl,
           has_previous_obligations: hasPreviousObligations,
@@ -1793,7 +1823,7 @@ export default function SuppliersPage() {
                   <select
                     title="אמצעי תשלום ראשי"
                     value={primaryPaymentMethod}
-                    onChange={(e) => setPrimaryPaymentMethod(e.target.value)}
+                    onChange={(e) => { setPrimaryPaymentMethod(e.target.value); if (e.target.value !== "credit") setSelectedCreditCardId(""); }}
                     className="w-full h-full bg-transparent text-white/40 text-[14px] text-center rounded-[10px] border-none outline-none"
                   >
                     <option value="" className="bg-[#0F1535] text-white/40"></option>
@@ -1806,6 +1836,28 @@ export default function SuppliersPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Credit Card Selection - shown when payment method is credit */}
+              {primaryPaymentMethod === "credit" && businessCreditCards.length > 0 && (
+                <div className="flex flex-col gap-[5px]">
+                  <label className="text-[15px] font-medium text-white text-right">בחירת כרטיס אשראי</label>
+                  <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
+                    <select
+                      title="בחירת כרטיס אשראי"
+                      value={selectedCreditCardId}
+                      onChange={(e) => setSelectedCreditCardId(e.target.value)}
+                      className="w-full h-full bg-transparent text-white/40 text-[14px] text-center rounded-[10px] border-none outline-none"
+                    >
+                      <option value="" className="bg-[#0F1535] text-white/40">בחר כרטיס</option>
+                      {businessCreditCards.map((card) => (
+                        <option key={card.id} value={card.id} className="bg-[#0F1535] text-white">
+                          {card.card_name}{card.last_four_digits ? ` (${card.last_four_digits})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
 
               {/* Fixed Note */}
               <div className="flex flex-col gap-[5px]">
