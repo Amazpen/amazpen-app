@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense, Fragment } from "react";
 import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
@@ -3506,19 +3506,13 @@ function PaymentsPageInner() {
 
               {/* Payment Methods Section */}
               <div className="flex flex-col gap-[15px]">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center">
                   <span className="text-[16px] font-medium text-white">אמצעי תשלום</span>
-                  <button
-                    type="button"
-                    onClick={addPaymentMethodEntry}
-                    className="bg-[#29318A] text-white text-[14px] font-medium px-[12px] py-[6px] rounded-[7px] hover:bg-[#3D44A0] transition-colors"
-                  >
-                    + הוסף אמצעי תשלום
-                  </button>
                 </div>
 
                 {paymentMethods.map((pm, pmIndex) => (
-                  <div key={pm.id} className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+                  <Fragment key={pm.id}>
+                  <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
                     {/* Header with remove button */}
                     {paymentMethods.length > 1 && (
                       <div className="flex items-center justify-between mb-[5px]">
@@ -3723,6 +3717,16 @@ function PaymentsPageInner() {
                       )}
                     </div>
                   </div>
+                  {pmIndex === 0 && (
+                    <button
+                      type="button"
+                      onClick={addPaymentMethodEntry}
+                      className="w-full bg-[#29318A] text-white text-[14px] font-medium px-[12px] py-[8px] rounded-[7px] hover:bg-[#3D44A0] transition-colors"
+                    >
+                      + הוסף אמצעי תשלום
+                    </button>
+                  )}
+                  </Fragment>
                 ))}
               </div>
 
