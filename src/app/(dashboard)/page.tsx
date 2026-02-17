@@ -374,6 +374,7 @@ export default function DashboardPage() {
     }
     setIsSendingPush(true);
     try {
+      const supabase = createClient();
       const today = new Date();
       const dayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
       const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
@@ -383,8 +384,189 @@ export default function DashboardPage() {
       const year = dateRange.start.getFullYear();
 
       const s = detailedSummary;
-      const totalOrders = (s.privateCount || 0) + (s.businessCount || 0);
-      const _avgPerOrder = totalOrders > 0 ? s.totalIncome / totalOrders : 0;
+
+      // ================================================================
+      // FETCH TODAY'S DATA for the daily table
+      // ================================================================
+      const todayStr = formatLocalDate(today);
+
+      // Fetch today's entries, goods suppliers, current expenses suppliers in parallel
+      const [todayEntriesResult, goodsSuppliersResult, currentExpensesSuppliersResult, businessDataResult, goalsResult] = await Promise.all([
+        supabase
+          .from("daily_entries")
+          .select("*")
+          .in("business_id", selectedBusinesses)
+          .eq("entry_date", todayStr)
+          .is("deleted_at", null),
+        supabase
+          .from("suppliers")
+          .select("id")
+          .in("business_id", selectedBusinesses)
+          .eq("expense_type", "goods_purchases")
+          .eq("is_active", true)
+          .is("deleted_at", null),
+        supabase
+          .from("suppliers")
+          .select("id")
+          .in("business_id", selectedBusinesses)
+          .eq("expense_type", "current_expenses")
+          .eq("is_active", true)
+          .is("deleted_at", null),
+        supabase
+          .from("businesses")
+          .select("id, markup_percentage, manager_monthly_salary, vat_percentage")
+          .in("id", selectedBusinesses),
+        supabase
+          .from("goals")
+          .select("id, business_id, revenue_target, labor_cost_target_pct, food_cost_target_pct, current_expenses_target, markup_percentage, vat_percentage")
+          .in("business_id", selectedBusinesses)
+          .eq("year", dateRange.start.getFullYear())
+          .eq("month", dateRange.start.getMonth() + 1)
+          .is("deleted_at", null),
+      ]);
+
+      const todayEntries = todayEntriesResult.data || [];
+      const goodsSupplierIds = (goodsSuppliersResult.data || []).map(s => s.id);
+      const currentExpensesSupplierIds = (currentExpensesSuppliersResult.data || []).map(s => s.id);
+      const businessData = businessDataResult.data || [];
+      const goalsData = goalsResult.data || [];
+      const todayEntryIds = todayEntries.map(e => e.id);
+
+      // Fetch today's breakdowns, goods invoices, current expenses invoices, managed products in parallel
+      const [todayBreakdownResult, todayGoodsInvoicesResult, todayCurrentExpensesInvoicesResult, todayProductUsageResult, incomeSourcesResult, incomeSourceGoalsResult, managedProductsResult, scheduleResult] = await Promise.all([
+        todayEntryIds.length > 0
+          ? supabase.from("daily_income_breakdown").select("income_source_id, amount, orders_count").in("daily_entry_id", todayEntryIds)
+          : Promise.resolve({ data: [] }),
+        goodsSupplierIds.length > 0
+          ? supabase.from("invoices").select("subtotal").in("supplier_id", goodsSupplierIds).in("business_id", selectedBusinesses).eq("invoice_date", todayStr).is("deleted_at", null)
+          : Promise.resolve({ data: [] }),
+        currentExpensesSupplierIds.length > 0
+          ? supabase.from("invoices").select("subtotal").in("supplier_id", currentExpensesSupplierIds).in("business_id", selectedBusinesses).eq("invoice_date", todayStr).is("deleted_at", null)
+          : Promise.resolve({ data: [] }),
+        todayEntryIds.length > 0
+          ? supabase.from("daily_product_usage").select("product_id, quantity, unit_cost_at_time").in("daily_entry_id", todayEntryIds)
+          : Promise.resolve({ data: [] }),
+        supabase.from("income_sources").select("id, name, income_type").in("business_id", selectedBusinesses).eq("is_active", true).is("deleted_at", null).order("display_order"),
+        goalsData.length > 0
+          ? supabase.from("income_source_goals").select("income_source_id, avg_ticket_target").in("goal_id", goalsData.map(g => g.id))
+          : Promise.resolve({ data: [] }),
+        supabase.from("managed_products").select("id, name, unit, unit_cost, target_pct").in("business_id", selectedBusinesses).eq("is_active", true).is("deleted_at", null),
+        supabase.from("business_schedule").select("business_id, day_of_week, day_factor").in("business_id", selectedBusinesses),
+      ]);
+
+      const todayBreakdowns = todayBreakdownResult.data || [];
+      const allIncomeSources = incomeSourcesResult.data || [];
+      const allManagedProducts = managedProductsResult.data || [];
+
+      // Build avg ticket target map
+      const avgTicketTargetMap: Record<string, number> = {};
+      (incomeSourceGoalsResult.data || []).forEach((g: { income_source_id: string; avg_ticket_target: number }) => {
+        avgTicketTargetMap[g.income_source_id] = Number(g.avg_ticket_target) || 0;
+      });
+
+      // Calculate today's income
+      const todayTotalIncome = todayEntries.reduce((sum: number, e: Record<string, unknown>) => sum + (Number(e.total_register) || 0), 0);
+
+      // Calculate today's labor cost (same formula as dashboard)
+      const todayRawLaborCost = todayEntries.reduce((sum: number, e: Record<string, unknown>) => sum + (Number(e.labor_cost) || 0), 0);
+      const totalMarkup = businessData.reduce((sum, b) => {
+        const bGoal = goalsData.find((g: Record<string, unknown>) => g.business_id === b.id);
+        return sum + (bGoal?.markup_percentage != null ? Number(bGoal.markup_percentage) : (Number(b.markup_percentage) || 1));
+      }, 0) / Math.max(businessData.length, 1);
+      const totalManagerSalary = businessData.reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
+
+      // Expected work days from schedule (for manager daily cost)
+      const scheduleData = scheduleResult.data || [];
+      const scheduleDayFactors: Record<number, number[]> = {};
+      scheduleData.forEach((sc: { day_of_week: number; day_factor: number }) => {
+        if (!scheduleDayFactors[sc.day_of_week]) scheduleDayFactors[sc.day_of_week] = [];
+        scheduleDayFactors[sc.day_of_week].push(Number(sc.day_factor) || 0);
+      });
+      const avgScheduleDayFactors: Record<number, number> = {};
+      Object.keys(scheduleDayFactors).forEach(dow => {
+        const factors = scheduleDayFactors[Number(dow)];
+        avgScheduleDayFactors[Number(dow)] = factors.reduce((a, b) => a + b, 0) / factors.length;
+      });
+      const targetMonthForSchedule = dateRange.start.getMonth();
+      const targetYearForSchedule = dateRange.start.getFullYear();
+      const firstDayOfMonthSchedule = new Date(targetYearForSchedule, targetMonthForSchedule, 1);
+      const lastDayOfMonthSchedule = new Date(targetYearForSchedule, targetMonthForSchedule + 1, 0);
+      let expectedWorkDaysInMonth = 0;
+      const curDateSch = new Date(firstDayOfMonthSchedule);
+      while (curDateSch <= lastDayOfMonthSchedule) {
+        expectedWorkDaysInMonth += avgScheduleDayFactors[curDateSch.getDay()] || 0;
+        curDateSch.setDate(curDateSch.getDate() + 1);
+      }
+
+      const managerDailyCost = expectedWorkDaysInMonth > 0 ? totalManagerSalary / expectedWorkDaysInMonth : 0;
+      const todayActualWorkDays = todayEntries.reduce((sum: number, e: Record<string, unknown>) => sum + (Number(e.day_factor) || 0), 0);
+      const todayLaborCost = (todayRawLaborCost + (managerDailyCost * todayActualWorkDays)) * totalMarkup;
+
+      // VAT calculation
+      const avgVatPercentage = businessData.reduce((sum, b) => {
+        const bGoal = goalsData.find((g: Record<string, unknown>) => g.business_id === b.id);
+        return sum + (bGoal?.vat_percentage != null ? Number(bGoal.vat_percentage) : (Number(b.vat_percentage) || 0));
+      }, 0) / Math.max(businessData.length, 1);
+      const vatDivisor = avgVatPercentage > 0 ? 1 + avgVatPercentage : 1;
+      const todayIncomeBeforeVat = todayTotalIncome / vatDivisor;
+
+      // Today's labor cost percentage
+      const todayLaborCostPct = todayIncomeBeforeVat > 0 ? (todayLaborCost / todayIncomeBeforeVat) * 100 : 0;
+      const laborCostTargetPct = goalsData.reduce((sum, g) => sum + (Number(g.labor_cost_target_pct) || 0), 0) / Math.max(goalsData.length, 1);
+      const todayLaborCostDiffPct = todayLaborCostPct - laborCostTargetPct;
+
+      // Today's food cost
+      const todayFoodCost = (todayGoodsInvoicesResult.data || []).reduce((sum: number, inv: { subtotal: number }) => sum + (Number(inv.subtotal) || 0), 0);
+      const todayFoodCostPct = todayIncomeBeforeVat > 0 ? (todayFoodCost / todayIncomeBeforeVat) * 100 : 0;
+      const foodCostTargetPct = goalsData.reduce((sum, g) => sum + (Number(g.food_cost_target_pct) || 0), 0) / Math.max(goalsData.length, 1);
+      const todayFoodCostDiffPct = todayFoodCostPct - foodCostTargetPct;
+
+      // Today's current expenses
+      const todayCurrentExpenses = (todayCurrentExpensesInvoicesResult.data || []).reduce((sum: number, inv: { subtotal: number }) => sum + (Number(inv.subtotal) || 0), 0);
+
+      // Today's income breakdown by source type
+      let todayPrivateIncome = 0, todayPrivateCount = 0, todayBusinessIncome = 0, todayBusinessCount = 0;
+      todayBreakdowns.forEach((b: { income_source_id: string; amount: number; orders_count: number }) => {
+        const source = allIncomeSources.find((src: { id: string; income_type: string }) => src.id === b.income_source_id);
+        const amount = Number(b.amount) || 0;
+        const orders = Number(b.orders_count) || 0;
+        if (source?.income_type === "business") {
+          todayBusinessIncome += amount;
+          todayBusinessCount += orders;
+        } else {
+          todayPrivateIncome += amount;
+          todayPrivateCount += orders;
+        }
+      });
+
+      const todayTotalOrders = todayPrivateCount + todayBusinessCount;
+      const todayPrivateAvg = todayPrivateCount > 0 ? todayPrivateIncome / todayPrivateCount : 0;
+      const todayBusinessAvg = todayBusinessCount > 0 ? todayBusinessIncome / todayBusinessCount : 0;
+
+      // Today's managed products
+      const todayProductQuantities: Record<string, number> = {};
+      (todayProductUsageResult.data || []).forEach((p: { product_id: string; quantity: number }) => {
+        todayProductQuantities[p.product_id] = (todayProductQuantities[p.product_id] || 0) + (Number(p.quantity) || 0);
+      });
+
+      // ================================================================
+      // INCOME SOURCE TARGETS
+      // ================================================================
+      const privateSource = allIncomeSources.find((src: { income_type: string }) => src.income_type === 'private');
+      const businessSource = allIncomeSources.find((src: { income_type: string }) => src.income_type === 'business');
+      const privateAvgTarget = privateSource ? (avgTicketTargetMap[privateSource.id] || 0) : 0;
+      const businessAvgTarget = businessSource ? (avgTicketTargetMap[businessSource.id] || 0) : 0;
+      const todayPrivateDiff = privateAvgTarget ? todayPrivateAvg - privateAvgTarget : 0;
+      const todayBusinessDiff = businessAvgTarget ? todayBusinessAvg - businessAvgTarget : 0;
+
+      // Monthly cumulative data (from detailedSummary - already computed for the date range)
+      const cumPrivateSource = incomeSourcesSummary.find(src => src.incomeType === 'private');
+      const cumBusinessSource = incomeSourcesSummary.find(src => src.incomeType === 'business');
+      const cumPrivateAvg = cumPrivateSource?.avgAmount || 0;
+      const cumBusinessAvg = cumBusinessSource?.avgAmount || 0;
+      const cumPrivateDiff = privateAvgTarget ? cumPrivateAvg - privateAvgTarget : 0;
+      const cumBusinessDiff = businessAvgTarget ? cumBusinessAvg - businessAvgTarget : 0;
+      const revTargetDiffPct = s.targetDiffPct || 0;
 
       // Inline styles for email compatibility (Gmail strips CSS classes)
       const cellStyle = 'color:#fff;font-size:12px;height:24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);padding:2px 4px;direction:ltr;';
@@ -397,17 +579,6 @@ export default function DashboardPage() {
         if (invert) return val > 0 ? redColor : greenColor;
         return val < 0 ? redColor : val > 0 ? greenColor : '#fff';
       };
-
-      // Income source rows
-      const privateSource = incomeSourcesSummary.find(src => src.incomeType === 'private');
-      const businessSource = incomeSourcesSummary.find(src => src.incomeType === 'business');
-      const privateAvg = privateSource?.avgAmount || 0;
-      const businessAvg = businessSource?.avgAmount || 0;
-      const privateAvgTarget = privateSource?.avgTicketTarget || 0;
-      const businessAvgTarget = businessSource?.avgTicketTarget || 0;
-      const privateDiff = privateAvgTarget ? privateAvg - privateAvgTarget : 0;
-      const businessDiff = businessAvgTarget ? businessAvg - businessAvgTarget : 0;
-      const revTargetDiffPct = s.targetDiffPct || 0;
 
       // Helper to build a table section
       const buildTable = (title: string, headers: string[], rows: string[][]) => {
@@ -428,25 +599,34 @@ export default function DashboardPage() {
         </div>`;
       };
 
-      // Managed products data
-      const mpData = managedProductsSummary.map(p => {
+      // Today's managed products data
+      const todayMpData = (allManagedProducts || []).map((p: { id: string; name: string; unit_cost: number; target_pct: number | null }) => {
+        const qty = todayProductQuantities[p.id] || 0;
+        const cost = qty * (Number(p.unit_cost) || 0);
+        const pct = todayIncomeBeforeVat > 0 && cost > 0 ? (cost / todayIncomeBeforeVat) * 100 : 0;
+        const diff = p.target_pct ? pct - p.target_pct : 0;
+        return { name: p.name, pct, qty: Math.round(qty), targetPct: p.target_pct, diff };
+      });
+
+      // Monthly cumulative managed products data
+      const cumMpData = managedProductsSummary.map(p => {
         const pct = s.incomeBeforeVat && p.totalCost > 0 ? (p.totalCost / s.incomeBeforeVat) * 100 : 0;
         const diff = p.targetPct ? pct - p.targetPct : 0;
         return { name: p.name, pct, qty: Math.round(p.totalQuantity), targetPct: p.targetPct, diff };
       });
 
-      // === Daily Summary Table ===
+      // === Daily Summary Table (TODAY's data only) ===
       const dailyRows: string[][] = [
-        ['סה"כ קופה כולל מע"מ', `₪${Math.round(s.totalIncome).toLocaleString('he-IL')}`, '', `<span style="color:${diffColor(revTargetDiffPct)}">${revTargetDiffPct.toFixed(1)}%</span>`],
-        ['במקום', `₪${Math.round(s.privateIncome).toLocaleString('he-IL')}`, `${s.privateCount}`, `<span style="color:${diffColor(privateDiff)}">${privateDiff < 0 ? '-' : ''}₪${Math.abs(privateDiff).toFixed(1)}</span>`],
-        ['במשלוח', `₪${Math.round(s.businessIncome).toLocaleString('he-IL')}`, `${s.businessCount}`, `<span style="color:${diffColor(businessDiff)}">${businessDiff < 0 ? '-' : ''}₪${Math.abs(businessDiff).toFixed(1)}</span>`],
-        ['ע. עובדים (%)', `${s.laborCostPct.toFixed(2)}%`, `${totalOrders}`, `<span style="color:${diffColor(s.laborCostDiffPct, true)}">${s.laborCostDiffPct > 0 ? '' : '-'}${Math.abs(s.laborCostDiffPct).toFixed(2)}%</span>`],
-        ...mpData.map(p => [
+        ['סה"כ קופה כולל מע"מ', `₪${Math.round(todayTotalIncome).toLocaleString('he-IL')}`, '', `<span style="color:${diffColor(revTargetDiffPct)}">${revTargetDiffPct.toFixed(1)}%</span>`],
+        ['במקום', `₪${Math.round(todayPrivateIncome).toLocaleString('he-IL')}`, `${todayPrivateCount}`, `<span style="color:${diffColor(todayPrivateDiff)}">${todayPrivateDiff < 0 ? '-' : ''}₪${Math.abs(todayPrivateDiff).toFixed(1)}</span>`],
+        ['במשלוח', `₪${Math.round(todayBusinessIncome).toLocaleString('he-IL')}`, `${todayBusinessCount}`, `<span style="color:${diffColor(todayBusinessDiff)}">${todayBusinessDiff < 0 ? '-' : ''}₪${Math.abs(todayBusinessDiff).toFixed(1)}</span>`],
+        ['ע. עובדים (%)', `${todayLaborCostPct.toFixed(2)}%`, `${todayTotalOrders}`, `<span style="color:${diffColor(todayLaborCostDiffPct, true)}">${todayLaborCostDiffPct > 0 ? '' : '-'}${Math.abs(todayLaborCostDiffPct).toFixed(2)}%</span>`],
+        ...todayMpData.map(p => [
           `${p.name} (%)`, `${p.pct.toFixed(2)}%`, `${p.qty}`,
           `<span style="color:${diffColor(p.diff, true)}">${p.diff !== 0 ? p.diff.toFixed(2) + '%' : '-'}</span>`
         ]),
-        ['עלות מכר', `${s.foodCostPct.toFixed(2)}%`, '', '-'],
-        ['הוצאות שוטפות', `₪${Math.round(s.currentExpenses).toLocaleString('he-IL')}`, '', '-'],
+        ['עלות מכר', `${todayFoodCostPct.toFixed(2)}%`, '', `<span style="color:${diffColor(todayFoodCostDiffPct, true)}">${todayFoodCostDiffPct !== 0 ? (todayFoodCostDiffPct > 0 ? '' : '-') + Math.abs(todayFoodCostDiffPct).toFixed(2) + '%' : '-'}</span>`],
+        ['הוצאות שוטפות', `₪${Math.round(todayCurrentExpenses).toLocaleString('he-IL')}`, '', '-'],
       ];
       const dailyHtml = buildTable(`הסיכום היומי ליום ${dayName}, ${dateStr}`, ['', 'סה"כ יומי', 'כמות', 'הפרש מהיעד'], dailyRows);
 
@@ -456,24 +636,24 @@ export default function DashboardPage() {
         ['במקום', `₪${Math.round(privateAvgTarget).toLocaleString('he-IL')}`],
         ['במשלוח', `₪${Math.round(businessAvgTarget).toLocaleString('he-IL')}`],
         ['ע. עובדים (%)', `${Math.round(s.laborCostTargetPct)}%`],
-        ...mpData.map(p => [`עלות ${p.name} (%)`, p.targetPct ? `${p.targetPct}%` : '-']),
+        ...cumMpData.map(p => [`עלות ${p.name} (%)`, p.targetPct ? `${p.targetPct}%` : '-']),
         ['עלות מכר', `${Math.round(s.foodCostTargetPct)}%`],
         ['הוצאות שוטפות', '-'],
       ];
       const goalsHtml = buildTable('פרמטר / יעד', ['פרמטר', 'יעד'], goalsRows);
 
-      // === Monthly Cumulative Table ===
+      // === Monthly Cumulative Table (from detailedSummary - full date range) ===
       const cumulativeRows: string[][] = [
         ['סה"כ קופה', `₪${Math.round(s.totalIncome).toLocaleString('he-IL')}`, `<span style="color:${diffColor(revTargetDiffPct)}">${revTargetDiffPct.toFixed(1)}%</span>`],
-        ['במקום', `₪${privateAvg.toFixed(2)}`, `<span style="color:${diffColor(privateDiff)}">${privateDiff < 0 ? '-' : ''}₪${Math.abs(privateDiff).toFixed(1)}</span>`],
-        ['במשלוח', `₪${businessAvg.toFixed(2)}`, `<span style="color:${diffColor(businessDiff)}">${businessDiff < 0 ? '-' : ''}₪${Math.abs(businessDiff).toFixed(1)}</span>`],
+        ['במקום', `₪${cumPrivateAvg.toFixed(2)}`, `<span style="color:${diffColor(cumPrivateDiff)}">${cumPrivateDiff < 0 ? '-' : ''}₪${Math.abs(cumPrivateDiff).toFixed(1)}</span>`],
+        ['במשלוח', `₪${cumBusinessAvg.toFixed(2)}`, `<span style="color:${diffColor(cumBusinessDiff)}">${cumBusinessDiff < 0 ? '-' : ''}₪${Math.abs(cumBusinessDiff).toFixed(1)}</span>`],
         ['ע. עובדים', `${s.laborCostPct.toFixed(2)}%`, `<span style="color:${diffColor(s.laborCostDiffPct, true)}">${s.laborCostDiffPct > 0 ? '' : '-'}${Math.abs(s.laborCostDiffPct).toFixed(1)}%</span>`],
-        ...mpData.map(p => [
+        ...cumMpData.map(p => [
           p.name, `${p.pct.toFixed(2)}%`,
           `<span style="color:${diffColor(p.diff, true)}">${p.diff !== 0 ? p.diff.toFixed(2) + '%' : '-'}</span>`
         ]),
-        ['עלות מכר', `${s.foodCostPct.toFixed(2)}%`, `<span style="color:${diffColor(s.foodCostDiffPct, true)}">${s.foodCostDiffPct !== 0 ? Math.abs(s.foodCostDiffPct).toFixed(2) + '%' : '-'}</span>`],
-        ['הוצאות שוטפות', `₪${Math.round(s.currentExpenses).toLocaleString('he-IL')}`, '-'],
+        ['עלות מכר', `${s.foodCostPct.toFixed(2)}%`, `<span style="color:${diffColor(s.foodCostDiffPct, true)}">${s.foodCostDiffPct !== 0 ? (s.foodCostDiffPct > 0 ? '' : '-') + Math.abs(s.foodCostDiffPct).toFixed(2) + '%' : '-'}</span>`],
+        ['הוצאות שוטפות', `₪${Math.round(s.currentExpenses).toLocaleString('he-IL')}`, `<span style="color:${diffColor(s.currentExpensesDiffPct, true)}">${s.currentExpensesDiffPct !== 0 ? (s.currentExpensesDiffPct > 0 ? '' : '-') + Math.abs(s.currentExpensesDiffPct).toFixed(2) + '%' : '-'}</span>`],
       ];
       const cumulativeHtml = buildTable(`מצטבר חודש ${monthName}, ${year}`, ['', 'סה"כ', 'הפרש'], cumulativeRows);
 
