@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, Suspense, Fragment } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
 import { X } from "lucide-react";
@@ -275,6 +275,7 @@ export default function PaymentsPage() {
 }
 
 function PaymentsPageInner() {
+  const router = useRouter();
   const { selectedBusinesses, isAdmin } = useDashboard();
   const { showToast } = useToast();
   const searchParams = useSearchParams();
@@ -2205,12 +2206,6 @@ function PaymentsPageInner() {
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              {/* Center info - shown when hovering a segment */}
-              {activePaymentIndex === undefined && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[16px] text-white/50">העבר עכבר לפרטים</span>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -3119,11 +3114,11 @@ function PaymentsPageInner() {
                               const invoiceAttachmentUrls = parseAttachmentUrls(payment.linkedInvoice.attachmentUrl);
                               return (
                                 <>
-                                  <div dir="rtl" className="flex items-center justify-between gap-[3px] min-h-[45px] px-[3px] rounded-[7px]">
-                                    <span className="text-[13px] min-w-[50px] text-center ltr-num">{payment.linkedInvoice.date}</span>
-                                    <span className="text-[13px] w-[65px] text-center ltr-num">{payment.linkedInvoice.invoiceNumber || "-"}</span>
-                                    <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.linkedInvoice.subtotal.toLocaleString("he-IL")}</span>
-                                    <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL")}</span>
+                                  <div dir="rtl" className="flex items-center justify-between gap-[3px] min-h-[45px] px-[3px] rounded-[7px] hover:bg-[#29318A]/30 transition-colors">
+                                    <button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] min-w-[50px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">{payment.linkedInvoice.date}</button>
+                                    <button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">{payment.linkedInvoice.invoiceNumber || "-"}</button>
+                                    <button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">₪{payment.linkedInvoice.subtotal.toLocaleString("he-IL")}</button>
+                                    <button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL")}</button>
                                     <div className="flex items-center gap-[5px] min-w-[45px]">
                                       {invoiceAttachmentUrls.length > 0 && (
                                         <>

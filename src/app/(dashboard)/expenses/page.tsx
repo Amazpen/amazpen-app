@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { X } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
 import { useDashboard } from "../layout";
@@ -208,7 +209,17 @@ function PdfThumbnail({ url, className, onClick }: { url: string; className?: st
 }
 
 export default function ExpensesPage() {
+  return (
+    <Suspense fallback={null}>
+      <ExpensesPageInner />
+    </Suspense>
+  );
+}
+
+function ExpensesPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightInvoiceId = searchParams.get("invoiceId");
   const { selectedBusinesses, isAdmin } = useDashboard();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = usePersistedState<"expenses" | "purchases" | "employees">("expenses:tab", "expenses");
@@ -284,6 +295,21 @@ export default function ExpensesPage() {
   // Expanded invoice row state
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
   const [showLinkedPayments, setShowLinkedPayments] = useState<string | null>(null);
+
+  // Auto-expand invoice from URL param (e.g. /expenses?invoiceId=xxx)
+  const highlightedRef = useRef(false);
+  useEffect(() => {
+    if (!highlightInvoiceId || highlightedRef.current || recentInvoices.length === 0) return;
+    const match = recentInvoices.find(inv => inv.id === highlightInvoiceId);
+    if (match) {
+      highlightedRef.current = true;
+      setExpandedInvoiceId(match.id);
+      setTimeout(() => {
+        const el = document.querySelector(`[data-invoice-id="${match.id}"]`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 100);
+    }
+  }, [highlightInvoiceId, recentInvoices]);
 
   // Edit expense state
   const [editingInvoice, setEditingInvoice] = useState<InvoiceDisplay | null>(null);
@@ -2467,6 +2493,7 @@ export default function ExpensesPage() {
               return (
               <div
                 key={invoice.id}
+                data-invoice-id={invoice.id}
                 className={`bg-transparent rounded-[7px] p-[7px_3px] border transition-colors ${
                   expandedInvoiceId === invoice.id ? 'border-white' : invoice.status === 'בבירור' ? 'border-[#FFA500]' : 'border-transparent'
                 }`}
