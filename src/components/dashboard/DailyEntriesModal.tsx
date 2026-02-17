@@ -1473,8 +1473,16 @@ export function DailyEntriesModal({
                                 })}
                                 {/* ע. עובדים - הפרש מיעד */}
                                 {(() => {
-                                  const laborPct = entry.total_register > 0 ? (entry.labor_cost / entry.total_register) * 100 : 0;
-                                  const targetPct = goalsData?.laborCostTargetPct || 0;
+                                  if (!goalsData || entry.total_register <= 0) return (
+                                    <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
+                                      <span className="ltr-num">-</span>
+                                    </div>
+                                  );
+                                  const vatDivisor = goalsData.vatPercentage > 0 ? 1 + goalsData.vatPercentage : 1;
+                                  const revenueBeforeVat = entry.total_register / vatDivisor;
+                                  const laborWithMarkup = entry.labor_cost * goalsData.markupPercentage;
+                                  const laborPct = revenueBeforeVat > 0 ? (laborWithMarkup / revenueBeforeVat) * 100 : 0;
+                                  const targetPct = goalsData.laborCostTargetPct || 0;
                                   const diff = targetPct > 0 ? laborPct - targetPct : 0;
                                   return (
                                     <div className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${targetPct > 0 ? (diff <= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}>
