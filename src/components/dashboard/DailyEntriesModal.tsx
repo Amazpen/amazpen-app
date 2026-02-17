@@ -83,6 +83,8 @@ interface GoalsData {
   incomeSourceTargets: Record<string, number>; // income_source_id -> avg_ticket_target
   productTargetPcts: Record<string, number>; // product_id -> target_pct
   workDaysInMonth: number; // calculated from business_schedules
+  managerDailyCost: number; // manager_monthly_salary / workDaysInMonth
+  markupPercentage: number; // markup multiplier (e.g. 1.18)
 }
 
 // Monthly cumulative data for Section 3
@@ -655,7 +657,7 @@ export function DailyEntriesModal({
       // 4. Business fallback for VAT
       supabase
         .from("businesses")
-        .select("vat_percentage, markup_percentage")
+        .select("vat_percentage, markup_percentage, manager_monthly_salary")
         .eq("id", businessId)
         .maybeSingle(),
       // 5. All month entries for cumulative
@@ -773,6 +775,10 @@ export function DailyEntriesModal({
     // Fallback to 26 if no schedule data
     if (workDaysInMonth === 0) workDaysInMonth = 26;
 
+    const managerSalary = Number(businessData?.manager_monthly_salary) || 0;
+    const managerDailyCost = workDaysInMonth > 0 ? managerSalary / workDaysInMonth : 0;
+    const markupPct = goalData?.markup_percentage != null ? Number(goalData.markup_percentage) : (Number(businessData?.markup_percentage) || 1);
+
     setGoalsData({
       revenueTarget: Number(goalData?.revenue_target) || 0,
       laborCostTargetPct: Number(goalData?.labor_cost_target_pct) || 0,
@@ -782,6 +788,8 @@ export function DailyEntriesModal({
       incomeSourceTargets,
       productTargetPcts,
       workDaysInMonth,
+      managerDailyCost,
+      markupPercentage: markupPct,
     });
 
     // Build monthly cumulative (Section 3)
@@ -1394,7 +1402,14 @@ export function DailyEntriesModal({
                                   );
                                 })}
                                 <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
-                                  <span className="ltr-num">{entry.total_register > 0 ? ((entry.labor_cost / entry.total_register) * 100).toFixed(entry.labor_cost / entry.total_register * 100 % 1 === 0 ? 0 : 2) : 0}%</span>
+                                  <span className="ltr-num">{(() => {
+                                    if (!goalsData || entry.total_register <= 0) return "0%";
+                                    const vatDivisor = goalsData.vatPercentage > 0 ? 1 + goalsData.vatPercentage : 1;
+                                    const revenueBeforeVat = entry.total_register / vatDivisor;
+                                    const laborWithMarkup = entry.labor_cost * goalsData.markupPercentage;
+                                    const laborPct = revenueBeforeVat > 0 ? (laborWithMarkup / revenueBeforeVat) * 100 : 0;
+                                    return `${laborPct.toFixed(2)}%`;
+                                  })()}</span>
                                 </div>
                                 {entryDetails?.productUsage.map((product) => (
                                   <div
