@@ -2941,10 +2941,10 @@ export default function ExpensesPage() {
                 if (!supplierInfo?.waiting_for_coordinator) return null;
                 return (
                   <div
-                    className="flex items-center gap-[5px] flex-row-reverse cursor-pointer"
+                    className="flex items-center gap-[5px] cursor-pointer"
+                    dir="rtl"
                     onClick={() => setLinkToCoordinator(!linkToCoordinator)}
                   >
-                    <span className="text-[15px] font-medium text-white">האם לשייך למרכזת?</span>
                     <button
                       type="button"
                       className="w-[21px] h-[21px] flex items-center justify-center text-white"
@@ -2960,6 +2960,7 @@ export default function ExpensesPage() {
                         </svg>
                       )}
                     </button>
+                    <span className="text-[15px] font-medium text-white">האם לשייך למרכזת?</span>
                   </div>
                 );
               })()}
