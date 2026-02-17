@@ -1700,16 +1700,17 @@ export default function PaymentsPage() {
 
   // Calculate due date based on credit card billing day
   const calculateCreditCardDueDate = (paymentDateStr: string, billingDay: number): string => {
-    const payDate = new Date(paymentDateStr);
-    const dayOfMonth = payDate.getDate();
+    // Parse date parts manually to avoid UTC timezone shift (new Date("YYYY-MM-DD") parses as UTC)
+    const [year, month, day] = paymentDateStr.split("-").map(Number);
 
-    if (dayOfMonth < billingDay) {
-      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth(), billingDay);
-      return dueDate.toISOString().split("T")[0];
+    let dueDate: Date;
+    if (day < billingDay) {
+      dueDate = new Date(year, month - 1, billingDay);
     } else {
-      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth() + 1, billingDay);
-      return dueDate.toISOString().split("T")[0];
+      dueDate = new Date(year, month, billingDay);
     }
+    // Format manually to avoid toISOString() UTC shift
+    return `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, "0")}-${String(dueDate.getDate()).padStart(2, "0")}`;
   };
 
   // Generate installments with credit card billing day logic
@@ -1721,14 +1722,15 @@ export default function PaymentsPage() {
     const firstDueDate = calculateCreditCardDueDate(paymentDateStr, billingDay);
 
     const result = [];
+    // Parse firstDueDate manually to avoid UTC timezone shift
+    const [fdYear, fdMonth, fdDay] = firstDueDate.split("-").map(Number);
     for (let i = 0; i < numInstallments; i++) {
-      const date = new Date(firstDueDate);
-      date.setMonth(date.getMonth() + i);
+      const date = new Date(fdYear, fdMonth - 1 + i, fdDay);
 
       result.push({
         number: i + 1,
         date: date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
-        dateForInput: date.toISOString().split("T")[0],
+        dateForInput: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
         amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
         checkNumber: "",
       });
@@ -3122,7 +3124,7 @@ export default function PaymentsPage() {
                 <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
                   <span className={`text-[16px] font-semibold pointer-events-none ${paymentDate ? 'text-white' : 'text-white/40'}`}>
                     {paymentDate
-                      ? new Date(paymentDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                      ? (() => { const [y,m,d] = paymentDate.split("-"); return `${d}/${m}/${y}`; })()
                       : 'יום/חודש/שנה'}
                   </span>
                   <input
@@ -3514,7 +3516,7 @@ export default function PaymentsPage() {
                                   <input
                                     type="text"
                                     readOnly
-                                    value={item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
+                                    value={item.dateForInput ? (() => { const [y,m,d] = item.dateForInput.split("-"); return `${d}/${m}/${y.slice(2)}`; })() : ''}
                                     className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num cursor-pointer"
                                   />
                                   <input
