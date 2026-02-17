@@ -2941,7 +2941,7 @@ export default function ExpensesPage() {
                 if (!supplierInfo?.waiting_for_coordinator) return null;
                 return (
                   <div
-                    className="flex items-center gap-[5px] justify-end cursor-pointer"
+                    className="flex items-center gap-[5px] flex-row-reverse cursor-pointer"
                     onClick={() => setLinkToCoordinator(!linkToCoordinator)}
                   >
                     <span className="text-[15px] font-medium text-white">האם לשייך למרכזת?</span>

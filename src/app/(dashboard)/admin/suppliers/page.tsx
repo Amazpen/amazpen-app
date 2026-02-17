@@ -24,6 +24,7 @@ interface CsvSupplier {
   charge_day: number | null;
   is_active: boolean;
   has_previous_obligations: boolean;
+  waiting_for_coordinator: boolean;
   parent_category_name: string;
   category_name: string;
 }
@@ -211,6 +212,10 @@ export default function AdminSuppliersPage() {
             const obligationsRaw = getField(row, "has_obligations");
             const has_previous_obligations = obligationsRaw === "כן" || obligationsRaw === "yes";
 
+            // Map waiting_for_coordinator
+            const coordinatorRaw = getField(row, "waiting_for_coordinator");
+            const waiting_for_coordinator = coordinatorRaw === "כן" || coordinatorRaw === "yes" || coordinatorRaw === "true" || coordinatorRaw === "1";
+
             // Check for duplicate names within CSV
             if (suppliers.some(s => s.name === name)) {
               errors.push(`שורה ${rowIdx + 2}: ספק "${name}" כבר קיים בקובץ - דילוג`);
@@ -234,6 +239,7 @@ export default function AdminSuppliersPage() {
               charge_day,
               is_active,
               has_previous_obligations,
+              waiting_for_coordinator,
               parent_category_name,
               category_name,
             });
@@ -427,6 +433,7 @@ export default function AdminSuppliersPage() {
           charge_day: s.charge_day,
           is_active: s.is_active,
           has_previous_obligations: s.has_previous_obligations,
+          waiting_for_coordinator: s.waiting_for_coordinator,
           parent_category_id: parentCatId,
           expense_category_id: childCatId,
         };
