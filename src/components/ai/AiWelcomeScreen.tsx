@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import type { AiSuggestedQuestion } from "@/types/ai";
 
 const userSuggestions: AiSuggestedQuestion[] = [
@@ -80,9 +81,11 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
 
       {/* AI Bot Avatar */}
       <div className="w-[80px] h-[80px] sm:w-[110px] sm:h-[110px] rounded-full overflow-hidden mb-3 sm:mb-5">
-        <img
+        <Image
           src="https://db.amazpenbiz.co.il/storage/v1/object/public/attachments/ai/ai-avatar.png"
           alt="דדי - העוזר החכם"
+          width={110}
+          height={110}
           className="w-full h-full object-cover"
         />
       </div>

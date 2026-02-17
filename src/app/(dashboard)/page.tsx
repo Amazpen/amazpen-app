@@ -2439,9 +2439,11 @@ export default function DashboardPage() {
                   >
                     <div className="w-[40px] h-[40px] rounded-[8px] overflow-hidden flex-shrink-0 flex items-center justify-center bg-white/10">
                       {business.logo_url ? (
-                        <img
+                        <Image
                           src={business.logo_url}
                           alt={business.name}
+                          width={40}
+                          height={40}
                           className="w-full h-full object-cover"
                         />
                       ) : (

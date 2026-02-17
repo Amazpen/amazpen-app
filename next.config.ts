@@ -58,6 +58,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: '**.cdn.bubble.io',
       },
+      {
+        protocol: 'https',
+        hostname: 'db.amazpenbiz.co.il',
+      },
     ],
   },
 

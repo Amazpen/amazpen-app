@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { Copy, Check } from "lucide-react";
 import type { UIMessage } from "ai";
 import type { AiChartData, AiProposedAction } from "@/types/ai";
@@ -66,9 +67,11 @@ function SafeChartContainer({ children }: { children: React.ReactNode }) {
 function AiIcon() {
   return (
     <div className="flex-shrink-0 w-[24px] h-[24px] sm:w-[28px] sm:h-[28px] rounded-full overflow-hidden">
-      <img
+      <Image
         src="https://db.amazpenbiz.co.il/storage/v1/object/public/attachments/ai/ai-avatar.png"
         alt="דדי"
+        width={28}
+        height={28}
         className="w-full h-full object-cover"
       />
     </div>

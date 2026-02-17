@@ -158,7 +158,7 @@ export default function GoalsPage() {
 
   // Drill-down state
   const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
-  const [expandedChildId, setExpandedChildId] = useState<string | null>(null);
+  const [_expandedChildId, setExpandedChildId] = useState<string | null>(null);
 
   // Data from Supabase
   const [currentExpensesData, setCurrentExpensesData] = useState<GoalItem[]>([]);
@@ -197,50 +197,65 @@ export default function GoalsPage() {
 
       try {
         // ============================================
-        // 1. Fetch goals for the selected year/month
+        // 1-5. Fetch all base data in parallel
         // ============================================
-        const { data: goalsData } = await supabase
-          .from("goals")
-          .select("*")
-          .in("business_id", selectedBusinesses)
-          .eq("year", year)
-          .eq("month", month)
-          .is("deleted_at", null);
+        const [
+          { data: goalsData, error: goalsError },
+          { data: categoriesData, error: categoriesError },
+          { data: supplierBudgetsData, error: budgetsError },
+          { data: suppliersData, error: suppliersError },
+          { data: invoicesData, error: invoicesError },
+        ] = await Promise.all([
+          // 1. Goals for the selected year/month
+          supabase
+            .from("goals")
+            .select("*")
+            .in("business_id", selectedBusinesses)
+            .eq("year", year)
+            .eq("month", month)
+            .is("deleted_at", null),
+          // 2. Expense categories
+          supabase
+            .from("expense_categories")
+            .select("id, name, business_id, parent_id")
+            .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
+            .eq("is_active", true)
+            .order("display_order"),
+          // 3. Supplier budgets (targets)
+          supabase
+            .from("supplier_budgets")
+            .select("supplier_id, budget_amount")
+            .in("business_id", selectedBusinesses)
+            .eq("year", year)
+            .eq("month", month)
+            .is("deleted_at", null),
+          // 4. Suppliers with category mapping
+          supabase
+            .from("suppliers")
+            .select("id, name, expense_category_id, expense_type")
+            .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
+            .eq("is_active", true),
+          // 5. Invoices for actual amounts
+          supabase
+            .from("invoices")
+            .select("supplier_id, subtotal, invoice_type")
+            .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
+            .gte("invoice_date", startDate)
+            .lte("invoice_date", endDate),
+        ]);
+
+        // Log any query errors
+        if (goalsError) console.error("Goals query error:", goalsError);
+        if (categoriesError) console.error("Categories query error:", categoriesError);
+        if (budgetsError) console.error("Budgets query error:", budgetsError);
+        if (suppliersError) console.error("Suppliers query error:", suppliersError);
+        if (invoicesError) console.error("Invoices query error:", invoicesError);
 
         const goal = goalsData?.[0];
         setGoalId(goal?.id || null);
-
-        // ============================================
-        // 2. Fetch expense categories for "יעד VS שוטפות"
-        // ============================================
-        const { data: categoriesData } = await supabase
-          .from("expense_categories")
-          .select("id, name, business_id, parent_id")
-          .in("business_id", selectedBusinesses)
-          .is("deleted_at", null)
-          .eq("is_active", true)
-          .order("display_order");
-
-        // ============================================
-        // 3. Fetch supplier budgets for target amounts
-        // ============================================
-        const { data: supplierBudgetsData } = await supabase
-          .from("supplier_budgets")
-          .select("supplier_id, budget_amount")
-          .in("business_id", selectedBusinesses)
-          .eq("year", year)
-          .eq("month", month)
-          .is("deleted_at", null);
-
-        // ============================================
-        // 4. Fetch suppliers with their expense_category_id
-        // ============================================
-        const { data: suppliersData } = await supabase
-          .from("suppliers")
-          .select("id, name, expense_category_id, expense_type")
-          .in("business_id", selectedBusinesses)
-          .is("deleted_at", null)
-          .eq("is_active", true);
 
         // Build supplier -> category mapping and supplier -> budget mapping
         const supplierCategoryMap = new Map<string, string>();
@@ -261,17 +276,6 @@ export default function GoalsPage() {
         (supplierBudgetsData || []).forEach(b => {
           supplierBudgetMap.set(b.supplier_id, Number(b.budget_amount) || 0);
         });
-
-        // ============================================
-        // 5. Fetch invoices for actual amounts
-        // ============================================
-        const { data: invoicesData } = await supabase
-          .from("invoices")
-          .select("supplier_id, subtotal, invoice_type")
-          .in("business_id", selectedBusinesses)
-          .is("deleted_at", null)
-          .gte("invoice_date", startDate)
-          .lte("invoice_date", endDate);
 
         // Build per-supplier actual amounts split by invoice type
         const perSupplierCurrentActuals = new Map<string, number>();
@@ -308,8 +312,8 @@ export default function GoalsPage() {
           }
         });
 
-        // Sum up budgets by category
-        (suppliersData || []).forEach(supplier => {
+        // Sum up budgets by category (only current_expenses suppliers)
+        (suppliersData || []).filter(s => s.expense_type === "current_expenses").forEach(supplier => {
           const catId = supplier.expense_category_id;
           const budget = supplierBudgetMap.get(supplier.id) || 0;
           if (catId && budget > 0) {
@@ -626,7 +630,11 @@ export default function GoalsPage() {
           {
             id: "current-expenses",
             name: "הוצאות שוטפות (₪)",
-            target: Number(goal?.current_expenses_target) || 0,
+            target: Number(goal?.current_expenses_target) ||
+              // Fallback: sum supplier budgets for current_expenses type
+              (suppliersData || [])
+                .filter(s => s.expense_type === "current_expenses")
+                .reduce((sum, s) => sum + (supplierBudgetMap.get(s.id) || 0), 0),
             actual: totalCurrentExpenses,
             unit: "₪",
             editable: true,
@@ -635,7 +643,11 @@ export default function GoalsPage() {
           {
             id: "goods-expenses",
             name: "הוצאות קניות סחורה (₪)",
-            target: Number(goal?.goods_expenses_target) || 0,
+            target: Number(goal?.goods_expenses_target) ||
+              // Fallback: sum supplier budgets for goods_purchases type
+              (suppliersData || [])
+                .filter(s => s.expense_type === "goods_purchases")
+                .reduce((sum, s) => sum + (supplierBudgetMap.get(s.id) || 0), 0),
             actual: totalGoodsCost,
             unit: "₪",
             editable: true,

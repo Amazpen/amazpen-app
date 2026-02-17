@@ -193,7 +193,10 @@
       "Bash(/c/Program Files/nodejs/npx.cmd eslint:*)",
       "Bash(npx.cmd eslint:*)",
       "Bash(/c/Program Files/nodejs/npx.cmd next lint -- --no-cache)",
-      "Bash(/c/Program Files/nodejs/npx.cmd next lint --file src/app/\\\\\\(dashboard\\\\\\)/expenses/page.tsx)"
+      "Bash(/c/Program Files/nodejs/npx.cmd next lint --file src/app/\\\\\\(dashboard\\\\\\)/expenses/page.tsx)",
+      "Bash(while read f)",
+      "Bash(do grep -l \"billing_day.*date\\\\|dueDate.*card\\\\|calculateDueDate\" \"$f\")",
+      "Bash(done)"
     ]
   },
   "enableAllProjectMcpServers": true,

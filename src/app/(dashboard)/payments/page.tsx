@@ -379,9 +379,6 @@ function PaymentsPageInner() {
 
   // Receipt upload state — supports multiple files
   const [receiptFiles, setReceiptFiles] = useState<Array<{ file: File | null; preview: string }>>([]);
-  // Legacy single-file aliases for backward compat
-  const receiptFile = receiptFiles.length > 0 ? receiptFiles[0].file : null;
-  const receiptPreview = receiptFiles.length > 0 ? receiptFiles[0].preview : null;
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
 
   // Save payment form draft
@@ -2044,6 +2041,7 @@ function PaymentsPageInner() {
       }
       return { ...p, customInstallments: [] };
     }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentDate]);
 
   // Fetch open invoices when supplier changes

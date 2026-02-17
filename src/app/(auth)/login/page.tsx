@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -14,15 +14,10 @@ function LoginPageContent() {
   const [rememberMe, setRememberMe] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    searchParams.get("error") === "business_inactive" ? "החשבון שלך הושבת. פנה למנהל המערכת." : null
+  );
   const [showPassword, setShowPassword] = useState(false);
-
-  // Show error message for blocked users (inactive business)
-  useEffect(() => {
-    if (searchParams.get("error") === "business_inactive") {
-      setError("החשבון שלך הושבת. פנה למנהל המערכת.");
-    }
-  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
