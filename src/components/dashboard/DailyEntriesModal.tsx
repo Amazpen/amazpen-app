@@ -1361,7 +1361,7 @@ export function DailyEntriesModal({
                     ) : (
                       <>
                         {/* 3 Sections: Daily Summary | Parameter/Target | Monthly Cumulative */}
-                        <div className="flex flex-col md:flex-row-reverse gap-[10px]">
+                        <div className="flex flex-col md:flex-row gap-[10px]">
 
                           {/* ========== Section 1: הסיכום היומי ========== */}
                           <div className="bg-[#0F1535] rounded-[10px] border-2 border-[#FFCF00] p-[7px] flex-1 min-w-0">
