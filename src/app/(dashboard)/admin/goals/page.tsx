@@ -47,6 +47,8 @@ interface Supplier {
   is_fixed_expense: boolean;
   monthly_expense_amount: number | null;
   has_previous_obligations: boolean;
+  vat_type: string;
+  charge_day: number | null;
 }
 
 interface SupplierBudget {
@@ -174,7 +176,7 @@ export default function AdminGoalsPage() {
       // Load suppliers (excluding previous obligations)
       const { data: suppliersData } = await supabase
         .from("suppliers")
-        .select("id, name, expense_type, is_fixed_expense, monthly_expense_amount, has_previous_obligations")
+        .select("id, name, expense_type, is_fixed_expense, monthly_expense_amount, has_previous_obligations, vat_type, charge_day")
         .eq("business_id", selectedBusinessId)
         .eq("has_previous_obligations", false)
         .eq("is_active", true)
@@ -398,6 +400,26 @@ export default function AdminGoalsPage() {
         }
       }
 
+      // Generate recurring expense invoices for fixed expense suppliers
+      try {
+        const res = await fetch("/api/recurring-expenses/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            business_id: selectedBusinessId,
+            year: selectedYear,
+            month: selectedMonth,
+          }),
+        });
+        const result = await res.json();
+        if (result.created > 0) {
+          console.log(`Created ${result.created} recurring expense invoices`);
+        }
+      } catch (recurringError) {
+        console.error("Error generating recurring expenses:", recurringError);
+        // Don't block - budgets were created successfully
+      }
+
       // Reload data
       await loadData();
       showToast("יעדים ותקציבים נוצרו בהצלחה!", "success");
@@ -527,6 +549,68 @@ export default function AdminGoalsPage() {
             year: selectedYear,
             month: b.month,
             budget_amount: b.budget_amount,
+          });
+        }
+      }
+
+      // Sync fixed expense invoices with updated budget amounts
+      const fixedSupplierIds = new Set(
+        suppliers.filter((s) => s.is_fixed_expense && !s.has_previous_obligations).map((s) => s.id)
+      );
+
+      for (const b of supplierBudgets) {
+        if (!fixedSupplierIds.has(b.supplier_id)) continue;
+
+        const supplier = suppliers.find((s) => s.id === b.supplier_id);
+        if (!supplier) continue;
+
+        const subtotal = b.budget_amount;
+        const vatAmount = supplier.vat_type === "full" ? subtotal * 0.18 : 0;
+        const totalAmount = subtotal + vatAmount;
+
+        const monthStart = `${b.year || selectedYear}-${String(b.month).padStart(2, "0")}-01`;
+        const lastDay = new Date(b.year || selectedYear, b.month, 0).getDate();
+        const monthEnd = `${b.year || selectedYear}-${String(b.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+        // Find existing invoice for this supplier+month
+        const { data: existingInvoices } = await supabase
+          .from("invoices")
+          .select("id")
+          .eq("business_id", selectedBusinessId)
+          .eq("supplier_id", b.supplier_id)
+          .is("deleted_at", null)
+          .gte("invoice_date", monthStart)
+          .lte("invoice_date", monthEnd);
+
+        if (existingInvoices && existingInvoices.length > 0) {
+          // Update existing invoice amount
+          for (const inv of existingInvoices) {
+            await supabase
+              .from("invoices")
+              .update({
+                subtotal,
+                vat_amount: vatAmount,
+                total_amount: totalAmount,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", inv.id);
+          }
+        } else if (subtotal > 0) {
+          // Create invoice if budget exists but no invoice yet
+          const adjustedDay = Math.min(supplier.charge_day || 1, lastDay);
+          const invoiceDate = `${b.year || selectedYear}-${String(b.month).padStart(2, "0")}-${String(adjustedDay).padStart(2, "0")}`;
+          const invoiceType = supplier.expense_type === "current_expenses" ? "current" : supplier.expense_type === "goods_purchases" ? "goods" : "employees";
+
+          await supabase.from("invoices").insert({
+            business_id: selectedBusinessId,
+            supplier_id: b.supplier_id,
+            invoice_date: invoiceDate,
+            subtotal,
+            vat_amount: vatAmount,
+            total_amount: totalAmount,
+            status: "pending",
+            invoice_type: invoiceType,
+            notes: "הוצאה קבועה - נוצרה אוטומטית",
           });
         }
       }
