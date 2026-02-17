@@ -2749,19 +2749,15 @@ export default function PaymentsPage() {
                 <span className="text-[16px] text-white/50">אין תשלומים להצגה</span>
               </div>
             ) : filteredPayments.map((payment) => {
-              // Group splits by payment method for row display
+              // Each split is its own row (no grouping by payment method)
               const methodGroups: Array<{ method: string; methodName: string; totalAmount: number; splits: typeof payment.rawSplits }> = [];
-              const methodMap = new Map<string, typeof methodGroups[0]>();
               for (const split of payment.rawSplits) {
-                const key = split.payment_method;
-                if (!methodMap.has(key)) {
-                  const group = { method: key, methodName: paymentMethodNames[key] || "אחר", totalAmount: 0, splits: [] as typeof payment.rawSplits };
-                  methodMap.set(key, group);
-                  methodGroups.push(group);
-                }
-                const g = methodMap.get(key)!;
-                g.totalAmount += split.amount;
-                g.splits.push(split);
+                methodGroups.push({
+                  method: split.payment_method,
+                  methodName: paymentMethodNames[split.payment_method] || "אחר",
+                  totalAmount: split.amount,
+                  splits: [split],
+                });
               }
               // Fallback if no splits
               if (methodGroups.length === 0) {
