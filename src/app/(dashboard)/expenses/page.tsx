@@ -1112,6 +1112,14 @@ export default function ExpensesPage() {
     const supabase = createClient();
 
     try {
+      // Check if business is active
+      const { data: bizCheck } = await supabase.from("businesses").select("status").eq("id", selectedBusinesses[0]).single();
+      if (bizCheck?.status !== "active") {
+        showToast("לא ניתן להוסיף הוצאות לעסק לא פעיל", "error");
+        setIsSaving(false);
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
 
       // Check if supplier is a coordinator (מרכזת) - save as delivery note instead
