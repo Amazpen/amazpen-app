@@ -689,7 +689,7 @@ export function DailyEntriesModal({
         .is("deleted_at", null),
       // 11. Business schedule for working days calculation
       supabase
-        .from("business_schedules")
+        .from("business_schedule")
         .select("day_of_week, day_factor")
         .eq("business_id", businessId),
     ]);
