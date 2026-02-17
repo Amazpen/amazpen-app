@@ -269,6 +269,7 @@ export default function ExpensesPage() {
   const [needsClarification, setNeedsClarification] = useState(false);
   const [clarificationReason, setClarificationReason] = useState("");
   const [showClarificationMenu, setShowClarificationMenu] = useState(false);
+  const [linkToCoordinator, setLinkToCoordinator] = useState(false);
 
   // Payment details state (shown when isPaidInFull is true)
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -1154,6 +1155,7 @@ export default function ExpensesPage() {
   // Handle supplier selection - auto-set VAT based on supplier's vat_type
   const handleSupplierChange = useCallback((supplierId: string) => {
     setSelectedSupplier(supplierId);
+    setLinkToCoordinator(false);
     if (!supplierId) return;
     const supplier = suppliers.find(s => s.id === supplierId);
     if (!supplier) return;
@@ -1193,11 +1195,8 @@ export default function ExpensesPage() {
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Check if supplier is a coordinator (מרכזת) - save as delivery note instead
-      const supplierInfo = suppliers.find(s => s.id === selectedSupplier);
-      const isCoordinatorSupplier = supplierInfo?.waiting_for_coordinator === true;
-
-      if (isCoordinatorSupplier) {
+      // Check if user chose to link to coordinator (מרכזת) - save as delivery note instead
+      if (linkToCoordinator) {
         // For coordinator suppliers, save ONLY as delivery note (תעודת משלוח)
         // No invoice is created - will be created later when closing the coordinator
         const { error: deliveryNoteError } = await supabase
@@ -1377,6 +1376,7 @@ export default function ExpensesPage() {
     setIsPaidInFull(false);
     setNeedsClarification(false);
     setClarificationReason("");
+    setLinkToCoordinator(false);
     setPaymentMethod("");
     setPaymentDate("");
     setPaymentInstallments(1);
@@ -2934,6 +2934,35 @@ export default function ExpensesPage() {
                 value={selectedSupplier}
                 onChange={handleSupplierChange}
               />
+
+              {/* Link to Coordinator Option - shown only for coordinator suppliers */}
+              {(() => {
+                const supplierInfo = suppliers.find(s => s.id === selectedSupplier);
+                if (!supplierInfo?.waiting_for_coordinator) return null;
+                return (
+                  <div
+                    className="flex items-center gap-[5px] justify-end cursor-pointer"
+                    onClick={() => setLinkToCoordinator(!linkToCoordinator)}
+                  >
+                    <span className="text-[15px] font-medium text-white">האם לשייך למרכזת?</span>
+                    <button
+                      type="button"
+                      className="w-[21px] h-[21px] flex items-center justify-center text-white"
+                    >
+                      {linkToCoordinator ? (
+                        <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+                          <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2" fill="#4F46E5"/>
+                          <path d="M7 12L10.5 15.5L17 9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+                          <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                );
+              })()}
 
               {/* Invoice Number */}
               <div className="flex flex-col gap-[5px]">
