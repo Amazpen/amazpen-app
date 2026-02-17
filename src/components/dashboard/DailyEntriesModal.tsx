@@ -637,6 +637,7 @@ export function DailyEntriesModal({
       { data: managedProductsData },
       { data: monthlyInvoices },
       { data: scheduleData },
+      { data: currentExpBudgetData },
     ] = await Promise.all([
       // 1. Entry income breakdown
       supabase
@@ -697,6 +698,15 @@ export function DailyEntriesModal({
         .from("business_schedule")
         .select("day_of_week, day_factor")
         .eq("business_id", businessId),
+      // 12. Current expenses supplier budgets total
+      supabase
+        .from("supplier_budgets")
+        .select("budget_amount, suppliers!inner(expense_type)")
+        .eq("business_id", businessId)
+        .eq("year", year)
+        .eq("month", month)
+        .eq("suppliers.expense_type", "current_expenses")
+        .is("deleted_at", null),
     ]);
 
     // Sequential fetches that depend on parallel results
@@ -785,11 +795,16 @@ export function DailyEntriesModal({
     const managerDailyCost = workDaysInMonth > 0 ? managerSalary / workDaysInMonth : 0;
     const markupPct = goalData?.markup_percentage != null ? Number(goalData.markup_percentage) : (Number(businessData?.markup_percentage) || 1);
 
+    // Sum current expenses supplier budgets
+    const currentExpensesBudgetTotal = (currentExpBudgetData || []).reduce(
+      (sum: number, b: Record<string, unknown>) => sum + (Number(b.budget_amount) || 0), 0
+    );
+
     setGoalsData({
       revenueTarget: Number(goalData?.revenue_target) || 0,
       laborCostTargetPct: Number(goalData?.labor_cost_target_pct) || 0,
       foodCostTargetPct: Number(goalData?.food_cost_target_pct) || 0,
-      currentExpensesTarget: Number(goalData?.current_expenses_target) || 0,
+      currentExpensesTarget: currentExpensesBudgetTotal || Number(goalData?.current_expenses_target) || 0,
       vatPercentage: vatPct,
       incomeSourceTargets,
       productTargetPcts,
