@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
 import { X } from "lucide-react";
@@ -266,8 +267,18 @@ function PdfThumbnail({ url, className, onClick }: { url: string; className?: st
 }
 
 export default function PaymentsPage() {
+  return (
+    <Suspense fallback={null}>
+      <PaymentsPageInner />
+    </Suspense>
+  );
+}
+
+function PaymentsPageInner() {
   const { selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
+  const searchParams = useSearchParams();
+  const highlightPaymentId = searchParams.get("paymentId");
   const [savedDateRange, setSavedDateRange] = usePersistedState<{ start: string; end: string } | null>("payments:dateRange", null);
   const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
 
@@ -341,6 +352,23 @@ export default function PaymentsPage() {
   const paymentsListRef = useRef<HTMLDivElement>(null);
   const PAYMENTS_PAGE_SIZE = 20;
   const [isSaving, setIsSaving] = useState(false);
+
+  // Auto-expand payment from URL param (e.g. /payments?paymentId=xxx)
+  const highlightedRef = useRef(false);
+  useEffect(() => {
+    if (!highlightPaymentId || highlightedRef.current || recentPaymentsData.length === 0) return;
+    const match = recentPaymentsData.find(p => p.id === highlightPaymentId);
+    if (match) {
+      highlightedRef.current = true;
+      // rowKey format is "paymentId:splitIndex" — expand the first split row
+      setExpandedPaymentId(`${match.id}:0`);
+      // Scroll to the payment after render
+      setTimeout(() => {
+        const el = document.querySelector(`[data-payment-id="${match.id}"]`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 100);
+    }
+  }, [highlightPaymentId, recentPaymentsData]);
 
   // Add payment form state
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -1721,6 +1749,28 @@ export default function PaymentsPage() {
     return `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, "0")}-${String(dueDate.getDate()).padStart(2, "0")}`;
   };
 
+  // Calculate smart default payment date based on method
+  const getSmartPaymentDate = (method: string, invoiceDate: string, creditCardId?: string): string => {
+    if (!method) return "";
+    if (method === "credit_card") {
+      if (creditCardId) {
+        const card = businessCreditCards.find(c => c.id === creditCardId);
+        if (card) {
+          return calculateCreditCardDueDate(invoiceDate || new Date().toISOString().split("T")[0], card.billing_day);
+        }
+      }
+      const today = new Date();
+      const day = today.getDate();
+      if (day < 10) {
+        return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-10`;
+      } else {
+        const next = new Date(today.getFullYear(), today.getMonth() + 1, 10);
+        return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-10`;
+      }
+    }
+    return invoiceDate || new Date().toISOString().split("T")[0];
+  };
+
   // Generate installments with credit card billing day logic
   const generateCreditCardInstallments = (numInstallments: number, totalAmount: number, paymentDateStr: string, billingDay: number) => {
     if (numInstallments < 1) return [];
@@ -1789,6 +1839,20 @@ export default function PaymentsPage() {
 
   // Update payment method field
   const updatePaymentMethodField = (id: number, field: keyof PaymentMethodEntry, value: string) => {
+    // Auto-set payment date when payment method is selected
+    if (field === "method" && value) {
+      const selectedInvoice = openInvoices.find(inv => selectedInvoiceIds.has(inv.id));
+      const invoiceDate = selectedInvoice ? new Date(selectedInvoice.invoice_date).toISOString().split("T")[0] : paymentDate;
+      const smartDate = getSmartPaymentDate(value, invoiceDate);
+      if (smartDate) setPaymentDate(smartDate);
+    }
+    if (field === "creditCardId" && value) {
+      const selectedInvoice = openInvoices.find(inv => selectedInvoiceIds.has(inv.id));
+      const invoiceDate = selectedInvoice ? new Date(selectedInvoice.invoice_date).toISOString().split("T")[0] : paymentDate;
+      const smartDate = getSmartPaymentDate("credit_card", invoiceDate, value);
+      if (smartDate) setPaymentDate(smartDate);
+    }
+
     setPaymentMethods(prev => prev.map(p => {
       if (p.id !== id) return p;
 
@@ -2770,6 +2834,7 @@ export default function PaymentsPage() {
               return (
               <div
                 key={rowKey}
+                data-payment-id={payment.id}
                 className={`bg-white/5 rounded-[7px] p-[7px_3px] border transition-colors ${expandedPaymentId === rowKey ? 'border-white' : 'border-transparent'}`}
               >
                 <button

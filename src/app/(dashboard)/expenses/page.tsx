@@ -91,6 +91,7 @@ function isPdfUrl(url: string): boolean {
 interface InvoiceDisplay {
   id: string;
   date: string;
+  rawDate: string;
   supplier: string;
   reference: string;
   amount: number;
@@ -104,7 +105,7 @@ interface InvoiceDisplay {
   attachmentUrls: string[];
   clarificationReason: string | null;
   isFixed: boolean;
-  linkedPayments: { id: string; amount: number; method: string; date: string }[];
+  linkedPayments: { id: string; paymentId: string; amount: number; method: string; date: string }[];
 }
 
 const paymentMethodNames: Record<string, string> = {
@@ -399,6 +400,31 @@ export default function ExpensesPage() {
     return result;
   };
 
+  // Calculate smart default payment date based on method
+  // Cash/bank/bit/check → invoice date
+  // Credit card → billing day from card, or 10th of month if no card info
+  const getSmartPaymentDate = (method: string, invoiceDate: string, creditCardId?: string): string => {
+    if (!method) return "";
+    if (method === "credit_card") {
+      if (creditCardId) {
+        const card = businessCreditCards.find(c => c.id === creditCardId);
+        if (card) {
+          return calculateCreditCardDueDate(invoiceDate || new Date().toISOString().split("T")[0], card.billing_day);
+        }
+      }
+      // No card info - default to 10th of current/next month
+      const today = new Date();
+      const day = today.getDate();
+      if (day < 10) {
+        return new Date(today.getFullYear(), today.getMonth(), 10).toISOString().split("T")[0];
+      } else {
+        return new Date(today.getFullYear(), today.getMonth() + 1, 10).toISOString().split("T")[0];
+      }
+    }
+    // Cash, bank_transfer, bit, check, paybox, etc. → invoice date
+    return invoiceDate || new Date().toISOString().split("T")[0];
+  };
+
   // Calculate due date based on credit card billing day
   // If payment is before billing day in same month → due on billing day same month
   // If payment is on or after billing day → due on billing day next month
@@ -466,6 +492,19 @@ export default function ExpensesPage() {
 
   // Update payment method field in popup
   const updatePopupPaymentMethodField = (id: number, field: keyof PaymentMethodEntry, value: string) => {
+    // Auto-set payment date when first payment method is selected
+    if (field === "method" && value) {
+      const invoiceDate = paymentInvoice ? paymentInvoice.rawDate : expenseDate;
+      const smartDate = getSmartPaymentDate(value, invoiceDate);
+      if (smartDate) setPaymentDate(smartDate);
+    }
+    // Auto-set payment date when credit card is selected (refine with billing day)
+    if (field === "creditCardId" && value) {
+      const invoiceDate = paymentInvoice ? paymentInvoice.rawDate : expenseDate;
+      const smartDate = getSmartPaymentDate("credit_card", invoiceDate, value);
+      if (smartDate) setPaymentDate(smartDate);
+    }
+
     setPopupPaymentMethods(prev => prev.map(p => {
       if (p.id !== id) return p;
 
@@ -840,6 +879,7 @@ export default function ExpensesPage() {
             for (const split of payment.payment_splits) {
               linkedPayments.push({
                 id: `${payment.id}-${split.id || split.payment_method}`,
+                paymentId: payment.id,
                 amount: Number(split.amount),
                 method: paymentMethodNames[split.payment_method] || "אחר",
                 date: formatDateString(payment.payment_date),
@@ -852,6 +892,7 @@ export default function ExpensesPage() {
       return {
         id: inv.id,
         date: formatDateString(inv.invoice_date),
+        rawDate: inv.invoice_date ? new Date(inv.invoice_date).toISOString().split("T")[0] : "",
         supplier: inv.supplier?.name || "לא ידוע",
         reference: inv.invoice_number || "",
         amount: Number(inv.total_amount),
@@ -1847,6 +1888,7 @@ export default function ExpensesPage() {
         const displayInvoices: InvoiceDisplay[] = invoicesData.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => ({
           id: inv.id,
           date: formatDateString(inv.invoice_date),
+          rawDate: inv.invoice_date ? new Date(inv.invoice_date).toISOString().split("T")[0] : "",
           supplier: inv.supplier?.name || "לא ידוע",
           reference: inv.invoice_number || "",
           amount: Number(inv.total_amount),
@@ -2653,7 +2695,12 @@ export default function ExpensesPage() {
                             </div>
                             {/* Payment rows - one per payment */}
                             {invoice.linkedPayments.map((payment) => (
-                              <div key={payment.id} dir="rtl" className="flex items-center justify-between gap-[3px] min-h-[40px] px-[3px] rounded-[7px] hover:bg-white/5">
+                              <div
+                                key={payment.id}
+                                dir="rtl"
+                                className="flex items-center justify-between gap-[3px] min-h-[40px] px-[3px] rounded-[7px] hover:bg-white/10 cursor-pointer transition-colors"
+                                onClick={() => router.push(`/payments?paymentId=${payment.paymentId}`)}
+                              >
                                 <span className="text-[13px] min-w-[50px] text-center ltr-num">{payment.date}</span>
                                 <span className="text-[13px] flex-1 text-center">{payment.method}</span>
                                 <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.amount % 1 === 0 ? payment.amount.toLocaleString("he-IL") : payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

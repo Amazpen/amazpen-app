@@ -2331,7 +2331,8 @@ export default function SuppliersPage() {
                                       {invoice.linkedPayments.map((payment) => (
                                         <div
                                           key={payment.id}
-                                          className="flex flex-col gap-[8px] p-[8px] bg-white/5 rounded-[7px]"
+                                          className="flex flex-col gap-[8px] p-[8px] bg-white/5 rounded-[7px] cursor-pointer hover:bg-white/10 transition-colors"
+                                          onClick={() => router.push(`/payments?paymentId=${payment.id}`)}
                                         >
                                           <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-[6px]">
@@ -2340,7 +2341,7 @@ export default function SuppliersPage() {
                                                 <button
                                                   type="button"
                                                   title="צפייה בקבלה"
-                                                  onClick={() => window.open(payment.receiptUrl!, '_blank')}
+                                                  onClick={(e) => { e.stopPropagation(); window.open(payment.receiptUrl!, '_blank'); }}
                                                   className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
                                                 >
                                                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
@@ -2356,6 +2357,7 @@ export default function SuppliersPage() {
                                                   href={payment.receiptUrl}
                                                   download
                                                   title="הורדת קבלה"
+                                                  onClick={(e) => e.stopPropagation()}
                                                   className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
                                                 >
                                                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
