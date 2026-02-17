@@ -377,9 +377,11 @@ function PaymentsPageInner() {
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Receipt upload state
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  // Receipt upload state — supports multiple files
+  const [receiptFiles, setReceiptFiles] = useState<Array<{ file: File | null; preview: string }>>([]);
+  // Legacy single-file aliases for backward compat
+  const receiptFile = receiptFiles.length > 0 ? receiptFiles[0].file : null;
+  const receiptPreview = receiptFiles.length > 0 ? receiptFiles[0].preview : null;
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
 
   // Save payment form draft
@@ -1271,8 +1273,7 @@ function PaymentsPageInner() {
     setPaymentDate(payment.rawDate);
     setNotes(payment.notes || "");
     setReference(payment.reference || "");
-    setReceiptFile(null);
-    setReceiptPreview(payment.receiptUrl || null);
+    setReceiptFiles(payment.receiptUrl ? [{ file: null, preview: payment.receiptUrl }] : []);
 
     // Build payment methods from raw splits
     // Group splits by payment_method to reconstruct payment method entries
@@ -1839,14 +1840,15 @@ function PaymentsPageInner() {
 
   // Update payment method field
   const updatePaymentMethodField = (id: number, field: keyof PaymentMethodEntry, value: string) => {
-    // Auto-set payment date when payment method is selected
-    if (field === "method" && value) {
+    // Auto-set payment date only for the first payment method entry
+    const isFirstEntry = paymentMethods.length > 0 && paymentMethods[0].id === id;
+    if (isFirstEntry && field === "method" && value) {
       const selectedInvoice = openInvoices.find(inv => selectedInvoiceIds.has(inv.id));
       const invoiceDate = selectedInvoice ? new Date(selectedInvoice.invoice_date).toISOString().split("T")[0] : paymentDate;
       const smartDate = getSmartPaymentDate(value, invoiceDate);
       if (smartDate) setPaymentDate(smartDate);
     }
-    if (field === "creditCardId" && value) {
+    if (isFirstEntry && field === "creditCardId" && value) {
       const selectedInvoice = openInvoices.find(inv => selectedInvoiceIds.has(inv.id));
       const invoiceDate = selectedInvoice ? new Date(selectedInvoice.invoice_date).toISOString().split("T")[0] : paymentDate;
       const smartDate = getSmartPaymentDate("credit_card", invoiceDate, value);
@@ -3629,7 +3631,7 @@ function PaymentsPageInner() {
                                     title={`תאריך תשלום ${item.number}`}
                                     value={item.dateForInput}
                                     onChange={(e) => handleInstallmentDateChange(pm.id, index, e.target.value)}
-                                    className="absolute inset-0 w-full h-[36px] opacity-0 cursor-pointer"
+                                    className="absolute inset-0 w-full h-[36px] opacity-0 cursor-pointer z-10"
                                   />
                                 </div>
                                 {pm.method === "check" && (
