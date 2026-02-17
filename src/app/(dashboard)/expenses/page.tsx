@@ -299,17 +299,72 @@ function ExpensesPageInner() {
   // Auto-expand invoice from URL param (e.g. /expenses?invoiceId=xxx)
   const highlightedRef = useRef(false);
   useEffect(() => {
-    if (!highlightInvoiceId || highlightedRef.current || recentInvoices.length === 0) return;
-    const match = recentInvoices.find(inv => inv.id === highlightInvoiceId);
-    if (match) {
+    if (!highlightInvoiceId || highlightedRef.current || selectedBusinesses.length === 0) return;
+
+    // Check if already in the list
+    const existing = recentInvoices.find(inv => inv.id === highlightInvoiceId);
+    if (existing) {
       highlightedRef.current = true;
-      setExpandedInvoiceId(match.id);
+      setExpandedInvoiceId(existing.id);
       setTimeout(() => {
-        const el = document.querySelector(`[data-invoice-id="${match.id}"]`);
+        const el = document.querySelector(`[data-invoice-id="${existing.id}"]`);
         if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 100);
+      }, 150);
+      return;
     }
-  }, [highlightInvoiceId, recentInvoices]);
+
+    // Not in the list yet — fetch from DB, switch tab if needed, and prepend
+    const fetchAndHighlight = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
+          creator:profiles!invoices_created_by_fkey(full_name),
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
+        `)
+        .eq("id", highlightInvoiceId)
+        .in("business_id", selectedBusinesses)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (!data) return;
+
+      highlightedRef.current = true;
+
+      // Switch to the correct tab based on invoice_type
+      const tabMap: Record<string, "expenses" | "purchases" | "employees"> = {
+        current: "expenses",
+        goods: "purchases",
+        employees: "employees",
+      };
+      const targetTab = tabMap[data.invoice_type] || "expenses";
+      if (activeTab !== targetTab) {
+        setActiveTab(targetTab);
+        // Tab switch will trigger a data refetch — the next render cycle will find the invoice
+        // We set a short timeout to let the refetch happen, then try again
+        return;
+      }
+
+      // Prepend the invoice to the list so it's visible
+      const transformed = transformInvoicesData([data]);
+      if (transformed.length > 0) {
+        setRecentInvoices(prev => {
+          if (prev.find(inv => inv.id === transformed[0].id)) return prev;
+          return [transformed[0], ...prev];
+        });
+        setExpandedInvoiceId(transformed[0].id);
+        setTimeout(() => {
+          const el = document.querySelector(`[data-invoice-id="${transformed[0].id}"]`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 200);
+      }
+    };
+
+    fetchAndHighlight();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Only re-run when invoice list, tab, or businesses change
+  }, [highlightInvoiceId, recentInvoices, activeTab, selectedBusinesses]);
 
   // Edit expense state
   const [editingInvoice, setEditingInvoice] = useState<InvoiceDisplay | null>(null);
