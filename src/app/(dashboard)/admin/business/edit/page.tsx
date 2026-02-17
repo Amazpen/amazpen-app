@@ -66,6 +66,9 @@ export default function EditBusinessSelectPage() {
     business.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const activeBusinesses = filteredBusinesses.filter((b) => b.status === "active");
+  const inactiveBusinesses = filteredBusinesses.filter((b) => b.status !== "active");
+
   const handleSelectBusiness = (businessId: string) => {
     router.push(`/admin/business/${businessId}/edit`);
   };
@@ -130,7 +133,8 @@ export default function EditBusinessSelectPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-[10px]">
-          {filteredBusinesses.map((business) => (
+          {/* Active Businesses */}
+          {activeBusinesses.map((business) => (
             <button
               key={business.id}
               type="button"
@@ -138,48 +142,69 @@ export default function EditBusinessSelectPage() {
               className="bg-[#29318A]/30 hover:bg-[#29318A]/50 rounded-[15px] p-[15px] transition-all duration-200 text-right"
             >
               <div className="flex items-center gap-[12px]">
-                {/* Logo */}
                 <div className="w-[50px] h-[50px] rounded-[10px] bg-[#4956D4]/30 flex items-center justify-center overflow-hidden flex-shrink-0">
                   {business.logo_url ? (
-                    <Image
-                      src={business.logo_url}
-                      alt={business.name}
-                      className="w-full h-full object-cover"
-                      width={50}
-                      height={50}
-                      unoptimized
-                    />
+                    <Image src={business.logo_url} alt={business.name} className="w-full h-full object-cover" width={50} height={50} unoptimized />
                   ) : (
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-white/50">
                       <path d="M19 21V5C19 3.89543 18.1046 3 17 3H7C5.89543 3 5 3.89543 5 5V21M19 21H5M19 21H21M5 21H3M9 7H10M9 11H10M14 7H15M14 11H15M9 21V16C9 15.4477 9.44772 15 10 15H14C14.5523 15 15 15.4477 15 16V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   )}
                 </div>
-
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                   <h3 className="text-[16px] font-bold text-white truncate">{business.name}</h3>
                   <div className="flex items-center gap-[8px] mt-[4px]">
-                    {business.business_type && (
-                      <span className="text-[12px] text-white/50">{business.business_type}</span>
-                    )}
-                    <span className={`text-[11px] px-[8px] py-[2px] rounded-full ${
-                      business.status === "active"
-                        ? "bg-[#3CD856]/20 text-[#3CD856]"
-                        : "bg-[#F64E60]/20 text-[#F64E60]"
-                    }`}>
-                      {business.status === "active" ? "פעיל" : "לא פעיל"}
-                    </span>
+                    {business.business_type && <span className="text-[12px] text-white/50">{business.business_type}</span>}
+                    <span className="text-[11px] px-[8px] py-[2px] rounded-full bg-[#3CD856]/20 text-[#3CD856]">פעיל</span>
                   </div>
                 </div>
-
-                {/* Arrow */}
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white/30 flex-shrink-0">
                   <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
             </button>
           ))}
+
+          {/* Divider + Inactive Businesses */}
+          {inactiveBusinesses.length > 0 && (
+            <>
+              <div className="flex items-center gap-[10px] my-[10px]">
+                <div className="flex-1 h-[1px] bg-[#F64E60]/30" />
+                <span className="text-[13px] text-[#F64E60]/70 font-bold whitespace-nowrap">לא פעילים ({inactiveBusinesses.length})</span>
+                <div className="flex-1 h-[1px] bg-[#F64E60]/30" />
+              </div>
+              {inactiveBusinesses.map((business) => (
+                <button
+                  key={business.id}
+                  type="button"
+                  onClick={() => handleSelectBusiness(business.id)}
+                  className="bg-[#29318A]/15 hover:bg-[#29318A]/30 rounded-[15px] p-[15px] transition-all duration-200 text-right opacity-70"
+                >
+                  <div className="flex items-center gap-[12px]">
+                    <div className="w-[50px] h-[50px] rounded-[10px] bg-[#4956D4]/20 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {business.logo_url ? (
+                        <Image src={business.logo_url} alt={business.name} className="w-full h-full object-cover" width={50} height={50} unoptimized />
+                      ) : (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-white/30">
+                          <path d="M19 21V5C19 3.89543 18.1046 3 17 3H7C5.89543 3 5 3.89543 5 5V21M19 21H5M19 21H21M5 21H3M9 7H10M9 11H10M14 7H15M14 11H15M9 21V16C9 15.4477 9.44772 15 10 15H14C14.5523 15 15 15.4477 15 16V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-[16px] font-bold text-white truncate">{business.name}</h3>
+                      <div className="flex items-center gap-[8px] mt-[4px]">
+                        {business.business_type && <span className="text-[12px] text-white/50">{business.business_type}</span>}
+                        <span className="text-[11px] px-[8px] py-[2px] rounded-full bg-[#F64E60]/20 text-[#F64E60]">לא פעיל</span>
+                      </div>
+                    </div>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white/30 flex-shrink-0">
+                      <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>

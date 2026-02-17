@@ -106,6 +106,7 @@ interface BusinessCard {
   id: string;
   name: string;
   logo_url: string | null;
+  status: "active" | "inactive";
   totalIncome: number;
   fixedExpenses: number;
   fixedExpensesDiff: number;
@@ -358,6 +359,8 @@ export default function DashboardPage() {
   const [isSingleBusiness, setIsSingleBusiness] = useState(false); // Non-admin with only one business
   const [isSendingPush, setIsSendingPush] = useState(false);
   const [showAllBusinessCards, setShowAllBusinessCards] = useState(false); // Show all business cards or limit to 6
+  const [inactiveBusinessCards, setInactiveBusinessCards] = useState<{ id: string; name: string; logo_url: string | null }[]>([]);
+  const [showInactiveBusinesses, setShowInactiveBusinesses] = useState(false);
 
   const openHistoryModal = useCallback((cardType: string, title: string, sourceId?: string) => {
     setHistoryCardType(cardType);
@@ -770,17 +773,29 @@ export default function DashboardPage() {
       let businessIds: string[] = [];
 
       if (isAdminUser) {
+        // Fetch all businesses (active + inactive) for admin
         const { data: allBusinesses, error: businessError } = await supabase
           .from("businesses")
-          .select("id")
-          .is("deleted_at", null)
-          .eq("status", "active");
+          .select("id, name, logo_url, status")
+          .is("deleted_at", null);
 
         if (businessError || !allBusinesses || allBusinesses.length === 0) {
           setIsLoading(false);
           return;
         }
-        businessIds = allBusinesses.map((b) => b.id);
+
+        // Separate active/inactive
+        const activeBiz = allBusinesses.filter((b) => b.status === "active");
+        const inactiveBiz = allBusinesses.filter((b) => b.status !== "active");
+        setInactiveBusinessCards(inactiveBiz.map((b) => ({ id: b.id, name: b.name, logo_url: b.logo_url })));
+
+        // Only load data for active businesses
+        businessIds = activeBiz.map((b) => b.id);
+
+        if (businessIds.length === 0) {
+          setIsLoading(false);
+          return;
+        }
       } else {
         const { data: memberships, error: membershipError } = await supabase
           .from("business_members")
@@ -827,7 +842,7 @@ export default function DashboardPage() {
       ] = await Promise.all([
         supabase
           .from("businesses")
-          .select("id, name, logo_url, vat_percentage, markup_percentage, manager_monthly_salary")
+          .select("id, name, logo_url, status, vat_percentage, markup_percentage, manager_monthly_salary")
           .in("id", businessIds)
           .is("deleted_at", null)
           .eq("status", "active"),
@@ -955,6 +970,7 @@ export default function DashboardPage() {
           id: business.id,
           name: business.name,
           logo_url: business.logo_url,
+          status: (business.status === "inactive" ? "inactive" : "active") as "active" | "inactive",
           totalIncome,
           fixedExpenses,
           fixedExpensesDiff,
@@ -2387,6 +2403,59 @@ export default function DashboardPage() {
             >
               עוד...
             </button>
+          </div>
+        )}
+
+        {/* Inactive Businesses - Collapsed Section (Admin only) */}
+        {isAdmin && inactiveBusinessCards.length > 0 && (
+          <div className="mt-6">
+            <button
+              type="button"
+              onClick={() => setShowInactiveBusinesses(!showInactiveBusinesses)}
+              className="flex items-center gap-[8px] text-[#F64E60]/70 hover:text-[#F64E60] transition-colors w-full"
+            >
+              <div className="flex-1 h-[1px] bg-[#F64E60]/20" />
+              <span className="text-[13px] font-bold whitespace-nowrap flex items-center gap-[5px]">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className={`transition-transform duration-200 ${showInactiveBusinesses ? "rotate-180" : ""}`}
+                >
+                  <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                לקוחות לא פעילים ({inactiveBusinessCards.length})
+              </span>
+              <div className="flex-1 h-[1px] bg-[#F64E60]/20" />
+            </button>
+
+            {showInactiveBusinesses && (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-[15px] mt-4">
+                {inactiveBusinessCards.map((business) => (
+                  <div
+                    key={business.id}
+                    className="business-card rounded-[10px] p-[7px] flex flex-col items-center justify-center gap-[5px] min-h-[120px] max-h-[120px] opacity-50 cursor-default"
+                  >
+                    <div className="w-[40px] h-[40px] rounded-[8px] overflow-hidden flex-shrink-0 flex items-center justify-center bg-white/10">
+                      {business.logo_url ? (
+                        <img
+                          src={business.logo_url}
+                          alt={business.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white/30">
+                          <path d="M19 21V5C19 3.89543 18.1046 3 17 3H7C5.89543 3 5 3.89543 5 5V21M19 21H5M19 21H21M5 21H3M9 7H10M9 11H10M14 7H15M14 11H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
+                    <h3 className="text-[14px] font-bold text-white/60 text-center truncate w-full">{business.name}</h3>
+                    <span className="text-[11px] px-[8px] py-[2px] rounded-full bg-[#F64E60]/20 text-[#F64E60]">לא פעיל</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

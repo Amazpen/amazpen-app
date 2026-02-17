@@ -138,6 +138,7 @@ export default function AdminGoalsPage() {
         .from("businesses")
         .select("id, name")
         .is("deleted_at", null)
+        .eq("status", "active")
         .order("name");
 
       if (data && data.length > 0) {
@@ -272,6 +273,19 @@ export default function AdminGoalsPage() {
     const supabase = createClient();
 
     try {
+      // Check if business is active
+      const { data: businessCheck } = await supabase
+        .from("businesses")
+        .select("status")
+        .eq("id", selectedBusinessId)
+        .single();
+
+      if (businessCheck?.status !== "active") {
+        showToast("לא ניתן לפתוח יעדים לעסק לא פעיל", "error");
+        setIsInitializing(false);
+        return;
+      }
+
       // Calculate previous month
       let prevMonth = selectedMonth - 1;
       let prevYear = selectedYear;

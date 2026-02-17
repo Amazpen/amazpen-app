@@ -682,6 +682,10 @@ export default function GoalsPage() {
 
     if (existing) return existing.id;
 
+    // Check if business is active before creating new goal
+    const { data: biz } = await supabase.from("businesses").select("status").eq("id", businessId).single();
+    if (biz?.status !== "active") return null;
+
     const { data: created } = await supabase.from("goals")
       .insert({ business_id: businessId, year, month })
       .select("id")

@@ -37,6 +37,20 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Check if business is active
+    const { data: businessData } = await supabase
+      .from("businesses")
+      .select("status")
+      .eq("id", business_id)
+      .single();
+
+    if (businessData?.status !== "active") {
+      return NextResponse.json(
+        { error: "Business is inactive", created: 0 },
+        { status: 400 }
+      );
+    }
+
     // 1. Get all active fixed-expense suppliers for this business (excluding previous obligations)
     const { data: fixedSuppliers, error: suppliersError } = await supabase
       .from("suppliers")

@@ -286,6 +286,33 @@ export default function DashboardLayout({
         const adminStatus = profile.is_admin === true;
         setIsAdmin(adminStatus);
         localStorage.setItem('isAdmin', String(adminStatus));
+
+        // For non-admin users: check if all their businesses are inactive
+        if (!adminStatus) {
+          const { data: memberships } = await supabase
+            .from("business_members")
+            .select("business_id")
+            .eq("user_id", user.id)
+            .is("deleted_at", null);
+
+          if (memberships && memberships.length > 0) {
+            const bizIds = memberships.map((m) => m.business_id);
+            const { data: activeBusinesses } = await supabase
+              .from("businesses")
+              .select("id")
+              .in("id", bizIds)
+              .eq("status", "active")
+              .is("deleted_at", null)
+              .limit(1);
+
+            // If no active businesses found, sign out the user
+            if (!activeBusinesses || activeBusinesses.length === 0) {
+              await supabase.auth.signOut();
+              window.location.href = "/login?error=business_inactive";
+              return;
+            }
+          }
+        }
       }
     }
     setIsLoadingProfile(false);
@@ -390,6 +417,27 @@ export default function DashboardLayout({
     fetchNotifications,
     true
   );
+
+  // Re-check business access when businesses table changes (for non-admin users)
+  useEffect(() => {
+    if (!isMounted || isAdmin) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel("business-status-check")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "businesses" },
+        () => {
+          // Re-run profile check which includes business status validation
+          fetchUserProfile();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isMounted, isAdmin, fetchUserProfile]);
 
   // Lazily create AudioContext only after user interaction
   const audioCtxRef = useRef<AudioContext | null>(null);

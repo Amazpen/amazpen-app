@@ -60,6 +60,11 @@ export default function EditBusinessPage({ params }: PageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
+  // Business status
+  const [businessStatus, setBusinessStatus] = useState<"active" | "inactive">("active");
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+  const [showStatusConfirm, setShowStatusConfirm] = useState(false);
+
   // Step 1: Basic Info
   const [businessName, setBusinessName] = useState("");
   const [businessType, setBusinessType] = useState("");
@@ -180,6 +185,9 @@ export default function EditBusinessPage({ params }: PageProps) {
         router.push("/admin/business/edit");
         return;
       }
+
+      // Set status
+      setBusinessStatus(business.status === "inactive" ? "inactive" : "active");
 
       // Set basic info
       setBusinessName(business.name || "");
@@ -495,6 +503,30 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   const handleRemoveTeamMember = (index: number) => {
     setTeamMembers(teamMembers.filter((_, i) => i !== index));
+  };
+
+  // Toggle business status (active/inactive)
+  const handleToggleStatus = async () => {
+    setIsTogglingStatus(true);
+    const supabase = createClient();
+    const newStatus = businessStatus === "active" ? "inactive" : "active";
+
+    const { error } = await supabase
+      .from("businesses")
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq("id", businessId);
+
+    if (error) {
+      showToast("שגיאה בעדכון סטטוס העסק", "error");
+    } else {
+      setBusinessStatus(newStatus);
+      showToast(
+        newStatus === "active" ? "העסק הופעל מחדש בהצלחה" : "העסק הפך ללא פעיל",
+        "success"
+      );
+    }
+    setIsTogglingStatus(false);
+    setShowStatusConfirm(false);
   };
 
   const handleSubmit = async () => {
@@ -1753,7 +1785,82 @@ export default function EditBusinessPage({ params }: PageProps) {
       <div className="flex flex-col items-center gap-[10px] mb-[20px]">
         <h1 className="text-[24px] font-bold text-white">עריכת עסק</h1>
         <p className="text-[14px] text-white/60">{businessName}</p>
+
+        {/* Status Toggle */}
+        <div className="flex items-center gap-[10px] mt-[5px]">
+          <span className={`text-[13px] px-[10px] py-[3px] rounded-full font-bold ${
+            businessStatus === "active"
+              ? "bg-[#3CD856]/20 text-[#3CD856]"
+              : "bg-[#F64E60]/20 text-[#F64E60]"
+          }`}>
+            {businessStatus === "active" ? "פעיל" : "לא פעיל"}
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowStatusConfirm(true)}
+            disabled={isTogglingStatus}
+            className={`text-[13px] px-[12px] py-[5px] rounded-[8px] font-semibold transition-colors ${
+              businessStatus === "active"
+                ? "bg-[#F64E60]/20 text-[#F64E60] hover:bg-[#F64E60]/30"
+                : "bg-[#3CD856]/20 text-[#3CD856] hover:bg-[#3CD856]/30"
+            } disabled:opacity-50`}
+          >
+            {businessStatus === "active" ? "הפוך ללא פעיל" : "הפעל מחדש"}
+          </button>
+        </div>
       </div>
+
+      {/* Status Confirmation Dialog */}
+      {showStatusConfirm && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-[20px]" onClick={() => setShowStatusConfirm(false)}>
+          <div className="bg-[#1B2559] rounded-[15px] p-[25px] max-w-[400px] w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col items-center text-center">
+              <div className={`w-[60px] h-[60px] rounded-full flex items-center justify-center mb-[15px] ${
+                businessStatus === "active" ? "bg-[#F64E60]/20" : "bg-[#3CD856]/20"
+              }`}>
+                {businessStatus === "active" ? (
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" className="text-[#F64E60]">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                ) : (
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" className="text-[#3CD856]">
+                    <path d="M5 12L10 17L19 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+              <h3 className="text-[18px] font-bold text-white mb-[8px]">
+                {businessStatus === "active" ? "להפוך את העסק ללא פעיל?" : "להפעיל את העסק מחדש?"}
+              </h3>
+              <p className="text-[14px] text-white/60 mb-[20px]">
+                {businessStatus === "active"
+                  ? "המשתמשים של העסק ייחסמו, לא ייפתחו יעדים חדשים ולא ניתן יהיה להוסיף הוצאות ותשלומים."
+                  : "העסק יחזור להיות פעיל ומשתמשיו יוכלו להתחבר מחדש."}
+              </p>
+              <div className="flex gap-[10px] w-full">
+                <button
+                  type="button"
+                  onClick={() => setShowStatusConfirm(false)}
+                  className="flex-1 bg-transparent border border-[#4C526B] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-white/10"
+                >
+                  ביטול
+                </button>
+                <button
+                  type="button"
+                  onClick={handleToggleStatus}
+                  disabled={isTogglingStatus}
+                  className={`flex-1 text-white text-[14px] font-semibold py-[10px] rounded-[10px] transition-colors disabled:opacity-50 ${
+                    businessStatus === "active"
+                      ? "bg-[#F64E60] hover:bg-[#d43b4f]"
+                      : "bg-[#3CD856] hover:bg-[#2fb847]"
+                  }`}
+                >
+                  {isTogglingStatus ? "מעדכן..." : businessStatus === "active" ? "הפוך ללא פעיל" : "הפעל מחדש"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Steps Progress */}
       <div className="flex items-center justify-center mb-[25px]">
