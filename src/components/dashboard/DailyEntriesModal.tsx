@@ -1820,28 +1820,28 @@ export function DailyEntriesModal({
                         </div>
 
                         {/* Additional Info */}
-                        <div className="flex flex-col gap-[5px] mt-[15px] border-t-2 border-[#FFCF00] pt-[10px]" dir="rtl">
-                          <div className="flex items-center">
+                        <div className="flex flex-col gap-[5px] mt-[15px] border-2 border-[#FFCF00] rounded-[10px] p-[10px_15px]" dir="rtl">
+                          <div className="flex justify-between items-center w-full">
                             <span className="text-white text-[16px] font-bold">
                               תשלומים פתוחים:
                             </span>
-                            <span className="text-white text-[16px] ltr-num flex-1 text-center">
+                            <span className="text-white text-[16px] ltr-num font-medium">
                               {formatCurrency(openPaymentsTotal)}
                             </span>
                           </div>
-                          <div className="flex items-center">
+                          <div className="flex justify-between items-center w-full">
                             <span className="text-white text-[16px] font-bold">
                               ספקים פתוחים:
                             </span>
-                            <span className="text-white text-[16px] ltr-num flex-1 text-center">
+                            <span className="text-white text-[16px] ltr-num font-medium">
                               {formatCurrency(openSuppliersTotal)}
                             </span>
                           </div>
-                          <div className="flex items-center">
+                          <div className="flex justify-between items-center w-full">
                             <span className="text-white text-[16px] font-bold">
                               התחייבויות קודמות:
                             </span>
-                            <span className="text-white text-[16px] ltr-num flex-1 text-center">
+                            <span className="text-white text-[16px] ltr-num font-medium">
                               {formatCurrency(openCommitmentsTotal)}
                             </span>
                           </div>
