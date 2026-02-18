@@ -286,19 +286,46 @@
 }
 
 .business-card.business-card-expanded {
-  background: linear-gradient(135deg, #5560dd, #7c3aed, #3b82f6, #6366f1, #5560dd) !important;
-  background-size: 300% 300% !important;
-  animation: gradient-shift 4s ease infinite !important;
+  background-color: #29318a !important;
   position: relative;
   overflow: hidden;
+  z-index: 0;
 }
 
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  25% { background-position: 100% 0%; }
-  50% { background-position: 100% 50%; }
-  75% { background-position: 0% 100%; }
-  100% { background-position: 0% 50%; }
+.business-card.business-card-expanded::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: conic-gradient(
+    from var(--gradient-angle, 0deg),
+    #1a2070,
+    #3845c4,
+    #5560dd,
+    #3845c4,
+    #1a2070
+  );
+  animation: card-glow-rotate 3s linear infinite;
+  opacity: 0.85;
+}
+
+.business-card.business-card-expanded::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 8px;
+  background: #29318a;
+  z-index: -1;
+}
+
+@property --gradient-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes card-glow-rotate {
+  to { --gradient-angle: 360deg; }
 }
 
 /* Dark Select Dropdown Styling */
