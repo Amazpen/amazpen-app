@@ -1175,7 +1175,7 @@ function ExpensesPageInner() {
   const totalExpenses = chartDataSource.reduce((sum, item) => sum + item.amount, 0);
 
   // Chart colors - used in both chart and table
-  const chartColors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8", "#F7DC6F"];
+  const chartColors = ["#FF2D55", "#00D68F", "#3366FF", "#FF9500", "#AF52DE", "#FFD600", "#00BCD4", "#FF4081", "#7C4DFF", "#00E676", "#FF6D00", "#2979FF", "#E91E63", "#00BFA5", "#FF3D00", "#651FFF", "#C6FF00", "#F50057", "#1DE9B6", "#D500F9"];
 
   // Active index for interactive donut chart hover
   const [activeExpenseIndex, setActiveExpenseIndex] = useState<number | undefined>(undefined);
@@ -2275,15 +2275,8 @@ function ExpensesPageInner() {
                     }`}
                   >
                     <span
-                      className={`w-[12px] h-[12px] rounded-full flex-shrink-0 mr-[8px] ml-[5px] ${
-                        index % 8 === 0 ? 'bg-[#FF6B6B]' :
-                        index % 8 === 1 ? 'bg-[#4ECDC4]' :
-                        index % 8 === 2 ? 'bg-[#45B7D1]' :
-                        index % 8 === 3 ? 'bg-[#96CEB4]' :
-                        index % 8 === 4 ? 'bg-[#FFEAA7]' :
-                        index % 8 === 5 ? 'bg-[#DDA0DD]' :
-                        index % 8 === 6 ? 'bg-[#98D8C8]' : 'bg-[#F7DC6F]'
-                      }`}
+                      className="w-[12px] h-[12px] rounded-full flex-shrink-0 mr-[8px] ml-[5px]"
+                      style={{ backgroundColor: chartColors[index % chartColors.length] }}
                     />
                     <span className="text-[16px] flex-1 text-right">{supplier.name}</span>
                     <span className="text-[16px] flex-1 text-center ltr-num">₪{supplier.amount.toLocaleString()}</span>
