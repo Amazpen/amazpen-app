@@ -791,8 +791,8 @@ export default function AdminGoalsPage() {
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "kpi" | "suppliers")} dir="rtl">
             <TabsList className="w-full bg-transparent rounded-[7px] p-0 h-[50px] sm:h-[60px] mb-6 gap-0 border border-[#6B6B6B]">
-              <TabsTrigger value="kpi" className="flex-1 text-[11px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-r-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">יעדי KPI</TabsTrigger>
-              <TabsTrigger value="suppliers" className="flex-1 text-[11px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">תקציב הוצאות שוטפות</TabsTrigger>
+              <TabsTrigger value="kpi" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-r-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">יעדי KPI</TabsTrigger>
+              <TabsTrigger value="suppliers" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">תקציב הוצאות שוטפות</TabsTrigger>
             </TabsList>
           </Tabs>
 
