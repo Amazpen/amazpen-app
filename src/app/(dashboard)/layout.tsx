@@ -34,12 +34,11 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/daily-entries", "/admin/historical-data"];
+const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/daily-entries", "/admin/historical-data", "/admin/customers"];
 
 // Menu items for sidebar
 const menuItems = [
   { id: 1, label: "דשבורד ראשי", href: "/", key: "dashboard" },
-  { id: 12, label: "ניהול לקוחות", href: "/customers", key: "customers", requiresBusiness: true },
   { id: 2, label: "ניהול הוצאות", href: "/expenses", key: "expenses", requiresBusiness: true },
   { id: 3, label: "ניהול ספקים", href: "/suppliers", key: "suppliers", requiresBusiness: true },
   { id: 4, label: "ניהול תשלומים", href: "/payments", key: "payments", requiresBusiness: true },
@@ -63,12 +62,13 @@ const adminMenuItems = [
   { id: 107, label: "ייבוא תשלומים", href: "/admin/payments", key: "admin-payments" },
   { id: 109, label: "ייבוא מילוי יומי", href: "/admin/daily-entries", key: "admin-daily-entries" },
   { id: 110, label: "ייבוא נתוני עבר", href: "/admin/historical-data", key: "admin-historical-data" },
+  { id: 111, label: "ניהול לקוחות ונותני שירות", href: "/admin/customers", key: "admin-customers" },
 ];
 
 // Page titles mapping
 const pageTitles: Record<string, string> = {
   "/": "דשבורד ראשי",
-  "/customers": "ניהול לקוחות",
+  "/admin/customers": "ניהול לקוחות ונותני שירות",
   "/expenses": "ניהול הוצאות",
   "/suppliers": "ניהול ספקים",
   "/payments": "ניהול תשלומים",
