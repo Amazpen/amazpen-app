@@ -447,6 +447,14 @@ export default function ReportsPage() {
           };
         }).filter(cat => parseFloat(cat.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(cat.target.replace(/[₪K,]/g, "")) > 0 || cat.subcategories.length > 0);
 
+        // Fixed display order
+        const categoryOrder = ["עלות מכר", "עלות עובדים", "הוצאות שיווק ומכירות", "הוצאות תפעול"];
+        displayCategories.sort((a, b) => {
+          const aIdx = categoryOrder.indexOf(a.name);
+          const bIdx = categoryOrder.indexOf(b.name);
+          return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+        });
+
         setExpenseCategories(displayCategories);
 
         // Calculate summary
