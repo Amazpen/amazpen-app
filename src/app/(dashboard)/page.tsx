@@ -265,7 +265,6 @@ const formatCurrencyFull = (amount: number) => {
 // Format currency as full number with sign (e.g., +₪8,500 or -₪8,500.50)
 const formatCurrencyFullWithSign = (amount: number) => {
   const isNegative = amount < 0;
-  const isPositive = amount > 0;
   const absAmount = Math.abs(amount);
   const sign = isNegative ? '-' : '';
   const formatted = Math.round(absAmount).toLocaleString("he-IL");
@@ -715,7 +714,6 @@ export default function DashboardPage() {
       const cumulativeHtml = buildTable(`מצטבר חודש ${monthName}, ${year}`, ['', 'סה"כ', 'הפרש'], cumulativeRows);
 
       // === Additional Info Section (open payments, suppliers, commitments) ===
-      const infoRowStyle = 'display:flex;justify-content:space-between;align-items:center;width:100%;';
       const infoLabelStyle = 'color:#fff;font-size:16px;font-weight:bold;';
       const infoValueStyle = 'color:#fff;font-size:16px;font-weight:500;direction:ltr;';
       const additionalInfoHtml = `<div style="background:#0F1535;margin-top:15px;border:2px solid #FFCF00;border-radius:10px;padding:10px 15px;direction:rtl;">

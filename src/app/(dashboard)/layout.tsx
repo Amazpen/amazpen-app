@@ -11,6 +11,8 @@ import { UpdatePrompt } from "@/components/ui/update-prompt";
 import { PushPrompt } from "@/components/ui/push-prompt";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { ConsolidatedInvoiceModal } from "@/components/dashboard/ConsolidatedInvoiceModal";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { OfflineIndicator } from "@/components/ui/offline-indicator";
 // import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 // import { HelpButton } from "@/components/onboarding/HelpButton";
 
@@ -253,6 +255,9 @@ export default function DashboardLayout({
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [profileImageLoaded, setProfileImageLoaded] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+
+  // Offline sync
+  const offlineSync = useOfflineSync();
 
   // Set mounted state after hydration and restore client-only state
   useEffect(() => {
@@ -1065,6 +1070,13 @@ export default function DashboardLayout({
 
         {/* Main Content - with top padding for fixed header, right margin for sidebar on desktop */}
         <main role="main" aria-label="תוכן ראשי" className={`pt-[60px] sm:pt-[56px] ${isOcrPage ? '' : 'lg:mr-[220px]'}`}>
+          <OfflineIndicator
+            isOnline={offlineSync.isOnline}
+            pendingCount={offlineSync.pendingCount}
+            isSyncing={offlineSync.isSyncing}
+            lastSyncResult={offlineSync.lastSyncResult}
+            onSync={offlineSync.syncPending}
+          />
           {children}
         </main>
 

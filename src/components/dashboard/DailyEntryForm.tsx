@@ -16,6 +16,11 @@ import { NumberInput } from "@/components/ui/number-input";
 import { Label } from "@/components/ui/label";
 import { useDashboard } from "@/app/(dashboard)/layout";
 import { useToast } from "@/components/ui/toast";
+import {
+  savePendingEntry,
+  saveBusinessConfig,
+  getBusinessConfig,
+} from "@/lib/offlineStore";
 
 interface EditingEntry {
   id: string;
@@ -218,6 +223,46 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const loadAllData = async () => {
     setIsLoading(true);
     try {
+      // Offline fallback: load from cached business config
+      if (!navigator.onLine) {
+        const cached = await getBusinessConfig(businessId);
+        if (cached) {
+          const sources = cached.incomeSources as IncomeSource[];
+          const receipts = cached.receiptTypes as ReceiptType[];
+          const parameters = cached.customParameters as CustomParameter[];
+          const products = cached.managedProducts as ManagedProduct[];
+
+          setIncomeSources(sources);
+          setReceiptTypes(receipts);
+          setCustomParameters(parameters);
+          setManagedProducts(products);
+
+          // Initialize form state
+          const initialIncome: Record<string, IncomeData> = {};
+          sources.forEach((s) => { initialIncome[s.id] = { amount: "", orders_count: "" }; });
+          setIncomeData(initialIncome);
+
+          const initialReceipts: Record<string, string> = {};
+          receipts.forEach((r) => { initialReceipts[r.id] = ""; });
+          setReceiptData(initialReceipts);
+
+          const initialParams: Record<string, string> = {};
+          parameters.forEach((p) => { initialParams[p.id] = ""; });
+          setParameterData(initialParams);
+
+          const initialProducts: Record<string, ProductUsageData> = {};
+          products.forEach((p) => {
+            initialProducts[p.id] = { opening_stock: "", received_quantity: "", closing_stock: "" };
+          });
+          setProductUsage(initialProducts);
+
+          setTimeout(() => { restoreDraft(); }, 0);
+          return;
+        }
+        // No cached config and offline — nothing we can do
+        return;
+      }
+
       const supabase = createClient();
 
       // Calculate yesterday's date
@@ -271,6 +316,18 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           .limit(1)
           .maybeSingle(),
       ]);
+
+      // Cache business config for offline use
+      try {
+        await saveBusinessConfig(businessId, {
+          incomeSources: sources || [],
+          receiptTypes: receipts || [],
+          customParameters: parameters || [],
+          managedProducts: products || [],
+          goals: null,
+          business: null,
+        });
+      } catch { /* IndexedDB may not be available */ }
 
       // If we have a previous entry, get the product usage from that day
       const previousClosingStock: Record<string, number> = {};
@@ -572,6 +629,28 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
     setError(null);
 
     try {
+      // Offline mode: save to IndexedDB instead of Supabase
+      if (!navigator.onLine) {
+        await savePendingEntry({
+          id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          businessId,
+          timestamp: Date.now(),
+          formData: { ...formData },
+          incomeData: { ...incomeData },
+          receiptData: { ...receiptData },
+          parameterData: { ...parameterData },
+          productUsage: { ...productUsage },
+          pearlaData: isPearla ? { ...pearlaData } : undefined,
+        });
+
+        clearDraft();
+        resetForm();
+        setIsOpen(false);
+        showToast("הרישום נשמר ויסונכרן אוטומטית כשיחזור חיבור", "success");
+        onSuccess?.();
+        return;
+      }
+
       const supabase = createClient();
 
       const { data: { user } } = await supabase.auth.getUser();

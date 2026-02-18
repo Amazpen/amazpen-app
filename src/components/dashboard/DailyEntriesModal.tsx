@@ -1849,7 +1849,6 @@ export function DailyEntriesModal({
 
                         {/* Monthly Forecast */}
                         {(() => {
-                          const target = goalsData?.revenueTarget || 0;
                           const actual = monthlyCumulative?.totalIncome || 0;
                           const actualDays = monthlyCumulative?.actualWorkDays || 0;
                           const expectedDays = goalsData?.workDaysInMonth || 0;

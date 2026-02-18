@@ -22,9 +22,9 @@ function LoginPageContent() {
         : null
   );
   const [showPassword, setShowPassword] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [_isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-  const handleGoogleLogin = async () => {
+  const _handleGoogleLogin = async () => {
     if (!agreedToTerms) {
       setError("יש לאשר את תנאי השימוש ומדיניות הפרטיות");
       return;

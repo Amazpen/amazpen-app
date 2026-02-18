@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { ArrowUp, Mic, Square, Camera, X, FileText, Loader2 } from "lucide-react";
+import { ArrowUp, Mic, MicOff, Square, Camera, X, FileText, Loader2 } from "lucide-react";
 
 const MAX_FILES = 10;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -79,12 +79,23 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
   const [value, setValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [isProcessingOcr, setIsProcessingOcr] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const preListeningTextRef = useRef("");
+
+  // Check Web Speech API support (available in Chrome/Android)
+  const [speechSupported, setSpeechSupported] = useState(false);
+  useEffect(() => {
+    setSpeechSupported(
+      "webkitSpeechRecognition" in window || "SpeechRecognition" in window
+    );
+  }, []);
 
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current;
@@ -218,6 +229,88 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);
+  }, []);
+
+  // Web Speech API — real-time transcription
+  const startListening = useCallback(() => {
+    const SpeechRecognitionClass =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) return;
+
+    const recognition = new SpeechRecognitionClass();
+    recognition.lang = "he-IL";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    // Save current textarea text so we can append to it
+    preListeningTextRef.current = value;
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let finalTranscript = "";
+      let interimTranscript = "";
+
+      for (let i = 0; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript;
+        } else {
+          interimTranscript += result[0].transcript;
+        }
+      }
+
+      const prefix = preListeningTextRef.current;
+      const separator = prefix && !prefix.endsWith(" ") ? " " : "";
+      setValue(prefix + separator + finalTranscript + interimTranscript);
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognition.onend = () => {
+      // Only update state if we didn't explicitly stop
+      if (recognitionRef.current) {
+        setIsListening(false);
+        recognitionRef.current = null;
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [value]);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      const recognition = recognitionRef.current;
+      recognitionRef.current = null; // clear before stop to prevent onend reset
+      recognition.stop();
+    }
+    setIsListening(false);
+  }, []);
+
+  // Handle mic button click — Web Speech API if supported, Whisper fallback otherwise
+  const handleMicClick = useCallback(() => {
+    if (isListening) {
+      stopListening();
+    } else if (isRecording) {
+      stopRecording();
+    } else if (speechSupported) {
+      startListening();
+    } else {
+      startRecording();
+    }
+  }, [isListening, isRecording, speechSupported, startListening, stopListening, startRecording, stopRecording]);
+
+  // Cleanup recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    };
   }, []);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -358,17 +451,21 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
         {/* Mic button - right side in RTL */}
         <button
           type="button"
-          onClick={isRecording ? stopRecording : startRecording}
-          disabled={isBusy && !isRecording}
-          title={isRecording ? "עצור הקלטה" : "הקלט הודעה קולית"}
-          aria-label={isRecording ? "עצור הקלטה" : "הקלט הודעה קולית"}
+          onClick={handleMicClick}
+          disabled={isBusy && !isRecording && !isListening}
+          title={isListening ? "עצור הקשבה" : isRecording ? "עצור הקלטה" : "הקלט הודעה קולית"}
+          aria-label={isListening ? "עצור הקשבה" : isRecording ? "עצור הקלטה" : "הקלט הודעה קולית"}
           className={`flex-shrink-0 w-[38px] h-[38px] sm:w-[44px] sm:h-[44px] rounded-full flex items-center justify-center text-white transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed ${
-            isRecording
-              ? "bg-red-500 hover:bg-red-600 animate-pulse"
-              : "bg-[#29318A] hover:bg-[#3a43a0]"
+            isListening
+              ? "bg-[#6366f1] hover:bg-[#5558e6] animate-pulse"
+              : isRecording
+                ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                : "bg-[#29318A] hover:bg-[#3a43a0]"
           }`}
         >
-          {isRecording ? (
+          {isListening ? (
+            <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />
+          ) : isRecording ? (
             <Square className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           ) : (
             <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -406,7 +503,7 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isProcessingOcr ? "מזהה טקסט מהקבצים..." : isTranscribing ? "ממלל הודעה קולית..." : "שאל שאלה על העסק שלך..."}
+          placeholder={isListening ? "מדבר... (לחץ שוב לעצור)" : isProcessingOcr ? "מזהה טקסט מהקבצים..." : isTranscribing ? "ממלל הודעה קולית..." : "שאל שאלה על העסק שלך..."}
           disabled={isBusy}
           rows={1}
           className="flex-1 resize-none bg-[#29318A] text-white text-[14px] sm:text-[15px] leading-[22px] sm:leading-[24px] rounded-[12px] sm:rounded-[14px] px-3 sm:px-4 py-2 sm:py-3 placeholder:text-white/40 outline-none focus:ring-2 focus:ring-[#6366f1]/50 transition-shadow disabled:opacity-50 scrollbar-thin"

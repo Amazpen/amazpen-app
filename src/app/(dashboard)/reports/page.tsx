@@ -264,7 +264,7 @@ export default function ReportsPage() {
         const actualWorkDays = (dailyEntries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
 
         const totalLaborCost = (rawLaborCost + (managerDailyCost * actualWorkDays)) * avgMarkup;
-        const totalManagerCost = rawManagerCost;
+        void rawManagerCost;
 
         // VAT divisor from business (vat_percentage stored as decimal, e.g. 0.18 for 18%)
         const vatPercentage = Number(businessData?.[0]?.vat_percentage || 0);
@@ -324,7 +324,6 @@ export default function ReportsPage() {
         }
 
         // Build expense categories display
-        const totalExpenses = Array.from(categoryActuals.values()).reduce((sum, val) => sum + val, 0);
         const expensesTarget = Number(goal?.current_expenses_target || 0);
 
         // Calculate food cost (עלות מכר) target: (food_cost_target_pct / 100) * (revenue_target / vatDivisor)

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useDashboard } from "../../layout";
@@ -141,7 +142,7 @@ export default function CustomersPage() {
   const [newPaymentNotes, setNewPaymentNotes] = useState("");
 
   // Available businesses for "add standalone" form
-  const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
+  const [_allBusinesses, setAllBusinesses] = useState<Business[]>([]);
 
   // ─── Data Fetching ─────────────────────────────────────────
 
@@ -634,10 +635,13 @@ export default function CustomersPage() {
 
                   {/* Business Logo */}
                   {item.business.logo_url ? (
-                    <img
+                    <Image
                       src={item.business.logo_url}
                       alt={item.business.name}
                       className="w-[60px] h-[60px] rounded-full object-cover border-2 border-white/20"
+                      width={60}
+                      height={60}
+                      unoptimized
                     />
                   ) : (
                     <div className="w-[60px] h-[60px] rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20">
