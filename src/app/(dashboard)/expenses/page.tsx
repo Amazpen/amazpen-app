@@ -2094,7 +2094,7 @@ function ExpensesPageInner() {
     <div className="text-white p-[10px] pb-[80px] w-full">
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val as "expenses" | "purchases" | "employees"); setFilterBy(""); setFilterValue(""); }} dir="rtl">
-        <TabsList className="w-full bg-transparent rounded-[7px] p-0 h-[40px] sm:h-[50px] mb-[34px] gap-0 border border-[#6B6B6B]">
+        <TabsList className="w-full bg-transparent rounded-[7px] p-0 h-[50px] sm:h-[60px] mb-[34px] gap-0 border border-[#6B6B6B]">
           <TabsTrigger value="purchases" className="flex-1 text-[11px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-r-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">קניות סחורה</TabsTrigger>
           <TabsTrigger value="expenses" className="flex-1 text-[11px] sm:text-[20px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">הוצאות שוטפות</TabsTrigger>
           <TabsTrigger value="employees" className="flex-1 text-[11px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">עלות עובדים</TabsTrigger>
