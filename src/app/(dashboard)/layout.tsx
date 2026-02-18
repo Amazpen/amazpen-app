@@ -1070,7 +1070,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Main Content - with top padding for fixed header, right margin for sidebar on desktop */}
-        <main role="main" aria-label="תוכן ראשי" className={`pt-[60px] sm:pt-[56px] ${isOcrPage ? '' : 'lg:mr-[220px]'}`}>
+        <main role="main" aria-label="תוכן ראשי" className={`pt-[70px] sm:pt-[66px] ${isOcrPage ? '' : 'lg:mr-[220px]'}`}>
           <OfflineIndicator
             isOnline={offlineSync.isOnline}
             pendingCount={offlineSync.pendingCount}
