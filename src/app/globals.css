@@ -286,7 +286,7 @@
 }
 
 .business-card.business-card-expanded {
-  background-color: #29318a !important;
+  background-color: #3845c4 !important;
   position: relative;
   overflow: hidden;
   z-index: 0;
@@ -306,7 +306,6 @@
     #1a2070
   );
   animation: card-glow-rotate 3s linear infinite;
-  opacity: 0.85;
 }
 
 .business-card.business-card-expanded::after {
@@ -314,7 +313,7 @@
   position: absolute;
   inset: 3px;
   border-radius: 8px;
-  background: #29318a;
+  background: #3040b0;
   z-index: -1;
 }
 
