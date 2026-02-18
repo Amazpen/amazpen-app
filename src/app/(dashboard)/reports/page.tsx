@@ -450,15 +450,20 @@ export default function ReportsPage() {
         setExpenseCategories(displayCategories);
 
         // Calculate summary
-        // Formula: (סה"כ קופה/מע"מ - קניות סחורה - הוצאות שוטפות - עלות מנהל כולל העמסה - עלות עובדים כולל העמסה) / (סה"כ קופה/מע"מ)
-        const operatingProfit = totalRevenue - totalGoodsExpenses - totalCurrentExpenses - totalManagerCost - totalLaborCost;
+        // Total expenses = goods + current invoices + labor cost (from daily entries with markup)
+        const allExpensesActual = totalGoodsExpenses + totalCurrentExpenses + totalLaborCost;
+        // Total expenses target = food cost target + current expenses target + labor cost target
+        const laborCostTargetPctSummary = Number(goal?.labor_cost_target_pct || 0);
+        const allExpensesTarget = foodCostTarget + expensesTarget + (laborCostTargetPctSummary / 100) * totalRevenue;
+        // Operating profit = revenue - all expenses
+        const operatingProfit = totalRevenue - allExpensesActual;
         const operatingProfitPct = totalRevenue > 0 ? (operatingProfit / totalRevenue) * 100 : 0;
 
         setSummary({
           totalRevenue,
           revenueTarget: Number(goal?.revenue_target || 0) / vatDivisor,
-          totalExpenses,
-          expensesTarget,
+          totalExpenses: allExpensesActual,
+          expensesTarget: allExpensesTarget,
           operatingProfit,
           operatingProfitPct,
           netProfit: operatingProfit,
