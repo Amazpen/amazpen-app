@@ -628,7 +628,6 @@ export default function DashboardLayout({
 
         {/* Sidebar Menu - Slide-in on mobile, permanent on desktop */}
         <nav
-          role="navigation"
           aria-label="תפריט ראשי"
           className={`fixed top-0 right-0 h-full w-[50%] max-w-[250px] bg-[#111056] z-[1503] transform transition-transform duration-300 ease-in-out p-[20px] pb-[55px] ${isOcrPage ? '' : 'lg:translate-x-0'} lg:w-[220px] lg:max-w-none lg:shadow-lg ${
             isMenuOpen ? "translate-x-0" : "translate-x-full"
@@ -1088,6 +1087,7 @@ export default function DashboardLayout({
         {/* Coordinator Modal - Admin Only */}
         {isAdmin && (
           <ConsolidatedInvoiceModal
+            key={`coordinator-${isCoordinatorModalOpen}`}
             isOpen={isCoordinatorModalOpen}
             onClose={() => setIsCoordinatorModalOpen(false)}
           />

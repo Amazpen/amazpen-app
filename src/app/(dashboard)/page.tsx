@@ -2551,6 +2551,7 @@ export default function DashboardPage() {
               <div className="flex flex-row items-center gap-[5px]">
                 {realBusinessId ? (
                   <DailyEntryForm
+                    key={`daily-entry-${realBusinessId}`}
                     businessId={realBusinessId}
                     businessName={businessCards.find(b => b.id === realBusinessId)?.name || ""}
                     onSuccess={() => {
@@ -3998,6 +3999,7 @@ export default function DashboardPage() {
       {/* Daily Entries Modal */}
       {realBusinessId && dateRange && (
         <DailyEntriesModal
+          key={`daily-entries-${isDailyEntriesModalOpen}-${realBusinessId}`}
           isOpen={isDailyEntriesModalOpen}
           onClose={() => setIsDailyEntriesModalOpen(false)}
           businessId={realBusinessId}
@@ -4008,6 +4010,7 @@ export default function DashboardPage() {
 
       {/* History Modal */}
       <HistoryModal
+        key={`history-${historyModalOpen}-${historyCardType}-${historySourceId}`}
         isOpen={historyModalOpen}
         onClose={() => setHistoryModalOpen(false)}
         cardType={historyCardType}

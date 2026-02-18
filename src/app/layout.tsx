@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Assistant, Poppins } from "next/font/google";
 import Image from "next/image";
+import Script from "next/script";
 import "./globals.css";
 
 const assistant = Assistant({
@@ -95,10 +96,10 @@ export default function RootLayout({
           />
         </div>
         {children}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              // Show splash only when opened as installed PWA (standalone mode)
+        <Script
+          id="pwa-splash"
+          strategy="beforeInteractive"
+        >{`
               (function() {
                 var isStandalone = window.matchMedia('(display-mode: standalone)').matches
                   || window.navigator.standalone === true;
@@ -124,12 +125,11 @@ export default function RootLayout({
                 }
                 setTimeout(hideSplash, 3000);
               })();
-            `,
-          }}
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
+        `}</Script>
+        <Script
+          id="sw-registration"
+          strategy="afterInteractive"
+        >{`
               if ('serviceWorker' in navigator) {
                 window.__SW_UPDATE_CALLBACKS = [];
                 window.__SW_WAITING = null;
@@ -158,7 +158,6 @@ export default function RootLayout({
                   navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(function(reg) {
                     trackUpdate(reg);
 
-                    // Throttled update check - max once per 30 seconds
                     var lastCheck = 0;
                     function checkForUpdate() {
                       var now = Date.now();
@@ -167,12 +166,10 @@ export default function RootLayout({
                       reg.update();
                     }
 
-                    // Check when user returns to tab
                     document.addEventListener('visibilitychange', function() {
                       if (document.visibilityState === 'visible') checkForUpdate();
                     });
 
-                    // Check on SPA navigation (Next.js uses pushState/replaceState)
                     var origPush = history.pushState;
                     var origReplace = history.replaceState;
                     history.pushState = function() {
@@ -185,12 +182,10 @@ export default function RootLayout({
                     };
                     window.addEventListener('popstate', function() { checkForUpdate(); });
 
-                    // Also check on every fetch response (detects deploy via changed HTML)
                     window.addEventListener('focus', function() { checkForUpdate(); });
                   }).catch(function() {});
                 });
 
-                // Reload when new SW takes over
                 var refreshing = false;
                 navigator.serviceWorker.addEventListener('controllerchange', function() {
                   if (refreshing) return;
@@ -198,9 +193,7 @@ export default function RootLayout({
                   window.location.reload();
                 });
               }
-            `,
-          }}
-        />
+        `}</Script>
       </body>
     </html>
   );
