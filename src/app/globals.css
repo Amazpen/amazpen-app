@@ -290,7 +290,7 @@
   position: relative;
   overflow: hidden;
   z-index: 0;
-  box-shadow: 0 0 15px rgba(85, 96, 221, 0.5), 0 0 30px rgba(56, 69, 196, 0.3), 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 0 8px rgba(85, 96, 221, 0.25), 0 0 18px rgba(56, 69, 196, 0.15), 0 2px 8px rgba(0, 0, 0, 0.15) !important;
 }
 
 .business-card.business-card-expanded::before {
