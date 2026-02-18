@@ -2827,7 +2827,7 @@ function PaymentsPageInner() {
               <span className="text-[13px] sm:text-[14px]">תאריך</span>
             </div>
             <span className="text-[13px] sm:text-[14px] flex-1 text-center min-w-0">ספק</span>
-            <span className="text-[13px] sm:text-[14px] w-[45px] sm:w-[55px] flex-shrink-0 text-center hidden sm:block">אסמכתא</span>
+            <span className="text-[13px] sm:text-[14px] w-[45px] sm:w-[55px] flex-shrink-0 text-center"><span className="sm:hidden">אסמכ׳</span><span className="hidden sm:inline">אסמכתא</span></span>
             <span className="text-[13px] sm:text-[14px] w-[40px] sm:w-[45px] flex-shrink-0 text-center">תשלומים</span>
             <span className="text-[13px] sm:text-[14px] w-[50px] sm:w-[55px] flex-shrink-0 text-center">אמצעי</span>
             <span className="text-[13px] sm:text-[14px] w-[60px] sm:w-[70px] flex-shrink-0 text-center">סכום</span>
@@ -2899,7 +2899,7 @@ function PaymentsPageInner() {
                   </span>
 
                   {/* Reference Number */}
-                  <span className="text-[12px] sm:text-[13px] font-medium w-[45px] sm:w-[55px] flex-shrink-0 text-center ltr-num truncate hidden sm:block" title={group.splits[0]?.reference_number || payment.reference || ""}>
+                  <span className="text-[12px] sm:text-[13px] font-medium w-[45px] sm:w-[55px] flex-shrink-0 text-center ltr-num truncate " title={group.splits[0]?.reference_number || payment.reference || ""}>
                     {group.splits[0]?.reference_number || payment.reference || "-"}
                   </span>
 
