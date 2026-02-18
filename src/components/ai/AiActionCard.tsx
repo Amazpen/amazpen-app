@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Link from "next/link";
 import { Check, X, AlertTriangle, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { AiProposedAction } from "@/types/ai";
@@ -251,13 +252,13 @@ export function AiActionCard({ action }: AiActionCardProps) {
 
       {needsSupplierCreation && (
         <div className="mt-2 text-center">
-          <a
+          <Link
             href="/suppliers"
             className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
           >
             <Building2 className="w-3 h-3" />
             עבור לדף ספקים ליצירת ספק חדש
-          </a>
+          </Link>
         </div>
       )}
     </div>

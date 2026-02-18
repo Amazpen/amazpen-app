@@ -399,6 +399,7 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
                 imageLoaded ? 'opacity-100' : 'opacity-0'
               }`}
               fill
+              sizes="100px"
               unoptimized
               onLoad={() => setImageLoaded(true)}
               onError={() => setImageError(true)}
@@ -516,6 +517,7 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
                   imageLoaded ? 'opacity-100' : 'opacity-0'
                 }`}
                 fill
+                sizes="56px"
                 unoptimized
                 onLoad={() => setImageLoaded(true)}
                 onError={() => setImageError(true)}

@@ -134,59 +134,57 @@ export default function ReportsPage() {
       const supabase = createClient();
 
       try {
-        // Fetch expense categories
-        const { data: categoriesData } = await supabase
-          .from("expense_categories")
-          .select("id, name, parent_id")
-          .in("business_id", selectedBusinesses)
-          .is("deleted_at", null)
-          .eq("is_active", true);
-
-        // Fetch business data (VAT, markup, manager salary)
-        const { data: businessData } = await supabase
-          .from("businesses")
-          .select("vat_percentage, markup_percentage, manager_monthly_salary")
-          .in("id", selectedBusinesses);
-
-        // Fetch goals for targets
-        const { data: goalsData } = await supabase
-          .from("goals")
-          .select("*")
-          .in("business_id", selectedBusinesses)
-          .eq("year", year)
-          .eq("month", month)
-          .is("deleted_at", null);
-
-        // Fetch invoices for the month
         const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
         const endDate = new Date(year, month, 0).toISOString().split("T")[0];
 
-        const { data: invoicesData } = await supabase
-          .from("invoices")
-          .select("subtotal, supplier_id, supplier:suppliers(name, expense_category_id, expense_type)")
-          .in("business_id", selectedBusinesses)
-          .is("deleted_at", null)
-          .in("invoice_type", ["current", "goods"])
-          .gte("invoice_date", startDate)
-          .lte("invoice_date", endDate);
-
-        // Fetch supplier budgets with category info
-        const { data: supplierBudgetsData } = await supabase
-          .from("supplier_budgets")
-          .select("budget_amount, supplier_id, supplier:suppliers(name, expense_category_id, expense_type)")
-          .in("business_id", selectedBusinesses)
-          .eq("year", year)
-          .eq("month", month)
-          .is("deleted_at", null);
-
-        // Fetch daily entries for revenue, labor cost and manager cost
-        const { data: dailyEntries } = await supabase
-          .from("daily_entries")
-          .select("total_register, labor_cost, manager_daily_cost, day_factor")
-          .in("business_id", selectedBusinesses)
-          .is("deleted_at", null)
-          .gte("entry_date", startDate)
-          .lte("entry_date", endDate);
+        const [
+          { data: categoriesData },
+          { data: businessData },
+          { data: goalsData },
+          { data: invoicesData },
+          { data: supplierBudgetsData },
+          { data: dailyEntries },
+        ] = await Promise.all([
+          supabase
+            .from("expense_categories")
+            .select("id, name, parent_id")
+            .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
+            .eq("is_active", true),
+          supabase
+            .from("businesses")
+            .select("vat_percentage, markup_percentage, manager_monthly_salary")
+            .in("id", selectedBusinesses),
+          supabase
+            .from("goals")
+            .select("*")
+            .in("business_id", selectedBusinesses)
+            .eq("year", year)
+            .eq("month", month)
+            .is("deleted_at", null),
+          supabase
+            .from("invoices")
+            .select("subtotal, supplier_id, supplier:suppliers(name, expense_category_id, expense_type)")
+            .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
+            .in("invoice_type", ["current", "goods"])
+            .gte("invoice_date", startDate)
+            .lte("invoice_date", endDate),
+          supabase
+            .from("supplier_budgets")
+            .select("budget_amount, supplier_id, supplier:suppliers(name, expense_category_id, expense_type)")
+            .in("business_id", selectedBusinesses)
+            .eq("year", year)
+            .eq("month", month)
+            .is("deleted_at", null),
+          supabase
+            .from("daily_entries")
+            .select("total_register, labor_cost, manager_daily_cost, day_factor")
+            .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
+            .gte("entry_date", startDate)
+            .lte("entry_date", endDate),
+        ]);
 
         // Fetch prior liabilities (payment splits due this month from payments created before this month)
         const { data: priorSplits } = await supabase

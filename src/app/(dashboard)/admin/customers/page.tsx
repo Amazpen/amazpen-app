@@ -159,23 +159,24 @@ export default function CustomersPage() {
       setIsLoading(true);
       const supabase = createClient();
 
-      // Fetch all businesses
-      const { data: businesses } = await supabase
-        .from("businesses")
-        .select("*")
-        .is("deleted_at", null)
-        .order("name");
-
-      // Fetch all customer records
-      const { data: customers } = await supabase
-        .from("customers")
-        .select("*")
-        .is("deleted_at", null);
-
-      // Fetch all business members with profiles
-      const { data: members } = await supabase
-        .from("business_members")
-        .select("user_id, role, business_id, profiles(id, full_name, email)");
+      const [
+        { data: businesses },
+        { data: customers },
+        { data: members },
+      ] = await Promise.all([
+        supabase
+          .from("businesses")
+          .select("*")
+          .is("deleted_at", null)
+          .order("name"),
+        supabase
+          .from("customers")
+          .select("*")
+          .is("deleted_at", null),
+        supabase
+          .from("business_members")
+          .select("user_id, role, business_id, profiles(id, full_name, email)"),
+      ]);
 
       const businessList = businesses || [];
       const customerList = customers || [];

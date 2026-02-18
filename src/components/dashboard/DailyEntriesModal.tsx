@@ -938,7 +938,7 @@ export function DailyEntriesModal({
     const totalPayments = (allPaymentsData || []).reduce(
       (sum: number, pay: Record<string, unknown>) => sum + (Number(pay.total_amount) || 0), 0
     );
-    setOpenSuppliersTotal(totalInvoices - totalPayments);
+    setOpenSuppliersTotal(() => totalInvoices - totalPayments);
 
     // Calculate open commitments: all commitment splits - paid commitment splits (due_date <= entry date)
     const totalCommitments = (allCommitmentSplitsData || []).reduce(
@@ -947,7 +947,7 @@ export function DailyEntriesModal({
     const paidCommitments = (paidCommitmentSplitsData || []).reduce(
       (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
     );
-    setOpenCommitmentsTotal(totalCommitments - paidCommitments);
+    setOpenCommitmentsTotal(() => totalCommitments - paidCommitments);
 
     setIsLoadingDetails(false);
   };

@@ -1960,7 +1960,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           <Button
             variant="outline"
             type="button"
-            onClick={() => setCurrentStep(currentStep - 1)}
+            onClick={() => setCurrentStep(prev => prev - 1)}
             className="flex-1 bg-transparent border border-[#4C526B] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
           >
             חזרה
@@ -1971,7 +1971,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           <Button
             variant="default"
             type="button"
-            onClick={() => setCurrentStep(currentStep + 1)}
+            onClick={() => setCurrentStep(prev => prev + 1)}
             disabled={
               (currentStep === 1 && !canProceedStep1) ||
               (currentStep === 2 && !canProceedStep2) ||

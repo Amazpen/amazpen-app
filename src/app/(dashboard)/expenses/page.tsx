@@ -823,45 +823,47 @@ function ExpensesPageInner() {
         }
 
         // Also fetch date-filtered invoices for the chart/summary
-        const { data: invoicesData } = await supabase
-          .from("invoices")
-          .select(`
-            *,
-            supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
-            creator:profiles!invoices_created_by_fkey(full_name)
-          `)
-          .in("business_id", selectedBusinesses)
-          .is("deleted_at", null)
-          .gte("invoice_date", startDate)
-          .lte("invoice_date", endDate)
-          .eq("invoice_type", activeTab === "expenses" ? "current" : activeTab === "employees" ? "employees" : "goods")
-          .order("invoice_date", { ascending: false });
-
-        // Fetch expense categories for table summary
-        const { data: categoriesData } = await supabase
-          .from("expense_categories")
-          .select("id, name")
-          .in("business_id", selectedBusinesses)
-          .is("deleted_at", null)
-          .eq("is_active", true);
-
-        // Fetch total sales (daily_entries) for the date range to calculate % מפדיון
-        const { data: dailyEntries } = await supabase
-          .from("daily_entries")
-          .select("total_register, business_id")
-          .in("business_id", selectedBusinesses)
-          .gte("entry_date", startDate)
-          .lte("entry_date", endDate);
-
-        // Fetch VAT percentage from goals for the selected month/year
         const targetYear = dateRange.start.getFullYear();
         const targetMonth = dateRange.start.getMonth() + 1;
-        const { data: goalsData } = await supabase
-          .from("goals")
-          .select("business_id, vat_percentage")
-          .in("business_id", selectedBusinesses)
-          .eq("year", targetYear)
-          .eq("month", targetMonth);
+
+        const [
+          { data: invoicesData },
+          { data: categoriesData },
+          { data: dailyEntries },
+          { data: goalsData },
+        ] = await Promise.all([
+          supabase
+            .from("invoices")
+            .select(`
+              *,
+              supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
+              creator:profiles!invoices_created_by_fkey(full_name)
+            `)
+            .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
+            .gte("invoice_date", startDate)
+            .lte("invoice_date", endDate)
+            .eq("invoice_type", activeTab === "expenses" ? "current" : activeTab === "employees" ? "employees" : "goods")
+            .order("invoice_date", { ascending: false }),
+          supabase
+            .from("expense_categories")
+            .select("id, name")
+            .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
+            .eq("is_active", true),
+          supabase
+            .from("daily_entries")
+            .select("total_register, business_id")
+            .in("business_id", selectedBusinesses)
+            .gte("entry_date", startDate)
+            .lte("entry_date", endDate),
+          supabase
+            .from("goals")
+            .select("business_id, vat_percentage")
+            .in("business_id", selectedBusinesses)
+            .eq("year", targetYear)
+            .eq("month", targetMonth),
+        ]);
 
         // Calculate total sales before VAT
         const totalRegister = (dailyEntries || []).reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
