@@ -5,6 +5,7 @@ import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Supplier row within a subcategory
 interface SupplierDisplay {
@@ -559,32 +560,32 @@ export default function ReportsPage() {
 
         {/* Date Filters Row */}
         <div className="flex flex-row-reverse items-center justify-between w-full min-h-[40px] gap-[10px]">
-          <div className="flex-1 border border-[#4C526B] rounded-[7px] p-[5px] min-h-[50px] flex items-center justify-center">
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              title="בחירת חודש"
-              className="w-full bg-transparent text-[18px] font-bold text-center focus:outline-none cursor-pointer select-dark"
-            >
-              <option value="" disabled>בחר/י חודש</option>
-              {months.map((month) => (
-                <option key={month.value} value={month.value}>
-                  {month.label}
-                </option>
-              ))}
-            </select>
+          <div className="flex-1">
+            <Select value={selectedMonth || "__none__"} onValueChange={(val) => setSelectedMonth(val === "__none__" ? "" : val)}>
+              <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[7px] h-[50px] px-[12px] text-[18px] text-white font-bold text-right">
+                <SelectValue placeholder="בחר/י חודש" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__" disabled>בחר/י חודש</SelectItem>
+                {months.map((month) => (
+                  <SelectItem key={month.value} value={month.value}>
+                    {month.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="flex-1 border border-[#4C526B] rounded-[7px] p-[5px] min-h-[50px] flex items-center justify-center">
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              title="בחירת שנה"
-              className="w-full bg-transparent text-[18px] font-bold text-center focus:outline-none cursor-pointer select-dark"
-            >
-              <option value="" disabled>בחר/י שנה</option>
-              <option value="2025">2025</option>
-              <option value="2026">2026</option>
-            </select>
+          <div className="flex-1">
+            <Select value={selectedYear || "__none__"} onValueChange={(val) => setSelectedYear(val === "__none__" ? "" : val)}>
+              <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[7px] h-[50px] px-[12px] text-[18px] text-white font-bold text-right">
+                <SelectValue placeholder="בחר/י שנה" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__" disabled>בחר/י שנה</SelectItem>
+                <SelectItem value="2025">2025</SelectItem>
+                <SelectItem value="2026">2026</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </section>

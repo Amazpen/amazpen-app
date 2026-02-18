@@ -9,6 +9,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { generateUUID } from "@/lib/utils";
 import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Business {
   id: string;
@@ -486,24 +488,22 @@ export function ConsolidatedInvoiceModal({
           {/* Business Select */}
           <div className="flex flex-col gap-[3px]">
             <label className="text-[15px] font-medium text-white text-right">בחירת עסק</label>
-            <div className="border border-[#4C526B] rounded-[10px]">
-              <select
-                title="בחר עסק"
-                value={selectedBusinessId}
-                onChange={(e) => setSelectedBusinessId(e.target.value)}
-                disabled={isLoadingBusinesses}
-                className="w-full h-[48px] bg-[#0F1535] text-white/40 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
-              >
-                <option value="" className="bg-[#0F1535] text-white/40">
-                  {isLoadingBusinesses ? "טוען..." : "בחר/י עסק..."}
-                </option>
+            <Select
+              value={selectedBusinessId || "__none__"}
+              onValueChange={(val) => setSelectedBusinessId(val === "__none__" ? "" : val)}
+              disabled={isLoadingBusinesses}
+            >
+              <SelectTrigger className="w-full h-[48px] bg-[#0F1535] text-[16px] text-center rounded-[10px] border-[#4C526B]">
+                <SelectValue placeholder={isLoadingBusinesses ? "טוען..." : "בחר/י עסק..."} />
+              </SelectTrigger>
+              <SelectContent>
                 {businesses.map((business) => (
-                  <option key={business.id} value={business.id} className="bg-[#0F1535] text-white">
+                  <SelectItem key={business.id} value={business.id}>
                     {business.name}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-            </div>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Supplier Select - only shows suppliers marked as coordinator */}
@@ -701,25 +701,25 @@ export function ConsolidatedInvoiceModal({
             <p className="text-[12px] text-white/50 text-right mb-[5px]">
               אם כן - החשבונית תעבור לממתינות לתשלום
             </p>
-            <div className="border border-[#4C526B] rounded-[10px]">
-              <select
-                title="האם נסגר"
-                value={isClosed}
-                onChange={(e) => setIsClosed(e.target.value)}
-                className="w-full h-[48px] bg-[#0F1535] text-white/40 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
-              >
-                <option value="" className="bg-[#0F1535] text-white/40">כן/לא</option>
-                <option value="yes" className="bg-[#0F1535] text-white">כן</option>
-                <option value="no" className="bg-[#0F1535] text-white">לא</option>
-              </select>
-            </div>
+            <Select
+              value={isClosed || "__none__"}
+              onValueChange={(val) => setIsClosed(val === "__none__" ? "" : val)}
+            >
+              <SelectTrigger className="w-full h-[48px] bg-[#0F1535] text-[16px] text-center rounded-[10px] border-[#4C526B]">
+                <SelectValue placeholder="כן/לא" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">כן</SelectItem>
+                <SelectItem value="no">לא</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Notes */}
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">הערות</label>
             <div className="border border-[#4C526B] rounded-[10px]">
-              <textarea
+              <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="הערות..."

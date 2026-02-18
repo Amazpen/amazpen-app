@@ -8,6 +8,8 @@ import { useFormDraft } from '@/hooks/useFormDraft';
 import { createClient } from '@/lib/supabase/client';
 import SupplierSearchSelect from '@/components/ui/SupplierSearchSelect';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Supplier {
   id: string;
@@ -1043,19 +1045,19 @@ export default function OCRForm({
           )}
 
           {/* Payment Method Select */}
-          <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-            <select
-              title="בחירת אמצעי תשלום"
-              value={pm.method}
-              onChange={(e) => updatePaymentMethodField(setter, methods, pm.id, 'method', e.target.value, dateStr, dateSetter)}
-              className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
-            >
-              <option value="" disabled>בחר אמצעי תשלום...</option>
+          <Select
+            value={pm.method || "__none__"}
+            onValueChange={(val) => updatePaymentMethodField(setter, methods, pm.id, 'method', val === "__none__" ? "" : val, dateStr, dateSetter)}
+          >
+            <SelectTrigger className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center rounded-[10px] border-[#4C526B] cursor-pointer">
+              <SelectValue placeholder="בחר אמצעי תשלום..." />
+            </SelectTrigger>
+            <SelectContent>
               {PAYMENT_METHODS.map((method) => (
-                <option key={method.value} value={method.value}>{method.label}</option>
+                <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
               ))}
-            </select>
-          </div>
+            </SelectContent>
+          </Select>
 
           {/* Check Number - only shown when payment method is check */}
           {pm.method === 'check' && (
@@ -1073,41 +1075,41 @@ export default function OCRForm({
 
           {/* Credit Card Selection - only show when method is credit_card */}
           {pm.method === 'credit_card' && businessCreditCards.length > 0 && (
-            <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-              <select
-                title="בחירת כרטיס אשראי"
-                value={pm.creditCardId}
-                onChange={(e) => {
-                  const cardId = e.target.value;
-                  // Auto-set payment date when credit card is selected
-                  if (dateSetter && cardId) {
-                    const smartDate = getSmartPaymentDate('credit_card', documentDate, cardId);
-                    if (smartDate) dateSetter(smartDate);
-                  }
-                  setter(prev => prev.map(p => {
-                    if (p.id !== pm.id) return p;
-                    const updated = { ...p, creditCardId: cardId };
-                    const card = businessCreditCards.find(c => c.id === cardId);
-                    if (card && dateStr) {
-                      const numInstallments = parseInt(p.installments) || 1;
-                      const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
-                      if (numInstallments > 1 && totalAmount > 0) {
-                        updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, dateStr, card.billing_day);
-                      }
+            <Select
+              value={pm.creditCardId || "__none__"}
+              onValueChange={(val) => {
+                const cardId = val === "__none__" ? "" : val;
+                // Auto-set payment date when credit card is selected
+                if (dateSetter && cardId) {
+                  const smartDate = getSmartPaymentDate('credit_card', documentDate, cardId);
+                  if (smartDate) dateSetter(smartDate);
+                }
+                setter(prev => prev.map(p => {
+                  if (p.id !== pm.id) return p;
+                  const updated = { ...p, creditCardId: cardId };
+                  const card = businessCreditCards.find(c => c.id === cardId);
+                  if (card && dateStr) {
+                    const numInstallments = parseInt(p.installments) || 1;
+                    const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
+                    if (numInstallments > 1 && totalAmount > 0) {
+                      updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, dateStr, card.billing_day);
                     }
-                    return updated;
-                  }));
-                }}
-                className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
-              >
-                <option value="">בחר כרטיס...</option>
+                  }
+                  return updated;
+                }));
+              }}
+            >
+              <SelectTrigger className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center rounded-[10px] border-[#4C526B] cursor-pointer">
+                <SelectValue placeholder="בחר כרטיס..." />
+              </SelectTrigger>
+              <SelectContent>
                 {businessCreditCards.map(card => (
-                  <option key={card.id} value={card.id}>
+                  <SelectItem key={card.id} value={card.id}>
                     {card.card_name} (יורד ב-{card.billing_day} לחודש)
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-            </div>
+              </SelectContent>
+            </Select>
           )}
 
           {/* Payment Amount */}
@@ -1472,7 +1474,7 @@ export default function OCRForm({
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">הערות למסמך</label>
         <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
-          <textarea
+          <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="הערות למסמך..."
@@ -1574,7 +1576,7 @@ export default function OCRForm({
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">הערות</label>
                 <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
-                  <textarea
+                  <Textarea
                     value={inlinePaymentNotes}
                     onChange={(e) => setInlinePaymentNotes(e.target.value)}
                     placeholder="הערות..."
@@ -1964,7 +1966,7 @@ export default function OCRForm({
       <div className="flex flex-col gap-[3px]">
         <label className="text-[16px] font-medium text-white text-right">הערות</label>
         <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
-          <textarea
+          <Textarea
             value={paymentTabNotes}
             onChange={(e) => setPaymentTabNotes(e.target.value)}
             placeholder="הערות..."
@@ -2178,25 +2180,25 @@ export default function OCRForm({
         <p className="text-[12px] text-white/50 text-right mb-[5px]">
           אם כן - החשבונית תעבור לממתינות לתשלום
         </p>
-        <div className="border border-[#4C526B] rounded-[10px]">
-          <select
-            title="האם נסגר"
-            value={summaryIsClosed}
-            onChange={(e) => setSummaryIsClosed(e.target.value)}
-            className="w-full h-[48px] bg-[#0F1535] text-white/40 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
-          >
-            <option value="" className="bg-[#0F1535] text-white/40">כן/לא</option>
-            <option value="yes" className="bg-[#0F1535] text-white">כן</option>
-            <option value="no" className="bg-[#0F1535] text-white">לא</option>
-          </select>
-        </div>
+        <Select
+          value={summaryIsClosed || "__none__"}
+          onValueChange={(val) => setSummaryIsClosed(val === "__none__" ? "" : val)}
+        >
+          <SelectTrigger className="w-full h-[48px] bg-[#0F1535] text-[16px] text-center rounded-[10px] border-[#4C526B]">
+            <SelectValue placeholder="כן/לא" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="yes">כן</SelectItem>
+            <SelectItem value="no">לא</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Notes */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">הערות</label>
         <div className="border border-[#4C526B] rounded-[10px]">
-          <textarea
+          <Textarea
             value={summaryNotes}
             onChange={(e) => setSummaryNotes(e.target.value)}
             placeholder="הערות..."
@@ -2234,21 +2236,21 @@ export default function OCRForm({
 
       {/* Business Selector */}
       <div className="px-4 py-2 bg-[#0F1535] border-b border-[#4C526B]" dir="rtl">
-        <div className="border border-[#4C526B] rounded-[10px]">
-          <select
-            title="בחר עסק"
-            value={selectedBusinessId}
-            onChange={(e) => onBusinessChange(e.target.value)}
-            className="w-full h-[42px] bg-[#0F1535] text-white text-[15px] text-center rounded-[10px] border-none outline-none px-[10px] font-medium"
-          >
-            <option value="" className="bg-[#0F1535] text-white/40">בחר/י עסק...</option>
+        <Select
+          value={selectedBusinessId || "__none__"}
+          onValueChange={(val) => onBusinessChange(val === "__none__" ? "" : val)}
+        >
+          <SelectTrigger className="w-full h-[42px] bg-[#0F1535] text-white text-[15px] text-center rounded-[10px] border-[#4C526B] font-medium">
+            <SelectValue placeholder="בחר/י עסק..." />
+          </SelectTrigger>
+          <SelectContent>
             {businesses.map((business) => (
-              <option key={business.id} value={business.id} className="bg-[#0F1535] text-white">
+              <SelectItem key={business.id} value={business.id}>
                 {business.name}
-              </option>
+              </SelectItem>
             ))}
-          </select>
-        </div>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Document Type Tabs */}
@@ -2372,7 +2374,7 @@ export default function OCRForm({
             ))}
             {rejectReason === 'אחר' && (
               <div>
-                <textarea
+                <Textarea
                   placeholder="פרט את סיבת הדחייה..."
                   value={rejectReason === 'אחר' ? '' : rejectReason}
                   onChange={(e) => setRejectReason(e.target.value || 'אחר')}

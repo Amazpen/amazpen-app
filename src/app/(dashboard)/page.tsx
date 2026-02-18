@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useToast } from "@/components/ui/toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // ============================================================================
 // LAZY LOADED CHART COMPONENTS - Recharts (~200KB) loaded only when needed
@@ -3408,10 +3409,15 @@ export default function DashboardPage() {
               <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">מגמות</h3>
-                  <select aria-label="בחר תקופה" title="בחר תקופה" className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1">
-                    <option>השנה</option>
-                    <option>החודש</option>
-                  </select>
+                  <Select defaultValue="year">
+                    <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="year">השנה</SelectItem>
+                      <SelectItem value="month">החודש</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
@@ -3550,14 +3556,15 @@ export default function DashboardPage() {
               <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">ממוצע הכנסה</h3>
-                  <select
-                    aria-label="בחר תקופה"
-                    title="בחר תקופה"
-                    className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1"
-                  >
-                    <option>השנה</option>
-                    <option>החודש</option>
-                  </select>
+                  <Select defaultValue="year">
+                    <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="year">השנה</SelectItem>
+                      <SelectItem value="month">החודש</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
@@ -3658,14 +3665,15 @@ export default function DashboardPage() {
               <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">ניהול עלות מכר</h3>
-                  <select
-                    aria-label="בחר תקופה"
-                    title="בחר תקופה"
-                    className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1"
-                  >
-                    <option>השנה</option>
-                    <option>החודש</option>
-                  </select>
+                  <Select defaultValue="year">
+                    <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="year">השנה</SelectItem>
+                      <SelectItem value="month">החודש</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
@@ -3736,14 +3744,15 @@ export default function DashboardPage() {
               <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">עלות עבודה</h3>
-                  <select
-                    aria-label="בחר תקופה"
-                    title="בחר תקופה"
-                    className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1"
-                  >
-                    <option>השנה</option>
-                    <option>החודש</option>
-                  </select>
+                  <Select defaultValue="year">
+                    <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="year">השנה</SelectItem>
+                      <SelectItem value="month">החודש</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
@@ -3868,14 +3877,15 @@ export default function DashboardPage() {
               <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">{managedProductsSummary[0]?.name || 'מוצר מנוהל'}</h3>
-                  <select
-                    aria-label="בחר תקופה"
-                    title="בחר תקופה"
-                    className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1"
-                  >
-                    <option>השנה</option>
-                    <option>החודש</option>
-                  </select>
+                  <Select defaultValue="year">
+                    <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="year">השנה</SelectItem>
+                      <SelectItem value="month">החודש</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>

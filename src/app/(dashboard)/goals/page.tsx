@@ -5,6 +5,8 @@ import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Types
 type TabType = "vs-goods" | "vs-current" | "kpi";
@@ -1116,85 +1118,48 @@ export default function GoalsPage() {
       <div className="bg-[#0F1535] rounded-[10px] p-[5px]">
 
         {/* Tab Navigation */}
-        <div id="onboarding-goals-tabs" className="flex flex-row-reverse h-[55px] mb-[10px]">
-          {/* Tab 1: יעד VS קניות סחורה (leftmost in RTL = rightmost visually) */}
-          <button
-            type="button"
-            onClick={() => setActiveTab("vs-goods")}
-            className={`flex-1 flex items-center justify-center py-[10px] px-[4px] transition-colors duration-200 rounded-l-[7px] ${
-              activeTab === "vs-goods"
-                ? "bg-[#29318A] text-white border-[#29318A]"
-                : "text-[#6B6B6B] hover:bg-[#29318A]/20 border-[#6B6B6B]"
-            } ${activeTab !== "vs-goods" ? "border-y border-l" : ""}`}
-          >
-            <span className="text-[16px] font-semibold">יעד VS קניות סחורה</span>
-          </button>
-
-          {/* Tab 2: יעד VS שוטפות (middle) */}
-          <button
-            type="button"
-            onClick={() => setActiveTab("vs-current")}
-            className={`flex-1 flex items-center justify-center py-[10px] px-[4px] transition-colors duration-200 ${
-              activeTab === "vs-current"
-                ? "bg-[#29318A] text-white"
-                : "text-[#6B6B6B] hover:bg-[#29318A]/20 border-y border-[#6B6B6B]"
-            }`}
-          >
-            <span className="text-[16px] font-semibold">יעד VS שוטפות</span>
-          </button>
-
-          {/* Tab 3: יעדי KPI (rightmost in RTL = leftmost visually) */}
-          <button
-            type="button"
-            onClick={() => setActiveTab("kpi")}
-            className={`flex-1 flex items-center justify-center py-[10px] px-[4px] transition-colors duration-200 rounded-r-[7px] ${
-              activeTab === "kpi"
-                ? "bg-[#29318A] text-white border-[#29318A]"
-                : "text-[#6B6B6B] hover:bg-[#29318A]/20 border-[#6B6B6B]"
-            } ${activeTab !== "kpi" ? "border-y border-r" : ""}`}
-          >
-            <span className="text-[16px] font-semibold">יעדי KPI</span>
-          </button>
-        </div>
+        <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as TabType)} dir="rtl">
+          <TabsList id="onboarding-goals-tabs" className="w-full bg-[#1A1F37] rounded-[10px] p-[3px] h-auto mb-[10px]">
+            <TabsTrigger value="vs-goods" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">יעד VS קניות סחורה</TabsTrigger>
+            <TabsTrigger value="vs-current" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">יעד VS שוטפות</TabsTrigger>
+            <TabsTrigger value="kpi" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">יעדי KPI</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {/* Month & Year Selectors */}
         <div id="onboarding-goals-month" className="flex flex-row-reverse justify-start gap-[10px] mt-[10px]">
           {/* Month Selector */}
           <div className="flex-1 flex flex-col gap-[3px]">
             <label className="text-[14px] text-white text-right">בחר/י חודש:</label>
-            <div className="border border-[#4C526B] rounded-[7px] p-[5px]">
-              <select
-                title="בחר חודש"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full bg-transparent text-white text-[14px] font-semibold text-center border-none outline-none cursor-pointer"
-              >
+            <Select value={selectedMonth} onValueChange={(val) => setSelectedMonth(val)}>
+              <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[7px] h-[40px] px-[12px] text-[14px] text-white font-semibold text-right">
+                <SelectValue placeholder="בחר חודש" />
+              </SelectTrigger>
+              <SelectContent>
                 {hebrewMonths.map((month) => (
-                  <option key={month.value} value={month.value} className="bg-[#0F1535] text-white">
+                  <SelectItem key={month.value} value={month.value}>
                     {month.label}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-            </div>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Year Selector */}
           <div className="flex-1 flex flex-col gap-[3px]">
             <label className="text-[14px] text-white text-right">בחר/י שנה:</label>
-            <div className="border border-[#4C526B] rounded-[7px] p-[5px]">
-              <select
-                title="בחר שנה"
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(e.target.value)}
-                className="w-full bg-transparent text-white text-[14px] font-semibold text-center border-none outline-none cursor-pointer"
-              >
+            <Select value={selectedYear} onValueChange={(val) => setSelectedYear(val)}>
+              <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[7px] h-[40px] px-[12px] text-[14px] text-white font-semibold text-right">
+                <SelectValue placeholder="בחר שנה" />
+              </SelectTrigger>
+              <SelectContent>
                 {years.map((year) => (
-                  <option key={year} value={year} className="bg-[#0F1535] text-white">
+                  <SelectItem key={year} value={year}>
                     {year}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-            </div>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

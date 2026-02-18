@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useDashboard } from "../../layout";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Types
 interface Business {
@@ -697,52 +699,52 @@ export default function AdminGoalsPage() {
         {/* Business Selector */}
         <div>
           <label className="block text-sm text-white/70 mb-2">עסק</label>
-          <select
-            title="בחר עסק"
-            value={selectedBusinessId}
-            onChange={(e) => setSelectedBusinessId(e.target.value)}
-            className="w-full bg-[#1A1F37] border border-[#29318A] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#4956D4]"
-          >
-            {businesses.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+          <Select value={selectedBusinessId} onValueChange={(val) => setSelectedBusinessId(val)}>
+            <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+              <SelectValue placeholder="בחר עסק" />
+            </SelectTrigger>
+            <SelectContent>
+              {businesses.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Year Selector */}
         <div>
           <label className="block text-sm text-white/70 mb-2">שנה</label>
-          <select
-            title="בחר שנה"
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="w-full bg-[#1A1F37] border border-[#29318A] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#4956D4]"
-          >
-            {[2025, 2026, 2027].map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
+          <Select value={String(selectedYear)} onValueChange={(val) => setSelectedYear(parseInt(val))}>
+            <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+              <SelectValue placeholder="בחר שנה" />
+            </SelectTrigger>
+            <SelectContent>
+              {[2025, 2026, 2027].map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Month Selector */}
         <div>
           <label className="block text-sm text-white/70 mb-2">חודש</label>
-          <select
-            title="בחר חודש"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-            className="w-full bg-[#1A1F37] border border-[#29318A] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#4956D4]"
-          >
-            {hebrewMonths.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+          <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(parseInt(val))}>
+            <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+              <SelectValue placeholder="בחר חודש" />
+            </SelectTrigger>
+            <SelectContent>
+              {hebrewMonths.map((m) => (
+                <SelectItem key={m.value} value={String(m.value)}>
+                  {m.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Action Button */}
@@ -782,28 +784,12 @@ export default function AdminGoalsPage() {
       ) : (
         <>
           {/* Tabs */}
-          <div className="flex gap-2 mb-6">
-            <button
-              onClick={() => setActiveTab("kpi")}
-              className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
-                activeTab === "kpi"
-                  ? "bg-[#4956D4] text-white"
-                  : "bg-[#1A1F37] text-white/60 hover:text-white"
-              }`}
-            >
-              יעדי KPI
-            </button>
-            <button
-              onClick={() => setActiveTab("suppliers")}
-              className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
-                activeTab === "suppliers"
-                  ? "bg-[#4956D4] text-white"
-                  : "bg-[#1A1F37] text-white/60 hover:text-white"
-              }`}
-            >
-              תקציב הוצאות שוטפות
-            </button>
-          </div>
+          <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "kpi" | "suppliers")} dir="rtl">
+            <TabsList className="w-full bg-[#1A1F37] rounded-[10px] p-[3px] h-auto mb-6">
+              <TabsTrigger value="kpi" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">יעדי KPI</TabsTrigger>
+              <TabsTrigger value="suppliers" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">תקציב הוצאות שוטפות</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           {activeTab === "kpi" ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

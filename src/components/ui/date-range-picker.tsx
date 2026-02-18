@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export interface DateRange {
   start: Date;
@@ -236,38 +237,38 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
             {/* Month/Year Selection in one row */}
             <div className="flex items-center justify-center gap-[4px]">
               {/* Month */}
-              <div className="relative">
-                <select
-                  title="בחירת חודש"
-                  value={selectedMonth}
-                  onChange={(e) => handleMonthSelect(e.target.value)}
-                  className="bg-transparent text-[12px] text-white text-center py-[3px] border-none outline-none cursor-pointer appearance-none pr-[2px]"
-                >
-                  <option value="" disabled className="bg-[#0F1535]">חודש</option>
+              <Select
+                value={selectedMonth || "__none__"}
+                onValueChange={(val) => handleMonthSelect(val === "__none__" ? "" : val)}
+              >
+                <SelectTrigger className="bg-transparent text-[12px] text-white text-center py-[3px] border-none h-auto min-h-0 px-[2px] w-auto gap-1">
+                  <SelectValue placeholder="חודש" />
+                </SelectTrigger>
+                <SelectContent>
                   {hebrewMonths.map((month) => (
-                    <option key={month.value} value={month.value} className="bg-[#0F1535] text-white">
+                    <SelectItem key={month.value} value={month.value}>
                       {month.label}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
-              </div>
+                </SelectContent>
+              </Select>
               <span className="text-white/50 text-[10px]">/</span>
               {/* Year */}
-              <div className="relative">
-                <select
-                  title="בחירת שנה"
-                  value={selectedYear}
-                  onChange={(e) => handleYearSelect(e.target.value)}
-                  className="bg-transparent text-[12px] text-white text-center py-[3px] border-none outline-none cursor-pointer appearance-none pl-[2px]"
-                >
-                  <option value="" disabled className="bg-[#0F1535]">שנה</option>
+              <Select
+                value={selectedYear || "__none__"}
+                onValueChange={(val) => handleYearSelect(val === "__none__" ? "" : val)}
+              >
+                <SelectTrigger className="bg-transparent text-[12px] text-white text-center py-[3px] border-none h-auto min-h-0 px-[2px] w-auto gap-1">
+                  <SelectValue placeholder="שנה" />
+                </SelectTrigger>
+                <SelectContent>
                   {years.map((year) => (
-                    <option key={year} value={year} className="bg-[#0F1535] text-white">
+                    <SelectItem key={year} value={String(year)}>
                       {year}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
-              </div>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Divider */}

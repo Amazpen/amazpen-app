@@ -11,6 +11,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { generateUUID } from "@/lib/utils";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 // Business from businesses table
 interface Business {
@@ -868,7 +870,7 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">הערות</label>
               <div className="border border-[#4C526B] rounded-[10px] min-h-[80px] px-[10px] py-[8px]">
-                <textarea
+                <Textarea
                   title="הערות"
                   value={fNotes}
                   onChange={(e) => setFNotes(e.target.value)}
@@ -1258,28 +1260,26 @@ export default function CustomersPage() {
                       </div>
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">אמצעי תשלום</label>
-                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
-                          <select
-                            title="אמצעי תשלום"
-                            value={newPaymentMethod}
-                            onChange={(e) => setNewPaymentMethod(e.target.value)}
-                            className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px] appearance-none"
-                          >
-                            <option value="" className="bg-[#0F1535]">בחר</option>
-                            <option value="bank_transfer" className="bg-[#0F1535]">העברה בנקאית</option>
-                            <option value="credit" className="bg-[#0F1535]">אשראי</option>
-                            <option value="cash" className="bg-[#0F1535]">מזומן</option>
-                            <option value="bit" className="bg-[#0F1535]">ביט</option>
-                            <option value="paybox" className="bg-[#0F1535]">פייבוקס</option>
-                            <option value="check" className="bg-[#0F1535]">צ׳ק</option>
-                            <option value="other" className="bg-[#0F1535]">אחר</option>
-                          </select>
-                        </div>
+                        <Select value={newPaymentMethod || "__none__"} onValueChange={(val) => setNewPaymentMethod(val === "__none__" ? "" : val)}>
+                          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[7px] h-[40px] px-[8px] text-[13px] text-white text-center">
+                            <SelectValue placeholder="בחר" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">בחר</SelectItem>
+                            <SelectItem value="bank_transfer">העברה בנקאית</SelectItem>
+                            <SelectItem value="credit">אשראי</SelectItem>
+                            <SelectItem value="cash">מזומן</SelectItem>
+                            <SelectItem value="bit">ביט</SelectItem>
+                            <SelectItem value="paybox">פייבוקס</SelectItem>
+                            <SelectItem value="check">צ׳ק</SelectItem>
+                            <SelectItem value="other">אחר</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">הערות</label>
                         <div className="border border-[#4C526B] rounded-[7px] min-h-[40px] px-[8px] py-[6px]">
-                          <textarea
+                          <Textarea
                             title="הערות"
                             value={newPaymentNotes}
                             onChange={(e) => setNewPaymentNotes(e.target.value)}

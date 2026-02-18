@@ -8,6 +8,7 @@ import { uploadFile } from "@/lib/uploadFile";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { generateUUID } from "@/lib/utils";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Role labels in Hebrew
 const _roleLabels: Record<string, string> = {
@@ -509,22 +510,19 @@ export default function AdminUsersPage() {
       {/* Filter Selector */}
       <div className="mb-[20px]">
         <label className="text-[14px] font-medium text-white/70 block mb-[8px]">סינון לפי</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
-          <select
-            value={selectedBusinessId}
-            onChange={(e) => setSelectedBusinessId(e.target.value)}
-            title="בחר סינון"
-            aria-label="בחר סינון"
-            className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none select-dark"
-          >
-            <option value="all" className="bg-[#0F1535] text-white">כל המשתמשים במערכת</option>
+        <Select value={selectedBusinessId} onValueChange={(val) => setSelectedBusinessId(val)}>
+          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+            <SelectValue placeholder="בחר סינון" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">כל המשתמשים במערכת</SelectItem>
             {businesses.map((business) => (
-              <option key={business.id} value={business.id} className="bg-[#0F1535] text-white">
+              <SelectItem key={business.id} value={business.id}>
                 {business.name}
-              </option>
+              </SelectItem>
             ))}
-          </select>
-        </div>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Add User Button */}
@@ -684,17 +682,16 @@ export default function AdminUsersPage() {
 
                 {/* Role Badge & Actions */}
                 <div className="flex flex-col items-end gap-[8px]">
-                  <select
-                    value={member.role}
-                    onChange={(e) => handleUpdateRole(member.id, e.target.value)}
-                    title="שנה תפקיד"
-                    aria-label="שנה תפקיד משתמש"
-                    className={`text-[12px] font-bold px-[10px] py-[4px] rounded-full border-none outline-none bg-transparent ${roleColors[member.role] || roleColors.employee}`}
-                  >
-                    <option value="owner" className="bg-[#0F1535] text-white">בעלים</option>
-                    <option value="manager" className="bg-[#0F1535] text-white">מנהל</option>
-                    <option value="employee" className="bg-[#0F1535] text-white">עובד</option>
-                  </select>
+                  <Select value={member.role} onValueChange={(val) => handleUpdateRole(member.id, val)}>
+                    <SelectTrigger className={`text-[12px] font-bold px-[10px] py-[4px] h-auto rounded-full border-none bg-transparent ${roleColors[member.role] || roleColors.employee}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="owner">בעלים</SelectItem>
+                      <SelectItem value="manager">מנהל</SelectItem>
+                      <SelectItem value="employee">עובד</SelectItem>
+                    </SelectContent>
+                  </Select>
 
                   <button
                     type="button"
@@ -892,41 +889,35 @@ export default function AdminUsersPage() {
               {/* Business Assignment (Optional) */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white text-right">שיוך לעסק (אופציונלי)</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
-                  <select
-                    value={newUserBusinessId}
-                    onChange={(e) => setNewUserBusinessId(e.target.value)}
-                    title="בחר עסק"
-                    aria-label="בחר עסק לשיוך"
-                    className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none select-dark"
-                  >
-                    <option value="" className="bg-[#0F1535] text-white">ללא שיוך לעסק</option>
+                <Select value={newUserBusinessId || "__none__"} onValueChange={(val) => setNewUserBusinessId(val === "__none__" ? "" : val)}>
+                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                    <SelectValue placeholder="בחר עסק לשיוך" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">ללא שיוך לעסק</SelectItem>
                     {businesses.map((business) => (
-                      <option key={business.id} value={business.id} className="bg-[#0F1535] text-white">
+                      <SelectItem key={business.id} value={business.id}>
                         {business.name}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
-                </div>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Role (only if business selected) */}
               {newUserBusinessId && (
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[14px] font-medium text-white text-right">תפקיד בעסק</label>
-                  <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
-                    <select
-                      value={newUserRole}
-                      onChange={(e) => setNewUserRole(e.target.value as "owner" | "manager" | "employee")}
-                      title="בחר תפקיד"
-                      aria-label="בחר תפקיד למשתמש"
-                      className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none select-dark"
-                    >
-                      <option value="owner" className="bg-[#0F1535] text-white">בעלים</option>
-                      <option value="manager" className="bg-[#0F1535] text-white">מנהל</option>
-                      <option value="employee" className="bg-[#0F1535] text-white">עובד</option>
-                    </select>
-                  </div>
+                  <Select value={newUserRole} onValueChange={(val) => setNewUserRole(val as "owner" | "manager" | "employee")}>
+                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                      <SelectValue placeholder="בחר תפקיד" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="owner">בעלים</SelectItem>
+                      <SelectItem value="manager">מנהל</SelectItem>
+                      <SelectItem value="employee">עובד</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 

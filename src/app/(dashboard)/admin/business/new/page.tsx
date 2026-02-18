@@ -9,6 +9,7 @@ import { uploadFile } from "@/lib/uploadFile";
 import { convertPdfToImage } from "@/lib/pdfToImage";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { generateUUID } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -924,27 +925,19 @@ export default function NewBusinessPage() {
         <label className="text-[15px] font-medium text-white text-right">
           <span className="text-[#F64E60]">*</span> סוג עסק
         </label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
-          <select
-            value={businessType}
-            onChange={(e) => {
-              setBusinessType(e.target.value);
-              if (e.target.value !== "other") {
-                setCustomBusinessType("");
-              }
-            }}
-            aria-label="בחר סוג עסק"
-            title="סוג עסק"
-            className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none select-dark"
-          >
-            <option value="" className="bg-[#0F1535] text-white/40">בחר סוג עסק</option>
+        <Select value={businessType || "__none__"} onValueChange={(val) => { const v = val === "__none__" ? "" : val; setBusinessType(v); if (v !== "other") { setCustomBusinessType(""); } }}>
+          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+            <SelectValue placeholder="בחר סוג עסק" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">בחר סוג עסק</SelectItem>
             {businessTypes.map((type) => (
-              <option key={type.id} value={type.id} className="bg-[#0F1535] text-white">
+              <SelectItem key={type.id} value={type.id}>
                 {type.label}
-              </option>
+              </SelectItem>
             ))}
-          </select>
-        </div>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Custom Business Type - shown when "other" is selected */}

@@ -16,6 +16,8 @@ import { usePersistedState } from "@/hooks/usePersistedState";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 // Supplier from database
 interface Supplier {
@@ -3545,52 +3547,48 @@ function PaymentsPageInner() {
                     )}
 
                     {/* Payment Method Select */}
-                    <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                      <select
-                        title="בחירת אמצעי תשלום"
-                        value={pm.method}
-                        onChange={(e) => updatePaymentMethodField(pm.id, "method", e.target.value)}
-                        className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
-                      >
-                        <option value="" disabled>בחר אמצעי תשלום...</option>
+                    <Select value={pm.method || "__none__"} onValueChange={(val) => updatePaymentMethodField(pm.id, "method", val === "__none__" ? "" : val)}>
+                      <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                        <SelectValue placeholder="בחר אמצעי תשלום..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__" disabled>בחר אמצעי תשלום...</SelectItem>
                         {paymentMethodOptions.map((method) => (
-                          <option key={method.value} value={method.value}>{method.label}</option>
+                          <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
                         ))}
-                      </select>
-                    </div>
+                      </SelectContent>
+                    </Select>
 
                     {/* Credit Card Selection - only show when method is credit_card */}
                     {pm.method === "credit_card" && businessCreditCards.length > 0 && (
-                      <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                        <select
-                          title="בחירת כרטיס אשראי"
-                          value={pm.creditCardId}
-                          onChange={(e) => {
-                            const cardId = e.target.value;
-                            setPaymentMethods(prev => prev.map(p => {
-                              if (p.id !== pm.id) return p;
-                              const updated = { ...p, creditCardId: cardId };
-                              const card = businessCreditCards.find(c => c.id === cardId);
-                              if (card && paymentDate) {
-                                const numInstallments = parseInt(p.installments) || 1;
-                                const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
-                                if (numInstallments >= 1 && totalAmount > 0) {
-                                  updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, paymentDate, card.billing_day);
-                                }
-                              }
-                              return updated;
-                            }));
-                          }}
-                          className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
-                        >
-                          <option value="">בחר כרטיס...</option>
+                      <Select value={pm.creditCardId || "__none__"} onValueChange={(cardId) => {
+                        const val = cardId === "__none__" ? "" : cardId;
+                        setPaymentMethods(prev => prev.map(p => {
+                          if (p.id !== pm.id) return p;
+                          const updated = { ...p, creditCardId: val };
+                          const card = businessCreditCards.find(c => c.id === val);
+                          if (card && paymentDate) {
+                            const numInstallments = parseInt(p.installments) || 1;
+                            const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+                            if (numInstallments >= 1 && totalAmount > 0) {
+                              updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, paymentDate, card.billing_day);
+                            }
+                          }
+                          return updated;
+                        }));
+                      }}>
+                        <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                          <SelectValue placeholder="בחר כרטיס..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">בחר כרטיס...</SelectItem>
                           {businessCreditCards.map(card => (
-                            <option key={card.id} value={card.id}>
+                            <SelectItem key={card.id} value={card.id}>
                               {card.card_name} (יורד ב-{card.billing_day} לחודש)
-                            </option>
+                            </SelectItem>
                           ))}
-                        </select>
-                      </div>
+                        </SelectContent>
+                      </Select>
                     )}
 
                     {/* Payment Amount */}
@@ -3837,7 +3835,7 @@ function PaymentsPageInner() {
                   <span className="text-[16px] font-medium text-white">הערות</span>
                 </div>
                 <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
-                  <textarea
+                  <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="הערות..."

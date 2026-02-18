@@ -13,6 +13,9 @@ import { usePersistedState } from "@/hooks/usePersistedState";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { generateUUID } from "@/lib/utils";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 // Category type from database
 interface ExpenseCategory {
@@ -1171,52 +1174,14 @@ export default function SuppliersPage() {
       {/* Main Content Container */}
       <div className="flex-1 flex flex-col bg-[#0F1535] rounded-[10px] p-[5px_7px]">
         {/* Tabs */}
-        <div id="onboarding-suppliers-tabs" className="flex w-full h-[45px] mb-[10px] border border-[#6B6B6B] rounded-[7px] overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setActiveTab("purchases")}
-            className={`flex-1 flex items-center justify-center transition-colors duration-200 p-[3px] ${
-              activeTab === "purchases"
-                ? "bg-[#29318A] text-white"
-                : "text-[#979797]"
-            }`}
-          >
-            <span className="text-[13px] font-bold">קניות סחורה</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("current")}
-            className={`flex-1 flex items-center justify-center transition-colors duration-200 p-[3px] ${
-              activeTab === "current"
-                ? "bg-[#29318A] text-white"
-                : "text-[#979797]"
-            }`}
-          >
-            <span className="text-[13px] font-bold">הוצאות שוטפות</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("employees")}
-            className={`flex-1 flex items-center justify-center transition-colors duration-200 p-[3px] ${
-              activeTab === "employees"
-                ? "bg-[#29318A] text-white"
-                : "text-[#979797]"
-            }`}
-          >
-            <span className="text-[13px] font-bold">עלות עובדים</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("previous")}
-            className={`flex-1 flex items-center justify-center transition-colors duration-200 p-[3px] ${
-              activeTab === "previous"
-                ? "bg-[#29318A] text-white"
-                : "text-[#979797]"
-            }`}
-          >
-            <span className="text-[13px] font-bold">התחייבויות קודמות</span>
-          </button>
-        </div>
+        <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as TabType)} dir="rtl">
+          <TabsList id="onboarding-suppliers-tabs" className="w-full bg-[#1A1F37] rounded-[10px] p-[3px] h-auto mb-[10px]">
+            <TabsTrigger value="purchases" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">קניות סחורה</TabsTrigger>
+            <TabsTrigger value="current" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">הוצאות שוטפות</TabsTrigger>
+            <TabsTrigger value="employees" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">עלות עובדים</TabsTrigger>
+            <TabsTrigger value="previous" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">התחייבויות קודמות</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {/* Suppliers Count and Search - לחיצה על חיפוש מחליפה את כמות הספקים בשדה חיפוש */}
         <div className="flex items-center gap-[10px] mb-[10px]">
@@ -1471,7 +1436,7 @@ export default function SuppliersPage() {
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white/80 text-right">תנאים</label>
                     <div className="border border-[#4C526B] rounded-[10px] min-h-[60px] px-[10px] py-[8px]">
-                      <textarea
+                      <Textarea
                         title="תנאים"
                         value={obligationTerms}
                         onChange={(e) => setObligationTerms(e.target.value)}
@@ -1644,21 +1609,19 @@ export default function SuppliersPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
-                    <select
-                      title="בחר קטגוריית אב"
-                      value={parentCategory}
-                      onChange={(e) => setParentCategory(e.target.value)}
-                      className={`w-full h-full bg-transparent ${parentCategory ? "text-white" : "text-white/40"} text-[14px] text-center rounded-[10px] border-none outline-none`}
-                    >
-                      <option value="" className="bg-[#0F1535] text-white/40">בחר קטגוריית אב</option>
+                  <Select value={parentCategory || "__none__"} onValueChange={(val) => setParentCategory(val === "__none__" ? "" : val)}>
+                    <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                      <SelectValue placeholder="בחר קטגוריית אב" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">בחר קטגוריית אב</SelectItem>
                       {parentCategories.map((cat) => (
-                        <option key={cat.id} value={cat.id} className="bg-[#0F1535] text-white">
+                        <SelectItem key={cat.id} value={cat.id}>
                           {cat.name}
-                        </option>
+                        </SelectItem>
                       ))}
-                    </select>
-                  </div>
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
 
@@ -1697,21 +1660,19 @@ export default function SuppliersPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
-                    <select
-                      title="בחר קטגוריה"
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className={`w-full h-full bg-transparent ${category ? "text-white" : "text-white/40"} text-[14px] text-center rounded-[10px] border-none outline-none`}
-                    >
-                      <option value="" className="bg-[#0F1535] text-white/40">בחר קטגוריה</option>
+                  <Select value={category || "__none__"} onValueChange={(val) => setCategory(val === "__none__" ? "" : val)}>
+                    <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                      <SelectValue placeholder="בחר קטגוריה" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">בחר קטגוריה</SelectItem>
                       {categories.map((cat) => (
-                        <option key={cat.id} value={cat.id} className="bg-[#0F1535] text-white">
+                        <SelectItem key={cat.id} value={cat.id}>
                           {cat.name}
-                        </option>
+                        </SelectItem>
                       ))}
-                    </select>
-                  </div>
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
 
@@ -1822,43 +1783,39 @@ export default function SuppliersPage() {
               {/* Primary Payment Method */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">אמצעי תשלום ראשי</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
-                  <select
-                    title="אמצעי תשלום ראשי"
-                    value={primaryPaymentMethod}
-                    onChange={(e) => { setPrimaryPaymentMethod(e.target.value); if (e.target.value !== "credit") setSelectedCreditCardId(""); }}
-                    className="w-full h-full bg-transparent text-white/40 text-[14px] text-center rounded-[10px] border-none outline-none"
-                  >
-                    <option value="" className="bg-[#0F1535] text-white/40"></option>
-                    <option value="credit" className="bg-[#0F1535] text-white">כרטיס אשראי</option>
-                    <option value="bank_transfer" className="bg-[#0F1535] text-white">העברה בנקאית</option>
-                    <option value="check" className="bg-[#0F1535] text-white">צ&apos;ק</option>
-                    <option value="cash" className="bg-[#0F1535] text-white">מזומן</option>
-                    <option value="bit" className="bg-[#0F1535] text-white">ביט</option>
-                    <option value="paybox" className="bg-[#0F1535] text-white">פייבוקס</option>
-                  </select>
-                </div>
+                <Select value={primaryPaymentMethod || "__none__"} onValueChange={(val) => { const v = val === "__none__" ? "" : val; setPrimaryPaymentMethod(v); if (v !== "credit") setSelectedCreditCardId(""); }}>
+                  <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                    <SelectValue placeholder="אמצעי תשלום ראשי" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__"></SelectItem>
+                    <SelectItem value="credit">כרטיס אשראי</SelectItem>
+                    <SelectItem value="bank_transfer">העברה בנקאית</SelectItem>
+                    <SelectItem value="check">צ&apos;ק</SelectItem>
+                    <SelectItem value="cash">מזומן</SelectItem>
+                    <SelectItem value="bit">ביט</SelectItem>
+                    <SelectItem value="paybox">פייבוקס</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Credit Card Selection - shown when payment method is credit */}
               {primaryPaymentMethod === "credit" && businessCreditCards.length > 0 && (
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[15px] font-medium text-white text-right">בחירת כרטיס אשראי</label>
-                  <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
-                    <select
-                      title="בחירת כרטיס אשראי"
-                      value={selectedCreditCardId}
-                      onChange={(e) => setSelectedCreditCardId(e.target.value)}
-                      className="w-full h-full bg-transparent text-white/40 text-[14px] text-center rounded-[10px] border-none outline-none"
-                    >
-                      <option value="" className="bg-[#0F1535] text-white/40">בחר כרטיס</option>
+                  <Select value={selectedCreditCardId || "__none__"} onValueChange={(val) => setSelectedCreditCardId(val === "__none__" ? "" : val)}>
+                    <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                      <SelectValue placeholder="בחר כרטיס" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">בחר כרטיס</SelectItem>
                       {businessCreditCards.map((card) => (
-                        <option key={card.id} value={card.id} className="bg-[#0F1535] text-white">
+                        <SelectItem key={card.id} value={card.id}>
                           {card.card_name}{card.last_four_digits ? ` (${card.last_four_digits})` : ""}
-                        </option>
+                        </SelectItem>
                       ))}
-                    </select>
-                  </div>
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
@@ -1866,7 +1823,7 @@ export default function SuppliersPage() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">הערה קבועה לספק</label>
                 <div className="border border-[#4C526B] rounded-[10px] min-h-[80px] px-[10px] py-[10px]">
-                  <textarea
+                  <Textarea
                     title="הערה קבועה לספק"
                     value={fixedNote}
                     onChange={(e) => setFixedNote(e.target.value)}
@@ -2252,7 +2209,7 @@ export default function SuppliersPage() {
                               {invoice.notes && invoice.notes.trim() !== "" && (
                                 <div className="border border-white/50 rounded-[7px] p-[3px] flex flex-col gap-[3px]">
                                   <span className="text-[14px] text-[#979797] text-right">הערות</span>
-                                  <textarea
+                                  <Textarea
                                     title="הערות לחשבונית"
                                     disabled
                                     rows={2}

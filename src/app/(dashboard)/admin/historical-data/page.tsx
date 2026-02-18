@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Business {
   id: string;
@@ -521,19 +522,17 @@ export default function AdminHistoricalDataPage() {
               <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
             </div>
           ) : (
-            <select
-              value={selectedBusinessId}
-              onChange={(e) => {
-                setSelectedBusinessId(e.target.value);
-                handleClearCsv();
-              }}
-              className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] px-[12px] py-[10px] text-[14px] text-white outline-none focus:border-[#4956D4] transition-colors"
-            >
-              <option value="">-- בחר עסק --</option>
-              {businesses.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
+            <Select value={selectedBusinessId || "__none__"} onValueChange={(val) => { setSelectedBusinessId(val === "__none__" ? "" : val); handleClearCsv(); }}>
+              <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                <SelectValue placeholder="-- בחר עסק --" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">-- בחר עסק --</SelectItem>
+                {businesses.map(b => (
+                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
 

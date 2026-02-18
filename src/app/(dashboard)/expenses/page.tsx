@@ -17,6 +17,9 @@ import { convertPdfToImage } from "@/lib/pdfToImage";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 // Supplier from database
 interface Supplier {
@@ -2088,41 +2091,13 @@ function ExpensesPageInner() {
   return (
     <div className="text-white p-[10px] pb-[80px] w-full">
       {/* Tabs */}
-      <div className="flex w-full h-[50px] mb-[34px] border border-[#6B6B6B] rounded-[7px] overflow-hidden">
-        <button
-          type="button"
-          onClick={() => { setActiveTab("purchases"); setFilterBy(""); setFilterValue(""); }}
-          className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
-            activeTab === "purchases"
-              ? "bg-[#29318A] text-white"
-              : "text-[#979797]"
-          }`}
-        >
-          <span className="text-[17px] font-semibold">קניות סחורה</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => { setActiveTab("expenses"); setFilterBy(""); setFilterValue(""); }}
-          className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
-            activeTab === "expenses"
-              ? "bg-[#29318A] text-white"
-              : "text-[#979797]"
-          }`}
-        >
-          <span className="text-[17px] font-semibold">הוצאות שוטפות</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => { setActiveTab("employees"); setFilterBy(""); setFilterValue(""); }}
-          className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
-            activeTab === "employees"
-              ? "bg-[#29318A] text-white"
-              : "text-[#979797]"
-          }`}
-        >
-          <span className="text-[17px] font-semibold">עלות עובדים</span>
-        </button>
-      </div>
+      <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val as "expenses" | "purchases" | "employees"); setFilterBy(""); setFilterValue(""); }} dir="rtl">
+        <TabsList className="w-full bg-[#1A1F37] rounded-[10px] p-[3px] h-auto mb-[34px]">
+          <TabsTrigger value="purchases" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">קניות סחורה</TabsTrigger>
+          <TabsTrigger value="expenses" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">הוצאות שוטפות</TabsTrigger>
+          <TabsTrigger value="employees" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">עלות עובדים</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* Date Range and Add Button */}
       <div className="flex items-center justify-between mb-[10px]">
@@ -2637,7 +2612,7 @@ function ExpensesPageInner() {
                     {invoice.notes && invoice.notes.trim() !== "" && (
                       <div className="border border-white/50 rounded-[7px] p-[3px] flex flex-col gap-[3px]">
                         <span className="text-[14px] text-[#979797] text-right">הערות</span>
-                        <textarea
+                        <Textarea
                           title="הערות להוצאה"
                           disabled
                           rows={2}
@@ -3210,7 +3185,7 @@ function ExpensesPageInner() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">הערות למסמך</label>
                 <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
-                  <textarea
+                  <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="הערות למסמך..."
@@ -3324,19 +3299,17 @@ function ExpensesPageInner() {
                               </div>
                             )}
 
-                            <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                              <select
-                                title="בחירת אמצעי תשלום"
-                                value={pm.method}
-                                onChange={(e) => updatePopupPaymentMethodField(pm.id, "method", e.target.value)}
-                                className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
-                              >
-                                <option value="" disabled>בחר אמצעי תשלום...</option>
+                            <Select value={pm.method || "__none__"} onValueChange={(val) => updatePopupPaymentMethodField(pm.id, "method", val === "__none__" ? "" : val)}>
+                              <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                                <SelectValue placeholder="בחר אמצעי תשלום..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__" disabled>בחר אמצעי תשלום...</SelectItem>
                                 {paymentMethodOptions.map((method) => (
-                                  <option key={method.value} value={method.value}>{method.label}</option>
+                                  <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
                                 ))}
-                              </select>
-                            </div>
+                              </SelectContent>
+                            </Select>
 
                             {/* Check Number - only show when method is check */}
                             {pm.method === "check" && (
@@ -3355,37 +3328,35 @@ function ExpensesPageInner() {
 
                             {/* Credit Card Selection - only show when method is credit_card */}
                             {pm.method === "credit_card" && businessCreditCards.length > 0 && (
-                              <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                                <select
-                                  title="בחירת כרטיס אשראי"
-                                  value={pm.creditCardId}
-                                  onChange={(e) => {
-                                    const cardId = e.target.value;
-                                    setPopupPaymentMethods(prev => prev.map(p => {
-                                      if (p.id !== pm.id) return p;
-                                      const updated = { ...p, creditCardId: cardId };
-                                      const card = businessCreditCards.find(c => c.id === cardId);
-                                      const effectiveDate = paymentDate || expenseDate;
-                                      if (card && effectiveDate) {
-                                        const numInstallments = parseInt(p.installments) || 1;
-                                        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
-                                        if (numInstallments > 1 && totalAmount > 0) {
-                                          updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, effectiveDate, card.billing_day);
-                                        }
-                                      }
-                                      return updated;
-                                    }));
-                                  }}
-                                  className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
-                                >
-                                  <option value="">בחר כרטיס...</option>
+                              <Select value={pm.creditCardId || "__none__"} onValueChange={(cardId) => {
+                                const val = cardId === "__none__" ? "" : cardId;
+                                setPopupPaymentMethods(prev => prev.map(p => {
+                                  if (p.id !== pm.id) return p;
+                                  const updated = { ...p, creditCardId: val };
+                                  const card = businessCreditCards.find(c => c.id === val);
+                                  const effectiveDate = paymentDate || expenseDate;
+                                  if (card && effectiveDate) {
+                                    const numInstallments = parseInt(p.installments) || 1;
+                                    const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+                                    if (numInstallments > 1 && totalAmount > 0) {
+                                      updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, effectiveDate, card.billing_day);
+                                    }
+                                  }
+                                  return updated;
+                                }));
+                              }}>
+                                <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                                  <SelectValue placeholder="בחר כרטיס..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__none__">בחר כרטיס...</SelectItem>
                                   {businessCreditCards.map(card => (
-                                    <option key={card.id} value={card.id}>
+                                    <SelectItem key={card.id} value={card.id}>
                                       {card.card_name} (יורד ב-{card.billing_day} לחודש)
-                                    </option>
+                                    </SelectItem>
                                   ))}
-                                </select>
-                              </div>
+                                </SelectContent>
+                              </Select>
                             )}
 
                             <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
@@ -3567,7 +3538,7 @@ function ExpensesPageInner() {
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[15px] font-medium text-white text-right">הערות</label>
                         <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
-                          <textarea
+                          <Textarea
                             value={paymentNotes}
                             onChange={(e) => setPaymentNotes(e.target.value)}
                             placeholder="הערות..."
@@ -3631,7 +3602,7 @@ function ExpensesPageInner() {
                     {/* Clarification Reason Textarea - shown after selection */}
                     {needsClarification && !showClarificationMenu && (
                       <div className="border border-[#4C526B] rounded-[10px] min-h-[75px]">
-                        <textarea
+                        <Textarea
                           title="סיבת בירור"
                           value={clarificationReason}
                           onChange={(e) => setClarificationReason(e.target.value)}
@@ -3807,7 +3778,7 @@ function ExpensesPageInner() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">הערות למסמך</label>
                 <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
-                  <textarea
+                  <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="הערות למסמך..."
@@ -3821,7 +3792,7 @@ function ExpensesPageInner() {
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[15px] font-medium text-[#FFA500] text-right">סיבת בירור</label>
                   <div className="border border-[#FFA500]/50 rounded-[10px] min-h-[80px]">
-                    <textarea
+                    <Textarea
                       value={clarificationReason}
                       onChange={(e) => setClarificationReason(e.target.value)}
                       placeholder="סיבת הבירור..."
@@ -4016,19 +3987,17 @@ function ExpensesPageInner() {
                     )}
 
                     {/* Payment Method Select */}
-                    <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                      <select
-                        title="בחירת אמצעי תשלום"
-                        value={pm.method}
-                        onChange={(e) => updatePopupPaymentMethodField(pm.id, "method", e.target.value)}
-                        className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
-                      >
-                        <option value="" disabled>בחר אמצעי תשלום...</option>
+                    <Select value={pm.method || "__none__"} onValueChange={(val) => updatePopupPaymentMethodField(pm.id, "method", val === "__none__" ? "" : val)}>
+                      <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                        <SelectValue placeholder="בחר אמצעי תשלום..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__" disabled>בחר אמצעי תשלום...</SelectItem>
                         {paymentMethodOptions.map((method) => (
-                          <option key={method.value} value={method.value}>{method.label}</option>
+                          <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
                         ))}
-                      </select>
-                    </div>
+                      </SelectContent>
+                    </Select>
 
                     {/* Check Number - only show when method is check */}
                     {pm.method === "check" && (
@@ -4047,36 +4016,34 @@ function ExpensesPageInner() {
 
                     {/* Credit Card Selection - only show when method is credit_card */}
                     {pm.method === "credit_card" && businessCreditCards.length > 0 && (
-                      <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                        <select
-                          title="בחירת כרטיס אשראי"
-                          value={pm.creditCardId}
-                          onChange={(e) => {
-                            const cardId = e.target.value;
-                            setPopupPaymentMethods(prev => prev.map(p => {
-                              if (p.id !== pm.id) return p;
-                              const updated = { ...p, creditCardId: cardId };
-                              const card = businessCreditCards.find(c => c.id === cardId);
-                              if (card && paymentDate) {
-                                const numInstallments = parseInt(p.installments) || 1;
-                                const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
-                                if (numInstallments > 1 && totalAmount > 0) {
-                                  updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, paymentDate, card.billing_day);
-                                }
-                              }
-                              return updated;
-                            }));
-                          }}
-                          className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center focus:outline-none rounded-[10px] cursor-pointer select-dark"
-                        >
-                          <option value="">בחר כרטיס...</option>
+                      <Select value={pm.creditCardId || "__none__"} onValueChange={(cardId) => {
+                        const val = cardId === "__none__" ? "" : cardId;
+                        setPopupPaymentMethods(prev => prev.map(p => {
+                          if (p.id !== pm.id) return p;
+                          const updated = { ...p, creditCardId: val };
+                          const card = businessCreditCards.find(c => c.id === val);
+                          if (card && paymentDate) {
+                            const numInstallments = parseInt(p.installments) || 1;
+                            const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+                            if (numInstallments > 1 && totalAmount > 0) {
+                              updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, paymentDate, card.billing_day);
+                            }
+                          }
+                          return updated;
+                        }));
+                      }}>
+                        <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                          <SelectValue placeholder="בחר כרטיס..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">בחר כרטיס...</SelectItem>
                           {businessCreditCards.map(card => (
-                            <option key={card.id} value={card.id}>
+                            <SelectItem key={card.id} value={card.id}>
                               {card.card_name} (יורד ב-{card.billing_day} לחודש)
-                            </option>
+                            </SelectItem>
                           ))}
-                        </select>
-                      </div>
+                        </SelectContent>
+                      </Select>
                     )}
 
                     {/* Payment Amount */}
@@ -4261,7 +4228,7 @@ function ExpensesPageInner() {
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">הערות לתשלום</label>
                 <div className="border border-[#4C526B] rounded-[10px] min-h-[75px]">
-                  <textarea
+                  <Textarea
                     title="הערות לתשלום"
                     value={paymentNotes}
                     onChange={(e) => setPaymentNotes(e.target.value)}
@@ -4511,7 +4478,7 @@ function ExpensesPageInner() {
                       שנה בחירה
                     </button>
                   </div>
-                  <textarea
+                  <Textarea
                     title="סיבת בירור"
                     value={statusClarificationReason}
                     onChange={(e) => setStatusClarificationReason(e.target.value)}
