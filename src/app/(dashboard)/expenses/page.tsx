@@ -2519,8 +2519,8 @@ function ExpensesPageInner() {
               <div
                 key={invoice.id}
                 data-invoice-id={invoice.id}
-                className={`bg-transparent rounded-[7px] p-[7px_3px] border transition-colors ${
-                  expandedInvoiceId === invoice.id ? 'border-white' : invoice.status === 'בבירור' ? 'border-[#FFA500]' : 'border-transparent'
+                className={`rounded-[7px] p-[7px_3px] border transition-colors ${
+                  expandedInvoiceId === invoice.id ? 'bg-white/5 border-white' : invoice.status === 'בבירור' ? 'border-[#FFA500]' : 'border-transparent'
                 }`}
               >
                 {/* Main Row */}
