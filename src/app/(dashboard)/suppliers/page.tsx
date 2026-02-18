@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { generateUUID } from "@/lib/utils";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Category type from database
 interface ExpenseCategory {
@@ -75,6 +76,7 @@ export default function SuppliersPage() {
   const { selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
   const router = useRouter();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   // Draft persistence for add/edit supplier form
   const supplierDraftKey = `supplierForm:draft:${selectedBusinesses[0] || "none"}`;
@@ -497,25 +499,25 @@ export default function SuppliersPage() {
       return;
     }
 
-    if (!confirm("האם למחוק את הספק?")) return;
+    confirm("האם למחוק את הספק?", async () => {
+      const supabase = createClient();
+      try {
+        const { error } = await supabase
+          .from("suppliers")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("id", selectedSupplier.id);
 
-    const supabase = createClient();
-    try {
-      const { error } = await supabase
-        .from("suppliers")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", selectedSupplier.id);
+        if (error) throw error;
 
-      if (error) throw error;
-
-      showToast("הספק נמחק בהצלחה", "success");
-      setShowSupplierDetailPopup(false);
-      setSelectedSupplier(null);
-      setRefreshTrigger(prev => prev + 1);
-    } catch (error) {
-      console.error("Error deleting supplier:", error);
-      showToast("שגיאה במחיקת הספק", "error");
-    }
+        showToast("הספק נמחק בהצלחה", "success");
+        setShowSupplierDetailPopup(false);
+        setSelectedSupplier(null);
+        setRefreshTrigger(prev => prev + 1);
+      } catch (error) {
+        console.error("Error deleting supplier:", error);
+        showToast("שגיאה במחיקת הספק", "error");
+      }
+    });
   };
 
   // Handle update supplier
@@ -1133,6 +1135,7 @@ export default function SuppliersPage() {
 
   return (
     <div dir="rtl" className="flex flex-col min-h-[calc(100vh-52px)] text-white px-[5px] py-[5px] pb-[80px] gap-[10px]">
+      <ConfirmDialog />
       {/* Header Section with Total and Add Button */}
       <div className="flex flex-col gap-[7px] p-[5px]">
         {/* Total Open Payment - פתוח לתשלום: בימין, הסכום בשמאל */}
@@ -2619,18 +2622,19 @@ export default function SuppliersPage() {
                   <button
                     type="button"
                     title="מחיקה"
-                    onClick={async () => {
-                      if (!confirm("האם למחוק את הספק?")) return;
-                      const supabase = createClient();
-                      await supabase
-                        .from("suppliers")
-                        .update({ deleted_at: new Date().toISOString() })
-                        .eq("id", selectedSupplier.id);
-                      setShowObligationDetailPopup(false);
-                      setSelectedSupplier(null);
-                      setObligationPayments([]);
-                      showToast("הספק נמחק בהצלחה", "success");
-                      setRefreshTrigger(prev => prev + 1);
+                    onClick={() => {
+                      confirm("האם למחוק את הספק?", async () => {
+                        const supabase = createClient();
+                        await supabase
+                          .from("suppliers")
+                          .update({ deleted_at: new Date().toISOString() })
+                          .eq("id", selectedSupplier.id);
+                        setShowObligationDetailPopup(false);
+                        setSelectedSupplier(null);
+                        setObligationPayments([]);
+                        showToast("הספק נמחק בהצלחה", "success");
+                        setRefreshTrigger(prev => prev + 1);
+                      });
                     }}
                     className="w-[25px] h-[25px] flex items-center justify-center text-white cursor-pointer"
                   >

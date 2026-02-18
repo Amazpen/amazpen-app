@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { generateUUID } from "@/lib/utils";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Role labels in Hebrew
 const _roleLabels: Record<string, string> = {
@@ -58,6 +59,7 @@ interface UserMember {
 
 export default function AdminUsersPage() {
   const { showToast } = useToast();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -324,27 +326,27 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userEmail: string) => {
-    if (!confirm(`האם אתה בטוח שברצונך למחוק את ${userEmail}?`)) return;
+  const handleDeleteUser = (userId: string, userEmail: string) => {
+    confirm(`האם אתה בטוח שברצונך למחוק את ${userEmail}?`, async () => {
+      try {
+        const res = await fetch("/api/admin/delete-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId }),
+        });
 
-    try {
-      const res = await fetch("/api/admin/delete-user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-      });
+        const data = await res.json();
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        showToast(data.error || "שגיאה במחיקת המשתמש", "error");
-      } else {
-        showToast("המשתמש נמחק בהצלחה", "success");
-        fetchUsers();
+        if (!res.ok) {
+          showToast(data.error || "שגיאה במחיקת המשתמש", "error");
+        } else {
+          showToast("המשתמש נמחק בהצלחה", "success");
+          fetchUsers();
+        }
+      } catch {
+        showToast("שגיאה במחיקת המשתמש", "error");
       }
-    } catch {
-      showToast("שגיאה במחיקת המשתמש", "error");
-    }
+    });
   };
 
   const handleToggleAdmin = async (userId: string, currentIsAdmin: boolean) => {
@@ -361,20 +363,20 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleRemoveFromBusiness = async (memberId: string, userEmail: string) => {
-    if (!confirm(`האם אתה בטוח שברצונך להסיר את ${userEmail} מהעסק?`)) return;
+  const handleRemoveFromBusiness = (memberId: string, userEmail: string) => {
+    confirm(`האם אתה בטוח שברצונך להסיר את ${userEmail} מהעסק?`, async () => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("business_members")
+        .delete()
+        .eq("id", memberId);
 
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("business_members")
-      .delete()
-      .eq("id", memberId);
-
-    if (error) {
-      showToast("שגיאה בהסרת המשתמש", "error");
-    } else {
-      fetchUsers();
-    }
+      if (error) {
+        showToast("שגיאה בהסרת המשתמש", "error");
+      } else {
+        fetchUsers();
+      }
+    });
   };
 
   const handleUpdateRole = async (memberId: string, newRole: string) => {
@@ -490,6 +492,7 @@ export default function AdminUsersPage() {
 
   return (
     <div dir="rtl" className="flex flex-col min-h-[calc(100vh-52px)] text-white px-[10px] py-[10px] pb-[100px]">
+      <ConfirmDialog />
       {/* Header */}
       <div className="flex flex-col items-center gap-[10px] mb-[20px]">
         <div className="w-[60px] h-[60px] rounded-full bg-[#4A56D4] flex items-center justify-center">

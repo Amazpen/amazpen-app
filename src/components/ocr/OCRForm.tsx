@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { createClient } from '@/lib/supabase/client';
 import SupplierSearchSelect from '@/components/ui/SupplierSearchSelect';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface Supplier {
   id: string;
@@ -98,6 +99,8 @@ export default function OCRForm({
   onSkip,
   isLoading = false,
 }: OCRFormProps) {
+  const { confirm, ConfirmDialog } = useConfirmDialog();
+
   // Draft persistence
   const draftKey = `ocrForm:draft:${selectedBusinessId}:${document?.id || 'none'}`;
   const { saveDraft, restoreDraft, clearDraft } = useFormDraft(draftKey);
@@ -821,42 +824,46 @@ export default function OCRForm({
         alert('נא לבחור תאריך');
         return;
       }
-      if (dailyDateWarning) {
-        if (!confirm('כבר קיים רישום לתאריך זה. האם להמשיך?')) return;
-      }
-      const formData: OCRFormData = {
-        business_id: selectedBusinessId,
-        document_type: 'daily_entry',
-        expense_type: 'current',
-        supplier_id: '',
-        document_date: dailyEntryDate,
-        document_number: '',
-        amount_before_vat: '0',
-        vat_amount: '0',
-        total_amount: '0',
-        notes: '',
-        is_paid: false,
-        daily_entry_date: dailyEntryDate,
-        daily_total_register: dailyTotalRegister,
-        daily_day_factor: dailyDayFactor,
-        daily_labor_cost: dailyLaborCost,
-        daily_labor_hours: dailyLaborHours,
-        daily_discounts: dailyDiscounts,
-        daily_income_data: dailyIncomeData,
-        daily_receipt_data: dailyReceiptData,
-        daily_parameter_data: dailyParameterData,
-        daily_product_usage: dailyProductUsage,
-        daily_managed_products: dailyManagedProducts.map(p => ({ id: p.id, unit_cost: p.unit_cost })),
-        ...(isPearla && { daily_pearla_data: {
-          portions_count: dailyPearlaData.portions_count,
-          serving_supplement: dailyPearlaData.serving_supplement,
-          extras_income: dailyPearlaData.extras_income,
-          salaried_labor_cost: dailyPearlaData.salaried_labor_cost,
-          manpower_labor_cost: dailyPearlaData.manpower_labor_cost,
-        }}),
+      const submitDailyEntry = () => {
+        const formData: OCRFormData = {
+          business_id: selectedBusinessId,
+          document_type: 'daily_entry',
+          expense_type: 'current',
+          supplier_id: '',
+          document_date: dailyEntryDate,
+          document_number: '',
+          amount_before_vat: '0',
+          vat_amount: '0',
+          total_amount: '0',
+          notes: '',
+          is_paid: false,
+          daily_entry_date: dailyEntryDate,
+          daily_total_register: dailyTotalRegister,
+          daily_day_factor: dailyDayFactor,
+          daily_labor_cost: dailyLaborCost,
+          daily_labor_hours: dailyLaborHours,
+          daily_discounts: dailyDiscounts,
+          daily_income_data: dailyIncomeData,
+          daily_receipt_data: dailyReceiptData,
+          daily_parameter_data: dailyParameterData,
+          daily_product_usage: dailyProductUsage,
+          daily_managed_products: dailyManagedProducts.map(p => ({ id: p.id, unit_cost: p.unit_cost })),
+          ...(isPearla && { daily_pearla_data: {
+            portions_count: dailyPearlaData.portions_count,
+            serving_supplement: dailyPearlaData.serving_supplement,
+            extras_income: dailyPearlaData.extras_income,
+            salaried_labor_cost: dailyPearlaData.salaried_labor_cost,
+            manpower_labor_cost: dailyPearlaData.manpower_labor_cost,
+          }}),
+        };
+        clearDraft();
+        onApprove(formData);
       };
-      clearDraft();
-      onApprove(formData);
+      if (dailyDateWarning) {
+        confirm('כבר קיים רישום לתאריך זה. האם להמשיך?', submitDailyEntry);
+        return;
+      }
+      submitDailyEntry();
       return;
     }
 
@@ -2219,6 +2226,7 @@ export default function OCRForm({
 
   return (
     <div className="flex flex-col h-full bg-[#0F1535] rounded-[10px] overflow-hidden">
+      <ConfirmDialog />
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-[#0F1535] border-b border-[#4C526B]">
         <h2 className="text-[18px] font-bold text-white">פרטי מסמך</h2>
@@ -2306,9 +2314,9 @@ export default function OCRForm({
             <button
               type="button"
               onClick={() => {
-                if (confirm('האם אתה בטוח שברצונך למחוק את המסמך לצמיתות?')) {
+                confirm('האם אתה בטוח שברצונך למחוק את המסמך לצמיתות?', () => {
                   onDelete(document.id);
-                }
+                });
               }}
               disabled={isLoading}
               className="h-[50px] px-4 bg-transparent hover:bg-[#EB5757]/10 text-[#EB5757]/60 hover:text-[#EB5757] text-[14px] rounded-[10px] transition-colors disabled:opacity-50"

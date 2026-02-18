@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/toast";
 import { useDashboard } from "@/app/(dashboard)/layout";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface DailyEntry {
   id: string;
@@ -121,6 +122,7 @@ export function DailyEntriesModal({
 }: DailyEntriesModalProps) {
   const { showToast } = useToast();
   const { isAdmin } = useDashboard();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   // Draft persistence for edit form
   const { saveDraft, restoreDraft, clearDraft } = useFormDraft(`dailyEntriesEdit:draft:${businessId}`);
@@ -962,28 +964,30 @@ export function DailyEntriesModal({
   };
 
   // Handle delete
-  const handleDelete = async (entryId: string) => {
-    if (!confirm("האם אתה בטוח שברצונך למחוק רשומה זו?")) return;
+  const handleDelete = (entryId: string) => {
+    confirm("האם אתה בטוח שברצונך למחוק רשומה זו?", async () => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("daily_entries")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", entryId);
 
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("daily_entries")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", entryId);
-
-    if (!error) {
-      setEntries(entries.filter((e) => e.id !== entryId));
-      if (expandedEntryId === entryId) {
-        setExpandedEntryId(null);
-        setEntryDetails(null);
+      if (!error) {
+        setEntries(entries.filter((e) => e.id !== entryId));
+        if (expandedEntryId === entryId) {
+          setExpandedEntryId(null);
+          setEntryDetails(null);
+        }
+        showToast("הרשומה נמחקה בהצלחה", "success");
+      } else {
+        showToast("שגיאה במחיקת הרשומה", "error");
       }
-      showToast("הרשומה נמחקה בהצלחה", "success");
-    } else {
-      showToast("שגיאה במחיקת הרשומה", "error");
-    }
+    });
   };
 
   return (
+    <>
+    <ConfirmDialog />
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="bottom"
@@ -1888,5 +1892,6 @@ export function DailyEntriesModal({
         )}
       </SheetContent>
     </Sheet>
+    </>
   );
 }

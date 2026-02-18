@@ -10,6 +10,7 @@ import { uploadFile } from "@/lib/uploadFile";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { generateUUID } from "@/lib/utils";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Business from businesses table
 interface Business {
@@ -90,6 +91,7 @@ const paymentMethodLabels: Record<string, string> = {
 export default function CustomersPage() {
   const { isAdmin } = useDashboard();
   const { showToast } = useToast();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   // Draft persistence
   const draftKey = "customerForm:draft";
@@ -385,27 +387,27 @@ export default function CustomersPage() {
     }
   };
 
-  const handleDeleteCustomer = async () => {
+  const handleDeleteCustomer = () => {
     if (!selectedItem?.customer) return;
     if (payments.length > 0) {
       showToast("לא ניתן למחוק לקוח עם תשלומים קיימים", "error");
       return;
     }
-    if (!confirm("האם למחוק את רשומת הלקוח?")) return;
+    confirm("האם למחוק את רשומת הלקוח?", async () => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("customers")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", selectedItem!.customer!.id);
 
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("customers")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", selectedItem.customer.id);
-
-    if (error) {
-      showToast("שגיאה במחיקת לקוח", "error");
-    } else {
-      showToast("הלקוח נמחק", "success");
-      handleCloseDetail();
-      setRefreshTrigger((prev) => prev + 1);
-    }
+      if (error) {
+        showToast("שגיאה במחיקת לקוח", "error");
+      } else {
+        showToast("הלקוח נמחק", "success");
+        handleCloseDetail();
+        setRefreshTrigger((prev) => prev + 1);
+      }
+    });
   };
 
   // ─── Payment Handlers ─────────────────────────────────────
@@ -447,22 +449,22 @@ export default function CustomersPage() {
     setIsSubmitting(false);
   };
 
-  const handleDeletePayment = async (paymentId: string) => {
+  const handleDeletePayment = (paymentId: string) => {
     if (!selectedItem?.customer) return;
-    if (!confirm("האם למחוק את התשלום?")) return;
+    confirm("האם למחוק את התשלום?", async () => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("customer_payments")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", paymentId);
 
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("customer_payments")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", paymentId);
-
-    if (error) {
-      showToast("שגיאה במחיקת תשלום", "error");
-    } else {
-      showToast("התשלום נמחק", "success");
-      await fetchPayments(selectedItem.customer.id);
-    }
+      if (error) {
+        showToast("שגיאה במחיקת תשלום", "error");
+      } else {
+        showToast("התשלום נמחק", "success");
+        await fetchPayments(selectedItem!.customer!.id);
+      }
+    });
   };
 
   // ─── Draft Persistence ────────────────────────────────────
@@ -535,6 +537,7 @@ export default function CustomersPage() {
 
   return (
     <div dir="rtl" className="flex flex-col min-h-[calc(100vh-52px)] min-h-[calc(100dvh-52px)] text-white px-[5px] py-[5px] pb-[80px] gap-[10px]">
+      <ConfirmDialog />
       {/* Header */}
       <div className="flex flex-col gap-[7px] p-[5px]">
         {/* Add Standalone Customer Button */}

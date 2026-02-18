@@ -15,6 +15,7 @@ import { uploadFile } from "@/lib/uploadFile";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Supplier from database
 interface Supplier {
@@ -278,6 +279,7 @@ function PaymentsPageInner() {
   const router = useRouter();
   const { selectedBusinesses, isAdmin } = useDashboard();
   const { showToast } = useToast();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
   const searchParams = useSearchParams();
   const highlightPaymentId = searchParams.get("paymentId");
   const [savedDateRange, setSavedDateRange] = usePersistedState<{ start: string; end: string } | null>("payments:dateRange", null);
@@ -2144,6 +2146,7 @@ function PaymentsPageInner() {
 
   return (
     <div className="text-white p-[10px] pb-[80px]">
+      <ConfirmDialog />
       {/* Date Range and Add Button */}
       <div className="flex items-center justify-between mb-[10px]">
         <button
@@ -2943,9 +2946,9 @@ function PaymentsPageInner() {
                           <button
                             type="button"
                             onClick={() => {
-                              if (confirm("האם למחוק את התשלום?")) {
+                              confirm("האם למחוק את התשלום?", () => {
                                 handleDeletePayment(payment.id);
-                              }
+                              });
                             }}
                             className="w-[20px] h-[20px] text-white opacity-70 hover:text-[#F64E60] transition-opacity cursor-pointer"
                             title="מחיקה"
