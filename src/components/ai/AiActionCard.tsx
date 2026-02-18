@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { Check, X, AlertTriangle, Building2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { AiProposedAction } from "@/types/ai";
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -219,7 +220,7 @@ export function AiActionCard({ action }: AiActionCardProps) {
 
       {/* Action buttons */}
       <div className="flex gap-1.5 sm:gap-2">
-        <button
+        <Button
           type="button"
           onClick={handleConfirm}
           disabled={status === "confirming" || needsSupplierCreation}
@@ -236,8 +237,8 @@ export function AiActionCard({ action }: AiActionCardProps) {
               <span className="truncate">{needsSupplierCreation ? "יש ליצור ספק תחילה" : "אישור"}</span>
             </>
           )}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={handleReject}
           disabled={status === "confirming"}
@@ -245,7 +246,7 @@ export function AiActionCard({ action }: AiActionCardProps) {
         >
           <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>ביטול</span>
-        </button>
+        </Button>
       </div>
 
       {needsSupplierCreation && (

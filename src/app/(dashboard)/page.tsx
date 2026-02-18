@@ -13,6 +13,8 @@ import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useToast } from "@/components/ui/toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 // ============================================================================
 // LAZY LOADED CHART COMPONENTS - Recharts (~200KB) loaded only when needed
@@ -2297,7 +2299,7 @@ export default function DashboardPage() {
             {isSearchOpen ? (
               /* Search Input - Responsive */
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <button
+                <Button
                   type="button"
                   aria-label="סגור חיפוש"
                   title="סגור חיפוש"
@@ -2307,8 +2309,8 @@ export default function DashboardPage() {
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="sm:w-5 sm:h-5">
                     <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
-                </button>
-                <input
+                </Button>
+                <Input
                   type="text"
                   placeholder="חיפוש עסק, שם לקוח..."
                   value={searchQuery}
@@ -2320,7 +2322,7 @@ export default function DashboardPage() {
             ) : (
               /* Search Icon and Title */
               <>
-                <button
+                <Button
                   type="button"
                   aria-label="חיפוש"
                   title="חיפוש"
@@ -2331,7 +2333,7 @@ export default function DashboardPage() {
                     <circle cx="14" cy="14" r="8" stroke="currentColor" strokeWidth="2"/>
                     <path d="M20 20L26 26" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
-                </button>
+                </Button>
                 <h2 className="text-[18px] sm:text-lg font-semibold text-white">לקוחות</h2>
               </>
             )}
@@ -2395,7 +2397,7 @@ export default function DashboardPage() {
               })
               .slice(0, showAllBusinessCards ? businessCards.length : 12)
               .map((card) => (
-              <button
+              <Button
                 key={card.id}
                 type="button"
                 onClick={() => toggleCard(card.id)}
@@ -2466,7 +2468,7 @@ export default function DashboardPage() {
                     </div>
                   </>
                 )}
-              </button>
+              </Button>
             ))
           )}
         </div>
@@ -2474,20 +2476,20 @@ export default function DashboardPage() {
         {/* More button - only show if there are more than 6 businesses and not showing all */}
         {businessCards.length > 12 && !showAllBusinessCards && (
           <div className="w-full flex justify-center mt-6">
-            <button
+            <Button
               type="button"
               onClick={() => setShowAllBusinessCards(true)}
               className="text-white text-xl font-semibold hover:text-white/80 transition-colors"
             >
               עוד...
-            </button>
+            </Button>
           </div>
         )}
 
         {/* Inactive Businesses - Collapsed Section (Admin only) */}
         {isAdmin && inactiveBusinessCards.length > 0 && (
           <div className="mt-6">
-            <button
+            <Button
               type="button"
               onClick={() => setShowInactiveBusinesses(!showInactiveBusinesses)}
               className="flex items-center gap-[8px] text-[#F64E60]/70 hover:text-[#F64E60] transition-colors w-full"
@@ -2506,7 +2508,7 @@ export default function DashboardPage() {
                 לקוחות לא פעילים ({inactiveBusinessCards.length})
               </span>
               <div className="flex-1 h-[1px] bg-[#F64E60]/20" />
-            </button>
+            </Button>
 
             {showInactiveBusinesses && (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-[15px] mt-4">
@@ -2556,30 +2558,30 @@ export default function DashboardPage() {
                     }}
                   />
                 ) : (
-                  <button
+                  <Button
                     type="button"
                     className="action-btn-primary text-white text-center font-bold text-sm leading-none rounded-[7px] py-[7px] px-[10px] min-h-[40px] cursor-pointer opacity-50"
                     disabled
                   >
                     הזנת נתונים
-                  </button>
+                  </Button>
                 )}
-                <button
+                <Button
                   type="button"
                   onClick={() => setIsDailyEntriesModalOpen(true)}
                   className="action-btn-primary text-white text-center font-bold text-sm leading-none rounded-[7px] py-[7px] px-[10px] min-h-[40px] cursor-pointer"
                 >
                   הצגת/עריכת נתונים
-                </button>
+                </Button>
                 {isAdmin && (
-                  <button
+                  <Button
                     type="button"
                     onClick={handleDailyPush}
                     disabled={isSendingPush}
                     className={`action-btn-primary text-white text-center font-bold text-sm leading-none rounded-[7px] py-[7px] px-[10px] min-h-[40px] cursor-pointer ${isSendingPush ? 'opacity-50' : ''}`}
                   >
                     {isSendingPush ? 'שולח...' : 'שליחת פוש יומי'}
-                  </button>
+                  </Button>
                 )}
               </div>
               {/* Date picker for single business users */}

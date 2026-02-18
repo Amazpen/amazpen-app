@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface SupplierSearchSelectProps {
   suppliers: { id: string; name: string }[];
@@ -85,13 +87,15 @@ export default function SupplierSearchSelect({
             {selectedSupplier ? selectedSupplier.name : (emptyMessage && suppliers.length === 0 ? emptyMessage : placeholder)}
           </span>
           {value && !disabled && (
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={handleClear}
               className="text-white/40 hover:text-white transition-colors mr-[4px] text-[18px] leading-none"
               title="נקה בחירה"
             >
               ✕
-            </button>
+            </Button>
           )}
           <svg
             width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -112,7 +116,7 @@ export default function SupplierSearchSelect({
                   <circle cx="11" cy="11" r="8" />
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
-                <input
+                <Input
                   ref={inputRef}
                   type="text"
                   value={search}

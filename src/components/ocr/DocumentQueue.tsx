@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import { Button } from "@/components/ui/button";
 import type { OCRDocument, DocumentStatus } from '@/types/ocr';
 import { getStatusLabel, getSourceIcon, getSourceLabel, getDocumentTypeLabel } from '@/types/ocr';
 
@@ -109,8 +110,9 @@ export default function DocumentQueue({
                 : statusCounts[filter.value as DocumentStatus] || 0;
 
               return (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   key={filter.value}
                   onClick={() => onFilterChange?.(filter.value)}
                   className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium transition-all flex items-center justify-between ${
@@ -127,7 +129,7 @@ export default function DocumentQueue({
                   }`}>
                     {count}
                   </span>
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -137,8 +139,9 @@ export default function DocumentQueue({
         <div className="flex-1 relative overflow-hidden">
           {/* Scroll up button */}
           {canScrollUp && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
               title="גלול למעלה"
               onClick={() => scroll('up')}
               className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-[#0F1535] to-transparent z-10 flex items-start justify-center pt-1"
@@ -146,7 +149,7 @@ export default function DocumentQueue({
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
                 <polyline points="18 15 12 9 6 15" />
               </svg>
-            </button>
+            </Button>
           )}
 
           {/* Documents list */}
@@ -173,8 +176,9 @@ export default function DocumentQueue({
 
           {/* Scroll down button */}
           {canScrollDown && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
               title="גלול למטה"
               onClick={() => scroll('down')}
               className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0F1535] to-transparent z-10 flex items-end justify-center pb-1"
@@ -182,7 +186,7 @@ export default function DocumentQueue({
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
                 <polyline points="6 9 12 15 18 9" />
               </svg>
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -209,8 +213,9 @@ export default function DocumentQueue({
               : statusCounts[filter.value as DocumentStatus] || 0;
 
             return (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 key={filter.value}
                 onClick={() => onFilterChange?.(filter.value)}
                 className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
@@ -223,7 +228,7 @@ export default function DocumentQueue({
                 {count > 0 && (
                   <span className="mr-1 text-[11px] opacity-70">({count})</span>
                 )}
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -233,8 +238,9 @@ export default function DocumentQueue({
       <div className="relative">
         {/* Scroll buttons */}
         {canScrollLeft && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
             title="גלול ימינה"
             onClick={() => scroll('left')}
             className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-transparent to-[#0F1535] z-10 flex items-center justify-start pr-2"
@@ -242,11 +248,12 @@ export default function DocumentQueue({
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
               <polyline points="9 18 15 12 9 6" />
             </svg>
-          </button>
+          </Button>
         )}
         {canScrollRight && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
             title="גלול שמאלה"
             onClick={() => scroll('right')}
             className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-transparent to-[#0F1535] z-10 flex items-center justify-end pl-2"
@@ -254,7 +261,7 @@ export default function DocumentQueue({
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-          </button>
+          </Button>
         )}
 
         {/* Documents list */}
@@ -368,11 +375,12 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
   const isPdf = isPdfDocument(document);
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       title="בחר מסמך"
       onClick={onClick}
-      className={`flex-shrink-0 w-[140px] rounded-[10px] overflow-hidden transition-all ${
+      className={`flex-shrink-0 w-[140px] rounded-[10px] overflow-hidden transition-all h-auto p-0 ${
         isSelected
           ? 'ring-2 ring-[#29318A] ring-offset-2 ring-offset-[#0F1535]'
           : 'hover:ring-1 hover:ring-[#4C526B]'
@@ -446,7 +454,7 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
           <ConfidenceBar score={document.ocr_data.confidence_score} />
         )}
       </div>
-    </button>
+    </Button>
   );
 }
 
@@ -483,11 +491,12 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
     : 'לא זוהה';
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       title="בחר מסמך"
       onClick={onClick}
-      className={`w-full rounded-[10px] overflow-hidden transition-all cursor-pointer ${
+      className={`w-full rounded-[10px] overflow-hidden transition-all cursor-pointer h-auto p-0 ${
         isSelected
           ? 'ring-2 ring-[#29318A] shadow-lg shadow-[#29318A]/20'
           : 'hover:ring-1 hover:ring-[#4C526B] hover:shadow-md'
@@ -561,7 +570,7 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
           </p>
         </div>
       </div>
-    </button>
+    </Button>
   );
 }
 

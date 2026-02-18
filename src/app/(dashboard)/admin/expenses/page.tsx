@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 interface CsvExpense {
   supplier_name: string;
@@ -817,13 +819,14 @@ export default function AdminExpensesPage() {
                   </svg>
                   <span className="text-[14px] text-white">{csvFileName}</span>
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={handleClearCsv}
                   className="text-[#F64E60] text-[13px] hover:underline"
                 >
                   נקה הכל
-                </button>
+                </Button>
               </div>
 
               {csvError && (
@@ -920,13 +923,14 @@ export default function AdminExpensesPage() {
                     </p>
 
                     {!autoCreateSuppliers ? (
-                      <button
+                      <Button
                         type="button"
+                        variant="default"
                         onClick={() => setAutoCreateSuppliers(true)}
                         className="w-full bg-[#FFA412] hover:bg-[#e6930f] text-[#0F1535] text-[14px] font-bold py-[8px] rounded-[10px] transition-colors"
                       >
                         {`צור ${unmatchedSuppliers.length} ספקים חדשים אוטומטית`}
-                      </button>
+                      </Button>
                     ) : (
                       <div className="bg-[#FFA412]/10 rounded-[8px] p-[8px]">
                         <p className="text-[12px] text-[#FFA412] text-right mb-[6px]">
@@ -946,8 +950,9 @@ export default function AdminExpensesPage() {
                           })}
                         </div>
                         <div className="flex gap-[8px]">
-                          <button
+                          <Button
                             type="button"
+                            variant="default"
                             onClick={handleCreateMissingSuppliers}
                             disabled={isCreatingSuppliers}
                             className="flex-1 bg-[#3CD856] hover:bg-[#2db845] disabled:opacity-50 text-[#0F1535] text-[13px] font-bold py-[6px] rounded-[8px] transition-colors flex items-center justify-center gap-[4px]"
@@ -960,14 +965,15 @@ export default function AdminExpensesPage() {
                             ) : (
                               "אישור - צור ספקים"
                             )}
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
+                            variant="outline"
                             onClick={() => setAutoCreateSuppliers(false)}
                             className="px-[12px] bg-white/10 hover:bg-white/20 text-white text-[13px] py-[6px] rounded-[8px] transition-colors"
                           >
                             ביטול
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     )}
@@ -1036,15 +1042,17 @@ export default function AdminExpensesPage() {
                         )}
                       </div>
                     </div>
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => handleRemoveCsvExpense(index)}
                       className="text-[#F64E60] hover:text-[#ff6b7a] flex-shrink-0 ml-[10px]"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                         <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
-                    </button>
+                    </Button>
                   </div>
                 );
               })}
@@ -1068,67 +1076,67 @@ export default function AdminExpensesPage() {
             שורה ראשונה: כותרות העמודות. שאר השורות: נתוני ההוצאות. ספקים שלא קיימים במערכת יזוהו ותוכל ליצור אותם אוטומטית.
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-right text-white/60 py-[6px] px-[8px]">עמודה</th>
-                  <th className="text-right text-white/60 py-[6px] px-[8px]">חובה</th>
-                  <th className="text-right text-white/60 py-[6px] px-[8px]">דוגמה</th>
-                </tr>
-              </thead>
-              <tbody className="text-white/80">
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">ספק</td>
-                  <td className="py-[4px] px-[8px] text-[#F64E60]">כן</td>
-                  <td className="py-[4px] px-[8px]">קוקה קולה</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">תאריך חשבונית</td>
-                  <td className="py-[4px] px-[8px] text-[#F64E60]">כן</td>
-                  <td className="py-[4px] px-[8px]">15/01/2025 או 15/01/2025 21:00</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">סכום (אחד לפחות)</td>
-                  <td className="py-[4px] px-[8px] text-[#F64E60]">כן</td>
-                  <td className="py-[4px] px-[8px]">{`סכום לפני מע"מ / סכום אחרי מע"מ`}</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">מספר חשבונית</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">INV-001</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">תאריך לתשלום</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">15/02/2025</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">סוג הוצאה</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">קניות סחורה / הוצאות שוטפות</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">סטטוס תשלום</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">שולם / ממתין לתשלום / בבירור</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">אמצעי התשלום</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">העברה בנקאית</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">קטגוריות</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">קטגורית אב / קטיגוריה</td>
-                </tr>
-                <tr>
-                  <td className="py-[4px] px-[8px]">הערות</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">חשבונית חודשית</td>
-                </tr>
-              </tbody>
-            </table>
+            <Table className="w-full text-[12px]">
+              <TableHeader>
+                <TableRow className="border-b border-white/10">
+                  <TableHead className="text-right text-white/60 py-[6px] px-[8px]">עמודה</TableHead>
+                  <TableHead className="text-right text-white/60 py-[6px] px-[8px]">חובה</TableHead>
+                  <TableHead className="text-right text-white/60 py-[6px] px-[8px]">דוגמה</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="text-white/80">
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">ספק</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-[#F64E60]">כן</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">קוקה קולה</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">תאריך חשבונית</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-[#F64E60]">כן</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">15/01/2025 או 15/01/2025 21:00</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">סכום (אחד לפחות)</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-[#F64E60]">כן</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">{`סכום לפני מע"מ / סכום אחרי מע"מ`}</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">מספר חשבונית</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">INV-001</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">תאריך לתשלום</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">15/02/2025</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">סוג הוצאה</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">קניות סחורה / הוצאות שוטפות</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">סטטוס תשלום</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">שולם / ממתין לתשלום / בבירור</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">אמצעי התשלום</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">העברה בנקאית</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">קטגוריות</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">קטגורית אב / קטיגוריה</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="py-[4px] px-[8px]">הערות</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">חשבונית חודשית</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </div>
           <div className="bg-[#4956D4]/10 rounded-[8px] p-[10px] mt-[10px]">
             <p className="text-[11px] text-white/40 text-right">
@@ -1139,8 +1147,9 @@ export default function AdminExpensesPage() {
 
         {/* Import Button */}
         {csvExpenses.length > 0 && (
-          <button
+          <Button
             type="button"
+            variant="default"
             onClick={handleImport}
             disabled={isImporting || !selectedBusinessId || unmatchedSuppliers.length > 0}
             className="w-full bg-[#4956D4] hover:bg-[#3a45b5] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[16px] font-bold py-[12px] rounded-[12px] transition-colors flex items-center justify-center gap-2"
@@ -1155,7 +1164,7 @@ export default function AdminExpensesPage() {
             ) : (
               `ייבא ${csvExpenses.length} הוצאות`
             )}
-          </button>
+          </Button>
         )}
       </div>
     </div>

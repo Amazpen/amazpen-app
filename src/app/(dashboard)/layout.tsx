@@ -13,6 +13,7 @@ import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { ConsolidatedInvoiceModal } from "@/components/dashboard/ConsolidatedInvoiceModal";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { OfflineIndicator } from "@/components/ui/offline-indicator";
+import { Button } from "@/components/ui/button";
 // import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 // import { HelpButton } from "@/components/onboarding/HelpButton";
 
@@ -629,7 +630,7 @@ export default function DashboardLayout({
             isMenuOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
-          <button
+          <Button
             type="button"
             title="סגור תפריט"
             onClick={() => setIsMenuOpen(false)}
@@ -638,7 +639,7 @@ export default function DashboardLayout({
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
-          </button>
+          </Button>
 
           <div className="flex flex-col h-full overflow-y-auto mt-[40px] lg:mt-[10px]">
             {/* Amazpen System Logo - Fixed/Static */}
@@ -673,7 +674,7 @@ export default function DashboardLayout({
                 // Handle logout button
                 if (item.isLogout) {
                   return (
-                    <button
+                    <Button
                       key={item.id}
                       type="button"
                       onClick={handleLogout}
@@ -686,7 +687,7 @@ export default function DashboardLayout({
                       <span className="text-white text-[14px] font-medium text-right flex-1">
                         {isLoggingOut ? "מתנתק..." : item.label}
                       </span>
-                    </button>
+                    </Button>
                   );
                 }
 
@@ -731,7 +732,7 @@ export default function DashboardLayout({
             {/* Admin Section - Collapsible, show only for admin users */}
             {isAdmin && (
             <div className="mt-[20px] pt-[15px] border-t border-white/10">
-              <button
+              <Button
                 type="button"
                 onClick={() => setIsAdminMenuOpen((prev) => !prev)}
                 className="flex items-center justify-between w-full px-[7px] mb-[4px] cursor-pointer group"
@@ -748,7 +749,7 @@ export default function DashboardLayout({
                 >
                   <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-              </button>
+              </Button>
               <div className={`overflow-hidden transition-all duration-200 ${isAdminMenuOpen || isAdminPage ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
               {adminMenuItems.map((item) => {
                 const pageExists = existingPages.includes(item.href);
@@ -819,13 +820,13 @@ export default function DashboardLayout({
                 </p>
 
                 {/* Button */}
-                <button
+                <Button
                   type="button"
                   onClick={() => setShowBusinessRequiredPopup(false)}
                   className="bg-[#0F1535] text-white text-[14px] font-semibold px-[30px] py-[12px] rounded-[10px] transition-all duration-200 hover:bg-[#1a1f4a] active:scale-[0.98]"
                 >
                   חזרה למסך דשבורד
-                </button>
+                </Button>
               </div>
             </div>
           </>
@@ -835,7 +836,7 @@ export default function DashboardLayout({
         <header role="banner" aria-label="כותרת עליונה" className={`fixed top-0 left-0 right-0 ${isOcrPage ? '' : 'lg:right-[220px]'} z-50 bg-[#0f1231] flex justify-between items-center px-3 sm:px-4 py-3 sm:py-3 min-h-[60px] sm:min-h-[56px]`}>
           {/* Right side - Menu and Title */}
           <div className="flex items-center gap-[8px]">
-            <button
+            <Button
               type="button"
               aria-label="תפריט"
               title="תפריט"
@@ -845,7 +846,7 @@ export default function DashboardLayout({
               <svg width="30" height="30" viewBox="0 0 32 32" fill="none" className="sm:w-8 sm:h-8">
                 <path d="M5 8H27M5 16H27M5 24H27" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
-            </button>
+            </Button>
             <span className="text-white text-[17px] sm:text-[19px] font-bold leading-[1.4]">{title}</span>
           </div>
 
@@ -880,7 +881,7 @@ export default function DashboardLayout({
 
             {/* Notifications with red dot */}
             <div className="relative">
-              <button
+              <Button
                 type="button"
                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
                 className="w-[34px] sm:w-[32px] aspect-square self-center rounded-full bg-[#29318A] flex items-center justify-center relative cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation"
@@ -893,7 +894,7 @@ export default function DashboardLayout({
                 {unreadCount > 0 && (
                   <div className="absolute top-[5px] right-[8px] w-[10px] h-[10px] bg-[#EB5757] rounded-full"></div>
                 )}
-              </button>
+              </Button>
 
               {/* Notifications Dropdown - Facebox Style - Full Width */}
               {isNotificationsOpen && (
@@ -919,13 +920,13 @@ export default function DashboardLayout({
                         )}
                       </div>
                       {unreadCount > 0 && (
-                        <button
+                        <Button
                           type="button"
                           onClick={markAllAsRead}
                           className="text-[12px] text-[#FFA412] hover:text-[#FFB94A] transition-colors"
                         >
                           סמן הכל כנקרא
-                        </button>
+                        </Button>
                       )}
                     </div>
 
@@ -994,7 +995,7 @@ export default function DashboardLayout({
                                   {!notification.is_read && (
                                     <div className="w-[8px] h-[8px] bg-[#FFA412] rounded-full"></div>
                                   )}
-                                  <button
+                                  <Button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1008,7 +1009,7 @@ export default function DashboardLayout({
                                       <line x1="18" y1="6" x2="6" y2="18" strokeLinecap="round" />
                                       <line x1="6" y1="6" x2="18" y2="18" strokeLinecap="round" />
                                     </svg>
-                                  </button>
+                                  </Button>
                                 </div>
                               </div>
                               {notification.message && (
@@ -1017,7 +1018,7 @@ export default function DashboardLayout({
                                 </p>
                               )}
                               {notification.link === "/ai" && (
-                                <button
+                                <Button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1032,7 +1033,7 @@ export default function DashboardLayout({
                                     <path d="M8 14h8l2 8H6l2-8z" strokeLinecap="round" strokeLinejoin="round"/>
                                   </svg>
                                   דברו עם דדי
-                                </button>
+                                </Button>
                               )}
                               <p className="text-[11px] text-white/30 mt-[6px]" suppressHydrationWarning>
                                 {formatTimeAgo(notification.created_at)}
@@ -1057,13 +1058,13 @@ export default function DashboardLayout({
 
             {/* מרכזת Button - Admin Only */}
             {isAdmin && (
-              <button
+              <Button
                 type="button"
                 onClick={() => setIsCoordinatorModalOpen(true)}
                 className="px-[8px] sm:px-[12px] min-w-[50px] sm:min-w-[60px] text-center bg-[#29318A] rounded-[7px] text-white text-[12px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center"
               >
                 מרכזת
-              </button>
+              </Button>
             )}
           </div>
         </header>

@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 interface Business {
   id: string;
@@ -584,13 +586,14 @@ export default function AdminHistoricalDataPage() {
                   </svg>
                   <span className="text-[14px] text-white">{csvFileName}</span>
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={handleClearCsv}
                   className="text-[#F64E60] text-[13px] hover:underline"
                 >
                   נקה הכל
-                </button>
+                </Button>
               </div>
 
               {csvError && (
@@ -719,25 +722,29 @@ export default function AdminHistoricalDataPage() {
                             </span>
                           )}
                           {extraCount > 0 && (
-                            <button
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="xs"
                               onClick={() => setExpandedRow(isExpanded ? null : index)}
-                              className="text-[10px] px-[4px] py-[1px] rounded bg-[#4956D4]/20 text-[#4956D4] hover:bg-[#4956D4]/30 transition-colors"
+                              className="text-[10px] px-[4px] py-[1px] rounded bg-[#4956D4]/20 text-[#4956D4] hover:bg-[#4956D4]/30 transition-colors h-auto"
                             >
                               {isExpanded ? "הסתר" : `+${extraCount} שדות`}
-                            </button>
+                            </Button>
                           )}
                         </div>
                       </div>
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon-sm"
                         onClick={() => handleRemoveEntry(originalIndex)}
                         className="text-[#F64E60] hover:text-[#ff6b7a] flex-shrink-0 ml-[10px]"
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                           <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                         </svg>
-                      </button>
+                      </Button>
                     </div>
                     {/* Expanded details */}
                     {isExpanded && (
@@ -766,8 +773,9 @@ export default function AdminHistoricalDataPage() {
 
         {/* Import Button */}
         {csvEntries.length > 0 && (
-          <button
+          <Button
             type="button"
+            variant="default"
             onClick={handleImport}
             disabled={isImporting || !selectedBusinessId}
             className="w-full bg-[#4956D4] hover:bg-[#3a45b5] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[16px] font-bold py-[12px] rounded-[12px] transition-colors flex items-center justify-center gap-2"
@@ -784,7 +792,7 @@ export default function AdminHistoricalDataPage() {
                   ? `ייבא ${newEntries.length} רשומות חדשות (${duplicateEntries.length} ידולגו)`
                   : `ייבא ${csvEntries.length} רשומות`
             )}
-          </button>
+          </Button>
         )}
 
         {/* Format Guide */}
@@ -794,40 +802,40 @@ export default function AdminHistoricalDataPage() {
             הקובץ צריך להיות ייצוא מ-Bubble עם כותרות בעברית. עמודות ריקות מדולגות אוטומטית.
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-right text-white/60 py-[6px] px-[8px]">קטגוריה</th>
-                  <th className="text-right text-white/60 py-[6px] px-[8px]">עמודות</th>
-                </tr>
-              </thead>
-              <tbody className="text-white/80">
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px] text-[#F64E60] font-medium">חובה</td>
-                  <td className="py-[4px] px-[8px]">חודש, שנה, מכירות ברוטו</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px] text-[#4956D4]">עלויות</td>
-                  <td className="py-[4px] px-[8px]">עלות עבודה (% + ש&quot;ח), עלות מכר (% + ש&quot;ח)</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px] text-[#4956D4]">מוצרים מנוהלים</td>
-                  <td className="py-[4px] px-[8px]">מוצר 1-3 (% + ש&quot;ח)</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px] text-[#4956D4]">ממוצעי הכנסה</td>
-                  <td className="py-[4px] px-[8px]">ממוצע הכנסה 1-4 בש&quot;ח</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px] text-white/40">הפרשי תקציב</td>
-                  <td className="py-[4px] px-[8px]">הפרשים מתקציב לכל הפרמטרים</td>
-                </tr>
-                <tr>
-                  <td className="py-[4px] px-[8px] text-white/40">שינויים שנתיים</td>
-                  <td className="py-[4px] px-[8px]">שינוי משנה שעברה לכל הפרמטרים</td>
-                </tr>
-              </tbody>
-            </table>
+            <Table className="w-full text-[12px]">
+              <TableHeader>
+                <TableRow className="border-b border-white/10">
+                  <TableHead className="text-right text-white/60 py-[6px] px-[8px]">קטגוריה</TableHead>
+                  <TableHead className="text-right text-white/60 py-[6px] px-[8px]">עמודות</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="text-white/80">
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px] text-[#F64E60] font-medium">חובה</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">חודש, שנה, מכירות ברוטו</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px] text-[#4956D4]">עלויות</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">עלות עבודה (% + ש&quot;ח), עלות מכר (% + ש&quot;ח)</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px] text-[#4956D4]">מוצרים מנוהלים</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">מוצר 1-3 (% + ש&quot;ח)</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px] text-[#4956D4]">ממוצעי הכנסה</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">ממוצע הכנסה 1-4 בש&quot;ח</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px] text-white/40">הפרשי תקציב</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">הפרשים מתקציב לכל הפרמטרים</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">שינויים שנתיים</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">שינוי משנה שעברה לכל הפרמטרים</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </div>
           <div className="bg-[#4956D4]/10 rounded-[8px] p-[10px] mt-[10px]">
             <p className="text-[11px] text-white/40 text-right">

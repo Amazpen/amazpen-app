@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
 
 interface DocumentViewerProps {
   imageUrl: string;
@@ -206,7 +207,9 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
       <div className="flex items-center justify-between px-4 bg-[#0F1535] border-b border-[#4C526B]" style={{ height: '48px' }}>
         <div className="flex items-center gap-2">
           {/* Zoom controls */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleZoomOut}
             className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#29318A]/30 hover:bg-[#29318A]/50 text-white transition-colors"
             title="הקטן"
@@ -216,13 +219,15 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
               <line x1="8" y1="11" x2="14" y2="11" />
             </svg>
-          </button>
+          </Button>
 
           <span className="text-white text-sm min-w-[50px] text-center">
             {Math.round(zoom * 100)}%
           </span>
 
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleZoomIn}
             className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#29318A]/30 hover:bg-[#29318A]/50 text-white transition-colors"
             title="הגדל"
@@ -233,9 +238,11 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
               <line x1="11" y1="8" x2="11" y2="14" />
               <line x1="8" y1="11" x2="14" y2="11" />
             </svg>
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleZoomReset}
             className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#29318A]/30 hover:bg-[#29318A]/50 text-white transition-colors"
             title="איפוס זום"
@@ -245,12 +252,14 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
               <polyline points="23 1 23 10 14 10" />
               <polyline points="1 23 1 14 10 14" />
             </svg>
-          </button>
+          </Button>
 
           <div className="w-px h-6 bg-[#4C526B] mx-1" />
 
           {/* Rotation controls */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleRotateCCW}
             className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#29318A]/30 hover:bg-[#29318A]/50 text-white transition-colors"
             title="סובב שמאלה"
@@ -259,9 +268,11 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
               <path d="M1 4v6h6" />
               <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
             </svg>
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleRotateCW}
             className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#29318A]/30 hover:bg-[#29318A]/50 text-white transition-colors"
             title="סובב ימינה"
@@ -270,13 +281,15 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
               <path d="M23 4v6h-6" />
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
             </svg>
-          </button>
+          </Button>
 
           <div className="w-px h-6 bg-[#4C526B] mx-1" />
 
           {/* Crop controls */}
           {!isCropping ? (
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={startCropping}
               className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#29318A]/30 hover:bg-[#29318A]/50 text-white transition-colors"
               title="חיתוך"
@@ -285,10 +298,12 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
                 <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15" />
                 <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15" />
               </svg>
-            </button>
+            </Button>
           ) : (
             <>
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={confirmCrop}
                 className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#22c55e]/30 hover:bg-[#22c55e]/50 text-[#22c55e] transition-colors"
                 title="אשר חיתוך"
@@ -296,8 +311,10 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={cancelCropping}
                 className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#EB5757]/30 hover:bg-[#EB5757]/50 text-[#EB5757] transition-colors"
                 title="בטל חיתוך"
@@ -306,13 +323,15 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
-              </button>
+              </Button>
             </>
           )}
         </div>
 
         {/* Fullscreen toggle */}
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={toggleFullscreen}
           className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#29318A]/30 hover:bg-[#29318A]/50 text-white transition-colors"
           title={isFullscreen ? 'צא ממסך מלא' : 'מסך מלא'}
@@ -326,7 +345,7 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
               <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
             </svg>
           )}
-        </button>
+        </Button>
       </div>
 
       {/* Image container - takes remaining height after toolbar (48px) and mobile slider (44px on mobile, 0 on desktop) */}

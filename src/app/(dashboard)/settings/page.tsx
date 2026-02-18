@@ -8,6 +8,8 @@ import { uploadFile } from "@/lib/uploadFile";
 import { useToast } from "@/components/ui/toast";
 import { useDashboard } from "../layout";
 import { usePushSubscription } from "@/hooks/usePushSubscription";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface UserProfile {
   id: string;
@@ -328,8 +330,10 @@ export default function SettingsPage() {
             </div>
 
             {/* Camera button */}
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               title="החלפת תמונת פרופיל"
               aria-label="החלפת תמונת פרופיל"
               onClick={() => fileInputRef.current?.click()}
@@ -340,7 +344,7 @@ export default function SettingsPage() {
                 <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" strokeLinecap="round" strokeLinejoin="round"/>
                 <circle cx="12" cy="13" r="4" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-            </button>
+            </Button>
 
             <input
               ref={fileInputRef}
@@ -361,7 +365,7 @@ export default function SettingsPage() {
           {/* Full Name */}
           <div className="flex flex-col gap-[8px]">
             <label className="text-[14px] font-medium text-white/80">שם מלא</label>
-            <input
+            <Input
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
@@ -373,7 +377,7 @@ export default function SettingsPage() {
           {/* Phone */}
           <div className="flex flex-col gap-[8px]">
             <label className="text-[14px] font-medium text-white/80">טלפון</label>
-            <input
+            <Input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -402,8 +406,9 @@ export default function SettingsPage() {
 
           {/* Change Password */}
           <div className="flex flex-col gap-[8px]">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => setShowPasswordSection(!showPasswordSection)}
               className="w-full h-[48px] bg-[#29318A]/40 text-white/80 text-[14px] font-medium rounded-[10px] border border-white/10 hover:border-[#FFA412]/50 transition-colors flex items-center justify-center gap-[8px]"
             >
@@ -415,7 +420,7 @@ export default function SettingsPage() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform duration-200 ${showPasswordSection ? 'rotate-180' : ''}`}>
                 <polyline points="6 9 12 15 18 9" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-            </button>
+            </Button>
 
             {showPasswordSection && (
               <form onSubmit={(e) => { e.preventDefault(); handleChangePassword(); }} className="space-y-[12px] mt-[4px] p-[16px] bg-[#29318A]/20 rounded-[10px] border border-white/5">
@@ -423,7 +428,7 @@ export default function SettingsPage() {
                 {forgotMode ? (
                   <div className="flex flex-col gap-[6px]">
                     <label className="text-[13px] font-medium text-white/70">אימות זהות — הזן את כתובת המייל שלך</label>
-                    <input
+                    <Input
                       type="email"
                       value={emailConfirm}
                       onChange={(e) => setEmailConfirm(e.target.value)}
@@ -431,19 +436,20 @@ export default function SettingsPage() {
                       dir="ltr"
                       className="w-full h-[44px] bg-[#29318A]/40 text-white text-[14px] text-left rounded-[10px] border border-white/10 outline-none px-[15px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
                     />
-                    <button
+                    <Button
                       type="button"
+                      variant="link"
                       onClick={() => { setForgotMode(false); setEmailConfirm(""); }}
-                      className="text-[12px] text-[#FFA412] hover:text-[#FFB94A] transition-colors self-start mt-[2px]"
+                      className="text-[12px] text-[#FFA412] hover:text-[#FFB94A] transition-colors self-start mt-[2px] p-0 h-auto"
                     >
                       יש לי סיסמה נוכחית
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-[6px]">
                     <label className="text-[13px] font-medium text-white/70">סיסמה נוכחית</label>
                     <div className="relative">
-                      <input
+                      <Input
                         type={showCurrentPassword ? "text" : "password"}
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
@@ -451,8 +457,10 @@ export default function SettingsPage() {
                         autoComplete="current-password"
                         className="w-full h-[44px] bg-[#29318A]/40 text-white text-[14px] text-right rounded-[10px] border border-white/10 outline-none px-[15px] pe-[44px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
                       />
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                         className="absolute left-[12px] top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
                       >
@@ -467,15 +475,16 @@ export default function SettingsPage() {
                             <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                         )}
-                      </button>
+                      </Button>
                     </div>
-                    <button
+                    <Button
                       type="button"
+                      variant="link"
                       onClick={() => { setForgotMode(true); setCurrentPassword(""); }}
-                      className="text-[12px] text-[#FFA412] hover:text-[#FFB94A] transition-colors self-end mt-[2px]"
+                      className="text-[12px] text-[#FFA412] hover:text-[#FFB94A] transition-colors self-end mt-[2px] p-0 h-auto"
                     >
                       לא זוכר סיסמה נוכחית?
-                    </button>
+                    </Button>
                   </div>
                 )}
 
@@ -483,7 +492,7 @@ export default function SettingsPage() {
                 <div className="flex flex-col gap-[6px]">
                   <label className="text-[13px] font-medium text-white/70">סיסמה חדשה</label>
                   <div className="relative">
-                    <input
+                    <Input
                       type={showNewPassword ? "text" : "password"}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
@@ -491,8 +500,10 @@ export default function SettingsPage() {
                       autoComplete="new-password"
                       className="w-full h-[44px] bg-[#29318A]/40 text-white text-[14px] text-right rounded-[10px] border border-white/10 outline-none px-[15px] pe-[44px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
                     />
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => setShowNewPassword(!showNewPassword)}
                       className="absolute left-[12px] top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
                     >
@@ -507,14 +518,14 @@ export default function SettingsPage() {
                           <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
                 {/* Confirm Password */}
                 <div className="flex flex-col gap-[6px]">
                   <label className="text-[13px] font-medium text-white/70">אימות סיסמה חדשה</label>
-                  <input
+                  <Input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -525,7 +536,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Change Password Button */}
-                <button
+                <Button
                   type="submit"
                   disabled={isChangingPassword || (!forgotMode && !currentPassword) || (forgotMode && !emailConfirm) || !newPassword || !confirmPassword}
                   className="w-full h-[44px] bg-[#FFA412] text-white text-[14px] font-bold rounded-[10px] transition-all duration-200 hover:bg-[#FFB94A] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-[4px]"
@@ -538,14 +549,14 @@ export default function SettingsPage() {
                   ) : (
                     "עדכן סיסמה"
                   )}
-                </button>
+                </Button>
               </form>
             )}
           </div>
 
           {/* Save Button */}
           {hasChanges && (
-            <button
+            <Button
               type="button"
               onClick={handleSaveProfile}
               disabled={isSaving}
@@ -559,7 +570,7 @@ export default function SettingsPage() {
               ) : (
                 "שמור שינויים"
               )}
-            </button>
+            </Button>
           )}
         </div>
 
@@ -592,8 +603,9 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between mb-[4px]">
             <h3 className="text-white text-[16px] font-bold">התראות פוש</h3>
             {isSupported && permission !== 'denied' && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 role="switch"
                 aria-checked={isSubscribed}
                 aria-label="התראות פוש"
@@ -607,13 +619,13 @@ export default function SettingsPage() {
                     showToast(ok ? 'התראות פוש הופעלו!' : 'שגיאה בהפעלת התראות', ok ? 'success' : 'error');
                   }
                 }}
-                className={`relative w-[52px] h-[28px] rounded-full transition-colors duration-200 ${pushLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isSubscribed ? 'bg-[#3CD856]' : 'bg-white/20'}`}
+                className={`relative w-[52px] h-[28px] rounded-full transition-colors duration-200 p-0 ${pushLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isSubscribed ? 'bg-[#3CD856]' : 'bg-white/20'}`}
               >
                 <span className={`absolute top-[3px] w-[22px] h-[22px] bg-white rounded-full shadow transition-all duration-200 ${isSubscribed ? 'left-[3px]' : 'left-[27px]'}`} />
-              </button>
+              </Button>
             )}
           </div>
-          <p className="text-white/50 text-[13px]">קבלו התראות גם כשהדפדפן סגור</p>
+          <p className="text-white/50 text-[13px]">קבלו התראות גם כשהאפליקציה סגורה</p>
           {!isSupported && (
             <p className="text-white/40 text-[13px] mt-[8px]">הדפדפן אינו תומך בהתראות פוש</p>
           )}

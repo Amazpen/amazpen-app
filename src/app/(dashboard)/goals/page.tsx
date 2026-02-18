@@ -7,6 +7,8 @@ import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 // Types
 type TabType = "vs-goods" | "vs-current" | "kpi";
@@ -1169,7 +1171,7 @@ export default function GoalsPage() {
             <div className="flex items-center justify-between gap-[10px]">
               <div className="flex items-center gap-[8px]">
                 <span className="text-[14px] text-white font-semibold">ימי עבודה צפויים:</span>
-                <input
+                <Input
                   type="number"
                   step="0.5"
                   min="0"
@@ -1184,13 +1186,13 @@ export default function GoalsPage() {
               <div className="flex items-center gap-[8px]">
                 <span className="text-[12px] text-white/40">לפי לוח: {calculatedWorkDays.toFixed(1)}</span>
                 {expectedWorkDaysInput !== calculatedWorkDays && (
-                  <button
+                  <Button
                     type="button"
                     onClick={handleResetWorkDays}
                     className="text-[11px] text-[#4956D4] hover:text-white transition-colors"
                   >
                     איפוס
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -1263,7 +1265,7 @@ export default function GoalsPage() {
                       {((isKpi && item.editable && !hasChildren) || isFlatEditable) ? (
                         <div className="w-[80px] flex items-center justify-center gap-0" onClick={(e) => e.stopPropagation()}>
                           {item.unit === "₪" && focusedInputId !== item.id && <span className="text-[14px] font-bold text-white ltr-num">₪</span>}
-                          <input
+                          <Input
                             type="text"
                             inputMode="decimal"
                             title={`יעד עבור ${item.name}`}
@@ -1340,7 +1342,7 @@ export default function GoalsPage() {
                               {isAdmin ? (
                                 <div className="w-[70px] flex items-center justify-center gap-0" onClick={(e) => e.stopPropagation()}>
                                   {focusedInputId !== `supplier-${sId}` && <span className="text-[13px] font-normal text-white ltr-num">₪</span>}
-                                  <input
+                                  <Input
                                     type="text"
                                     inputMode="decimal"
                                     title={`יעד עבור ${supplierNamesMap.get(sId) || sId}`}

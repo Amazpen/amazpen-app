@@ -13,6 +13,9 @@ import { generateUUID } from "@/lib/utils";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 // Business from businesses table
 interface Business {
@@ -543,20 +546,23 @@ export default function CustomersPage() {
       {/* Header */}
       <div className="flex flex-col gap-[7px] p-[5px]">
         {/* Add Standalone Customer Button */}
-        <button
+        <Button
+          variant="default"
           type="button"
           onClick={handleAddStandaloneCustomer}
           className="w-full min-h-[50px] bg-[#29318A] text-white text-[16px] font-semibold rounded-[5px] px-[24px] py-[12px] transition-colors duration-200 hover:bg-[#3D44A0] shadow-[0_7px_30px_-10px_rgba(41,49,138,0.1)]"
         >
           הוספת לקוח חדש
-        </button>
+        </Button>
       </div>
 
       {/* Main Content Container */}
       <div className="flex-1 flex flex-col bg-[#0F1535] rounded-[10px] p-[5px_7px]">
         {/* Count and Search */}
         <div className="flex items-center gap-[10px] mb-[10px]">
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             type="button"
             title="חיפוש"
             onClick={() => {
@@ -569,9 +575,9 @@ export default function CustomersPage() {
               <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
               <path d="M16 16L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
-          </button>
+          </Button>
           {isSearchOpen ? (
-            <input
+            <Input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -618,24 +624,25 @@ export default function CustomersPage() {
             <div className="grid grid-cols-2 gap-[26px]">
               {/* Business-linked cards */}
               {filteredItems.map((item) => (
-                <button
+                <Button
+                  variant="ghost"
                   key={item.business.id}
                   type="button"
                   onClick={() => handleOpenDetail(item)}
-                  className={`bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#3D44A0] cursor-pointer relative ${item.customer && !item.customer.is_active ? "opacity-40" : ""}`}
+                  className={`bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] h-auto flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#3D44A0] cursor-pointer relative ${item.customer && !item.customer.is_active ? "opacity-40" : ""}`}
                 >
                   {/* Setup badge */}
                   {!item.customer && (
-                    <span className="absolute top-[6px] left-[6px] text-[10px] bg-[#F6A609]/80 text-white px-[6px] py-[2px] rounded-full font-bold">
+                    <Badge className="absolute top-[6px] left-[6px] text-[10px] bg-[#F6A609]/80 text-white px-[6px] py-[2px] rounded-full font-bold">
                       טרם הוקם
-                    </span>
+                    </Badge>
                   )}
 
                   {/* Inactive badge */}
                   {item.customer && !item.customer.is_active && (
-                    <span className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">
+                    <Badge className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">
                       לא פעיל
-                    </span>
+                    </Badge>
                   )}
 
                   {/* Business Logo */}
@@ -670,12 +677,13 @@ export default function CustomersPage() {
                   <span className="text-[12px] text-white/50">
                     {item.members.length} משתמשים
                   </span>
-                </button>
+                </Button>
               ))}
 
               {/* Standalone customers (not linked to business) */}
               {filteredStandalone.map((customer) => (
-                <button
+                <Button
+                  variant="ghost"
                   key={customer.id}
                   type="button"
                   onClick={() => handleOpenDetail({
@@ -683,17 +691,17 @@ export default function CustomersPage() {
                     customer,
                     members: [],
                   })}
-                  className={`bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#3D44A0] cursor-pointer relative ${!customer.is_active ? "opacity-40" : ""}`}
+                  className={`bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] h-auto flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#3D44A0] cursor-pointer relative ${!customer.is_active ? "opacity-40" : ""}`}
                 >
                   {!customer.is_active && (
-                    <span className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">
+                    <Badge className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">
                       לא פעיל
-                    </span>
+                    </Badge>
                   )}
 
-                  <span className="absolute top-[6px] right-[6px] text-[10px] bg-[#4C526B] text-white px-[6px] py-[2px] rounded-full font-bold">
+                  <Badge className="absolute top-[6px] right-[6px] text-[10px] bg-[#4C526B] text-white px-[6px] py-[2px] rounded-full font-bold">
                     עצמאי
-                  </span>
+                  </Badge>
 
                   <div className="w-[120px] text-center">
                     <span className="text-[18px] font-bold text-white leading-[1.4]">
@@ -702,7 +710,7 @@ export default function CustomersPage() {
                   </div>
 
                   <span className="text-[14px] text-white/70 text-center">{customer.contact_name}</span>
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -718,7 +726,9 @@ export default function CustomersPage() {
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
             <div className="flex justify-between items-center" dir="ltr">
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 type="button"
                 onClick={handleCloseForm}
                 className="text-[#7B91B0] hover:text-white transition-colors"
@@ -726,7 +736,7 @@ export default function CustomersPage() {
                 aria-label="סגור"
               >
                 <X className="w-6 h-6" />
-              </button>
+              </Button>
               <SheetTitle className="text-white text-xl font-bold">
                 {isEditMode ? "עריכת לקוח" : formBusinessId ? `הקמת לקוח - ${formBusinessName}` : "הוספת לקוח חדש"}
               </SheetTitle>
@@ -739,7 +749,7 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">שם הלקוח</label>
               <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                <input
+                <Input
                   type="text"
                   title="שם הלקוח"
                   value={fContactName}
@@ -759,7 +769,7 @@ export default function CustomersPage() {
                     {formBusinessName}
                   </div>
                 ) : (
-                  <input
+                  <Input
                     type="text"
                     title="שם העסק"
                     value={fBusinessName}
@@ -775,7 +785,7 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">שם החברה</label>
               <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                <input
+                <Input
                   type="text"
                   title="שם החברה"
                   value={fCompanyName}
@@ -790,7 +800,7 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">ע.מ/ח.פ</label>
               <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                <input
+                <Input
                   type="tel"
                   title="ע.מ/ח.פ"
                   value={fTaxId}
@@ -805,7 +815,7 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">תאריך תחילת עבודה</label>
               <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                <input
+                <Input
                   type="date"
                   title="תאריך תחילת עבודה"
                   value={fWorkStartDate}
@@ -819,7 +829,7 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">דמי הקמה</label>
               <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                <input
+                <Input
                   type="text"
                   title="דמי הקמה"
                   value={fSetupFee}
@@ -834,7 +844,7 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">תנאי תשלום</label>
               <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                <input
+                <Input
                   type="text"
                   title="תנאי תשלום"
                   value={fPaymentTerms}
@@ -883,7 +893,8 @@ export default function CustomersPage() {
             {/* Active/Inactive toggle - edit mode only */}
             {isEditMode && (
               <div className="flex flex-col gap-[10px] items-start" dir="rtl">
-                <button
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={() => setFIsActive(!fIsActive)}
                   className="flex items-center gap-[3px]"
@@ -901,13 +912,14 @@ export default function CustomersPage() {
                   <span className={`text-[15px] font-semibold ${fIsActive ? "text-[#0BB783]" : "text-[#F64E60]"}`}>
                     {fIsActive ? "לקוח פעיל" : "לקוח לא פעיל"}
                   </span>
-                </button>
+                </Button>
               </div>
             )}
 
             {/* Submit and Cancel Buttons */}
             <div className="flex gap-[10px] mt-[15px] mb-[10px]">
-              <button
+              <Button
+                variant="default"
                 type="button"
                 onClick={handleSaveCustomer}
                 disabled={isSubmitting || !fContactName.trim() || !fBusinessName.trim()}
@@ -924,15 +936,16 @@ export default function CustomersPage() {
                 ) : (
                   isEditMode ? "עדכן לקוח" : "שמור לקוח"
                 )}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="outline"
                 type="button"
                 onClick={handleCloseForm}
                 disabled={isSubmitting}
                 className="flex-1 bg-transparent border border-[#4C526B] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10 disabled:opacity-50"
               >
                 ביטול
-              </button>
+              </Button>
             </div>
           </div>
         </SheetContent>
@@ -947,7 +960,9 @@ export default function CustomersPage() {
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
             <div className="flex justify-between items-center" dir="ltr">
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 type="button"
                 onClick={handleCloseDetail}
                 className="text-[#7B91B0] hover:text-white transition-colors"
@@ -955,12 +970,14 @@ export default function CustomersPage() {
                 aria-label="סגור"
               >
                 <X className="w-6 h-6" />
-              </button>
+              </Button>
               <SheetTitle className="text-white text-xl font-bold">פרטי לקוח</SheetTitle>
               <div className="flex items-center gap-[8px]">
                 {/* Delete button - only if customer exists and no payments */}
                 {selectedItem?.customer && payments.length === 0 && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     type="button"
                     title="מחיקת לקוח"
                     onClick={handleDeleteCustomer}
@@ -972,10 +989,12 @@ export default function CustomersPage() {
                       <line x1="10" y1="11" x2="10" y2="17"/>
                       <line x1="14" y1="11" x2="14" y2="17"/>
                     </svg>
-                  </button>
+                  </Button>
                 )}
                 {/* Edit / Setup button */}
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   type="button"
                   title={selectedItem?.customer ? "עריכה" : "הקמת לקוח"}
                   onClick={handleEditCustomer}
@@ -985,7 +1004,7 @@ export default function CustomersPage() {
                     <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     <path d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                </button>
+                </Button>
               </div>
             </div>
           </SheetHeader>
@@ -1051,13 +1070,14 @@ export default function CustomersPage() {
                 ) : (
                   <div className="flex flex-col items-center gap-[10px] py-[10px]">
                     <span className="text-[14px] text-[#F6A609]">לקוח טרם הוקם במערכת</span>
-                    <button
+                    <Button
+                      variant="default"
                       type="button"
                       onClick={() => handleSetupCustomer(selectedItem)}
                       className="bg-[#29318A] text-white text-[14px] font-semibold px-[20px] py-[8px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
                     >
                       הקמת לקוח
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -1109,7 +1129,7 @@ export default function CustomersPage() {
                           <span className="text-[12px] text-white/40 truncate">{member.profiles?.email}</span>
                         </div>
                         {/* Role badge */}
-                        <span
+                        <Badge
                           className={`text-[11px] font-bold px-[10px] py-[4px] rounded-full flex-shrink-0 ${
                             member.role === "owner"
                               ? "bg-[#4A56D4] text-white"
@@ -1119,7 +1139,7 @@ export default function CustomersPage() {
                           }`}
                         >
                           {member.role === "owner" ? "בעלים" : member.role === "admin" ? "מנהל" : "עובד"}
-                        </span>
+                        </Badge>
                       </div>
                     ))}
                   </div>
@@ -1141,23 +1161,27 @@ export default function CustomersPage() {
 
                   {/* Month Navigator */}
                   <div className="flex items-center justify-center gap-[10px] mb-[15px]">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       type="button"
                       onClick={() => setDetailMonth(new Date(detailMonth.getFullYear(), detailMonth.getMonth() + 1, 1))}
                       className="text-white/60 hover:text-white transition-colors"
                     >
                       <ChevronRight className="w-5 h-5" />
-                    </button>
+                    </Button>
                     <span className="text-[14px] text-white font-medium min-w-[120px] text-center">
                       {detailMonth.toLocaleDateString("he-IL", { month: "long", year: "numeric" })}
                     </span>
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       type="button"
                       onClick={() => setDetailMonth(new Date(detailMonth.getFullYear(), detailMonth.getMonth() - 1, 1))}
                       className="text-white/60 hover:text-white transition-colors"
                     >
                       <ChevronLeft className="w-5 h-5" />
-                    </button>
+                    </Button>
                   </div>
 
                   {/* Monthly Total */}
@@ -1196,26 +1220,29 @@ export default function CustomersPage() {
                           {payment.notes && (
                             <span className="text-[12px] text-white/40 text-right">{payment.notes}</span>
                           )}
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             type="button"
                             onClick={() => handleDeletePayment(payment.id)}
                             className="self-end text-[#F64E60]/50 hover:text-[#F64E60] transition-colors text-[11px] mt-[4px]"
                           >
                             מחק
-                          </button>
+                          </Button>
                         </div>
                       ))}
                     </div>
                   )}
 
                   {/* Add Payment Toggle */}
-                  <button
+                  <Button
+                    variant="default"
                     type="button"
                     onClick={() => setIsAddPaymentOpen(!isAddPaymentOpen)}
                     className="w-full mt-[15px] bg-[#29318A] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
                   >
                     {isAddPaymentOpen ? "ביטול" : "+ הוספת תשלום"}
-                  </button>
+                  </Button>
 
                   {/* Add Payment Sub-form */}
                   {isAddPaymentOpen && (
@@ -1223,7 +1250,7 @@ export default function CustomersPage() {
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">תאריך</label>
                         <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
-                          <input
+                          <Input
                             type="date"
                             title="תאריך תשלום"
                             value={newPaymentDate}
@@ -1235,7 +1262,7 @@ export default function CustomersPage() {
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">סכום (₪)</label>
                         <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
-                          <input
+                          <Input
                             type="tel"
                             title="סכום"
                             value={newPaymentAmount}
@@ -1248,7 +1275,7 @@ export default function CustomersPage() {
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">עבור מה</label>
                         <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
-                          <input
+                          <Input
                             type="text"
                             title="תיאור"
                             value={newPaymentDescription}
@@ -1288,7 +1315,8 @@ export default function CustomersPage() {
                           />
                         </div>
                       </div>
-                      <button
+                      <Button
+                        variant="default"
                         type="button"
                         onClick={handleAddPayment}
                         disabled={!newPaymentDate || !newPaymentAmount || isSubmitting}
@@ -1305,7 +1333,7 @@ export default function CustomersPage() {
                         ) : (
                           "שמור תשלום"
                         )}
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>

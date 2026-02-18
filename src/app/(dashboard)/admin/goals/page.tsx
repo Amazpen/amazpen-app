@@ -8,6 +8,9 @@ import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 // Types
 interface Business {
@@ -750,21 +753,23 @@ export default function AdminGoalsPage() {
         {/* Action Button */}
         <div className="flex items-end">
           {!goal ? (
-            <button
+            <Button
+              variant="default"
               onClick={initializeMonth}
               disabled={isInitializing || isLoading}
               className="w-full bg-[#4956D4] hover:bg-[#5A67E0] text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
             >
               {isInitializing ? "יוצר..." : "צור יעדים לחודש"}
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
+              variant="default"
               onClick={saveAll}
               disabled={isSaving}
               className="w-full bg-[#17DB4E] hover:bg-[#15C445] text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
             >
               {isSaving ? "שומר..." : "שמור שינויים"}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -802,7 +807,7 @@ export default function AdminGoalsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm text-white/70 mb-2">העמסה (%)</label>
-                      <input
+                      <Input
                         type="number"
                         step="0.1"
                         value={goal.markup_percentage !== null && goal.markup_percentage !== undefined
@@ -815,7 +820,7 @@ export default function AdminGoalsPage() {
                     </div>
                     <div>
                       <label className="block text-sm text-white/70 mb-2">מע״מ (%)</label>
-                      <input
+                      <Input
                         type="number"
                         step="0.1"
                         value={goal.vat_percentage !== null && goal.vat_percentage !== undefined
@@ -831,7 +836,7 @@ export default function AdminGoalsPage() {
                   {/* Revenue Target */}
                   <div>
                     <label className="block text-sm text-white/70 mb-2">הכנסות ברוטו (₪)</label>
-                    <input
+                    <Input
                       type="number"
                       value={goal.revenue_target || ""}
                       onChange={(e) => updateGoalField("revenue_target", e.target.value ? parseFloat(e.target.value) : null)}
@@ -843,7 +848,7 @@ export default function AdminGoalsPage() {
                   {/* Labor Cost */}
                   <div>
                     <label className="block text-sm text-white/70 mb-2">עלות עובדים (%)</label>
-                    <input
+                    <Input
                       type="number"
                       step="0.1"
                       value={goal.labor_cost_target_pct || ""}
@@ -856,7 +861,7 @@ export default function AdminGoalsPage() {
                   {/* Food Cost */}
                   <div>
                     <label className="block text-sm text-white/70 mb-2">עלות מכר (%)</label>
-                    <input
+                    <Input
                       type="number"
                       step="0.1"
                       value={goal.food_cost_target_pct || ""}
@@ -886,7 +891,7 @@ export default function AdminGoalsPage() {
                           <label className="block text-sm text-white/70 mb-2">
                             ממוצע {source.name} (₪)
                           </label>
-                          <input
+                          <Input
                             type="number"
                             value={currentGoal?.avg_ticket_target || ""}
                             onChange={(e) =>
@@ -919,7 +924,7 @@ export default function AdminGoalsPage() {
                             (₪{product.unit_cost.toLocaleString()} ל{product.unit})
                           </span>
                         </label>
-                        <input
+                        <Input
                           type="number"
                           step="0.1"
                           value={product.target_pct ?? ""}
@@ -942,29 +947,29 @@ export default function AdminGoalsPage() {
             /* Supplier Budgets Tab - 12 Month Table */
             <div className="bg-[#1A1F37] rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] border-collapse">
-                  <thead>
-                    <tr className="bg-[#0F1535]">
-                      <th className="sticky right-0 z-10 bg-[#0F1535] text-right px-4 py-3 text-sm font-semibold border-b border-white/10 min-w-[140px]">שם ספק</th>
-                      <th className="text-right px-2 py-3 text-sm font-semibold border-b border-white/10 text-white/60 min-w-[70px]">סוג</th>
+                <Table className="w-full min-w-[900px] border-collapse">
+                  <TableHeader>
+                    <TableRow className="bg-[#0F1535]">
+                      <TableHead className="sticky right-0 z-10 bg-[#0F1535] text-right px-4 py-3 text-sm font-semibold border-b border-white/10 min-w-[140px]">שם ספק</TableHead>
+                      <TableHead className="text-right px-2 py-3 text-sm font-semibold border-b border-white/10 text-white/60 min-w-[70px]">סוג</TableHead>
                       {hebrewMonths.map((m) => (
-                        <th key={m.value} className="text-center px-1 py-3 text-xs font-semibold border-b border-white/10 text-white/70 min-w-[80px]">
+                        <TableHead key={m.value} className="text-center px-1 py-3 text-xs font-semibold border-b border-white/10 text-white/70 min-w-[80px]">
                           {m.label}
-                        </th>
+                        </TableHead>
                       ))}
-                      <th className="text-center px-2 py-3 text-sm font-semibold border-b border-white/10 text-[#17DB4E] min-w-[90px]">סה״כ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                      <TableHead className="text-center px-2 py-3 text-sm font-semibold border-b border-white/10 text-[#17DB4E] min-w-[90px]">סה״כ</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {currentExpensesSuppliers.map((supplier) => (
-                      <tr key={supplier.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-                        <td className="sticky right-0 z-10 bg-[#1A1F37] px-4 py-2 text-sm text-white/90 font-medium">{supplier.name}</td>
-                        <td className="px-2 py-2 text-xs text-white/40">{supplier.is_fixed_expense ? "קבוע" : "משתנה"}</td>
+                      <TableRow key={supplier.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                        <TableCell className="sticky right-0 z-10 bg-[#1A1F37] px-4 py-2 text-sm text-white/90 font-medium">{supplier.name}</TableCell>
+                        <TableCell className="px-2 py-2 text-xs text-white/40">{supplier.is_fixed_expense ? "קבוע" : "משתנה"}</TableCell>
                         {hebrewMonths.map((m) => {
                           const budget = getBudget(supplier.id, m.value);
                           return (
-                            <td key={m.value} className="px-1 py-1">
-                              <input
+                            <TableCell key={m.value} className="px-1 py-1">
+                              <Input
                                 type="number"
                                 value={budget?.budget_amount || ""}
                                 onChange={(e) =>
@@ -977,30 +982,30 @@ export default function AdminGoalsPage() {
                                 className="w-full bg-[#0F1535] border border-[#29318A]/50 rounded px-2 py-1.5 text-white text-center text-sm focus:outline-none focus:border-[#4956D4] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 placeholder="0"
                               />
-                            </td>
+                            </TableCell>
                           );
                         })}
-                        <td className="px-2 py-2 text-center text-sm font-semibold text-white/80">
+                        <TableCell className="px-2 py-2 text-center text-sm font-semibold text-white/80">
                           ₪{getSupplierTotal(supplier.id).toLocaleString()}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-[#0F1535]/60 border-t border-white/10">
-                      <td className="sticky right-0 z-10 bg-[#0F1535] px-4 py-3 text-sm font-bold">סה״כ</td>
-                      <td></td>
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow className="bg-[#0F1535]/60 border-t border-white/10">
+                      <TableCell className="sticky right-0 z-10 bg-[#0F1535] px-4 py-3 text-sm font-bold">סה״כ</TableCell>
+                      <TableCell></TableCell>
                       {hebrewMonths.map((m) => (
-                        <td key={m.value} className="px-1 py-3 text-center text-xs font-semibold text-white">
+                        <TableCell key={m.value} className="px-1 py-3 text-center text-xs font-semibold text-white">
                           ₪{getMonthTotal(m.value).toLocaleString()}
-                        </td>
+                        </TableCell>
                       ))}
-                      <td className="px-2 py-3 text-center text-sm font-bold text-[#17DB4E]">
+                      <TableCell className="px-2 py-3 text-center text-sm font-bold text-[#17DB4E]">
                         ₪{grandTotal.toLocaleString()}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+                      </TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
               </div>
             </div>
           )}

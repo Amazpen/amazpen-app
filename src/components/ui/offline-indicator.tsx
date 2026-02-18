@@ -1,6 +1,7 @@
 "use client";
 
 import { WifiOff, RefreshCw, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface OfflineIndicatorProps {
   isOnline: boolean;
@@ -60,9 +61,9 @@ export function OfflineIndicator({
       <div className="flex items-center justify-center gap-2 bg-yellow-600/90 text-white text-sm py-2 px-4 rounded-lg mx-4 mt-2">
         <AlertCircle className="w-4 h-4 shrink-0" />
         <span>חלק מהרישומים סונכרנו. {pendingCount} ממתינים.</span>
-        <button onClick={onSync} className="underline hover:no-underline text-xs">
+        <Button variant="ghost" onClick={onSync} className="underline hover:no-underline text-xs">
           נסה שוב
-        </button>
+        </Button>
       </div>
     );
   }
@@ -72,9 +73,9 @@ export function OfflineIndicator({
       <div className="flex items-center justify-center gap-2 bg-red-600/90 text-white text-sm py-2 px-4 rounded-lg mx-4 mt-2">
         <AlertCircle className="w-4 h-4 shrink-0" />
         <span>שגיאה בסנכרון. {pendingCount} רישומים ממתינים.</span>
-        <button onClick={onSync} className="underline hover:no-underline text-xs">
+        <Button variant="ghost" onClick={onSync} className="underline hover:no-underline text-xs">
           נסה שוב
-        </button>
+        </Button>
       </div>
     );
   }
@@ -85,9 +86,9 @@ export function OfflineIndicator({
       <div className="flex items-center justify-center gap-2 bg-blue-600/90 text-white text-sm py-2 px-4 rounded-lg mx-4 mt-2">
         <Clock className="w-4 h-4 shrink-0" />
         <span>{pendingCount} רישומים ממתינים לסנכרון</span>
-        <button onClick={onSync} className="underline hover:no-underline text-xs">
+        <Button variant="ghost" onClick={onSync} className="underline hover:no-underline text-xs">
           סנכרן עכשיו
-        </button>
+        </Button>
       </div>
     );
   }

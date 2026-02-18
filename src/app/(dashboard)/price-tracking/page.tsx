@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client';
 import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
 import type { PriceAlert, SupplierItem, SupplierItemPrice } from '@/types/price-tracking';
 import SupplierSearchSelect from '@/components/ui/SupplierSearchSelect';
+import { Button } from "@/components/ui/button";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 interface Supplier {
   id: string;
@@ -271,18 +273,18 @@ export default function PriceTrackingPage() {
 
                 {/* Actions */}
                 <div className="flex gap-1 flex-shrink-0">
-                  <button
+                  <Button
                     onClick={() => updateAlertStatus(alert.id, 'read')}
                     className="text-[12px] text-white/50 hover:text-white bg-[#29318A]/30 hover:bg-[#29318A] px-2 py-1 rounded-[6px] transition-colors"
                   >
                     ראיתי
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => updateAlertStatus(alert.id, 'dismissed')}
                     className="text-[12px] text-white/30 hover:text-white/60 px-2 py-1 rounded-[6px] transition-colors"
                   >
                     בטל
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -317,7 +319,7 @@ export default function PriceTrackingPage() {
           ) : (
             <div className="flex flex-col gap-1">
               {supplierItems.map((item) => (
-                <button
+                <Button
                   key={item.id}
                   onClick={() => setSelectedItemId(selectedItemId === item.id ? null : item.id)}
                   className={`w-full bg-[#0F1535] border rounded-[10px] p-3 flex items-center justify-between transition-colors ${
@@ -339,7 +341,7 @@ export default function PriceTrackingPage() {
                       &#8362;{item.current_price?.toFixed(2) || '-'}
                     </p>
                   </div>
-                </button>
+                </Button>
               ))}
             </div>
           )
@@ -352,31 +354,31 @@ export default function PriceTrackingPage() {
               היסטוריית מחירים: {selectedItem.item_name}
             </h3>
             <div className="overflow-x-auto">
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="border-b border-[#4C526B] text-white/50">
-                    <th className="text-right py-2">תאריך</th>
-                    <th className="text-center py-2">מחיר</th>
-                    <th className="text-center py-2">כמות</th>
-                    <th className="text-center py-2">שינוי</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table className="w-full text-[13px]">
+                <TableHeader>
+                  <TableRow className="border-b border-[#4C526B] text-white/50">
+                    <TableHead className="text-right py-2">תאריך</TableHead>
+                    <TableHead className="text-center py-2">מחיר</TableHead>
+                    <TableHead className="text-center py-2">כמות</TableHead>
+                    <TableHead className="text-center py-2">שינוי</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {priceHistory.map((ph, idx) => {
                     const prevPrice = idx < priceHistory.length - 1 ? priceHistory[idx + 1].price : null;
                     const change = prevPrice ? ((ph.price - prevPrice) / prevPrice) * 100 : null;
                     return (
-                      <tr key={ph.id} className="border-b border-[#4C526B]/50">
-                        <td className="text-right py-2 text-white/70 ltr-num">
+                      <TableRow key={ph.id} className="border-b border-[#4C526B]/50">
+                        <TableCell className="text-right py-2 text-white/70 ltr-num">
                           {new Date(ph.document_date).toLocaleDateString('he-IL')}
-                        </td>
-                        <td className="text-center py-2 text-white font-medium ltr-num">
+                        </TableCell>
+                        <TableCell className="text-center py-2 text-white font-medium ltr-num">
                           &#8362;{ph.price.toFixed(2)}
-                        </td>
-                        <td className="text-center py-2 text-white/50 ltr-num">
+                        </TableCell>
+                        <TableCell className="text-center py-2 text-white/50 ltr-num">
                           {ph.quantity || '-'}
-                        </td>
-                        <td className="text-center py-2 ltr-num">
+                        </TableCell>
+                        <TableCell className="text-center py-2 ltr-num">
                           {change != null ? (
                             <span className={`font-medium ${change > 0 ? 'text-[#F64E60]' : change < 0 ? 'text-[#3CD856]' : 'text-white/40'}`}>
                               {change > 0 ? '+' : ''}{change.toFixed(1)}%
@@ -384,12 +386,12 @@ export default function PriceTrackingPage() {
                           ) : (
                             <span className="text-white/30">-</span>
                           )}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}

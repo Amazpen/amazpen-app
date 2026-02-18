@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 function LoginPageContent() {
   const router = useRouter();
@@ -110,7 +113,7 @@ function LoginPageContent() {
           <div className="flex flex-col gap-[8px]">
             <label className="text-[14px] font-medium text-white">שם משתמש</label>
             <div className="relative">
-              <input
+              <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -132,7 +135,7 @@ function LoginPageContent() {
           <div className="flex flex-col gap-[8px]">
             <label className="text-[14px] font-medium text-white">סיסמא</label>
             <div className="relative">
-              <input
+              <Input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -141,8 +144,10 @@ function LoginPageContent() {
                 autoComplete="current-password"
                 className="w-full h-[50px] bg-white text-[#0F1231] text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] pr-[45px] placeholder:text-[#9CA3AF]"
               />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setShowPassword(!showPassword)}
                 title={showPassword ? "הסתר סיסמה" : "הצג סיסמה"}
                 aria-label={showPassword ? "הסתר סיסמה" : "הצג סיסמה"}
@@ -153,28 +158,18 @@ function LoginPageContent() {
                   <path d="M12 12V8C12 5.79086 13.7909 4 16 4C18.2091 4 20 5.79086 20 8V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   <circle cx="16" cy="19" r="2" fill="currentColor"/>
                 </svg>
-              </button>
+              </Button>
             </div>
           </div>
 
           {/* Remember Me & Forgot Password Row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-[8px]">
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-[20px] h-[20px] bg-white rounded-[4px] border-2 border-[#D1D5DB] peer-checked:bg-[#29318A] peer-checked:border-[#29318A] flex items-center justify-center transition-colors">
-                  {rememberMe && (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                      <path d="M5 12L10 17L19 8" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
-                </div>
-              </label>
+              <Checkbox
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(!!checked)}
+                className="w-[20px] h-[20px] bg-white rounded-[4px] border-2 border-[#D1D5DB] data-[state=checked]:bg-[#29318A] data-[state=checked]:border-[#29318A]"
+              />
               <span className="text-[13px] text-white">זכור אותי</span>
             </div>
             <Link
@@ -187,21 +182,11 @@ function LoginPageContent() {
 
           {/* Terms Agreement */}
           <div className="flex items-start gap-[10px] bg-[#29318A]/20 rounded-[10px] p-[12px]">
-            <label className="relative inline-flex items-center cursor-pointer mt-[2px]">
-              <input
-                type="checkbox"
-                checked={agreedToTerms}
-                onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-[20px] h-[20px] bg-white rounded-[4px] border-2 border-[#D1D5DB] peer-checked:bg-[#29318A] peer-checked:border-[#29318A] flex items-center justify-center transition-colors flex-shrink-0">
-                {agreedToTerms && (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                    <path d="M5 12L10 17L19 8" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                )}
-              </div>
-            </label>
+            <Checkbox
+              checked={agreedToTerms}
+              onCheckedChange={(checked) => setAgreedToTerms(!!checked)}
+              className="w-[20px] h-[20px] bg-white rounded-[4px] border-2 border-[#D1D5DB] data-[state=checked]:bg-[#29318A] data-[state=checked]:border-[#29318A] flex-shrink-0 mt-[2px]"
+            />
             <span className="text-[12px] text-white/80 leading-[1.6]">
               אני מסכימ/ה ל-
               <a
@@ -233,7 +218,7 @@ function LoginPageContent() {
           )}
 
           {/* Login Button */}
-          <button
+          <Button
             type="submit"
             disabled={isLoading || !email || !password}
             className="w-full h-[50px] bg-[#29318A] text-white text-[16px] font-bold rounded-[10px] transition-all duration-200 hover:bg-[#3D44A0] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-[8px] shadow-[0px_7px_30px_-10px_rgba(41,49,138,0.3)]"
@@ -249,7 +234,7 @@ function LoginPageContent() {
             ) : (
               "התחברות"
             )}
-          </button>
+          </Button>
         </form>
 
         {/* TODO: Enable Google OAuth when Supabase provider is configured */}

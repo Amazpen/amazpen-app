@@ -996,15 +996,17 @@ export function DailyEntriesModal({
       >
         <SheetHeader className="border-b border-[#4C526B] pb-4">
           <div className="flex justify-between items-center" dir="ltr">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={onClose}
               className="text-[#7B91B0] hover:text-white transition-colors"
               title="סגור"
               aria-label="סגור"
             >
               <X className="w-6 h-6" />
-            </button>
+            </Button>
             <SheetTitle className="text-white text-xl font-bold">
               {editingEntry ? `עריכת יום ${formatDate(editingEntry.entry_date)}` : `מילוי יומי - ${businessName}`}
             </SheetTitle>
@@ -1188,8 +1190,10 @@ export function DailyEntriesModal({
                       <div className="bg-transparent rounded-[7px] flex flex-col gap-[3px]">
                         <div className="flex items-center justify-between">
                           <Label className="text-white text-[15px] font-medium text-right">שכר מנהל יומי כולל העמסה</Label>
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon"
                             onClick={async () => {
                               const supabase = createClient();
                               const ed = new Date(editFormData.entry_date || new Date());
@@ -1210,7 +1214,7 @@ export function DailyEntriesModal({
                             className="opacity-50 hover:opacity-100 transition-opacity"
                           >
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                          </button>
+                          </Button>
                         </div>
                         <Input
                           type="text"
@@ -1345,13 +1349,14 @@ export function DailyEntriesModal({
                       "עדכן נתונים"
                     )}
                   </Button>
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={handleCancelEdit}
                     className="flex-1 h-[50px] border border-[#4C526B] text-[#7B91B0] hover:text-white hover:border-white font-bold text-lg rounded-[10px] transition-all"
                   >
                     ביטול
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
@@ -1417,8 +1422,10 @@ export function DailyEntriesModal({
 
                   {/* Actions */}
                   <div className="flex items-center justify-center gap-[2px] w-[85px]">
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEdit(entry);
@@ -1436,9 +1443,11 @@ export function DailyEntriesModal({
                           fill="none"
                         />
                       </svg>
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDelete(entry.id);
@@ -1456,7 +1465,7 @@ export function DailyEntriesModal({
                           fill="none"
                         />
                       </svg>
-                    </button>
+                    </Button>
                   </div>
                 </div>
 

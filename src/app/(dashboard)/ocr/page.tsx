@@ -10,6 +10,7 @@ import DocumentQueue from '@/components/ocr/DocumentQueue';
 import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
+import { Button } from "@/components/ui/button";
 
 interface Business {
   id: string;
@@ -850,7 +851,7 @@ export default function OCRPage() {
 
       {/* Mobile tabs */}
       <div className="lg:hidden flex border-b border-[#4C526B]">
-        <button
+        <Button
           onClick={() => setShowMobileViewer(true)}
           className={`flex-1 py-3 text-[14px] font-medium transition-colors ${
             showMobileViewer
@@ -859,8 +860,8 @@ export default function OCRPage() {
           }`}
         >
           תמונת מסמך
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => setShowMobileViewer(false)}
           className={`flex-1 py-3 text-[14px] font-medium transition-colors ${
             !showMobileViewer
@@ -869,7 +870,7 @@ export default function OCRPage() {
           }`}
         >
           פרטי מסמך
-        </button>
+        </Button>
       </div>
 
       {/* Main content area - 3 columns on desktop (RTL: DOM order = visual right-to-left) */}

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Button } from "@/components/ui/button";
 import type { CardComponentProps } from "nextstepjs";
 
 export function OnboardingCard({
@@ -35,8 +36,10 @@ export function OnboardingCard({
             </h3>
           )}
         </div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={handleSkip}
           className="text-white/40 hover:text-white/70 transition-colors flex-shrink-0 mt-0.5"
           aria-label="סגור"
@@ -49,7 +52,7 @@ export function OnboardingCard({
               strokeLinecap="round"
             />
           </svg>
-        </button>
+        </Button>
       </div>
 
       {/* Content */}
@@ -79,32 +82,34 @@ export function OnboardingCard({
       {/* Navigation */}
       <div className="flex items-center justify-between">
         {step.showSkip !== false && (
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={handleSkip}
             className="text-white/40 hover:text-white/60 text-[12px] transition-colors"
           >
             דלג
-          </button>
+          </Button>
         )}
 
         <div className="flex items-center gap-2 mr-auto">
           {!isFirstStep && (
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={prevStep}
               className="border border-white/20 text-white/70 hover:text-white hover:border-white/40 rounded-[7px] px-3.5 py-1.5 text-[13px] font-medium transition-all"
             >
               הקודם
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             type="button"
             onClick={nextStep}
             className="bg-[#6366f1] hover:bg-[#5558e3] text-white rounded-[7px] px-4 py-1.5 text-[13px] font-bold transition-all"
           >
             {isLastStep ? "סיום" : "הבא"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

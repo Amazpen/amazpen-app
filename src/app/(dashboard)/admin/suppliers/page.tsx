@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 interface CsvSupplier {
   name: string;
@@ -586,13 +588,14 @@ export default function AdminSuppliersPage() {
                   </svg>
                   <span className="text-[14px] text-white">{csvFileName}</span>
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={handleClearCsv}
                   className="text-[#F64E60] text-[13px] hover:underline"
                 >
                   נקה הכל
-                </button>
+                </Button>
               </div>
 
               {csvError && (
@@ -708,15 +711,17 @@ export default function AdminSuppliersPage() {
                       )}
                     </div>
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => handleRemoveCsvSupplier(index)}
                     className="text-[#F64E60] hover:text-[#ff6b7a] flex-shrink-0 ml-[10px]"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                       <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
@@ -739,84 +744,85 @@ export default function AdminSuppliersPage() {
             שורה ראשונה: כותרות העמודות. שאר השורות: נתוני הספקים.
           </p>
           <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-right text-white/60 py-[6px] px-[8px]">עמודה</th>
-                  <th className="text-right text-white/60 py-[6px] px-[8px]">חובה</th>
-                  <th className="text-right text-white/60 py-[6px] px-[8px]">דוגמה</th>
-                </tr>
-              </thead>
-              <tbody className="text-white/80">
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">שם הספק</td>
-                  <td className="py-[4px] px-[8px] text-[#F64E60]">כן</td>
-                  <td className="py-[4px] px-[8px]">חברת הניקיון</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">סוג הוצאה</td>
-                  <td className="py-[4px] px-[8px] text-[#F64E60]">כן</td>
-                  <td className="py-[4px] px-[8px]">קניות סחורה / הוצאות שוטפות</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">קטגורית אב</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">הוצאות תפעול / עלות מכר</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">קטגוריה</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">מחשבים ותוכנות / רכבים כללי</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">{`נדרש מע"מ`}</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">כן / לא</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">מעמ</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">1.18 (מלא) / 1 (ללא)</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">התחייבות</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">כן / לא</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">הוצאה חודשית קבועה</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">כן / לא</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">סכום לכל תשלום קבוע</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">3000</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">מתי יורד כל חודש?</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">10 (יום בחודש)</td>
-                </tr>
-                <tr className="border-b border-white/5">
-                  <td className="py-[4px] px-[8px]">תנאי תשלום</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">0 / 30 / 60</td>
-                </tr>
-                <tr>
-                  <td className="py-[4px] px-[8px]">הערות</td>
-                  <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                  <td className="py-[4px] px-[8px]">ספק ראשי</td>
-                </tr>
-              </tbody>
-            </table>
+            <Table className="w-full text-[12px]">
+              <TableHeader>
+                <TableRow className="border-b border-white/10">
+                  <TableHead className="text-right text-white/60 py-[6px] px-[8px]">עמודה</TableHead>
+                  <TableHead className="text-right text-white/60 py-[6px] px-[8px]">חובה</TableHead>
+                  <TableHead className="text-right text-white/60 py-[6px] px-[8px]">דוגמה</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="text-white/80">
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">שם הספק</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-[#F64E60]">כן</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">חברת הניקיון</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">סוג הוצאה</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-[#F64E60]">כן</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">קניות סחורה / הוצאות שוטפות</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">קטגורית אב</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">הוצאות תפעול / עלות מכר</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">קטגוריה</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">מחשבים ותוכנות / רכבים כללי</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">{`נדרש מע"מ`}</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">כן / לא</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">מעמ</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">1.18 (מלא) / 1 (ללא)</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">התחייבות</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">כן / לא</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">הוצאה חודשית קבועה</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">כן / לא</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">סכום לכל תשלום קבוע</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">3000</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">מתי יורד כל חודש?</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">10 (יום בחודש)</TableCell>
+                </TableRow>
+                <TableRow className="border-b border-white/5">
+                  <TableCell className="py-[4px] px-[8px]">תנאי תשלום</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">0 / 30 / 60</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="py-[4px] px-[8px]">הערות</TableCell>
+                  <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                  <TableCell className="py-[4px] px-[8px]">ספק ראשי</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </div>
         </div>
 
         {/* Import Button */}
         {csvSuppliers.length > 0 && (
-          <button
+          <Button
             type="button"
+            variant="default"
             onClick={handleImport}
             disabled={isImporting || !selectedBusinessId}
             className="w-full bg-[#4956D4] hover:bg-[#3a45b5] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[16px] font-bold py-[12px] rounded-[12px] transition-colors flex items-center justify-center gap-2"
@@ -829,7 +835,7 @@ export default function AdminSuppliersPage() {
             ) : (
               `ייבא ${csvSuppliers.length} ספקים`
             )}
-          </button>
+          </Button>
         )}
       </div>
     </div>

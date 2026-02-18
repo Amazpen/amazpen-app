@@ -20,6 +20,8 @@ import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 // Supplier from database
 interface Supplier {
@@ -2101,7 +2103,7 @@ function ExpensesPageInner() {
 
       {/* Date Range and Add Button */}
       <div className="flex items-center justify-between mb-[10px]">
-        <button
+        <Button
           id="onboarding-expenses-add"
           type="button"
           onClick={() => {
@@ -2113,7 +2115,7 @@ function ExpensesPageInner() {
           className="bg-[#29318A] text-white text-[16px] font-semibold px-[20px] py-[10px] rounded-[7px] transition-colors hover:bg-[#3D44A0]"
         >
           הזנת הוצאה
-        </button>
+        </Button>
         <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
       </div>
 
@@ -2193,7 +2195,7 @@ function ExpensesPageInner() {
                 categoryData.map((cat, index) => (
                   <div key={cat.id}>
                     {/* Category Row */}
-                    <button
+                    <Button
                       type="button"
                       onClick={() => setExpandedCategoryIds(prev => {
                         if (prev.includes(cat.id)) { return prev.filter(id => id !== cat.id); } else { return [...prev, cat.id]; }
@@ -2220,7 +2222,7 @@ function ExpensesPageInner() {
                       </div>
                       <span className="text-[16px] flex-1 text-center ltr-num">₪{cat.amount.toLocaleString()}</span>
                       <span className="text-[16px] flex-1 text-center ltr-num">{cat.percentage % 1 === 0 ? cat.percentage.toFixed(0) : cat.percentage.toFixed(2)}%</span>
-                    </button>
+                    </Button>
 
                     {/* Drill-down: Suppliers in this category */}
                     {expandedCategoryIds.includes(cat.id) && cat.suppliers.length > 0 && (
@@ -2229,7 +2231,7 @@ function ExpensesPageInner() {
                           // Find supplier's color from chartDataSource
                           const chartIdx = chartDataSource.findIndex(d => d.id === supplier.id);
                           return (
-                          <button
+                          <Button
                             type="button"
                             key={supplier.id}
                             onClick={() => handleOpenSupplierBreakdown(supplier.id, supplier.name, cat.category)}
@@ -2248,7 +2250,7 @@ function ExpensesPageInner() {
                             </div>
                             <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>₪{supplier.amount.toLocaleString()}</span>
                             <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.percentage % 1 === 0 ? supplier.percentage.toFixed(0) : supplier.percentage.toFixed(2)}%</span>
-                          </button>
+                          </Button>
                           );
                         })}
                       </div>
@@ -2264,7 +2266,7 @@ function ExpensesPageInner() {
                 </div>
               ) : (
                 expensesData.map((supplier, index) => (
-                  <button
+                  <Button
                     type="button"
                     key={supplier.id}
                     onClick={() => handleOpenSupplierBreakdown(supplier.id, supplier.name, "קניות סחורה")}
@@ -2286,7 +2288,7 @@ function ExpensesPageInner() {
                     <span className="text-[16px] flex-1 text-right">{supplier.name}</span>
                     <span className="text-[16px] flex-1 text-center ltr-num">₪{supplier.amount.toLocaleString()}</span>
                     <span className="text-[16px] flex-1 text-center ltr-num">{supplier.percentage % 1 === 0 ? supplier.percentage.toFixed(0) : supplier.percentage.toFixed(2)}%</span>
-                  </button>
+                  </Button>
                 ))
               )
             )}
@@ -2297,7 +2299,7 @@ function ExpensesPageInner() {
         {/* Full Details Button - only show when there's data */}
         {(activeTab === "expenses" ? categoryData.length > 0 : expensesData.length > 0) && (
           <div className="flex justify-center mt-0">
-            <button
+            <Button
               type="button"
               onClick={() => router.push("/suppliers")}
               className="w-full bg-[#29318A] text-white text-[20px] font-semibold py-[14px] rounded-t-[5px] rounded-b-[20px] flex items-center justify-center gap-[8px] transition-colors hover:bg-[#3D44A0]"
@@ -2306,7 +2308,7 @@ function ExpensesPageInner() {
               <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className="flex-shrink-0">
                 <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -2318,7 +2320,7 @@ function ExpensesPageInner() {
         <div className="flex items-center justify-between">
           {/* Filter Dropdown - Right side */}
           <div className="relative" ref={filterMenuRef}>
-            <button
+            <Button
               type="button"
               title="סינון לפי"
               onClick={() => setShowFilterMenu(!showFilterMenu)}
@@ -2327,7 +2329,7 @@ function ExpensesPageInner() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className={filterBy ? 'text-[#bc76ff]' : 'text-white'}>
                 <path d="M8.07136 12.6325C4.96261 10.3075 2.74511 7.75 1.53386 6.3125C1.15886 5.8675 1.03636 5.54125 0.962611 4.9675C0.710111 3.0025 0.583861 2.02 1.16011 1.385C1.73636 0.75 2.75511 0.75 4.79261 0.75H19.2076C21.2451 0.75 22.2639 0.75 22.8401 1.38375C23.4164 2.01875 23.2901 3.00125 23.0376 4.96625C22.9626 5.54 22.8401 5.86625 22.4664 6.31125C21.2539 7.75125 19.0326 10.3137 15.9164 12.6425C15.7723 12.7546 15.6531 12.8956 15.5666 13.0564C15.4801 13.2172 15.4281 13.3942 15.4139 13.5762C15.1051 16.99 14.8201 18.86 14.6426 19.805C14.3564 21.3325 12.1926 22.2513 11.0326 23.07C10.3426 23.5575 9.50511 22.9775 9.41636 22.2225C9.08445 19.3456 8.80357 16.4631 8.57386 13.5762C8.56102 13.3925 8.50964 13.2135 8.42307 13.0509C8.33649 12.8883 8.21666 12.7457 8.07136 12.6325Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-            </button>
+            </Button>
             {showFilterMenu && (
               <div className="absolute top-[30px] right-0 bg-[#1A2150] border border-white/20 rounded-[10px] py-[5px] min-w-[160px] z-50 shadow-lg shadow-black/40">
                 {[
@@ -2339,7 +2341,7 @@ function ExpensesPageInner() {
                   { value: "notes", label: "הערות" },
                   { value: "fixed", label: "הוצאות קבועות" },
                 ].map((option) => (
-                  <button
+                  <Button
                     key={option.value}
                     type="button"
                     onClick={() => {
@@ -2354,7 +2356,7 @@ function ExpensesPageInner() {
                     }`}
                   >
                     {option.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
@@ -2364,7 +2366,7 @@ function ExpensesPageInner() {
           <h2 className="text-[18px] font-bold text-center">חשבוניות אחרונות שהוזנו</h2>
 
           {/* Download Button - Left side */}
-          <button
+          <Button
             type="button"
             className="flex flex-col items-center gap-[5px] cursor-pointer"
             onClick={() => {
@@ -2419,7 +2421,7 @@ function ExpensesPageInner() {
               <path d="M6 28H26" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
             <span className="text-[12px] text-white text-center">הורדת חשבוניות</span>
-          </button>
+          </Button>
         </div>
 
         {/* Filter Input Bar */}
@@ -2428,7 +2430,7 @@ function ExpensesPageInner() {
             <span className="text-[13px] text-white/60 whitespace-nowrap">
               {filterBy === "date" ? "תאריך:" : filterBy === "supplier" ? "ספק:" : filterBy === "reference" ? "אסמכתא:" : filterBy === "amount" ? "סכום:" : "הערות:"}
             </span>
-            <input
+            <Input
               type="text"
               value={filterValue}
               onChange={(e) => setFilterValue(e.target.value)}
@@ -2441,27 +2443,27 @@ function ExpensesPageInner() {
               }
               className="flex-1 bg-white/10 text-white text-[13px] rounded-[7px] px-[10px] py-[6px] outline-none placeholder:text-white/30"
             />
-            <button
+            <Button
               type="button"
               title="ניקוי סינון"
               onClick={() => { setFilterBy(""); setFilterValue(""); }}
               className="text-white/50 hover:text-white transition-colors"
             >
               <X size={16} />
-            </button>
+            </Button>
           </div>
         )}
         {filterBy === "fixed" && (
           <div className="flex items-center gap-[10px] px-[10px]">
             <span className="text-[13px] text-[#bc76ff]">מציג הוצאות קבועות בלבד</span>
-            <button
+            <Button
               type="button"
               title="ניקוי סינון"
               onClick={() => { setFilterBy(""); setFilterValue(""); }}
               className="text-white/50 hover:text-white transition-colors"
             >
               <X size={16} />
-            </button>
+            </Button>
           </div>
         )}
 
@@ -2469,7 +2471,7 @@ function ExpensesPageInner() {
         <div id="onboarding-expenses-list" className="w-full flex flex-col gap-[5px]">
           {/* Table Header */}
           <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] items-center">
-            <button
+            <Button
               type="button"
               onClick={() => setDateSortOrder(prev => prev === "asc" ? "desc" : prev === "desc" ? null : "asc")}
               className="text-[13px] font-medium text-center cursor-pointer hover:text-white/80 transition-colors flex items-center justify-center gap-[3px]"
@@ -2480,7 +2482,7 @@ function ExpensesPageInner() {
                   <path d={dateSortOrder === "asc" ? "M12 19V5M12 5L5 12M12 5L19 12" : "M12 5V19M12 19L5 12M12 19L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               )}
-            </button>
+            </Button>
             <span className="text-[13px] font-medium text-center">ספק</span>
             <span className="text-[13px] font-medium text-center">אסמכתא</span>
             <span className="text-[13px] font-medium text-center">סכום</span>
@@ -2531,7 +2533,7 @@ function ExpensesPageInner() {
                 {/* Main Row */}
                 <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] w-full p-[5px_5px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] items-center">
                   {/* Date - Clickable */}
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setExpandedInvoiceId(expandedInvoiceId === invoice.id ? null : invoice.id)}
                     className="flex items-center justify-center gap-[2px] cursor-pointer"
@@ -2546,34 +2548,34 @@ function ExpensesPageInner() {
                       <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     <span className={`text-[12px] ltr-num ${isFixedPending ? 'text-[#bc76ff]' : ''}`}>{invoice.date}</span>
-                  </button>
+                  </Button>
                   {/* Supplier - Clickable */}
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setExpandedInvoiceId(expandedInvoiceId === invoice.id ? null : invoice.id)}
                     className={`text-[12px] text-center leading-tight cursor-pointer break-words px-[2px] ${isFixedPending ? 'text-[#bc76ff]' : ''}`}
                   >
                     {invoice.supplier}
-                  </button>
+                  </Button>
                   {/* Reference - Clickable */}
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setExpandedInvoiceId(expandedInvoiceId === invoice.id ? null : invoice.id)}
                     className={`text-[12px] text-center ltr-num cursor-pointer truncate px-[2px] ${isFixedPending ? 'text-[#bc76ff]' : ''}`}
                   >
                     {invoice.reference || "-"}
-                  </button>
+                  </Button>
                   {/* Amount - Clickable */}
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setExpandedInvoiceId(expandedInvoiceId === invoice.id ? null : invoice.id)}
                     className={`text-[12px] text-center ltr-num font-medium cursor-pointer ${isFixedPending ? 'text-[#bc76ff]' : ''}`}
                   >
                     ₪{invoice.amountBeforeVat.toLocaleString()}
-                  </button>
+                  </Button>
                   {/* Status - Clickable with dropdown */}
                   <div className="flex justify-center min-w-0" data-status-menu>
-                    <button
+                    <Button
                       type="button"
                       onClick={(e) => {
                         if (invoice.isFixed) {
@@ -2601,7 +2603,7 @@ function ExpensesPageInner() {
                       }`}
                     >
                       {isFixedPending ? 'ה.קבועה' : invoice.status}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -2638,7 +2640,7 @@ function ExpensesPageInner() {
                         <div className="flex items-center gap-[6px]">
                           {/* Image/View Icon - only show if has attachments */}
                           {invoice.attachmentUrls.length > 0 && (
-                            <button
+                            <Button
                               type="button"
                               title="צפייה בתמונה"
                               onClick={() => setViewerDocUrl(invoice.attachmentUrls[0])}
@@ -2649,11 +2651,11 @@ function ExpensesPageInner() {
                                 <circle cx="8.5" cy="8.5" r="1.5"/>
                                 <polyline points="21 15 16 10 5 21"/>
                               </svg>
-                            </button>
+                            </Button>
                           )}
                           {/* Download Icon - only show if has attachments */}
                           {invoice.attachmentUrls.length > 0 && (
-                            <button
+                            <Button
                               type="button"
                               title="הורדה"
                               className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors cursor-pointer"
@@ -2682,11 +2684,11 @@ function ExpensesPageInner() {
                                 <polyline points="7 10 12 15 17 10"/>
                                 <line x1="12" y1="15" x2="12" y2="3"/>
                               </svg>
-                            </button>
+                            </Button>
                           )}
                           {/* Edit Icon - Admin only */}
                           {isAdmin && (
-                            <button
+                            <Button
                               type="button"
                               title="עריכה"
                               onClick={() => handleEditInvoice(invoice)}
@@ -2696,11 +2698,11 @@ function ExpensesPageInner() {
                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                               </svg>
-                            </button>
+                            </Button>
                           )}
                           {/* Delete Icon - Admin only */}
                           {isAdmin && (
-                            <button
+                            <Button
                               type="button"
                               title="מחיקה"
                               onClick={() => handleDeleteClick(invoice.id)}
@@ -2712,7 +2714,7 @@ function ExpensesPageInner() {
                                 <line x1="10" y1="11" x2="10" y2="17"/>
                                 <line x1="14" y1="11" x2="14" y2="17"/>
                               </svg>
-                            </button>
+                            </Button>
                           )}
                         </div>
                       </div>
@@ -2721,7 +2723,7 @@ function ExpensesPageInner() {
                       {invoice.attachmentUrls.length > 0 && (
                         <div className="flex flex-wrap gap-[8px] px-[7px]">
                           {invoice.attachmentUrls.map((url, idx) => (
-                            <button
+                            <Button
                               key={idx}
                               type="button"
                               onClick={() => setViewerDocUrl(url)}
@@ -2733,7 +2735,7 @@ function ExpensesPageInner() {
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" />
                               )}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                       )}
@@ -2762,13 +2764,13 @@ function ExpensesPageInner() {
                     {/* Linked Payments Section - only show if has payments */}
                     {invoice.linkedPayments.length > 0 && (
                       <div className="flex flex-col gap-[8px] border border-white/30 rounded-[7px] p-[3px] mx-[3px]">
-                        <button
+                        <Button
                           type="button"
                           onClick={() => setShowLinkedPayments(showLinkedPayments === invoice.id ? null : invoice.id)}
                           className="bg-[#29318A] text-white text-[15px] font-medium py-[5px] px-[14px] rounded-[7px] self-start cursor-pointer hover:bg-[#3D44A0] transition-colors"
                         >
                           הצגת תשלומים מקושרים ({invoice.linkedPayments.length})
-                        </button>
+                        </Button>
 
                         {/* Linked Payments List */}
                         {showLinkedPayments === invoice.id && (
@@ -2801,7 +2803,7 @@ function ExpensesPageInner() {
                             <div className="flex items-center justify-center gap-[12px] border-t border-white/20 pt-[8px] mt-[4px] pb-[4px]">
                               {/* View attachment */}
                               {invoice.attachmentUrls.length > 0 && (
-                                <button
+                                <Button
                                   type="button"
                                   title="צפייה בחשבונית"
                                   onClick={() => setViewerDocUrl(invoice.attachmentUrls[0])}
@@ -2813,11 +2815,11 @@ function ExpensesPageInner() {
                                     <polyline points="21 15 16 10 5 21"/>
                                   </svg>
                                   <span>צפייה</span>
-                                </button>
+                                </Button>
                               )}
                               {/* Notes */}
                               {invoice.notes && (
-                                <button
+                                <Button
                                   type="button"
                                   title="הערות"
                                   onClick={() => showToast(invoice.notes, "info")}
@@ -2830,11 +2832,11 @@ function ExpensesPageInner() {
                                     <line x1="16" y1="17" x2="8" y2="17"/>
                                   </svg>
                                   <span>הערות</span>
-                                </button>
+                                </Button>
                               )}
                               {/* Download attachment */}
                               {invoice.attachmentUrls.length > 0 && (
-                                <button
+                                <Button
                                   type="button"
                                   title="הורדת חשבונית"
                                   className="flex items-center gap-[4px] text-[12px] text-white/70 hover:text-white transition-colors"
@@ -2863,7 +2865,7 @@ function ExpensesPageInner() {
                                     <line x1="12" y1="15" x2="12" y2="3"/>
                                   </svg>
                                   <span>הורדה</span>
-                                </button>
+                                </Button>
                               )}
                             </div>
                           </div>
@@ -2895,7 +2897,7 @@ function ExpensesPageInner() {
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
             <div className="flex justify-between items-center" dir="ltr">
-              <button
+              <Button
                 type="button"
                 onClick={handleClosePopup}
                 className="text-[#7B91B0] hover:text-white transition-colors"
@@ -2903,7 +2905,7 @@ function ExpensesPageInner() {
                 aria-label="סגור"
               >
                 <X className="w-6 h-6" />
-              </button>
+              </Button>
               <SheetTitle className="text-white text-xl font-bold">הוספת הוצאה חדשה</SheetTitle>
               <div className="w-[24px]" />
             </div>
@@ -2920,7 +2922,7 @@ function ExpensesPageInner() {
                       ? new Date(expenseDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
                       : 'יום/חודש/שנה'}
                   </span>
-                  <input
+                  <Input
                     type="date"
                     title="תאריך הוצאה"
                     value={expenseDate}
@@ -2934,7 +2936,7 @@ function ExpensesPageInner() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">סוג הוצאה</label>
                 <div className="flex items-center justify-start gap-[20px]">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setExpenseType("goods")}
                     className="flex items-center gap-[3px]"
@@ -2949,8 +2951,8 @@ function ExpensesPageInner() {
                     <span className={`text-[15px] font-semibold ${expenseType === "goods" ? "text-white" : "text-white/50"}`}>
                       קניות סחורה
                     </span>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     onClick={() => setExpenseType("current")}
                     className="flex items-center gap-[3px]"
@@ -2965,8 +2967,8 @@ function ExpensesPageInner() {
                     <span className={`text-[15px] font-semibold ${expenseType === "current" ? "text-white" : "text-white/50"}`}>
                       הוצאות שוטפות
                     </span>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     onClick={() => setExpenseType("employees")}
                     className="flex items-center gap-[3px]"
@@ -2981,7 +2983,7 @@ function ExpensesPageInner() {
                     <span className={`text-[15px] font-semibold ${expenseType === "employees" ? "text-white" : "text-white/50"}`}>
                       עלות עובדים
                     </span>
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -3002,7 +3004,7 @@ function ExpensesPageInner() {
                     dir="rtl"
                     onClick={() => setLinkToCoordinator(!linkToCoordinator)}
                   >
-                    <button
+                    <Button
                       type="button"
                       className="w-[21px] h-[21px] flex items-center justify-center text-white"
                     >
@@ -3016,7 +3018,7 @@ function ExpensesPageInner() {
                           <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/>
                         </svg>
                       )}
-                    </button>
+                    </Button>
                     <span className="text-[15px] font-medium text-white">האם לשייך למרכזת?</span>
                   </div>
                 );
@@ -3026,7 +3028,7 @@ function ExpensesPageInner() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-normal text-white text-right">מספר חשבונית / תעודת משלוח</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="text"
                     value={invoiceNumber}
                     onChange={(e) => setInvoiceNumber(e.target.value)}
@@ -3040,7 +3042,7 @@ function ExpensesPageInner() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="text"
                     inputMode="decimal"
                     title="סכום לפני מע״מ"
@@ -3057,7 +3059,7 @@ function ExpensesPageInner() {
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[15px] font-medium text-white text-right">מע&quot;מ</label>
                   <div className="border border-[#4C526B] rounded-[10px] h-[50px] w-[148px]">
-                    <input
+                    <Input
                       type="text"
                       inputMode="decimal"
                       title="סכום מע״מ"
@@ -3070,7 +3072,7 @@ function ExpensesPageInner() {
                   </div>
                 </div>
                 <div className="flex flex-col items-center gap-[5px]">
-                  <button
+                  <Button
                     type="button"
                     title="הזנת סכום מע״מ חלקי"
                     onClick={() => setPartialVat(!partialVat)}
@@ -3086,7 +3088,7 @@ function ExpensesPageInner() {
                         <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2"/>
                       )}
                     </svg>
-                  </button>
+                  </Button>
                   <span className="text-[15px] font-medium text-white">הזנת סכום מע&quot;מ חלקי</span>
                 </div>
               </div>
@@ -3095,7 +3097,7 @@ function ExpensesPageInner() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="text"
                     title="סכום כולל מע״מ"
                     placeholder="0.00"
@@ -3118,7 +3120,7 @@ function ExpensesPageInner() {
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
                         </div>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => {
                             setNewAttachmentFiles(prev => prev.filter((_, i) => i !== idx));
@@ -3133,7 +3135,7 @@ function ExpensesPageInner() {
                             <line x1="10" y1="11" x2="10" y2="17"/>
                             <line x1="14" y1="11" x2="14" y2="17"/>
                           </svg>
-                        </button>
+                        </Button>
                       </div>
                       );
                     })}
@@ -3197,7 +3199,7 @@ function ExpensesPageInner() {
               {/* Document Status Checkboxes */}
               <div className="flex flex-col gap-[3px]" dir="rtl">
                 {/* Paid in Full Checkbox */}
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     const newVal = !isPaidInFull;
@@ -3230,7 +3232,7 @@ function ExpensesPageInner() {
                     )}
                   </svg>
                   <span className="text-[15px] font-medium text-white">התעודה שולמה במלואה</span>
-                </button>
+                </Button>
 
                 {/* Payment Details Section - shown when isPaidInFull is true */}
                 {isPaidInFull && (
@@ -3247,7 +3249,7 @@ function ExpensesPageInner() {
                               ? new Date(paymentDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })
                               : 'יום/חודש/שנה'}
                           </span>
-                          <input
+                          <Input
                             type="date"
                             title="תאריך תשלום"
                             value={paymentDate}
@@ -3275,13 +3277,13 @@ function ExpensesPageInner() {
                       <div className="flex flex-col gap-[15px]">
                         <div className="flex items-center justify-between">
                           <span className="text-[15px] font-medium text-white">אמצעי תשלום</span>
-                          <button
+                          <Button
                             type="button"
                             onClick={addPopupPaymentMethodEntry}
                             className="bg-[#29318A] text-white text-[14px] font-medium px-[12px] py-[6px] rounded-[7px] hover:bg-[#3D44A0] transition-colors"
                           >
                             + הוסף אמצעי תשלום
-                          </button>
+                          </Button>
                         </div>
 
                         {popupPaymentMethods.map((pm, pmIndex) => (
@@ -3289,13 +3291,13 @@ function ExpensesPageInner() {
                             {popupPaymentMethods.length > 1 && (
                               <div className="flex items-center justify-between mb-[5px]">
                                 <span className="text-[14px] text-white/70">אמצעי תשלום {pmIndex + 1}</span>
-                                <button
+                                <Button
                                   type="button"
                                   onClick={() => removePopupPaymentMethodEntry(pm.id)}
                                   className="text-[14px] text-red-400 hover:text-red-300 transition-colors"
                                 >
                                   הסר
-                                </button>
+                                </Button>
                               </div>
                             )}
 
@@ -3314,7 +3316,7 @@ function ExpensesPageInner() {
                             {/* Check Number - only show when method is check */}
                             {pm.method === "check" && (
                               <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                                <input
+                                <Input
                                   type="text"
                                   inputMode="numeric"
                                   title="מספר צ'ק"
@@ -3360,7 +3362,7 @@ function ExpensesPageInner() {
                             )}
 
                             <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                              <input
+                              <Input
                                 type="text"
                                 inputMode="decimal"
                                 value={pm.amount}
@@ -3377,15 +3379,15 @@ function ExpensesPageInner() {
                             <div className="flex flex-col gap-[3px]">
                               <span className="text-[14px] text-white/70">כמות תשלומים</span>
                               <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
-                                <button
+                                <Button
                                   type="button"
                                   title="הפחת תשלום"
                                   onClick={() => updatePopupPaymentMethodField(pm.id, "installments", String(Math.max(1, parseInt(pm.installments) - 1)))}
                                   className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
                                 >
                                   -
-                                </button>
-                                <input
+                                </Button>
+                                <Input
                                   type="text"
                                   inputMode="numeric"
                                   title="כמות תשלומים"
@@ -3393,14 +3395,14 @@ function ExpensesPageInner() {
                                   onChange={(e) => updatePopupPaymentMethodField(pm.id, "installments", e.target.value.replace(/\D/g, "") || "1")}
                                   className="flex-1 h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none"
                                 />
-                                <button
+                                <Button
                                   type="button"
                                   title="הוסף תשלום"
                                   onClick={() => updatePopupPaymentMethodField(pm.id, "installments", String(parseInt(pm.installments) + 1))}
                                   className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
                                 >
                                   +
-                                </button>
+                                </Button>
                               </div>
 
                               {pm.customInstallments.length > 0 && (
@@ -3418,7 +3420,7 @@ function ExpensesPageInner() {
                                           <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num">
                                             {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
                                           </span>
-                                          <input
+                                          <Input
                                             type="date"
                                             title={`תאריך תשלום ${item.number}`}
                                             value={item.dateForInput}
@@ -3427,7 +3429,7 @@ function ExpensesPageInner() {
                                           />
                                         </div>
                                         <div className="flex-1 relative">
-                                          <input
+                                          <Input
                                             type="text"
                                             inputMode="decimal"
                                             title={`סכום תשלום ${item.number}`}
@@ -3465,7 +3467,7 @@ function ExpensesPageInner() {
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[15px] font-medium text-white text-right">אסמכתא</label>
                         <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                          <input
+                          <Input
                             type="text"
                             placeholder="מספר אסמכתא..."
                             value={paymentReference}
@@ -3480,18 +3482,18 @@ function ExpensesPageInner() {
                         <label className="text-[15px] font-medium text-white text-right">קבלת תשלום</label>
                         {paymentReceiptPreview ? (
                           <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex items-center justify-between">
-                            <button
+                            <Button
                               type="button"
                               onClick={() => { setPaymentReceiptFile(null); setPaymentReceiptPreview(null); }}
                               className="text-[#F64E60] text-[14px] hover:underline"
                             >
                               הסר
-                            </button>
+                            </Button>
                             <div className="flex items-center gap-[10px]">
                               <span className="text-[14px] text-white/70 truncate max-w-[150px]">
                                 {paymentReceiptFile?.name || "קובץ"}
                               </span>
-                              <button
+                              <Button
                                 type="button"
                                 title="צפייה בקובץ"
                                 onClick={() => window.open(paymentReceiptPreview, '_blank')}
@@ -3502,7 +3504,7 @@ function ExpensesPageInner() {
                                   <circle cx="8.5" cy="8.5" r="1.5"/>
                                   <polyline points="21 15 16 10 5 21"/>
                                 </svg>
-                              </button>
+                              </Button>
                             </div>
                           </div>
                         ) : (
@@ -3553,7 +3555,7 @@ function ExpensesPageInner() {
                 {/* Document Clarification - hidden when isPaidInFull */}
                 {!isPaidInFull && (
                   <div className="flex flex-col gap-[10px]">
-                    <button
+                    <Button
                       type="button"
                       onClick={() => {
                         if (needsClarification) {
@@ -3578,13 +3580,13 @@ function ExpensesPageInner() {
                         )}
                       </svg>
                       <span className="text-[15px] font-medium text-white">מסמך בבירור</span>
-                    </button>
+                    </Button>
 
                     {/* Clarification Menu */}
                     {showClarificationMenu && (
                       <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[8px]">
                         {["הזמנה לא סופקה במלואה", "טעות במחיר", "תעודת משלוח", "אחר (פרט/י)"].map((option) => (
-                          <button
+                          <Button
                             key={option}
                             type="button"
                             onClick={() => {
@@ -3594,7 +3596,7 @@ function ExpensesPageInner() {
                             className="text-[15px] text-white text-right py-[8px] px-[10px] hover:bg-[#29318A]/30 rounded-[7px] transition-colors"
                           >
                             {option}
-                          </button>
+                          </Button>
                         ))}
                       </div>
                     )}
@@ -3617,21 +3619,21 @@ function ExpensesPageInner() {
 
               {/* Submit and Cancel Buttons */}
               <div className="flex gap-[10px] mt-[10px] mb-[10px]">
-                <button
+                <Button
                   type="button"
                   onClick={handleSaveExpense}
                   disabled={isSaving}
                   className="flex-1 bg-[#29318A] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50"
                 >
                   {isSaving ? "שומר..." : "הוספת הוצאה"}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={handleClosePopup}
                   className="flex-1 bg-transparent border border-[#4C526B] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
                 >
                   ביטול
-                </button>
+                </Button>
               </div>
             </div>
         </SheetContent>
@@ -3646,7 +3648,7 @@ function ExpensesPageInner() {
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
             <div className="flex justify-between items-center" dir="ltr">
-              <button
+              <Button
                 type="button"
                 onClick={handleCloseEditPopup}
                 className="text-[#7B91B0] hover:text-white transition-colors"
@@ -3654,7 +3656,7 @@ function ExpensesPageInner() {
                 aria-label="סגור"
               >
                 <X className="w-6 h-6" />
-              </button>
+              </Button>
               <SheetTitle className="text-white text-xl font-bold">עריכת הוצאה</SheetTitle>
               <div className="w-[24px]" />
             </div>
@@ -3671,7 +3673,7 @@ function ExpensesPageInner() {
                       ? new Date(expenseDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
                       : 'יום/חודש/שנה'}
                   </span>
-                  <input
+                  <Input
                     type="date"
                     title="תאריך הוצאה"
                     value={expenseDate}
@@ -3692,7 +3694,7 @@ function ExpensesPageInner() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-normal text-white text-right">מספר חשבונית / תעודת משלוח</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="text"
                     value={invoiceNumber}
                     onChange={(e) => setInvoiceNumber(e.target.value)}
@@ -3706,7 +3708,7 @@ function ExpensesPageInner() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="text"
                     inputMode="decimal"
                     title="סכום לפני מע״מ"
@@ -3734,7 +3736,7 @@ function ExpensesPageInner() {
                             <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
                           )}
                         </div>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => handleRemoveEditAttachment(idx)}
                           className="text-[#F64E60] hover:text-[#ff3547] transition-colors"
@@ -3746,7 +3748,7 @@ function ExpensesPageInner() {
                             <line x1="10" y1="11" x2="10" y2="17"/>
                             <line x1="14" y1="11" x2="14" y2="17"/>
                           </svg>
-                        </button>
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -3804,21 +3806,21 @@ function ExpensesPageInner() {
 
               {/* Submit and Cancel Buttons */}
               <div className="flex gap-[10px] mt-[10px] mb-[10px]">
-                <button
+                <Button
                   type="button"
                   onClick={handleSaveEditedExpense}
                   disabled={isSaving || isUploadingAttachment}
                   className="flex-1 bg-[#29318A] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50"
                 >
                   {isSaving ? "שומר..." : isUploadingAttachment ? "מעלה קובץ..." : "שמור שינויים"}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={handleCloseEditPopup}
                   className="flex-1 bg-transparent border border-[#4C526B] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
                 >
                   ביטול
-                </button>
+                </Button>
               </div>
             </div>
         </SheetContent>
@@ -3860,21 +3862,21 @@ function ExpensesPageInner() {
 
             {/* Buttons */}
             <div className="flex gap-[10px] w-full">
-              <button
+              <Button
                 type="button"
                 onClick={handleConfirmDelete}
                 disabled={isDeleting}
                 className="flex-1 bg-[#F64E60] text-white text-[16px] font-semibold py-[12px] rounded-[10px] transition-colors hover:bg-[#D9414F] disabled:opacity-50"
               >
                 {isDeleting ? "מוחק..." : "מחק"}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={handleCancelDelete}
                 className="flex-1 bg-transparent border border-[#4C526B] text-white text-[16px] font-semibold py-[12px] rounded-[10px] transition-colors hover:bg-white/10"
               >
                 ביטול
-              </button>
+              </Button>
             </div>
           </div>
         </SheetContent>
@@ -3889,7 +3891,7 @@ function ExpensesPageInner() {
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
             <div className="flex justify-between items-center" dir="ltr">
-              <button
+              <Button
                 type="button"
                 onClick={handleClosePaymentPopup}
                 className="text-[#7B91B0] hover:text-white transition-colors"
@@ -3897,7 +3899,7 @@ function ExpensesPageInner() {
                 aria-label="סגור"
               >
                 <X className="w-6 h-6" />
-              </button>
+              </Button>
               <SheetTitle className="text-white text-xl font-bold">קליטת תשלום</SheetTitle>
               <div className="w-[24px]" />
             </div>
@@ -3932,7 +3934,7 @@ function ExpensesPageInner() {
                       ? new Date(paymentDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })
                       : 'יום/חודש/שנה'}
                   </span>
-                  <input
+                  <Input
                     type="date"
                     title="תאריך תשלום"
                     value={paymentDate}
@@ -3961,13 +3963,13 @@ function ExpensesPageInner() {
               <div className="flex flex-col gap-[15px]">
                 <div className="flex items-center justify-between">
                   <span className="text-[15px] font-medium text-white">אמצעי תשלום</span>
-                  <button
+                  <Button
                     type="button"
                     onClick={addPopupPaymentMethodEntry}
                     className="bg-[#29318A] text-white text-[14px] font-medium px-[12px] py-[6px] rounded-[7px] hover:bg-[#3D44A0] transition-colors"
                   >
                     + הוסף אמצעי תשלום
-                  </button>
+                  </Button>
                 </div>
 
                 {popupPaymentMethods.map((pm, pmIndex) => (
@@ -3976,13 +3978,13 @@ function ExpensesPageInner() {
                     {popupPaymentMethods.length > 1 && (
                       <div className="flex items-center justify-between mb-[5px]">
                         <span className="text-[14px] text-white/70">אמצעי תשלום {pmIndex + 1}</span>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => removePopupPaymentMethodEntry(pm.id)}
                           className="text-[14px] text-red-400 hover:text-red-300 transition-colors"
                         >
                           הסר
-                        </button>
+                        </Button>
                       </div>
                     )}
 
@@ -4002,7 +4004,7 @@ function ExpensesPageInner() {
                     {/* Check Number - only show when method is check */}
                     {pm.method === "check" && (
                       <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                        <input
+                        <Input
                           type="text"
                           inputMode="numeric"
                           title="מספר צ'ק"
@@ -4048,7 +4050,7 @@ function ExpensesPageInner() {
 
                     {/* Payment Amount */}
                     <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                      <input
+                      <Input
                         type="text"
                         inputMode="decimal"
                         value={pm.amount}
@@ -4066,15 +4068,15 @@ function ExpensesPageInner() {
                     <div className="flex flex-col gap-[3px]">
                       <span className="text-[14px] text-white/70">כמות תשלומים</span>
                       <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
-                        <button
+                        <Button
                           type="button"
                           title="הפחת תשלום"
                           onClick={() => updatePopupPaymentMethodField(pm.id, "installments", String(Math.max(1, parseInt(pm.installments) - 1)))}
                           className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
                         >
                           -
-                        </button>
-                        <input
+                        </Button>
+                        <Input
                           type="text"
                           inputMode="numeric"
                           title="כמות תשלומים"
@@ -4082,14 +4084,14 @@ function ExpensesPageInner() {
                           onChange={(e) => updatePopupPaymentMethodField(pm.id, "installments", e.target.value.replace(/\D/g, "") || "1")}
                           className="flex-1 h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none"
                         />
-                        <button
+                        <Button
                           type="button"
                           title="הוסף תשלום"
                           onClick={() => updatePopupPaymentMethodField(pm.id, "installments", String(parseInt(pm.installments) + 1))}
                           className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
                         >
                           +
-                        </button>
+                        </Button>
                       </div>
 
                       {/* Installments Breakdown */}
@@ -4108,7 +4110,7 @@ function ExpensesPageInner() {
                                   <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num">
                                     {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
                                   </span>
-                                  <input
+                                  <Input
                                     type="date"
                                     title={`תאריך תשלום ${item.number}`}
                                     value={item.dateForInput}
@@ -4117,7 +4119,7 @@ function ExpensesPageInner() {
                                   />
                                 </div>
                                 <div className="flex-1 relative">
-                                  <input
+                                  <Input
                                     type="text"
                                     inputMode="decimal"
                                     title={`סכום תשלום ${item.number}`}
@@ -4155,7 +4157,7 @@ function ExpensesPageInner() {
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">מספר אסמכתא</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="text"
                     title="מספר אסמכתא"
                     value={paymentReference}
@@ -4170,18 +4172,18 @@ function ExpensesPageInner() {
                 <label className="text-[15px] font-medium text-white text-right">קבלת תשלום</label>
                 {paymentReceiptPreview ? (
                   <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex items-center justify-between">
-                    <button
+                    <Button
                       type="button"
                       onClick={() => { setPaymentReceiptFile(null); setPaymentReceiptPreview(null); }}
                       className="text-[#F64E60] text-[14px] hover:underline"
                     >
                       הסר
-                    </button>
+                    </Button>
                     <div className="flex items-center gap-[10px]">
                       <span className="text-[14px] text-white/70 truncate max-w-[150px]">
                         {paymentReceiptFile?.name || "קובץ"}
                       </span>
-                      <button
+                      <Button
                         type="button"
                         title="צפייה בקובץ"
                         onClick={() => window.open(paymentReceiptPreview, '_blank')}
@@ -4192,7 +4194,7 @@ function ExpensesPageInner() {
                           <circle cx="8.5" cy="8.5" r="1.5"/>
                           <polyline points="21 15 16 10 5 21"/>
                         </svg>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ) : (
@@ -4239,21 +4241,21 @@ function ExpensesPageInner() {
 
               {/* Submit and Cancel Buttons */}
               <div className="flex gap-[10px] mt-[10px] mb-[10px]">
-                <button
+                <Button
                   type="button"
                   onClick={handleSavePayment}
                   disabled={isSaving || isUploadingPaymentReceipt}
                   className="flex-1 bg-[#00E096] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#00C080] disabled:opacity-50"
                 >
                   {isSaving ? "שומר..." : isUploadingPaymentReceipt ? "מעלה קובץ..." : "אשר תשלום"}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={handleClosePaymentPopup}
                   className="flex-1 bg-transparent border border-[#4C526B] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
                 >
                   ביטול
-                </button>
+                </Button>
               </div>
             </div>
           </>
@@ -4271,7 +4273,7 @@ function ExpensesPageInner() {
           <SheetTitle className="sr-only">{breakdownSupplierName || "פירוט ספק"}</SheetTitle>
           <div className="flex flex-col gap-[15px] p-[10px_7px]">
             {/* Close Button */}
-            <button
+            <Button
               type="button"
               onClick={handleCloseSupplierBreakdown}
               className="self-start text-white/50 hover:text-white transition-colors"
@@ -4279,7 +4281,7 @@ function ExpensesPageInner() {
               aria-label="סגור"
             >
               <X className="w-[30px] h-[30px]" />
-            </button>
+            </Button>
 
             {/* Supplier Title */}
             <h2 className="text-[25px] font-semibold text-white text-center">{breakdownSupplierName}</h2>
@@ -4332,7 +4334,7 @@ function ExpensesPageInner() {
                     </span>
                     <div className="flex items-center justify-center gap-[4px]" style={{ width: 76, maxWidth: 76 }}>
                       {isAdmin && (
-                        <button
+                        <Button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -4345,10 +4347,10 @@ function ExpensesPageInner() {
                             <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
-                        </button>
+                        </Button>
                       )}
                       {inv.attachmentUrls.length > 0 && (
-                        <button
+                        <Button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -4362,7 +4364,7 @@ function ExpensesPageInner() {
                             <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
                             <path d="M21 15L16 10L5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
-                        </button>
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -4371,7 +4373,7 @@ function ExpensesPageInner() {
             </div>
 
             {/* Show All Invoices Button */}
-            <button
+            <Button
               type="button"
               onClick={() => {
                 handleCloseSupplierBreakdown();
@@ -4384,7 +4386,7 @@ function ExpensesPageInner() {
                 <path d="M6 28H26" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
               <span>הצגת כל החשבוניות</span>
-            </button>
+            </Button>
           </div>
         </SheetContent>
       </Sheet>
@@ -4396,15 +4398,15 @@ function ExpensesPageInner() {
           onClick={() => setViewerDocUrl(null)}
         >
           {/* Close button */}
-          <button
+          <Button
             type="button"
             onClick={() => setViewerDocUrl(null)}
             className="absolute top-[16px] right-[16px] z-10 w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer"
           >
             <X size={24} className="text-white" />
-          </button>
+          </Button>
           {/* Open in new tab button */}
-          <button
+          <Button
             type="button"
             onClick={(e) => { e.stopPropagation(); window.open(viewerDocUrl, '_blank'); }}
             className="absolute top-[16px] left-[16px] z-10 flex items-center gap-[6px] px-[12px] py-[8px] rounded-full bg-black/60 hover:bg-black/80 transition-colors text-white text-[13px] cursor-pointer"
@@ -4415,7 +4417,7 @@ function ExpensesPageInner() {
               <line x1="10" y1="14" x2="21" y2="3"/>
             </svg>
             פתח בכרטיסייה חדשה
-          </button>
+          </Button>
           {/* Document content */}
           <div
             className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
@@ -4451,7 +4453,7 @@ function ExpensesPageInner() {
               <div className="flex flex-col gap-[6px] mb-[15px]">
                 <span className="text-[13px] text-white/60 text-right">בחר סיבת בירור:</span>
                 {["הזמנה לא סופקה במלואה", "טעות במחיר", "תעודת משלוח", "אחר (פרט/י)"].map((option) => (
-                  <button
+                  <Button
                     key={option}
                     type="button"
                     onClick={() => {
@@ -4461,7 +4463,7 @@ function ExpensesPageInner() {
                     className="text-[14px] text-white text-right py-[10px] px-[10px] hover:bg-[#29318A]/30 rounded-[7px] transition-colors border border-white/10"
                   >
                     {option}
-                  </button>
+                  </Button>
                 ))}
               </div>
             ) : (
@@ -4470,13 +4472,13 @@ function ExpensesPageInner() {
                 <div>
                   <div className="flex items-center justify-between mb-[5px]">
                     <span className="text-[13px] text-white/60">סיבת בירור:</span>
-                    <button
+                    <Button
                       type="button"
                       onClick={() => setShowStatusClarificationMenu(true)}
                       className="text-[12px] text-[#3F97FF] hover:underline"
                     >
                       שנה בחירה
-                    </button>
+                    </Button>
                   </div>
                   <Textarea
                     title="סיבת בירור"
@@ -4505,13 +4507,13 @@ function ExpensesPageInner() {
                         </div>
                       )}
                       <span className="text-[12px] text-white/70 flex-1 truncate">{statusClarificationFile?.name}</span>
-                      <button
+                      <Button
                         type="button"
                         onClick={() => { setStatusClarificationFile(null); setStatusClarificationFilePreview(null); }}
                         className="text-[#F64E60] text-[18px] hover:text-[#ff7585]"
                       >
                         ✕
-                      </button>
+                      </Button>
                     </div>
                   ) : (
                     <label className="flex items-center justify-center gap-[6px] bg-[#0F1535] border border-dashed border-[#4C526B] rounded-[8px] p-[12px] cursor-pointer hover:border-white/40 transition-colors">
@@ -4545,7 +4547,7 @@ function ExpensesPageInner() {
 
                 {/* Action Buttons */}
                 <div className="flex gap-[10px] mt-[5px]">
-                  <button
+                  <Button
                     type="button"
                     onClick={handleSaveClarification}
                     disabled={isSavingClarification}
@@ -4554,14 +4556,14 @@ function ExpensesPageInner() {
                     {isSavingClarification ? (
                       <div className="w-4 h-4 border-2 border-[#0F1535]/30 border-t-[#0F1535] rounded-full animate-spin" />
                     ) : "העבר לבבירור"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     onClick={() => setShowClarificationPopup(false)}
                     className="flex-1 bg-white/10 hover:bg-white/20 text-white text-[14px] py-[10px] rounded-[8px] transition-colors"
                   >
                     ביטול
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -4579,7 +4581,7 @@ function ExpensesPageInner() {
               האם לשנות את הסטטוס ל<span className="font-bold text-white">&quot;{statusConfirm.label}&quot;</span>?
             </p>
             <div className="flex gap-[10px]">
-              <button
+              <Button
                 type="button"
                 onClick={confirmStatusChange}
                 disabled={isUpdatingStatus}
@@ -4588,14 +4590,14 @@ function ExpensesPageInner() {
                 {isUpdatingStatus ? (
                   <div className="w-4 h-4 border-2 border-[#0F1535]/30 border-t-[#0F1535] rounded-full animate-spin" />
                 ) : "אישור"}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => setStatusConfirm(null)}
                 className="flex-1 bg-white/10 hover:bg-white/20 text-white text-[14px] py-[10px] rounded-[8px] transition-colors"
               >
                 ביטול
-              </button>
+              </Button>
             </div>
           </div>
         </div>,
@@ -4609,7 +4611,7 @@ function ExpensesPageInner() {
           data-status-menu
           className="status-menu-portal bg-[#1A1F4E] border border-white/20 rounded-[8px] shadow-lg min-w-[120px] overflow-hidden"
         >
-          <button
+          <Button
             type="button"
             onClick={() => handleStatusChange(showStatusMenu, 'pending')}
             disabled={isUpdatingStatus}
@@ -4617,8 +4619,8 @@ function ExpensesPageInner() {
           >
             <span className="w-[10px] h-[10px] rounded-full bg-[#29318A]"></span>
             <span>ממתין</span>
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={() => handleStatusChange(showStatusMenu, 'clarification')}
             disabled={isUpdatingStatus}
@@ -4626,8 +4628,8 @@ function ExpensesPageInner() {
           >
             <span className="w-[10px] h-[10px] rounded-full bg-[#FFA500]"></span>
             <span>בבירור</span>
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             onClick={() => handleStatusChange(showStatusMenu, 'paid')}
             disabled={isUpdatingStatus}
@@ -4635,7 +4637,7 @@ function ExpensesPageInner() {
           >
             <span className="w-[10px] h-[10px] rounded-full bg-[#00E096]"></span>
             <span>שולם</span>
-          </button>
+          </Button>
         </div>,
         document.body
       )}

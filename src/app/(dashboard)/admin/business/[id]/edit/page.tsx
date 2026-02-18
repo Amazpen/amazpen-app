@@ -10,6 +10,9 @@ import { convertPdfToImage } from "@/lib/pdfToImage";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { generateUUID } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -844,7 +847,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           <span className="text-[#F64E60]">*</span> שם העסק
         </label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-          <input
+          <Input
             type="text"
             value={businessName}
             onChange={(e) => setBusinessName(e.target.value)}
@@ -881,7 +884,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             <span className="text-[#F64E60]">*</span> שם סוג העסק
           </label>
           <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-            <input
+            <Input
               type="text"
               value={customBusinessType}
               onChange={(e) => setCustomBusinessType(e.target.value)}
@@ -898,7 +901,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           <span className="text-[#F64E60]">*</span> מספר עוסק / ח.פ
         </label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-          <input
+          <Input
             type="text"
             value={taxId}
             onChange={(e) => setTaxId(e.target.value)}
@@ -912,7 +915,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">כתובת</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-          <input
+          <Input
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
@@ -926,7 +929,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">עיר</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-          <input
+          <Input
             type="text"
             value={city}
             onChange={(e) => setCity(e.target.value)}
@@ -941,7 +944,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">טלפון</label>
           <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-            <input
+            <Input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -953,7 +956,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">אימייל</label>
           <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-            <input
+            <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -968,7 +971,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">שכר מנהל חודשי</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
-          <input
+          <Input
             type="text"
             inputMode="numeric"
             value={managerSalary === 0 ? "" : formatNumberWithCommas(managerSalary)}
@@ -986,7 +989,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           <label className="text-[15px] font-medium text-white text-right">אחוז העמסה</label>
           <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
             <span className="text-white/50 text-[14px] pr-[10px]">%</span>
-            <input
+            <Input
               type="number"
               min="0"
               max="100"
@@ -1002,7 +1005,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           <label className="text-[15px] font-medium text-white text-right">אחוז מע&quot;מ</label>
           <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
             <span className="text-white/50 text-[14px] pr-[10px]">%</span>
-            <input
+            <Input
               type="number"
               min="0"
               max="100"
@@ -1036,7 +1039,9 @@ export default function EditBusinessPage({ params }: PageProps) {
               ) : (
                 <Image src={logoPreview} alt="Logo preview" className="max-h-[80px] max-w-[150px] object-contain rounded-[5px]" width={150} height={80} unoptimized />
               )}
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
@@ -1049,7 +1054,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Button>
             </div>
           ) : (
             <>
@@ -1085,7 +1090,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           {daysOfWeek.map((day) => (
             <div key={day.id} className="flex flex-col items-center gap-[8px]">
               <span className="text-[12px] font-bold text-white">{day.short}</span>
-              <input
+              <Input
                 type="number"
                 min="0"
                 max="1"
@@ -1137,16 +1142,18 @@ export default function EditBusinessPage({ params }: PageProps) {
         <p className="text-[12px] text-white/50 text-right mb-[10px]">קופה, 10ביס, וולט וכו&apos;</p>
 
         <div className="flex gap-[10px] mb-[10px]">
-          <button
+          <Button
+            variant="default"
+            size="sm"
             type="button"
             onClick={handleAddIncomeSource}
             disabled={!newIncomeSource.trim()}
             className="bg-[#4956D4] text-white text-[14px] font-semibold px-[15px] py-[10px] rounded-[8px] disabled:opacity-50"
           >
             הוסף
-          </button>
+          </Button>
           <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
-            <input
+            <Input
               type="text"
               value={newIncomeSource}
               onChange={(e) => setNewIncomeSource(e.target.value)}
@@ -1160,7 +1167,9 @@ export default function EditBusinessPage({ params }: PageProps) {
         <div className="flex flex-wrap gap-[8px]">
           {incomeSources.map((source, index) => (
             <div key={source.id || index} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 type="button"
                 onClick={() => handleRemoveIncomeSource(index)}
                 aria-label={`הסר ${source.name}`}
@@ -1169,7 +1178,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Button>
               <span className="text-[14px] text-white">{source.name}</span>
             </div>
           ))}
@@ -1182,16 +1191,18 @@ export default function EditBusinessPage({ params }: PageProps) {
         <p className="text-[12px] text-white/50 text-right mb-[10px]">סוגי תקבולים שונים</p>
 
         <div className="flex gap-[10px] mb-[10px]">
-          <button
+          <Button
+            variant="default"
+            size="sm"
             type="button"
             onClick={handleAddReceiptType}
             disabled={!newReceiptType.trim()}
             className="bg-[#4956D4] text-white text-[14px] font-semibold px-[15px] py-[10px] rounded-[8px] disabled:opacity-50"
           >
             הוסף
-          </button>
+          </Button>
           <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
-            <input
+            <Input
               type="text"
               value={newReceiptType}
               onChange={(e) => setNewReceiptType(e.target.value)}
@@ -1205,7 +1216,9 @@ export default function EditBusinessPage({ params }: PageProps) {
         <div className="flex flex-wrap gap-[8px]">
           {receiptTypes.map((type, index) => (
             <div key={type.id || index} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 type="button"
                 onClick={() => handleRemoveReceiptType(index)}
                 aria-label={`הסר ${type.name}`}
@@ -1214,7 +1227,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Button>
               <span className="text-[14px] text-white">{type.name}</span>
             </div>
           ))}
@@ -1230,16 +1243,18 @@ export default function EditBusinessPage({ params }: PageProps) {
         <p className="text-[12px] text-white/50 text-right mb-[10px]">פרמטרים מותאמים אישית</p>
 
         <div className="flex gap-[10px] mb-[10px]">
-          <button
+          <Button
+            variant="default"
+            size="sm"
             type="button"
             onClick={handleAddCustomParameter}
             disabled={!newCustomParameter.trim()}
             className="bg-[#4956D4] text-white text-[14px] font-semibold px-[15px] py-[10px] rounded-[8px] disabled:opacity-50"
           >
             הוסף
-          </button>
+          </Button>
           <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
-            <input
+            <Input
               type="text"
               value={newCustomParameter}
               onChange={(e) => setNewCustomParameter(e.target.value)}
@@ -1253,7 +1268,9 @@ export default function EditBusinessPage({ params }: PageProps) {
         <div className="flex flex-wrap gap-[8px]">
           {customParameters.map((param, index) => (
             <div key={param.id || index} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 type="button"
                 onClick={() => handleRemoveCustomParameter(index)}
                 aria-label={`הסר ${param.name}`}
@@ -1262,7 +1279,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Button>
               <span className="text-[14px] text-white">{param.name}</span>
             </div>
           ))}
@@ -1278,16 +1295,18 @@ export default function EditBusinessPage({ params }: PageProps) {
         <p className="text-[12px] text-white/50 text-right mb-[10px]">כרטיסי אשראי של העסק</p>
 
         <div className="flex gap-[10px] mb-[10px]">
-          <button
+          <Button
+            variant="default"
+            size="sm"
             type="button"
             onClick={handleAddCreditCard}
             disabled={!newCardName.trim()}
             className="bg-[#4956D4] text-white text-[14px] font-semibold px-[15px] py-[10px] rounded-[8px] disabled:opacity-50"
           >
             הוסף
-          </button>
+          </Button>
           <div className="w-[80px] border border-[#4C526B] rounded-[8px] h-[42px]">
-            <input
+            <Input
               type="number"
               min="1"
               max="31"
@@ -1299,7 +1318,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             />
           </div>
           <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
-            <input
+            <Input
               type="text"
               value={newCardName}
               onChange={(e) => setNewCardName(e.target.value)}
@@ -1313,7 +1332,9 @@ export default function EditBusinessPage({ params }: PageProps) {
         <div className="flex flex-wrap gap-[8px]">
           {creditCards.map((card, index) => (
             <div key={card.id || index} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 type="button"
                 onClick={() => handleRemoveCreditCard(index)}
                 aria-label={`הסר ${card.cardName}`}
@@ -1322,7 +1343,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Button>
               <span className="text-[14px] text-white">{card.cardName}</span>
               <span className="text-[12px] text-white/60 bg-[#4956D4]/30 px-[6px] py-[2px] rounded">יום {card.billingDay}</span>
             </div>
@@ -1341,7 +1362,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         <div className="flex flex-col gap-[10px] mb-[10px]">
           <div className="flex gap-[10px]">
             <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
-              <input
+              <Input
                 type="text"
                 value={newProductName}
                 onChange={(e) => setNewProductName(e.target.value)}
@@ -1351,16 +1372,18 @@ export default function EditBusinessPage({ params }: PageProps) {
             </div>
           </div>
           <div className="flex gap-[10px]">
-            <button
+            <Button
+              variant="default"
+              size="sm"
               type="button"
               onClick={handleAddManagedProduct}
               disabled={!newProductName.trim() || !newProductUnit.trim()}
               className="bg-[#4956D4] text-white text-[14px] font-semibold px-[15px] py-[10px] rounded-[8px] disabled:opacity-50"
             >
               הוסף
-            </button>
+            </Button>
             <div className="w-[100px] border border-[#4C526B] rounded-[8px] h-[42px]">
-              <input
+              <Input
                 type="number"
                 min="0"
                 step="0.01"
@@ -1373,7 +1396,7 @@ export default function EditBusinessPage({ params }: PageProps) {
               />
             </div>
             <div className="w-[120px] border border-[#4C526B] rounded-[8px] h-[42px]">
-              <input
+              <Input
                 type="text"
                 value={newProductUnit}
                 onChange={(e) => setNewProductUnit(e.target.value)}
@@ -1389,7 +1412,9 @@ export default function EditBusinessPage({ params }: PageProps) {
           {managedProducts.map((product, index) => (
             <div key={product.id || index} className="flex items-center justify-between bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[8px]">
               <div className="flex items-center gap-[8px]">
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   type="button"
                   onClick={() => handleRemoveManagedProduct(index)}
                   aria-label={`הסר ${product.name}`}
@@ -1398,11 +1423,11 @@ export default function EditBusinessPage({ params }: PageProps) {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                     <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
-                </button>
+                </Button>
                 <span className="text-[14px] text-white font-medium">{product.name}</span>
               </div>
               <div className="flex items-center gap-[8px]">
-                <input
+                <Input
                   type="text"
                   value={product.unit}
                   onChange={(e) => {
@@ -1414,7 +1439,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 />
                 <div className="flex items-center bg-[#4956D4]/40 rounded overflow-hidden">
                   <span className="text-[12px] text-white/60 px-[4px]">₪</span>
-                  <input
+                  <Input
                     type="number"
                     min="0"
                     step="0.01"
@@ -1463,13 +1488,15 @@ export default function EditBusinessPage({ params }: PageProps) {
                 key={member.id || idx}
                 className="flex flex-row-reverse items-center justify-between bg-[#0F1535] rounded-[10px] p-[12px]"
               >
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   type="button"
                   onClick={() => handleRemoveTeamMember(index)}
                   className="text-[#F64E60] text-[20px] font-bold hover:opacity-80"
                 >
                   ×
-                </button>
+                </Button>
                 <div className="flex flex-row-reverse items-center gap-[10px]">
                   <div className="text-right">
                     <p className="text-[14px] text-white">{member.name || member.email}</p>
@@ -1517,7 +1544,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             <span className="text-[#F64E60]">*</span> אימייל
           </label>
           <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-            <input
+            <Input
               type="email"
               value={newMemberEmail}
               onChange={(e) => setNewMemberEmail(e.target.value)}
@@ -1533,7 +1560,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             <span className="text-[#F64E60]">*</span> סיסמה
           </label>
           <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-            <input
+            <Input
               type="password"
               autoComplete="new-password"
               value={newMemberPassword}
@@ -1548,7 +1575,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         <div className="flex flex-col gap-[5px] mb-[10px]">
           <label className="text-[14px] font-medium text-white text-right">שם מלא</label>
           <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-            <input
+            <Input
               type="text"
               value={newMemberName}
               onChange={(e) => setNewMemberName(e.target.value)}
@@ -1562,7 +1589,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         <div className="flex flex-col gap-[5px] mb-[10px]">
           <label className="text-[14px] font-medium text-white text-right">מספר טלפון</label>
           <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-            <input
+            <Input
               type="tel"
               value={newMemberPhone}
               onChange={(e) => setNewMemberPhone(e.target.value)}
@@ -1603,7 +1630,8 @@ export default function EditBusinessPage({ params }: PageProps) {
               aria-label="העלה תמונת פרופיל"
               className="hidden"
             />
-            <button
+            <Button
+              variant="outline"
               type="button"
               onClick={() => memberAvatarInputRef.current?.click()}
               disabled={isUploadingMemberAvatar}
@@ -1627,9 +1655,11 @@ export default function EditBusinessPage({ params }: PageProps) {
                   העלה תמונה
                 </>
               )}
-            </button>
+            </Button>
             {newMemberAvatarUrl && (
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 type="button"
                 onClick={() => setNewMemberAvatarUrl("")}
                 className="w-[45px] h-[45px] border border-[#F64E60]/50 rounded-[10px] flex items-center justify-center text-[#F64E60] hover:bg-[#F64E60]/20 transition-colors"
@@ -1638,7 +1668,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -1647,7 +1677,8 @@ export default function EditBusinessPage({ params }: PageProps) {
         <div className="flex flex-col gap-[5px] mb-[15px]">
           <label className="text-[14px] font-medium text-white text-right">תפקיד</label>
           <div className="flex gap-[10px]">
-            <button
+            <Button
+              variant="ghost"
               type="button"
               onClick={() => setNewMemberRole("owner")}
               className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
@@ -1657,8 +1688,9 @@ export default function EditBusinessPage({ params }: PageProps) {
               }`}
             >
               בעל עסק
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
               type="button"
               onClick={() => setNewMemberRole("employee")}
               className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
@@ -1668,19 +1700,20 @@ export default function EditBusinessPage({ params }: PageProps) {
               }`}
             >
               עובד
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Add Button */}
-        <button
+        <Button
+          variant="default"
           type="button"
           onClick={handleAddTeamMember}
           disabled={!newMemberEmail.trim() || !newMemberPassword.trim() || newMemberPassword.length < 6}
           className="w-full h-[45px] bg-gradient-to-r from-[#0075FF] to-[#00D4FF] text-white text-[14px] font-bold rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           + הוסף משתמש
-        </button>
+        </Button>
       </form>
 
       {/* New Team Members List */}
@@ -1694,13 +1727,15 @@ export default function EditBusinessPage({ params }: PageProps) {
                 key={idx}
                 className="flex flex-row-reverse items-center justify-between bg-[#0F1535] rounded-[10px] p-[12px] border border-[#3CD856]/30"
               >
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   type="button"
                   onClick={() => handleRemoveTeamMember(index)}
                   className="text-[#F64E60] text-[20px] font-bold hover:opacity-80"
                 >
                   ×
-                </button>
+                </Button>
                 <div className="flex flex-row-reverse items-center gap-[10px]">
                   <div className="text-right">
                     <p className="text-[14px] text-white">{member.name || member.email}</p>
@@ -1781,14 +1816,16 @@ export default function EditBusinessPage({ params }: PageProps) {
 
         {/* Status Toggle */}
         <div className="flex items-center gap-[10px] mt-[5px]">
-          <span className={`text-[13px] px-[10px] py-[3px] rounded-full font-bold ${
+          <Badge className={`text-[13px] px-[10px] py-[3px] rounded-full font-bold ${
             businessStatus === "active"
               ? "bg-[#3CD856]/20 text-[#3CD856]"
               : "bg-[#F64E60]/20 text-[#F64E60]"
           }`}>
             {businessStatus === "active" ? "פעיל" : "לא פעיל"}
-          </span>
-          <button
+          </Badge>
+          <Button
+            variant="secondary"
+            size="sm"
             type="button"
             onClick={() => setShowStatusConfirm(true)}
             disabled={isTogglingStatus}
@@ -1799,7 +1836,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             } disabled:opacity-50`}
           >
             {businessStatus === "active" ? "הפוך ללא פעיל" : "הפעל מחדש"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1830,14 +1867,16 @@ export default function EditBusinessPage({ params }: PageProps) {
                   : "העסק יחזור להיות פעיל ומשתמשיו יוכלו להתחבר מחדש."}
               </p>
               <div className="flex gap-[10px] w-full">
-                <button
+                <Button
+                  variant="outline"
                   type="button"
                   onClick={() => setShowStatusConfirm(false)}
                   className="flex-1 bg-transparent border border-[#4C526B] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-white/10"
                 >
                   ביטול
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="default"
                   type="button"
                   onClick={handleToggleStatus}
                   disabled={isTogglingStatus}
@@ -1848,7 +1887,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                   }`}
                 >
                   {isTogglingStatus ? "מעדכן..." : businessStatus === "active" ? "הפוך ללא פעיל" : "הפעל מחדש"}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -1866,7 +1905,8 @@ export default function EditBusinessPage({ params }: PageProps) {
                   : "bg-[#29318A]/50"
               }`} />
             )}
-            <button
+            <Button
+              variant="ghost"
               type="button"
               onClick={() => setCurrentStep(step)}
               suppressHydrationWarning
@@ -1885,7 +1925,7 @@ export default function EditBusinessPage({ params }: PageProps) {
               ) : (
                 step
               )}
-            </button>
+            </Button>
           </div>
         ))}
       </div>
@@ -1917,17 +1957,19 @@ export default function EditBusinessPage({ params }: PageProps) {
       {/* Navigation Buttons */}
       <div className="fixed bottom-0 left-0 right-0 lg:right-[220px] bg-[#0F1535] border-t border-white/10 p-[15px] flex gap-[10px]">
         {currentStep > 1 && (
-          <button
+          <Button
+            variant="outline"
             type="button"
             onClick={() => setCurrentStep(currentStep - 1)}
             className="flex-1 bg-transparent border border-[#4C526B] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
           >
             חזרה
-          </button>
+          </Button>
         )}
 
         {currentStep < 4 ? (
-          <button
+          <Button
+            variant="default"
             type="button"
             onClick={() => setCurrentStep(currentStep + 1)}
             disabled={
@@ -1938,9 +1980,10 @@ export default function EditBusinessPage({ params }: PageProps) {
             className="flex-1 bg-[#4956D4] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#5A67E0] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             המשך
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
+            variant="default"
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit || isSubmitting}
@@ -1962,7 +2005,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 שמור שינויים
               </>
             )}
-          </button>
+          </Button>
         )}
       </div>
     </div>

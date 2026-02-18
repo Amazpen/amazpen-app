@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { Button } from "@/components/ui/button";
 
 declare global {
   interface Window {
@@ -88,17 +89,19 @@ export function UpdatePrompt() {
           </div>
 
           {/* Update button */}
-          <button
+          <Button
             type="button"
             onClick={handleUpdate}
             className="flex-shrink-0 bg-white text-[#1a7a4c] text-[13px] font-bold px-[14px] py-[7px] rounded-[8px] hover:bg-white/90 transition-colors"
           >
             עדכן עכשיו
-          </button>
+          </Button>
 
           {/* Close button */}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={handleDismiss}
             className="flex-shrink-0 text-white/50 hover:text-white transition-colors"
             aria-label="סגור"
@@ -107,7 +110,7 @@ export function UpdatePrompt() {
               <line x1="18" y1="6" x2="6" y2="18" strokeLinecap="round" />
               <line x1="6" y1="6" x2="18" y2="18" strokeLinecap="round" />
             </svg>
-          </button>
+          </Button>
         </div>
       </div>
     </div>,

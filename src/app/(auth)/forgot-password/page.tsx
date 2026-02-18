@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -98,7 +100,7 @@ export default function ForgotPasswordPage() {
           <div className="flex flex-col gap-[8px]">
             <label className="text-[14px] font-medium text-white">כתובת אימייל</label>
             <div className="relative">
-              <input
+              <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -123,7 +125,7 @@ export default function ForgotPasswordPage() {
           )}
 
           {/* Submit Button */}
-          <button
+          <Button
             type="submit"
             disabled={isLoading || !email}
             className="w-full h-[50px] bg-[#29318A] text-white text-[16px] font-bold rounded-[10px] transition-all duration-200 hover:bg-[#3D44A0] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-[8px]"
@@ -139,7 +141,7 @@ export default function ForgotPasswordPage() {
             ) : (
               "שלח קישור לאיפוס"
             )}
-          </button>
+          </Button>
         </form>
 
         {/* Back to Login */}

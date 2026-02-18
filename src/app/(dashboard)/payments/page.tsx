@@ -18,6 +18,8 @@ import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 // Supplier from database
 interface Supplier {
@@ -2151,14 +2153,14 @@ function PaymentsPageInner() {
       <ConfirmDialog />
       {/* Date Range and Add Button */}
       <div className="flex items-center justify-between mb-[10px]">
-        <button
+        <Button
           id="onboarding-payments-import"
           type="button"
           onClick={() => setShowAddPaymentPopup(true)}
           className="bg-[#29318A] text-white text-[16px] font-semibold px-[20px] py-[10px] rounded-[7px] transition-colors hover:bg-[#3D44A0]"
         >
           הוספת תשלום
-        </button>
+        </Button>
         {dateRange && <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />}
       </div>
 
@@ -2234,7 +2236,7 @@ function PaymentsPageInner() {
                 <span className="text-[16px] text-white/50">אין נתונים להצגה</span>
               </div>
             ) : paymentMethodsData.map((method, index) => (
-              <button
+              <Button
                 key={method.id}
                 type="button"
                 onClick={() => setSelectedMethodPopup(method)}
@@ -2250,7 +2252,7 @@ function PaymentsPageInner() {
                   ₪{method.amount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
                 <span className="text-[16px] w-[65px] text-center ltr-num">{method.percentage.toFixed(2)}%</span>
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -2270,13 +2272,13 @@ function PaymentsPageInner() {
             >
               {/* Close button */}
               <div className="flex justify-start">
-                <button
+                <Button
                   type="button"
                   onClick={() => setSelectedMethodPopup(null)}
                   className="opacity-50 hover:opacity-100 transition-opacity mb-[10px]"
                 >
                   <X size={24} className="text-white" />
-                </button>
+                </Button>
               </div>
 
               {/* Header - method name and total */}
@@ -2319,7 +2321,7 @@ function PaymentsPageInner() {
         {/* Action Buttons - only show when there's data */}
         {paymentMethodsData.length > 0 && (
           <div className="flex items-center justify-center gap-[5px]">
-            <button
+            <Button
               type="button"
               onClick={() => setShowForecast(!showForecast)}
               className={`flex-1 text-white text-[14px] sm:text-[16px] font-semibold py-[6px] px-[5px] rounded-tl-[5px] rounded-tr-[5px] rounded-br-[20px] rounded-bl-[5px] min-h-[40px] sm:min-h-[50px] flex items-center justify-center gap-[5px] sm:gap-[8px] transition-colors ${showForecast ? "bg-[#3D44A0]" : "bg-[#29318A] hover:bg-[#3D44A0]"}`}
@@ -2328,8 +2330,8 @@ function PaymentsPageInner() {
                 <path d="M12 10L18 16L12 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span>צפי תשלומים קדימה</span>
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={() => setShowPastPayments(!showPastPayments)}
               className={`flex-1 text-white text-[14px] sm:text-[16px] font-semibold py-[6px] px-[5px] rounded-tl-[5px] rounded-tr-[5px] rounded-br-[5px] rounded-bl-[20px] min-h-[40px] sm:min-h-[50px] flex items-center justify-center gap-[5px] sm:gap-[8px] transition-colors ${showPastPayments ? "bg-[#3D44A0]" : "bg-[#29318A] hover:bg-[#3D44A0]"}`}
@@ -2338,7 +2340,7 @@ function PaymentsPageInner() {
               <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${showPastPayments ? "rotate-90" : ""}`}>
                 <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -2379,7 +2381,7 @@ function PaymentsPageInner() {
                   return (
                     <div key={month.key} className={`${mi > 0 ? "border-t-[5px] border-transparent" : ""}`}>
                       {/* Month Header - clickable to expand/collapse */}
-                      <button
+                      <Button
                         type="button"
                         onClick={() => toggleForecastMonth(month.key)}
                         className="w-full flex items-center justify-between px-[10px] py-[8px] hover:bg-white/5 transition-colors"
@@ -2396,7 +2398,7 @@ function PaymentsPageInner() {
                           </span>
                           <span className="text-[12px] font-bold text-white">{`סה"כ לתשלום`}</span>
                         </div>
-                      </button>
+                      </Button>
 
                       {/* Expanded Content */}
                       {isExpanded && (
@@ -2406,7 +2408,7 @@ function PaymentsPageInner() {
                             return (
                             <div key={dateKey} className="bg-white/5 border border-white/25 rounded-[7px] p-[3px_0px_3px_5px] mt-[10px]">
                               {/* Date Group Header - clickable */}
-                              <button
+                              <Button
                                 type="button"
                                 onClick={() => toggleForecastDate(`${month.key}__${dateKey}`)}
                                 className="w-full flex items-center justify-between pb-[3px] hover:bg-white/5 transition-colors rounded-[5px]"
@@ -2423,7 +2425,7 @@ function PaymentsPageInner() {
                                   </span>
                                   <span className="text-[12px] font-bold text-white">{`סה"כ לתשלום`}</span>
                                 </div>
-                              </button>
+                              </Button>
 
                               {/* Table - hidden until date header is clicked */}
                               {dateExpanded && (
@@ -2473,7 +2475,7 @@ function PaymentsPageInner() {
               {/* Commitments Section - התחייבויות קודמות */}
               {commitments.length > 0 && (
                 <div className="bg-white/5 border border-white/25 rounded-[10px] p-[3px] mx-[5px]">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setShowCommitments(!showCommitments)}
                     className="w-full cursor-pointer hover:bg-white/10 transition-colors rounded-[7px]"
@@ -2481,7 +2483,7 @@ function PaymentsPageInner() {
                     <h3 className="text-[20px] font-bold text-white text-center py-[10px]">
                       התחייבויות קודמות
                     </h3>
-                  </button>
+                  </Button>
 
                   {showCommitments && (
                     <div className="flex flex-col gap-[1px]">
@@ -2549,7 +2551,7 @@ function PaymentsPageInner() {
 
                   return (
                     <div key={month.key} className={`${mi > 0 ? "border-t-[5px] border-transparent" : ""}`}>
-                      <button
+                      <Button
                         type="button"
                         onClick={() => togglePastMonth(month.key)}
                         className="w-full flex items-center justify-between px-[10px] py-[8px] hover:bg-white/5 transition-colors"
@@ -2566,7 +2568,7 @@ function PaymentsPageInner() {
                           </span>
                           <span className="text-[12px] font-bold text-white">{`סה"כ שולם`}</span>
                         </div>
-                      </button>
+                      </Button>
 
                       {isExpanded && (
                         <div className="px-[5px] pb-[10px]">
@@ -2574,7 +2576,7 @@ function PaymentsPageInner() {
                             const dateExpanded = expandedPastDates.has(`${month.key}__${dateKey}`);
                             return (
                             <div key={dateKey} className="bg-white/5 border border-white/25 rounded-[7px] p-[3px_0px_3px_5px] mt-[10px]">
-                              <button
+                              <Button
                                 type="button"
                                 onClick={() => togglePastDate(`${month.key}__${dateKey}`)}
                                 className="w-full flex items-center justify-between pb-[3px] hover:bg-white/5 transition-colors rounded-[5px]"
@@ -2591,7 +2593,7 @@ function PaymentsPageInner() {
                                   </span>
                                   <span className="text-[12px] font-bold text-white">{`סה"כ שולם`}</span>
                                 </div>
-                              </button>
+                              </Button>
 
                               {dateExpanded && (
                                 <>
@@ -2638,7 +2640,7 @@ function PaymentsPageInner() {
               {/* Past Commitments Section - התחייבויות שבוצעו */}
               {pastCommitments.length > 0 && (
                 <div className="bg-white/5 border border-white/25 rounded-[10px] p-[3px] mx-[5px]">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setShowPastCommitments(!showPastCommitments)}
                     className="w-full cursor-pointer hover:bg-white/10 transition-colors rounded-[7px]"
@@ -2646,7 +2648,7 @@ function PaymentsPageInner() {
                     <h3 className="text-[20px] font-bold text-white text-center py-[10px]">
                       התחייבויות שבוצעו
                     </h3>
-                  </button>
+                  </Button>
 
                   {showPastCommitments && (
                     <div className="flex flex-col gap-[1px]">
@@ -2687,7 +2689,7 @@ function PaymentsPageInner() {
         <div className="flex items-center justify-between px-[5px]">
           {/* Filter Dropdown */}
           <div className="relative" ref={filterMenuRef}>
-            <button
+            <Button
               type="button"
               title="סינון לפי"
               onClick={() => setShowFilterMenu(!showFilterMenu)}
@@ -2696,7 +2698,7 @@ function PaymentsPageInner() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className={filterBy ? 'text-[#bc76ff]' : 'text-white'}>
                 <path d="M8.07136 12.6325C4.96261 10.3075 2.74511 7.75 1.53386 6.3125C1.15886 5.8675 1.03636 5.54125 0.962611 4.9675C0.710111 3.0025 0.583861 2.02 1.16011 1.385C1.73636 0.75 2.75511 0.75 4.79261 0.75H19.2076C21.2451 0.75 22.2639 0.75 22.8401 1.38375C23.4164 2.01875 23.2901 3.00125 23.0376 4.96625C22.9626 5.54 22.8401 5.86625 22.4664 6.31125C21.2539 7.75125 19.0326 10.3137 15.9164 12.6425C15.7723 12.7546 15.6531 12.8956 15.5666 13.0564C15.4801 13.2172 15.4281 13.3942 15.4139 13.5762C15.1051 16.99 14.8201 18.86 14.6426 19.805C14.3564 21.3325 12.1926 22.2513 11.0326 23.07C10.3426 23.5575 9.50511 22.9775 9.41636 22.2225C9.08445 19.3456 8.80357 16.4631 8.57386 13.5762C8.56102 13.3925 8.50964 13.2135 8.42307 13.0509C8.33649 12.8883 8.21666 12.7457 8.07136 12.6325Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-            </button>
+            </Button>
             {showFilterMenu && (
               <div className="absolute top-[30px] right-0 bg-[#1A2150] border border-white/20 rounded-[10px] py-[5px] min-w-[160px] z-50 shadow-lg shadow-black/40">
                 {[
@@ -2710,7 +2712,7 @@ function PaymentsPageInner() {
                   { value: "totalPaid", label: "סך התשלום שבוצע" },
                   { value: "notes", label: "הערות" },
                 ].map((option) => (
-                  <button
+                  <Button
                     key={option.value}
                     type="button"
                     onClick={() => {
@@ -2724,7 +2726,7 @@ function PaymentsPageInner() {
                     }`}
                   >
                     {option.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
@@ -2734,7 +2736,7 @@ function PaymentsPageInner() {
           <h2 className="text-[24px] font-bold text-center">תשלומים אחרונים ששולמו</h2>
 
           {/* Download CSV Button */}
-          <button
+          <Button
             type="button"
             className="flex flex-col items-center gap-[5px] cursor-pointer"
             onClick={() => {
@@ -2784,7 +2786,7 @@ function PaymentsPageInner() {
               <path d="M6 28H26" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
             <span className="text-[12px] text-white text-center">הורדת תשלומים</span>
-          </button>
+          </Button>
         </div>
 
         {/* Filter Input Bar */}
@@ -2793,7 +2795,7 @@ function PaymentsPageInner() {
             <span className="text-[13px] text-white/60 whitespace-nowrap">
               {filterBy === "date" ? "תאריך:" : filterBy === "supplier" ? "ספק:" : filterBy === "paymentNumber" ? "מספר תשלום:" : filterBy === "reference" ? "אסמכתא:" : filterBy === "installments" ? "תשלומים:" : filterBy === "amount" ? "סכום:" : filterBy === "totalPaid" ? "סך תשלום:" : "הערות:"}
             </span>
-            <input
+            <Input
               type="text"
               value={filterValue}
               onChange={(e) => setFilterValue(e.target.value)}
@@ -2806,14 +2808,14 @@ function PaymentsPageInner() {
               }
               className="flex-1 bg-white/10 text-white text-[13px] rounded-[7px] px-[10px] py-[6px] outline-none placeholder:text-white/30"
             />
-            <button
+            <Button
               type="button"
               title="ניקוי סינון"
               onClick={() => { setFilterBy(""); setFilterValue(""); }}
               className="text-white/50 hover:text-white transition-colors cursor-pointer"
             >
               <X size={16} />
-            </button>
+            </Button>
           </div>
         )}
 
@@ -2878,7 +2880,7 @@ function PaymentsPageInner() {
                 data-payment-id={payment.id}
                 className={`bg-white/5 rounded-[7px] p-[7px_3px] border transition-colors ${expandedPaymentId === rowKey ? 'border-white' : 'border-transparent'}`}
               >
-                <button
+                <Button
                   type="button"
                   onClick={() => setExpandedPaymentId(expandedPaymentId === rowKey ? null : rowKey)}
                   className="flex items-center gap-[5px] w-full p-[5px_3px] min-h-[45px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] cursor-pointer"
@@ -2920,7 +2922,7 @@ function PaymentsPageInner() {
                       </span>
                     )}
                   </div>
-                </button>
+                </Button>
 
                 {/* Expanded Details */}
                 {expandedPaymentId === rowKey && (
@@ -2931,7 +2933,7 @@ function PaymentsPageInner() {
                       <div className="flex items-center gap-[5px]">
                         {/* Edit button - Admin only */}
                         {isAdmin && (
-                          <button
+                          <Button
                             type="button"
                             onClick={() => handleEditPayment(payment)}
                             className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
@@ -2941,11 +2943,11 @@ function PaymentsPageInner() {
                               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                             </svg>
-                          </button>
+                          </Button>
                         )}
                         {/* Delete button - Admin only */}
                         {isAdmin && (
-                          <button
+                          <Button
                             type="button"
                             onClick={() => {
                               confirm("האם למחוק את התשלום?", () => {
@@ -2961,10 +2963,10 @@ function PaymentsPageInner() {
                               <line x1="10" y1="11" x2="10" y2="17"/>
                               <line x1="14" y1="11" x2="14" y2="17"/>
                             </svg>
-                          </button>
+                          </Button>
                         )}
                         {payment.receiptUrl && (
-                          <button
+                          <Button
                             type="button"
                             onClick={() => setViewerDocUrl(payment.receiptUrl!)}
                             className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
@@ -2975,10 +2977,10 @@ function PaymentsPageInner() {
                               <circle cx="8.5" cy="8.5" r="1.5"/>
                               <polyline points="21 15 16 10 5 21"/>
                             </svg>
-                          </button>
+                          </Button>
                         )}
                         {payment.receiptUrl && (
-                          <button
+                          <Button
                             type="button"
                             className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
                             title="הורדה"
@@ -3007,7 +3009,7 @@ function PaymentsPageInner() {
                               <polyline points="7 10 12 15 17 10"/>
                               <line x1="12" y1="15" x2="12" y2="3"/>
                             </svg>
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -3091,13 +3093,13 @@ function PaymentsPageInner() {
                     {/* Linked Invoices */}
                     {payment.linkedInvoice && (
                       <div className="flex flex-col gap-[8px] border border-white/30 rounded-[7px] p-[3px] mx-[3px]">
-                        <button
+                        <Button
                           type="button"
                           onClick={() => setShowLinkedInvoices(showLinkedInvoices === payment.id ? null : payment.id)}
                           className="bg-[#29318A] text-white text-[15px] font-medium py-[5px] px-[14px] rounded-[7px] self-start cursor-pointer hover:bg-[#3D44A0] transition-colors"
                         >
                           הצגת חשבוניות מקושרות
-                        </button>
+                        </Button>
 
                         {showLinkedInvoices === payment.id && (
                           <div className="flex flex-col gap-[2px]">
@@ -3120,14 +3122,14 @@ function PaymentsPageInner() {
                               return (
                                 <>
                                   <div dir="rtl" className="flex items-center justify-between gap-[3px] min-h-[45px] px-[3px] rounded-[7px] hover:bg-[#29318A]/30 transition-colors">
-                                    <button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] min-w-[50px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">{payment.linkedInvoice.date}</button>
-                                    <button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">{payment.linkedInvoice.invoiceNumber || "-"}</button>
-                                    <button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">₪{payment.linkedInvoice.subtotal.toLocaleString("he-IL")}</button>
-                                    <button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL")}</button>
+                                    <Button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] min-w-[50px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">{payment.linkedInvoice.date}</Button>
+                                    <Button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">{payment.linkedInvoice.invoiceNumber || "-"}</Button>
+                                    <Button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">₪{payment.linkedInvoice.subtotal.toLocaleString("he-IL")}</Button>
+                                    <Button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL")}</Button>
                                     <div className="flex items-center gap-[5px] min-w-[45px]">
                                       {invoiceAttachmentUrls.length > 0 && (
                                         <>
-                                          <button
+                                          <Button
                                             type="button"
                                             title="צפייה בחשבונית"
                                             onClick={() => setViewerDocUrl(invoiceAttachmentUrls[0])}
@@ -3138,8 +3140,8 @@ function PaymentsPageInner() {
                                               <circle cx="8.5" cy="8.5" r="1.5"/>
                                               <polyline points="21 15 16 10 5 21"/>
                                             </svg>
-                                          </button>
-                                          <button
+                                          </Button>
+                                          <Button
                                             type="button"
                                             title="הורדת חשבונית"
                                             className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
@@ -3168,11 +3170,11 @@ function PaymentsPageInner() {
                                               <polyline points="7 10 12 15 17 10"/>
                                               <line x1="12" y1="15" x2="12" y2="3"/>
                                             </svg>
-                                          </button>
+                                          </Button>
                                         </>
                                       )}
                                       {(invoiceAttachmentUrls.length > 1 || payment.linkedInvoice.notes) && (
-                                        <button
+                                        <Button
                                           type="button"
                                           title="מסמכים והערות"
                                           onClick={() => setExpandedOpenInvoiceId(expandedOpenInvoiceId === payment.linkedInvoice!.id ? null : payment.linkedInvoice!.id)}
@@ -3183,7 +3185,7 @@ function PaymentsPageInner() {
                                             <line x1="12" y1="16" x2="12" y2="12"/>
                                             <line x1="12" y1="8" x2="12.01" y2="8"/>
                                           </svg>
-                                        </button>
+                                        </Button>
                                       )}
                                     </div>
                                   </div>
@@ -3193,7 +3195,7 @@ function PaymentsPageInner() {
                                       {invoiceAttachmentUrls.length > 0 && (
                                         <div className="flex flex-wrap gap-[6px]">
                                           {invoiceAttachmentUrls.map((url, idx) => (
-                                            <button
+                                            <Button
                                               key={idx}
                                               type="button"
                                               onClick={() => setViewerDocUrl(url)}
@@ -3210,7 +3212,7 @@ function PaymentsPageInner() {
                                                 // eslint-disable-next-line @next/next/no-img-element
                                                 <img src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" />
                                               )}
-                                            </button>
+                                            </Button>
                                           ))}
                                         </div>
                                       )}
@@ -3255,7 +3257,7 @@ function PaymentsPageInner() {
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
             <div className="flex justify-between items-center" dir="ltr">
-              <button
+              <Button
                 type="button"
                 onClick={handleClosePopup}
                 className="text-[#7B91B0] hover:text-white transition-colors"
@@ -3263,7 +3265,7 @@ function PaymentsPageInner() {
                 aria-label="סגור"
               >
                 <X className="w-6 h-6" />
-              </button>
+              </Button>
               <SheetTitle className="text-white text-xl font-bold">{editingPaymentId ? "עריכת תשלום" : "הוספת תשלום חדש"}</SheetTitle>
               <div className="w-[24px]" />
             </div>
@@ -3282,7 +3284,7 @@ function PaymentsPageInner() {
                       ? (() => { const [y,m,d] = paymentDate.split("-"); return `${d}/${m}/${y}`; })()
                       : 'יום/חודש/שנה'}
                   </span>
-                  <input
+                  <Input
                     type="date"
                     title="תאריך קבלה"
                     value={paymentDate}
@@ -3298,7 +3300,7 @@ function PaymentsPageInner() {
                   <span className="text-[16px] font-medium text-white">סוג הוצאה</span>
                 </div>
                 <div dir="rtl" className="flex items-start gap-[20px]">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => { setExpenseType("purchases"); setSelectedSupplier(""); }}
                     className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
@@ -3313,8 +3315,8 @@ function PaymentsPageInner() {
                         <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
                       )}
                     </svg>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     onClick={() => { setExpenseType("expenses"); setSelectedSupplier(""); }}
                     className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
@@ -3329,8 +3331,8 @@ function PaymentsPageInner() {
                         <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
                       )}
                     </svg>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     onClick={() => { setExpenseType("employees"); setSelectedSupplier(""); }}
                     className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
@@ -3345,7 +3347,7 @@ function PaymentsPageInner() {
                         <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
                       )}
                     </svg>
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -3359,7 +3361,7 @@ function PaymentsPageInner() {
               {/* Open Invoices Section */}
               {openInvoices.length > 0 && (
                 <div className="flex flex-col gap-[10px]">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setShowOpenInvoices(!showOpenInvoices)}
                     className="bg-[#29318A] text-white text-[18px] font-bold py-[12px] px-[24px] rounded-[5px] transition-colors hover:bg-[#3D44A0] flex items-center justify-center gap-[8px]"
@@ -3374,7 +3376,7 @@ function PaymentsPageInner() {
                     >
                       <path d="M10 14L16 20L22 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                  </button>
+                  </Button>
 
                   {showOpenInvoices && (
                     <div dir="rtl" className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
@@ -3384,7 +3386,7 @@ function PaymentsPageInner() {
                         groupInvoicesByMonth(openInvoices).map(([monthKey, monthInvoices]) => (
                           <div key={monthKey} className="flex flex-col">
                             {/* Month Header */}
-                            <button
+                            <Button
                               type="button"
                               onClick={() => toggleMonthExpanded(monthKey)}
                               className="flex items-center gap-[5px] py-[10px] hover:bg-white/5 rounded-[7px] px-[10px] transition-colors"
@@ -3399,7 +3401,7 @@ function PaymentsPageInner() {
                               >
                                 <path d="M10 14L16 20L22 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                               </svg>
-                            </button>
+                            </Button>
 
                             {/* Month Invoices */}
                             {expandedMonths.has(monthKey) && (
@@ -3421,7 +3423,7 @@ function PaymentsPageInner() {
                                     <div className={`flex items-center gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 ${
                                       selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""
                                     }`}>
-                                      <button
+                                      <Button
                                         type="button"
                                         onClick={() => toggleInvoiceSelection(inv.id)}
                                         className="flex items-center gap-[3px] flex-1 cursor-pointer"
@@ -3447,9 +3449,9 @@ function PaymentsPageInner() {
                                         <span className="text-[14px] text-white flex-1 text-center ltr-num">
                                           ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </span>
-                                      </button>
+                                      </Button>
                                       {hasDetails && (
-                                        <button
+                                        <Button
                                           type="button"
                                           onClick={() => setExpandedOpenInvoiceId(expandedOpenInvoiceId === inv.id ? null : inv.id)}
                                           className="w-[24px] flex-shrink-0 flex items-center justify-center cursor-pointer"
@@ -3460,7 +3462,7 @@ function PaymentsPageInner() {
                                             <line x1="12" y1="16" x2="12" y2="12"/>
                                             <line x1="12" y1="8" x2="12.01" y2="8"/>
                                           </svg>
-                                        </button>
+                                        </Button>
                                       )}
                                       {!hasDetails && <div className="w-[24px] flex-shrink-0" />}
                                     </div>
@@ -3471,7 +3473,7 @@ function PaymentsPageInner() {
                                         {attachmentUrls.length > 0 && (
                                           <div className="flex flex-wrap gap-[8px]">
                                             {attachmentUrls.map((url: string, idx: number) => (
-                                              <button
+                                              <Button
                                                 key={idx}
                                                 type="button"
                                                 onClick={() => setViewerDocUrl(url)}
@@ -3483,7 +3485,7 @@ function PaymentsPageInner() {
                                                   // eslint-disable-next-line @next/next/no-img-element
                                                   <img src={url} alt={`מסמך ${idx + 1}`} className="w-full h-full object-cover" />
                                                 )}
-                                              </button>
+                                              </Button>
                                             ))}
                                           </div>
                                         )}
@@ -3536,13 +3538,13 @@ function PaymentsPageInner() {
                     {paymentMethods.length > 1 && (
                       <div className="flex items-center justify-between mb-[5px]">
                         <span className="text-[14px] text-white/70">אמצעי תשלום {pmIndex + 1}</span>
-                        <button
+                        <Button
                           type="button"
                           onClick={() => removePaymentMethodEntry(pm.id)}
                           className="text-[14px] text-red-400 hover:text-red-300 transition-colors"
                         >
                           הסר
-                        </button>
+                        </Button>
                       </div>
                     )}
 
@@ -3593,7 +3595,7 @@ function PaymentsPageInner() {
 
                     {/* Payment Amount */}
                     <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                      <input
+                      <Input
                         type="text"
                         inputMode="decimal"
                         value={pm.amount}
@@ -3612,15 +3614,15 @@ function PaymentsPageInner() {
                     <div className="flex flex-col gap-[3px]">
                       <span className="text-[14px] text-white/70">כמות תשלומים</span>
                       <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
-                        <button
+                        <Button
                           type="button"
                           title="הפחת תשלום"
                           onClick={() => updatePaymentMethodField(pm.id, "installments", String(Math.max(1, parseInt(pm.installments) - 1)))}
                           className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
                         >
                           -
-                        </button>
-                        <input
+                        </Button>
+                        <Input
                           type="text"
                           inputMode="numeric"
                           title="כמות תשלומים"
@@ -3628,14 +3630,14 @@ function PaymentsPageInner() {
                           onChange={(e) => updatePaymentMethodField(pm.id, "installments", e.target.value.replace(/\D/g, "") || "1")}
                           className="flex-1 h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none"
                         />
-                        <button
+                        <Button
                           type="button"
                           title="הוסף תשלום"
                           onClick={() => updatePaymentMethodField(pm.id, "installments", String(parseInt(pm.installments) + 1))}
                           className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
                         >
                           +
-                        </button>
+                        </Button>
                       </div>
 
                       {/* Installments Breakdown */}
@@ -3658,13 +3660,13 @@ function PaymentsPageInner() {
                                   <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
                                 )}
                                 <div className="flex-1 relative h-[36px] overflow-hidden">
-                                  <input
+                                  <Input
                                     type="text"
                                     readOnly
                                     value={item.dateForInput ? (() => { const [y,m,d] = item.dateForInput.split("-"); return `${d}/${m}/${y.slice(2)}`; })() : ''}
                                     className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num cursor-pointer"
                                   />
-                                  <input
+                                  <Input
                                     type="date"
                                     title={`תאריך תשלום ${item.number}`}
                                     value={item.dateForInput}
@@ -3674,7 +3676,7 @@ function PaymentsPageInner() {
                                 </div>
                                 {pm.method === "check" && (
                                   <div className="flex-1">
-                                    <input
+                                    <Input
                                       type="text"
                                       inputMode="numeric"
                                       title={`מספר צ׳ק תשלום ${item.number}`}
@@ -3686,7 +3688,7 @@ function PaymentsPageInner() {
                                   </div>
                                 )}
                                 <div className="flex-1 relative">
-                                  <input
+                                  <Input
                                     type="text"
                                     inputMode="decimal"
                                     title={`סכום תשלום ${item.number}`}
@@ -3720,7 +3722,7 @@ function PaymentsPageInner() {
                       {/* Check Number - shown after date for single installment check */}
                       {pm.method === "check" && (parseInt(pm.installments) || 1) <= 1 && (
                         <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] mt-[10px]">
-                          <input
+                          <Input
                             type="text"
                             inputMode="numeric"
                             value={pm.checkNumber}
@@ -3733,13 +3735,13 @@ function PaymentsPageInner() {
                     </div>
                   </div>
                   {pmIndex === 0 && (
-                    <button
+                    <Button
                       type="button"
                       onClick={addPaymentMethodEntry}
                       className="w-full bg-[#29318A] text-white text-[14px] font-medium px-[12px] py-[8px] rounded-[7px] hover:bg-[#3D44A0] transition-colors"
                     >
                       + הוסף אמצעי תשלום
-                    </button>
+                    </Button>
                   )}
                   </Fragment>
                 ))}
@@ -3751,7 +3753,7 @@ function PaymentsPageInner() {
                   <span className="text-[16px] font-medium text-white">אסמכתא</span>
                 </div>
                 <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                  <input
+                  <Input
                     type="text"
                     value={reference}
                     onChange={(e) => setReference(e.target.value)}
@@ -3774,26 +3776,26 @@ function PaymentsPageInner() {
                       return (
                         <div key={idx} className="relative group border border-[#4C526B] rounded-[7px] w-[80px] h-[80px] overflow-hidden flex items-center justify-center bg-white/5">
                           {isPdf ? (
-                            <button type="button" onClick={() => window.open(entry.preview, '_blank')} className="flex flex-col items-center gap-[2px] cursor-pointer">
+                            <Button type="button" onClick={() => window.open(entry.preview, '_blank')} className="flex flex-col items-center gap-[2px] cursor-pointer">
                               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/60">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                 <polyline points="14 2 14 8 20 8"/>
                               </svg>
                               <span className="text-[10px] text-white/50">PDF</span>
-                            </button>
+                            </Button>
                           ) : (
-                            <button type="button" onClick={() => window.open(entry.preview, '_blank')} className="w-full h-full cursor-pointer">
+                            <Button type="button" onClick={() => window.open(entry.preview, '_blank')} className="w-full h-full cursor-pointer">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={entry.preview} alt="קבלה" className="w-full h-full object-cover" />
-                            </button>
+                            </Button>
                           )}
-                          <button
+                          <Button
                             type="button"
                             onClick={() => setReceiptFiles(prev => prev.filter((_, i) => i !== idx))}
                             className="absolute top-[2px] left-[2px] w-[18px] h-[18px] bg-[#F64E60] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             <span className="text-white text-[12px] leading-none">×</span>
-                          </button>
+                          </Button>
                         </div>
                       );
                     })}
@@ -3888,22 +3890,22 @@ function PaymentsPageInner() {
 
               {/* Action Buttons */}
               <div className="flex flex-col gap-[10px] mt-[20px]">
-                <button
+                <Button
                   type="button"
                   onClick={editingPaymentId ? handleUpdatePayment : handleSavePayment}
                   disabled={isSaving || isUploadingReceipt}
                   className="w-full bg-[#29318A] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50"
                 >
                   {isSaving ? "שומר..." : isUploadingReceipt ? "מעלה קובץ..." : editingPaymentId ? "עדכון תשלום" : "הוספת תשלום"}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={resetForm}
                   disabled={isSaving}
                   className="w-full text-white/60 text-[16px] font-medium py-[10px] rounded-[10px] transition-colors hover:text-white hover:bg-white/10 disabled:opacity-50"
                 >
                   איפוס טופס
-                </button>
+                </Button>
               </div>
             </div>
         </SheetContent>
@@ -3916,15 +3918,15 @@ function PaymentsPageInner() {
           onClick={() => setViewerDocUrl(null)}
         >
           {/* Close button */}
-          <button
+          <Button
             type="button"
             onClick={() => setViewerDocUrl(null)}
             className="absolute top-[16px] right-[16px] z-10 w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer"
           >
             <X size={24} className="text-white" />
-          </button>
+          </Button>
           {/* Open in new tab button */}
-          <button
+          <Button
             type="button"
             onClick={(e) => { e.stopPropagation(); window.open(viewerDocUrl, '_blank'); }}
             className="absolute top-[16px] left-[16px] z-10 flex items-center gap-[6px] px-[12px] py-[8px] rounded-full bg-black/60 hover:bg-black/80 transition-colors text-white text-[13px] cursor-pointer"
@@ -3935,7 +3937,7 @@ function PaymentsPageInner() {
               <line x1="10" y1="14" x2="21" y2="3"/>
             </svg>
             פתח בכרטיסייה חדשה
-          </button>
+          </Button>
           {/* Document content */}
           <div
             className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
@@ -3981,20 +3983,20 @@ function PaymentsPageInner() {
             </div>
 
             <div className="flex gap-[10px]">
-              <button
+              <Button
                 type="button"
                 onClick={() => updateConfirmation.onConfirm()}
                 className="flex-1 bg-[#29318A] text-white text-[14px] font-bold py-[10px] rounded-[10px] hover:bg-[#3D44A0] transition-colors cursor-pointer"
               >
                 אישור עדכון
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => setUpdateConfirmation(null)}
                 className="flex-1 bg-transparent border border-[#4C526B] text-white text-[14px] font-bold py-[10px] rounded-[10px] hover:bg-white/10 transition-colors cursor-pointer"
               >
                 ביטול
-              </button>
+              </Button>
             </div>
           </div>
         </div>,

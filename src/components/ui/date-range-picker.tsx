@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export interface DateRange {
@@ -123,7 +125,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
         >
           {formatDate(dateRange.start)}
         </span>
-        <input
+        <Input
           ref={endInputRef}
           type="date"
           value={dateRange.end.toISOString().split("T")[0]}
@@ -133,7 +135,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
           aria-hidden="true"
           title="תאריך סיום"
         />
-        <input
+        <Input
           ref={startInputRef}
           type="date"
           value={dateRange.start.toISOString().split("T")[0]}
@@ -150,8 +152,9 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
   return (
     <div className="relative" dir="rtl">
       {/* Date Display - Clickable to open dropdown */}
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={toggleDropdown}
         className={`inline-flex items-center border border-[#4C526B] rounded-[7px] px-3 py-2 sm:px-[8px] sm:py-[5px] cursor-pointer hover:border-[#29318A] transition-colors touch-manipulation min-h-[44px] sm:min-h-0 ${className}`}
       >
@@ -165,10 +168,10 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
         <span className="text-[15px] sm:text-[14px] text-white leading-[1.4] ltr-num">
           {formatDate(dateRange.start)}
         </span>
-      </button>
+      </Button>
 
       {/* Hidden date inputs for manual date picking */}
-      <input
+      <Input
         ref={endInputRef}
         type="date"
         value={dateRange.end.toISOString().split("T")[0]}
@@ -181,7 +184,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
         aria-hidden="true"
         title="תאריך סיום"
       />
-      <input
+      <Input
         ref={startInputRef}
         type="date"
         value={dateRange.start.toISOString().split("T")[0]}
@@ -207,29 +210,32 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
           {/* Dropdown content - same width as button */}
           <div className="absolute top-full left-0 right-0 mt-[5px] bg-[#0F1535] border-2 border-[#29318A] rounded-[10px] p-[5px] z-[101] flex flex-col gap-[1px]">
             {/* Quick options */}
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={selectYesterday}
               className="text-[14px] text-white text-center leading-[1.2] py-[4px] hover:bg-[#29318A]/30 rounded-[5px] transition-colors"
             >
               אתמול
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={selectCurrentMonth}
               className="text-[14px] text-white text-center leading-[1.2] py-[4px] hover:bg-[#29318A]/30 rounded-[5px] transition-colors"
             >
               חודש נוכחי
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={selectLastMonth}
               className="text-[14px] text-white text-center leading-[1.2] py-[4px] hover:bg-[#29318A]/30 rounded-[5px] transition-colors"
             >
               חודש שעבר
-            </button>
+            </Button>
 
             {/* Divider */}
             <div className="border-t border-[#29318A]/50 my-[3px]" />
@@ -278,21 +284,23 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
             <div className="flex flex-col gap-[2px]">
               <span className="text-[12px] text-white text-center leading-[1.2]">טווח חופשי</span>
               <div className="flex items-center justify-center gap-[6px]">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={openStartPicker}
                   className="text-[11px] text-white/80 hover:text-white transition-colors"
                 >
                   מתאריך
-                </button>
+                </Button>
                 <span className="text-white/50 text-[11px]">-</span>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={openEndPicker}
                   className="text-[11px] text-white/80 hover:text-white transition-colors"
                 >
                   עד תאריך
-                </button>
+                </Button>
               </div>
             </div>
           </div>

@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { Button } from "@/components/ui/button";
 
 // ============================================================================
 // LAZY LOADED CHART COMPONENTS
@@ -575,7 +576,7 @@ export default function CashFlowPage() {
           {/* Granularity Toggle - right side in RTL */}
           <div className="flex items-center border border-[#4C526B] rounded-[7px] overflow-hidden">
             {(["daily", "weekly", "monthly"] as const).map((g) => (
-              <button
+              <Button
                 key={g}
                 type="button"
                 onClick={() => handleGranularityChange(g)}
@@ -586,7 +587,7 @@ export default function CashFlowPage() {
                 }`}
               >
                 {g === "daily" ? "יומי" : g === "weekly" ? "שבועי" : "חודשי"}
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -602,7 +603,7 @@ export default function CashFlowPage() {
 
         {/* Drill-down breadcrumb */}
         {drillDownRange && (
-          <button
+          <Button
             type="button"
             onClick={exitDrillDown}
             className="text-[14px] text-[#0095FF] hover:underline flex flex-row-reverse items-center gap-[5px] self-start"
@@ -611,7 +612,7 @@ export default function CashFlowPage() {
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
             חזרה ל{granularity === "monthly" ? "תצוגה חודשית" : "תצוגה שבועית"}
-          </button>
+          </Button>
         )}
       </section>
 
@@ -853,7 +854,7 @@ export default function CashFlowPage() {
         ) : (
           <div className="flex flex-col">
             {cashFlowRows.map((row, index) => (
-              <button
+              <Button
                 key={row.startDate}
                 type="button"
                 onClick={() => canDrillDown && handleRowClick(row)}
@@ -881,7 +882,7 @@ export default function CashFlowPage() {
                 <span className={`text-[13px] font-bold w-[75px] text-center ${row.cumulative >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
                   {formatCurrency(row.cumulative)}
                 </span>
-              </button>
+              </Button>
             ))}
 
             {/* Totals Row */}

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface Business {
   id: string;
@@ -111,7 +113,7 @@ export default function EditBusinessSelectPage() {
             <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
             <path d="M21 21L16.5 16.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
           </svg>
-          <input
+          <Input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -135,11 +137,12 @@ export default function EditBusinessSelectPage() {
         <div className="flex flex-col gap-[10px]">
           {/* Active Businesses */}
           {activeBusinesses.map((business) => (
-            <button
+            <Button
               key={business.id}
               type="button"
+              variant="ghost"
               onClick={() => handleSelectBusiness(business.id)}
-              className="bg-[#29318A]/30 hover:bg-[#29318A]/50 rounded-[15px] p-[15px] transition-all duration-200 text-right"
+              className="bg-[#29318A]/30 hover:bg-[#29318A]/50 rounded-[15px] p-[15px] transition-all duration-200 text-right h-auto"
             >
               <div className="flex items-center gap-[12px]">
                 <div className="w-[50px] h-[50px] rounded-[10px] bg-[#4956D4]/30 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -162,7 +165,7 @@ export default function EditBusinessSelectPage() {
                   <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
-            </button>
+            </Button>
           ))}
 
           {/* Divider + Inactive Businesses */}
@@ -174,11 +177,12 @@ export default function EditBusinessSelectPage() {
                 <div className="flex-1 h-[1px] bg-[#F64E60]/30" />
               </div>
               {inactiveBusinesses.map((business) => (
-                <button
+                <Button
                   key={business.id}
                   type="button"
+                  variant="ghost"
                   onClick={() => handleSelectBusiness(business.id)}
-                  className="bg-[#29318A]/15 hover:bg-[#29318A]/30 rounded-[15px] p-[15px] transition-all duration-200 text-right opacity-70"
+                  className="bg-[#29318A]/15 hover:bg-[#29318A]/30 rounded-[15px] p-[15px] transition-all duration-200 text-right opacity-70 h-auto"
                 >
                   <div className="flex items-center gap-[12px]">
                     <div className="w-[50px] h-[50px] rounded-[10px] bg-[#4956D4]/20 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -201,7 +205,7 @@ export default function EditBusinessSelectPage() {
                       <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </div>
-                </button>
+                </Button>
               ))}
             </>
           )}

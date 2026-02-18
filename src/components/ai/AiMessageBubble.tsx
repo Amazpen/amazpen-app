@@ -4,6 +4,7 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { Copy, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { UIMessage } from "ai";
 import type { AiChartData, AiProposedAction } from "@/types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
@@ -98,8 +99,10 @@ function CopyButton({ text }: { text: string }) {
   }, [text]);
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon"
       onClick={handleCopy}
       className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 sm:p-1 rounded hover:bg-white/10"
       title="העתק"
@@ -109,7 +112,7 @@ function CopyButton({ text }: { text: string }) {
       ) : (
         <Copy className="w-3.5 h-3.5 text-white/40 hover:text-white/70" />
       )}
-    </button>
+    </Button>
   );
 }
 

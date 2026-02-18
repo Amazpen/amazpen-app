@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronDown, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 // Dynamic imports for Recharts (no SSR)
 const LazyAreaChart = dynamic(() => import("recharts").then((mod) => ({ default: mod.AreaChart })), { ssr: false });
@@ -819,7 +821,7 @@ export function HistoryModal({
         <VisuallyHidden.Root><SheetTitle>נתוני עבר - {cardTitle}</SheetTitle></VisuallyHidden.Root>
         {/* Header */}
         <div className="flex justify-between items-center w-full px-[15px] pt-[15px] pb-[10px]">
-          <button
+          <Button
             type="button"
             onClick={onClose}
             className="text-white text-center font-bold text-sm leading-none rounded-[7px] py-[7px] px-[10px] cursor-pointer"
@@ -829,29 +831,31 @@ export function HistoryModal({
               <ArrowRight className="w-4 h-4" />
               <span>חזרה</span>
             </div>
-          </button>
+          </Button>
 
           {/* Year selector */}
           <div className="relative">
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => setYearDropdownOpen(!yearDropdownOpen)}
               className="flex items-center gap-[8px] text-white text-[18px] font-normal leading-none rounded-[7px] py-[7px] px-[12px] cursor-pointer border border-[#4C526B]"
             >
               <ChevronDown className="w-[11px] h-[11px] text-white" />
               <span className="ltr-num">{year}</span>
-            </button>
+            </Button>
             {yearDropdownOpen && (
               <div className="absolute top-full mt-1 left-0 z-50 bg-[rgb(41,49,138)] rounded-[7px] border border-[#4C526B] shadow-lg max-h-[200px] overflow-y-auto min-w-[80px]">
                 {availableYears.map(y => (
-                  <button
+                  <Button
                     key={y}
                     type="button"
+                    variant="ghost"
                     onClick={() => { setYear(y); setYearDropdownOpen(false); }}
                     className={`block w-full text-center text-white text-[16px] py-[6px] px-[12px] cursor-pointer hover:bg-white/10 ltr-num ${y === year ? 'bg-white/20 font-bold' : ''}`}
                   >
                     {y}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
@@ -876,66 +880,66 @@ export function HistoryModal({
                 <div className="text-white/50 text-[16px] animate-pulse">טוען נתונים...</div>
               </div>
             ) : (
-              <table className="w-full border-separate" style={{ borderSpacing: '3px 0' }} dir="rtl">
-                <thead>
-                  <tr>
-                    <th className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom min-w-[55px]">
+              <Table className="w-full border-separate" style={{ borderSpacing: '3px 0' }} dir="rtl">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom min-w-[55px]">
                       חודש
-                    </th>
-                    <th className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom whitespace-pre-line">
+                    </TableHead>
+                    <TableHead className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom whitespace-pre-line">
                       {cardTitle}{"\n"}(₪)
-                    </th>
+                    </TableHead>
                     {isCostCard && (
-                      <th className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom whitespace-pre-line">
+                      <TableHead className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom whitespace-pre-line">
                         {cardTitle}{"\n"}(%)
-                      </th>
+                      </TableHead>
                     )}
-                    <th className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
+                    <TableHead className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
                       הפרש מהיעד<br/>%
-                    </th>
-                    <th className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
+                    </TableHead>
+                    <TableHead className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
                       שינוי משנה שעברה<br/>%
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {monthlyData.map((row, idx) => {
                     const isFirst = idx === 0;
                     const isLast = idx === monthlyData.length - 1;
                     return (
-                    <tr key={row.month}>
-                      <td className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t rounded-tr-[10px]' : ''} ${isLast ? 'border-b rounded-br-[10px]' : ''}`}>
+                    <TableRow key={row.month}>
+                      <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t rounded-tr-[10px]' : ''} ${isLast ? 'border-b rounded-br-[10px]' : ''}`}>
                         <span className="text-white text-[13px] lg:text-[15px] font-normal leading-[1.4]">
                           {row.monthName}
                         </span>
-                      </td>
-                      <td className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
+                      </TableCell>
+                      <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
                         <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getValueColor(row)}`}>
                           {formatCurrencyFull(row.value)}
                         </span>
-                      </td>
+                      </TableCell>
                       {isCostCard && (
-                        <td className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
+                        <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
                           <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getValueColor(row)}`}>
                             {row.valuePct !== null ? formatPercent(row.valuePct) : '0%'}
                           </span>
-                        </td>
+                        </TableCell>
                       )}
-                      <td className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
+                      <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
                         <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getDiffColor(row.targetDiffPct)}`}>
                           {row.value === 0 && (row.valuePct === null || row.valuePct === 0) ? '0%' : formatPercentWithSign(row.targetDiffPct)}
                         </span>
-                      </td>
-                      <td className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t rounded-tl-[10px]' : ''} ${isLast ? 'border-b rounded-bl-[10px]' : ''}`}>
+                      </TableCell>
+                      <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t rounded-tl-[10px]' : ''} ${isLast ? 'border-b rounded-bl-[10px]' : ''}`}>
                         <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getYoyColor(row.yoyChangePct)}`}>
                           {row.value === 0 && (row.valuePct === null || row.valuePct === 0) ? '0%' : formatPercentWithSign(row.yoyChangePct)}
                         </span>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             )}
           </div>
         </div>

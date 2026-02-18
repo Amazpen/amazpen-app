@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 // ===== Types =====
 
@@ -871,8 +873,9 @@ export default function AdminPaymentsPage() {
                     <span className="text-[14px] text-white">{mainFileName}</span>
                     <span className="text-[12px] text-white/40">({mainRows.length} שורות)</span>
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={() => {
                       setMainFileName(null);
                       setMainRows([]);
@@ -882,7 +885,7 @@ export default function AdminPaymentsPage() {
                     className="text-[#F64E60] text-[13px] hover:underline"
                   >
                     הסר
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[100px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[6px] cursor-pointer hover:border-[#4956D4] transition-colors">
@@ -915,8 +918,9 @@ export default function AdminPaymentsPage() {
                     <span className="text-[14px] text-white">{subsFileName}</span>
                     <span className="text-[12px] text-white/40">({subsRows.length} שורות)</span>
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={() => {
                       setSubsFileName(null);
                       setSubsRows([]);
@@ -926,7 +930,7 @@ export default function AdminPaymentsPage() {
                     className="text-[#F64E60] text-[13px] hover:underline"
                   >
                     הסר
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[100px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[6px] cursor-pointer hover:border-[#4956D4] transition-colors">
@@ -955,14 +959,15 @@ export default function AdminPaymentsPage() {
 
             {/* Process Button */}
             {mainRows.length > 0 && (
-              <button
+              <Button
                 type="button"
+                variant="default"
                 onClick={handleProcess}
                 className="w-full bg-[#3CD856] hover:bg-[#2fb848] text-[#0F1535] text-[16px] font-bold py-[12px] rounded-[12px] transition-colors"
               >
                 {`עבד ומזג ${mainRows.length} תשלומים`}
                 {subsRows.length > 0 && ` + ${subsRows.length} תשלומי משנה`}
-              </button>
+              </Button>
             )}
           </div>
         ) : (
@@ -971,13 +976,14 @@ export default function AdminPaymentsPage() {
             <div className="bg-[#4956D4]/20 rounded-[15px] p-[15px]">
               <div className="flex items-center justify-between mb-[10px]">
                 <h3 className="text-[16px] font-bold text-white">קבצים שנטענו</h3>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={handleClear}
                   className="text-[#F64E60] text-[13px] hover:underline"
                 >
                   נקה הכל
-                </button>
+                </Button>
               </div>
               <div className="flex flex-col gap-[6px]">
                 {mainFileName && (
@@ -1105,15 +1111,17 @@ export default function AdminPaymentsPage() {
                               )}
                             </div>
                           </div>
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon-sm"
                             onClick={() => handleRemovePayment(index)}
                             className="text-[#F64E60] hover:text-[#ff6b7a] flex-shrink-0 mr-[10px]"
                           >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                               <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                             </svg>
-                          </button>
+                          </Button>
                         </div>
                         {/* Show splits if more than 1 */}
                         {payment.splits.length > 1 && (
@@ -1152,8 +1160,9 @@ export default function AdminPaymentsPage() {
 
             {/* Import Button */}
             {mergedPayments.length > 0 && (
-              <button
+              <Button
                 type="button"
+                variant="default"
                 onClick={handleImport}
                 disabled={isImporting || !selectedBusinessId || unmatchedSuppliers.length > 0}
                 className="w-full bg-[#4956D4] hover:bg-[#3a45b5] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[16px] font-bold py-[12px] rounded-[12px] transition-colors flex items-center justify-center gap-2"
@@ -1166,7 +1175,7 @@ export default function AdminPaymentsPage() {
                 ) : (
                   `ייבא ${mergedPayments.length} תשלומים (${totalSplits} פיצולים)`
                 )}
-              </button>
+              </Button>
             )}
           </>
         )}
@@ -1181,14 +1190,14 @@ export default function AdminPaymentsPage() {
               כל שורה = תשלום ראשי או תשלום חלקי (installment). שורות עם אותה תמונה+ספק מקובצות אוטומטית.
             </p>
             <div className="overflow-x-auto">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="border-b border-white/10">
-                    <th className="text-right text-white/60 py-[4px] px-[6px]">עמודה</th>
-                    <th className="text-right text-white/60 py-[4px] px-[6px]">חובה</th>
-                  </tr>
-                </thead>
-                <tbody className="text-white/80">
+              <Table className="w-full text-[11px]">
+                <TableHeader>
+                  <TableRow className="border-b border-white/10">
+                    <TableHead className="text-right text-white/60 py-[4px] px-[6px]">עמודה</TableHead>
+                    <TableHead className="text-right text-white/60 py-[4px] px-[6px]">חובה</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="text-white/80">
                   {[
                     ["Supplier name / ספק", true],
                     ["unique id", true],
@@ -1203,15 +1212,15 @@ export default function AdminPaymentsPage() {
                     ["הערות", false],
                     ["כל התמונות", false],
                   ].map(([col, required], i) => (
-                    <tr key={i} className="border-b border-white/5">
-                      <td className="py-[3px] px-[6px]">{col as string}</td>
-                      <td className={`py-[3px] px-[6px] ${required ? "text-[#F64E60]" : "text-white/40"}`}>
+                    <TableRow key={i} className="border-b border-white/5">
+                      <TableCell className="py-[3px] px-[6px]">{col as string}</TableCell>
+                      <TableCell className={`py-[3px] px-[6px] ${required ? "text-[#F64E60]" : "text-white/40"}`}>
                         {required ? "כן" : "לא"}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
 
@@ -1221,14 +1230,14 @@ export default function AdminPaymentsPage() {
               {`כל שורה = פיצול תשלום. עמודת "תשלום ראשי" מקשרת ל-unique id מהקובץ הראשון.`}
             </p>
             <div className="overflow-x-auto">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="border-b border-white/10">
-                    <th className="text-right text-white/60 py-[4px] px-[6px]">עמודה</th>
-                    <th className="text-right text-white/60 py-[4px] px-[6px]">חובה</th>
-                  </tr>
-                </thead>
-                <tbody className="text-white/80">
+              <Table className="w-full text-[11px]">
+                <TableHeader>
+                  <TableRow className="border-b border-white/10">
+                    <TableHead className="text-right text-white/60 py-[4px] px-[6px]">עמודה</TableHead>
+                    <TableHead className="text-right text-white/60 py-[4px] px-[6px]">חובה</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="text-white/80">
                   {[
                     ["ספק", true],
                     ["תשלום ראשי (unique id)", false],
@@ -1242,15 +1251,15 @@ export default function AdminPaymentsPage() {
                     ["בנק", false],
                     ["הערות", false],
                   ].map(([col, required], i) => (
-                    <tr key={i} className="border-b border-white/5">
-                      <td className="py-[3px] px-[6px]">{col as string}</td>
-                      <td className={`py-[3px] px-[6px] ${required ? "text-[#F64E60]" : "text-white/40"}`}>
+                    <TableRow key={i} className="border-b border-white/5">
+                      <TableCell className="py-[3px] px-[6px]">{col as string}</TableCell>
+                      <TableCell className={`py-[3px] px-[6px] ${required ? "text-[#F64E60]" : "text-white/40"}`}>
                         {required ? "כן" : "לא"}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </div>
 

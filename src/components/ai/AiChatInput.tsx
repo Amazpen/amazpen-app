@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { ArrowUp, Mic, Square, Camera, X, FileText, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { BarVisualizer } from "@/components/ui/bar-visualizer";
 
 const MAX_FILES = 10;
@@ -387,14 +388,16 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
           />
 
           {/* Stop button */}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={stopRecording}
             className="mt-4 w-[64px] h-[64px] sm:w-[72px] sm:h-[72px] rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white transition-all active:scale-95 shadow-lg shadow-red-500/30"
             aria-label="עצור הקלטה"
           >
             <Square className="w-6 h-6 sm:w-7 sm:h-7" />
-          </button>
+          </Button>
 
           <span className="text-white/40 text-xs mt-2">לחץ לעצירה ותמלול</span>
         </div>
@@ -428,14 +431,16 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
                   </div>
                 )}
                 {/* Remove button — always visible */}
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => removeFile(idx)}
                   className="absolute top-0.5 left-0.5 sm:top-1 sm:left-1 w-[18px] h-[18px] sm:w-[20px] sm:h-[20px] rounded-full bg-black/70 flex items-center justify-center"
                   aria-label="הסר קובץ"
                 >
                   <X className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
-                </button>
+                </Button>
                 {/* File name at bottom */}
                 <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-0.5 sm:px-1 py-0.5 sm:py-1">
                   <span className="text-[7px] sm:text-[8px] text-white/90 block truncate leading-tight">{file.name}</span>
@@ -447,8 +452,10 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
       )}
       <div className="flex items-end gap-1.5 sm:gap-3" dir="rtl">
         {/* Mic button - right side in RTL */}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={handleMicClick}
           disabled={isBusy && !isRecording}
           title={isRecording ? "עצור הקלטה" : "הקלט הודעה קולית"}
@@ -464,10 +471,12 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
           ) : (
             <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
           )}
-        </button>
+        </Button>
         {/* File/Camera button */}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={() => fileInputRef.current?.click()}
           disabled={isBusy || selectedFiles.length >= MAX_FILES}
           title="צלם או העלה מסמך"
@@ -482,7 +491,7 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
               {selectedFiles.length}
             </span>
           )}
-        </button>
+        </Button>
         <input
           ref={fileInputRef}
           type="file"
@@ -503,8 +512,10 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
           className="flex-1 resize-none bg-[#29318A] text-white text-[14px] sm:text-[15px] leading-[22px] sm:leading-[24px] rounded-[12px] sm:rounded-[14px] px-3 sm:px-4 py-2 sm:py-3 placeholder:text-white/40 outline-none focus:ring-2 focus:ring-[#6366f1]/50 transition-shadow disabled:opacity-50 scrollbar-thin"
         />
         {/* Send button - left side in RTL */}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={handleSend}
           disabled={(!value.trim() && selectedFiles.length === 0) || isBusy}
           title="שלח הודעה"
@@ -516,7 +527,7 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
           ) : (
             <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5 -rotate-45" />
           )}
-        </button>
+        </Button>
       </div>
     </div>
   );

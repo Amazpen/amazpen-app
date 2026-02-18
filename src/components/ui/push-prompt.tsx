@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { Button } from "@/components/ui/button";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -92,8 +93,10 @@ export function PushPrompt() {
           <p className="text-white text-[14px] font-bold mb-[4px]">הפעלת התראות</p>
           <p className="text-white/60 text-[12px] leading-[1.4]">קבלו עדכונים ותזכורות גם כשהדפדפן סגור</p>
         </div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={handleDismiss}
           className="text-white/40 hover:text-white transition-colors flex-shrink-0"
           aria-label="סגור"
@@ -102,23 +105,23 @@ export function PushPrompt() {
             <line x1="18" y1="6" x2="6" y2="18" strokeLinecap="round" />
             <line x1="6" y1="6" x2="18" y2="18" strokeLinecap="round" />
           </svg>
-        </button>
+        </Button>
       </div>
       <div className="flex gap-[8px] mt-[12px]">
-        <button
+        <Button
           type="button"
           onClick={handleEnable}
           className="flex-1 h-[38px] bg-[#FFA412] text-white text-[14px] font-bold rounded-[8px] hover:bg-[#FFB94A] active:scale-[0.98] transition-all"
         >
           הפעל
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           onClick={handleDismiss}
           className="flex-1 h-[38px] bg-white/10 text-white/70 text-[14px] rounded-[8px] hover:bg-white/15 active:scale-[0.98] transition-all"
         >
           לא עכשיו
-        </button>
+        </Button>
       </div>
     </div>
   );

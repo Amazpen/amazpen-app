@@ -2,6 +2,7 @@
 
 import { useNextStep } from "nextstepjs";
 import { usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { tourNameForPath } from "./tours";
 import { useOnboarding } from "@/hooks/useOnboarding";
 
@@ -20,8 +21,10 @@ export function HelpButton() {
   };
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon"
       onClick={handleClick}
       className="w-[34px] sm:w-[32px] aspect-square self-center rounded-full bg-[#29318A] flex items-center justify-center cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation"
       aria-label="הדרכה"
@@ -50,6 +53,6 @@ export function HelpButton() {
         />
         <circle cx="12" cy="17" r="1" fill="currentColor" />
       </svg>
-    </button>
+    </Button>
   );
 }

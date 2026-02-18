@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -469,15 +471,17 @@ export function ConsolidatedInvoiceModal({
       >
         <SheetHeader className="border-b border-[#4C526B] pb-4">
           <div className="flex justify-between items-center" dir="ltr">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={handleClose}
               className="text-[#7B91B0] hover:text-white transition-colors"
               title="סגור"
               aria-label="סגור"
             >
               <X className="w-6 h-6" />
-            </button>
+            </Button>
             <SheetTitle className="text-white text-xl font-bold">הוספת מרכזת</SheetTitle>
             <div className="w-[24px]" />
           </div>
@@ -529,7 +533,7 @@ export function ConsolidatedInvoiceModal({
               <span className={`text-[16px] font-semibold pointer-events-none ${invoiceDate ? "text-white" : "text-white/40"}`}>
                 {formatDateDisplay(invoiceDate)}
               </span>
-              <input
+              <Input
                 type="date"
                 title="תאריך מרכזת"
                 value={invoiceDate}
@@ -543,7 +547,7 @@ export function ConsolidatedInvoiceModal({
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">מספר חשבונית מרכזת</label>
             <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-              <input
+              <Input
                 type="text"
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
@@ -557,7 +561,7 @@ export function ConsolidatedInvoiceModal({
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
             <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-              <input
+              <Input
                 type="text"
                 inputMode="decimal"
                 value={totalAmount}
@@ -571,13 +575,14 @@ export function ConsolidatedInvoiceModal({
           {/* Delivery Notes Section */}
           <div className="flex flex-col gap-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
             <div className="flex items-center justify-between">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => setShowAddDeliveryNote(!showAddDeliveryNote)}
                 className="text-[14px] text-[#0075FF] hover:text-[#00D4FF] transition-colors"
               >
                 + הוספת תעודה
-              </button>
+              </Button>
               <label className="text-[15px] font-medium text-white">תעודות משלוח</label>
             </div>
 
@@ -587,7 +592,7 @@ export function ConsolidatedInvoiceModal({
                 <div className="grid grid-cols-2 gap-[10px]">
                   <div className="flex flex-col gap-[3px]">
                     <label className="text-[12px] text-white/60 text-right">מספר תעודה</label>
-                    <input
+                    <Input
                       type="text"
                       value={newDeliveryNote.delivery_note_number}
                       onChange={(e) => setNewDeliveryNote(prev => ({ ...prev, delivery_note_number: e.target.value }))}
@@ -597,7 +602,7 @@ export function ConsolidatedInvoiceModal({
                   </div>
                   <div className="flex flex-col gap-[3px]">
                     <label className="text-[12px] text-white/60 text-right">תאריך</label>
-                    <input
+                    <Input
                       type="date"
                       title="תאריך תעודה"
                       value={newDeliveryNote.delivery_date}
@@ -609,7 +614,7 @@ export function ConsolidatedInvoiceModal({
                 <div className="grid grid-cols-2 gap-[10px]">
                   <div className="flex flex-col gap-[3px]">
                     <label className="text-[12px] text-white/60 text-right">סכום כולל</label>
-                    <input
+                    <Input
                       type="text"
                       inputMode="decimal"
                       value={newDeliveryNote.total_amount}
@@ -620,7 +625,7 @@ export function ConsolidatedInvoiceModal({
                   </div>
                   <div className="flex flex-col gap-[3px]">
                     <label className="text-[12px] text-white/60 text-right">הערה</label>
-                    <input
+                    <Input
                       type="text"
                       value={newDeliveryNote.notes}
                       onChange={(e) => setNewDeliveryNote(prev => ({ ...prev, notes: e.target.value }))}
@@ -630,20 +635,21 @@ export function ConsolidatedInvoiceModal({
                   </div>
                 </div>
                 <div className="flex gap-[10px]">
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => setShowAddDeliveryNote(false)}
                     className="flex-1 h-[36px] border border-white/30 rounded-[8px] text-white/60 text-[14px] hover:bg-white/5"
                   >
                     ביטול
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     onClick={handleAddDeliveryNote}
                     className="flex-1 h-[36px] bg-[#3CD856] rounded-[8px] text-white text-[14px] font-medium hover:bg-[#34c04c]"
                   >
                     הוסף
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -656,13 +662,15 @@ export function ConsolidatedInvoiceModal({
                     key={index}
                     className="flex items-center justify-between bg-[#1a1f42] rounded-[8px] p-[10px]"
                   >
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => handleRemoveDeliveryNote(index)}
                       className="text-[#F64E60] text-[18px] font-bold hover:opacity-80"
                     >
                       ×
-                    </button>
+                    </Button>
                     <div className="flex flex-col items-end flex-1 mr-[10px]">
                       <div className="flex items-center gap-[10px]">
                         <span className="text-[14px] text-white font-medium">₪{formatNumber(parseFloat(note.total_amount))}</span>
@@ -738,13 +746,15 @@ export function ConsolidatedInvoiceModal({
                     key={index}
                     className="flex items-center gap-[3px] bg-white/10 rounded-[5px] px-[8px] py-[3px]"
                   >
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => handleRemoveFile(index)}
                       className="text-[#F64E60] hover:text-[#ff6b7a] text-[14px] font-bold"
                     >
                       ×
-                    </button>
+                    </Button>
                     <span className="text-white text-[12px] truncate max-w-[80px]">{file.name}</span>
                   </div>
                 ))}
@@ -771,21 +781,22 @@ export function ConsolidatedInvoiceModal({
 
           {/* Action Buttons */}
           <div className="flex items-center justify-center gap-[15px] mt-[20px] mb-[10px]">
-            <button
+            <Button
               type="button"
               onClick={handleSubmit}
               disabled={isSubmitting || !selectedBusinessId || !selectedSupplierId || !invoiceNumber || !totalAmount || !isClosed}
               className="flex-1 h-[45px] bg-[#29318A] hover:bg-[#3D44A0] rounded-[10px] text-white text-[16px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "שומר..." : "שמירה"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
               onClick={handleReset}
               className="flex-1 h-[45px] border border-white rounded-[10px] text-white text-[16px] font-semibold transition-colors hover:bg-white/10"
             >
               איפוס
-            </button>
+            </Button>
           </div>
         </div>
       </SheetContent>

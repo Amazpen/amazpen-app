@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
 import type { AiSuggestedQuestion } from "@/types/ai";
 
 const userSuggestions: AiSuggestedQuestion[] = [
@@ -67,8 +68,10 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-8 relative overflow-y-auto" dir="rtl">
       {/* Close button */}
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         onClick={() => router.back()}
         title="סגור"
         className="absolute top-3 left-3 sm:top-4 sm:left-4 w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded-full hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
@@ -77,7 +80,7 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
           <line x1="18" y1="6" x2="6" y2="18" />
           <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
-      </button>
+      </Button>
 
       {/* AI Bot Avatar */}
       <div className="w-[80px] h-[80px] sm:w-[110px] sm:h-[110px] rounded-full overflow-hidden mb-3 sm:mb-5">
@@ -115,9 +118,10 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
       {/* Suggestion cards */}
       <div id="onboarding-ai-suggestions" className="w-full max-w-[500px] grid grid-cols-1 min-[400px]:grid-cols-2 gap-2 sm:gap-3">
         {suggestions.map((suggestion) => (
-          <button
+          <Button
             key={suggestion.text}
             type="button"
+            variant="ghost"
             onClick={() => onSuggestionClick(suggestion.text)}
             className="flex items-center gap-2 sm:gap-3 bg-[#29318A] hover:bg-[#3D44A0] text-white text-[12px] sm:text-[13px] text-right p-2.5 sm:p-3 rounded-[10px] sm:rounded-[12px] transition-colors cursor-pointer active:scale-[0.98]"
           >
@@ -125,7 +129,7 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
               {iconMap[suggestion.icon]}
             </span>
             <span className="leading-snug">{suggestion.text}</span>
-          </button>
+          </Button>
         ))}
       </div>
     </div>

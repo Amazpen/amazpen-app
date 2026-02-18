@@ -10,6 +10,9 @@ import { convertPdfToImage } from "@/lib/pdfToImage";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { generateUUID } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -910,7 +913,7 @@ export default function NewBusinessPage() {
           <span className="text-[#F64E60]">*</span> שם העסק
         </label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-          <input
+          <Input
             type="text"
             value={businessName}
             onChange={(e) => setBusinessName(e.target.value)}
@@ -947,7 +950,7 @@ export default function NewBusinessPage() {
             <span className="text-[#F64E60]">*</span> שם סוג העסק
           </label>
           <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-            <input
+            <Input
               type="text"
               value={customBusinessType}
               onChange={(e) => setCustomBusinessType(e.target.value)}
@@ -964,7 +967,7 @@ export default function NewBusinessPage() {
           <span className="text-[#F64E60]">*</span> מספר עוסק / ח.פ
         </label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-          <input
+          <Input
             type="text"
             value={taxId}
             onChange={(e) => setTaxId(e.target.value)}
@@ -978,7 +981,7 @@ export default function NewBusinessPage() {
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">כתובת</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-          <input
+          <Input
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
@@ -992,7 +995,7 @@ export default function NewBusinessPage() {
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">עיר</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-          <input
+          <Input
             type="text"
             value={city}
             onChange={(e) => setCity(e.target.value)}
@@ -1007,7 +1010,7 @@ export default function NewBusinessPage() {
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">טלפון</label>
           <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-            <input
+            <Input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -1019,7 +1022,7 @@ export default function NewBusinessPage() {
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">אימייל</label>
           <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-            <input
+            <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -1034,7 +1037,7 @@ export default function NewBusinessPage() {
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">שכר מנהל חודשי</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
-          <input
+          <Input
             type="text"
             inputMode="numeric"
             value={managerSalary === 0 ? "" : formatNumberWithCommas(managerSalary)}
@@ -1052,7 +1055,7 @@ export default function NewBusinessPage() {
           <label className="text-[15px] font-medium text-white text-right">אחוז העמסה</label>
           <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
             <span className="text-white/50 text-[14px] pr-[10px]">%</span>
-            <input
+            <Input
               type="number"
               min="0"
               max="100"
@@ -1068,7 +1071,7 @@ export default function NewBusinessPage() {
           <label className="text-[15px] font-medium text-white text-right">אחוז מע&quot;מ</label>
           <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
             <span className="text-white/50 text-[14px] pr-[10px]">%</span>
-            <input
+            <Input
               type="number"
               min="0"
               max="100"
@@ -1102,7 +1105,9 @@ export default function NewBusinessPage() {
               ) : (
                 <Image src={logoPreview} alt="Logo preview" className="max-h-[80px] max-w-[150px] object-contain rounded-[5px]" width={150} height={80} unoptimized />
               )}
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
@@ -1114,7 +1119,7 @@ export default function NewBusinessPage() {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Button>
             </div>
           ) : (
             <>
@@ -1150,7 +1155,7 @@ export default function NewBusinessPage() {
           {daysOfWeek.map((day) => (
             <div key={day.id} className="flex flex-col items-center gap-[8px]">
               <span className="text-[12px] font-bold text-white">{day.short}</span>
-              <input
+              <Input
                 type="number"
                 min="0"
                 max="1"
@@ -1202,16 +1207,18 @@ export default function NewBusinessPage() {
         <p className="text-[12px] text-white/50 text-right mb-[10px]">קופה, 10ביס, וולט וכו&apos;</p>
 
         <div className="flex gap-[10px] mb-[10px]">
-          <button
+          <Button
+            variant="default"
+            size="sm"
             type="button"
             onClick={handleAddIncomeSource}
             disabled={!newIncomeSource.trim()}
             className="bg-[#4956D4] text-white text-[14px] font-semibold px-[15px] py-[10px] rounded-[8px] disabled:opacity-50"
           >
             הוסף
-          </button>
+          </Button>
           <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
-            <input
+            <Input
               type="text"
               value={newIncomeSource}
               onChange={(e) => setNewIncomeSource(e.target.value)}
@@ -1225,7 +1232,9 @@ export default function NewBusinessPage() {
         <div className="flex flex-wrap gap-[8px]">
           {incomeSources.map((source) => (
             <div key={source} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 type="button"
                 onClick={() => handleRemoveIncomeSource(source)}
                 aria-label={`הסר ${source}`}
@@ -1234,7 +1243,7 @@ export default function NewBusinessPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Button>
               <span className="text-[14px] text-white">{source}</span>
             </div>
           ))}
@@ -1247,16 +1256,18 @@ export default function NewBusinessPage() {
         <p className="text-[12px] text-white/50 text-right mb-[10px]">סוגי תקבולים שונים</p>
 
         <div className="flex gap-[10px] mb-[10px]">
-          <button
+          <Button
+            variant="default"
+            size="sm"
             type="button"
             onClick={handleAddReceiptType}
             disabled={!newReceiptType.trim()}
             className="bg-[#4956D4] text-white text-[14px] font-semibold px-[15px] py-[10px] rounded-[8px] disabled:opacity-50"
           >
             הוסף
-          </button>
+          </Button>
           <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
-            <input
+            <Input
               type="text"
               value={newReceiptType}
               onChange={(e) => setNewReceiptType(e.target.value)}
@@ -1270,7 +1281,9 @@ export default function NewBusinessPage() {
         <div className="flex flex-wrap gap-[8px]">
           {receiptTypes.map((type) => (
             <div key={type} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 type="button"
                 onClick={() => handleRemoveReceiptType(type)}
                 aria-label={`הסר ${type}`}
@@ -1279,7 +1292,7 @@ export default function NewBusinessPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Button>
               <span className="text-[14px] text-white">{type}</span>
             </div>
           ))}
@@ -1295,16 +1308,18 @@ export default function NewBusinessPage() {
         <p className="text-[12px] text-white/50 text-right mb-[10px]">פרמטרים מותאמים אישית</p>
 
         <div className="flex gap-[10px] mb-[10px]">
-          <button
+          <Button
+            variant="default"
+            size="sm"
             type="button"
             onClick={handleAddCustomParameter}
             disabled={!newCustomParameter.trim()}
             className="bg-[#4956D4] text-white text-[14px] font-semibold px-[15px] py-[10px] rounded-[8px] disabled:opacity-50"
           >
             הוסף
-          </button>
+          </Button>
           <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
-            <input
+            <Input
               type="text"
               value={newCustomParameter}
               onChange={(e) => setNewCustomParameter(e.target.value)}
@@ -1318,7 +1333,9 @@ export default function NewBusinessPage() {
         <div className="flex flex-wrap gap-[8px]">
           {customParameters.map((param) => (
             <div key={param} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 type="button"
                 onClick={() => handleRemoveCustomParameter(param)}
                 aria-label={`הסר ${param}`}
@@ -1327,7 +1344,7 @@ export default function NewBusinessPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Button>
               <span className="text-[14px] text-white">{param}</span>
             </div>
           ))}
@@ -1343,16 +1360,18 @@ export default function NewBusinessPage() {
         <p className="text-[12px] text-white/50 text-right mb-[10px]">כרטיסי אשראי של העסק</p>
 
         <div className="flex gap-[10px] mb-[10px]">
-          <button
+          <Button
+            variant="default"
+            size="sm"
             type="button"
             onClick={handleAddCreditCard}
             disabled={!newCardName.trim()}
             className="bg-[#4956D4] text-white text-[14px] font-semibold px-[15px] py-[10px] rounded-[8px] disabled:opacity-50"
           >
             הוסף
-          </button>
+          </Button>
           <div className="w-[80px] border border-[#4C526B] rounded-[8px] h-[42px]">
-            <input
+            <Input
               type="number"
               min="1"
               max="31"
@@ -1364,7 +1383,7 @@ export default function NewBusinessPage() {
             />
           </div>
           <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
-            <input
+            <Input
               type="text"
               value={newCardName}
               onChange={(e) => setNewCardName(e.target.value)}
@@ -1378,7 +1397,9 @@ export default function NewBusinessPage() {
         <div className="flex flex-wrap gap-[8px]">
           {creditCards.map((card, index) => (
             <div key={index} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 type="button"
                 onClick={() => handleRemoveCreditCard(index)}
                 aria-label={`הסר ${card.cardName}`}
@@ -1387,7 +1408,7 @@ export default function NewBusinessPage() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Button>
               <span className="text-[14px] text-white">{card.cardName}</span>
               <span className="text-[12px] text-white/60 bg-[#4956D4]/30 px-[6px] py-[2px] rounded">יום {card.billingDay}</span>
             </div>
@@ -1406,7 +1427,7 @@ export default function NewBusinessPage() {
         <div className="flex flex-col gap-[10px] mb-[10px]">
           <div className="flex gap-[10px]">
             <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
-              <input
+              <Input
                 type="text"
                 value={newProductName}
                 onChange={(e) => setNewProductName(e.target.value)}
@@ -1416,16 +1437,18 @@ export default function NewBusinessPage() {
             </div>
           </div>
           <div className="flex gap-[10px]">
-            <button
+            <Button
+              variant="default"
+              size="sm"
               type="button"
               onClick={handleAddManagedProduct}
               disabled={!newProductName.trim() || !newProductUnit.trim()}
               className="bg-[#4956D4] text-white text-[14px] font-semibold px-[15px] py-[10px] rounded-[8px] disabled:opacity-50"
             >
               הוסף
-            </button>
+            </Button>
             <div className="w-[100px] border border-[#4C526B] rounded-[8px] h-[42px]">
-              <input
+              <Input
                 type="number"
                 min="0"
                 step="0.01"
@@ -1438,7 +1461,7 @@ export default function NewBusinessPage() {
               />
             </div>
             <div className="w-[120px] border border-[#4C526B] rounded-[8px] h-[42px]">
-              <input
+              <Input
                 type="text"
                 value={newProductUnit}
                 onChange={(e) => setNewProductUnit(e.target.value)}
@@ -1454,7 +1477,9 @@ export default function NewBusinessPage() {
           {managedProducts.map((product, index) => (
             <div key={index} className="flex items-center justify-between bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[8px]">
               <div className="flex items-center gap-[8px]">
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   type="button"
                   onClick={() => handleRemoveManagedProduct(index)}
                   aria-label={`הסר ${product.name}`}
@@ -1463,7 +1488,7 @@ export default function NewBusinessPage() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                     <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
-                </button>
+                </Button>
                 <span className="text-[14px] text-white font-medium">{product.name}</span>
               </div>
               <div className="flex items-center gap-[8px]">
@@ -1500,7 +1525,8 @@ export default function NewBusinessPage() {
 
         {/* Mode Toggle: New / Existing */}
         <div className="flex gap-[8px] mb-[12px]">
-          <button
+          <Button
+            variant="ghost"
             type="button"
             onClick={() => { setAddMode("new"); setSelectedExistingUser(null); setExistingUserSearch(""); setExistingUserResults([]); }}
             className={`flex-1 h-[38px] rounded-[10px] text-[13px] font-medium transition-all ${
@@ -1510,8 +1536,9 @@ export default function NewBusinessPage() {
             }`}
           >
             משתמש חדש
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
             type="button"
             onClick={() => { setAddMode("existing"); setNewMemberEmail(""); setNewMemberPassword(""); setNewMemberName(""); setNewMemberPhone(""); setNewMemberAvatarUrl(""); }}
             className={`flex-1 h-[38px] rounded-[10px] text-[13px] font-medium transition-all ${
@@ -1521,7 +1548,7 @@ export default function NewBusinessPage() {
             }`}
           >
             משתמש קיים
-          </button>
+          </Button>
         </div>
 
         {addMode === "existing" ? (
@@ -1532,7 +1559,7 @@ export default function NewBusinessPage() {
                 <span className="text-[#F64E60]">*</span> חיפוש משתמש
               </label>
               <div className="border border-[#4C526B] rounded-[10px] h-[45px] flex items-center">
-                <input
+                <Input
                   type="text"
                   value={existingUserSearch}
                   onChange={(e) => handleSearchExistingUsers(e.target.value)}
@@ -1552,7 +1579,8 @@ export default function NewBusinessPage() {
             {existingUserResults.length > 0 && !selectedExistingUser && (
               <div className="flex flex-col gap-[6px] mb-[10px] max-h-[200px] overflow-y-auto">
                 {existingUserResults.map((user) => (
-                  <button
+                  <Button
+                    variant="ghost"
                     key={user.id}
                     type="button"
                     onClick={() => {
@@ -1560,7 +1588,7 @@ export default function NewBusinessPage() {
                       setExistingUserSearch(user.email);
                       setExistingUserResults([]);
                     }}
-                    className="flex items-center gap-[10px] bg-[#1A1F37] hover:bg-[#29318A]/50 border border-[#4C526B] rounded-[10px] p-[10px] transition-colors text-right w-full"
+                    className="flex items-center gap-[10px] bg-[#1A1F37] hover:bg-[#29318A]/50 border border-[#4C526B] rounded-[10px] p-[10px] transition-colors text-right w-full h-auto"
                   >
                     <div className="w-[36px] h-[36px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
                       {user.avatar_url ? (
@@ -1577,7 +1605,7 @@ export default function NewBusinessPage() {
                       )}
                       <p className="text-[12px] text-white/60 truncate">{user.email}</p>
                     </div>
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
@@ -1610,7 +1638,9 @@ export default function NewBusinessPage() {
                     <p className="text-[11px] text-white/40">{selectedExistingUser.phone}</p>
                   )}
                 </div>
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
                   type="button"
                   onClick={() => {
                     setSelectedExistingUser(null);
@@ -1622,7 +1652,7 @@ export default function NewBusinessPage() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                     <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
-                </button>
+                </Button>
               </div>
             )}
 
@@ -1630,7 +1660,8 @@ export default function NewBusinessPage() {
             <div className="flex flex-col gap-[5px] mb-[15px]">
               <label className="text-[14px] font-medium text-white text-right">תפקיד</label>
               <div className="flex gap-[10px]">
-                <button
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={() => setNewMemberRole("owner")}
                   className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
@@ -1640,8 +1671,9 @@ export default function NewBusinessPage() {
                   }`}
                 >
                   בעל עסק
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={() => setNewMemberRole("employee")}
                   className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
@@ -1651,19 +1683,20 @@ export default function NewBusinessPage() {
                   }`}
                 >
                   עובד
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* Add Existing User Button */}
-            <button
+            <Button
+              variant="default"
               type="button"
               onClick={handleAddExistingUser}
               disabled={!selectedExistingUser}
               className="w-full h-[45px] bg-gradient-to-r from-[#0075FF] to-[#00D4FF] text-white text-[14px] font-bold rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               + שייך משתמש קיים
-            </button>
+            </Button>
           </>
         ) : (
           <>
@@ -1673,7 +1706,7 @@ export default function NewBusinessPage() {
                 <span className="text-[#F64E60]">*</span> אימייל
               </label>
               <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-                <input
+                <Input
                   type="email"
                   value={newMemberEmail}
                   onChange={(e) => setNewMemberEmail(e.target.value)}
@@ -1689,7 +1722,7 @@ export default function NewBusinessPage() {
                 <span className="text-[#F64E60]">*</span> סיסמה
               </label>
               <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-                <input
+                <Input
                   type="password"
                   autoComplete="new-password"
                   value={newMemberPassword}
@@ -1704,7 +1737,7 @@ export default function NewBusinessPage() {
             <div className="flex flex-col gap-[5px] mb-[10px]">
               <label className="text-[14px] font-medium text-white text-right">שם מלא</label>
               <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-                <input
+                <Input
                   type="text"
                   value={newMemberName}
                   onChange={(e) => setNewMemberName(e.target.value)}
@@ -1718,7 +1751,7 @@ export default function NewBusinessPage() {
             <div className="flex flex-col gap-[5px] mb-[10px]">
               <label className="text-[14px] font-medium text-white text-right">מספר טלפון</label>
               <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-                <input
+                <Input
                   type="tel"
                   value={newMemberPhone}
                   onChange={(e) => setNewMemberPhone(e.target.value)}
@@ -1759,7 +1792,8 @@ export default function NewBusinessPage() {
                   aria-label="העלה תמונת פרופיל"
                   className="hidden"
                 />
-                <button
+                <Button
+                  variant="outline"
                   type="button"
                   onClick={() => memberAvatarInputRef.current?.click()}
                   disabled={isUploadingMemberAvatar}
@@ -1783,9 +1817,11 @@ export default function NewBusinessPage() {
                       העלה תמונה
                     </>
                   )}
-                </button>
+                </Button>
                 {newMemberAvatarUrl && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     type="button"
                     onClick={() => setNewMemberAvatarUrl("")}
                     className="w-[45px] h-[45px] border border-[#F64E60]/50 rounded-[10px] flex items-center justify-center text-[#F64E60] hover:bg-[#F64E60]/20 transition-colors"
@@ -1794,7 +1830,7 @@ export default function NewBusinessPage() {
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                       <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -1803,7 +1839,8 @@ export default function NewBusinessPage() {
             <div className="flex flex-col gap-[5px] mb-[15px]">
               <label className="text-[14px] font-medium text-white text-right">תפקיד</label>
               <div className="flex gap-[10px]">
-                <button
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={() => setNewMemberRole("owner")}
                   className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
@@ -1813,8 +1850,9 @@ export default function NewBusinessPage() {
                   }`}
                 >
                   בעל עסק
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
                   type="button"
                   onClick={() => setNewMemberRole("employee")}
                   className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
@@ -1824,19 +1862,20 @@ export default function NewBusinessPage() {
                   }`}
                 >
                   עובד
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* Add Button */}
-            <button
+            <Button
+              variant="default"
               type="button"
               onClick={handleAddTeamMember}
               disabled={!newMemberEmail.trim() || !newMemberPassword.trim() || newMemberPassword.length < 6}
               className="w-full h-[45px] bg-[#29318A] text-white text-[14px] font-bold rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               + הוסף משתמש חדש
-            </button>
+            </Button>
           </>
         )}
       </form>
@@ -1850,13 +1889,15 @@ export default function NewBusinessPage() {
               key={index}
               className="flex items-center justify-between bg-[#0F1535] rounded-[10px] p-[12px]"
             >
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 type="button"
                 onClick={() => handleRemoveTeamMember(index)}
                 className="text-[#F64E60] text-[20px] font-bold hover:opacity-80"
               >
                 ×
-              </button>
+              </Button>
               <div className="flex items-center gap-[10px]">
                 <div className="text-right">
                   <p className="text-[14px] text-white">{member.name || member.email}</p>
@@ -2056,13 +2097,14 @@ export default function NewBusinessPage() {
           <>
             {/* File info & clear button */}
             <div className="flex items-center justify-between bg-[#0F1535] rounded-[10px] p-[10px] mb-[10px]">
-              <button
+              <Button
+                variant="ghost"
                 type="button"
                 onClick={handleClearCsv}
                 className="text-[#F64E60] text-[13px] hover:underline"
               >
                 נקה הכל
-              </button>
+              </Button>
               <div className="flex items-center gap-[8px]">
                 <span className="text-[14px] text-white">{csvFileName}</span>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-[#3CD856]">
@@ -2095,62 +2137,62 @@ export default function NewBusinessPage() {
           שורה ראשונה: כותרות העמודות. שאר השורות: נתוני הספקים.
         </p>
         <div className="overflow-x-auto">
-          <table className="w-full text-[12px]">
-            <thead>
-              <tr className="border-b border-white/10">
-                <th className="text-right text-white/60 py-[6px] px-[8px]">עמודה</th>
-                <th className="text-right text-white/60 py-[6px] px-[8px]">חובה</th>
-                <th className="text-right text-white/60 py-[6px] px-[8px]">דוגמה</th>
-              </tr>
-            </thead>
-            <tbody className="text-white/80">
-              <tr className="border-b border-white/5">
-                <td className="py-[4px] px-[8px]">שם ספק / name</td>
-                <td className="py-[4px] px-[8px] text-[#F64E60]">כן</td>
-                <td className="py-[4px] px-[8px]">חברת הניקיון</td>
-              </tr>
-              <tr className="border-b border-white/5">
-                <td className="py-[4px] px-[8px]">סוג הוצאה / expense_type</td>
-                <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                <td className="py-[4px] px-[8px]">current_expenses / סחורה / עלות עובדים</td>
-              </tr>
-              <tr className="border-b border-white/5">
-                <td className="py-[4px] px-[8px]">איש קשר / contact_name</td>
-                <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                <td className="py-[4px] px-[8px]">יוסי כהן</td>
-              </tr>
-              <tr className="border-b border-white/5">
-                <td className="py-[4px] px-[8px]">טלפון / phone</td>
-                <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                <td className="py-[4px] px-[8px]">050-1234567</td>
-              </tr>
-              <tr className="border-b border-white/5">
-                <td className="py-[4px] px-[8px]">אימייל / email</td>
-                <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                <td className="py-[4px] px-[8px]">supplier@email.com</td>
-              </tr>
-              <tr className="border-b border-white/5">
-                <td className="py-[4px] px-[8px]">ח.פ / tax_id</td>
-                <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                <td className="py-[4px] px-[8px]">515678901</td>
-              </tr>
-              <tr className="border-b border-white/5">
-                <td className="py-[4px] px-[8px]">כתובת / address</td>
-                <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                <td className="py-[4px] px-[8px]">רחוב הרצל 10</td>
-              </tr>
-              <tr className="border-b border-white/5">
-                <td className="py-[4px] px-[8px]">ימי תשלום / payment_terms_days</td>
-                <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                <td className="py-[4px] px-[8px]">30</td>
-              </tr>
-              <tr>
-                <td className="py-[4px] px-[8px]">הערות / notes</td>
-                <td className="py-[4px] px-[8px] text-white/40">לא</td>
-                <td className="py-[4px] px-[8px]">ספק ראשי</td>
-              </tr>
-            </tbody>
-          </table>
+          <Table className="w-full text-[12px]">
+            <TableHeader>
+              <TableRow className="border-b border-white/10">
+                <TableHead className="text-right text-white/60 py-[6px] px-[8px]">עמודה</TableHead>
+                <TableHead className="text-right text-white/60 py-[6px] px-[8px]">חובה</TableHead>
+                <TableHead className="text-right text-white/60 py-[6px] px-[8px]">דוגמה</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="text-white/80">
+              <TableRow className="border-b border-white/5">
+                <TableCell className="py-[4px] px-[8px]">שם ספק / name</TableCell>
+                <TableCell className="py-[4px] px-[8px] text-[#F64E60]">כן</TableCell>
+                <TableCell className="py-[4px] px-[8px]">חברת הניקיון</TableCell>
+              </TableRow>
+              <TableRow className="border-b border-white/5">
+                <TableCell className="py-[4px] px-[8px]">סוג הוצאה / expense_type</TableCell>
+                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                <TableCell className="py-[4px] px-[8px]">current_expenses / סחורה / עלות עובדים</TableCell>
+              </TableRow>
+              <TableRow className="border-b border-white/5">
+                <TableCell className="py-[4px] px-[8px]">איש קשר / contact_name</TableCell>
+                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                <TableCell className="py-[4px] px-[8px]">יוסי כהן</TableCell>
+              </TableRow>
+              <TableRow className="border-b border-white/5">
+                <TableCell className="py-[4px] px-[8px]">טלפון / phone</TableCell>
+                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                <TableCell className="py-[4px] px-[8px]">050-1234567</TableCell>
+              </TableRow>
+              <TableRow className="border-b border-white/5">
+                <TableCell className="py-[4px] px-[8px]">אימייל / email</TableCell>
+                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                <TableCell className="py-[4px] px-[8px]">supplier@email.com</TableCell>
+              </TableRow>
+              <TableRow className="border-b border-white/5">
+                <TableCell className="py-[4px] px-[8px]">ח.פ / tax_id</TableCell>
+                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                <TableCell className="py-[4px] px-[8px]">515678901</TableCell>
+              </TableRow>
+              <TableRow className="border-b border-white/5">
+                <TableCell className="py-[4px] px-[8px]">כתובת / address</TableCell>
+                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                <TableCell className="py-[4px] px-[8px]">רחוב הרצל 10</TableCell>
+              </TableRow>
+              <TableRow className="border-b border-white/5">
+                <TableCell className="py-[4px] px-[8px]">ימי תשלום / payment_terms_days</TableCell>
+                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                <TableCell className="py-[4px] px-[8px]">30</TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="py-[4px] px-[8px]">הערות / notes</TableCell>
+                <TableCell className="py-[4px] px-[8px] text-white/40">לא</TableCell>
+                <TableCell className="py-[4px] px-[8px]">ספק ראשי</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
         </div>
       </div>
 
@@ -2161,7 +2203,9 @@ export default function NewBusinessPage() {
           <div className="flex flex-col gap-[8px]">
             {csvSuppliers.map((supplier, index) => (
               <div key={index} className="flex items-center justify-between bg-[#4956D4]/10 border border-[#4956D4]/30 rounded-[10px] p-[10px]">
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   type="button"
                   onClick={() => handleRemoveCsvSupplier(index)}
                   className="text-[#F64E60] hover:text-[#ff6b7a] flex-shrink-0"
@@ -2169,7 +2213,7 @@ export default function NewBusinessPage() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                     <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
-                </button>
+                </Button>
                 <div className="flex-1 text-right mr-[10px]">
                   <div className="flex items-center gap-[8px] justify-end flex-wrap">
                     <span className={`text-[11px] px-[6px] py-[2px] rounded ${
@@ -2262,7 +2306,8 @@ export default function NewBusinessPage() {
                   : "bg-[#29318A]/50"
               }`} />
             )}
-            <button
+            <Button
+              variant="ghost"
               type="button"
               onClick={() => step < currentStep && setCurrentStep(step)}
               suppressHydrationWarning
@@ -2281,7 +2326,7 @@ export default function NewBusinessPage() {
               ) : (
                 step
               )}
-            </button>
+            </Button>
           </div>
         ))}
       </div>
@@ -2316,17 +2361,19 @@ export default function NewBusinessPage() {
       {/* Navigation Buttons */}
       <div className="fixed bottom-0 left-0 right-0 lg:right-[220px] bg-[#0F1535] border-t border-white/10 p-[15px] flex gap-[10px]">
         {currentStep > 1 && (
-          <button
+          <Button
+            variant="outline"
             type="button"
             onClick={() => setCurrentStep(currentStep - 1)}
             className="flex-1 bg-transparent border border-[#4C526B] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
           >
             חזרה
-          </button>
+          </Button>
         )}
 
         {currentStep < 5 ? (
-          <button
+          <Button
+            variant="default"
             type="button"
             onClick={() => setCurrentStep(currentStep + 1)}
             disabled={
@@ -2338,9 +2385,10 @@ export default function NewBusinessPage() {
             className="flex-1 bg-[#29318A] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             המשך
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
+            variant="default"
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit || isSubmitting}
@@ -2362,7 +2410,7 @@ export default function NewBusinessPage() {
                 צור עסק
               </>
             )}
-          </button>
+          </Button>
         )}
       </div>
     </div>

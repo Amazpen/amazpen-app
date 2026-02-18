@@ -16,6 +16,9 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 // Category type from database
 interface ExpenseCategory {
@@ -1128,9 +1131,11 @@ export default function SuppliersPage() {
     return supplier.expense_type === "current_expenses" && !supplier.has_previous_obligations;
   });
 
-  const filteredSuppliers = filteredByTab.filter((supplier) =>
-    supplier.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredSuppliers = filteredByTab
+    .filter((supplier) =>
+      supplier.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => b.remainingPayment - a.remainingPayment);
 
   // Calculate total open payment
   const totalOpenPayment = filteredSuppliers.reduce((sum, item) => sum + item.remainingPayment, 0);
@@ -1150,7 +1155,7 @@ export default function SuppliersPage() {
         </div>
 
         {/* Add Supplier Button */}
-        <button
+        <Button
           id="onboarding-suppliers-add"
           type="button"
           onClick={() => {
@@ -1168,24 +1173,24 @@ export default function SuppliersPage() {
           className="w-full min-h-[50px] bg-[#29318A] text-white text-[16px] font-semibold rounded-[5px] px-[24px] py-[12px] transition-colors duration-200 hover:bg-[#3D44A0] shadow-[0_7px_30px_-10px_rgba(41,49,138,0.1)]"
         >
           {activeTab === "previous" ? "הוספת התחייבות קודמת" : "הוספת ספק חדש"}
-        </button>
+        </Button>
       </div>
 
       {/* Main Content Container */}
       <div className="flex-1 flex flex-col bg-[#0F1535] rounded-[10px] p-[5px_7px]">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as TabType)} dir="rtl">
-          <TabsList id="onboarding-suppliers-tabs" className="w-full bg-[#1A1F37] rounded-[10px] p-[3px] h-auto mb-[10px]">
-            <TabsTrigger value="purchases" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">קניות סחורה</TabsTrigger>
-            <TabsTrigger value="current" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">הוצאות שוטפות</TabsTrigger>
-            <TabsTrigger value="employees" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">עלות עובדים</TabsTrigger>
-            <TabsTrigger value="previous" className="flex-1 text-[13px] py-[8px] rounded-[8px] data-[state=active]:bg-[#4956D4] data-[state=active]:text-white text-white/60">התחייבויות קודמות</TabsTrigger>
+          <TabsList id="onboarding-suppliers-tabs" className="w-full bg-transparent rounded-[7px] p-0 h-[50px] mb-[10px] gap-0">
+            <TabsTrigger value="purchases" className="flex-1 text-[20px] font-semibold py-0 h-[50px] rounded-none rounded-r-[7px] border border-[#6B6B6B] data-[state=active]:bg-[#29318A] data-[state=active]:text-white data-[state=active]:border-transparent text-[#979797] data-[state=inactive]:bg-transparent">קניות סחורה</TabsTrigger>
+            <TabsTrigger value="current" className="flex-1 text-[20px] font-semibold py-0 h-[50px] rounded-none border-y border-[#6B6B6B] data-[state=active]:bg-[#29318A] data-[state=active]:text-white data-[state=active]:border-transparent text-[#979797] data-[state=inactive]:bg-transparent">הוצאות שוטפות</TabsTrigger>
+            <TabsTrigger value="employees" className="flex-1 text-[20px] font-semibold py-0 h-[50px] rounded-none border-y border-[#6B6B6B] data-[state=active]:bg-[#29318A] data-[state=active]:text-white data-[state=active]:border-transparent text-[#979797] data-[state=inactive]:bg-transparent">עלות עובדים</TabsTrigger>
+            <TabsTrigger value="previous" className="flex-1 text-[20px] font-semibold py-0 h-[50px] rounded-none rounded-l-[7px] border border-[#6B6B6B] data-[state=active]:bg-[#29318A] data-[state=active]:text-white data-[state=active]:border-transparent text-[#979797] data-[state=inactive]:bg-transparent">התחייבויות קודמות</TabsTrigger>
           </TabsList>
         </Tabs>
 
         {/* Suppliers Count and Search - לחיצה על חיפוש מחליפה את כמות הספקים בשדה חיפוש */}
         <div className="flex items-center gap-[10px] mb-[10px]">
-          <button
+          <Button
             type="button"
             title="חיפוש"
             onClick={() => {
@@ -1198,9 +1203,9 @@ export default function SuppliersPage() {
               <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
               <path d="M16 16L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
-          </button>
+          </Button>
           {isSearchOpen ? (
-            <input
+            <Input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -1249,7 +1254,7 @@ export default function SuppliersPage() {
           ) : (
             <div className="grid grid-cols-2 gap-[26px]">
               {filteredSuppliers.map((supplier) => (
-                <button
+                <Button
                   key={supplier.id}
                   type="button"
                   onClick={() => handleOpenSupplierDetail(supplier)}
@@ -1257,7 +1262,7 @@ export default function SuppliersPage() {
                 >
                   {/* Inactive Badge */}
                   {supplier.is_active === false && (
-                    <span className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">לא פעיל</span>
+                    <Badge className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">לא פעיל</Badge>
                   )}
                   {/* Supplier Name */}
                   <div className="w-[120px] text-center">
@@ -1278,7 +1283,7 @@ export default function SuppliersPage() {
                       {Number(supplier.revenuePercentage.toFixed(2))}% מהכנסות
                     </span>
                   </div>
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -1294,7 +1299,7 @@ export default function SuppliersPage() {
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
             <div className="flex justify-between items-center" dir="ltr">
-              <button
+              <Button
                 type="button"
                 onClick={handleCloseAddSupplierModal}
                 className="text-[#7B91B0] hover:text-white transition-colors"
@@ -1302,7 +1307,7 @@ export default function SuppliersPage() {
                 aria-label="סגור"
               >
                 <X className="w-6 h-6" />
-              </button>
+              </Button>
               <SheetTitle className="text-white text-xl font-bold">
                 {isEditingSupplier ? "עריכת ספק" : "הוספת ספק חדש"}
               </SheetTitle>
@@ -1316,7 +1321,7 @@ export default function SuppliersPage() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">{hasPreviousObligations ? "שם התחייבות" : "שם הספק"}</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="text"
                     title={hasPreviousObligations ? "שם התחייבות" : "שם הספק"}
                     value={supplierName}
@@ -1329,7 +1334,7 @@ export default function SuppliersPage() {
               {/* Checkboxes - התחייבויות קודמות (only in previous tab), ממתין למרכזת */}
               <div className="flex flex-col gap-[10px] items-start" dir="rtl">
                 {activeTab === "previous" && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setHasPreviousObligations(!hasPreviousObligations)}
                     className="flex items-center gap-[3px]"
@@ -1345,11 +1350,11 @@ export default function SuppliersPage() {
                       )}
                     </svg>
                     <span className="text-[15px] font-semibold text-[#979797]">התחייבויות קודמות</span>
-                  </button>
+                  </Button>
                 )}
 
                 {!hasPreviousObligations && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setWaitingForCoordinator(!waitingForCoordinator)}
                     className="flex items-center gap-[3px]"
@@ -1365,11 +1370,11 @@ export default function SuppliersPage() {
                       )}
                     </svg>
                     <span className="text-[15px] font-semibold text-[#979797]">ממתין למרכזת</span>
-                  </button>
+                  </Button>
                 )}
 
                 {!hasPreviousObligations && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setIsFixedExpense(!isFixedExpense)}
                     className="flex items-center gap-[3px]"
@@ -1385,12 +1390,12 @@ export default function SuppliersPage() {
                       )}
                     </svg>
                     <span className="text-[15px] font-semibold text-[#979797]">הוצאה קבועה</span>
-                  </button>
+                  </Button>
                 )}
 
                 {/* Active/Inactive toggle - only in edit mode */}
                 {isEditingSupplier && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setIsSupplierActive(!isSupplierActive)}
                     className="flex items-center gap-[3px]"
@@ -1408,7 +1413,7 @@ export default function SuppliersPage() {
                     <span className={`text-[15px] font-semibold ${isSupplierActive ? "text-[#0BB783]" : "text-[#F64E60]"}`}>
                       {isSupplierActive ? "ספק פעיל" : "ספק לא פעיל"}
                     </span>
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -1421,7 +1426,7 @@ export default function SuppliersPage() {
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white/80 text-right">סה״כ סכום שנלקח כולל ריבית</label>
                     <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-                      <input
+                      <Input
                         title="סכום כולל"
                         type="tel"
                         value={obligationTotalAmount}
@@ -1450,7 +1455,7 @@ export default function SuppliersPage() {
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white/80 text-right">תאריך חיוב ראשון</label>
                     <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-                      <input
+                      <Input
                         title="תאריך חיוב ראשון"
                         type="date"
                         value={obligationFirstChargeDate}
@@ -1464,7 +1469,7 @@ export default function SuppliersPage() {
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white/80 text-right">כמות תשלומים</label>
                     <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-                      <input
+                      <Input
                         title="כמות תשלומים"
                         type="tel"
                         value={obligationNumPayments}
@@ -1479,7 +1484,7 @@ export default function SuppliersPage() {
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white/80 text-right">סכום חיוב חודשי כולל ריבית (משוער)</label>
                     <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-                      <input
+                      <Input
                         title="סכום חיוב חודשי"
                         type="tel"
                         value={obligationMonthlyAmount}
@@ -1522,7 +1527,7 @@ export default function SuppliersPage() {
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[15px] font-medium text-white text-right">סוג הוצאה</label>
                   <div className="flex items-center justify-start gap-[20px]" dir="rtl">
-                    <button
+                    <Button
                       type="button"
                       onClick={() => setExpenseType("current")}
                       className="flex items-center gap-[3px]"
@@ -1537,8 +1542,8 @@ export default function SuppliersPage() {
                       <span className={`text-[15px] font-semibold ${expenseType === "current" ? "text-white" : "text-[#979797]"}`}>
                         הוצאות שוטפות
                       </span>
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
                       onClick={() => setExpenseType("goods")}
                       className="flex items-center gap-[3px]"
@@ -1553,8 +1558,8 @@ export default function SuppliersPage() {
                       <span className={`text-[15px] font-semibold ${expenseType === "goods" ? "text-white" : "text-[#979797]"}`}>
                         קניות סחורה
                       </span>
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
                       onClick={() => setExpenseType("employees")}
                       className="flex items-center gap-[3px]"
@@ -1569,7 +1574,7 @@ export default function SuppliersPage() {
                       <span className={`text-[15px] font-semibold ${expenseType === "employees" ? "text-white" : "text-[#979797]"}`}>
                         עלות עובדים
                       </span>
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -1578,18 +1583,18 @@ export default function SuppliersPage() {
               <div className="flex flex-col gap-[5px]">
                 <div className="flex items-center justify-between">
                   <label className="text-[15px] font-medium text-white">קטגוריית אב</label>
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setIsAddingParentCategory(!isAddingParentCategory)}
                     className="bg-[#29318A] text-white text-[13px] font-medium px-[10px] py-[3px] rounded-[7px] hover:bg-[#3D44A0] transition-colors"
                   >
                     {isAddingParentCategory ? "ביטול" : "+ חדש"}
-                  </button>
+                  </Button>
                 </div>
                 {isAddingParentCategory ? (
                   <div className="flex gap-[8px]">
                     <div className="flex-1 border border-[#4C526B] rounded-[10px] h-[50px]">
-                      <input
+                      <Input
                         type="text"
                         title="שם קטגוריית אב חדשה"
                         value={newParentCategoryName}
@@ -1599,14 +1604,14 @@ export default function SuppliersPage() {
                         autoFocus
                       />
                     </div>
-                    <button
+                    <Button
                       type="button"
                       onClick={handleAddParentCategory}
                       disabled={!newParentCategoryName.trim()}
                       className="bg-[#3CD856] text-white text-[14px] font-semibold px-[15px] rounded-[10px] hover:bg-[#2FB847] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       הוסף
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <Select value={parentCategory || "__none__"} onValueChange={(val) => setParentCategory(val === "__none__" ? "" : val)}>
@@ -1629,18 +1634,18 @@ export default function SuppliersPage() {
               <div className="flex flex-col gap-[5px]">
                 <div className="flex items-center justify-between">
                   <label className="text-[15px] font-medium text-white">קטגוריה</label>
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setIsAddingCategory(!isAddingCategory)}
                     className="bg-[#29318A] text-white text-[13px] font-medium px-[10px] py-[3px] rounded-[7px] hover:bg-[#3D44A0] transition-colors"
                   >
                     {isAddingCategory ? "ביטול" : "+ חדש"}
-                  </button>
+                  </Button>
                 </div>
                 {isAddingCategory ? (
                   <div className="flex gap-[8px]">
                     <div className="flex-1 border border-[#4C526B] rounded-[10px] h-[50px]">
-                      <input
+                      <Input
                         type="text"
                         title="שם קטגוריה חדשה"
                         value={newCategoryName}
@@ -1650,14 +1655,14 @@ export default function SuppliersPage() {
                         autoFocus
                       />
                     </div>
-                    <button
+                    <Button
                       type="button"
                       onClick={handleAddCategory}
                       disabled={!newCategoryName.trim()}
                       className="bg-[#3CD856] text-white text-[14px] font-semibold px-[15px] rounded-[10px] hover:bg-[#2FB847] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       הוסף
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <Select value={category || "__none__"} onValueChange={(val) => setCategory(val === "__none__" ? "" : val)}>
@@ -1681,7 +1686,7 @@ export default function SuppliersPage() {
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[15px] font-medium text-white text-right">תנאי תשלום (שוטף +)</label>
                   <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                    <input
+                    <Input
                       type="tel"
                       title="תנאי תשלום"
                       value={paymentTerms}
@@ -1696,7 +1701,7 @@ export default function SuppliersPage() {
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">נדרש מע&quot;מ</label>
                 <div className="flex items-center justify-start gap-[20px]" dir="rtl">
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setVatRequired("yes")}
                     className="flex items-center gap-[3px]"
@@ -1711,8 +1716,8 @@ export default function SuppliersPage() {
                     <span className={`text-[15px] font-semibold ${vatRequired === "yes" ? "text-white" : "text-[#979797]"}`}>
                       כן
                     </span>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     onClick={() => setVatRequired("no")}
                     className="flex items-center gap-[3px]"
@@ -1727,8 +1732,8 @@ export default function SuppliersPage() {
                     <span className={`text-[15px] font-semibold ${vatRequired === "no" ? "text-white" : "text-[#979797]"}`}>
                       לא
                     </span>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     onClick={() => setVatRequired("partial")}
                     className="flex items-center gap-[3px]"
@@ -1743,7 +1748,7 @@ export default function SuppliersPage() {
                     <span className={`text-[15px] font-semibold ${vatRequired === "partial" ? "text-white" : "text-[#979797]"}`}>
                       מע&quot;מ חלקי
                     </span>
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -1753,7 +1758,7 @@ export default function SuppliersPage() {
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[15px] font-medium text-white text-right">מתי יורד החיוב בחודש?</label>
                     <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
-                      <input
+                      <Input
                         type="tel"
                         title="מתי יורד החיוב בחודש"
                         value={chargeDay}
@@ -1767,7 +1772,7 @@ export default function SuppliersPage() {
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[15px] font-medium text-white text-right">סכום הוצאה עבור כל חודש</label>
                     <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
-                      <input
+                      <Input
                         type="tel"
                         title="סכום הוצאה עבור כל חודש"
                         value={monthlyExpenseAmount}
@@ -1857,7 +1862,7 @@ export default function SuppliersPage() {
 
               {/* Submit and Cancel Buttons */}
               <div className="flex gap-[10px] mt-[15px] mb-[10px]">
-                <button
+                <Button
                   type="button"
                   onClick={isEditingSupplier ? handleUpdateSupplier : handleSaveSupplier}
                   disabled={isSubmitting || !supplierName.trim()}
@@ -1874,15 +1879,15 @@ export default function SuppliersPage() {
                   ) : (
                     isEditingSupplier ? "עדכן ספק" : "שמור ספק"
                   )}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={handleCloseAddSupplierModal}
                   disabled={isSubmitting}
                   className="flex-1 bg-transparent border border-[#4C526B] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10 disabled:opacity-50"
                 >
                   ביטול
-                </button>
+                </Button>
               </div>
             </div>
         </SheetContent>
@@ -1897,7 +1902,7 @@ export default function SuppliersPage() {
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
             <div className="flex justify-between items-center" dir="ltr">
-              <button
+              <Button
                 type="button"
                 onClick={handleCloseSupplierDetail}
                 className="text-[#7B91B0] hover:text-white transition-colors"
@@ -1905,12 +1910,12 @@ export default function SuppliersPage() {
                 aria-label="סגור"
               >
                 <X className="w-6 h-6" />
-              </button>
+              </Button>
               <SheetTitle className="text-white text-xl font-bold">פרטי ספק</SheetTitle>
               <div className="flex items-center gap-[8px]">
                 {/* Delete button - only show if supplier has no invoices/payments */}
                 {supplierInvoices.length === 0 && supplierPayments.length === 0 && (
-                  <button
+                  <Button
                     type="button"
                     title="מחיקת ספק"
                     onClick={handleDeleteSupplier}
@@ -1922,10 +1927,10 @@ export default function SuppliersPage() {
                       <line x1="10" y1="11" x2="10" y2="17"/>
                       <line x1="14" y1="11" x2="14" y2="17"/>
                     </svg>
-                  </button>
+                  </Button>
                 )}
                 {/* Edit button */}
-                <button
+                <Button
                   type="button"
                   title="עריכה"
                   onClick={handleEditSupplier}
@@ -1935,7 +1940,7 @@ export default function SuppliersPage() {
                     <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     <path d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                </button>
+                </Button>
               </div>
             </div>
           </SheetHeader>
@@ -2039,7 +2044,7 @@ export default function SuppliersPage() {
             <div className="bg-[#29318A]/30 rounded-[10px] p-[15px]">
               {/* Month selector */}
               <div className="flex items-center justify-center gap-[10px] mb-[15px]">
-                <button
+                <Button
                   type="button"
                   onClick={async () => {
                     const next = new Date(detailMonth.getFullYear(), detailMonth.getMonth() + 1, 1);
@@ -2052,11 +2057,11 @@ export default function SuppliersPage() {
                   className="text-white/60 hover:text-white transition-colors"
                 >
                   <ChevronRight className="w-5 h-5" />
-                </button>
+                </Button>
                 <span className="text-[14px] text-white font-medium min-w-[120px] text-center">
                   חודש {detailMonth.toLocaleDateString("he-IL", { month: "long", year: "numeric" })}
                 </span>
-                <button
+                <Button
                   type="button"
                   onClick={async () => {
                     const prev = new Date(detailMonth.getFullYear(), detailMonth.getMonth() - 1, 1);
@@ -2069,7 +2074,7 @@ export default function SuppliersPage() {
                   className="text-white/60 hover:text-white transition-colors"
                 >
                   <ChevronLeft className="w-5 h-5" />
-                </button>
+                </Button>
               </div>
 
               <div className="flex flex-col gap-[10px]">
@@ -2100,7 +2105,7 @@ export default function SuppliersPage() {
               </div>
 
               {/* Payment Button */}
-              <button
+              <Button
                 type="button"
                 onClick={() => {
                   setShowSupplierDetailPopup(false);
@@ -2109,14 +2114,14 @@ export default function SuppliersPage() {
                 className="w-full mt-[15px] bg-[#29318A] text-white text-[16px] font-semibold py-[12px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
               >
                 לתשלום
-              </button>
+              </Button>
             </div>
 
             {/* Tabs Section - חשבוניות פתוחות / תשלומים שבוצעו */}
             <div className="mt-[15px] flex flex-col gap-[10px]">
               {/* Tab Buttons */}
               <div className="flex w-full h-[40px] border border-[#6B6B6B] rounded-[7px] overflow-hidden">
-                <button
+                <Button
                   type="button"
                   onClick={() => setDetailActiveTab("invoices")}
                   className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
@@ -2126,8 +2131,8 @@ export default function SuppliersPage() {
                   }`}
                 >
                   <span className="text-[14px] font-bold">חשבוניות פתוחות</span>
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={() => setDetailActiveTab("payments")}
                   className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
@@ -2137,7 +2142,7 @@ export default function SuppliersPage() {
                   }`}
                 >
                   <span className="text-[14px] font-bold">תשלומים שבוצעו</span>
-                </button>
+                </Button>
               </div>
 
               {/* Invoices Table */}
@@ -2166,7 +2171,7 @@ export default function SuppliersPage() {
                           }`}
                         >
                           {/* Row - Clickable to expand */}
-                          <button
+                          <Button
                             type="button"
                             onClick={() => setExpandedSupplierInvoiceId(expandedSupplierInvoiceId === invoice.id ? null : invoice.id)}
                             className="grid grid-cols-[0.8fr_1fr_0.9fr_0.8fr] w-full p-[5px_5px] items-center cursor-pointer"
@@ -2200,7 +2205,7 @@ export default function SuppliersPage() {
                                 {invoice.status}
                               </span>
                             </div>
-                          </button>
+                          </Button>
 
                           {/* Expanded Content */}
                           {expandedSupplierInvoiceId === invoice.id && (
@@ -2234,7 +2239,7 @@ export default function SuppliersPage() {
                                   <span className="text-[16px] font-medium text-white ml-[7px]">פרטים נוספים</span>
                                   <div className="flex items-center gap-[6px]">
                                     {/* Edit Icon */}
-                                    <button
+                                    <Button
                                       type="button"
                                       title="עריכת הוצאה"
                                       onClick={() => router.push(`/expenses?edit=${invoice.id}`)}
@@ -2244,10 +2249,10 @@ export default function SuppliersPage() {
                                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                                       </svg>
-                                    </button>
+                                    </Button>
                                     {/* Image/View Icon - only show if has attachments */}
                                     {invoice.attachmentUrls.length > 0 && (
-                                      <button
+                                      <Button
                                         type="button"
                                         title="צפייה בתמונה"
                                         onClick={() => window.open(invoice.attachmentUrls[0], '_blank')}
@@ -2258,7 +2263,7 @@ export default function SuppliersPage() {
                                           <circle cx="8.5" cy="8.5" r="1.5"/>
                                           <polyline points="21 15 16 10 5 21"/>
                                         </svg>
-                                      </button>
+                                      </Button>
                                     )}
                                     {/* Download Icon - only show if has attachments */}
                                     {invoice.attachmentUrls.length > 0 && (
@@ -2282,7 +2287,7 @@ export default function SuppliersPage() {
                                 {invoice.attachmentUrls.length > 0 && (
                                   <div className="flex flex-wrap gap-[8px] px-[7px]">
                                     {invoice.attachmentUrls.map((url, idx) => (
-                                      <button
+                                      <Button
                                         key={idx}
                                         type="button"
                                         onClick={() => window.open(url, '_blank')}
@@ -2301,7 +2306,7 @@ export default function SuppliersPage() {
                                           // eslint-disable-next-line @next/next/no-img-element
                                           <img src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" />
                                         )}
-                                      </button>
+                                      </Button>
                                     ))}
                                   </div>
                                 )}
@@ -2330,13 +2335,13 @@ export default function SuppliersPage() {
                               {/* Linked Payments Section */}
                               {invoice.linkedPayments.length > 0 && (
                                 <div className="border border-white/20 rounded-[7px] p-[7px] flex flex-col gap-[10px]">
-                                  <button
+                                  <Button
                                     type="button"
                                     onClick={() => setShowLinkedPayments(showLinkedPayments === invoice.id ? null : invoice.id)}
                                     className="bg-[#29318A] text-white text-[14px] font-medium py-[5px] px-[14px] rounded-[7px] self-start"
                                   >
                                     הצגת תשלומים מקושרים ({invoice.linkedPayments.length})
-                                  </button>
+                                  </Button>
 
                                   {showLinkedPayments === invoice.id && (
                                     <div className="flex flex-col gap-[5px]">
@@ -2350,7 +2355,7 @@ export default function SuppliersPage() {
                                             <div className="flex items-center gap-[6px]">
                                               {/* View receipt */}
                                               {payment.receiptUrl && (
-                                                <button
+                                                <Button
                                                   type="button"
                                                   title="צפייה בקבלה"
                                                   onClick={(e) => { e.stopPropagation(); window.open(payment.receiptUrl!, '_blank'); }}
@@ -2361,7 +2366,7 @@ export default function SuppliersPage() {
                                                     <circle cx="8.5" cy="8.5" r="1.5"/>
                                                     <polyline points="21 15 16 10 5 21"/>
                                                   </svg>
-                                                </button>
+                                                </Button>
                                               )}
                                               {/* Download receipt */}
                                               {payment.receiptUrl && (
@@ -2431,7 +2436,7 @@ export default function SuppliersPage() {
                           }`}
                         >
                           {/* Row - Clickable to expand */}
-                          <button
+                          <Button
                             type="button"
                             onClick={() => setExpandedSupplierPaymentId(expandedSupplierPaymentId === payment.id ? null : payment.id)}
                             className="grid grid-cols-[0.8fr_1fr_0.9fr_0.8fr] w-full p-[5px_5px] items-center cursor-pointer"
@@ -2455,7 +2460,7 @@ export default function SuppliersPage() {
                             </span>
                             {/* Reference */}
                             <span className="text-[12px] text-center ltr-num truncate px-[2px]">{payment.reference}</span>
-                          </button>
+                          </Button>
 
                           {/* Expanded Content */}
                           {expandedSupplierPaymentId === payment.id && (
@@ -2465,7 +2470,7 @@ export default function SuppliersPage() {
                                   <span className="text-[16px] font-medium text-white ml-[7px]">פרטים נוספים</span>
                                   <div className="flex items-center gap-[6px]">
                                     {/* Edit Icon */}
-                                    <button
+                                    <Button
                                       type="button"
                                       title="עריכת תשלום"
                                       onClick={() => router.push(`/payments?edit=${payment.id}`)}
@@ -2475,7 +2480,7 @@ export default function SuppliersPage() {
                                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                                       </svg>
-                                    </button>
+                                    </Button>
                                   </div>
                                 </div>
                                 {/* Details Grid */}
@@ -2564,7 +2569,7 @@ export default function SuppliersPage() {
               <div className="flex flex-col gap-[5px] p-[10px]">
                 {/* Header Row - Close + Delete */}
                 <div className="flex items-center gap-[5px] justify-end">
-                  <button
+                  <Button
                     type="button"
                     title="סגור"
                     onClick={() => {
@@ -2575,8 +2580,8 @@ export default function SuppliersPage() {
                     className="w-[25px] h-[25px] flex items-center justify-center text-white cursor-pointer"
                   >
                     <X size={20} />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
                     title="מחיקה"
                     onClick={() => {
@@ -2601,7 +2606,7 @@ export default function SuppliersPage() {
                       <line x1="10" y1="11" x2="10" y2="17"/>
                       <line x1="14" y1="11" x2="14" y2="17"/>
                     </svg>
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Scrollable content */}
@@ -2610,7 +2615,7 @@ export default function SuppliersPage() {
                   <div className="flex flex-col gap-[3px]">
                     <span className="text-[15px] font-medium text-white text-right">שם הספק</span>
                     <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center">
-                      <input
+                      <Input
                         type="text"
                         title="שם הספק"
                         disabled
@@ -2624,7 +2629,7 @@ export default function SuppliersPage() {
                   <div className="flex flex-col gap-[3px]">
                     <span className="text-[15px] font-medium text-white text-right">סכום שנלקח</span>
                     <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center px-[10px]">
-                      <input
+                      <Input
                         type="text"
                         title="סכום שנלקח"
                         disabled
@@ -2638,7 +2643,7 @@ export default function SuppliersPage() {
                   <div className="flex flex-col gap-[3px]">
                     <span className="text-[15px] font-medium text-white text-right">תנאים</span>
                     <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center px-[10px]">
-                      <input
+                      <Input
                         type="text"
                         title="תנאים"
                         disabled
@@ -2660,7 +2665,7 @@ export default function SuppliersPage() {
                   <div className="flex flex-col gap-[3px]">
                     <span className="text-[15px] font-medium text-white text-right">סכום חיוב חודשי כולל ריבית (משוער)</span>
                     <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center px-[10px]">
-                      <input
+                      <Input
                         type="text"
                         title="סכום חיוב חודשי"
                         disabled
@@ -2674,7 +2679,7 @@ export default function SuppliersPage() {
                   <div className="flex flex-col gap-[3px]">
                     <span className="text-[15px] font-medium text-white text-right">תאריך חיוב ראשון</span>
                     <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-between px-[10px]">
-                      <input
+                      <Input
                         type="text"
                         title="תאריך חיוב ראשון"
                         disabled
@@ -2700,7 +2705,7 @@ export default function SuppliersPage() {
                           <div className={`flex-1 border rounded-[10px] h-[50px] flex items-center justify-center ${
                             payment.isPaid ? 'border-[#00E096]' : 'border-[#4C526B]'
                           }`}>
-                            <input
+                            <Input
                               type="text"
                               title={`סכום תשלום ${payment.number}`}
                               disabled
@@ -2712,7 +2717,7 @@ export default function SuppliersPage() {
                           <div className={`flex-1 border rounded-[10px] h-[50px] flex items-center justify-center ${
                             payment.isPaid ? 'border-[#00E096]' : 'border-[#4C526B]'
                           }`}>
-                            <input
+                            <Input
                               type="text"
                               title={`תאריך תשלום ${payment.number}`}
                               disabled
@@ -2852,7 +2857,7 @@ export default function SuppliersPage() {
                   </div>
 
                   {/* Exit Button */}
-                  <button
+                  <Button
                     type="button"
                     onClick={() => {
                       setShowObligationDetailPopup(false);
@@ -2862,7 +2867,7 @@ export default function SuppliersPage() {
                     className="w-full bg-[#29318A] text-white text-[18px] font-semibold py-[14px] rounded-[10px] hover:bg-[#3D44A0] transition-colors mt-[5px]"
                   >
                     יציאה
-                  </button>
+                  </Button>
                 </div>
               </div>
             );

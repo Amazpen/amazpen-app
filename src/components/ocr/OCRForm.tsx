@@ -10,6 +10,9 @@ import SupplierSearchSelect from '@/components/ui/SupplierSearchSelect';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface Supplier {
   id: string;
@@ -1020,13 +1023,13 @@ export default function OCRForm({
     <div className="flex flex-col gap-[15px]">
       <div className="flex items-center justify-between">
         <span className="text-[15px] font-medium text-white">אמצעי תשלום</span>
-        <button
+        <Button
           type="button"
           onClick={() => addPaymentMethodEntry(setter, methods)}
-          className="bg-[#29318A] text-white text-[14px] font-medium px-[12px] py-[6px] rounded-[7px] hover:bg-[#3D44A0] transition-colors"
+          className="bg-[#29318A] text-white text-[14px] font-medium px-[12px] py-[6px] rounded-[7px] hover:bg-[#3D44A0] transition-colors h-auto"
         >
           + הוסף אמצעי תשלום
-        </button>
+        </Button>
       </div>
 
       {methods.map((pm, pmIndex) => (
@@ -1034,13 +1037,14 @@ export default function OCRForm({
           {methods.length > 1 && (
             <div className="flex items-center justify-between mb-[5px]">
               <span className="text-[14px] text-white/70">אמצעי תשלום {pmIndex + 1}</span>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => removePaymentMethodEntry(setter, methods, pm.id)}
                 className="text-[14px] text-red-400 hover:text-red-300 transition-colors"
               >
                 הסר
-              </button>
+              </Button>
             </div>
           )}
 
@@ -1062,7 +1066,7 @@ export default function OCRForm({
           {/* Check Number - only shown when payment method is check */}
           {pm.method === 'check' && (
             <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-              <input
+              <Input
                 type="text"
                 inputMode="numeric"
                 value={pm.checkNumber}
@@ -1114,7 +1118,7 @@ export default function OCRForm({
 
           {/* Payment Amount */}
           <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-            <input
+            <Input
               type="text"
               inputMode="decimal"
               value={pm.amount}
@@ -1132,15 +1136,17 @@ export default function OCRForm({
           <div className="flex flex-col gap-[3px]">
             <span className="text-[14px] text-white/70">כמות תשלומים</span>
             <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 title="הפחת תשלום"
                 onClick={() => updatePaymentMethodField(setter, methods, pm.id, 'installments', String(Math.max(1, parseInt(pm.installments) - 1)), dateStr)}
                 className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
               >
                 -
-              </button>
-              <input
+              </Button>
+              <Input
                 type="text"
                 inputMode="numeric"
                 title="כמות תשלומים"
@@ -1148,14 +1154,16 @@ export default function OCRForm({
                 onChange={(e) => updatePaymentMethodField(setter, methods, pm.id, 'installments', e.target.value.replace(/\D/g, '') || '1', dateStr)}
                 className="flex-1 h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none"
               />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 title="הוסף תשלום"
                 onClick={() => updatePaymentMethodField(setter, methods, pm.id, 'installments', String(parseInt(pm.installments) + 1), dateStr)}
                 className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
               >
                 +
-              </button>
+              </Button>
             </div>
 
             {/* Installments Breakdown */}
@@ -1174,7 +1182,7 @@ export default function OCRForm({
                         <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num">
                           {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
                         </span>
-                        <input
+                        <Input
                           type="date"
                           title={`תאריך תשלום ${item.number}`}
                           value={item.dateForInput}
@@ -1183,7 +1191,7 @@ export default function OCRForm({
                         />
                       </div>
                       <div className="flex-1 relative">
-                        <input
+                        <Input
                           type="text"
                           inputMode="decimal"
                           title={`סכום תשלום ${item.number}`}
@@ -1225,8 +1233,9 @@ export default function OCRForm({
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">סוג הוצאה</label>
         <div className="flex items-center justify-start gap-[20px]">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setExpenseType('goods')}
             className="flex items-center gap-[3px]"
           >
@@ -1240,9 +1249,10 @@ export default function OCRForm({
             <span className={`text-[15px] font-semibold ${expenseType === 'goods' ? 'text-white' : 'text-white/50'}`}>
               קניות סחורה
             </span>
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setExpenseType('current')}
             className="flex items-center gap-[3px]"
           >
@@ -1256,7 +1266,7 @@ export default function OCRForm({
             <span className={`text-[15px] font-semibold ${expenseType === 'current' ? 'text-white' : 'text-white/50'}`}>
               הוצאות שוטפות
             </span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1269,7 +1279,7 @@ export default function OCRForm({
               ? new Date(documentDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
               : 'יום/חודש/שנה'}
           </span>
-          <input
+          <Input
             type="date"
             title="תאריך מסמך"
             value={documentDate}
@@ -1314,7 +1324,7 @@ export default function OCRForm({
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-normal text-white text-right">מספר חשבונית / תעודת משלוח</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-          <input
+          <Input
             type="text"
             value={documentNumber}
             onChange={(e) => setDocumentNumber(e.target.value)}
@@ -1328,7 +1338,7 @@ export default function OCRForm({
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-          <input
+          <Input
             type="text"
             inputMode="decimal"
             title="סכום לפני מע״מ"
@@ -1345,7 +1355,7 @@ export default function OCRForm({
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">מע&quot;מ</label>
           <div className="border border-[#4C526B] rounded-[10px] h-[50px] w-[148px]">
-            <input
+            <Input
               type="text"
               inputMode="decimal"
               title="סכום מע״מ"
@@ -1358,8 +1368,10 @@ export default function OCRForm({
           </div>
         </div>
         <div className="flex flex-col items-center gap-[5px]">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             title="הזנת סכום מע״מ חלקי"
             onClick={() => setPartialVat(!partialVat)}
             className="text-[#979797]"
@@ -1374,7 +1386,7 @@ export default function OCRForm({
                 <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" />
               )}
             </svg>
-          </button>
+          </Button>
           <span className="text-[15px] font-medium text-white">הזנת סכום מע&quot;מ חלקי</span>
         </div>
       </div>
@@ -1383,7 +1395,7 @@ export default function OCRForm({
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-          <input
+          <Input
             type="text"
             title="סכום כולל מע״מ"
             placeholder="0.00"
@@ -1425,22 +1437,22 @@ export default function OCRForm({
 
           {/* Items table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-[13px]" style={{ minWidth: 320 }}>
-              <thead>
-                <tr className="border-b border-[#4C526B] text-white/60 whitespace-nowrap">
-                  <th className="text-right py-[6px] pr-[4px]">פריט</th>
-                  <th className="text-center py-[6px] w-[50px]">כמות</th>
-                  <th className="text-center py-[6px] w-[75px]">מחיר</th>
-                  <th className="text-center py-[6px] w-[75px]">סה&quot;כ</th>
-                  <th className="w-[28px]"></th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="w-full text-[13px]" style={{ minWidth: 320 }}>
+              <TableHeader>
+                <TableRow className="border-b border-[#4C526B] text-white/60 whitespace-nowrap">
+                  <TableHead className="text-right py-[6px] pr-[4px]">פריט</TableHead>
+                  <TableHead className="text-center py-[6px] w-[50px]">כמות</TableHead>
+                  <TableHead className="text-center py-[6px] w-[75px]">מחיר</TableHead>
+                  <TableHead className="text-center py-[6px] w-[75px]">סה&quot;כ</TableHead>
+                  <TableHead className="w-[28px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {lineItems.map((li, idx) => (
-                  <tr key={idx} className="border-b border-[#4C526B]/50 whitespace-nowrap">
-                    <td className="text-right py-[6px] pr-[4px] text-white max-w-[120px] overflow-hidden text-ellipsis" title={li.description || '-'}>{li.description || '-'}</td>
-                    <td className="text-center py-[6px] text-white/70 ltr-num">{li.quantity || '-'}</td>
-                    <td className="text-center py-[6px] ltr-num leading-tight">
+                  <TableRow key={idx} className="border-b border-[#4C526B]/50 whitespace-nowrap">
+                    <TableCell className="text-right py-[6px] pr-[4px] text-white max-w-[120px] overflow-hidden text-ellipsis" title={li.description || '-'}>{li.description || '-'}</TableCell>
+                    <TableCell className="text-center py-[6px] text-white/70 ltr-num">{li.quantity || '-'}</TableCell>
+                    <TableCell className="text-center py-[6px] ltr-num leading-tight">
                       <span className="text-white">&#8362;{li.unit_price?.toFixed(2) || '0'}</span>
                       {priceCheckDone && li.price_change_pct != null && li.price_change_pct !== 0 && (
                         <span className={`block text-[9px] ${(li.price_change_pct || 0) > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
@@ -1450,22 +1462,24 @@ export default function OCRForm({
                       {priceCheckDone && li.is_new_item && (
                         <span className="block text-[9px] text-[#00D4FF]">חדש</span>
                       )}
-                    </td>
-                    <td className="text-center py-[6px] text-white/70 ltr-num">&#8362;{li.total?.toFixed(2) || '0'}</td>
-                    <td className="text-center py-[6px]">
-                      <button
+                    </TableCell>
+                    <TableCell className="text-center py-[6px] text-white/70 ltr-num">&#8362;{li.total?.toFixed(2) || '0'}</TableCell>
+                    <TableCell className="text-center py-[6px]">
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => setLineItems(prev => prev.filter((_, i) => i !== idx))}
                         className="text-[#F64E60]/60 hover:text-[#F64E60] text-[14px]"
                         title="הסר פריט"
                       >
                         &times;
-                      </button>
-                    </td>
-                  </tr>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
@@ -1485,8 +1499,9 @@ export default function OCRForm({
 
       {/* Paid in Full Checkbox */}
       <div className="flex flex-col gap-[3px]" dir="rtl">
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => {
             const newVal = !isPaid;
             setIsPaid(newVal);
@@ -1518,7 +1533,7 @@ export default function OCRForm({
             )}
           </svg>
           <span className="text-[15px] font-medium text-white">התעודה שולמה במלואה</span>
-        </button>
+        </Button>
 
         {/* Payment Details Section - aligned with expenses page payment section */}
         {isPaid && (
@@ -1535,7 +1550,7 @@ export default function OCRForm({
                       ? new Date(inlinePaymentDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })
                       : 'יום/חודש/שנה'}
                   </span>
-                  <input
+                  <Input
                     type="date"
                     title="תאריך תשלום"
                     value={inlinePaymentDate}
@@ -1562,7 +1577,7 @@ export default function OCRForm({
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">אסמכתא</label>
                 <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                  <input
+                  <Input
                     type="text"
                     placeholder="מספר אסמכתא..."
                     value={inlinePaymentReference}
@@ -1611,7 +1626,7 @@ export default function OCRForm({
         {/* תאריך */}
         <div className="flex flex-col gap-[3px]">
           <label className="text-white text-[15px] font-medium text-right">תאריך</label>
-          <input
+          <Input
             type="date"
             value={dailyEntryDate}
             onChange={(e) => {
@@ -1626,7 +1641,7 @@ export default function OCRForm({
         {/* יום חלקי/יום מלא */}
         <div className="flex flex-col gap-[3px]">
           <label className="text-white text-[15px] font-medium text-right">יום חלקי/יום מלא</label>
-          <input
+          <Input
             type="number"
             inputMode="decimal"
             step="0.1"
@@ -1643,7 +1658,7 @@ export default function OCRForm({
             {/* Pearla-specific fields */}
             <div className="flex flex-col gap-[3px]">
               <label className="text-white text-[15px] font-medium text-right">כמות מנות</label>
-              <input
+              <Input
                 type="number"
                 inputMode="decimal"
                 value={dailyPearlaData.portions_count}
@@ -1654,7 +1669,7 @@ export default function OCRForm({
 
             <div className="flex flex-col gap-[3px]">
               <label className="text-white text-[15px] font-medium text-right">תוספת הגשה בש&quot;ח</label>
-              <input
+              <Input
                 type="tel"
                 inputMode="numeric"
                 value={dailyPearlaData.serving_supplement}
@@ -1665,7 +1680,7 @@ export default function OCRForm({
 
             <div className="flex flex-col gap-[3px]">
               <label className="text-white text-[15px] font-medium text-right">סה&quot;כ הכנסות אקסטרות</label>
-              <input
+              <Input
                 type="number"
                 inputMode="decimal"
                 value={dailyPearlaData.extras_income}
@@ -1676,7 +1691,7 @@ export default function OCRForm({
 
             <div className="flex flex-col gap-[3px]">
               <label className="text-white text-[15px] font-medium text-right">סה&quot;כ עלות עובדים שכירים</label>
-              <input
+              <Input
                 type="number"
                 inputMode="decimal"
                 value={dailyPearlaData.salaried_labor_cost}
@@ -1687,7 +1702,7 @@ export default function OCRForm({
 
             <div className="flex flex-col gap-[3px]">
               <label className="text-white text-[15px] font-medium text-right">סה&quot;כ עלות עובדי כ&quot;א</label>
-              <input
+              <Input
                 type="number"
                 inputMode="decimal"
                 value={dailyPearlaData.manpower_labor_cost}
@@ -1701,7 +1716,7 @@ export default function OCRForm({
             {/* Regular business fields */}
             <div className="flex flex-col gap-[3px]">
               <label className="text-white text-[15px] font-medium text-right">סה&quot;כ קופה</label>
-              <input
+              <Input
                 type="number"
                 inputMode="decimal"
                 placeholder="0"
@@ -1719,7 +1734,7 @@ export default function OCRForm({
                   <div key={source.id} className="flex flex-col gap-3">
                     <div className="flex flex-col gap-[3px]">
                       <label className="text-white text-[15px] font-medium text-right">סה&quot;כ {source.name}</label>
-                      <input
+                      <Input
                         type="number"
                         inputMode="decimal"
                         placeholder="0"
@@ -1730,7 +1745,7 @@ export default function OCRForm({
                     </div>
                     <div className="flex flex-col gap-[3px]">
                       <label className="text-white text-[15px] font-medium text-right">כמות הזמנות {source.name}</label>
-                      <input
+                      <Input
                         type="number"
                         inputMode="numeric"
                         placeholder="0"
@@ -1751,7 +1766,7 @@ export default function OCRForm({
                 {dailyReceiptTypes.map((receipt) => (
                   <div key={receipt.id} className="flex flex-col gap-[3px]">
                     <label className="text-white text-[15px] font-medium text-right">{receipt.name}</label>
-                    <input
+                    <Input
                       type="number"
                       inputMode="decimal"
                       placeholder="0"
@@ -1771,7 +1786,7 @@ export default function OCRForm({
                 {dailyCustomParameters.map((param) => (
                   <div key={param.id} className="flex flex-col gap-[3px]">
                     <label className="text-white text-[15px] font-medium text-right">{param.name}</label>
-                    <input
+                    <Input
                       type="number"
                       inputMode="decimal"
                       placeholder="0"
@@ -1787,7 +1802,7 @@ export default function OCRForm({
             {/* עלויות עובדים */}
             <div className="flex flex-col gap-[3px]">
               <label className="text-white text-[15px] font-medium text-right">סה&quot;כ עלות עובדים יומית</label>
-              <input
+              <Input
                 type="number"
                 inputMode="decimal"
                 placeholder="0"
@@ -1799,7 +1814,7 @@ export default function OCRForm({
 
             <div className="flex flex-col gap-[3px]">
               <label className="text-white text-[15px] font-medium text-right">כמות שעות עובדים</label>
-              <input
+              <Input
                 type="number"
                 inputMode="decimal"
                 placeholder="0"
@@ -1811,7 +1826,7 @@ export default function OCRForm({
 
             <div className="flex flex-col gap-[3px]">
               <label className="text-white text-[15px] font-medium text-right">זיכויים+ביטולים+הנחות ב-₪</label>
-              <input
+              <Input
                 type="number"
                 inputMode="decimal"
                 placeholder="0"
@@ -1830,7 +1845,7 @@ export default function OCRForm({
                     <div className="text-white font-medium text-right"><span>{product.name}</span></div>
                     <div className="flex flex-col gap-[3px]">
                       <label className="text-white text-[15px] font-medium text-right">מלאי פתיחה ({product.unit})</label>
-                      <input
+                      <Input
                         type="number"
                         inputMode="decimal"
                         placeholder="0"
@@ -1841,7 +1856,7 @@ export default function OCRForm({
                     </div>
                     <div className="flex flex-col gap-[3px]">
                       <label className="text-white text-[15px] font-medium text-right">כמה {product.unit} {product.name} קיבלנו היום?</label>
-                      <input
+                      <Input
                         type="number"
                         inputMode="decimal"
                         placeholder="0"
@@ -1852,7 +1867,7 @@ export default function OCRForm({
                     </div>
                     <div className="flex flex-col gap-[3px]">
                       <label className="text-white text-[15px] font-medium text-right">כמה {product.unit} {product.name} נשאר?</label>
-                      <input
+                      <Input
                         type="number"
                         inputMode="decimal"
                         placeholder="0"
@@ -1883,7 +1898,7 @@ export default function OCRForm({
               ? new Date(paymentTabDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
               : 'יום/חודש/שנה'}
           </span>
-          <input
+          <Input
             type="date"
             title="תאריך קבלה"
             value={paymentTabDate}
@@ -1897,8 +1912,9 @@ export default function OCRForm({
       <div className="flex flex-col gap-[3px]">
         <label className="text-[16px] font-medium text-white text-right">סוג הוצאה</label>
         <div dir="rtl" className="flex items-start gap-[20px]">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setPaymentTabExpenseType('purchases')}
             className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
           >
@@ -1912,9 +1928,10 @@ export default function OCRForm({
                 <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" />
               )}
             </svg>
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setPaymentTabExpenseType('expenses')}
             className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
           >
@@ -1928,7 +1945,7 @@ export default function OCRForm({
                 <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" />
               )}
             </svg>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -1952,7 +1969,7 @@ export default function OCRForm({
       <div className="flex flex-col gap-[3px]">
         <label className="text-[16px] font-medium text-white text-right">אסמכתא</label>
         <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-          <input
+          <Input
             type="text"
             value={paymentTabReference}
             onChange={(e) => setPaymentTabReference(e.target.value)}
@@ -2004,7 +2021,7 @@ export default function OCRForm({
               ? new Date(summaryDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
               : 'יום/חודש/שנה'}
           </span>
-          <input
+          <Input
             type="date"
             title="תאריך מרכזת"
             value={summaryDate}
@@ -2018,7 +2035,7 @@ export default function OCRForm({
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">מספר חשבונית מרכזת</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-          <input
+          <Input
             type="text"
             value={summaryInvoiceNumber}
             onChange={(e) => setSummaryInvoiceNumber(e.target.value)}
@@ -2032,7 +2049,7 @@ export default function OCRForm({
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-          <input
+          <Input
             type="text"
             inputMode="decimal"
             value={summaryTotalAmount}
@@ -2046,13 +2063,14 @@ export default function OCRForm({
       {/* Delivery Notes Section */}
       <div className="flex flex-col gap-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
         <div className="flex items-center justify-between">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setShowAddDeliveryNote(!showAddDeliveryNote)}
             className="text-[14px] text-[#0075FF] hover:text-[#00D4FF] transition-colors"
           >
             + הוספת תעודה
-          </button>
+          </Button>
           <label className="text-[15px] font-medium text-white">תעודות משלוח</label>
         </div>
 
@@ -2062,7 +2080,7 @@ export default function OCRForm({
             <div className="grid grid-cols-2 gap-[10px]">
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[12px] text-white/60 text-right">מספר תעודה</label>
-                <input
+                <Input
                   type="text"
                   value={newDeliveryNote.delivery_note_number}
                   onChange={(e) => setNewDeliveryNote(prev => ({ ...prev, delivery_note_number: e.target.value }))}
@@ -2072,7 +2090,7 @@ export default function OCRForm({
               </div>
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[12px] text-white/60 text-right">תאריך</label>
-                <input
+                <Input
                   type="date"
                   title="תאריך תעודה"
                   value={newDeliveryNote.delivery_date}
@@ -2084,7 +2102,7 @@ export default function OCRForm({
             <div className="grid grid-cols-2 gap-[10px]">
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[12px] text-white/60 text-right">סכום כולל</label>
-                <input
+                <Input
                   type="text"
                   inputMode="decimal"
                   value={newDeliveryNote.total_amount}
@@ -2095,7 +2113,7 @@ export default function OCRForm({
               </div>
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[12px] text-white/60 text-right">הערה</label>
-                <input
+                <Input
                   type="text"
                   value={newDeliveryNote.notes}
                   onChange={(e) => setNewDeliveryNote(prev => ({ ...prev, notes: e.target.value }))}
@@ -2105,20 +2123,21 @@ export default function OCRForm({
               </div>
             </div>
             <div className="flex gap-[10px]">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => setShowAddDeliveryNote(false)}
                 className="flex-1 h-[36px] border border-white/30 rounded-[8px] text-white/60 text-[14px] hover:bg-white/5"
               >
                 ביטול
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={handleAddDeliveryNote}
                 className="flex-1 h-[36px] bg-[#3CD856] rounded-[8px] text-white text-[14px] font-medium hover:bg-[#34c04c]"
               >
                 הוסף
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -2131,13 +2150,15 @@ export default function OCRForm({
                 key={index}
                 className="flex items-center justify-between bg-[#1a1f42] rounded-[8px] p-[10px]"
               >
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => handleRemoveDeliveryNote(index)}
                   className="text-[#F64E60] text-[18px] font-bold hover:opacity-80"
                 >
                   &times;
-                </button>
+                </Button>
                 <div className="flex flex-col items-end flex-1 mr-[10px]">
                   <div className="flex items-center gap-[10px]">
                     <span className="text-[14px] text-white font-medium">
@@ -2256,9 +2277,10 @@ export default function OCRForm({
       {/* Document Type Tabs */}
       <div className="flex border-b border-[#4C526B]" dir="rtl">
         {DOCUMENT_TABS.map((tab) => (
-          <button
+          <Button
             key={tab.value}
             type="button"
+            variant="ghost"
             onClick={() => setDocumentType(tab.value)}
             className={`flex-1 py-[12px] text-[12px] font-medium transition-colors ${
               documentType === tab.value
@@ -2267,7 +2289,7 @@ export default function OCRForm({
             }`}
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -2282,7 +2304,7 @@ export default function OCRForm({
       {/* Action buttons - fixed at bottom */}
       <div className="px-4 py-4 bg-[#0F1535] border-t border-[#4C526B]">
         <div className="flex gap-3">
-          <button
+          <Button
             type="button"
             onClick={handleSubmit}
             disabled={isLoading || (documentType === 'summary' && (!selectedBusinessId || !summarySupplierId || !summaryInvoiceNumber || !summaryTotalAmount || !summaryIsClosed)) || (documentType === 'daily_entry' && (!selectedBusinessId || !dailyEntryDate))}
@@ -2293,28 +2315,32 @@ export default function OCRForm({
             }`}
           >
             {isLoading ? 'שומר...' : documentType === 'summary' || documentType === 'daily_entry' ? 'שמירה' : 'אישור וקליטה'}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setShowRejectModal(true)}
             disabled={isLoading}
             className="h-[50px] px-6 bg-[#EB5757]/20 hover:bg-[#EB5757]/30 text-[#EB5757] text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
           >
             דחייה
-          </button>
+          </Button>
           {onSkip && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={onSkip}
               disabled={isLoading}
               className="h-[50px] px-6 bg-[#4C526B]/30 hover:bg-[#4C526B]/50 text-white/70 text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
             >
               דלג
-            </button>
+            </Button>
           )}
           {onDelete && document && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 confirm('האם אתה בטוח שברצונך למחוק את המסמך לצמיתות?', () => {
                   onDelete(document.id);
@@ -2330,7 +2356,7 @@ export default function OCRForm({
                 <line x1="10" y1="11" x2="10" y2="17" />
                 <line x1="14" y1="11" x2="14" y2="17" />
               </svg>
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -2344,24 +2370,27 @@ export default function OCRForm({
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
             <div className="flex justify-between items-center" dir="ltr">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setShowRejectModal(false)}
                 className="text-[#7B91B0] hover:text-white transition-colors"
                 title="סגור"
                 aria-label="סגור"
               >
                 <X className="w-6 h-6" />
-              </button>
+              </Button>
               <SheetTitle className="text-white text-xl font-bold">דחיית מסמך</SheetTitle>
               <div className="w-[24px]" />
             </div>
           </SheetHeader>
           <div className="flex flex-col gap-3 p-4" dir="rtl">
             {['מסמך לא קריא', 'מסמך כפול', 'לא מסמך עסקי', 'אחר'].map((reason) => (
-              <button
+              <Button
                 key={reason}
                 type="button"
+                variant="ghost"
                 onClick={() => setRejectReason(reason)}
                 className={`h-[44px] rounded-[10px] text-[14px] font-medium transition-colors ${
                   rejectReason === reason
@@ -2370,7 +2399,7 @@ export default function OCRForm({
                 }`}
               >
                 {reason}
-              </button>
+              </Button>
             ))}
             {rejectReason === 'אחר' && (
               <div>
@@ -2383,20 +2412,21 @@ export default function OCRForm({
               </div>
             )}
             <div className="flex gap-3 mt-2">
-              <button
+              <Button
                 type="button"
                 onClick={handleReject}
                 className="flex-1 h-[44px] bg-[#EB5757] hover:bg-[#d64545] text-white text-[14px] font-semibold rounded-[10px] transition-colors"
               >
                 דחה מסמך
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => setShowRejectModal(false)}
                 className="flex-1 h-[44px] bg-[#4C526B]/30 hover:bg-[#4C526B]/50 text-white/70 text-[14px] font-semibold rounded-[10px] transition-colors"
               >
                 ביטול
-              </button>
+              </Button>
             </div>
           </div>
         </SheetContent>

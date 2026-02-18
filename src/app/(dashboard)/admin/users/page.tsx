@@ -9,6 +9,8 @@ import { usePersistedState } from "@/hooks/usePersistedState";
 import { generateUUID } from "@/lib/utils";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 // Role labels in Hebrew
 const _roleLabels: Record<string, string> = {
@@ -526,7 +528,8 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Add User Button */}
-      <button
+      <Button
+        variant="default"
         type="button"
         onClick={() => setIsCreateDialogOpen(true)}
         className="flex items-center justify-center gap-[8px] bg-[#3CD856] text-white text-[16px] font-semibold py-[14px] rounded-[10px] mb-[20px] transition-colors hover:bg-[#2fb847]"
@@ -535,7 +538,7 @@ export default function AdminUsersPage() {
           <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
         </svg>
         הוסף משתמש חדש
-      </button>
+      </Button>
 
       {/* Users List */}
       <div className="flex flex-col gap-[10px]">
@@ -591,7 +594,9 @@ export default function AdminUsersPage() {
                 {/* Actions */}
                 <div className="flex flex-col items-end gap-[8px]">
                   <div className="flex items-center gap-[6px]">
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       type="button"
                       onClick={() => openEditDialog(user)}
                       className="text-[#3CD856] hover:bg-[#3CD856]/20 p-[4px] rounded-full transition-colors"
@@ -602,8 +607,10 @@ export default function AdminUsersPage() {
                         <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         <path d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       type="button"
                       onClick={() => handleDeleteUser(user.id, user.email)}
                       className="text-[#F64E60] hover:bg-[#F64E60]/20 p-[4px] rounded-full transition-colors"
@@ -614,9 +621,11 @@ export default function AdminUsersPage() {
                         <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                         <path d="M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
-                    </button>
+                    </Button>
                   </div>
-                  <button
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     type="button"
                     onClick={() => handleToggleAdmin(user.id, user.is_admin)}
                     className={`text-[12px] font-bold px-[10px] py-[4px] rounded-full transition-colors ${
@@ -626,7 +635,7 @@ export default function AdminUsersPage() {
                     }`}
                   >
                     {user.is_admin ? "הסר אדמין" : "הפוך לאדמין"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))
@@ -693,7 +702,9 @@ export default function AdminUsersPage() {
                     </SelectContent>
                   </Select>
 
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     type="button"
                     onClick={() => handleRemoveFromBusiness(member.id, member.profiles.email)}
                     className="text-[#F64E60] hover:bg-[#F64E60]/20 p-[4px] rounded-full transition-colors"
@@ -704,7 +715,7 @@ export default function AdminUsersPage() {
                       <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       <path d="M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))
@@ -722,7 +733,9 @@ export default function AdminUsersPage() {
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-40px)] max-w-[400px] bg-[#0F1535] rounded-[20px] p-[25px] z-[2002] shadow-[0_10px_40px_rgba(0,0,0,0.5)] border border-white/10 max-h-[90vh] overflow-y-auto">
             {/* Dialog Header */}
             <div className="flex items-center justify-between mb-[20px] flex-row-reverse">
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 type="button"
                 onClick={() => setIsCreateDialogOpen(false)}
                 title="סגור"
@@ -732,7 +745,7 @@ export default function AdminUsersPage() {
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Button>
               <h2 className="text-[20px] font-bold text-white">הוספת משתמש חדש</h2>
             </div>
 
@@ -744,7 +757,7 @@ export default function AdminUsersPage() {
                   אימייל <span className="text-[#F64E60]">*</span>
                 </label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="email"
                     value={newUserEmail}
                     onChange={(e) => setNewUserEmail(e.target.value)}
@@ -760,7 +773,7 @@ export default function AdminUsersPage() {
                   סיסמה <span className="text-[#F64E60]">*</span>
                 </label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="password"
                     value={newUserPassword}
                     onChange={(e) => setNewUserPassword(e.target.value)}
@@ -774,7 +787,7 @@ export default function AdminUsersPage() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white text-right">שם מלא</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="text"
                     value={newUserName}
                     onChange={(e) => setNewUserName(e.target.value)}
@@ -788,7 +801,7 @@ export default function AdminUsersPage() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white text-right">מספר טלפון</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="tel"
                     value={newUserPhone}
                     onChange={(e) => setNewUserPhone(e.target.value)}
@@ -830,7 +843,8 @@ export default function AdminUsersPage() {
                     aria-label="העלה תמונת פרופיל"
                     className="hidden"
                   />
-                  <button
+                  <Button
+                    variant="outline"
                     type="button"
                     onClick={() => newAvatarInputRef.current?.click()}
                     disabled={isUploadingNewAvatar}
@@ -854,9 +868,11 @@ export default function AdminUsersPage() {
                         העלה תמונה
                       </>
                     )}
-                  </button>
+                  </Button>
                   {newUserAvatarUrl && (
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       type="button"
                       onClick={() => setNewUserAvatarUrl("")}
                       className="w-[50px] h-[50px] border border-[#F64E60]/50 rounded-[10px] flex items-center justify-center text-[#F64E60] hover:bg-[#F64E60]/20 transition-colors"
@@ -865,7 +881,7 @@ export default function AdminUsersPage() {
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                         <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -930,14 +946,16 @@ export default function AdminUsersPage() {
 
               {/* Buttons */}
               <div className="flex gap-[10px] mt-[10px]">
-                <button
+                <Button
+                  variant="outline"
                   type="button"
                   onClick={() => setIsCreateDialogOpen(false)}
                   className="flex-1 bg-transparent border border-[#4C526B] text-white text-[14px] font-semibold py-[12px] rounded-[10px] transition-colors hover:bg-white/10"
                 >
                   ביטול
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="default"
                   type="button"
                   onClick={handleCreateUser}
                   disabled={!newUserEmail.trim() || !newUserPassword.trim() || isSubmitting}
@@ -954,7 +972,7 @@ export default function AdminUsersPage() {
                   ) : (
                     "הוסף משתמש"
                   )}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -971,7 +989,9 @@ export default function AdminUsersPage() {
           <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-40px)] max-w-[400px] bg-[#0F1535] rounded-[20px] p-[25px] z-[2002] shadow-[0_10px_40px_rgba(0,0,0,0.5)] border border-white/10 max-h-[90vh] overflow-y-auto">
             {/* Dialog Header */}
             <div className="flex items-center justify-between mb-[20px] flex-row-reverse">
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 type="button"
                 onClick={() => setIsEditDialogOpen(false)}
                 title="סגור"
@@ -981,7 +1001,7 @@ export default function AdminUsersPage() {
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
-              </button>
+              </Button>
               <h2 className="text-[20px] font-bold text-white">עריכת משתמש</h2>
             </div>
 
@@ -1015,7 +1035,7 @@ export default function AdminUsersPage() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white text-right">שם מלא</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="text"
                     value={editUserName}
                     onChange={(e) => setEditUserName(e.target.value)}
@@ -1029,7 +1049,7 @@ export default function AdminUsersPage() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white text-right">מספר טלפון</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="tel"
                     value={editUserPhone}
                     onChange={(e) => setEditUserPhone(e.target.value)}
@@ -1071,7 +1091,8 @@ export default function AdminUsersPage() {
                     aria-label="העלה תמונת פרופיל"
                     className="hidden"
                   />
-                  <button
+                  <Button
+                    variant="outline"
                     type="button"
                     onClick={() => editAvatarInputRef.current?.click()}
                     disabled={isUploadingEditAvatar}
@@ -1095,9 +1116,11 @@ export default function AdminUsersPage() {
                         העלה תמונה
                       </>
                     )}
-                  </button>
+                  </Button>
                   {editUserAvatarUrl && (
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       type="button"
                       onClick={() => setEditUserAvatarUrl("")}
                       className="w-[50px] h-[50px] border border-[#F64E60]/50 rounded-[10px] flex items-center justify-center text-[#F64E60] hover:bg-[#F64E60]/20 transition-colors"
@@ -1106,7 +1129,7 @@ export default function AdminUsersPage() {
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                         <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -1115,7 +1138,7 @@ export default function AdminUsersPage() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white text-right">סיסמה חדשה (השאר ריק לשמירת הקיימת)</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <input
+                  <Input
                     type="password"
                     value={editUserNewPassword}
                     onChange={(e) => setEditUserNewPassword(e.target.value)}
@@ -1150,14 +1173,16 @@ export default function AdminUsersPage() {
 
               {/* Buttons */}
               <div className="flex gap-[10px] mt-[10px]">
-                <button
+                <Button
+                  variant="outline"
                   type="button"
                   onClick={() => setIsEditDialogOpen(false)}
                   className="flex-1 bg-transparent border border-[#4C526B] text-white text-[14px] font-semibold py-[12px] rounded-[10px] transition-colors hover:bg-white/10"
                 >
                   ביטול
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="default"
                   type="button"
                   onClick={handleUpdateUser}
                   disabled={isSubmitting}
@@ -1174,7 +1199,7 @@ export default function AdminUsersPage() {
                   ) : (
                     "שמור שינויים"
                   )}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 // Supplier row within a subcategory
 interface SupplierDisplay {
@@ -646,7 +647,7 @@ export default function ReportsPage() {
           ) : expenseCategories.map((category) => (
             <div key={category.id} className="rounded-[10px]">
               {/* Category Row */}
-              <button
+              <Button
                 type="button"
                 onClick={() => toggleCategory(category.id)}
                 className={`flex flex-row-reverse items-center justify-between w-full min-h-[60px] p-[5px] gap-[5px] border-b-2 border-white/15 hover:bg-[#29318A]/30 transition-all cursor-pointer ${
@@ -680,7 +681,7 @@ export default function ReportsPage() {
                     <path d="M8 12L16 20L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
-              </button>
+              </Button>
 
               {/* Subcategories */}
               {expandedCategories.includes(category.id) && (
@@ -688,7 +689,7 @@ export default function ReportsPage() {
                   {category.subcategories.map((sub, index) => (
                     <div key={sub.id}>
                       {sub.suppliers.length > 0 ? (
-                        <button
+                        <Button
                           type="button"
                           onClick={() => toggleSubcategory(sub.id)}
                           className={`flex flex-row-reverse items-center justify-between w-full min-h-[50px] p-[5px] gap-[5px] hover:bg-white/5 transition-all cursor-pointer ${
@@ -722,7 +723,7 @@ export default function ReportsPage() {
                               <path d="M8 12L16 20L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                           </div>
-                        </button>
+                        </Button>
                       ) : (
                         <div
                           className={`flex flex-row-reverse items-center justify-between min-h-[50px] p-[5px] gap-[5px] ${

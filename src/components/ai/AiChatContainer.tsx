@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useAiChat } from "./useAiChat";
 import { AiWelcomeScreen } from "./AiWelcomeScreen";
 import { AiMessageList } from "./AiMessageList";
@@ -28,14 +29,15 @@ export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
       {/* Chat header bar */}
       {hasMessages && (
         <div className="flex-shrink-0 flex items-center justify-end px-3 sm:px-4 py-1.5 sm:py-2 border-b border-white/10" dir="rtl">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={clearChat}
             className="flex items-center gap-1.5 text-white hover:text-white/70 text-[12px] transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" />
             נקה שיחה
-          </button>
+          </Button>
         </div>
       )}
 
