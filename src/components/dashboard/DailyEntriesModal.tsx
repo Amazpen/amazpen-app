@@ -1858,19 +1858,19 @@ export function DailyEntriesModal({
                           const monthlyProfit = monthlyPace > 0 ? monthlyPace * (1 - totalCostsPct / 100) : 0;
                           return (
                             <div className="flex flex-col border-2 border-[#FFCF00] rounded-[10px] p-[10px_15px] mt-[15px]" dir="rtl">
-                              <div className="flex justify-between items-center w-full">
-                                <span className="text-white text-[18px] font-bold leading-[1.4]">
+                              <div className="flex items-center w-full">
+                                <span className="text-white text-[18px] font-bold leading-[1.4] w-[230px] shrink-0">
                                   צפי הכנסות חודשי כולל מע&quot;מ:
                                 </span>
-                                <span className="text-white text-[18px] font-medium leading-[1.4] ltr-num">
+                                <span className="text-white text-[18px] font-medium leading-[1.4] ltr-num flex-1 text-center">
                                   {formatCurrency(Math.round(monthlyPace))}
                                 </span>
                               </div>
-                              <div className="flex justify-between items-center w-full mt-[5px]">
-                                <span className="text-white text-[18px] font-bold leading-[1.4]">
+                              <div className="flex items-center w-full mt-[5px]">
+                                <span className="text-white text-[18px] font-bold leading-[1.4] w-[230px] shrink-0">
                                   צפי רווח החודש:
                                 </span>
-                                <span className="text-white text-[18px] font-medium leading-[1.4] ltr-num">
+                                <span className="text-white text-[18px] font-medium leading-[1.4] ltr-num flex-1 text-center">
                                   {formatCurrency(Math.round(monthlyProfit))}
                                 </span>
                               </div>
