@@ -2823,18 +2823,18 @@ function PaymentsPageInner() {
         <div className="w-full flex flex-col">
           {/* Table Header */}
           <div className="flex items-center gap-[5px] bg-[#29318A] rounded-t-[7px] p-[5px_3px] mb-[10px]">
-            <div className="w-[55px] flex-shrink-0 text-center">
-              <span className="text-[14px]">תאריך</span>
+            <div className="w-[55px] sm:w-[65px] flex-shrink-0 text-center">
+              <span className="text-[13px] sm:text-[14px]">תאריך</span>
             </div>
-            <span className="text-[14px] flex-1 text-center">ספק</span>
-            <span className="text-[14px] w-[55px] flex-shrink-0 text-center">אסמכתא</span>
-            <span className="text-[14px] w-[45px] flex-shrink-0 text-center">תשלומים</span>
-            <span className="text-[14px] w-[55px] flex-shrink-0 text-center">אמצעי</span>
-            <span className="text-[14px] w-[70px] flex-shrink-0 text-center">סכום</span>
+            <span className="text-[13px] sm:text-[14px] flex-1 text-center min-w-0">ספק</span>
+            <span className="text-[13px] sm:text-[14px] w-[45px] sm:w-[55px] flex-shrink-0 text-center hidden sm:block">אסמכתא</span>
+            <span className="text-[13px] sm:text-[14px] w-[40px] sm:w-[45px] flex-shrink-0 text-center">תשלומים</span>
+            <span className="text-[13px] sm:text-[14px] w-[50px] sm:w-[55px] flex-shrink-0 text-center">אמצעי</span>
+            <span className="text-[13px] sm:text-[14px] w-[60px] sm:w-[70px] flex-shrink-0 text-center">סכום</span>
           </div>
 
           {/* Table Rows */}
-          <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="flex flex-col gap-[10px] max-h-[450px] overflow-y-auto">
+          <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="flex flex-col gap-[4px] max-h-[450px] overflow-y-auto">
             {(() => {
               const searchVal = filterValue.trim().toLowerCase();
               const filteredPayments = recentPaymentsData.filter((payment) => {
@@ -2878,7 +2878,7 @@ function PaymentsPageInner() {
               <div
                 key={rowKey}
                 data-payment-id={payment.id}
-                className={`bg-white/5 rounded-[7px] p-[7px_3px] border transition-colors ${expandedPaymentId === rowKey ? 'border-white' : 'border-transparent'}`}
+                className={`rounded-[7px] p-[7px_3px] border transition-colors ${expandedPaymentId === rowKey ? 'bg-white/5 border-white' : 'border-transparent'}`}
               >
                 <Button
                   type="button"
@@ -2886,38 +2886,38 @@ function PaymentsPageInner() {
                   className="flex items-center gap-[5px] w-full p-[5px_3px] min-h-[45px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] cursor-pointer"
                 >
                   {/* Date */}
-                  <div className="w-[55px] flex-shrink-0 flex items-center justify-start gap-0">
+                  <div className="w-[55px] sm:w-[65px] flex-shrink-0 flex items-center justify-start gap-0">
                     <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${expandedPaymentId === rowKey ? 'rotate-90' : ''} text-white/50`}>
                       <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                    <span className="text-[13px] font-medium ltr-num">{payment.date}</span>
+                    <span className="text-[12px] sm:text-[13px] font-medium ltr-num">{payment.date}</span>
                   </div>
 
                   {/* Supplier */}
-                  <span className="text-[13px] font-medium flex-1 text-center leading-tight">
+                  <span className="text-[12px] sm:text-[13px] font-medium flex-1 text-center leading-tight min-w-0 truncate">
                     {payment.supplier}
                   </span>
 
                   {/* Reference Number */}
-                  <span className="text-[13px] font-medium w-[55px] flex-shrink-0 text-center ltr-num truncate" title={group.splits[0]?.reference_number || payment.reference || ""}>
+                  <span className="text-[12px] sm:text-[13px] font-medium w-[45px] sm:w-[55px] flex-shrink-0 text-center ltr-num truncate hidden sm:block" title={group.splits[0]?.reference_number || payment.reference || ""}>
                     {group.splits[0]?.reference_number || payment.reference || "-"}
                   </span>
 
                   {/* Payment split index */}
-                  <span className="text-[13px] font-medium w-[45px] flex-shrink-0 text-center ltr-num">
+                  <span className="text-[12px] sm:text-[13px] font-medium w-[40px] sm:w-[45px] flex-shrink-0 text-center ltr-num">
                     {totalMethodGroups > 1 ? `${groupIdx + 1}/${totalMethodGroups}` : payment.installments}
                   </span>
 
                   {/* Payment Method */}
-                  <span className="text-[13px] font-medium w-[55px] flex-shrink-0 text-center leading-tight">{group.methodName}</span>
+                  <span className="text-[12px] sm:text-[13px] font-medium w-[50px] sm:w-[55px] flex-shrink-0 text-center leading-tight truncate">{group.methodName}</span>
 
                   {/* Amount */}
-                  <div className="w-[70px] flex-shrink-0 flex flex-col items-center">
-                    <span className="text-[13px] font-medium ltr-num">
+                  <div className="w-[60px] sm:w-[70px] flex-shrink-0 flex flex-col items-center">
+                    <span className="text-[12px] sm:text-[13px] font-medium ltr-num">
                       ₪{group.totalAmount % 1 === 0 ? group.totalAmount.toLocaleString("he-IL") : group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     {totalMethodGroups > 1 && (
-                      <span className="text-[11px] font-medium ltr-num text-white/70">
+                      <span className="text-[10px] sm:text-[11px] font-medium ltr-num text-white/70">
                         (₪{payment.totalAmount % 1 === 0 ? payment.totalAmount.toLocaleString("he-IL") : payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                       </span>
                     )}
