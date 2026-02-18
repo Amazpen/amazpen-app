@@ -332,12 +332,20 @@ export default function ReportsPage() {
         const foodCostTarget = (foodCostTargetPct / 100) * totalRevenue;
 
         // Group categories by parent
-        const parentCategories = (categoriesData || []).filter(c => !c.parent_id);
+        // Merge "עלויות עובדים" into "עלות עובדים" to avoid duplicates
+        const laborCostNames = new Set(["עלות עובדים", "עלויות עובדים"]);
+        const laborParents = (categoriesData || []).filter(c => !c.parent_id && laborCostNames.has(c.name));
+        const laborParentIds = new Set(laborParents.map(c => c.id));
+        const primaryLaborParent = laborParents.find(c => c.name === "עלות עובדים") || laborParents[0];
+        const parentCategories = (categoriesData || []).filter(c => !c.parent_id && !(laborCostNames.has(c.name) && c.id !== primaryLaborParent?.id));
         const childCategories = (categoriesData || []).filter(c => c.parent_id);
 
         const displayCategories: ExpenseCategoryDisplay[] = parentCategories.map(parent => {
           const isGoodsCost = parent.name === "עלות מכר";
-          const children = childCategories.filter(c => c.parent_id === parent.id);
+          // For labor cost parent: merge children from all labor parent categories
+          const children = laborCostNames.has(parent.name)
+            ? childCategories.filter(c => laborParentIds.has(c.parent_id!))
+            : childCategories.filter(c => c.parent_id === parent.id);
 
           // For "עלות מכר": show individual goods_purchases suppliers instead of subcategories
           let subcategoriesData: ExpenseCategoryDisplay["subcategories"];
