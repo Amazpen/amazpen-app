@@ -150,7 +150,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
   }
 
   return (
-    <div className="relative" dir="rtl">
+    <div className="relative inline-block" dir="rtl">
       {/* Date Display - Clickable to open dropdown */}
       <Button
         type="button"
