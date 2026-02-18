@@ -3,12 +3,14 @@
   "short_name": "המצפן",
   "description": "בשביל לנצח בעסקים חייבים להכיר את החוקים",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#6366f1",
   "orientation": "portrait-primary",
   "dir": "rtl",
   "lang": "he",
+  "id": "/",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -29,7 +31,21 @@
       "purpose": "maskable"
     }
   ],
-  "screenshots": [],
-  "categories": ["business", "productivity"],
-  "prefer_related_applications": false
+  "categories": ["business", "productivity", "finance"],
+  "prefer_related_applications": true,
+  "related_applications": [
+    {
+      "platform": "play",
+      "id": "co.il.amazpenbiz.app",
+      "url": "https://play.google.com/store/apps/details?id=co.il.amazpenbiz.app"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "דשבורד",
+      "short_name": "דשבורד",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
 }

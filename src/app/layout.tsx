@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Amazpen | המצפן",
     description: "בשביל לנצח בעסקים חייבים להכיר את החוקים",
-    siteName: "amazpenbiz.co.il",
+    siteName: "app.amazpenbiz.co.il",
     type: "website",
   },
   appleWebApp: {
