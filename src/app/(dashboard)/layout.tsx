@@ -39,6 +39,7 @@ const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/cashflow",
 // Menu items for sidebar
 const menuItems = [
   { id: 1, label: "דשבורד ראשי", href: "/", key: "dashboard" },
+  { id: 12, label: "ניהול לקוחות", href: "/customers", key: "customers", requiresBusiness: true },
   { id: 2, label: "ניהול הוצאות", href: "/expenses", key: "expenses", requiresBusiness: true },
   { id: 3, label: "ניהול ספקים", href: "/suppliers", key: "suppliers", requiresBusiness: true },
   { id: 4, label: "ניהול תשלומים", href: "/payments", key: "payments", requiresBusiness: true },
@@ -67,6 +68,7 @@ const adminMenuItems = [
 // Page titles mapping
 const pageTitles: Record<string, string> = {
   "/": "דשבורד ראשי",
+  "/customers": "ניהול לקוחות",
   "/expenses": "ניהול הוצאות",
   "/suppliers": "ניהול ספקים",
   "/payments": "ניהול תשלומים",
