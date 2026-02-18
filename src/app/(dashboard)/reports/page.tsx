@@ -531,7 +531,7 @@ export default function ReportsPage() {
   }
 
   return (
-    <article aria-label="דוח רווח והפסד" className="text-white p-[7px] pb-[80px] flex flex-col gap-[10px]">
+    <article aria-label="דוח רווח והפסד" className="text-white pt-0 px-[7px] pb-[80px] flex flex-col gap-[10px]">
       {/* Header Section - Title with Pig Icon */}
       <section aria-labelledby="report-title" className="bg-[#0F1535] rounded-[10px] p-[7px] min-h-[70px] flex items-center justify-start gap-[10px]">
         <div className="flex flex-row-reverse items-center gap-[3px]">
