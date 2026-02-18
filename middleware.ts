@@ -39,6 +39,11 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  // Allow .well-known paths (Digital Asset Links for Android TWA)
+  if (pathname.startsWith("/.well-known")) {
+    return NextResponse.next();
+  }
+
   // Public routes that don't require authentication
   const publicRoutes = ["/login", "/register", "/forgot-password", "/reset-password", "/auth/callback"];
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
