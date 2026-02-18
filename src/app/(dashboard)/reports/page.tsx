@@ -6,7 +6,28 @@ import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
 
+// Supplier row within a subcategory
+interface SupplierDisplay {
+  name: string;
+  target: string;
+  actual: string;
+  difference: string;
+  remaining: string;
+  diffRaw: number;
+}
+
 // Expense category data for display
+interface SubcategoryDisplay {
+  id: string;
+  name: string;
+  target: string;
+  actual: string;
+  difference: string;
+  remaining: string;
+  diffRaw: number;
+  suppliers: SupplierDisplay[];
+}
+
 interface ExpenseCategoryDisplay {
   id: string;
   name: string;
@@ -15,14 +36,7 @@ interface ExpenseCategoryDisplay {
   difference: string;
   remaining: string;
   diffRaw: number;
-  subcategories: {
-    name: string;
-    target: string;
-    actual: string;
-    difference: string;
-    remaining: string;
-    diffRaw: number;
-  }[];
+  subcategories: SubcategoryDisplay[];
 }
 
 // Summary data
@@ -63,6 +77,7 @@ export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = usePersistedState("reports:month", "");
   const [selectedYear, setSelectedYear] = usePersistedState("reports:year", "");
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+  const [expandedSubcategories, setExpandedSubcategories] = useState<string[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -125,6 +140,12 @@ export default function ReportsPage() {
           .is("deleted_at", null)
           .eq("is_active", true);
 
+        // Fetch business VAT percentage
+        const { data: businessData } = await supabase
+          .from("businesses")
+          .select("vat_percentage")
+          .in("id", selectedBusinesses);
+
         // Fetch goals for targets
         const { data: goalsData } = await supabase
           .from("goals")
@@ -143,7 +164,7 @@ export default function ReportsPage() {
           .select("subtotal, supplier_id, supplier:suppliers(name, expense_category_id, expense_type)")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
-          .eq("invoice_type", "current")
+          .in("invoice_type", ["current", "goods"])
           .gte("invoice_date", startDate)
           .lte("invoice_date", endDate);
 
@@ -203,8 +224,8 @@ export default function ReportsPage() {
         const totalLaborCost = (dailyEntries || []).reduce((sum, d) => sum + Number(d.labor_cost || 0), 0);
         const totalManagerCost = (dailyEntries || []).reduce((sum, d) => sum + Number(d.manager_daily_cost || 0), 0);
 
-        // VAT divisor from goal (vat_percentage stored as decimal, e.g. 0.18 for 18%)
-        const vatPercentage = Number(goal?.vat_percentage || 0);
+        // VAT divisor from business (vat_percentage stored as decimal, e.g. 0.18 for 18%)
+        const vatPercentage = Number(businessData?.[0]?.vat_percentage || 0);
         const vatDivisor = vatPercentage > 0 ? 1 + vatPercentage : 1;
         const totalRevenue = totalRegister / vatDivisor;
 
@@ -212,6 +233,8 @@ export default function ReportsPage() {
         const categoryActuals = new Map<string, number>();
         const supplierActuals = new Map<string, number>();
         const supplierNames = new Map<string, string>();
+        // Track which category each supplier belongs to (for 3-level drill-down)
+        const supplierCategoryMap = new Map<string, string>();
         let totalGoodsExpenses = 0;
         let totalCurrentExpenses = 0;
         if (invoicesData) {
@@ -228,6 +251,7 @@ export default function ReportsPage() {
             if (supplierId) {
               supplierActuals.set(supplierId, (supplierActuals.get(supplierId) || 0) + amount);
               if (supplier?.name) supplierNames.set(supplierId, supplier.name);
+              if (catId) supplierCategoryMap.set(supplierId, catId);
             }
             if (expType === "goods_purchases") {
               totalGoodsExpenses += amount;
@@ -237,7 +261,7 @@ export default function ReportsPage() {
           }
         }
 
-        // Build supplier budget targets by category + per-supplier budgets for goods
+        // Build supplier budget targets by category + per-supplier budgets
         const categoryBudgets = new Map<string, number>();
         const supplierBudgets = new Map<string, number>();
         if (supplierBudgetsData) {
@@ -249,9 +273,10 @@ export default function ReportsPage() {
               const current = categoryBudgets.get(catId) || 0;
               categoryBudgets.set(catId, current + Number(sb.budget_amount || 0));
             }
-            if (supplierId && supplier?.expense_type === "goods_purchases") {
+            if (supplierId) {
               supplierBudgets.set(supplierId, Number(sb.budget_amount || 0));
               if (supplier?.name) supplierNames.set(supplierId, supplier.name);
+              if (catId) supplierCategoryMap.set(supplierId, catId);
             }
           }
         }
@@ -295,12 +320,14 @@ export default function ReportsPage() {
               const diff = target - actual;
               const remaining = target > 0 ? ((target - actual) / target) * 100 : 0;
               return {
+                id: supplierId,
                 name: supplierNames.get(supplierId) || "ספק לא ידוע",
                 target: formatCurrency(target),
                 actual: formatCurrency(actual),
                 difference: formatDifference(diff),
                 remaining: formatPercentage(remaining),
                 diffRaw: diff,
+                suppliers: [],
               };
             }).filter(s => parseFloat(s.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(s.target.replace(/[₪K,]/g, "")) > 0)
               .sort((a, b) => parseFloat(b.actual.replace(/[₪K,]/g, "")) - parseFloat(a.actual.replace(/[₪K,]/g, "")));
@@ -310,13 +337,38 @@ export default function ReportsPage() {
               const target = categoryBudgets.get(child.id) || 0;
               const diff = target - actual;
               const remaining = target > 0 ? ((target - actual) / target) * 100 : 0;
+
+              // Build suppliers list for this subcategory
+              const childSuppliers: SupplierDisplay[] = [];
+              supplierCategoryMap.forEach((catId, supplierId) => {
+                if (catId === child.id) {
+                  const sActual = supplierActuals.get(supplierId) || 0;
+                  const sTarget = supplierBudgets.get(supplierId) || 0;
+                  const sDiff = sTarget - sActual;
+                  const sRemaining = sTarget > 0 ? ((sTarget - sActual) / sTarget) * 100 : 0;
+                  if (sActual > 0 || sTarget > 0) {
+                    childSuppliers.push({
+                      name: supplierNames.get(supplierId) || "ספק לא ידוע",
+                      target: formatCurrency(sTarget),
+                      actual: formatCurrency(sActual),
+                      difference: formatDifference(sDiff),
+                      remaining: formatPercentage(sRemaining),
+                      diffRaw: sDiff,
+                    });
+                  }
+                }
+              });
+              childSuppliers.sort((a, b) => parseFloat(b.actual.replace(/[₪K,]/g, "")) - parseFloat(a.actual.replace(/[₪K,]/g, "")));
+
               return {
+                id: child.id,
                 name: child.name,
                 target: formatCurrency(target),
                 actual: formatCurrency(actual),
                 difference: formatDifference(diff),
                 remaining: formatPercentage(remaining),
                 diffRaw: diff,
+                suppliers: childSuppliers,
               };
             });
           }
@@ -374,6 +426,12 @@ export default function ReportsPage() {
 
   const toggleCategory = (id: string) => {
     setExpandedCategories((prev) =>
+      prev.includes(id) ? prev.filter((catId) => catId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSubcategory = (id: string) => {
+    setExpandedSubcategories((prev) =>
       prev.includes(id) ? prev.filter((catId) => catId !== id) : [...prev, id]
     );
   };
@@ -561,27 +619,95 @@ export default function ReportsPage() {
               {expandedCategories.includes(category.id) && (
                 <div className="bg-[#1A2150] rounded-b-[10px] mx-[5px] mb-[5px]">
                   {category.subcategories.map((sub, index) => (
-                    <div
-                      key={index}
-                      className={`flex flex-row-reverse items-center justify-between min-h-[50px] p-[5px] gap-[5px] ${
-                        index < category.subcategories.length - 1 ? 'border-b border-white/10' : ''
-                      }`}
-                    >
-                      <div className="flex flex-row-reverse items-center gap-[5px]">
-                        <span className={`text-[13px] font-medium w-[60px] text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
-                          {sub.remaining}
-                        </span>
-                        <span className={`text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
-                          {sub.difference}
-                        </span>
-                        <span className="text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4]">
-                          {sub.actual}
-                        </span>
-                        <span className="text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4]">
-                          {sub.target}
-                        </span>
-                      </div>
-                      <span className="text-[13px] font-medium text-right text-white/80 leading-[1.4]">{sub.name}</span>
+                    <div key={sub.id}>
+                      {sub.suppliers.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleSubcategory(sub.id)}
+                          className={`flex flex-row-reverse items-center justify-between w-full min-h-[50px] p-[5px] gap-[5px] hover:bg-white/5 transition-all cursor-pointer ${
+                            index < category.subcategories.length - 1 && !expandedSubcategories.includes(sub.id) ? 'border-b border-white/10' : ''
+                          }`}
+                        >
+                          <div className="flex flex-row-reverse items-center gap-[5px]">
+                            <span className={`text-[13px] font-medium w-[60px] text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                              {sub.remaining}
+                            </span>
+                            <span className={`text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                              {sub.difference}
+                            </span>
+                            <span className="text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4]">
+                              {sub.actual}
+                            </span>
+                            <span className="text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4]">
+                              {sub.target}
+                            </span>
+                          </div>
+                          <div className="flex flex-row-reverse items-center justify-end gap-[3px]">
+                            <span className="text-[13px] font-medium text-right text-white/80 leading-[1.4]">{sub.name}</span>
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 32 32"
+                              fill="none"
+                              aria-hidden="true"
+                              className={`flex-shrink-0 transition-transform text-white/50 ${expandedSubcategories.includes(sub.id) ? 'rotate-180' : ''}`}
+                            >
+                              <path d="M8 12L16 20L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        </button>
+                      ) : (
+                        <div
+                          className={`flex flex-row-reverse items-center justify-between min-h-[50px] p-[5px] gap-[5px] ${
+                            index < category.subcategories.length - 1 ? 'border-b border-white/10' : ''
+                          }`}
+                        >
+                          <div className="flex flex-row-reverse items-center gap-[5px]">
+                            <span className={`text-[13px] font-medium w-[60px] text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                              {sub.remaining}
+                            </span>
+                            <span className={`text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                              {sub.difference}
+                            </span>
+                            <span className="text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4]">
+                              {sub.actual}
+                            </span>
+                            <span className="text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4]">
+                              {sub.target}
+                            </span>
+                          </div>
+                          <span className="text-[13px] font-medium text-right text-white/80 leading-[1.4]">{sub.name}</span>
+                        </div>
+                      )}
+                      {/* Suppliers (3rd level) */}
+                      {expandedSubcategories.includes(sub.id) && sub.suppliers.length > 0 && (
+                        <div className="bg-[#141A40] mx-[5px] mb-[2px] rounded-[6px]">
+                          {sub.suppliers.map((supplier, sIndex) => (
+                            <div
+                              key={sIndex}
+                              className={`flex flex-row-reverse items-center justify-between min-h-[42px] px-[8px] py-[4px] gap-[5px] ${
+                                sIndex < sub.suppliers.length - 1 ? 'border-b border-white/5' : ''
+                              }`}
+                            >
+                              <div className="flex flex-row-reverse items-center gap-[5px]">
+                                <span className={`text-[12px] font-normal w-[60px] text-center ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/60'}`}>
+                                  {supplier.remaining}
+                                </span>
+                                <span className={`text-[12px] font-normal w-[62px] text-center ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/60'}`}>
+                                  {supplier.difference}
+                                </span>
+                                <span className="text-[12px] font-normal w-[62px] text-center ltr-num leading-[1.4] text-white/60">
+                                  {supplier.actual}
+                                </span>
+                                <span className="text-[12px] font-normal w-[62px] text-center ltr-num leading-[1.4] text-white/60">
+                                  {supplier.target}
+                                </span>
+                              </div>
+                              <span className="text-[12px] font-normal text-right text-white/50 leading-[1.4]">{supplier.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
