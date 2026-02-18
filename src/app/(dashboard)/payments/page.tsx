@@ -2286,7 +2286,7 @@ function PaymentsPageInner() {
                 <span className="text-[25px] font-semibold text-white text-center">{selectedMethodPopup.name}</span>
                 <div className="flex flex-col items-center">
                   <span className="text-[25px] font-semibold text-white text-center ltr-num">
-                    ₪{selectedMethodPopup.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ₪{selectedMethodPopup.amount.toLocaleString("he-IL", { minimumFractionDigits: selectedMethodPopup.amount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}
                   </span>
                   <span className="text-[14px] text-white text-center">כולל מע&apos;מ</span>
                 </div>
@@ -2309,7 +2309,7 @@ function PaymentsPageInner() {
                   >
                     <span className="text-[14px] font-bold text-white flex-1">{entry.supplierName}</span>
                     <span className="text-[14px] font-bold text-white w-[120px] text-center ltr-num">
-                      ₪{entry.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₪{entry.amount.toLocaleString("he-IL", { minimumFractionDigits: entry.amount % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 ))}
