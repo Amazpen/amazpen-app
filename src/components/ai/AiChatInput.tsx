@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import Image from "next/image";
 import { ArrowUp, Mic, Square, Camera, X, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BarVisualizer } from "@/components/ui/bar-visualizer";
@@ -414,15 +415,17 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
           <div className="flex flex-wrap gap-1.5 sm:gap-2 px-1">
             {selectedFiles.map((file, idx) => (
               <div
-                key={`${file.name}-${idx}`}
+                key={`${file.name}-${file.size}-${file.lastModified}`}
                 className="relative w-[56px] h-[56px] sm:w-[72px] sm:h-[72px] rounded-[8px] sm:rounded-[10px] overflow-hidden bg-[#29318A] border-2 border-[#6366f1]/40 flex-shrink-0 shadow-lg shadow-[#6366f1]/10"
               >
                 {filePreviews[idx] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={filePreviews[idx]!}
                     alt={file.name}
                     className="w-full h-full object-cover"
+                    width={72}
+                    height={72}
+                    unoptimized
                   />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 sm:gap-1">

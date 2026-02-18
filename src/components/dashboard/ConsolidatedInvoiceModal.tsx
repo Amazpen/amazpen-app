@@ -659,7 +659,7 @@ export function ConsolidatedInvoiceModal({
               <div className="flex flex-col gap-[8px]">
                 {deliveryNotes.map((note, index) => (
                   <div
-                    key={index}
+                    key={`dn-${note.delivery_note_number}-${note.delivery_date}`}
                     className="flex items-center justify-between bg-[#1a1f42] rounded-[8px] p-[10px]"
                   >
                     <Button
@@ -743,7 +743,7 @@ export function ConsolidatedInvoiceModal({
               <div className="flex items-center gap-[5px] flex-wrap">
                 {uploadedFiles.map((file, index) => (
                   <div
-                    key={index}
+                    key={`file-${file.name}-${file.url}`}
                     className="flex items-center gap-[3px] bg-white/10 rounded-[5px] px-[8px] py-[3px]"
                   >
                     <Button

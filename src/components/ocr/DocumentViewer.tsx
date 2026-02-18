@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
 interface DocumentViewerProps {
@@ -384,9 +385,8 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
               </div>
             )}
 
-            {/* Image - using native img for ref access needed by crop functionality */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            {/* Image - using next/image with ref access needed by crop functionality */}
+            <Image
               ref={imageRef}
               src={imageUrl}
               alt="מסמך"
@@ -403,6 +403,9 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
                 transition: isDragging ? 'none' : 'transform 0.2s ease-out',
               }}
               draggable={false}
+              width={800}
+              height={600}
+              unoptimized
             />
           </>
         )}

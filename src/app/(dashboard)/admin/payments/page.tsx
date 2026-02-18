@@ -1055,8 +1055,8 @@ export default function AdminPaymentsPage() {
                   ספקים שלא נמצאו בעסק ({unmatchedSuppliers.length}):
                 </p>
                 <div className="flex flex-wrap gap-[6px]">
-                  {unmatchedSuppliers.map((name, i) => (
-                    <span key={i} className="text-[11px] px-[6px] py-[2px] rounded bg-[#F64E60]/20 text-[#F64E60]">
+                  {unmatchedSuppliers.map((name) => (
+                    <span key={`unmatched-${name}`} className="text-[11px] px-[6px] py-[2px] rounded bg-[#F64E60]/20 text-[#F64E60]">
                       {name}
                     </span>
                   ))}
@@ -1078,7 +1078,7 @@ export default function AdminPaymentsPage() {
                     const supplierMatched = !!findSupplierByName(payment.supplier_name);
                     const uniqueMethods = [...new Set(payment.splits.map(s => s.payment_method))];
                     return (
-                      <div key={index} className={`rounded-[10px] p-[10px] ${
+                      <div key={`payment-${payment.supplier_name}-${payment.payment_date}-${index}`} className={`rounded-[10px] p-[10px] ${
                         !supplierMatched
                           ? "bg-[#F64E60]/5 border border-[#F64E60]/20"
                           : "bg-[#4956D4]/10 border border-[#4956D4]/30"
@@ -1211,8 +1211,8 @@ export default function AdminPaymentsPage() {
                     [`מס' צ'ק`, false],
                     ["הערות", false],
                     ["כל התמונות", false],
-                  ].map(([col, required], i) => (
-                    <TableRow key={i} className="border-b border-white/5">
+                  ].map(([col, required]) => (
+                    <TableRow key={`col-split-${col}`} className="border-b border-white/5">
                       <TableCell className="py-[3px] px-[6px]">{col as string}</TableCell>
                       <TableCell className={`py-[3px] px-[6px] ${required ? "text-[#F64E60]" : "text-white/40"}`}>
                         {required ? "כן" : "לא"}
@@ -1250,8 +1250,8 @@ export default function AdminPaymentsPage() {
                     ["כרטיס אשראי (אם יש)", false],
                     ["בנק", false],
                     ["הערות", false],
-                  ].map(([col, required], i) => (
-                    <TableRow key={i} className="border-b border-white/5">
+                  ].map(([col, required]) => (
+                    <TableRow key={`col-single-${col}`} className="border-b border-white/5">
                       <TableCell className="py-[3px] px-[6px]">{col as string}</TableCell>
                       <TableCell className={`py-[3px] px-[6px] ${required ? "text-[#F64E60]" : "text-white/40"}`}>
                         {required ? "כן" : "לא"}

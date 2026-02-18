@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Suspense } from "react";
 import { X } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
@@ -2719,7 +2720,7 @@ function ExpensesPageInner() {
                         <div className="flex flex-wrap gap-[8px] px-[7px]">
                           {invoice.attachmentUrls.map((url, idx) => (
                             <Button
-                              key={idx}
+                              key={`attachment-${url}`}
                               type="button"
                               onClick={() => setViewerDocUrl(url)}
                               className="border border-white/20 rounded-[8px] overflow-hidden w-[70px] h-[70px] hover:border-white/50 transition-colors cursor-pointer"
@@ -2727,8 +2728,7 @@ function ExpensesPageInner() {
                               {isPdfUrl(url) ? (
                                 <PdfThumbnail url={url} className="w-full h-full" />
                               ) : (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" />
+                                <Image src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" width={70} height={70} unoptimized />
                               )}
                             </Button>
                           ))}
@@ -3110,10 +3110,9 @@ function ExpensesPageInner() {
                   <div className="flex flex-wrap gap-[8px] mb-[5px]">
                     {newAttachmentPreviews.map((preview, idx) => {
                       return (
-                      <div key={idx} className="flex flex-col items-center gap-[4px]">
+                      <div key={`new-preview-${preview}`} className="flex flex-col items-center gap-[4px]">
                         <div className="relative border border-[#4C526B] rounded-[8px] overflow-hidden w-[100px] h-[100px]">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
+                          <Image src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} width={100} height={100} unoptimized />
                         </div>
                         <Button
                           type="button"
@@ -3722,13 +3721,12 @@ function ExpensesPageInner() {
                 {editAttachmentPreviews.length > 0 && (
                   <div className="flex flex-wrap gap-[8px] mb-[5px]">
                     {editAttachmentPreviews.map((preview, idx) => (
-                      <div key={idx} className="flex flex-col items-center gap-[4px]">
+                      <div key={`edit-preview-${preview}`} className="flex flex-col items-center gap-[4px]">
                         <div className="relative border border-[#4C526B] rounded-[8px] overflow-hidden w-[100px] h-[100px]">
                           {isPdfUrl(preview) ? (
                             <PdfThumbnail url={preview} className="w-full h-full cursor-pointer" onClick={() => window.open(preview, '_blank')} />
                           ) : (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} />
+                            <Image src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} width={100} height={100} unoptimized />
                           )}
                         </div>
                         <Button
@@ -4425,11 +4423,13 @@ function ExpensesPageInner() {
                 title="תצוגת מסמך"
               />
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={viewerDocUrl}
                 alt="תצוגת מסמך"
                 className="max-w-[90vw] max-h-[90vh] object-contain rounded-[12px]"
+                width={800}
+                height={600}
+                unoptimized
               />
             )}
           </div>
@@ -4491,8 +4491,7 @@ function ExpensesPageInner() {
                   {statusClarificationFilePreview ? (
                     <div className="flex items-center gap-[8px] bg-[#0F1535] border border-[#4C526B] rounded-[8px] p-[8px]">
                       {statusClarificationFile?.type.startsWith("image/") ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={statusClarificationFilePreview} alt="תצוגה מקדימה" className="w-[50px] h-[50px] object-cover rounded-[6px]" />
+                        <Image src={statusClarificationFilePreview} alt="תצוגה מקדימה" className="w-[50px] h-[50px] object-cover rounded-[6px]" width={50} height={50} unoptimized />
                       ) : (
                         <div className="w-[50px] h-[50px] flex items-center justify-center bg-white/5 rounded-[6px]">
                           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50">

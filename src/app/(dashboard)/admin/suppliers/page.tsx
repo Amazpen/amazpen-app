@@ -658,7 +658,7 @@ export default function AdminSuppliersPage() {
             <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">ספקים שנטענו ({csvSuppliers.length})</h3>
             <div className="flex flex-col gap-[8px] max-h-[400px] overflow-y-auto">
               {csvSuppliers.map((supplier, index) => (
-                <div key={index} className={`flex items-center justify-between rounded-[10px] p-[10px] ${
+                <div key={`supplier-${supplier.name}`} className={`flex items-center justify-between rounded-[10px] p-[10px] ${
                   !supplier.is_active
                     ? "bg-[#F64E60]/5 border border-[#F64E60]/20"
                     : "bg-[#4956D4]/10 border border-[#4956D4]/30"

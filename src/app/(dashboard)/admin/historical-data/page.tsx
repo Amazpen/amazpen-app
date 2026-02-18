@@ -684,7 +684,7 @@ export default function AdminHistoricalDataPage() {
                 const extraCount = countExtraFields(entry);
                 const isExpanded = expandedRow === index;
                 return (
-                  <div key={index} className={`rounded-[10px] ${
+                  <div key={`${entry.year}-${entry.month}-${index}`} className={`rounded-[10px] ${
                     isDuplicate
                       ? "bg-[#FFA412]/5 border border-[#FFA412]/20"
                       : "bg-[#4956D4]/10 border border-[#4956D4]/30"

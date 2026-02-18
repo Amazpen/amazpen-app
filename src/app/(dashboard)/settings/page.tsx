@@ -581,9 +581,9 @@ export default function SettingsPage() {
             <div id="onboarding-settings-businesses">
               <h3 className="text-white text-[16px] font-bold mb-[12px]">עסקים</h3>
               <div className="space-y-[8px]">
-                {businesses.map((biz, idx) => (
+                {businesses.map((biz) => (
                   <div
-                    key={idx}
+                    key={biz.business_name}
                     className="w-full bg-[#29318A]/20 rounded-[10px] border border-white/5 px-[15px] py-[12px] flex items-center justify-between"
                   >
                     <span className="text-white/70 text-[14px]">{biz.business_name}</span>

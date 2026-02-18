@@ -910,8 +910,8 @@ export default function AdminExpensesPage() {
                     ספקים שלא נמצאו בעסק ({unmatchedSuppliers.length}):
                   </p>
                   <div className="flex flex-wrap gap-[6px]">
-                    {unmatchedSuppliers.map((name, i) => (
-                      <span key={i} className="text-[11px] px-[6px] py-[2px] rounded bg-[#F64E60]/20 text-[#F64E60]">
+                    {unmatchedSuppliers.map((name) => (
+                      <span key={`unmatched-${name}`} className="text-[11px] px-[6px] py-[2px] rounded bg-[#F64E60]/20 text-[#F64E60]">
                         {name}
                       </span>
                     ))}
@@ -937,13 +937,13 @@ export default function AdminExpensesPage() {
                           הספקים הבאים ייווצרו עם סוג ההוצאה שזוהה מהקובץ:
                         </p>
                         <div className="flex flex-col gap-[3px] mb-[8px]">
-                          {unmatchedSuppliers.map((name, i) => {
+                          {unmatchedSuppliers.map((name) => {
                             const expense = csvExpenses.find(e => e.supplier_name === name);
                             const typeLabel = expense?.expense_type === "goods_purchases" ? "קניות סחורה"
                               : expense?.expense_type === "employee_costs" ? "עלות עובדים"
                               : "הוצאות שוטפות";
                             return (
-                              <span key={i} className="text-[11px] text-white/60">
+                              <span key={`unmatched-detail-${name}`} className="text-[11px] text-white/60">
                                 {name} - {typeLabel}
                               </span>
                             );
@@ -992,7 +992,7 @@ export default function AdminExpensesPage() {
               {csvExpenses.map((expense, index) => {
                 const supplierMatched = !!findSupplierByName(expense.supplier_name);
                 return (
-                  <div key={index} className={`flex items-center justify-between rounded-[10px] p-[10px] ${
+                  <div key={`expense-${expense.supplier_name}-${expense.invoice_date}-${index}`} className={`flex items-center justify-between rounded-[10px] p-[10px] ${
                     !supplierMatched
                       ? "bg-[#F64E60]/5 border border-[#F64E60]/20"
                       : "bg-[#4956D4]/10 border border-[#4956D4]/30"

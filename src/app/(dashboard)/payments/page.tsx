@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense, Fragment } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { createPortal } from "react-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
 import { X } from "lucide-react";
@@ -3196,7 +3197,7 @@ function PaymentsPageInner() {
                                         <div className="flex flex-wrap gap-[6px]">
                                           {invoiceAttachmentUrls.map((url, idx) => (
                                             <Button
-                                              key={idx}
+                                              key={`inv-attachment-${url}`}
                                               type="button"
                                               onClick={() => setViewerDocUrl(url)}
                                               className="border border-white/20 rounded-[6px] overflow-hidden w-[50px] h-[50px] hover:border-white/50 transition-colors cursor-pointer"
@@ -3209,8 +3210,7 @@ function PaymentsPageInner() {
                                                   </svg>
                                                 </div>
                                               ) : (
-                                                // eslint-disable-next-line @next/next/no-img-element
-                                                <img src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" />
+                                                <Image src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" width={70} height={70} unoptimized />
                                               )}
                                             </Button>
                                           ))}
@@ -3474,7 +3474,7 @@ function PaymentsPageInner() {
                                           <div className="flex flex-wrap gap-[8px]">
                                             {attachmentUrls.map((url: string, idx: number) => (
                                               <Button
-                                                key={idx}
+                                                key={`attachment-${url}`}
                                                 type="button"
                                                 onClick={() => setViewerDocUrl(url)}
                                                 className="border border-white/20 rounded-[8px] overflow-hidden w-[70px] h-[70px] hover:border-white/50 transition-colors cursor-pointer"
@@ -3482,8 +3482,7 @@ function PaymentsPageInner() {
                                                 {isPdfUrl(url) ? (
                                                   <PdfThumbnail url={url} className="w-full h-full" />
                                                 ) : (
-                                                  // eslint-disable-next-line @next/next/no-img-element
-                                                  <img src={url} alt={`מסמך ${idx + 1}`} className="w-full h-full object-cover" />
+                                                  <Image src={url} alt={`מסמך ${idx + 1}`} className="w-full h-full object-cover" width={70} height={70} unoptimized />
                                                 )}
                                               </Button>
                                             ))}
@@ -3774,7 +3773,7 @@ function PaymentsPageInner() {
                     {receiptFiles.map((entry, idx) => {
                       const isPdf = entry.preview.toLowerCase().includes(".pdf");
                       return (
-                        <div key={idx} className="relative group border border-[#4C526B] rounded-[7px] w-[80px] h-[80px] overflow-hidden flex items-center justify-center bg-white/5">
+                        <div key={`receipt-${entry.preview}`} className="relative group border border-[#4C526B] rounded-[7px] w-[80px] h-[80px] overflow-hidden flex items-center justify-center bg-white/5">
                           {isPdf ? (
                             <Button type="button" onClick={() => window.open(entry.preview, '_blank')} className="flex flex-col items-center gap-[2px] cursor-pointer">
                               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/60">
@@ -3785,8 +3784,7 @@ function PaymentsPageInner() {
                             </Button>
                           ) : (
                             <Button type="button" onClick={() => window.open(entry.preview, '_blank')} className="w-full h-full cursor-pointer">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={entry.preview} alt="קבלה" className="w-full h-full object-cover" />
+                              <Image src={entry.preview} alt="קבלה" className="w-full h-full object-cover" width={70} height={70} unoptimized />
                             </Button>
                           )}
                           <Button
@@ -3950,11 +3948,13 @@ function PaymentsPageInner() {
                 title="תצוגת מסמך"
               />
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={viewerDocUrl}
                 alt="תצוגת מסמך"
                 className="max-w-[90vw] max-h-[90vh] object-contain rounded-[12px]"
+                width={800}
+                height={600}
+                unoptimized
               />
             )}
           </div>
@@ -3970,8 +3970,8 @@ function PaymentsPageInner() {
             <p className="text-[14px] text-white/70 text-center mb-[15px]">השינויים הבאים זוהו:</p>
 
             <div className="flex flex-col gap-[10px] mb-[20px]">
-              {updateConfirmation.changes.map((change, i) => (
-                <div key={i} className="bg-[#0F1535] rounded-[10px] p-[10px] border border-[#4C526B]">
+              {updateConfirmation.changes.map((change) => (
+                <div key={`change-${change.label}`} className="bg-[#0F1535] rounded-[10px] p-[10px] border border-[#4C526B]">
                   <span className="text-[13px] font-medium text-white/70 block mb-[6px]">{change.label}</span>
                   <div className="flex items-center gap-[8px]">
                     <span className="text-[14px] text-red-400 ltr-num flex-1 text-center line-through">{change.before}</span>

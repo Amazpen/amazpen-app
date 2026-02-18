@@ -225,7 +225,7 @@ const BarVisualizerComponent = forwardRef<HTMLDivElement, BarVisualizerProps>(
 
           return (
             <Bar
-              key={index}
+              key={`bar-${index}`}
               heightPct={heightPct}
               isActive={state === "recording"}
             />

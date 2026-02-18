@@ -820,7 +820,7 @@ export default function AdminDailyEntriesPage() {
               {csvEntries.map((entry, index) => {
                 const isDuplicate = duplicateDates.has(entry.entry_date);
                 return (
-                  <div key={index} className={`flex items-center justify-between rounded-[10px] p-[10px] ${
+                  <div key={`entry-${entry.entry_date}-${index}`} className={`flex items-center justify-between rounded-[10px] p-[10px] ${
                     isDuplicate
                       ? "bg-[#FFA412]/5 border border-[#FFA412]/20"
                       : "bg-[#4956D4]/10 border border-[#4956D4]/30"

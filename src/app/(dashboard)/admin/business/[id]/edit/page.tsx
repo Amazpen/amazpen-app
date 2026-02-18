@@ -1720,11 +1720,11 @@ export default function EditBusinessPage({ params }: PageProps) {
       {teamMembers.filter(m => !m.isExisting).length > 0 && (
         <div className="flex flex-col gap-[10px]">
           <h3 className="text-[15px] font-bold text-white text-right">משתמשים חדשים ({teamMembers.filter(m => !m.isExisting).length})</h3>
-          {teamMembers.filter(m => !m.isExisting).map((member, idx) => {
+          {teamMembers.filter(m => !m.isExisting).map((member) => {
             const index = teamMembers.findIndex(m => m === member);
             return (
               <div
-                key={idx}
+                key={`member-${member.email}`}
                 className="flex flex-row-reverse items-center justify-between bg-[#0F1535] rounded-[10px] p-[12px] border border-[#3CD856]/30"
               >
                 <Button

@@ -1423,7 +1423,7 @@ export default function OCRForm({
             <div className="bg-[#F64E60]/10 border border-[#F64E60]/30 rounded-[8px] p-[8px]">
               <p className="text-[12px] text-[#F64E60] font-medium text-right mb-[4px]">התראות שינוי מחיר:</p>
               {priceAlerts.map((li, idx) => (
-                <div key={idx} className="flex items-center justify-between text-[12px] py-[2px]">
+                <div key={`alert-${li.description}-${idx}`} className="flex items-center justify-between text-[12px] py-[2px]">
                   <span className={`font-medium ltr-num ${(li.price_change_pct || 0) > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
                     {(li.price_change_pct || 0) > 0 ? '+' : ''}{li.price_change_pct?.toFixed(1)}%
                   </span>
@@ -1449,7 +1449,7 @@ export default function OCRForm({
               </TableHeader>
               <TableBody>
                 {lineItems.map((li, idx) => (
-                  <TableRow key={idx} className="border-b border-[#4C526B]/50 whitespace-nowrap">
+                  <TableRow key={`line-${li.description}-${idx}`} className="border-b border-[#4C526B]/50 whitespace-nowrap">
                     <TableCell className="text-right py-[6px] pr-[4px] text-white max-w-[120px] overflow-hidden text-ellipsis" title={li.description || '-'}>{li.description || '-'}</TableCell>
                     <TableCell className="text-center py-[6px] text-white/70 ltr-num">{li.quantity || '-'}</TableCell>
                     <TableCell className="text-center py-[6px] ltr-num leading-tight">
@@ -2147,7 +2147,7 @@ export default function OCRForm({
           <div className="flex flex-col gap-[8px]">
             {summaryDeliveryNotes.map((note, index) => (
               <div
-                key={index}
+                key={`dn-${note.delivery_note_number}-${note.delivery_date}`}
                 className="flex items-center justify-between bg-[#1a1f42] rounded-[8px] p-[10px]"
               >
                 <Button

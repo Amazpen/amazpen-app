@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useDashboard } from "../layout";
@@ -2288,7 +2289,7 @@ export default function SuppliersPage() {
                                   <div className="flex flex-wrap gap-[8px] px-[7px]">
                                     {invoice.attachmentUrls.map((url, idx) => (
                                       <Button
-                                        key={idx}
+                                        key={`attachment-${url}`}
                                         type="button"
                                         onClick={() => window.open(url, '_blank')}
                                         className="border border-white/20 rounded-[8px] overflow-hidden w-[70px] h-[70px] hover:border-white/50 transition-colors"
@@ -2303,8 +2304,7 @@ export default function SuppliersPage() {
                                             </svg>
                                           </div>
                                         ) : (
-                                          // eslint-disable-next-line @next/next/no-img-element
-                                          <img src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" />
+                                          <Image src={url} alt={`חשבונית ${idx + 1}`} className="w-full h-full object-cover" width={70} height={70} unoptimized />
                                         )}
                                       </Button>
                                     ))}
@@ -2757,11 +2757,13 @@ export default function SuppliersPage() {
                           rel="noopener noreferrer"
                           className="border border-[#4C526B] rounded-[10px] overflow-hidden flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors"
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
+                          <Image
                             src={selectedSupplier.obligation_document_url}
                             alt="לוח סילוקין"
                             className="max-h-[200px] object-contain"
+                            width={400}
+                            height={200}
+                            unoptimized
                           />
                         </a>
                         {/* Replace image button */}

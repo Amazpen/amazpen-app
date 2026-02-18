@@ -1396,7 +1396,7 @@ export default function NewBusinessPage() {
 
         <div className="flex flex-wrap gap-[8px]">
           {creditCards.map((card, index) => (
-            <div key={index} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
+            <div key={`card-${card.cardName}-${card.billingDay}`} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -1475,7 +1475,7 @@ export default function NewBusinessPage() {
 
         <div className="flex flex-col gap-[8px]">
           {managedProducts.map((product, index) => (
-            <div key={index} className="flex items-center justify-between bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[8px]">
+            <div key={`product-${product.name}`} className="flex items-center justify-between bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[8px]">
               <div className="flex items-center gap-[8px]">
                 <Button
                   variant="ghost"
@@ -1886,7 +1886,7 @@ export default function NewBusinessPage() {
           <h3 className="text-[15px] font-bold text-white text-right">משתמשים ({teamMembers.length})</h3>
           {teamMembers.map((member, index) => (
             <div
-              key={index}
+              key={`member-${member.email}`}
               className="flex items-center justify-between bg-[#0F1535] rounded-[10px] p-[12px]"
             >
               <Button
@@ -2025,8 +2025,8 @@ export default function NewBusinessPage() {
                 <div className="mb-[8px]">
                   <div className="text-[12px] text-[#9B59B6] mb-[4px]">בעלי עסק:</div>
                   <div className="flex flex-wrap gap-[6px]">
-                    {teamMembers.filter(m => m.role === "owner").map((member, idx) => (
-                      <span key={idx} className="text-[12px] bg-[#9B59B6]/20 text-white px-[8px] py-[4px] rounded-[6px]">
+                    {teamMembers.filter(m => m.role === "owner").map((member) => (
+                      <span key={`owner-${member.email}`} className="text-[12px] bg-[#9B59B6]/20 text-white px-[8px] py-[4px] rounded-[6px]">
                         {member.name || member.email}
                       </span>
                     ))}
@@ -2039,8 +2039,8 @@ export default function NewBusinessPage() {
                 <div>
                   <div className="text-[12px] text-[#3498DB] mb-[4px]">עובדים:</div>
                   <div className="flex flex-wrap gap-[6px]">
-                    {teamMembers.filter(m => m.role === "employee").map((member, idx) => (
-                      <span key={idx} className="text-[12px] bg-[#3498DB]/20 text-white px-[8px] py-[4px] rounded-[6px]">
+                    {teamMembers.filter(m => m.role === "employee").map((member) => (
+                      <span key={`employee-${member.email}`} className="text-[12px] bg-[#3498DB]/20 text-white px-[8px] py-[4px] rounded-[6px]">
                         {member.name || member.email}
                       </span>
                     ))}
@@ -2202,7 +2202,7 @@ export default function NewBusinessPage() {
           <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">ספקים שנטענו ({csvSuppliers.length})</h3>
           <div className="flex flex-col gap-[8px]">
             {csvSuppliers.map((supplier, index) => (
-              <div key={index} className="flex items-center justify-between bg-[#4956D4]/10 border border-[#4956D4]/30 rounded-[10px] p-[10px]">
+              <div key={`csv-supplier-${supplier.name}`} className="flex items-center justify-between bg-[#4956D4]/10 border border-[#4956D4]/30 rounded-[10px] p-[10px]">
                 <Button
                   variant="ghost"
                   size="icon-sm"
