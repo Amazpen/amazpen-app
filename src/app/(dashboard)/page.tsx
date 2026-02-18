@@ -2669,7 +2669,7 @@ export default function DashboardPage() {
                         <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
                           <div className="flex flex-col ml-[10px]">
                             <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                              <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">{(detailedSummary?.privateCount || 0) + (detailedSummary?.businessCount || 0)}</span>
+                              <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">{((detailedSummary?.privateCount || 0) + (detailedSummary?.businessCount || 0)).toLocaleString()}</span>
                               <span className="text-[14px] font-medium text-white leading-[1.4]">כמות אירועים</span>
                             </div>
                             <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
@@ -2767,7 +2767,7 @@ export default function DashboardPage() {
                       <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
                         <div className="flex flex-col ml-[10px]">
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                            <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{source.ordersCount}</span>
+                            <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{source.ordersCount.toLocaleString()}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">כמות {source.name}</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px] invisible">
@@ -2823,7 +2823,7 @@ export default function DashboardPage() {
                       <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
                         <div className="flex flex-col ml-[10px]">
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                            <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{source.ordersCount}</span>
+                            <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{source.ordersCount.toLocaleString()}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">כמות הגשה</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
@@ -2879,7 +2879,7 @@ export default function DashboardPage() {
                       <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
                         <div className="flex flex-col ml-[10px]">
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                            <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{source.ordersCount}</span>
+                            <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{source.ordersCount.toLocaleString()}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">כמות {source.name}</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
