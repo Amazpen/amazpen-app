@@ -1821,27 +1821,27 @@ export function DailyEntriesModal({
 
                         {/* Additional Info */}
                         <div className="flex flex-col gap-[5px] mt-[15px] border-2 border-[#FFCF00] rounded-[10px] p-[10px_15px]" dir="rtl">
-                          <div className="flex justify-between items-center w-full">
-                            <span className="text-white text-[16px] font-bold">
+                          <div className="flex items-center w-full">
+                            <span className="text-white text-[16px] font-bold shrink-0">
                               תשלומים פתוחים:
                             </span>
-                            <span className="text-white text-[16px] ltr-num font-medium">
+                            <span className="text-white text-[16px] ltr-num font-medium flex-1 text-center">
                               {formatCurrency(openPaymentsTotal)}
                             </span>
                           </div>
-                          <div className="flex justify-between items-center w-full">
-                            <span className="text-white text-[16px] font-bold">
+                          <div className="flex items-center w-full">
+                            <span className="text-white text-[16px] font-bold shrink-0">
                               ספקים פתוחים:
                             </span>
-                            <span className="text-white text-[16px] ltr-num font-medium">
+                            <span className="text-white text-[16px] ltr-num font-medium flex-1 text-center">
                               {formatCurrency(openSuppliersTotal)}
                             </span>
                           </div>
-                          <div className="flex justify-between items-center w-full">
-                            <span className="text-white text-[16px] font-bold">
+                          <div className="flex items-center w-full">
+                            <span className="text-white text-[16px] font-bold shrink-0">
                               התחייבויות קודמות:
                             </span>
-                            <span className="text-white text-[16px] ltr-num font-medium">
+                            <span className="text-white text-[16px] ltr-num font-medium flex-1 text-center">
                               {formatCurrency(openCommitmentsTotal)}
                             </span>
                           </div>
