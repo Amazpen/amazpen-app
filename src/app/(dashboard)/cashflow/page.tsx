@@ -559,7 +559,7 @@ export default function CashFlowPage() {
   // No business selected
   if (selectedBusinesses.length === 0) {
     return (
-      <article className="text-white p-[10px] pb-[80px]">
+      <article className="text-white p-[7px] pb-[80px]">
         <div className="bg-[#0F1535] rounded-[20px] p-[40px] text-center">
           <p className="text-[20px] text-white/70">יש לבחור עסק כדי לצפות בתזרים מזומנים</p>
         </div>
@@ -568,7 +568,7 @@ export default function CashFlowPage() {
   }
 
   return (
-    <article aria-label="תזרים מזומנים" className="text-white p-[10px] pb-[80px] flex flex-col gap-[10px]">
+    <article aria-label="תזרים מזומנים" className="text-white p-[7px] pb-[80px] flex flex-col gap-[10px]">
       {/* ============= HEADER + CONTROLS ============= */}
       <section className="bg-[#0F1535] rounded-[10px] flex flex-col gap-[10px]">
         {/* Controls Row */}
