@@ -72,6 +72,6 @@ export const config = {
      * - public folder files (images, sw.js, manifest.json)
      * - api routes
      */
-    "/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$|api).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.json|\\.well-known|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$|api).*)",
   ],
 };
