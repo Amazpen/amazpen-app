@@ -2822,7 +2822,7 @@ function PaymentsPageInner() {
         {/* Table */}
         <div className="w-full flex flex-col">
           {/* Table Header */}
-          <div className="flex items-center gap-[5px] bg-[#29318A] rounded-t-[7px] p-[5px_3px] mb-[10px]">
+          <div className="flex items-center gap-[5px] bg-[#29318A] rounded-t-[7px] p-[5px_3px] ps-[13px] mb-[10px]">
             <div className="w-[55px] sm:w-[65px] flex-shrink-0 text-center">
               <span className="text-[13px] sm:text-[14px]">תאריך</span>
             </div>
