@@ -592,30 +592,30 @@ export default function ReportsPage() {
       </section>
 
       {/* Income Summary Card */}
-      <section aria-label="סיכום הכנסות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[80px] flex flex-row-reverse items-center justify-between">
-        <div className="flex flex-row-reverse items-center gap-[5px]">
-          <div className="flex flex-col items-center w-[62px]">
-            <span className="text-[14px] font-medium leading-[1.4]">הפרש ב-%</span>
-            <span className={`text-[15px] font-bold ltr-num leading-[1.4] ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
+      <section aria-label="סיכום הכנסות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[80px] flex flex-row-reverse items-center justify-between gap-[5px]">
+        <div className="flex flex-row-reverse items-center gap-[5px] flex-1 min-w-0">
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4] whitespace-nowrap">הפרש ב-%</span>
+            <span className={`text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {summary.revenueTarget > 0 ? ((summary.totalRevenue / summary.revenueTarget) * 100).toFixed(2) : "0.00"}%
             </span>
           </div>
-          <div className="flex flex-col items-center w-[65px]">
-            <span className="text-[14px] font-medium leading-[1.4]">הפרש ב-₪</span>
-            <span className={`text-[15px] font-bold ltr-num leading-[1.4] ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4] whitespace-nowrap">הפרש ב-₪</span>
+            <span className={`text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(summary.totalRevenue - summary.revenueTarget)}
             </span>
           </div>
-          <div className="flex flex-col items-center w-[62px]">
-            <span className="text-[14px] font-medium leading-[1.4]">בפועל</span>
-            <span className="text-[15px] font-bold ltr-num leading-[1.4]">{formatCurrency(summary.totalRevenue)}</span>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4]">בפועל</span>
+            <span className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.totalRevenue)}</span>
           </div>
-          <div className="flex flex-col items-center w-[62px]">
-            <span className="text-[14px] font-medium leading-[1.4]">יעד</span>
-            <span className="text-[15px] font-bold ltr-num leading-[1.4]">{formatCurrency(summary.revenueTarget)}</span>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4]">יעד</span>
+            <span className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.revenueTarget)}</span>
           </div>
         </div>
-        <span className="text-[16px] font-bold text-right leading-[1.4] w-[77px]">סה&quot;כ הכנסות ללא מע&quot;מ</span>
+        <span className="text-[14px] sm:text-[16px] font-bold text-right leading-[1.4] shrink-0">סה&quot;כ הכנסות ללא מע&quot;מ</span>
       </section>
 
       {/* Expenses Section */}
@@ -627,14 +627,14 @@ export default function ReportsPage() {
 
         {/* Table Header */}
         <div className="flex flex-row-reverse items-center justify-between min-h-[50px] border-b-2 border-white/15 p-[5px] gap-[5px]">
-          <div className="flex flex-row-reverse items-center gap-[5px]">
-            <span className="text-[14px] font-semibold w-[60px] text-center leading-[1.4]">נותר לניצול</span>
-            <span className="text-[14px] font-medium w-[62px] text-center leading-[1.4]">הפרש ב-₪</span>
-            <span className="text-[14px] font-medium w-[62px] text-center leading-[1.4]">בפועל</span>
-            <span className="text-[14px] font-medium w-[62px] text-center leading-[1.4]">יעד</span>
+          <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+            <span className="text-[11px] sm:text-[14px] font-semibold flex-1 min-w-0 text-center leading-[1.4]">נותר לניצול</span>
+            <span className="text-[11px] sm:text-[14px] font-medium flex-1 min-w-0 text-center leading-[1.4]">הפרש ב-₪</span>
+            <span className="text-[11px] sm:text-[14px] font-medium flex-1 min-w-0 text-center leading-[1.4]">בפועל</span>
+            <span className="text-[11px] sm:text-[14px] font-medium flex-1 min-w-0 text-center leading-[1.4]">יעד</span>
           </div>
-          <div className="flex items-center justify-end w-[76px]">
-            <span className="text-[14px] font-medium text-right leading-[1.4] mr-[14px]">שם ההוצאה</span>
+          <div className="flex items-center justify-end shrink-0">
+            <span className="text-[11px] sm:text-[14px] font-medium text-right leading-[1.4] mr-[14px]">שם ההוצאה</span>
           </div>
         </div>
 
@@ -654,22 +654,22 @@ export default function ReportsPage() {
                   expandedCategories.includes(category.id) ? 'rounded-t-[10px]' : ''
                 }`}
               >
-                <div className="flex flex-row-reverse items-center gap-[5px]">
-                  <span className={`text-[14px] font-bold w-[60px] text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+                  <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                     {category.remaining}
                   </span>
-                  <span className={`text-[14px] font-bold w-[62px] text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                  <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                     {category.difference}
                   </span>
-                  <span className="text-[14px] font-bold w-[62px] text-center ltr-num leading-[1.4]">
+                  <span className="text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">
                     {category.actual}
                   </span>
-                  <span className="text-[14px] font-bold w-[62px] text-center ltr-num leading-[1.4]">
+                  <span className="text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">
                     {category.target}
                   </span>
                 </div>
-                <div className="flex flex-row-reverse items-center justify-end gap-[5px] w-[95px]">
-                  <span className="text-[14px] font-bold text-right leading-[1.4]">{category.name}</span>
+                <div className="flex flex-row-reverse items-center justify-end gap-[5px] shrink-0">
+                  <span className="text-[12px] sm:text-[14px] font-bold text-right leading-[1.4]">{category.name}</span>
                   <svg
                     width="16"
                     height="16"
@@ -696,22 +696,22 @@ export default function ReportsPage() {
                             index < category.subcategories.length - 1 && !expandedSubcategories.includes(sub.id) ? 'border-b border-white/10' : ''
                           }`}
                         >
-                          <div className="flex flex-row-reverse items-center gap-[5px]">
-                            <span className={`text-[13px] font-medium w-[60px] text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                          <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+                            <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                               {sub.remaining}
                             </span>
-                            <span className={`text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                            <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                               {sub.difference}
                             </span>
-                            <span className="text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4]">
+                            <span className="text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4]">
                               {sub.actual}
                             </span>
-                            <span className="text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4]">
+                            <span className="text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4]">
                               {sub.target}
                             </span>
                           </div>
-                          <div className="flex flex-row-reverse items-center justify-end gap-[3px]">
-                            <span className="text-[13px] font-medium text-right text-white/80 leading-[1.4]">{sub.name}</span>
+                          <div className="flex flex-row-reverse items-center justify-end gap-[3px] shrink-0">
+                            <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4]">{sub.name}</span>
                             <svg
                               width="12"
                               height="12"
@@ -730,21 +730,21 @@ export default function ReportsPage() {
                             index < category.subcategories.length - 1 ? 'border-b border-white/10' : ''
                           }`}
                         >
-                          <div className="flex flex-row-reverse items-center gap-[5px]">
-                            <span className={`text-[13px] font-medium w-[60px] text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                          <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+                            <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                               {sub.remaining}
                             </span>
-                            <span className={`text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                            <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                               {sub.difference}
                             </span>
-                            <span className="text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4]">
+                            <span className="text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4]">
                               {sub.actual}
                             </span>
-                            <span className="text-[13px] font-medium w-[62px] text-center ltr-num leading-[1.4]">
+                            <span className="text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4]">
                               {sub.target}
                             </span>
                           </div>
-                          <span className="text-[13px] font-medium text-right text-white/80 leading-[1.4]">{sub.name}</span>
+                          <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4] shrink-0">{sub.name}</span>
                         </div>
                       )}
                       {/* Suppliers (3rd level) */}
@@ -757,21 +757,21 @@ export default function ReportsPage() {
                                 sIndex < sub.suppliers.length - 1 ? 'border-b border-white/5' : ''
                               }`}
                             >
-                              <div className="flex flex-row-reverse items-center gap-[5px]">
-                                <span className={`text-[12px] font-normal w-[60px] text-center ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/60'}`}>
+                              <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+                                <span className={`text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/60'}`}>
                                   {supplier.remaining}
                                 </span>
-                                <span className={`text-[12px] font-normal w-[62px] text-center ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/60'}`}>
+                                <span className={`text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/60'}`}>
                                   {supplier.difference}
                                 </span>
-                                <span className="text-[12px] font-normal w-[62px] text-center ltr-num leading-[1.4] text-white/60">
+                                <span className="text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] text-white/60">
                                   {supplier.actual}
                                 </span>
-                                <span className="text-[12px] font-normal w-[62px] text-center ltr-num leading-[1.4] text-white/60">
+                                <span className="text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] text-white/60">
                                   {supplier.target}
                                 </span>
                               </div>
-                              <span className="text-[12px] font-normal text-right text-white/50 leading-[1.4]">{supplier.name}</span>
+                              <span className="text-[10px] sm:text-[12px] font-normal text-right text-white/50 leading-[1.4] shrink-0">{supplier.name}</span>
                             </div>
                           ))}
                         </div>
@@ -785,95 +785,95 @@ export default function ReportsPage() {
         </div>
 
         {/* Total Expenses Row */}
-        <div className="flex flex-row-reverse items-center justify-between bg-[#2C3595] rounded-[10px] p-[7px] mt-[10px] min-h-[60px]">
-          <div className="flex flex-row-reverse items-center gap-[5px]">
-            <span className={`text-[15px] font-bold w-[60px] text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses > 0 ? "text-[#17DB4E]" : summary.expensesTarget - summary.totalExpenses < 0 ? "text-[#F64E60]" : "text-white"}`}>
+        <div className="flex flex-row-reverse items-center justify-between bg-[#2C3595] rounded-[10px] p-[7px] mt-[10px] min-h-[60px] gap-[5px]">
+          <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+            <span className={`text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses > 0 ? "text-[#17DB4E]" : summary.expensesTarget - summary.totalExpenses < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {summary.expensesTarget > 0 ? (((summary.expensesTarget - summary.totalExpenses) / summary.expensesTarget) * 100).toFixed(2) : "0.00"}%
             </span>
-            <span className={`text-[15px] font-bold w-[62px] text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses > 0 ? "text-[#17DB4E]" : summary.expensesTarget - summary.totalExpenses < 0 ? "text-[#F64E60]" : "text-white"}`}>
+            <span className={`text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses > 0 ? "text-[#17DB4E]" : summary.expensesTarget - summary.totalExpenses < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatDifference(summary.expensesTarget - summary.totalExpenses)}
             </span>
-            <span className="text-[15px] font-bold w-[62px] text-center ltr-num leading-[1.4]">{formatCurrency(summary.totalExpenses)}</span>
-            <span className="text-[15px] font-bold w-[62px] text-center ltr-num leading-[1.4]">{formatCurrency(summary.expensesTarget)}</span>
+            <span className="text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">{formatCurrency(summary.totalExpenses)}</span>
+            <span className="text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">{formatCurrency(summary.expensesTarget)}</span>
           </div>
-          <span className="text-[18px] font-bold text-right leading-[1.4]">סה&quot;כ הוצאות</span>
+          <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0">סה&quot;כ הוצאות</span>
         </div>
       </section>
 
       {/* Total Profit/Loss Summary */}
       <section aria-label="סיכום רווח והפסד" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px]">
-        <div className="flex flex-row-reverse items-center gap-[5px]">
-          <div className="flex flex-col items-center w-[62px]">
-            <span className={`text-[14px] font-bold ltr-num leading-[1.4] ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) > 0 ? "text-[#17DB4E]" : summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) < 0 ? "text-[#F64E60]" : "text-white"}`}>
+        <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className={`text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) > 0 ? "text-[#17DB4E]" : summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {(summary.revenueTarget - summary.expensesTarget) !== 0
                 ? (((summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget)) / Math.abs(summary.revenueTarget - summary.expensesTarget)) * 100).toFixed(2)
                 : "0.00"}%
             </span>
           </div>
-          <div className="flex flex-col items-center w-[62px]">
-            <span className={`text-[14px] font-bold ltr-num leading-[1.4] ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) > 0 ? "text-[#17DB4E]" : summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) < 0 ? "text-[#F64E60]" : "text-white"}`}>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className={`text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) > 0 ? "text-[#17DB4E]" : summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget) < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(summary.operatingProfit - (summary.revenueTarget - summary.expensesTarget))}
             </span>
           </div>
-          <div className="flex flex-col items-center w-[57px]">
-            <span className="text-[14px] font-bold ltr-num leading-[1.4]">{formatCurrency(summary.operatingProfit)}</span>
-            <span className={`text-[14px] font-semibold ltr-num leading-[1.4] ${summary.operatingProfitPct > 0 ? "text-[#17DB4E]" : summary.operatingProfitPct < 0 ? "text-[#F64E60]" : "text-white"}`}>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.operatingProfit)}</span>
+            <span className={`text-[11px] sm:text-[14px] font-semibold ltr-num leading-[1.4] ${summary.operatingProfitPct > 0 ? "text-[#17DB4E]" : summary.operatingProfitPct < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {summary.operatingProfitPct.toFixed(1)}%
             </span>
           </div>
-          <div className="flex flex-col items-center w-[57px]">
-            <span className="text-[14px] font-bold ltr-num leading-[1.4]">{formatCurrency(summary.revenueTarget - summary.expensesTarget)}</span>
-            <span className={`text-[14px] font-semibold ltr-num leading-[1.4] ${summary.revenueTarget > 0 ? "text-[#17DB4E]" : "text-white"}`}>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.revenueTarget - summary.expensesTarget)}</span>
+            <span className={`text-[11px] sm:text-[14px] font-semibold ltr-num leading-[1.4] ${summary.revenueTarget > 0 ? "text-[#17DB4E]" : "text-white"}`}>
               {summary.revenueTarget > 0 ? (((summary.revenueTarget - summary.expensesTarget) / summary.revenueTarget) * 100).toFixed(1) : "0.0"}%
             </span>
           </div>
         </div>
-        <span className="text-[18px] font-bold text-right leading-[1.4] w-[77px]">סה&quot;כ רווח / הפסד</span>
+        <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0">סה&quot;כ רווח / הפסד</span>
       </section>
 
       {/* Prior Liabilities */}
       <section aria-label="התחייבויות קודמות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px]">
-        <div className="flex flex-row-reverse items-center gap-[5px]">
-          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[60px] text-center invisible">
+        <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+          <span className="text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center invisible">
             {formatCurrency(priorLiabilities)}
           </span>
-          <span className="text-[15px] font-bold ltr-num leading-[1.4] w-[62px] text-center invisible">
+          <span className="text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center invisible">
             {formatCurrency(priorLiabilities)}
           </span>
-          <span className={`text-[15px] font-bold ltr-num leading-[1.4] w-[62px] text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+          <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
             {formatCurrency(priorLiabilities)}
           </span>
-          <span className={`text-[15px] font-bold ltr-num leading-[1.4] w-[62px] text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+          <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
             {formatCurrency(priorLiabilities)}
           </span>
         </div>
-        <span className="text-[18px] font-bold text-right leading-[1.4]">התחייבויות קודמות</span>
+        <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0">התחייבויות קודמות</span>
       </section>
 
       {/* Cash Flow Forecast */}
       <section aria-label="צפי תזרים" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px] mb-[25px]">
-        <div className="flex flex-row-reverse items-center gap-[5px]">
-          <span className="w-[60px]" />
-          <div className="flex flex-col items-center w-[62px]">
-            <span className="text-[14px] font-medium leading-[1.4] text-center">הפרש ב-₪</span>
-            <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.actual - cashFlowForecast.target > 0 ? "text-[#17DB4E]" : cashFlowForecast.actual - cashFlowForecast.target < 0 ? "text-[#F64E60]" : "text-white"}`}>
+        <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+          <span className="flex-1 min-w-0" />
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[11px] sm:text-[14px] font-medium leading-[1.4] text-center whitespace-nowrap">הפרש ב-₪</span>
+            <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] text-center whitespace-nowrap ${cashFlowForecast.actual - cashFlowForecast.target > 0 ? "text-[#17DB4E]" : cashFlowForecast.actual - cashFlowForecast.target < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(cashFlowForecast.actual - cashFlowForecast.target)}
             </span>
           </div>
-          <div className="flex flex-col items-center w-[62px]">
-            <span className="text-[14px] font-medium leading-[1.4] text-center">בפועל</span>
-            <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.actual > 0 ? "text-[#17DB4E]" : cashFlowForecast.actual < 0 ? "text-[#F64E60]" : "text-white"}`}>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[11px] sm:text-[14px] font-medium leading-[1.4] text-center">בפועל</span>
+            <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] text-center whitespace-nowrap ${cashFlowForecast.actual > 0 ? "text-[#17DB4E]" : cashFlowForecast.actual < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(cashFlowForecast.actual)}
             </span>
           </div>
-          <div className="flex flex-col items-center w-[62px]">
-            <span className="text-[14px] font-medium leading-[1.4] text-center">יעד</span>
-            <span className={`text-[15px] font-bold ltr-num leading-[1.4] text-center ${cashFlowForecast.target > 0 ? "text-[#17DB4E]" : cashFlowForecast.target < 0 ? "text-[#F64E60]" : "text-white"}`}>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[11px] sm:text-[14px] font-medium leading-[1.4] text-center">יעד</span>
+            <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] text-center whitespace-nowrap ${cashFlowForecast.target > 0 ? "text-[#17DB4E]" : cashFlowForecast.target < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatCurrency(cashFlowForecast.target)}
             </span>
           </div>
         </div>
-        <span className="text-[18px] font-bold text-right leading-[1.4]">צפי תזרים</span>
+        <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0">צפי תזרים</span>
       </section>
     </article>
   );
