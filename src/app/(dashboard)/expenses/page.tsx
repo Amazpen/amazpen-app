@@ -2463,7 +2463,7 @@ function ExpensesPageInner() {
         {/* Table */}
         <div id="onboarding-expenses-list" className="w-full flex flex-col gap-[5px]">
           {/* Table Header */}
-          <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] items-center">
+          <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] ps-[13px] items-center">
             <Button
               type="button"
               onClick={() => setDateSortOrder(prev => prev === "asc" ? "desc" : prev === "desc" ? null : "asc")}
