@@ -1073,25 +1073,44 @@ export default function CustomersPage() {
               {/* ── Section 3: Active Users ────────────────────── */}
               {selectedItem.members.length > 0 && (
                 <div className="bg-[#29318A]/30 rounded-[10px] p-[15px] mb-[15px]">
-                  <h3 className="text-[14px] font-bold text-white mb-[10px]">משתמשים פעילים ({selectedItem.members.length})</h3>
-                  <div className="flex flex-col gap-[8px]">
+                  <div className="flex items-center gap-[8px] mb-[12px]">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white/60">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <h3 className="text-[15px] font-bold text-white">משתמשים פעילים</h3>
+                    <span className="text-[13px] text-white/50">({selectedItem.members.length})</span>
+                  </div>
+                  <div className="flex flex-col gap-[10px]">
                     {selectedItem.members.map((member) => (
-                      <div key={member.user_id} className="flex items-center justify-between">
+                      <div key={member.user_id} className="flex items-center gap-[10px] bg-white/5 rounded-[8px] p-[10px]">
+                        {/* Avatar circle */}
+                        <div className="w-[36px] h-[36px] rounded-full bg-[#4A56D4]/30 flex items-center justify-center flex-shrink-0">
+                          <span className="text-[14px] font-bold text-white/80">
+                            {(member.profiles?.full_name || member.profiles?.email || "?").charAt(0)}
+                          </span>
+                        </div>
+                        {/* Name + Email */}
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className="text-[14px] text-white font-medium truncate">
+                            {member.profiles?.full_name || member.profiles?.email}
+                          </span>
+                          <span className="text-[12px] text-white/40 truncate">{member.profiles?.email}</span>
+                        </div>
+                        {/* Role badge */}
                         <span
-                          className={`text-[12px] font-bold px-[8px] py-[2px] rounded-full ${
+                          className={`text-[11px] font-bold px-[10px] py-[4px] rounded-full flex-shrink-0 ${
                             member.role === "owner"
                               ? "bg-[#4A56D4] text-white"
                               : member.role === "admin"
-                              ? "bg-[#3CD856] text-white"
-                              : "bg-[#4A56D4]/50 text-white"
+                              ? "bg-[#3CD856]/20 text-[#3CD856]"
+                              : "bg-white/10 text-white/60"
                           }`}
                         >
                           {member.role === "owner" ? "בעלים" : member.role === "admin" ? "מנהל" : "עובד"}
                         </span>
-                        <div className="flex flex-col items-end">
-                          <span className="text-[14px] text-white">{member.profiles?.full_name || member.profiles?.email}</span>
-                          <span className="text-[12px] text-white/50">{member.profiles?.email}</span>
-                        </div>
                       </div>
                     ))}
                   </div>
