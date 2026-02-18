@@ -21,6 +21,7 @@ interface Business {
   city: string | null;
   phone: string | null;
   email: string | null;
+  logo_url: string | null;
   created_at: string;
   deleted_at: string | null;
 }
@@ -631,6 +632,19 @@ export default function CustomersPage() {
                     </span>
                   )}
 
+                  {/* Business Logo */}
+                  {item.business.logo_url ? (
+                    <img
+                      src={item.business.logo_url}
+                      alt={item.business.name}
+                      className="w-[60px] h-[60px] rounded-full object-cover border-2 border-white/20"
+                    />
+                  ) : (
+                    <div className="w-[60px] h-[60px] rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20">
+                      <span className="text-[22px] font-bold text-white/60">{item.business.name.charAt(0)}</span>
+                    </div>
+                  )}
+
                   {/* Business Name */}
                   <div className="w-[120px] text-center">
                     <span className="text-[18px] font-bold text-white leading-[1.4]">
@@ -656,7 +670,7 @@ export default function CustomersPage() {
                   key={customer.id}
                   type="button"
                   onClick={() => handleOpenDetail({
-                    business: { id: "", name: customer.business_name, business_type: null, status: null, tax_id: customer.tax_id, address: null, city: null, phone: null, email: null, created_at: "", deleted_at: null },
+                    business: { id: "", name: customer.business_name, business_type: null, status: null, tax_id: customer.tax_id, address: null, city: null, phone: null, email: null, logo_url: null, created_at: "", deleted_at: null },
                     customer,
                     members: [],
                   })}
