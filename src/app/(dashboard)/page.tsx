@@ -454,6 +454,63 @@ export default function DashboardPage() {
         supabase.from("business_schedule").select("business_id, day_of_week, day_factor").in("business_id", selectedBusinesses),
       ]);
 
+      // Fetch additional info: open payments, open suppliers, open commitments
+      const businessId = selectedBusinesses[0];
+      const [openPaymentSplitsResult, allInvoicesTotalResult, allPaymentsTotalResult, allCommitmentSplitsResult, paidCommitmentSplitsResult] = await Promise.all([
+        // Open payments - payment splits with due_date > today
+        supabase
+          .from("payment_splits")
+          .select("amount, payments!inner(business_id, deleted_at)")
+          .eq("payments.business_id", businessId)
+          .is("payments.deleted_at", null)
+          .gt("due_date", todayStr),
+        // All invoices total
+        supabase
+          .from("invoices")
+          .select("total_amount")
+          .eq("business_id", businessId)
+          .is("deleted_at", null),
+        // All payments total
+        supabase
+          .from("payments")
+          .select("total_amount")
+          .eq("business_id", businessId)
+          .is("deleted_at", null),
+        // All commitment splits (installments_count > 3)
+        supabase
+          .from("payment_splits")
+          .select("amount, installments_count, payments!inner(business_id, deleted_at)")
+          .eq("payments.business_id", businessId)
+          .is("payments.deleted_at", null)
+          .gt("installments_count", 3),
+        // Paid commitment splits (due_date <= today)
+        supabase
+          .from("payment_splits")
+          .select("amount, installments_count, payments!inner(business_id, deleted_at)")
+          .eq("payments.business_id", businessId)
+          .is("payments.deleted_at", null)
+          .gt("installments_count", 3)
+          .lte("due_date", todayStr),
+      ]);
+
+      const openPaymentsTotal = (openPaymentSplitsResult.data || []).reduce(
+        (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
+      );
+      const totalInvoicesAmount = (allInvoicesTotalResult.data || []).reduce(
+        (sum: number, inv: Record<string, unknown>) => sum + (Number(inv.total_amount) || 0), 0
+      );
+      const totalPaymentsAmount = (allPaymentsTotalResult.data || []).reduce(
+        (sum: number, pay: Record<string, unknown>) => sum + (Number(pay.total_amount) || 0), 0
+      );
+      const openSuppliersTotal = totalInvoicesAmount - totalPaymentsAmount;
+      const totalCommitments = (allCommitmentSplitsResult.data || []).reduce(
+        (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
+      );
+      const paidCommitments = (paidCommitmentSplitsResult.data || []).reduce(
+        (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
+      );
+      const openCommitmentsTotal = totalCommitments - paidCommitments;
+
       const todayBreakdowns = todayBreakdownResult.data || [];
       const allIncomeSources = incomeSourcesResult.data || [];
       const allManagedProducts = managedProductsResult.data || [];
@@ -657,7 +714,28 @@ export default function DashboardPage() {
       ];
       const cumulativeHtml = buildTable(`מצטבר חודש ${monthName}, ${year}`, ['', 'סה"כ', 'הפרש'], cumulativeRows);
 
-      const fullHtml = `<div style="direction:rtl;font-family:Arial,sans-serif;">${dailyHtml}${goalsHtml}${cumulativeHtml}</div>`;
+      // === Additional Info Section (open payments, suppliers, commitments) ===
+      const infoRowStyle = 'display:flex;justify-content:space-between;align-items:center;width:100%;';
+      const infoLabelStyle = 'color:#fff;font-size:16px;font-weight:bold;';
+      const infoValueStyle = 'color:#fff;font-size:16px;font-weight:500;direction:ltr;';
+      const additionalInfoHtml = `<div style="display:flex;flex-direction:column;gap:5px;margin-top:15px;border:2px solid #FFCF00;border-radius:10px;padding:10px 15px;direction:rtl;">
+        <div style="${infoRowStyle}"><span style="${infoLabelStyle}">תשלומים פתוחים:</span><span style="${infoValueStyle}">₪${Math.round(openPaymentsTotal).toLocaleString('he-IL')}</span></div>
+        <div style="${infoRowStyle}"><span style="${infoLabelStyle}">ספקים פתוחים:</span><span style="${infoValueStyle}">₪${Math.round(openSuppliersTotal).toLocaleString('he-IL')}</span></div>
+        <div style="${infoRowStyle}"><span style="${infoLabelStyle}">התחייבויות קודמות:</span><span style="${infoValueStyle}">₪${Math.round(openCommitmentsTotal).toLocaleString('he-IL')}</span></div>
+      </div>`;
+
+      // === Monthly Forecast Section (צפי הכנסות חודשי, צפי רווח החודש) ===
+      const monthlyPace = s.monthlyPace || 0;
+      const totalCostsPct = (s.laborCostPct || 0) + (s.foodCostPct || 0) + (s.currentExpensesPct || 0);
+      const monthlyProfit = monthlyPace > 0 ? monthlyPace * (1 - totalCostsPct / 100) : 0;
+      const forecastLabelStyle = 'color:#fff;font-size:18px;font-weight:bold;line-height:1.4;';
+      const forecastValueStyle = 'color:#fff;font-size:18px;font-weight:500;line-height:1.4;direction:ltr;';
+      const monthlyForecastHtml = `<div style="display:flex;flex-direction:column;border:2px solid #FFCF00;border-radius:10px;padding:10px 15px;margin-top:15px;direction:rtl;">
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;"><span style="${forecastLabelStyle}">צפי הכנסות חודשי כולל מע"מ:</span><span style="${forecastValueStyle}">₪${Math.round(monthlyPace).toLocaleString('he-IL')}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:5px;"><span style="${forecastLabelStyle}">צפי רווח החודש:</span><span style="${forecastValueStyle}">₪${Math.round(monthlyProfit).toLocaleString('he-IL')}</span></div>
+      </div>`;
+
+      const fullHtml = `<div style="direction:rtl;font-family:Arial,sans-serif;">${dailyHtml}${goalsHtml}${cumulativeHtml}${additionalInfoHtml}${monthlyForecastHtml}</div>`;
 
       const businessName = selectedBusinesses.length === 1
         ? businessCards.find(b => b.id === selectedBusinesses[0])?.name || ''

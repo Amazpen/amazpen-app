@@ -1848,24 +1848,35 @@ export function DailyEntriesModal({
                         </div>
 
                         {/* Monthly Forecast */}
-                        <div className="flex flex-col border-2 border-[#FFCF00] rounded-[10px] p-[10px_15px] mt-[15px]" dir="rtl">
-                          <div className="flex justify-between items-center w-full">
-                            <span className="text-white text-[18px] font-bold leading-[1.4]">
-                              צפי הכנסות חודשי כולל מע&quot;מ:
-                            </span>
-                            <span className="text-white text-[18px] font-medium leading-[1.4] ltr-num">
-                              ₪0
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center w-full mt-[5px]">
-                            <span className="text-white text-[18px] font-bold leading-[1.4]">
-                              צפי רווח החודש:
-                            </span>
-                            <span className="text-white text-[18px] font-medium leading-[1.4] ltr-num">
-                              ₪0
-                            </span>
-                          </div>
-                        </div>
+                        {(() => {
+                          const target = goalsData?.revenueTarget || 0;
+                          const actual = monthlyCumulative?.totalIncome || 0;
+                          const actualDays = monthlyCumulative?.actualWorkDays || 0;
+                          const expectedDays = goalsData?.workDaysInMonth || 0;
+                          const monthlyPace = (actualDays > 0 && expectedDays > 0) ? (actual / actualDays) * expectedDays : 0;
+                          const totalCostsPct = (monthlyCumulative?.laborCostPct || 0) + (monthlyCumulative?.foodCostPct || 0) + (monthlyCumulative?.currentExpensesPct || 0);
+                          const monthlyProfit = monthlyPace > 0 ? monthlyPace * (1 - totalCostsPct / 100) : 0;
+                          return (
+                            <div className="flex flex-col border-2 border-[#FFCF00] rounded-[10px] p-[10px_15px] mt-[15px]" dir="rtl">
+                              <div className="flex justify-between items-center w-full">
+                                <span className="text-white text-[18px] font-bold leading-[1.4]">
+                                  צפי הכנסות חודשי כולל מע&quot;מ:
+                                </span>
+                                <span className="text-white text-[18px] font-medium leading-[1.4] ltr-num">
+                                  {formatCurrency(Math.round(monthlyPace))}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center w-full mt-[5px]">
+                                <span className="text-white text-[18px] font-bold leading-[1.4]">
+                                  צפי רווח החודש:
+                                </span>
+                                <span className="text-white text-[18px] font-medium leading-[1.4] ltr-num">
+                                  {formatCurrency(Math.round(monthlyProfit))}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </>
                     )}
                   </div>
