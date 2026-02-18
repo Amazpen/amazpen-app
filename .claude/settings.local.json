@@ -231,7 +231,20 @@
       "Bash(YAMLDOC)",
       "Bash(/c/Program Files/nodejs/npx.cmd next lint --quiet)",
       "Bash(/c/Program Files/nodejs/npx.cmd next lint:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "WebFetch(domain:blog.pwabuilder.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:developers.google.com)",
+      "WebFetch(domain:www.thinktecture.com)",
+      "WebFetch(domain:chibicart.com)",
+      "WebFetch(domain:www.pwabuilder.com)",
+      "WebFetch(domain:app.amazpenbiz.co.il)",
+      "Bash(/c/Program Files/nodejs/npm.cmd install idb-keyval)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(/c/Program Files/nodejs/npx.cmd shadcn@latest add alert-dialog select tabs textarea -y)",
+      "Bash(/c/Program Files/nodejs/npx.cmd shadcn@latest add alert-dialog select tabs textarea --overwrite -y)",
+      "Bash(/c/Program Files/nodejs/npm.cmd install --legacy-peer-deps)",
+      "Bash(/c/Program Files/nodejs/npx.cmd shadcn@latest add badge table checkbox dialog --overwrite -y)"
     ]
   },
   "enableAllProjectMcpServers": true,

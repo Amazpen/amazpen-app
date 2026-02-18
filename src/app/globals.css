@@ -286,7 +286,19 @@
 }
 
 .business-card.business-card-expanded {
-  background-color: #5560dd !important;
+  background: linear-gradient(135deg, #5560dd, #7c3aed, #3b82f6, #6366f1, #5560dd) !important;
+  background-size: 300% 300% !important;
+  animation: gradient-shift 4s ease infinite !important;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 100% 0%; }
+  50% { background-position: 100% 50%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
 }
 
 /* Dark Select Dropdown Styling */
