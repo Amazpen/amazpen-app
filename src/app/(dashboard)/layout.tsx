@@ -833,7 +833,7 @@ export default function DashboardLayout({
         )}
 
         {/* Fixed Header - Always visible, offset by sidebar on desktop */}
-        <header role="banner" aria-label="כותרת עליונה" className={`fixed top-0 left-0 right-0 ${isOcrPage ? '' : 'lg:right-[220px]'} z-50 bg-[#0f1231] flex justify-between items-center px-3 sm:px-4 py-3 sm:py-3 min-h-[60px] sm:min-h-[56px]`}>
+        <header role="banner" aria-label="כותרת עליונה" className={`fixed top-0 left-0 right-0 ${isOcrPage ? '' : 'lg:right-[220px]'} z-50 bg-[#0f1231] flex justify-between items-center px-[7px] sm:px-3 py-3 sm:py-3 min-h-[60px] sm:min-h-[56px]`}>
           {/* Right side - Menu and Title */}
           <div className="flex items-center gap-[8px]">
             <Button
