@@ -229,7 +229,9 @@
       "Bash(url: http://meta:8080/)",
       "Bash(url: http://studio:3000/)",
       "Bash(YAMLDOC)",
-      "Bash(/c/Program Files/nodejs/npx.cmd next lint --quiet)"
+      "Bash(/c/Program Files/nodejs/npx.cmd next lint --quiet)",
+      "Bash(/c/Program Files/nodejs/npx.cmd next lint:*)",
+      "Bash(git check-ignore:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
