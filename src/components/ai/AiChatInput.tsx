@@ -88,6 +88,7 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
   const chunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const preListeningTextRef = useRef("");
+  const finalTranscriptRef = useRef("");
 
   // Check Web Speech API support (available in Chrome/Android)
   const [speechSupported, setSpeechSupported] = useState(false);
@@ -241,26 +242,31 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
     recognition.lang = "he-IL";
     recognition.continuous = true;
     recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
 
     // Save current textarea text so we can append to it
     preListeningTextRef.current = value;
+    finalTranscriptRef.current = "";
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let finalTranscript = "";
-      let interimTranscript = "";
+      // Only process new results starting from resultIndex to avoid duplicates
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscriptRef.current += event.results[i][0].transcript;
+        }
+      }
 
-      for (let i = 0; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) {
-          finalTranscript += result[0].transcript;
-        } else {
-          interimTranscript += result[0].transcript;
+      // Get current interim (non-final) text from the latest result
+      let interimTranscript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (!event.results[i].isFinal) {
+          interimTranscript += event.results[i][0].transcript;
         }
       }
 
       const prefix = preListeningTextRef.current;
       const separator = prefix && !prefix.endsWith(" ") ? " " : "";
-      setValue(prefix + separator + finalTranscript + interimTranscript);
+      setValue(prefix + separator + finalTranscriptRef.current + interimTranscript);
     };
 
     recognition.onerror = () => {
