@@ -120,7 +120,7 @@ function LoginPageContent() {
                 placeholder="הזן כתובת מייל..."
                 required
                 autoComplete="username"
-                className="w-full h-[50px] bg-white text-[#0F1231] text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] pr-[45px] placeholder:text-[#9CA3AF]"
+                className="w-full h-[50px] bg-white! text-[#0F1231] text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] pr-[45px] placeholder:text-[#9CA3AF] shadow-none"
               />
               <div className="absolute top-1/2 right-[12px] -translate-y-1/2 text-[#6B7280]">
                 <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
@@ -142,23 +142,21 @@ function LoginPageContent() {
                 placeholder="הזן סיסמה..."
                 required
                 autoComplete="current-password"
-                className="w-full h-[50px] bg-white text-[#0F1231] text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] pr-[45px] placeholder:text-[#9CA3AF]"
+                className="w-full h-[50px] bg-white! text-[#0F1231] text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] pr-[45px] placeholder:text-[#9CA3AF] shadow-none"
               />
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="icon"
                 onClick={() => setShowPassword(!showPassword)}
                 title={showPassword ? "הסתר סיסמה" : "הצג סיסמה"}
                 aria-label={showPassword ? "הסתר סיסמה" : "הצג סיסמה"}
-                className="absolute top-1/2 right-[12px] -translate-y-1/2 text-[#6B7280] hover:text-[#374151] transition-colors"
+                className="absolute top-1/2 right-[12px] -translate-y-1/2 text-[#6B7280] hover:text-[#374151] transition-colors p-0 bg-transparent border-none cursor-pointer"
               >
                 <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
                   <rect x="8" y="12" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
                   <path d="M12 12V8C12 5.79086 13.7909 4 16 4C18.2091 4 20 5.79086 20 8V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                   <circle cx="16" cy="19" r="2" fill="currentColor"/>
                 </svg>
-              </Button>
+              </button>
             </div>
           </div>
 

@@ -63,7 +63,7 @@
   --popover: rgba(15, 18, 49, 0.95);
   --popover-foreground: #ffffff;
 
-  --primary: #6366f1;
+  --primary: #FFA412;
   --primary-foreground: #ffffff;
 
   --secondary: rgba(44, 53, 150, 0.3);
@@ -72,14 +72,14 @@
   --muted: rgba(44, 53, 150, 0.2);
   --muted-foreground: #94a3b8;
 
-  --accent: #6366f1;
+  --accent: rgba(255, 255, 255, 0.1);
   --accent-foreground: #ffffff;
 
   --destructive: #ef4444;
 
   --border: rgba(44, 53, 150, 0.4);
   --input: rgba(44, 53, 150, 0.3);
-  --ring: #6366f1;
+  --ring: #FFA412;
 
   /* Charts */
   --chart-1: #6366f1;
@@ -91,12 +91,12 @@
   /* Sidebar - matching the gradient theme */
   --sidebar: #0f1231;
   --sidebar-foreground: #ffffff;
-  --sidebar-primary: #6366f1;
+  --sidebar-primary: #FFA412;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: rgba(44, 53, 150, 0.5);
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(44, 53, 150, 0.3);
-  --sidebar-ring: #6366f1;
+  --sidebar-ring: #FFA412;
 }
 
 /* Success/Warning colors */
