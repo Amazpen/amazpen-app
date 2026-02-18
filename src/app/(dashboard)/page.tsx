@@ -718,10 +718,12 @@ export default function DashboardPage() {
       const infoRowStyle = 'display:flex;justify-content:space-between;align-items:center;width:100%;';
       const infoLabelStyle = 'color:#fff;font-size:16px;font-weight:bold;';
       const infoValueStyle = 'color:#fff;font-size:16px;font-weight:500;direction:ltr;';
-      const additionalInfoHtml = `<div style="display:flex;flex-direction:column;gap:5px;margin-top:15px;border:2px solid #FFCF00;border-radius:10px;padding:10px 15px;direction:rtl;">
-        <div style="${infoRowStyle}"><span style="${infoLabelStyle}">תשלומים פתוחים:</span><span style="${infoValueStyle}">₪${Math.round(openPaymentsTotal).toLocaleString('he-IL')}</span></div>
-        <div style="${infoRowStyle}"><span style="${infoLabelStyle}">ספקים פתוחים:</span><span style="${infoValueStyle}">₪${Math.round(openSuppliersTotal).toLocaleString('he-IL')}</span></div>
-        <div style="${infoRowStyle}"><span style="${infoLabelStyle}">התחייבויות קודמות:</span><span style="${infoValueStyle}">₪${Math.round(openCommitmentsTotal).toLocaleString('he-IL')}</span></div>
+      const additionalInfoHtml = `<div style="background:#0F1535;margin-top:15px;border:2px solid #FFCF00;border-radius:10px;padding:10px 15px;direction:rtl;">
+        <table style="width:100%;border-collapse:collapse;direction:rtl;" dir="rtl">
+          <tr><td style="${infoLabelStyle}padding:4px 0;">תשלומים פתוחים:</td><td style="${infoValueStyle}text-align:left;padding:4px 0;">₪${Math.round(openPaymentsTotal).toLocaleString('he-IL')}</td></tr>
+          <tr><td style="${infoLabelStyle}padding:4px 0;">ספקים פתוחים:</td><td style="${infoValueStyle}text-align:left;padding:4px 0;">₪${Math.round(openSuppliersTotal).toLocaleString('he-IL')}</td></tr>
+          <tr><td style="${infoLabelStyle}padding:4px 0;">התחייבויות קודמות:</td><td style="${infoValueStyle}text-align:left;padding:4px 0;">₪${Math.round(openCommitmentsTotal).toLocaleString('he-IL')}</td></tr>
+        </table>
       </div>`;
 
       // === Monthly Forecast Section (צפי הכנסות חודשי, צפי רווח החודש) ===
@@ -730,9 +732,11 @@ export default function DashboardPage() {
       const monthlyProfit = monthlyPace > 0 ? monthlyPace * (1 - totalCostsPct / 100) : 0;
       const forecastLabelStyle = 'color:#fff;font-size:18px;font-weight:bold;line-height:1.4;';
       const forecastValueStyle = 'color:#fff;font-size:18px;font-weight:500;line-height:1.4;direction:ltr;';
-      const monthlyForecastHtml = `<div style="display:flex;flex-direction:column;border:2px solid #FFCF00;border-radius:10px;padding:10px 15px;margin-top:15px;direction:rtl;">
-        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;"><span style="${forecastLabelStyle}">צפי הכנסות חודשי כולל מע"מ:</span><span style="${forecastValueStyle}">₪${Math.round(monthlyPace).toLocaleString('he-IL')}</span></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:5px;"><span style="${forecastLabelStyle}">צפי רווח החודש:</span><span style="${forecastValueStyle}">₪${Math.round(monthlyProfit).toLocaleString('he-IL')}</span></div>
+      const monthlyForecastHtml = `<div style="background:#0F1535;border:2px solid #FFCF00;border-radius:10px;padding:10px 15px;margin-top:15px;direction:rtl;">
+        <table style="width:100%;border-collapse:collapse;direction:rtl;" dir="rtl">
+          <tr><td style="${forecastLabelStyle}padding:4px 0;">צפי הכנסות חודשי כולל מע"מ:</td><td style="${forecastValueStyle}text-align:left;padding:4px 0;">₪${Math.round(monthlyPace).toLocaleString('he-IL')}</td></tr>
+          <tr><td style="${forecastLabelStyle}padding:4px 0;">צפי רווח החודש:</td><td style="${forecastValueStyle}text-align:left;padding:4px 0;">₪${Math.round(monthlyProfit).toLocaleString('he-IL')}</td></tr>
+        </table>
       </div>`;
 
       const fullHtml = `<div style="direction:rtl;font-family:Arial,sans-serif;">${dailyHtml}${goalsHtml}${cumulativeHtml}${additionalInfoHtml}${monthlyForecastHtml}</div>`;
