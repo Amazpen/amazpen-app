@@ -12,6 +12,7 @@ import { PushPrompt } from "@/components/ui/push-prompt";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { ConsolidatedInvoiceModal } from "@/components/dashboard/ConsolidatedInvoiceModal";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { useWakeLock } from "@/hooks/useWakeLock";
 import { OfflineIndicator } from "@/components/ui/offline-indicator";
 import { Button } from "@/components/ui/button";
 // import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
@@ -259,6 +260,9 @@ export default function DashboardLayout({
 
   // Offline sync
   const offlineSync = useOfflineSync();
+
+  // Keep screen awake while app is visible
+  useWakeLock();
 
   // Set mounted state after hydration and restore client-only state
   useEffect(() => {
