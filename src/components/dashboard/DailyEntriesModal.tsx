@@ -1820,7 +1820,7 @@ export function DailyEntriesModal({
                         </div>
 
                         {/* Additional Info */}
-                        <div className="flex flex-col gap-[5px] mt-[15px] border-2 border-[#FFCF00] rounded-[10px] p-[10px_15px]" dir="rtl">
+                        <div className="flex flex-col gap-[5px] mt-[15px] border-2 border-[#FFCF00] rounded-[10px] p-[10px_7px]" dir="rtl">
                           <div className="flex items-center w-full">
                             <span className="text-white text-[16px] font-bold w-[230px] shrink-0">
                               תשלומים פתוחים:
