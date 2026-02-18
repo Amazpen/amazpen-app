@@ -1857,7 +1857,7 @@ export function DailyEntriesModal({
                           const totalCostsPct = (monthlyCumulative?.laborCostPct || 0) + (monthlyCumulative?.foodCostPct || 0) + (monthlyCumulative?.currentExpensesPct || 0);
                           const monthlyProfit = monthlyPace > 0 ? monthlyPace * (1 - totalCostsPct / 100) : 0;
                           return (
-                            <div className="flex flex-col border-2 border-[#FFCF00] rounded-[10px] p-[10px_15px] mt-[15px]" dir="rtl">
+                            <div className="flex flex-col border-2 border-[#FFCF00] rounded-[10px] p-[10px_7px] mt-[15px]" dir="rtl">
                               <div className="flex items-center w-full">
                                 <span className="text-white text-[18px] font-bold leading-[1.4] w-[230px] shrink-0">
                                   צפי הכנסות חודשי כולל מע&quot;מ:
