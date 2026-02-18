@@ -194,14 +194,6 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Reset image state when URL changes
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    setImageLoaded(false);
-    setImageError(false);
-  }, [imageUrl]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
   return (
     <div style={{ height: '100%', background: '#0a0d1f', borderRadius: '10px', overflow: 'hidden' }}>
       {/* Toolbar - fixed height 48px */}
