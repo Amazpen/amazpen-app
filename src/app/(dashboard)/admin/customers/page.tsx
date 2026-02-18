@@ -10,7 +10,22 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { generateUUID } from "@/lib/utils";
 
-// Customer type from database
+// Business from businesses table
+interface Business {
+  id: string;
+  name: string;
+  business_type: string | null;
+  status: string | null;
+  tax_id: string | null;
+  address: string | null;
+  city: string | null;
+  phone: string | null;
+  email: string | null;
+  created_at: string;
+  deleted_at: string | null;
+}
+
+// Customer record linked to a business
 interface Customer {
   id: string;
   business_id: string | null;
@@ -29,6 +44,13 @@ interface Customer {
   deleted_at: string | null;
 }
 
+// Combined display item
+interface CustomerDisplay {
+  business: Business;
+  customer: Customer | null;
+  members: BusinessMember[];
+}
+
 // Customer payment type
 interface CustomerPayment {
   id: string;
@@ -42,7 +64,7 @@ interface CustomerPayment {
   deleted_at: string | null;
 }
 
-// Business member for detail popup
+// Business member
 interface BusinessMember {
   user_id: string;
   role: string;
@@ -73,7 +95,8 @@ export default function CustomersPage() {
   const draftRestored = useRef(false);
 
   // List state
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [displayItems, setDisplayItems] = useState<CustomerDisplay[]>([]);
+  const [standaloneCustomers, setStandaloneCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -84,6 +107,8 @@ export default function CustomersPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [formBusinessId, setFormBusinessId] = useState<string | null>(null);
+  const [formBusinessName, setFormBusinessName] = useState("");
 
   // Form fields
   const [fContactName, setFContactName] = useState("");
@@ -99,8 +124,7 @@ export default function CustomersPage() {
 
   // Detail popup state
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [businessMembers, setBusinessMembers] = useState<BusinessMember[]>([]);
+  const [selectedItem, setSelectedItem] = useState<CustomerDisplay | null>(null);
   const [payments, setPayments] = useState<CustomerPayment[]>([]);
   const [detailMonth, setDetailMonth] = useState(() => {
     const now = new Date();
@@ -115,55 +139,72 @@ export default function CustomersPage() {
   const [newPaymentMethod, setNewPaymentMethod] = useState("");
   const [newPaymentNotes, setNewPaymentNotes] = useState("");
 
+  // Available businesses for "add standalone" form
+  const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
+
   // ─── Data Fetching ─────────────────────────────────────────
 
   useEffect(() => {
-    async function fetchCustomers() {
+    async function fetchData() {
       if (!isAdmin) return;
       setIsLoading(true);
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("customers")
+
+      // Fetch all businesses
+      const { data: businesses } = await supabase
+        .from("businesses")
         .select("*")
         .is("deleted_at", null)
-        .order("is_active", { ascending: false, nullsFirst: false })
-        .order("business_name");
+        .order("name");
 
-      if (error) {
-        console.error("Error fetching customers:", error);
-        showToast("שגיאה בטעינת לקוחות", "error");
-      } else {
-        setCustomers(data || []);
-      }
+      // Fetch all customer records
+      const { data: customers } = await supabase
+        .from("customers")
+        .select("*")
+        .is("deleted_at", null);
+
+      // Fetch all business members with profiles
+      const { data: members } = await supabase
+        .from("business_members")
+        .select("user_id, role, business_id, profiles(id, full_name, email)");
+
+      const businessList = businesses || [];
+      const customerList = customers || [];
+      const memberList = (members as unknown as (BusinessMember & { business_id: string })[]) || [];
+
+      setAllBusinesses(businessList);
+
+      // Map businesses to display items
+      const items: CustomerDisplay[] = businessList.map((biz) => ({
+        business: biz,
+        customer: customerList.find((c) => c.business_id === biz.id) || null,
+        members: memberList.filter((m) => m.business_id === biz.id),
+      }));
+
+      setDisplayItems(items);
+
+      // Standalone customers (not linked to any business)
+      const standalone = customerList.filter(
+        (c) => !c.business_id || !businessList.some((b) => b.id === c.business_id)
+      );
+      setStandaloneCustomers(standalone);
+
       setIsLoading(false);
     }
-    fetchCustomers();
+    fetchData();
   }, [isAdmin, refreshTrigger, showToast]);
 
   // ─── Detail Fetching ───────────────────────────────────────
 
-  const fetchCustomerDetail = useCallback(async (customer: Customer) => {
+  const fetchPayments = useCallback(async (customerId: string) => {
     const supabase = createClient();
-
-    // Fetch business members if linked
-    if (customer.business_id) {
-      const { data } = await supabase
-        .from("business_members")
-        .select("user_id, role, profiles(id, full_name, email)")
-        .eq("business_id", customer.business_id);
-      setBusinessMembers((data as unknown as BusinessMember[]) || []);
-    } else {
-      setBusinessMembers([]);
-    }
-
-    // Fetch payments
-    const { data: paymentsData } = await supabase
+    const { data } = await supabase
       .from("customer_payments")
       .select("*")
-      .eq("customer_id", customer.id)
+      .eq("customer_id", customerId)
       .is("deleted_at", null)
       .order("payment_date", { ascending: false });
-    setPayments(paymentsData || []);
+    setPayments(data || []);
   }, []);
 
   // ─── Monthly payments computed ─────────────────────────────
@@ -173,24 +214,25 @@ export default function CustomersPage() {
     return d.getFullYear() === detailMonth.getFullYear() && d.getMonth() === detailMonth.getMonth();
   });
   const monthlyTotal = monthlyPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-
-  // Total income from customer (all time)
   const totalIncome = payments.reduce((sum, p) => sum + Number(p.amount), 0);
 
   // ─── Handlers ──────────────────────────────────────────────
 
-  const handleOpenDetail = async (customer: Customer) => {
-    setSelectedCustomer(customer);
+  const handleOpenDetail = async (item: CustomerDisplay) => {
+    setSelectedItem(item);
     setDetailMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
     setIsAddPaymentOpen(false);
     setIsDetailOpen(true);
-    await fetchCustomerDetail(customer);
+    if (item.customer) {
+      await fetchPayments(item.customer.id);
+    } else {
+      setPayments([]);
+    }
   };
 
   const handleCloseDetail = () => {
     setIsDetailOpen(false);
-    setSelectedCustomer(null);
-    setBusinessMembers([]);
+    setSelectedItem(null);
     setPayments([]);
   };
 
@@ -205,6 +247,8 @@ export default function CustomersPage() {
     setFNotes("");
     setFIsActive(true);
     setAgreementFile(null);
+    setFormBusinessId(null);
+    setFormBusinessName("");
   };
 
   const handleCloseForm = () => {
@@ -214,21 +258,52 @@ export default function CustomersPage() {
     resetForm();
   };
 
-  const handleEditCustomer = () => {
-    if (!selectedCustomer) return;
-    setFContactName(selectedCustomer.contact_name);
-    setFBusinessName(selectedCustomer.business_name);
-    setFCompanyName(selectedCustomer.company_name || "");
-    setFTaxId(selectedCustomer.tax_id || "");
-    setFWorkStartDate(selectedCustomer.work_start_date || "");
-    setFSetupFee(selectedCustomer.setup_fee || "");
-    setFPaymentTerms(selectedCustomer.payment_terms || "");
-    setFNotes(selectedCustomer.notes || "");
-    setFIsActive(selectedCustomer.is_active);
-    setEditingCustomer(selectedCustomer);
-    setIsEditMode(true);
+  // Open form to create/edit customer record for a business
+  const handleSetupCustomer = (item: CustomerDisplay) => {
+    setFormBusinessId(item.business.id);
+    setFormBusinessName(item.business.name);
+
+    if (item.customer) {
+      // Edit existing customer record
+      setFContactName(item.customer.contact_name);
+      setFBusinessName(item.customer.business_name);
+      setFCompanyName(item.customer.company_name || "");
+      setFTaxId(item.customer.tax_id || item.business.tax_id || "");
+      setFWorkStartDate(item.customer.work_start_date || "");
+      setFSetupFee(item.customer.setup_fee || "");
+      setFPaymentTerms(item.customer.payment_terms || "");
+      setFNotes(item.customer.notes || "");
+      setFIsActive(item.customer.is_active);
+      setEditingCustomer(item.customer);
+      setIsEditMode(true);
+    } else {
+      // New customer record for this business
+      resetForm();
+      setFormBusinessId(item.business.id);
+      setFormBusinessName(item.business.name);
+      setFBusinessName(item.business.name);
+      setFTaxId(item.business.tax_id || "");
+      setIsEditMode(false);
+    }
+
     setIsDetailOpen(false);
     setIsFormOpen(true);
+  };
+
+  // Open form for standalone customer (not linked to existing business)
+  const handleAddStandaloneCustomer = () => {
+    resetForm();
+    resetCleared();
+    setFormBusinessId(null);
+    setFormBusinessName("");
+    setIsEditMode(false);
+    setEditingCustomer(null);
+    setIsFormOpen(true);
+  };
+
+  const handleEditCustomer = () => {
+    if (!selectedItem) return;
+    handleSetupCustomer(selectedItem);
   };
 
   const handleSaveCustomer = async () => {
@@ -243,7 +318,6 @@ export default function CustomersPage() {
     try {
       let agreementUrl = isEditMode ? editingCustomer?.agreement_url || null : null;
 
-      // Upload agreement file if provided
       if (agreementFile) {
         const ext = agreementFile.name.split(".").pop() || "pdf";
         const path = `customer-agreements/${generateUUID()}.${ext}`;
@@ -258,6 +332,7 @@ export default function CustomersPage() {
       }
 
       const customerData = {
+        business_id: formBusinessId || null,
         contact_name: fContactName.trim(),
         business_name: fBusinessName.trim(),
         company_name: fCompanyName.trim() || null,
@@ -309,18 +384,18 @@ export default function CustomersPage() {
   };
 
   const handleDeleteCustomer = async () => {
-    if (!selectedCustomer) return;
+    if (!selectedItem?.customer) return;
     if (payments.length > 0) {
       showToast("לא ניתן למחוק לקוח עם תשלומים קיימים", "error");
       return;
     }
-    if (!confirm("האם למחוק את הלקוח?")) return;
+    if (!confirm("האם למחוק את רשומת הלקוח?")) return;
 
     const supabase = createClient();
     const { error } = await supabase
       .from("customers")
       .update({ deleted_at: new Date().toISOString() })
-      .eq("id", selectedCustomer.id);
+      .eq("id", selectedItem.customer.id);
 
     if (error) {
       showToast("שגיאה במחיקת לקוח", "error");
@@ -334,7 +409,7 @@ export default function CustomersPage() {
   // ─── Payment Handlers ─────────────────────────────────────
 
   const handleAddPayment = async () => {
-    if (!selectedCustomer || !newPaymentDate || !newPaymentAmount) return;
+    if (!selectedItem?.customer || !newPaymentDate || !newPaymentAmount) return;
 
     const amount = parseFloat(newPaymentAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -346,7 +421,7 @@ export default function CustomersPage() {
     const supabase = createClient();
     const { error } = await supabase.from("customer_payments").insert({
       id: generateUUID(),
-      customer_id: selectedCustomer.id,
+      customer_id: selectedItem.customer.id,
       payment_date: newPaymentDate,
       amount,
       description: newPaymentDescription.trim() || null,
@@ -365,13 +440,13 @@ export default function CustomersPage() {
       setNewPaymentMethod("");
       setNewPaymentNotes("");
       setIsAddPaymentOpen(false);
-      await fetchCustomerDetail(selectedCustomer);
+      await fetchPayments(selectedItem.customer.id);
     }
     setIsSubmitting(false);
   };
 
   const handleDeletePayment = async (paymentId: string) => {
-    if (!selectedCustomer) return;
+    if (!selectedItem?.customer) return;
     if (!confirm("האם למחוק את התשלום?")) return;
 
     const supabase = createClient();
@@ -384,7 +459,7 @@ export default function CustomersPage() {
       showToast("שגיאה במחיקת תשלום", "error");
     } else {
       showToast("התשלום נמחק", "success");
-      await fetchCustomerDetail(selectedCustomer);
+      await fetchPayments(selectedItem.customer.id);
     }
   };
 
@@ -393,14 +468,8 @@ export default function CustomersPage() {
   const saveDraftData = useCallback(() => {
     if (!isFormOpen || isEditMode) return;
     saveDraft({
-      fContactName,
-      fBusinessName,
-      fCompanyName,
-      fTaxId,
-      fWorkStartDate,
-      fSetupFee,
-      fPaymentTerms,
-      fNotes,
+      fContactName, fBusinessName, fCompanyName, fTaxId,
+      fWorkStartDate, fSetupFee, fPaymentTerms, fNotes,
     });
   }, [saveDraft, isFormOpen, isEditMode, fContactName, fBusinessName, fCompanyName, fTaxId, fWorkStartDate, fSetupFee, fPaymentTerms, fNotes]);
 
@@ -409,7 +478,7 @@ export default function CustomersPage() {
   }, [saveDraftData]);
 
   useEffect(() => {
-    if (isFormOpen && !isEditMode) {
+    if (isFormOpen && !isEditMode && !formBusinessId) {
       resetCleared();
       draftRestored.current = false;
       setTimeout(() => {
@@ -426,21 +495,29 @@ export default function CustomersPage() {
         }
         draftRestored.current = true;
       }, 0);
-    } else if (isEditMode) {
+    } else {
       draftRestored.current = true;
     }
-  }, [isFormOpen, isEditMode, restoreDraft, resetCleared]);
+  }, [isFormOpen, isEditMode, formBusinessId, restoreDraft, resetCleared]);
 
   // ─── Filtering ─────────────────────────────────────────────
 
-  const filteredCustomers = customers.filter(
+  const filteredItems = displayItems.filter(
+    (item) =>
+      !searchQuery ||
+      item.business.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.customer?.contact_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+      (item.business.tax_id?.includes(searchQuery) ?? false)
+  );
+
+  const filteredStandalone = standaloneCustomers.filter(
     (c) =>
       !searchQuery ||
       c.business_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.contact_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (c.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-      (c.tax_id?.includes(searchQuery) ?? false)
+      c.contact_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const totalCount = filteredItems.length + filteredStandalone.length;
 
   // ─── Access Guard ──────────────────────────────────────────
 
@@ -455,27 +532,13 @@ export default function CustomersPage() {
   // ─── Render ────────────────────────────────────────────────
 
   return (
-    <div dir="rtl" className="flex flex-col min-h-[calc(100vh-52px)] min-h-[calc(100dvh-52px)] px-[20px] pt-[20px] pb-[10px]">
+    <div dir="rtl" className="flex flex-col min-h-[calc(100vh-52px)] min-h-[calc(100dvh-52px)] text-white px-[5px] py-[5px] pb-[80px] gap-[10px]">
       {/* Header */}
-      <div className="flex flex-col gap-[10px] mb-[15px]">
-        {/* Total income summary */}
-        <div className="flex items-center gap-[8px] justify-center">
-          <span className="text-[23px] font-bold text-[#0BB783]">סה&quot;כ הכנסות:</span>
-          <span dir="ltr" className="text-[23px] font-bold text-[#0BB783]">
-            ₪{totalIncome.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-          </span>
-        </div>
-
-        {/* Add Customer Button */}
+      <div className="flex flex-col gap-[7px] p-[5px]">
+        {/* Add Standalone Customer Button */}
         <button
           type="button"
-          onClick={() => {
-            resetForm();
-            resetCleared();
-            setIsEditMode(false);
-            setEditingCustomer(null);
-            setIsFormOpen(true);
-          }}
+          onClick={handleAddStandaloneCustomer}
           className="w-full min-h-[50px] bg-[#29318A] text-white text-[16px] font-semibold rounded-[5px] px-[24px] py-[12px] transition-colors duration-200 hover:bg-[#3D44A0] shadow-[0_7px_30px_-10px_rgba(41,49,138,0.1)]"
         >
           הוספת לקוח חדש
@@ -510,11 +573,11 @@ export default function CustomersPage() {
               autoFocus
             />
           ) : (
-            <span className="text-[18px] font-bold text-white">{filteredCustomers.length} לקוחות</span>
+            <span className="text-[18px] font-bold text-white">{totalCount} לקוחות</span>
           )}
         </div>
 
-        {/* Customers Grid */}
+        {/* Grid */}
         <div className="flex-1 overflow-auto mt-[15px] mx-0">
           {isLoading ? (
             <div className="grid grid-cols-2 gap-[26px]">
@@ -532,7 +595,7 @@ export default function CustomersPage() {
                 </div>
               ))}
             </div>
-          ) : filteredCustomers.length === 0 ? (
+          ) : totalCount === 0 ? (
             <div className="flex flex-col items-center justify-center py-[50px]">
               <svg width="60" height="60" viewBox="0 0 24 24" fill="none" className="text-[#979797] mb-[10px]">
                 <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -546,15 +609,23 @@ export default function CustomersPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-[26px]">
-              {filteredCustomers.map((customer) => (
+              {/* Business-linked cards */}
+              {filteredItems.map((item) => (
                 <button
-                  key={customer.id}
+                  key={item.business.id}
                   type="button"
-                  onClick={() => handleOpenDetail(customer)}
-                  className={`bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#3D44A0] cursor-pointer relative ${!customer.is_active ? "opacity-40" : ""}`}
+                  onClick={() => handleOpenDetail(item)}
+                  className={`bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#3D44A0] cursor-pointer relative ${item.customer && !item.customer.is_active ? "opacity-40" : ""}`}
                 >
-                  {/* Inactive Badge */}
-                  {!customer.is_active && (
+                  {/* Setup badge */}
+                  {!item.customer && (
+                    <span className="absolute top-[6px] left-[6px] text-[10px] bg-[#F6A609]/80 text-white px-[6px] py-[2px] rounded-full font-bold">
+                      טרם הוקם
+                    </span>
+                  )}
+
+                  {/* Inactive badge */}
+                  {item.customer && !item.customer.is_active && (
                     <span className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">
                       לא פעיל
                     </span>
@@ -563,19 +634,51 @@ export default function CustomersPage() {
                   {/* Business Name */}
                   <div className="w-[120px] text-center">
                     <span className="text-[18px] font-bold text-white leading-[1.4]">
+                      {item.business.name}
+                    </span>
+                  </div>
+
+                  {/* Contact name */}
+                  {item.customer && (
+                    <span className="text-[14px] text-white/70 text-center">{item.customer.contact_name}</span>
+                  )}
+
+                  {/* Members count */}
+                  <span className="text-[12px] text-white/50">
+                    {item.members.length} משתמשים
+                  </span>
+                </button>
+              ))}
+
+              {/* Standalone customers (not linked to business) */}
+              {filteredStandalone.map((customer) => (
+                <button
+                  key={customer.id}
+                  type="button"
+                  onClick={() => handleOpenDetail({
+                    business: { id: "", name: customer.business_name, business_type: null, status: null, tax_id: customer.tax_id, address: null, city: null, phone: null, email: null, created_at: "", deleted_at: null },
+                    customer,
+                    members: [],
+                  })}
+                  className={`bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#3D44A0] cursor-pointer relative ${!customer.is_active ? "opacity-40" : ""}`}
+                >
+                  {!customer.is_active && (
+                    <span className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">
+                      לא פעיל
+                    </span>
+                  )}
+
+                  <span className="absolute top-[6px] right-[6px] text-[10px] bg-[#4C526B] text-white px-[6px] py-[2px] rounded-full font-bold">
+                    עצמאי
+                  </span>
+
+                  <div className="w-[120px] text-center">
+                    <span className="text-[18px] font-bold text-white leading-[1.4]">
                       {customer.business_name}
                     </span>
                   </div>
 
-                  {/* Contact Name */}
                   <span className="text-[14px] text-white/70 text-center">{customer.contact_name}</span>
-
-                  {/* Active badge */}
-                  {customer.is_active && (
-                    <span className="text-[11px] bg-[#3CD856]/20 text-[#3CD856] px-[8px] py-[2px] rounded-full font-bold">
-                      פעיל
-                    </span>
-                  )}
                 </button>
               ))}
             </div>
@@ -602,7 +705,7 @@ export default function CustomersPage() {
                 <X className="w-6 h-6" />
               </button>
               <SheetTitle className="text-white text-xl font-bold">
-                {isEditMode ? "עריכת לקוח" : "הוספת לקוח חדש"}
+                {isEditMode ? "עריכת לקוח" : formBusinessId ? `הקמת לקוח - ${formBusinessName}` : "הוספת לקוח חדש"}
               </SheetTitle>
               <div className="w-[24px]" />
             </div>
@@ -628,14 +731,20 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">שם העסק</label>
               <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                <input
-                  type="text"
-                  title="שם העסק"
-                  value={fBusinessName}
-                  onChange={(e) => setFBusinessName(e.target.value)}
-                  placeholder='לדוגמה: פרגו נ"צ'
-                  className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
-                />
+                {formBusinessId ? (
+                  <div className="w-full h-full flex items-center justify-center text-white text-[14px] px-[10px] opacity-70">
+                    {formBusinessName}
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    title="שם העסק"
+                    value={fBusinessName}
+                    onChange={(e) => setFBusinessName(e.target.value)}
+                    placeholder='לדוגמה: פרגו נ"צ'
+                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                  />
+                )}
               </div>
             </div>
 
@@ -807,7 +916,7 @@ export default function CustomersPage() {
       </Sheet>
 
       {/* ═══ Customer Detail Popup Sheet ═══ */}
-      <Sheet open={isDetailOpen && !!selectedCustomer} onOpenChange={(open) => !open && handleCloseDetail()}>
+      <Sheet open={isDetailOpen && !!selectedItem} onOpenChange={(open) => !open && handleCloseDetail()}>
         <SheetContent
           side="bottom"
           className="h-[calc(100vh-60px)] h-[calc(100dvh-60px)] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
@@ -826,8 +935,8 @@ export default function CustomersPage() {
               </button>
               <SheetTitle className="text-white text-xl font-bold">פרטי לקוח</SheetTitle>
               <div className="flex items-center gap-[8px]">
-                {/* Delete button - only if no payments */}
-                {payments.length === 0 && (
+                {/* Delete button - only if customer exists and no payments */}
+                {selectedItem?.customer && payments.length === 0 && (
                   <button
                     type="button"
                     title="מחיקת לקוח"
@@ -842,10 +951,10 @@ export default function CustomersPage() {
                     </svg>
                   </button>
                 )}
-                {/* Edit button */}
+                {/* Edit / Setup button */}
                 <button
                   type="button"
-                  title="עריכה"
+                  title={selectedItem?.customer ? "עריכה" : "הקמת לקוח"}
                   onClick={handleEditCustomer}
                   className="w-[24px] h-[24px] flex items-center justify-center text-white/70 hover:text-white"
                 >
@@ -858,70 +967,85 @@ export default function CustomersPage() {
             </div>
           </SheetHeader>
 
-          {selectedCustomer && (
+          {selectedItem && (
             <div className="p-4" dir="rtl">
               {/* ── Section 1: Customer Info Grid ──────────────── */}
               <div className="bg-[#29318A]/30 rounded-[10px] p-[15px] mb-[15px]">
-                {/* Row 1 */}
-                <div className="grid grid-cols-2 gap-[10px] mb-[15px]">
-                  <div className="flex flex-col items-center text-center">
-                    <span className="text-[12px] text-white/60">שם הלקוח</span>
-                    <span className="text-[14px] text-white font-medium">{selectedCustomer.contact_name}</span>
-                  </div>
-                  <div className="flex flex-col items-center text-center">
-                    <span className="text-[12px] text-white/60">שם העסק</span>
-                    <span className="text-[14px] text-white font-medium">{selectedCustomer.business_name}</span>
-                  </div>
+                {/* Business Name - large */}
+                <div className="flex flex-col items-center text-center mb-[15px]">
+                  <span className="text-[20px] text-white font-bold">{selectedItem.business.name}</span>
                 </div>
-                {/* Row 2 */}
-                <div className="grid grid-cols-2 gap-[10px] mb-[15px]">
-                  <div className="flex flex-col items-center text-center">
-                    <span className="text-[12px] text-white/60">שם החברה</span>
-                    <span className="text-[14px] text-white font-medium">{selectedCustomer.company_name || "לא רלוונטי"}</span>
-                  </div>
-                  <div className="flex flex-col items-center text-center">
-                    <span className="text-[12px] text-white/60">ע.מ/ח.פ</span>
-                    <span dir="ltr" className="text-[14px] text-white font-medium">{selectedCustomer.tax_id || "-"}</span>
-                  </div>
-                </div>
-                {/* Row 3 */}
-                <div className="grid grid-cols-2 gap-[10px] mb-[15px]">
-                  <div className="flex flex-col items-center text-center">
-                    <span className="text-[12px] text-white/60">תאריך תחילת עבודה</span>
-                    <span dir="ltr" className="text-[14px] text-white font-medium">
-                      {selectedCustomer.work_start_date
-                        ? new Date(selectedCustomer.work_start_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" })
-                        : "-"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-center text-center">
-                    <span className="text-[12px] text-white/60">תנאי תשלום</span>
-                    <span className="text-[14px] text-white font-medium">{selectedCustomer.payment_terms || "-"}</span>
-                  </div>
-                </div>
-                {/* Setup fee */}
-                {selectedCustomer.setup_fee && (
-                  <div className="flex flex-col items-center text-center mb-[10px]">
-                    <span className="text-[12px] text-white/60">דמי הקמה</span>
-                    <span className="text-[14px] text-white font-medium">{selectedCustomer.setup_fee}</span>
-                  </div>
-                )}
-                {/* Notes */}
-                {selectedCustomer.notes && (
-                  <div className="mt-[10px] bg-[#29318A]/20 rounded-[10px] p-[10px] border border-[#4C526B]">
-                    <span className="text-[12px] text-white/60">הערות</span>
-                    <p className="text-[14px] text-white mt-[4px] text-right whitespace-pre-wrap">{selectedCustomer.notes}</p>
+
+                {selectedItem.customer ? (
+                  <>
+                    {/* Row 1 */}
+                    <div className="grid grid-cols-2 gap-[10px] mb-[15px]">
+                      <div className="flex flex-col items-center text-center">
+                        <span className="text-[12px] text-white/60">שם הלקוח</span>
+                        <span className="text-[14px] text-white font-medium">{selectedItem.customer.contact_name}</span>
+                      </div>
+                      <div className="flex flex-col items-center text-center">
+                        <span className="text-[12px] text-white/60">שם החברה</span>
+                        <span className="text-[14px] text-white font-medium">{selectedItem.customer.company_name || "לא רלוונטי"}</span>
+                      </div>
+                    </div>
+                    {/* Row 2 */}
+                    <div className="grid grid-cols-2 gap-[10px] mb-[15px]">
+                      <div className="flex flex-col items-center text-center">
+                        <span className="text-[12px] text-white/60">ע.מ/ח.פ</span>
+                        <span dir="ltr" className="text-[14px] text-white font-medium">{selectedItem.customer.tax_id || selectedItem.business.tax_id || "-"}</span>
+                      </div>
+                      <div className="flex flex-col items-center text-center">
+                        <span className="text-[12px] text-white/60">תאריך תחילת עבודה</span>
+                        <span dir="ltr" className="text-[14px] text-white font-medium">
+                          {selectedItem.customer.work_start_date
+                            ? new Date(selectedItem.customer.work_start_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" })
+                            : "-"}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Row 3 */}
+                    <div className="grid grid-cols-2 gap-[10px] mb-[15px]">
+                      <div className="flex flex-col items-center text-center">
+                        <span className="text-[12px] text-white/60">תנאי תשלום</span>
+                        <span className="text-[14px] text-white font-medium">{selectedItem.customer.payment_terms || "-"}</span>
+                      </div>
+                      {selectedItem.customer.setup_fee && (
+                        <div className="flex flex-col items-center text-center">
+                          <span className="text-[12px] text-white/60">דמי הקמה</span>
+                          <span className="text-[14px] text-white font-medium">{selectedItem.customer.setup_fee}</span>
+                        </div>
+                      )}
+                    </div>
+                    {/* Notes */}
+                    {selectedItem.customer.notes && (
+                      <div className="mt-[10px] bg-[#29318A]/20 rounded-[10px] p-[10px] border border-[#4C526B]">
+                        <span className="text-[12px] text-white/60">הערות</span>
+                        <p className="text-[14px] text-white mt-[4px] text-right whitespace-pre-wrap">{selectedItem.customer.notes}</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center gap-[10px] py-[10px]">
+                    <span className="text-[14px] text-[#F6A609]">לקוח טרם הוקם במערכת</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSetupCustomer(selectedItem)}
+                      className="bg-[#29318A] text-white text-[14px] font-semibold px-[20px] py-[8px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
+                    >
+                      הקמת לקוח
+                    </button>
                   </div>
                 )}
               </div>
 
               {/* ── Section 2: Agreement Document ──────────────── */}
-              {selectedCustomer.agreement_url && (
+              {selectedItem.customer?.agreement_url && (
                 <div className="bg-[#29318A]/30 rounded-[10px] p-[15px] mb-[15px]">
                   <h3 className="text-[14px] font-bold text-white mb-[10px]">הסכם עבודה</h3>
                   <div className="flex items-center gap-[10px]">
                     <a
-                      href={selectedCustomer.agreement_url}
+                      href={selectedItem.customer.agreement_url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-[#3F97FF] text-[14px] underline"
@@ -933,11 +1057,11 @@ export default function CustomersPage() {
               )}
 
               {/* ── Section 3: Active Users ────────────────────── */}
-              {businessMembers.length > 0 && (
+              {selectedItem.members.length > 0 && (
                 <div className="bg-[#29318A]/30 rounded-[10px] p-[15px] mb-[15px]">
-                  <h3 className="text-[14px] font-bold text-white mb-[10px]">משתמשים פעילים</h3>
+                  <h3 className="text-[14px] font-bold text-white mb-[10px]">משתמשים פעילים ({selectedItem.members.length})</h3>
                   <div className="flex flex-col gap-[8px]">
-                    {businessMembers.map((member) => (
+                    {selectedItem.members.map((member) => (
                       <div key={member.user_id} className="flex items-center justify-between">
                         <span
                           className={`text-[12px] font-bold px-[8px] py-[2px] rounded-full ${
@@ -961,195 +1085,191 @@ export default function CustomersPage() {
               )}
 
               {/* ── Section 4: Income / Monthly Payments ─────── */}
-              <div className="bg-[#29318A]/30 rounded-[10px] p-[15px]">
-                <h3 className="text-[16px] font-bold text-white text-center mb-[10px]">הכנסות</h3>
+              {selectedItem.customer && (
+                <div className="bg-[#29318A]/30 rounded-[10px] p-[15px]">
+                  <h3 className="text-[16px] font-bold text-white text-center mb-[10px]">הכנסות</h3>
 
-                {/* Total all-time */}
-                <div className="flex items-center justify-between border-b border-white/10 pb-[8px] mb-[10px]">
-                  <span className="text-[13px] text-white/60">סה&quot;כ כל התקופה</span>
-                  <span dir="ltr" className="text-[16px] text-[#0BB783] font-bold">
-                    ₪{totalIncome.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                {/* Month Navigator */}
-                <div className="flex items-center justify-center gap-[10px] mb-[15px]">
-                  <button
-                    type="button"
-                    onClick={() => setDetailMonth(new Date(detailMonth.getFullYear(), detailMonth.getMonth() + 1, 1))}
-                    className="text-white/60 hover:text-white transition-colors"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                  <span className="text-[14px] text-white font-medium min-w-[120px] text-center">
-                    {detailMonth.toLocaleDateString("he-IL", { month: "long", year: "numeric" })}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setDetailMonth(new Date(detailMonth.getFullYear(), detailMonth.getMonth() - 1, 1))}
-                    className="text-white/60 hover:text-white transition-colors"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Monthly Total */}
-                <div className="flex items-center justify-between border-b border-white/20 pb-[10px] mb-[10px]">
-                  <span className="text-[13px] text-[#3CD856] font-medium">סה&quot;כ התקבל בחודש</span>
-                  <span dir="ltr" className="text-[18px] text-[#3CD856] font-bold">
-                    ₪{monthlyTotal.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                {/* Payment items list */}
-                {monthlyPayments.length === 0 ? (
-                  <div className="flex items-center justify-center py-[20px]">
-                    <span className="text-[14px] text-white/50">אין תשלומים בחודש זה</span>
+                  {/* Total all-time */}
+                  <div className="flex items-center justify-between border-b border-white/10 pb-[8px] mb-[10px]">
+                    <span className="text-[13px] text-white/60">סה&quot;כ כל התקופה</span>
+                    <span dir="ltr" className="text-[16px] text-[#0BB783] font-bold">
+                      ₪{totalIncome.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    </span>
                   </div>
-                ) : (
-                  <div className="flex flex-col gap-[8px]">
-                    {monthlyPayments.map((payment) => (
-                      <div key={payment.id} className="flex flex-col gap-[4px] bg-white/5 rounded-[7px] p-[10px]">
-                        <div className="flex items-center justify-between">
-                          <span dir="ltr" className="text-[14px] text-white font-medium">
-                            ₪{Number(payment.amount).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                          </span>
-                          <span dir="ltr" className="text-[12px] text-white/60">
-                            {new Date(payment.payment_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
-                          </span>
-                        </div>
-                        {payment.description && (
-                          <span className="text-[13px] text-white/80 text-right">{payment.description}</span>
-                        )}
-                        {payment.payment_method && (
-                          <span className="text-[12px] text-white/50 text-right">
-                            {paymentMethodLabels[payment.payment_method] || payment.payment_method}
-                          </span>
-                        )}
-                        {payment.notes && (
-                          <span className="text-[12px] text-white/40 text-right">{payment.notes}</span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePayment(payment.id)}
-                          className="self-end text-[#F64E60]/50 hover:text-[#F64E60] transition-colors text-[11px] mt-[4px]"
-                        >
-                          מחק
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
 
-                {/* Add Payment Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setIsAddPaymentOpen(!isAddPaymentOpen)}
-                  className="w-full mt-[15px] bg-[#29318A] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
-                >
-                  {isAddPaymentOpen ? "ביטול" : "+ הוספת תשלום"}
-                </button>
-
-                {/* Add Payment Sub-form */}
-                {isAddPaymentOpen && (
-                  <div className="flex flex-col gap-[8px] mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
-                    {/* Date */}
-                    <div className="flex flex-col gap-[3px]">
-                      <label className="text-[13px] text-white/70 text-right">תאריך</label>
-                      <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
-                        <input
-                          type="date"
-                          title="תאריך תשלום"
-                          value={newPaymentDate}
-                          onChange={(e) => setNewPaymentDate(e.target.value)}
-                          className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px]"
-                        />
-                      </div>
-                    </div>
-                    {/* Amount */}
-                    <div className="flex flex-col gap-[3px]">
-                      <label className="text-[13px] text-white/70 text-right">סכום (₪)</label>
-                      <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
-                        <input
-                          type="tel"
-                          title="סכום"
-                          value={newPaymentAmount}
-                          onChange={(e) => setNewPaymentAmount(e.target.value)}
-                          placeholder="0"
-                          className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px] placeholder:text-white/30"
-                        />
-                      </div>
-                    </div>
-                    {/* Description */}
-                    <div className="flex flex-col gap-[3px]">
-                      <label className="text-[13px] text-white/70 text-right">עבור מה</label>
-                      <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
-                        <input
-                          type="text"
-                          title="תיאור"
-                          value={newPaymentDescription}
-                          onChange={(e) => setNewPaymentDescription(e.target.value)}
-                          placeholder="לדוגמה: ריטיינר חודשי"
-                          className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px] placeholder:text-white/30"
-                        />
-                      </div>
-                    </div>
-                    {/* Payment Method */}
-                    <div className="flex flex-col gap-[3px]">
-                      <label className="text-[13px] text-white/70 text-right">אמצעי תשלום</label>
-                      <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
-                        <select
-                          title="אמצעי תשלום"
-                          value={newPaymentMethod}
-                          onChange={(e) => setNewPaymentMethod(e.target.value)}
-                          className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px] appearance-none"
-                        >
-                          <option value="" className="bg-[#0F1535]">בחר</option>
-                          <option value="bank_transfer" className="bg-[#0F1535]">העברה בנקאית</option>
-                          <option value="credit" className="bg-[#0F1535]">אשראי</option>
-                          <option value="cash" className="bg-[#0F1535]">מזומן</option>
-                          <option value="bit" className="bg-[#0F1535]">ביט</option>
-                          <option value="paybox" className="bg-[#0F1535]">פייבוקס</option>
-                          <option value="check" className="bg-[#0F1535]">צ׳ק</option>
-                          <option value="other" className="bg-[#0F1535]">אחר</option>
-                        </select>
-                      </div>
-                    </div>
-                    {/* Notes */}
-                    <div className="flex flex-col gap-[3px]">
-                      <label className="text-[13px] text-white/70 text-right">הערות</label>
-                      <div className="border border-[#4C526B] rounded-[7px] min-h-[40px] px-[8px] py-[6px]">
-                        <textarea
-                          title="הערות"
-                          value={newPaymentNotes}
-                          onChange={(e) => setNewPaymentNotes(e.target.value)}
-                          placeholder="הערות..."
-                          className="w-full bg-transparent text-white text-[13px] text-right rounded-[7px] border-none outline-none resize-none min-h-[28px] placeholder:text-white/30"
-                        />
-                      </div>
-                    </div>
-                    {/* Save */}
+                  {/* Month Navigator */}
+                  <div className="flex items-center justify-center gap-[10px] mb-[15px]">
                     <button
                       type="button"
-                      onClick={handleAddPayment}
-                      disabled={!newPaymentDate || !newPaymentAmount || isSubmitting}
-                      className="w-full bg-[#3CD856] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#2FB847] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-[6px]"
+                      onClick={() => setDetailMonth(new Date(detailMonth.getFullYear(), detailMonth.getMonth() + 1, 1))}
+                      className="text-white/60 hover:text-white transition-colors"
                     >
-                      {isSubmitting ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          שומר...
-                        </>
-                      ) : (
-                        "שמור תשלום"
-                      )}
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                    <span className="text-[14px] text-white font-medium min-w-[120px] text-center">
+                      {detailMonth.toLocaleDateString("he-IL", { month: "long", year: "numeric" })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setDetailMonth(new Date(detailMonth.getFullYear(), detailMonth.getMonth() - 1, 1))}
+                      className="text-white/60 hover:text-white transition-colors"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
                     </button>
                   </div>
-                )}
-              </div>
+
+                  {/* Monthly Total */}
+                  <div className="flex items-center justify-between border-b border-white/20 pb-[10px] mb-[10px]">
+                    <span className="text-[13px] text-[#3CD856] font-medium">סה&quot;כ התקבל בחודש</span>
+                    <span dir="ltr" className="text-[18px] text-[#3CD856] font-bold">
+                      ₪{monthlyTotal.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  {/* Payment items list */}
+                  {monthlyPayments.length === 0 ? (
+                    <div className="flex items-center justify-center py-[20px]">
+                      <span className="text-[14px] text-white/50">אין תשלומים בחודש זה</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-[8px]">
+                      {monthlyPayments.map((payment) => (
+                        <div key={payment.id} className="flex flex-col gap-[4px] bg-white/5 rounded-[7px] p-[10px]">
+                          <div className="flex items-center justify-between">
+                            <span dir="ltr" className="text-[14px] text-white font-medium">
+                              ₪{Number(payment.amount).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                            </span>
+                            <span dir="ltr" className="text-[12px] text-white/60">
+                              {new Date(payment.payment_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                            </span>
+                          </div>
+                          {payment.description && (
+                            <span className="text-[13px] text-white/80 text-right">{payment.description}</span>
+                          )}
+                          {payment.payment_method && (
+                            <span className="text-[12px] text-white/50 text-right">
+                              {paymentMethodLabels[payment.payment_method] || payment.payment_method}
+                            </span>
+                          )}
+                          {payment.notes && (
+                            <span className="text-[12px] text-white/40 text-right">{payment.notes}</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePayment(payment.id)}
+                            className="self-end text-[#F64E60]/50 hover:text-[#F64E60] transition-colors text-[11px] mt-[4px]"
+                          >
+                            מחק
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add Payment Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setIsAddPaymentOpen(!isAddPaymentOpen)}
+                    className="w-full mt-[15px] bg-[#29318A] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
+                  >
+                    {isAddPaymentOpen ? "ביטול" : "+ הוספת תשלום"}
+                  </button>
+
+                  {/* Add Payment Sub-form */}
+                  {isAddPaymentOpen && (
+                    <div className="flex flex-col gap-[8px] mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+                      <div className="flex flex-col gap-[3px]">
+                        <label className="text-[13px] text-white/70 text-right">תאריך</label>
+                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
+                          <input
+                            type="date"
+                            title="תאריך תשלום"
+                            value={newPaymentDate}
+                            onChange={(e) => setNewPaymentDate(e.target.value)}
+                            className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px]"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-[3px]">
+                        <label className="text-[13px] text-white/70 text-right">סכום (₪)</label>
+                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
+                          <input
+                            type="tel"
+                            title="סכום"
+                            value={newPaymentAmount}
+                            onChange={(e) => setNewPaymentAmount(e.target.value)}
+                            placeholder="0"
+                            className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px] placeholder:text-white/30"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-[3px]">
+                        <label className="text-[13px] text-white/70 text-right">עבור מה</label>
+                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
+                          <input
+                            type="text"
+                            title="תיאור"
+                            value={newPaymentDescription}
+                            onChange={(e) => setNewPaymentDescription(e.target.value)}
+                            placeholder="לדוגמה: ריטיינר חודשי"
+                            className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px] placeholder:text-white/30"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-[3px]">
+                        <label className="text-[13px] text-white/70 text-right">אמצעי תשלום</label>
+                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
+                          <select
+                            title="אמצעי תשלום"
+                            value={newPaymentMethod}
+                            onChange={(e) => setNewPaymentMethod(e.target.value)}
+                            className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px] appearance-none"
+                          >
+                            <option value="" className="bg-[#0F1535]">בחר</option>
+                            <option value="bank_transfer" className="bg-[#0F1535]">העברה בנקאית</option>
+                            <option value="credit" className="bg-[#0F1535]">אשראי</option>
+                            <option value="cash" className="bg-[#0F1535]">מזומן</option>
+                            <option value="bit" className="bg-[#0F1535]">ביט</option>
+                            <option value="paybox" className="bg-[#0F1535]">פייבוקס</option>
+                            <option value="check" className="bg-[#0F1535]">צ׳ק</option>
+                            <option value="other" className="bg-[#0F1535]">אחר</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-[3px]">
+                        <label className="text-[13px] text-white/70 text-right">הערות</label>
+                        <div className="border border-[#4C526B] rounded-[7px] min-h-[40px] px-[8px] py-[6px]">
+                          <textarea
+                            title="הערות"
+                            value={newPaymentNotes}
+                            onChange={(e) => setNewPaymentNotes(e.target.value)}
+                            placeholder="הערות..."
+                            className="w-full bg-transparent text-white text-[13px] text-right rounded-[7px] border-none outline-none resize-none min-h-[28px] placeholder:text-white/30"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddPayment}
+                        disabled={!newPaymentDate || !newPaymentAmount || isSubmitting}
+                        className="w-full bg-[#3CD856] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#2FB847] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-[6px]"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            שומר...
+                          </>
+                        ) : (
+                          "שמור תשלום"
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </SheetContent>
