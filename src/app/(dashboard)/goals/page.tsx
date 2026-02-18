@@ -1122,9 +1122,9 @@ export default function GoalsPage() {
         {/* Tab Navigation */}
         <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as TabType)} dir="rtl">
           <TabsList id="onboarding-goals-tabs" className="w-full bg-transparent rounded-[7px] p-0 h-[50px] sm:h-[60px] mb-[10px] gap-0 border border-[#6B6B6B]">
-            <TabsTrigger value="vs-goods" className="flex-1 text-[11px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-r-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">יעד VS קניות סחורה</TabsTrigger>
+            <TabsTrigger value="kpi" className="flex-1 text-[11px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-r-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">יעדי KPI</TabsTrigger>
             <TabsTrigger value="vs-current" className="flex-1 text-[11px] sm:text-[20px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">יעד VS שוטפות</TabsTrigger>
-            <TabsTrigger value="kpi" className="flex-1 text-[11px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">יעדי KPI</TabsTrigger>
+            <TabsTrigger value="vs-goods" className="flex-1 text-[11px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">יעד VS קניות סחורה</TabsTrigger>
           </TabsList>
         </Tabs>
 
