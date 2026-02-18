@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { ArrowUp, Mic, Square, Camera, X, FileText, Loader2 } from "lucide-react";
+import { BarVisualizer } from "@/components/ui/bar-visualizer";
 
 const MAX_FILES = 10;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -69,6 +70,13 @@ async function ocrScannedPdf(file: File): Promise<string> {
   return results.join("\n\n").trim();
 }
 
+// Format recording duration as mm:ss
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
+
 interface AiChatInputProps {
   onSend: (message: string, ocrContext?: string) => void;
   onFilesSelected?: (files: File[]) => void;
@@ -81,10 +89,13 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isProcessingOcr, setIsProcessingOcr] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [recordingStream, setRecordingStream] = useState<MediaStream | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const adjustHeight = useCallback(() => {
     const el = textareaRef.current;
@@ -170,6 +181,13 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
 
       chunksRef.current = [];
       mediaRecorderRef.current = mediaRecorder;
+      setRecordingStream(stream);
+      setRecordingDuration(0);
+
+      // Start duration timer
+      durationIntervalRef.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -178,8 +196,15 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
       };
 
       mediaRecorder.onstop = async () => {
-        // Stop all tracks
+        // Stop all tracks and clear stream
         stream.getTracks().forEach((t) => t.stop());
+        setRecordingStream(null);
+
+        // Clear duration timer
+        if (durationIntervalRef.current) {
+          clearInterval(durationIntervalRef.current);
+          durationIntervalRef.current = null;
+        }
 
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         if (blob.size === 0) return;
@@ -225,6 +250,19 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);
+    if (durationIntervalRef.current) {
+      clearInterval(durationIntervalRef.current);
+      durationIntervalRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (durationIntervalRef.current) {
+        clearInterval(durationIntervalRef.current);
+      }
+    };
   }, []);
 
   const handleMicClick = useCallback(() => {
@@ -324,6 +362,44 @@ export function AiChatInput({ onSend, onFilesSelected, disabled }: AiChatInputPr
 
   return (
     <div id="onboarding-ai-input" className="flex-shrink-0 border-t border-white/10 bg-[#0F1535] px-2 sm:px-4 py-2 sm:py-3">
+      {/* Recording overlay — covers the entire chat area */}
+      {isRecording && (
+        <div className="fixed inset-0 z-[2000] bg-[#0F1535]/95 backdrop-blur-sm flex flex-col items-center justify-center gap-6">
+          {/* Recording indicator */}
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-white/70 text-sm font-medium">מקליט...</span>
+          </div>
+
+          {/* Duration */}
+          <span className="text-white text-4xl font-mono font-light tracking-wider">
+            {formatDuration(recordingDuration)}
+          </span>
+
+          {/* Bar Visualizer */}
+          <BarVisualizer
+            state="recording"
+            mediaStream={recordingStream}
+            barCount={28}
+            minHeight={6}
+            maxHeight={95}
+            className="w-[280px] h-[120px] sm:w-[360px] sm:h-[140px] bg-transparent"
+          />
+
+          {/* Stop button */}
+          <button
+            type="button"
+            onClick={stopRecording}
+            className="mt-4 w-[64px] h-[64px] sm:w-[72px] sm:h-[72px] rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center text-white transition-all active:scale-95 shadow-lg shadow-red-500/30"
+            aria-label="עצור הקלטה"
+          >
+            <Square className="w-6 h-6 sm:w-7 sm:h-7" />
+          </button>
+
+          <span className="text-white/40 text-xs mt-2">לחץ לעצירה ותמלול</span>
+        </div>
+      )}
+
       {/* Selected files preview — square thumbnails */}
       {selectedFiles.length > 0 && (
         <div className="mb-2 sm:mb-3" dir="rtl">
