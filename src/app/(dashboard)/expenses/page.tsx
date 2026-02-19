@@ -23,6 +23,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import type { OCRLineItem } from '@/types/ocr';
+import { savePriceTrackingForLineItems } from '@/lib/priceTracking';
 
 // Supplier from database
 interface Supplier {
@@ -287,6 +290,14 @@ function ExpensesPageInner() {
   const [clarificationReason, setClarificationReason] = useState("");
   const [showClarificationMenu, setShowClarificationMenu] = useState(false);
   const [linkToCoordinator, setLinkToCoordinator] = useState(false);
+
+  // Line items for price tracking (goods expenses only)
+  const [expenseLineItems, setExpenseLineItems] = useState<OCRLineItem[]>([]);
+  const [showLineItems, setShowLineItems] = useState(false);
+  const [lineItemsPriceCheckDone, setLineItemsPriceCheckDone] = useState(false);
+  const [newLineItemDesc, setNewLineItemDesc] = useState('');
+  const [newLineItemQty, setNewLineItemQty] = useState('');
+  const [newLineItemPrice, setNewLineItemPrice] = useState('');
 
   // Payment details state (shown when isPaidInFull is true)
   const [paymentMethod, setPaymentMethod] = useState("");
@@ -1258,6 +1269,76 @@ function ExpensesPageInner() {
     // For "partial" vat_type, keep current state - user enters manually
   }, [suppliers]);
 
+  // Reset line items when expense type changes away from goods
+  useEffect(() => {
+    if (expenseType !== 'goods') {
+      setExpenseLineItems([]);
+      setShowLineItems(false);
+      setLineItemsPriceCheckDone(false);
+    }
+  }, [expenseType]);
+
+  // Fetch price comparisons when supplier changes and line items exist
+  useEffect(() => {
+    const businessId = selectedBusinesses[0];
+    if (!selectedSupplier || !businessId || expenseLineItems.length === 0) {
+      setLineItemsPriceCheckDone(false);
+      return;
+    }
+
+    const checkPrices = async () => {
+      const supabase = createClient();
+      const { data: supplierItemsData } = await supabase
+        .from('supplier_items')
+        .select('id, item_name, item_aliases, current_price')
+        .eq('business_id', businessId)
+        .eq('supplier_id', selectedSupplier)
+        .eq('is_active', true);
+
+      if (!supplierItemsData) {
+        setLineItemsPriceCheckDone(true);
+        return;
+      }
+
+      const updated = expenseLineItems.map((li) => {
+        const desc = (li.description || '').trim().toLowerCase();
+        if (!desc) return li;
+
+        const match = supplierItemsData.find((si) => {
+          const nameMatch = si.item_name.toLowerCase() === desc;
+          const aliasMatch = (si.item_aliases || []).some(
+            (a: string) => a.toLowerCase() === desc
+          );
+          const partialMatch =
+            si.item_name.toLowerCase().includes(desc) || desc.includes(si.item_name.toLowerCase());
+          return nameMatch || aliasMatch || partialMatch;
+        });
+
+        if (match && match.current_price != null && li.unit_price != null) {
+          const priceDiff = li.unit_price - match.current_price;
+          const changePct = match.current_price > 0
+            ? (priceDiff / match.current_price) * 100
+            : 0;
+          return {
+            ...li,
+            matched_supplier_item_id: match.id,
+            previous_price: match.current_price,
+            price_change_pct: Math.abs(changePct) < 0.01 ? 0 : changePct,
+            is_new_item: false,
+          };
+        }
+
+        return { ...li, is_new_item: true, matched_supplier_item_id: undefined, previous_price: undefined, price_change_pct: undefined };
+      });
+
+      setExpenseLineItems(updated);
+      setLineItemsPriceCheckDone(true);
+    };
+
+    checkPrices();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSupplier, selectedBusinesses, expenseLineItems.length]);
+
   // Handle saving new expense
   const handleSaveExpense = async () => {
     if (!selectedSupplier || !expenseDate || !amountBeforeVat) {
@@ -1435,6 +1516,17 @@ function ExpensesPageInner() {
           }
         }
 
+        // Price tracking: save line item prices for goods expenses
+        if (expenseType === 'goods' && newInvoice && expenseLineItems.length > 0 && selectedSupplier) {
+          await savePriceTrackingForLineItems(supabase, {
+            businessId: selectedBusinesses[0],
+            supplierId: selectedSupplier,
+            invoiceId: newInvoice.id,
+            documentDate: expenseDate,
+            lineItems: expenseLineItems,
+          });
+        }
+
         showToast("ההוצאה נשמרה בהצלחה", "success");
       }
 
@@ -1477,6 +1569,12 @@ function ExpensesPageInner() {
     setNewAttachmentPreviews([]);
     setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }]);
     setShowClarificationMenu(false);
+    setExpenseLineItems([]);
+    setShowLineItems(false);
+    setLineItemsPriceCheckDone(false);
+    setNewLineItemDesc('');
+    setNewLineItemQty('');
+    setNewLineItemPrice('');
   };
 
   // Handle opening edit popup
@@ -3102,6 +3200,137 @@ function ExpensesPageInner() {
                   />
                 </div>
               </div>
+
+              {/* Line Items - Price Tracking (only for goods purchases) */}
+              {expenseType === 'goods' && (
+                <div className="flex flex-col gap-[8px]">
+                  <Button
+                    type="button"
+                    onClick={() => setShowLineItems(!showLineItems)}
+                    className="flex items-center justify-between w-full border border-[#4C526B] rounded-[10px] h-[50px] px-[15px] bg-transparent hover:bg-[#29318A]/10"
+                  >
+                    <span className="text-[13px] text-white/50">
+                      {expenseLineItems.length > 0
+                        ? `${expenseLineItems.length} פריטים`
+                        : 'אופציונלי'}
+                    </span>
+                    <span className="text-[15px] font-medium text-white">פריטים (מעקב מחירים)</span>
+                  </Button>
+
+                  {showLineItems && (
+                    <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[8px]">
+                      {/* Price alerts banner */}
+                      {lineItemsPriceCheckDone && expenseLineItems.some(li => li.price_change_pct != null && li.price_change_pct !== 0) && (
+                        <div className="bg-[#F64E60]/10 border border-[#F64E60]/30 rounded-[8px] p-[8px]">
+                          <p className="text-[12px] text-[#F64E60] font-medium text-right mb-[4px]">התראות שינוי מחיר:</p>
+                          {expenseLineItems
+                            .filter(li => li.price_change_pct != null && li.price_change_pct !== 0)
+                            .map((li, idx) => (
+                              <div key={`alert-${idx}`} className="flex items-center justify-between text-[12px] py-[2px]">
+                                <span className={`font-medium ltr-num ${(li.price_change_pct || 0) > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                                  {(li.price_change_pct || 0) > 0 ? '+' : ''}{li.price_change_pct?.toFixed(1)}%
+                                </span>
+                                <span className="text-white/70">
+                                  {li.description}: &#8362;{li.previous_price?.toFixed(2)} &larr; &#8362;{li.unit_price?.toFixed(2)}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+
+                      {/* Existing items table */}
+                      {expenseLineItems.length > 0 && (
+                        <div className="overflow-x-auto">
+                          <Table className="w-full text-[13px]">
+                            <TableHeader>
+                              <TableRow className="border-b border-[#4C526B] text-white/60">
+                                <TableHead className="text-right py-[6px] pr-[4px]">פריט</TableHead>
+                                <TableHead className="text-center py-[6px] w-[50px]">כמות</TableHead>
+                                <TableHead className="text-center py-[6px] w-[75px]">מחיר</TableHead>
+                                <TableHead className="text-center py-[6px] w-[75px]">סה&quot;כ</TableHead>
+                                <TableHead className="w-[28px]" />
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {expenseLineItems.map((li, idx) => (
+                                <TableRow key={`line-${idx}`} className="border-b border-[#4C526B]/50">
+                                  <TableCell className="text-right py-[6px] pr-[4px] text-white max-w-[120px] overflow-hidden text-ellipsis">{li.description || '-'}</TableCell>
+                                  <TableCell className="text-center py-[6px] text-white/70 ltr-num">{li.quantity || '-'}</TableCell>
+                                  <TableCell className="text-center py-[6px] ltr-num leading-tight">
+                                    <span className="text-white">&#8362;{li.unit_price?.toFixed(2) || '0'}</span>
+                                    {lineItemsPriceCheckDone && li.price_change_pct != null && li.price_change_pct !== 0 && (
+                                      <span className={`block text-[9px] ${li.price_change_pct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                                        {li.price_change_pct > 0 ? '▲' : '▼'}{Math.abs(li.price_change_pct).toFixed(1)}%
+                                      </span>
+                                    )}
+                                    {lineItemsPriceCheckDone && li.is_new_item && (
+                                      <span className="block text-[9px] text-[#00D4FF]">חדש</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-center py-[6px] text-white/70 ltr-num">&#8362;{li.total?.toFixed(2) || '0'}</TableCell>
+                                  <TableCell className="text-center py-[6px]">
+                                    <Button
+                                      type="button"
+                                      onClick={() => setExpenseLineItems(prev => prev.filter((_, i) => i !== idx))}
+                                      className="text-[#F64E60]/60 hover:text-[#F64E60] text-[14px] p-0 h-auto"
+                                      title="הסר פריט"
+                                    >&times;</Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+
+                      {/* Add new row */}
+                      <div className="flex gap-[6px] items-center" dir="rtl">
+                        <Input
+                          type="text"
+                          value={newLineItemDesc}
+                          onChange={(e) => setNewLineItemDesc(e.target.value)}
+                          placeholder="שם פריט"
+                          className="flex-1 h-[40px] bg-transparent border border-[#4C526B] rounded-[8px] text-white text-[14px] text-right px-[8px]"
+                        />
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={newLineItemQty}
+                          onChange={(e) => setNewLineItemQty(e.target.value)}
+                          placeholder="כמות"
+                          className="w-[60px] h-[40px] bg-transparent border border-[#4C526B] rounded-[8px] text-white text-[14px] text-center px-[4px] ltr-num"
+                        />
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={newLineItemPrice}
+                          onChange={(e) => setNewLineItemPrice(e.target.value)}
+                          placeholder="מחיר"
+                          className="w-[70px] h-[40px] bg-transparent border border-[#4C526B] rounded-[8px] text-white text-[14px] text-center px-[4px] ltr-num"
+                        />
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            const desc = newLineItemDesc.trim();
+                            const qty = parseFloat(newLineItemQty) || null;
+                            const price = parseFloat(newLineItemPrice);
+                            if (!desc || isNaN(price) || price <= 0) return;
+                            const total = qty != null ? qty * price : price;
+                            setExpenseLineItems(prev => [...prev, { description: desc, quantity: qty ?? undefined, unit_price: price, total }]);
+                            setNewLineItemDesc('');
+                            setNewLineItemQty('');
+                            setNewLineItemPrice('');
+                            setLineItemsPriceCheckDone(false);
+                          }}
+                          className="h-[40px] px-[12px] bg-[#29318A] text-white text-[14px] rounded-[8px] hover:bg-[#3D44A0] flex-shrink-0"
+                        >
+                          + הוסף
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Image Upload - Multiple */}
               <div className="flex flex-col gap-[5px]">

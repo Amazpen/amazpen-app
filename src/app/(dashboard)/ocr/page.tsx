@@ -11,6 +11,7 @@ import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
 import { Button } from "@/components/ui/button";
+import { savePriceTrackingForLineItems } from '@/lib/priceTracking';
 
 interface Business {
   id: string;
@@ -604,93 +605,14 @@ export default function OCRPage() {
 
         // --- PRICE TRACKING: save line item prices ---
         if (formData.line_items && formData.line_items.length > 0 && formData.supplier_id) {
-          for (const li of formData.line_items) {
-            if (!li.description || li.unit_price == null) continue;
-            const itemName = li.description.trim();
-            if (!itemName) continue;
-
-            try {
-              // Find or create supplier_item
-              let supplierItemId = li.matched_supplier_item_id || null;
-
-              if (!supplierItemId) {
-                // Try to find existing item by name
-                const { data: existing } = await supabase
-                  .from('supplier_items')
-                  .select('id, current_price')
-                  .eq('business_id', formData.business_id)
-                  .eq('supplier_id', formData.supplier_id)
-                  .eq('item_name', itemName)
-                  .maybeSingle();
-
-                if (existing) {
-                  supplierItemId = existing.id;
-                } else {
-                  // Create new supplier_item
-                  const { data: newItem } = await supabase
-                    .from('supplier_items')
-                    .insert({
-                      business_id: formData.business_id,
-                      supplier_id: formData.supplier_id,
-                      item_name: itemName,
-                      current_price: li.unit_price,
-                      last_price_date: formData.document_date,
-                    })
-                    .select('id')
-                    .single();
-                  if (newItem) supplierItemId = newItem.id;
-                }
-              }
-
-              if (!supplierItemId) continue;
-
-              // Get current price before updating
-              const { data: currentItem } = await supabase
-                .from('supplier_items')
-                .select('current_price')
-                .eq('id', supplierItemId)
-                .single();
-
-              const oldPrice = currentItem?.current_price;
-
-              // Insert price record
-              await supabase.from('supplier_item_prices').insert({
-                supplier_item_id: supplierItemId,
-                price: li.unit_price,
-                quantity: li.quantity || null,
-                invoice_id: createdInvoiceId || null,
-                ocr_document_id: currentDocument.id,
-                document_date: formData.document_date,
-              });
-
-              // Update current price on supplier_item
-              await supabase.from('supplier_items').update({
-                current_price: li.unit_price,
-                last_price_date: formData.document_date,
-                updated_at: new Date().toISOString(),
-              }).eq('id', supplierItemId);
-
-              // Create price alert if price changed
-              if (oldPrice != null && Math.abs(li.unit_price - oldPrice) > 0.01) {
-                const changePct = oldPrice > 0
-                  ? ((li.unit_price - oldPrice) / oldPrice) * 100
-                  : 0;
-                await supabase.from('price_alerts').insert({
-                  business_id: formData.business_id,
-                  supplier_item_id: supplierItemId,
-                  supplier_id: formData.supplier_id,
-                  ocr_document_id: currentDocument.id,
-                  old_price: oldPrice,
-                  new_price: li.unit_price,
-                  change_pct: Math.round(changePct * 100) / 100,
-                  document_date: formData.document_date,
-                });
-              }
-            } catch (priceError) {
-              console.error('Error saving price for item:', itemName, priceError);
-              // Continue with other items - don't fail the whole approval
-            }
-          }
+          await savePriceTrackingForLineItems(supabase, {
+            businessId: formData.business_id,
+            supplierId: formData.supplier_id,
+            invoiceId: createdInvoiceId || null,
+            ocrDocumentId: currentDocument.id,
+            documentDate: formData.document_date,
+            lineItems: formData.line_items,
+          });
         }
 
         // Update OCR document status in Supabase
