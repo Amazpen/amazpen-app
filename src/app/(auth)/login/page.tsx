@@ -99,6 +99,8 @@ function LoginPageContent() {
           width={160}
           height={76}
           unoptimized
+          priority
+          loading="eager"
         />
         <h1 className="text-[28px] font-bold text-white mb-[4px]">המצפן כניסה</h1>
         <p className="text-[14px] text-white/60 text-center">

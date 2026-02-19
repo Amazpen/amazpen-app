@@ -90,6 +90,9 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
           width={110}
           height={110}
           className="w-full h-full object-cover"
+          unoptimized
+          priority
+          loading="eager"
         />
       </div>
 

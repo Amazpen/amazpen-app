@@ -87,6 +87,8 @@ export default function RootLayout({
             width={400}
             height={189}
             unoptimized
+            priority
+            loading="eager"
             style={{
               width: '70vw',
               maxWidth: '400px',

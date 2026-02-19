@@ -656,6 +656,8 @@ export default function DashboardLayout({
                 width={143}
                 height={66}
                 unoptimized
+                priority
+                loading="eager"
               />
             </div>
 
@@ -668,6 +670,8 @@ export default function DashboardLayout({
                 width={30}
                 height={30}
                 unoptimized
+                priority
+                loading="eager"
               />
               <span className="text-white text-[16px] font-medium text-right flex-1" suppressHydrationWarning>
                 {businessName || "עסק"}
@@ -871,6 +875,8 @@ export default function DashboardLayout({
                   width={34}
                   height={34}
                   unoptimized
+                  priority
+                  loading="eager"
                   onLoad={() => setProfileImageLoaded(true)}
                   onError={() => setProfileImageLoaded(true)}
                 />

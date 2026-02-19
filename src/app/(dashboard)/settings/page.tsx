@@ -324,6 +324,7 @@ export default function SettingsPage() {
                   height={100}
                   unoptimized
                   priority
+                  loading="eager"
                 />
               ) : (
                 <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">

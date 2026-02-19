@@ -568,6 +568,7 @@ export default function AdminUsersPage() {
                       width={50}
                       height={50}
                       unoptimized
+                      loading="eager"
                     />
                   ) : (
                     <span className="text-white text-[20px] font-bold">
@@ -666,6 +667,7 @@ export default function AdminUsersPage() {
                       width={50}
                       height={50}
                       unoptimized
+                      loading="eager"
                     />
                   ) : (
                     <span className="text-white text-[20px] font-bold">

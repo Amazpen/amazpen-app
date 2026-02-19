@@ -74,6 +74,8 @@ function AiIcon() {
         width={28}
         height={28}
         className="w-full h-full object-cover"
+        unoptimized
+        loading="eager"
       />
     </div>
   );

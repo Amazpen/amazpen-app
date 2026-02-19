@@ -86,6 +86,8 @@ export default function ForgotPasswordPage() {
           width={140}
           height={66}
           unoptimized
+          priority
+          loading="eager"
         />
         <h1 className="text-[24px] font-bold text-white">שחזור סיסמה</h1>
         <p className="text-[14px] text-white/60 text-center">

@@ -655,6 +655,7 @@ export default function CustomersPage() {
                       width={60}
                       height={60}
                       unoptimized
+                      loading="eager"
                     />
                   ) : (
                     <div className="w-[60px] h-[60px] rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20">
