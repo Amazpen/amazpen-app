@@ -1023,7 +1023,7 @@ export default function InsightsPage() {
 
   if (!selectedBusinesses || selectedBusinesses.length === 0) {
     return (
-      <div className="px-2.5 pb-8 lg:px-3 xl:px-4">
+      <div className="px-[7px] pb-8 lg:px-3 xl:px-4">
         <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" className="text-white/20">
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/>
@@ -1036,7 +1036,7 @@ export default function InsightsPage() {
   }
 
   return (
-    <div className="px-2.5 pb-8 lg:px-3 xl:px-4">
+    <div className="px-[7px] pb-8 lg:px-3 xl:px-4">
       {/* Summary badges */}
       {!loading && insights.length > 0 && (
         <div className="flex flex-wrap gap-[8px] mb-[16px]">
