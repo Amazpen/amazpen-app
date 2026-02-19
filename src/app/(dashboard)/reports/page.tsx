@@ -595,7 +595,7 @@ export default function ReportsPage() {
   return (
     <article aria-label="דוח רווח והפסד" className="text-white pt-0 px-[7px] pb-[80px] flex flex-col gap-[10px]">
       {/* Header Section - Title with Pig Icon */}
-      <section aria-labelledby="report-title" className="bg-[#0F1535] rounded-[10px] p-[7px] min-h-[70px] flex items-center justify-start gap-[10px]">
+      <section aria-labelledby="report-title" className="bg-[#0F1535] rounded-[10px] py-[7px] min-h-[70px] flex items-center justify-start gap-[10px]">
         <div className="flex flex-row-reverse items-center gap-[3px]">
           <h1 id="report-title" className="text-[22px] font-bold text-center leading-[1.4]">סיכום תוצאות רווח והפסד</h1>
           {/* Pig Icon */}
@@ -606,7 +606,7 @@ export default function ReportsPage() {
       </section>
 
       {/* Summary Card - Total Result + Filters */}
-      <section aria-label="סיכום תוצאות" className="bg-[#0F1535] rounded-[10px] p-[7px] min-h-[70px] flex flex-col gap-[15px]">
+      <section aria-label="סיכום תוצאות" className="bg-[#0F1535] rounded-[10px] py-[7px] min-h-[70px] flex flex-col gap-[15px]">
         {/* Total Result Row */}
         <div className="flex flex-row-reverse items-center justify-between w-full min-h-[40px] gap-[3px]">
           <div className="flex flex-row-reverse items-center gap-[10px] flex-1">
@@ -683,7 +683,7 @@ export default function ReportsPage() {
       {/* Expenses Section */}
       <section id="onboarding-reports-categories" aria-label="פירוט הוצאות" className="bg-[#0F1535] rounded-[10px] p-[7px_0_0_0] min-h-[40px] flex flex-col">
         {/* Header Row */}
-        <div className="min-h-[40px] px-[7px] mb-[15px] text-right">
+        <div className="min-h-[40px] mb-[15px] text-right">
           <span className="text-[20px] font-bold leading-[1.4]">פירוט ההוצאות</span>
         </div>
 
