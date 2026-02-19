@@ -681,6 +681,14 @@ export default function SettingsPage() {
           {!isSupported && (
             <p className="text-white/40 text-[13px] mt-[8px]">הדפדפן אינו תומך בהתראות פוש</p>
           )}
+          {/* DEBUG - temporary */}
+          <div className="mt-[8px] p-[8px] bg-white/5 rounded-[8px] text-[11px] text-white/40 font-mono space-y-[2px]">
+            <p>SW: {'serviceWorker' in navigator ? 'Y' : 'N'} | Push: {'PushManager' in window ? 'Y' : 'N'} | Notif: {'Notification' in window ? 'Y' : 'N'}</p>
+            <p>Permission: {typeof Notification !== 'undefined' ? Notification.permission : 'N/A'}</p>
+            <p>isSupported: {String(isSupported)} | isSubscribed: {String(isSubscribed)} | loading: {String(pushLoading)}</p>
+            <p>Standalone: {window.matchMedia('(display-mode: standalone)').matches ? 'Y' : 'N'}</p>
+            <p>UA: {navigator.userAgent.slice(0, 80)}</p>
+          </div>
         </div>
 
         {/* WhatsApp Contact Button */}
