@@ -782,24 +782,24 @@ export default function ReportsPage() {
                             >
                               <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
                                 <div className="flex flex-col items-center flex-1 min-w-0 gap-[1px]">
-                                  <span className={`text-[9px] sm:text-[12px] font-normal ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/60'}`}>
+                                  <span className={`text-[9px] sm:text-[12px] font-normal ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                                     {supplier.remaining}
                                   </span>
                                   <div className="w-[40px] sm:w-[55px] h-[5px] sm:h-[6px] bg-white/50 rounded-full border border-[#211A66] overflow-hidden rotate-180">
                                     <div className="h-full bg-[#29318A] transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, 100 - supplier.remainingRaw))}%` }} />
                                   </div>
                                 </div>
-                                <span className={`text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/60'}`}>
+                                <span className={`text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                                   {supplier.difference}
                                 </span>
-                                <span className="text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] text-white/60">
+                                <span className="text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] text-white">
                                   {supplier.actual}
                                 </span>
-                                <span className="text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] text-white/60">
+                                <span className="text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] text-white">
                                   {supplier.target}
                                 </span>
                               </div>
-                              <span className="text-[10px] sm:text-[12px] font-normal text-right text-white/50 leading-[1.4] shrink-0 w-[90px] sm:w-[140px] break-words">{supplier.name}</span>
+                              <span className="text-[10px] sm:text-[12px] font-normal text-right text-white leading-[1.4] shrink-0 w-[90px] sm:w-[140px] break-words">{supplier.name}</span>
                             </div>
                           ))}
                         </div>
