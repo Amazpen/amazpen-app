@@ -194,13 +194,12 @@ export default function ReportsPage() {
           .from("payment_splits")
           .select(`
             amount,
-            payment:payments!inner(id, business_id, deleted_at, created_at)
+            payment:payments!inner(id, business_id, deleted_at)
           `)
           .gte("due_date", startDate)
           .lte("due_date", endDate)
           .is("payment.deleted_at", null)
-          .in("payment.business_id", selectedBusinesses)
-          .lt("payment.created_at", startDate);
+          .in("payment.business_id", selectedBusinesses);
 
         const totalPriorLiabilities = (priorSplits || []).reduce((sum, s) => sum + Number(s.amount || 0), 0);
         setPriorLiabilities(totalPriorLiabilities);
