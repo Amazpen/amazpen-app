@@ -8,7 +8,7 @@ export async function GET() {
         namespace: "android_app",
         package_name: "il.co.amazpenbiz.app.twa",
         sha256_cert_fingerprints: [
-          "2F:2B:31:8D:FA:1D:B2:2B:F6:35:AD:02:15:0E:AE:45:7E:52:28:C6:44:29:8F:96:98:EF:31:B2:99:48:1F:74",
+          "05:7F:2D:B6:39:E8:4A:6A:40:74:88:4B:0D:C2:89:2D:53:20:DE:E1:29:4A:59:F0:89:67:C8:69:D6:9F:5F:1F",
         ],
       },
     },
