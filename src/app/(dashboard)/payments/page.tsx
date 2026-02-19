@@ -2169,7 +2169,7 @@ function PaymentsPageInner() {
       <div id="onboarding-payments-chart" className="bg-[#0F1535] rounded-[20px] p-[20px_0px_10px] mt-[10px]">
         {/* Header - Title and Total - hidden when no data */}
         {paymentMethodsData.length > 0 && (
-          <div className="flex items-center justify-between px-[10px]">
+          <div className="flex items-center justify-between">
             <h2 className="text-[24px] font-bold text-center">תשלומים שיצאו</h2>
             <div className="flex flex-col items-center">
               <span className="text-[24px] font-bold ltr-num">
