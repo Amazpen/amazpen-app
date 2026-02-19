@@ -161,31 +161,14 @@ export default function RootLayout({
                     // Immediately check for updates on page load
                     reg.update().catch(function() {});
 
-                    var lastCheck = Date.now();
-                    function checkForUpdate() {
-                      var now = Date.now();
-                      if (now - lastCheck < 30000) return;
-                      lastCheck = now;
-                      reg.update().catch(function() {});
-                    }
+                    // Check for SW updates every 60s (lightweight - just compares sw.js hash)
+                    setInterval(function() { reg.update().catch(function() {}); }, 60000);
 
                     document.addEventListener('visibilitychange', function() {
-                      if (document.visibilityState === 'visible') { lastCheck = 0; checkForUpdate(); }
+                      if (document.visibilityState === 'visible') reg.update().catch(function() {});
                     });
 
-                    var origPush = history.pushState;
-                    var origReplace = history.replaceState;
-                    history.pushState = function() {
-                      origPush.apply(this, arguments);
-                      checkForUpdate();
-                    };
-                    history.replaceState = function() {
-                      origReplace.apply(this, arguments);
-                      checkForUpdate();
-                    };
-                    window.addEventListener('popstate', function() { checkForUpdate(); });
-
-                    window.addEventListener('focus', function() { lastCheck = 0; checkForUpdate(); });
+                    window.addEventListener('focus', function() { reg.update().catch(function() {}); });
                   }).catch(function() {});
                 });
 
