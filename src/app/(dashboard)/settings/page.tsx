@@ -29,7 +29,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const { showToast } = useToast();
   const { refreshProfile } = useDashboard();
-  const { isSubscribed, isSupported, isLoading: pushLoading, permission, subscribe, unsubscribe } = usePushSubscription();
+  const { isSubscribed, isSupported, isLoading: pushLoading, permission, subscribe, unsubscribe, debugError } = usePushSubscription();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
@@ -688,6 +688,7 @@ export default function SettingsPage() {
             <p>isSupported: {String(isSupported)} | isSubscribed: {String(isSubscribed)} | loading: {String(pushLoading)}</p>
             <p>Standalone: {window.matchMedia('(display-mode: standalone)').matches ? 'Y' : 'N'}</p>
             <p>UA: {navigator.userAgent.slice(0, 80)}</p>
+            {debugError && <p className="text-[#F64E60]">Step: {debugError}</p>}
           </div>
         </div>
 

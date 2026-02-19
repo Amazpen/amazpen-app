@@ -18,6 +18,7 @@ export function usePushSubscription() {
   const [isSupported, setIsSupported] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [permission, setPermission] = useState<NotificationPermission>('default')
+  const [debugError, setDebugError] = useState('')
 
   useEffect(() => {
     const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
@@ -57,23 +58,28 @@ export function usePushSubscription() {
   }, [])
 
   const subscribe = useCallback(async () => {
-    if (!isSupported) return false
+    if (!isSupported) { setDebugError('not supported'); return false }
+    setDebugError('')
 
     try {
+      setDebugError('requesting permission...')
       const perm = await Notification.requestPermission()
       setPermission(perm)
-      if (perm !== 'granted') return false
+      if (perm !== 'granted') { setDebugError(`perm=${perm}`); return false }
 
+      setDebugError('waiting SW ready...')
       const reg = await navigator.serviceWorker.ready
       const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
 
-      if (!vapidPublicKey) return false
+      if (!vapidPublicKey) { setDebugError('no VAPID key'); return false }
 
+      setDebugError('pushManager.subscribe...')
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey).buffer as ArrayBuffer,
       })
 
+      setDebugError('sending to server...')
       const res = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,10 +88,13 @@ export function usePushSubscription() {
 
       if (res.ok) {
         setIsSubscribed(true)
+        setDebugError('OK!')
         return true
       }
+      setDebugError(`server ${res.status}`)
       return false
-    } catch {
+    } catch (e) {
+      setDebugError(`error: ${e instanceof Error ? e.message : String(e)}`)
       return false
     }
   }, [isSupported])
@@ -111,5 +120,5 @@ export function usePushSubscription() {
     }
   }, [])
 
-  return { isSubscribed, isSupported, isLoading, permission, subscribe, unsubscribe }
+  return { isSubscribed, isSupported, isLoading, permission, subscribe, unsubscribe, debugError }
 }
