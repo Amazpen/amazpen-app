@@ -21,8 +21,13 @@ export function PushPrompt() {
   useEffect(() => {
     // Don't show if not supported
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
-    // Don't show if already granted or denied
-    if (Notification.permission !== 'default') return;
+    // Don't show if already granted
+    if (Notification.permission === 'granted') return;
+    // In TWA (standalone mode), 'denied' may mean Android hasn't granted POST_NOTIFICATIONS yet,
+    // so we still show the prompt. Only skip for regular browser 'denied'.
+    const isTwa = window.matchMedia('(display-mode: standalone)').matches
+      || ('standalone' in navigator && (navigator as { standalone?: boolean }).standalone === true);
+    if (Notification.permission === 'denied' && !isTwa) return;
     // Don't show if user dismissed before
     if (localStorage.getItem('pushPromptDismissed')) return;
 

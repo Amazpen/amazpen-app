@@ -654,7 +654,7 @@ export default function SettingsPage() {
         <div>
           <div className="flex items-center justify-between mb-[4px]">
             <h3 className="text-white text-[16px] font-bold">התראות פוש</h3>
-            {isSupported && permission !== 'denied' && (
+            {isSupported && (
               <Button
                 type="button"
                 variant="ghost"
@@ -680,9 +680,6 @@ export default function SettingsPage() {
           <p className="text-white/50 text-[13px]">קבלו התראות גם כשהאפליקציה סגורה</p>
           {!isSupported && (
             <p className="text-white/40 text-[13px] mt-[8px]">הדפדפן אינו תומך בהתראות פוש</p>
-          )}
-          {isSupported && permission === 'denied' && (
-            <p className="text-white/40 text-[13px] mt-[8px]">הרשאת התראות נחסמה. יש לשנות בהגדרות הדפדפן</p>
           )}
         </div>
 
