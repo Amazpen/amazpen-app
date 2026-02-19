@@ -631,8 +631,8 @@ export default function ReportsPage() {
             <span className="text-[11px] sm:text-[14px] font-medium flex-1 min-w-0 text-center leading-[1.4]">בפועל</span>
             <span className="text-[11px] sm:text-[14px] font-medium flex-1 min-w-0 text-center leading-[1.4]">יעד</span>
           </div>
-          <div className="flex items-center justify-end shrink-0 w-[90px] sm:w-[140px]">
-            <span className="text-[11px] sm:text-[14px] font-medium text-right leading-[1.4] mr-[14px]">שם ההוצאה</span>
+          <div className="flex items-center justify-center shrink-0 w-[90px] sm:w-[140px]">
+            <span className="text-[11px] sm:text-[14px] font-medium text-center leading-[1.4]">שם ההוצאה</span>
           </div>
         </div>
 
@@ -826,7 +826,7 @@ export default function ReportsPage() {
             </span>
           </div>
         </div>
-        <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0">סה&quot;כ רווח / הפסד</span>
+        <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ רווח / הפסד</span>
       </section>
 
       {/* Prior Liabilities */}
@@ -845,7 +845,7 @@ export default function ReportsPage() {
             {formatCurrency(priorLiabilities)}
           </span>
         </div>
-        <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0">התחייבויות קודמות</span>
+        <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">התחייבויות קודמות</span>
       </section>
 
       {/* Cash Flow Forecast */}
@@ -871,7 +871,7 @@ export default function ReportsPage() {
             </span>
           </div>
         </div>
-        <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0">צפי תזרים</span>
+        <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">צפי תזרים</span>
       </section>
     </article>
   );
