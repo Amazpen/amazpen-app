@@ -929,7 +929,7 @@ export default function NewBusinessPage() {
           <span className="text-[#F64E60]">*</span> סוג עסק
         </label>
         <Select value={businessType || "__none__"} onValueChange={(val) => { const v = val === "__none__" ? "" : val; setBusinessType(v); if (v !== "other") { setCustomBusinessType(""); } }}>
-          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] !h-[50px] px-[12px] text-[14px] text-white text-right">
             <SelectValue placeholder="בחר סוג עסק" />
           </SelectTrigger>
           <SelectContent>
@@ -1887,7 +1887,7 @@ export default function NewBusinessPage() {
           {teamMembers.map((member, index) => (
             <div
               key={`member-${member.email}`}
-              className="flex items-center justify-between bg-[#0F1535] rounded-[10px] p-[12px]"
+              className="flex flex-row-reverse items-center justify-between bg-[#0F1535] rounded-[10px] p-[12px]"
             >
               <Button
                 variant="ghost"
