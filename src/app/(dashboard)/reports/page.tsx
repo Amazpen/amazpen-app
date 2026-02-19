@@ -16,6 +16,8 @@ interface SupplierDisplay {
   difference: string;
   remaining: string;
   diffRaw: number;
+  targetRaw: number;
+  actualRaw: number;
 }
 
 // Expense category data for display
@@ -27,6 +29,8 @@ interface SubcategoryDisplay {
   difference: string;
   remaining: string;
   diffRaw: number;
+  targetRaw: number;
+  actualRaw: number;
   suppliers: SupplierDisplay[];
 }
 
@@ -38,6 +42,8 @@ interface ExpenseCategoryDisplay {
   difference: string;
   remaining: string;
   diffRaw: number;
+  targetRaw: number;
+  actualRaw: number;
   subcategories: SubcategoryDisplay[];
 }
 
@@ -72,6 +78,41 @@ function formatDifference(value: number): string {
 function formatPercentage(value: number): string {
   const sign = value >= 0 ? "" : "";
   return `${sign}${value.toFixed(2)}%`;
+}
+
+function ExpenseProgressBar({ targetRaw, actualRaw, height = 4, className = "" }: { targetRaw: number; actualRaw: number; height?: number; className?: string }) {
+  if (targetRaw <= 0) return null;
+  const utilizationPct = (actualRaw / targetRaw) * 100;
+  const fillColor = utilizationPct > 100 ? "#F64E60" : "#17DB4E";
+  return (
+    <div
+      className={`w-full rounded-full overflow-hidden ${className}`}
+      style={{ height: `${height}px`, backgroundColor: "rgba(255,255,255,0.15)" }}
+      role="progressbar"
+      aria-valuenow={Math.round(utilizationPct)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`ניצול תקציב ${Math.round(utilizationPct)}%`}
+    >
+      <div
+        className="h-full rounded-full transition-all duration-300"
+        style={{ width: `${Math.min(utilizationPct, 100)}%`, backgroundColor: fillColor }}
+      />
+    </div>
+  );
+}
+
+function UtilizationBadge({ targetRaw, actualRaw }: { targetRaw: number; actualRaw: number }) {
+  if (targetRaw <= 0) return null;
+  const utilizationPct = Math.round((actualRaw / targetRaw) * 100);
+  const color = utilizationPct > 100
+    ? "bg-[#F64E60]/20 text-[#F64E60]"
+    : "bg-[#17DB4E]/20 text-[#17DB4E]";
+  return (
+    <span className={`text-[10px] sm:text-[11px] font-bold ltr-num px-[6px] py-[1px] rounded-full ${color}`}>
+      {utilizationPct}%
+    </span>
+  );
 }
 
 export default function ReportsPage() {
@@ -376,6 +417,8 @@ export default function ReportsPage() {
                 difference: formatDifference(diff),
                 remaining: formatPercentage(remaining),
                 diffRaw: diff,
+                targetRaw: target,
+                actualRaw: actual,
                 suppliers: [],
               };
             }).filter(s => parseFloat(s.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(s.target.replace(/[₪K,]/g, "")) > 0)
@@ -403,6 +446,8 @@ export default function ReportsPage() {
                       difference: formatDifference(sDiff),
                       remaining: formatPercentage(sRemaining),
                       diffRaw: sDiff,
+                      targetRaw: sTarget,
+                      actualRaw: sActual,
                     });
                   }
                 }
@@ -417,6 +462,8 @@ export default function ReportsPage() {
                 difference: formatDifference(diff),
                 remaining: formatPercentage(remaining),
                 diffRaw: diff,
+                targetRaw: target,
+                actualRaw: actual,
                 suppliers: childSuppliers,
               };
             });
@@ -442,6 +489,8 @@ export default function ReportsPage() {
             difference: formatDifference(parentDiff),
             remaining: formatPercentage(parentRemaining),
             diffRaw: parentDiff,
+            targetRaw: parentTarget,
+            actualRaw: parentActual,
             subcategories: subcategoriesData,
           };
         }).filter(cat => parseFloat(cat.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(cat.target.replace(/[₪K,]/g, "")) > 0 || cat.subcategories.length > 0);
@@ -644,140 +693,131 @@ export default function ReportsPage() {
             </div>
           ) : expenseCategories.map((category) => (
             <div key={category.id} className="rounded-[10px]">
-              {/* Category Row */}
+              {/* Level 1: Category Row with progress bar */}
               <Button
                 type="button"
                 onClick={() => toggleCategory(category.id)}
-                className={`flex flex-row-reverse items-center justify-between w-full min-h-[60px] p-[5px] gap-[5px] border-b-2 border-white/15 hover:bg-[#29318A]/30 transition-all cursor-pointer ${
+                className={`flex flex-col w-full p-0 border-b-2 border-white/15 hover:bg-[#29318A]/30 transition-all cursor-pointer ${
                   expandedCategories.includes(category.id) ? 'rounded-t-[10px]' : ''
                 }`}
               >
-                <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-                  <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
-                    {category.remaining}
-                  </span>
-                  <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
-                    {category.difference}
-                  </span>
-                  <span className="text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">
-                    {category.actual}
-                  </span>
-                  <span className="text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">
-                    {category.target}
-                  </span>
+                <div className="flex flex-row-reverse items-center justify-between w-full min-h-[60px] px-[5px] gap-[5px]">
+                  <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+                    <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                      {category.remaining}
+                    </span>
+                    <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                      {category.difference}
+                    </span>
+                    <span className="text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">
+                      {category.actual}
+                    </span>
+                    <span className="text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">
+                      {category.target}
+                    </span>
+                  </div>
+                  <div className="flex flex-row-reverse items-center justify-end gap-[5px] shrink-0">
+                    <span className="text-[12px] sm:text-[14px] font-bold text-right leading-[1.4]">{category.name}</span>
+                    <svg
+                      width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true"
+                      className={`flex-shrink-0 transition-transform duration-300 ${expandedCategories.includes(category.id) ? 'rotate-180' : ''}`}
+                    >
+                      <path d="M8 12L16 20L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
                 </div>
-                <div className="flex flex-row-reverse items-center justify-end gap-[5px] shrink-0">
-                  <span className="text-[12px] sm:text-[14px] font-bold text-right leading-[1.4]">{category.name}</span>
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 32 32"
-                    fill="none"
-                    aria-hidden="true"
-                    className={`flex-shrink-0 transition-transform ${expandedCategories.includes(category.id) ? 'rotate-180' : ''}`}
-                  >
-                    <path d="M8 12L16 20L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                <div className="px-[8px] pb-[4px] w-full">
+                  <ExpenseProgressBar targetRaw={category.targetRaw} actualRaw={category.actualRaw} height={3} />
                 </div>
               </Button>
 
-              {/* Subcategories */}
-              {expandedCategories.includes(category.id) && (
-                <div className="bg-[#1A2150] rounded-b-[10px] mx-[5px] mb-[5px]">
-                  {category.subcategories.map((sub, index) => (
+              {/* Level 2: Subcategories as compact cards */}
+              <div className={`overflow-hidden transition-all duration-300 ${expandedCategories.includes(category.id) ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="bg-[#1A2150] rounded-b-[10px] mx-[5px] mb-[5px] p-[6px] flex flex-col gap-[6px]">
+                  {category.subcategories.map((sub) => (
                     <div key={sub.id}>
-                      {sub.suppliers.length > 0 ? (
-                        <Button
-                          type="button"
-                          onClick={() => toggleSubcategory(sub.id)}
-                          className={`flex flex-row-reverse items-center justify-between w-full min-h-[50px] p-[5px] gap-[5px] hover:bg-white/5 transition-all cursor-pointer ${
-                            index < category.subcategories.length - 1 && !expandedSubcategories.includes(sub.id) ? 'border-b border-white/10' : ''
-                          }`}
-                        >
-                          <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-                            <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
-                              {sub.remaining}
-                            </span>
-                            <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
-                              {sub.difference}
-                            </span>
-                            <span className="text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4]">
-                              {sub.actual}
-                            </span>
-                            <span className="text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4]">
-                              {sub.target}
-                            </span>
-                          </div>
-                          <div className="flex flex-row-reverse items-center justify-end gap-[3px] shrink-0">
-                            <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4]">{sub.name}</span>
+                      <div
+                        className={`bg-[#141A40] rounded-[8px] p-[8px] flex flex-col gap-[4px] ${
+                          sub.suppliers.length > 0 ? 'cursor-pointer hover:bg-[#191F4A] transition-all duration-300' : ''
+                        }`}
+                        onClick={() => sub.suppliers.length > 0 ? toggleSubcategory(sub.id) : undefined}
+                        role={sub.suppliers.length > 0 ? "button" : undefined}
+                        tabIndex={sub.suppliers.length > 0 ? 0 : undefined}
+                        aria-expanded={sub.suppliers.length > 0 ? expandedSubcategories.includes(sub.id) : undefined}
+                      >
+                        {/* Subcategory name + expand arrow */}
+                        <div className="flex flex-row-reverse items-center justify-between">
+                          <span className="text-[13px] sm:text-[15px] font-bold text-right text-white leading-[1.4]">
+                            {sub.name}
+                          </span>
+                          {sub.suppliers.length > 0 && (
                             <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 32 32"
-                              fill="none"
-                              aria-hidden="true"
-                              className={`flex-shrink-0 transition-transform text-white/50 ${expandedSubcategories.includes(sub.id) ? 'rotate-180' : ''}`}
+                              width="12" height="12" viewBox="0 0 32 32" fill="none" aria-hidden="true"
+                              className={`flex-shrink-0 transition-transform duration-300 text-white/40 ${expandedSubcategories.includes(sub.id) ? 'rotate-180' : ''}`}
                             >
                               <path d="M8 12L16 20L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
-                          </div>
-                        </Button>
-                      ) : (
-                        <div
-                          className={`flex flex-row-reverse items-center justify-between min-h-[50px] p-[5px] gap-[5px] ${
-                            index < category.subcategories.length - 1 ? 'border-b border-white/10' : ''
-                          }`}
-                        >
-                          <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-                            <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
-                              {sub.remaining}
-                            </span>
-                            <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
-                              {sub.difference}
-                            </span>
-                            <span className="text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4]">
-                              {sub.actual}
-                            </span>
-                            <span className="text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4]">
-                              {sub.target}
-                            </span>
-                          </div>
-                          <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4] shrink-0">{sub.name}</span>
+                          )}
                         </div>
-                      )}
-                      {/* Suppliers (3rd level) */}
-                      {expandedSubcategories.includes(sub.id) && sub.suppliers.length > 0 && (
-                        <div className="bg-[#141A40] mx-[5px] mb-[2px] rounded-[6px]">
+
+                        {/* Two labeled values */}
+                        <div className="flex flex-row-reverse items-center gap-[12px]">
+                          <div className="flex flex-row-reverse items-center gap-[4px]">
+                            <span className="text-[11px] sm:text-[12px] text-white/50 leading-[1.4]">יעד:</span>
+                            <span className="text-[12px] sm:text-[13px] font-semibold ltr-num leading-[1.4]">{sub.target}</span>
+                          </div>
+                          <div className="flex flex-row-reverse items-center gap-[4px]">
+                            <span className="text-[11px] sm:text-[12px] text-white/50 leading-[1.4]">בפועל:</span>
+                            <span className="text-[12px] sm:text-[13px] font-semibold ltr-num leading-[1.4]">{sub.actual}</span>
+                          </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <ExpenseProgressBar targetRaw={sub.targetRaw} actualRaw={sub.actualRaw} height={6} />
+
+                        {/* Difference and remaining */}
+                        <div className="flex flex-row-reverse items-center gap-[6px]">
+                          <span className={`text-[10px] sm:text-[11px] ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/50'}`}>
+                            הפרש: {sub.difference}
+                          </span>
+                          <span className="text-[10px] text-white/20">|</span>
+                          <span className={`text-[10px] sm:text-[11px] ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/50'}`}>
+                            נותר: {sub.remaining}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Level 3: Suppliers as simple list */}
+                      <div className={`overflow-hidden transition-all duration-300 ${expandedSubcategories.includes(sub.id) && sub.suppliers.length > 0 ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div className="mt-[4px] mr-[10px] flex flex-col gap-[1px]">
                           {sub.suppliers.map((supplier, sIndex) => (
-                            <div
-                              key={sIndex}
-                              className={`flex flex-row-reverse items-center justify-between min-h-[42px] px-[8px] py-[4px] gap-[5px] ${
+                            <div key={sIndex} className="flex flex-col">
+                              <div className={`flex flex-row-reverse items-center justify-between py-[5px] px-[8px] gap-[8px] ${
                                 sIndex < sub.suppliers.length - 1 ? 'border-b border-white/5' : ''
-                              }`}
-                            >
-                              <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-                                <span className={`text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/60'}`}>
-                                  {supplier.remaining}
+                              }`}>
+                                <span className="text-[12px] sm:text-[13px] font-medium text-white/70 text-right leading-[1.4] shrink-0">
+                                  {supplier.name}
                                 </span>
-                                <span className={`text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/60'}`}>
-                                  {supplier.difference}
-                                </span>
-                                <span className="text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] text-white/60">
-                                  {supplier.actual}
-                                </span>
-                                <span className="text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] text-white/60">
-                                  {supplier.target}
-                                </span>
+                                <div className="flex items-center gap-[6px]">
+                                  <span className="text-[12px] sm:text-[13px] font-semibold ltr-num leading-[1.4] text-white/80">
+                                    {supplier.actual}
+                                  </span>
+                                  <UtilizationBadge targetRaw={supplier.targetRaw} actualRaw={supplier.actualRaw} />
+                                </div>
                               </div>
-                              <span className="text-[10px] sm:text-[12px] font-normal text-right text-white/50 leading-[1.4] shrink-0">{supplier.name}</span>
+                              {supplier.targetRaw > 0 && (
+                                <div className="px-[8px] pb-[3px]">
+                                  <ExpenseProgressBar targetRaw={supplier.targetRaw} actualRaw={supplier.actualRaw} height={2} />
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
-                      )}
+                      </div>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
             </div>
           ))}
         </div>
