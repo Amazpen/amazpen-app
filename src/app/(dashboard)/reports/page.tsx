@@ -617,7 +617,7 @@ export default function ReportsPage() {
       </section>
 
       {/* Expenses Section */}
-      <section id="onboarding-reports-categories" aria-label="פירוט הוצאות" className="bg-[#0F1535] rounded-[10px] p-[7px_0_7px_0] min-h-[40px] flex flex-col">
+      <section id="onboarding-reports-categories" aria-label="פירוט הוצאות" className="bg-[#0F1535] rounded-[10px] p-[7px_0_0_0] min-h-[40px] flex flex-col">
         {/* Header Row */}
         <div className="min-h-[40px] px-[7px] mb-[15px] text-right">
           <span className="text-[20px] font-bold leading-[1.4]">פירוט ההוצאות</span>
@@ -667,7 +667,7 @@ export default function ReportsPage() {
                   </span>
                 </div>
                 <div className="flex flex-row-reverse items-center justify-end gap-[5px] shrink-0 w-[90px] sm:w-[140px]">
-                  <span className="text-[12px] sm:text-[14px] font-bold text-right leading-[1.4] truncate">{category.name}</span>
+                  <span className="text-[12px] sm:text-[14px] font-bold text-right leading-[1.4] break-words">{category.name}</span>
                   <svg
                     width="16"
                     height="16"
@@ -709,7 +709,7 @@ export default function ReportsPage() {
                             </span>
                           </div>
                           <div className="flex flex-row-reverse items-center justify-end gap-[3px] shrink-0 w-[90px] sm:w-[140px]">
-                            <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4] truncate">{sub.name}</span>
+                            <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4] break-words">{sub.name}</span>
                             <svg
                               width="12"
                               height="12"
@@ -742,7 +742,7 @@ export default function ReportsPage() {
                               {sub.target}
                             </span>
                           </div>
-                          <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4] shrink-0 w-[90px] sm:w-[140px] truncate">{sub.name}</span>
+                          <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4] shrink-0 w-[90px] sm:w-[140px] break-words">{sub.name}</span>
                         </div>
                       )}
                       {/* Suppliers (3rd level) */}
@@ -769,7 +769,7 @@ export default function ReportsPage() {
                                   {supplier.target}
                                 </span>
                               </div>
-                              <span className="text-[10px] sm:text-[12px] font-normal text-right text-white/50 leading-[1.4] shrink-0 w-[90px] sm:w-[140px] truncate">{supplier.name}</span>
+                              <span className="text-[10px] sm:text-[12px] font-normal text-right text-white/50 leading-[1.4] shrink-0 w-[90px] sm:w-[140px] break-words">{supplier.name}</span>
                             </div>
                           ))}
                         </div>
