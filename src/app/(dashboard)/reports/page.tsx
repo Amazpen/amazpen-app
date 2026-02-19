@@ -16,8 +16,6 @@ interface SupplierDisplay {
   difference: string;
   remaining: string;
   diffRaw: number;
-  targetRaw: number;
-  actualRaw: number;
 }
 
 // Expense category data for display
@@ -29,8 +27,6 @@ interface SubcategoryDisplay {
   difference: string;
   remaining: string;
   diffRaw: number;
-  targetRaw: number;
-  actualRaw: number;
   suppliers: SupplierDisplay[];
 }
 
@@ -42,8 +38,6 @@ interface ExpenseCategoryDisplay {
   difference: string;
   remaining: string;
   diffRaw: number;
-  targetRaw: number;
-  actualRaw: number;
   subcategories: SubcategoryDisplay[];
 }
 
@@ -78,41 +72,6 @@ function formatDifference(value: number): string {
 function formatPercentage(value: number): string {
   const sign = value >= 0 ? "" : "";
   return `${sign}${value.toFixed(2)}%`;
-}
-
-function ExpenseProgressBar({ targetRaw, actualRaw, height = 4, className = "" }: { targetRaw: number; actualRaw: number; height?: number; className?: string }) {
-  if (targetRaw <= 0) return null;
-  const utilizationPct = (actualRaw / targetRaw) * 100;
-  const fillColor = utilizationPct > 100 ? "#F64E60" : "#17DB4E";
-  return (
-    <div
-      className={`w-full rounded-full overflow-hidden ${className}`}
-      style={{ height: `${height}px`, backgroundColor: "rgba(255,255,255,0.15)" }}
-      role="progressbar"
-      aria-valuenow={Math.round(utilizationPct)}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-label={`ניצול תקציב ${Math.round(utilizationPct)}%`}
-    >
-      <div
-        className="h-full rounded-full transition-all duration-300"
-        style={{ width: `${Math.min(utilizationPct, 100)}%`, backgroundColor: fillColor }}
-      />
-    </div>
-  );
-}
-
-function UtilizationBadge({ targetRaw, actualRaw }: { targetRaw: number; actualRaw: number }) {
-  if (targetRaw <= 0) return null;
-  const utilizationPct = Math.round((actualRaw / targetRaw) * 100);
-  const color = utilizationPct > 100
-    ? "bg-[#F64E60]/20 text-[#F64E60]"
-    : "bg-[#17DB4E]/20 text-[#17DB4E]";
-  return (
-    <span className={`text-[10px] sm:text-[11px] font-bold ltr-num px-[6px] py-[1px] rounded-full ${color}`}>
-      {utilizationPct}%
-    </span>
-  );
 }
 
 export default function ReportsPage() {
@@ -417,8 +376,6 @@ export default function ReportsPage() {
                 difference: formatDifference(diff),
                 remaining: formatPercentage(remaining),
                 diffRaw: diff,
-                targetRaw: target,
-                actualRaw: actual,
                 suppliers: [],
               };
             }).filter(s => parseFloat(s.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(s.target.replace(/[₪K,]/g, "")) > 0)
@@ -446,8 +403,6 @@ export default function ReportsPage() {
                       difference: formatDifference(sDiff),
                       remaining: formatPercentage(sRemaining),
                       diffRaw: sDiff,
-                      targetRaw: sTarget,
-                      actualRaw: sActual,
                     });
                   }
                 }
@@ -462,8 +417,6 @@ export default function ReportsPage() {
                 difference: formatDifference(diff),
                 remaining: formatPercentage(remaining),
                 diffRaw: diff,
-                targetRaw: target,
-                actualRaw: actual,
                 suppliers: childSuppliers,
               };
             });
@@ -489,8 +442,6 @@ export default function ReportsPage() {
             difference: formatDifference(parentDiff),
             remaining: formatPercentage(parentRemaining),
             diffRaw: parentDiff,
-            targetRaw: parentTarget,
-            actualRaw: parentActual,
             subcategories: subcategoriesData,
           };
         }).filter(cat => parseFloat(cat.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(cat.target.replace(/[₪K,]/g, "")) > 0 || cat.subcategories.length > 0);
@@ -693,46 +644,45 @@ export default function ReportsPage() {
             </div>
           ) : expenseCategories.map((category) => (
             <div key={category.id} className="rounded-[10px]">
-              {/* Level 1: Category Row with progress bar */}
+              {/* Category Row */}
               <Button
                 type="button"
                 onClick={() => toggleCategory(category.id)}
-                className={`flex flex-col w-full p-0 border-b-2 border-white/15 hover:bg-[#29318A]/30 transition-all cursor-pointer ${
+                className={`flex flex-row-reverse items-center justify-between w-full min-h-[60px] p-[5px] gap-[5px] border-b-2 border-white/15 hover:bg-[#29318A]/30 transition-all cursor-pointer ${
                   expandedCategories.includes(category.id) ? 'rounded-t-[10px]' : ''
                 }`}
               >
-                <div className="flex flex-row-reverse items-center justify-between w-full min-h-[60px] px-[5px] gap-[5px]">
-                  <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-                    <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
-                      {category.remaining}
-                    </span>
-                    <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
-                      {category.difference}
-                    </span>
-                    <span className="text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">
-                      {category.actual}
-                    </span>
-                    <span className="text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">
-                      {category.target}
-                    </span>
-                  </div>
-                  <div className="flex flex-row-reverse items-center justify-end gap-[5px] shrink-0">
-                    <span className="text-[12px] sm:text-[14px] font-bold text-right leading-[1.4]">{category.name}</span>
-                    <svg
-                      width="16" height="16" viewBox="0 0 32 32" fill="none" aria-hidden="true"
-                      className={`flex-shrink-0 transition-transform duration-300 ${expandedCategories.includes(category.id) ? 'rotate-180' : ''}`}
-                    >
-                      <path d="M8 12L16 20L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
+                <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+                  <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                    {category.remaining}
+                  </span>
+                  <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                    {category.difference}
+                  </span>
+                  <span className="text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">
+                    {category.actual}
+                  </span>
+                  <span className="text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">
+                    {category.target}
+                  </span>
                 </div>
-                <div className="px-[8px] pb-[4px] w-full">
-                  <ExpenseProgressBar targetRaw={category.targetRaw} actualRaw={category.actualRaw} height={3} />
+                <div className="flex flex-row-reverse items-center justify-end gap-[5px] shrink-0">
+                  <span className="text-[12px] sm:text-[14px] font-bold text-right leading-[1.4]">{category.name}</span>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 32 32"
+                    fill="none"
+                    aria-hidden="true"
+                    className={`flex-shrink-0 transition-transform ${expandedCategories.includes(category.id) ? 'rotate-180' : ''}`}
+                  >
+                    <path d="M8 12L16 20L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                 </div>
               </Button>
 
               {/* Subcategories */}
-              <div className={`overflow-hidden transition-all duration-300 ${expandedCategories.includes(category.id) ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              {expandedCategories.includes(category.id) && (
                 <div className="bg-[#1A2150] rounded-b-[10px] mx-[5px] mb-[5px]">
                   {category.subcategories.map((sub, index) => (
                     <div key={sub.id}>
@@ -761,8 +711,12 @@ export default function ReportsPage() {
                           <div className="flex flex-row-reverse items-center justify-end gap-[3px] shrink-0">
                             <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4]">{sub.name}</span>
                             <svg
-                              width="12" height="12" viewBox="0 0 32 32" fill="none" aria-hidden="true"
-                              className={`flex-shrink-0 transition-transform duration-300 text-white/50 ${expandedSubcategories.includes(sub.id) ? 'rotate-180' : ''}`}
+                              width="12"
+                              height="12"
+                              viewBox="0 0 32 32"
+                              fill="none"
+                              aria-hidden="true"
+                              className={`flex-shrink-0 transition-transform text-white/50 ${expandedSubcategories.includes(sub.id) ? 'rotate-180' : ''}`}
                             >
                               <path d="M8 12L16 20L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
@@ -792,7 +746,7 @@ export default function ReportsPage() {
                         </div>
                       )}
                       {/* Suppliers (3rd level) */}
-                      <div className={`overflow-hidden transition-all duration-300 ${expandedSubcategories.includes(sub.id) && sub.suppliers.length > 0 ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                      {expandedSubcategories.includes(sub.id) && sub.suppliers.length > 0 && (
                         <div className="bg-[#141A40] mx-[5px] mb-[2px] rounded-[6px]">
                           {sub.suppliers.map((supplier, sIndex) => (
                             <div
@@ -819,11 +773,11 @@ export default function ReportsPage() {
                             </div>
                           ))}
                         </div>
-                      </div>
+                      )}
                     </div>
                   ))}
                 </div>
-              </div>
+              )}
             </div>
           ))}
         </div>
