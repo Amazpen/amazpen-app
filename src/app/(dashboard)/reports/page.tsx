@@ -15,6 +15,7 @@ interface SupplierDisplay {
   actual: string;
   difference: string;
   remaining: string;
+  remainingRaw: number;
   diffRaw: number;
 }
 
@@ -26,6 +27,7 @@ interface SubcategoryDisplay {
   actual: string;
   difference: string;
   remaining: string;
+  remainingRaw: number;
   diffRaw: number;
   suppliers: SupplierDisplay[];
 }
@@ -37,6 +39,7 @@ interface ExpenseCategoryDisplay {
   actual: string;
   difference: string;
   remaining: string;
+  remainingRaw: number;
   diffRaw: number;
   subcategories: SubcategoryDisplay[];
 }
@@ -375,6 +378,7 @@ export default function ReportsPage() {
                 actual: formatCurrency(actual),
                 difference: formatDifference(diff),
                 remaining: formatPercentage(remaining),
+                remainingRaw: remaining,
                 diffRaw: diff,
                 suppliers: [],
               };
@@ -402,6 +406,7 @@ export default function ReportsPage() {
                       actual: formatCurrency(sActual),
                       difference: formatDifference(sDiff),
                       remaining: formatPercentage(sRemaining),
+                      remainingRaw: sRemaining,
                       diffRaw: sDiff,
                     });
                   }
@@ -416,6 +421,7 @@ export default function ReportsPage() {
                 actual: formatCurrency(actual),
                 difference: formatDifference(diff),
                 remaining: formatPercentage(remaining),
+                remainingRaw: remaining,
                 diffRaw: diff,
                 suppliers: childSuppliers,
               };
@@ -441,6 +447,7 @@ export default function ReportsPage() {
             actual: formatCurrency(parentActual),
             difference: formatDifference(parentDiff),
             remaining: formatPercentage(parentRemaining),
+            remainingRaw: parentRemaining,
             diffRaw: parentDiff,
             subcategories: subcategoriesData,
           };
@@ -613,7 +620,7 @@ export default function ReportsPage() {
             <span className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.revenueTarget)}</span>
           </div>
         </div>
-        <span className="text-[14px] sm:text-[16px] font-bold text-right leading-[1.4] shrink-0">סה&quot;כ הכנסות ללא מע&quot;מ</span>
+        <span className="text-[14px] sm:text-[16px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ הכנסות ללא מע&quot;מ</span>
       </section>
 
       {/* Expenses Section */}
@@ -653,9 +660,14 @@ export default function ReportsPage() {
                 }`}
               >
                 <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-                  <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
-                    {category.remaining}
-                  </span>
+                  <div className="flex flex-col items-center flex-1 min-w-0 gap-[2px]">
+                    <span className={`text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                      {category.remaining}
+                    </span>
+                    <div className="w-[60px] sm:w-[75px] h-[8px] sm:h-[10px] bg-white/20 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all duration-300 ${category.diffRaw >= 0 ? 'bg-[#17DB4E]' : 'bg-[#F64E60]'}`} style={{ width: `${Math.min(100, Math.max(0, 100 - category.remainingRaw))}%` }} />
+                    </div>
+                  </div>
                   <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                     {category.difference}
                   </span>
@@ -695,9 +707,14 @@ export default function ReportsPage() {
                           }`}
                         >
                           <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-                            <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
-                              {sub.remaining}
-                            </span>
+                            <div className="flex flex-col items-center flex-1 min-w-0 gap-[2px]">
+                              <span className={`text-[10px] sm:text-[13px] font-medium ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                                {sub.remaining}
+                              </span>
+                              <div className="w-[50px] sm:w-[65px] h-[6px] sm:h-[8px] bg-white/20 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-300 ${sub.diffRaw >= 0 ? 'bg-[#17DB4E]' : 'bg-[#F64E60]'}`} style={{ width: `${Math.min(100, Math.max(0, 100 - sub.remainingRaw))}%` }} />
+                              </div>
+                            </div>
                             <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                               {sub.difference}
                             </span>
@@ -729,9 +746,14 @@ export default function ReportsPage() {
                           }`}
                         >
                           <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-                            <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
-                              {sub.remaining}
-                            </span>
+                            <div className="flex flex-col items-center flex-1 min-w-0 gap-[2px]">
+                              <span className={`text-[10px] sm:text-[13px] font-medium ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                                {sub.remaining}
+                              </span>
+                              <div className="w-[50px] sm:w-[65px] h-[6px] sm:h-[8px] bg-white/20 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-300 ${sub.diffRaw >= 0 ? 'bg-[#17DB4E]' : 'bg-[#F64E60]'}`} style={{ width: `${Math.min(100, Math.max(0, 100 - sub.remainingRaw))}%` }} />
+                              </div>
+                            </div>
                             <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                               {sub.difference}
                             </span>
@@ -756,9 +778,14 @@ export default function ReportsPage() {
                               }`}
                             >
                               <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-                                <span className={`text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/60'}`}>
-                                  {supplier.remaining}
-                                </span>
+                                <div className="flex flex-col items-center flex-1 min-w-0 gap-[1px]">
+                                  <span className={`text-[9px] sm:text-[12px] font-normal ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/60'}`}>
+                                    {supplier.remaining}
+                                  </span>
+                                  <div className="w-[40px] sm:w-[55px] h-[5px] sm:h-[6px] bg-white/20 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full transition-all duration-300 ${supplier.diffRaw >= 0 ? 'bg-[#17DB4E]' : 'bg-[#F64E60]'}`} style={{ width: `${Math.min(100, Math.max(0, 100 - supplier.remainingRaw))}%` }} />
+                                  </div>
+                                </div>
                                 <span className={`text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white/60'}`}>
                                   {supplier.difference}
                                 </span>
@@ -785,9 +812,14 @@ export default function ReportsPage() {
         {/* Total Expenses Row */}
         <div className="flex flex-row-reverse items-center justify-between bg-[#2C3595] rounded-[10px] p-[7px] mt-[10px] min-h-[60px] gap-[5px]">
           <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-            <span className={`text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses > 0 ? "text-[#17DB4E]" : summary.expensesTarget - summary.totalExpenses < 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {summary.expensesTarget > 0 ? (((summary.expensesTarget - summary.totalExpenses) / summary.expensesTarget) * 100).toFixed(2) : "0.00"}%
-            </span>
+            <div className="flex flex-col items-center flex-1 min-w-0 gap-[2px]">
+              <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses > 0 ? "text-[#17DB4E]" : summary.expensesTarget - summary.totalExpenses < 0 ? "text-[#F64E60]" : "text-white"}`}>
+                {summary.expensesTarget > 0 ? (((summary.expensesTarget - summary.totalExpenses) / summary.expensesTarget) * 100).toFixed(2) : "0.00"}%
+              </span>
+              <div className="w-[60px] sm:w-[75px] h-[8px] sm:h-[10px] bg-white/30 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-300 ${summary.expensesTarget - summary.totalExpenses >= 0 ? 'bg-[#17DB4E]' : 'bg-[#F64E60]'}`} style={{ width: `${summary.expensesTarget > 0 ? Math.min(100, Math.max(0, (summary.totalExpenses / summary.expensesTarget) * 100)) : 0}%` }} />
+              </div>
+            </div>
             <span className={`text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${summary.expensesTarget - summary.totalExpenses > 0 ? "text-[#17DB4E]" : summary.expensesTarget - summary.totalExpenses < 0 ? "text-[#F64E60]" : "text-white"}`}>
               {formatDifference(summary.expensesTarget - summary.totalExpenses)}
             </span>
