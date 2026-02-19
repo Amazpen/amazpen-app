@@ -29,20 +29,24 @@ export function UpdatePrompt() {
       const serverBuild = match[1];
       const storedBuild = localStorage.getItem(SW_BUILD_KEY);
 
+      console.log("[SW Update]", { serverBuild, storedBuild });
+
       if (!storedBuild) {
-        // First visit — store current version
         localStorage.setItem(SW_BUILD_KEY, serverBuild);
+        console.log("[SW Update] First visit — stored build time");
         return;
       }
 
       if (storedBuild !== serverBuild) {
-        // New version available — show update prompt
         localStorage.setItem(SW_BUILD_KEY, serverBuild);
+        console.log("[SW Update] New version detected! Showing prompt");
         setIsVersionUpdate(true);
         setVisible(true);
+      } else {
+        console.log("[SW Update] Up to date");
       }
-    } catch {
-      // Network error — ignore
+    } catch (e) {
+      console.warn("[SW Update] Check failed:", e);
     }
   }, []);
 
