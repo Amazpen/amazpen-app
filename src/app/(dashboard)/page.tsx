@@ -2415,6 +2415,7 @@ export default function DashboardPage() {
                       width={50}
                       height={50}
                       unoptimized
+                      priority
                     />
                   ) : (
                     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">
@@ -2525,6 +2526,7 @@ export default function DashboardPage() {
                           width={40}
                           height={40}
                           className="w-full h-full object-cover"
+                          priority
                         />
                       ) : (
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white/30">
