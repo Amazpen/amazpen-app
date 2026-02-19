@@ -18,7 +18,6 @@ export function usePushSubscription() {
   const [isSupported, setIsSupported] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [permission, setPermission] = useState<NotificationPermission>('default')
-  const [debugError, setDebugError] = useState('')
 
   useEffect(() => {
     const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
@@ -58,46 +57,38 @@ export function usePushSubscription() {
   }, [])
 
   const subscribe = useCallback(async () => {
-    if (!isSupported) { setDebugError('not supported'); return false }
-    setDebugError('')
+    if (!isSupported) return false
 
     try {
-      setDebugError('requesting permission...')
       const perm = await Notification.requestPermission()
       setPermission(perm)
-      if (perm !== 'granted') { setDebugError(`perm=${perm}`); return false }
+      if (perm !== 'granted') return false
 
-      setDebugError('getting SW registration...')
-      // Try getRegistration first, then register if needed, with timeout
+      // Try getRegistration first, then register if needed (fixes TWA where SW.ready hangs)
       let reg = await navigator.serviceWorker.getRegistration('/')
       if (!reg) {
-        setDebugError('registering SW...')
         reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
       }
       // Wait for the SW to be active
       if (reg.installing || reg.waiting) {
-        setDebugError('waiting SW activate...')
         const sw = reg.installing || reg.waiting
         await new Promise<void>((resolve) => {
           if (sw!.state === 'activated') { resolve(); return }
           sw!.addEventListener('statechange', () => {
             if (sw!.state === 'activated') resolve()
           })
-          // Timeout after 5s
           setTimeout(resolve, 5000)
         })
       }
       const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
 
-      if (!vapidPublicKey) { setDebugError('no VAPID key'); return false }
+      if (!vapidPublicKey) return false
 
-      setDebugError('pushManager.subscribe...')
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey).buffer as ArrayBuffer,
       })
 
-      setDebugError('sending to server...')
       const res = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -106,29 +97,27 @@ export function usePushSubscription() {
 
       if (res.ok) {
         setIsSubscribed(true)
-        setDebugError('OK!')
         return true
       }
-      setDebugError(`server ${res.status}`)
       return false
-    } catch (e) {
-      setDebugError(`error: ${e instanceof Error ? e.message : String(e)}`)
+    } catch {
       return false
     }
   }, [isSupported])
 
   const unsubscribe = useCallback(async () => {
     try {
-      const reg = await navigator.serviceWorker.ready
-      const subscription = await reg.pushManager.getSubscription()
-
-      if (subscription) {
-        await fetch('/api/push/subscribe', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endpoint: subscription.endpoint }),
-        })
-        await subscription.unsubscribe()
+      const reg = await navigator.serviceWorker.getRegistration('/')
+      if (reg) {
+        const subscription = await reg.pushManager.getSubscription()
+        if (subscription) {
+          await fetch('/api/push/subscribe', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: subscription.endpoint }),
+          })
+          await subscription.unsubscribe()
+        }
       }
 
       setIsSubscribed(false)
@@ -138,5 +127,5 @@ export function usePushSubscription() {
     }
   }, [])
 
-  return { isSubscribed, isSupported, isLoading, permission, subscribe, unsubscribe, debugError }
+  return { isSubscribed, isSupported, isLoading, permission, subscribe, unsubscribe }
 }
