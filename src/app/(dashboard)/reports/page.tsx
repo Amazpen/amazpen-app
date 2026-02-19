@@ -396,9 +396,8 @@ export default function ReportsPage() {
             });
             const parentSuppliersAssigned = new Set<string>();
 
-            // For labor cost: check if children have any invoice data
-            const laborChildrenHaveData = isLaborCostCategory && children.some(c => (categoryActuals.get(c.id) || 0) > 0);
-            // If no children have invoice data, assign totalLaborCost to the child named "עלות עובדים"
+            // For labor cost: always inject totalLaborCost into the "עלות עובדים" subcategory
+            // because labor cost comes from daily_entries, not invoices
             let laborCostAssigned = false;
 
             subcategoriesData = children.map((child, childIndex) => {
@@ -406,7 +405,7 @@ export default function ReportsPage() {
               let target = categoryBudgets.get(child.id) || 0;
 
               // For labor cost category: inject totalLaborCost into the matching subcategory
-              if (isLaborCostCategory && !laborChildrenHaveData && !laborCostAssigned) {
+              if (isLaborCostCategory && !laborCostAssigned) {
                 const isLaborChild = child.name === "עלות עובדים" || child.name === "עלויות עובדים";
                 const isLastChild = childIndex === children.length - 1;
                 if (isLaborChild || isLastChild) {
