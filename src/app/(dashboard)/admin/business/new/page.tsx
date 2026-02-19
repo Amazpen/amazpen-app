@@ -930,7 +930,7 @@ export default function NewBusinessPage() {
         </label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
         <Select value={businessType || "__none__"} onValueChange={(val) => { const v = val === "__none__" ? "" : val; setBusinessType(v); if (v !== "other") { setCustomBusinessType(""); } }}>
-          <SelectTrigger className="w-full h-full bg-transparent border-none shadow-none rounded-[10px] px-[15px] text-[14px] text-white text-right">
+          <SelectTrigger className="w-full !h-full bg-transparent border-none shadow-none rounded-[10px] px-[15px] text-[14px] text-white text-right">
             <SelectValue placeholder="בחר סוג עסק" />
           </SelectTrigger>
           <SelectContent>
