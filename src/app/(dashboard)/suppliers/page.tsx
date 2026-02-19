@@ -1146,7 +1146,7 @@ export default function SuppliersPage() {
     <div dir="rtl" className="flex flex-col min-h-[calc(100vh-52px)] text-white px-[5px] py-[5px] pb-[80px] gap-[10px]">
       <ConfirmDialog />
       {/* Header Section with Total and Add Button */}
-      <div className="flex flex-col gap-[7px] p-[5px]">
+      <div className="flex flex-col gap-[7px]">
         {/* Total Open Payment - פתוח לתשלום: בימין, הסכום בשמאל */}
         <div className="flex items-center justify-center gap-[3px]">
           <span className={`text-[23px] font-bold ${totalOpenPayment < 0 ? "text-[#0BB783]" : totalOpenPayment > 0 ? "text-[#F64E60]" : "text-white"}`}>פתוח לתשלום:</span>
@@ -1178,7 +1178,7 @@ export default function SuppliersPage() {
       </div>
 
       {/* Main Content Container */}
-      <div className="flex-1 flex flex-col bg-[#0F1535] rounded-[10px] p-[5px_7px]">
+      <div className="flex-1 flex flex-col bg-[#0F1535] rounded-[10px]">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as TabType)} dir="rtl">
           <TabsList id="onboarding-suppliers-tabs" className="w-full bg-transparent rounded-[7px] p-0 h-[50px] sm:h-[60px] mb-[10px] gap-0 border border-[#6B6B6B]">
