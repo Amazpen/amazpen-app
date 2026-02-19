@@ -158,16 +158,22 @@ export default function RootLayout({
                   navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).then(function(reg) {
                     trackUpdate(reg);
 
-                    var lastCheck = 0;
+                    // Immediately check for updates on page load
+                    reg.update().catch(function() {});
+
+                    var lastCheck = Date.now();
                     function checkForUpdate() {
                       var now = Date.now();
                       if (now - lastCheck < 30000) return;
                       lastCheck = now;
-                      reg.update();
+                      reg.update().catch(function() {});
                     }
 
+                    // Check every 60 seconds in case user stays on same page
+                    setInterval(function() { lastCheck = 0; checkForUpdate(); }, 60000);
+
                     document.addEventListener('visibilitychange', function() {
-                      if (document.visibilityState === 'visible') checkForUpdate();
+                      if (document.visibilityState === 'visible') { lastCheck = 0; checkForUpdate(); }
                     });
 
                     var origPush = history.pushState;
@@ -182,7 +188,7 @@ export default function RootLayout({
                     };
                     window.addEventListener('popstate', function() { checkForUpdate(); });
 
-                    window.addEventListener('focus', function() { checkForUpdate(); });
+                    window.addEventListener('focus', function() { lastCheck = 0; checkForUpdate(); });
                   }).catch(function() {});
                 });
 
