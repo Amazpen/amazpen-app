@@ -695,7 +695,7 @@ export default function ReportsPage() {
 
               {/* Subcategories */}
               {expandedCategories.includes(category.id) && (
-                <div className="bg-[#1A2150] rounded-b-[10px] mx-[5px] mb-[5px]">
+                <div className="bg-[#1A2150] rounded-b-[10px] mb-[5px]">
                   {category.subcategories.map((sub, index) => (
                     <div key={sub.id}>
                       {sub.suppliers.length > 0 ? (
