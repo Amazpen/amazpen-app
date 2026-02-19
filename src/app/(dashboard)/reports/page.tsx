@@ -385,19 +385,37 @@ export default function ReportsPage() {
             }).filter(s => parseFloat(s.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(s.target.replace(/[₪K,]/g, "")) > 0)
               .sort((a, b) => parseFloat(b.actual.replace(/[₪K,]/g, "")) - parseFloat(a.actual.replace(/[₪K,]/g, "")));
           } else {
+            const isLaborCostCategory = laborCostNames.has(parent.name);
             // Collect suppliers assigned directly to the parent (not to any child)
             const childIds = new Set(children.map(c => c.id));
             const parentOnlySupplierIds: string[] = [];
             supplierCategoryMap.forEach((catId, supplierId) => {
-              if ((catId === parent.id || (laborCostNames.has(parent.name) && laborParentIds.has(catId))) && !childIds.has(catId)) {
+              if ((catId === parent.id || (isLaborCostCategory && laborParentIds.has(catId))) && !childIds.has(catId)) {
                 parentOnlySupplierIds.push(supplierId);
               }
             });
             const parentSuppliersAssigned = new Set<string>();
 
+            // For labor cost: check if children have any invoice data
+            const laborChildrenHaveData = isLaborCostCategory && children.some(c => (categoryActuals.get(c.id) || 0) > 0);
+            // If no children have invoice data, assign totalLaborCost to the child named "עלות עובדים"
+            let laborCostAssigned = false;
+
             subcategoriesData = children.map((child, childIndex) => {
               let actual = categoryActuals.get(child.id) || 0;
               let target = categoryBudgets.get(child.id) || 0;
+
+              // For labor cost category: inject totalLaborCost into the matching subcategory
+              if (isLaborCostCategory && !laborChildrenHaveData && !laborCostAssigned) {
+                const isLaborChild = child.name === "עלות עובדים" || child.name === "עלויות עובדים";
+                const isLastChild = childIndex === children.length - 1;
+                if (isLaborChild || isLastChild) {
+                  actual += totalLaborCost;
+                  const lTargetPct = Number(goal?.labor_cost_target_pct || 0);
+                  target += (lTargetPct / 100) * totalRevenue;
+                  laborCostAssigned = true;
+                }
+              }
 
               // Build suppliers list for this subcategory
               const childSuppliers: SupplierDisplay[] = [];
