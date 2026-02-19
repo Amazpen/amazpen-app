@@ -31,6 +31,7 @@ const formatCurrencyFull = (amount: number) => {
 };
 
 const formatPercent = (value: number) => `${value.toFixed(1)}%`;
+const formatNumber = (value: number) => Math.round(value).toLocaleString("he-IL");
 
 const categoryLabels: Record<InsightCategory, string> = {
   revenue: "הכנסות",
@@ -112,7 +113,7 @@ const InsightCard = ({ insight }: { insight: Insight }) => {
   return (
     <div className={`data-card-new flex flex-col gap-[12px] rounded-[10px] p-[16px] min-h-[160px] w-full border-r-[3px] ${styles.border} transition-all duration-200 hover:scale-[1.01]`}>
       {/* Header */}
-      <div className="flex flex-row-reverse justify-between items-start gap-[8px]">
+      <div className="flex justify-between items-start gap-[8px]">
         <div className="flex items-center gap-[8px]">
           <div className={`w-[31px] h-[31px] rounded-full ${iconClass} flex items-center justify-center text-white flex-shrink-0`}>
             <CategoryIcon category={insight.category} />
@@ -145,7 +146,7 @@ const InsightCard = ({ insight }: { insight: Insight }) => {
 // ============================================================================
 const SkeletonCard = () => (
   <div className="data-card-new flex flex-col gap-[12px] rounded-[10px] p-[16px] min-h-[160px] w-full animate-pulse">
-    <div className="flex flex-row-reverse justify-between items-start">
+    <div className="flex justify-between items-start">
       <div className="flex items-center gap-[8px]">
         <div className="w-[31px] h-[31px] rounded-full bg-white/10" />
         <div className="w-[40px] h-[12px] rounded bg-white/10" />
@@ -177,6 +178,8 @@ const filterOptions: { key: InsightCategory | "all"; label: string }[] = [
   { key: "goals", label: "יעדים" },
 ];
 
+const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+
 // ============================================================================
 // MAIN PAGE
 // ============================================================================
@@ -201,47 +204,206 @@ export default function InsightsPage() {
     const currentMonth = now.getMonth() + 1;
     const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
     const prevMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const dayOfMonth = now.getDate();
 
     const currentMonthStart = `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`;
-    const currentMonthEnd = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${new Date(currentYear, currentMonth, 0).getDate()}`;
+    const currentMonthEnd = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${daysInMonth}`;
     const prevMonthStart = `${prevMonthYear}-${String(prevMonth).padStart(2, "0")}-01`;
     const prevMonthEnd = `${prevMonthYear}-${String(prevMonth).padStart(2, "0")}-${new Date(prevMonthYear, prevMonth, 0).getDate()}`;
+    const today = now.toISOString().split("T")[0];
 
     const businessIds = selectedBusinesses;
 
     try {
       // ====================================================================
-      // 1. Revenue trend: current month vs previous month
+      // BATCH FETCH: Get all data in parallel for performance
       // ====================================================================
-      const [{ data: currentRevenue }, { data: prevRevenue }] = await Promise.all([
+      const [
+        { data: currentDailyEntries },
+        { data: prevDailyEntries },
+        { data: currentInvoices },
+        { data: prevInvoices },
+        { data: goals },
+        { data: businesses },
+        { data: fixedSuppliers },
+        { data: incomeBreakdown },
+        { data: incomeSources },
+        { data: incomeSourceGoals },
+        { data: allPaymentSplits },
+        { data: receiptData },
+        { data: productUsage },
+        { data: managedProducts },
+      ] = await Promise.all([
+        // Current month daily entries
         supabase
           .from("daily_entries")
-          .select("total_register")
+          .select("id, entry_date, total_register, labor_cost, labor_hours, discounts, waste, day_factor, manager_daily_cost")
           .in("business_id", businessIds)
           .gte("entry_date", currentMonthStart)
           .lte("entry_date", currentMonthEnd)
-          .is("deleted_at", null),
+          .is("deleted_at", null)
+          .order("entry_date"),
+        // Previous month daily entries
         supabase
           .from("daily_entries")
-          .select("total_register")
+          .select("id, entry_date, total_register, labor_cost, labor_hours, discounts, waste, day_factor, manager_daily_cost")
           .in("business_id", businessIds)
           .gte("entry_date", prevMonthStart)
           .lte("entry_date", prevMonthEnd)
           .is("deleted_at", null),
+        // Current month invoices with supplier details
+        supabase
+          .from("invoices")
+          .select("supplier_id, subtotal, total_amount, invoice_type, invoice_date, suppliers!inner(name, expense_type, expense_category_id, is_fixed_expense)")
+          .in("business_id", businessIds)
+          .gte("invoice_date", currentMonthStart)
+          .lte("invoice_date", currentMonthEnd)
+          .is("deleted_at", null),
+        // Previous month invoices
+        supabase
+          .from("invoices")
+          .select("subtotal, suppliers!inner(expense_type)")
+          .in("business_id", businessIds)
+          .gte("invoice_date", prevMonthStart)
+          .lte("invoice_date", prevMonthEnd)
+          .is("deleted_at", null),
+        // Goals
+        supabase
+          .from("goals")
+          .select("*")
+          .in("business_id", businessIds)
+          .eq("year", currentYear)
+          .eq("month", currentMonth)
+          .is("deleted_at", null),
+        // Business config
+        supabase
+          .from("businesses")
+          .select("id, name, vat_percentage, markup_percentage, manager_monthly_salary")
+          .in("id", businessIds)
+          .is("deleted_at", null),
+        // Fixed expense suppliers
+        supabase
+          .from("suppliers")
+          .select("name, monthly_expense_amount, expense_category_id")
+          .in("business_id", businessIds)
+          .eq("is_fixed_expense", true)
+          .eq("is_active", true)
+          .is("deleted_at", null),
+        // Income breakdown for current month
+        supabase
+          .from("daily_income_breakdown")
+          .select("daily_entry_id, income_source_id, amount, orders_count")
+          .in("daily_entry_id", []), // Will be filled after we get entry IDs
+        // Income sources
+        supabase
+          .from("income_sources")
+          .select("id, name, income_type, input_type")
+          .in("business_id", businessIds)
+          .eq("is_active", true)
+          .is("deleted_at", null),
+        // Income source goals
+        supabase
+          .from("income_source_goals")
+          .select("income_source_id, avg_ticket_target, goal_id, goals!inner(business_id, year, month)")
+          .eq("goals.year", currentYear)
+          .eq("goals.month", currentMonth),
+        // All payment splits with due dates
+        supabase
+          .from("payment_splits")
+          .select("amount, due_date, payment_method, installments_count, installment_number, payments!inner(business_id, supplier_id, deleted_at, suppliers!inner(name, expense_type))")
+          .is("payments.deleted_at", null),
+        // Receipt data
+        supabase
+          .from("daily_receipts")
+          .select("daily_entry_id, amount, receipt_types!inner(name)")
+          .order("amount", { ascending: false }),
+        // Product usage
+        supabase
+          .from("daily_product_usage")
+          .select("daily_entry_id, product_id, quantity, unit_cost_at_time"),
+        // Managed products
+        supabase
+          .from("managed_products")
+          .select("id, name, unit, unit_cost, target_pct")
+          .in("business_id", businessIds)
+          .is("deleted_at", null),
       ]);
 
-      const currentTotal = (currentRevenue || []).reduce((s, r) => s + (Number(r.total_register) || 0), 0);
-      const prevTotal = (prevRevenue || []).reduce((s, r) => s + (Number(r.total_register) || 0), 0);
+      const entries = currentDailyEntries || [];
+      const prevEntries = prevDailyEntries || [];
+      const entryIds = entries.map((e) => e.id);
 
+      // Fetch income breakdown with actual entry IDs
+      const { data: actualIncomeBreakdown } = entryIds.length > 0
+        ? await supabase
+            .from("daily_income_breakdown")
+            .select("daily_entry_id, income_source_id, amount, orders_count")
+            .in("daily_entry_id", entryIds)
+        : { data: [] };
+
+      const incomeData = actualIncomeBreakdown || incomeBreakdown || [];
+
+      // ====================================================================
+      // COMPUTED VALUES
+      // ====================================================================
+      const biz = (businesses || [])[0];
+      const vatPct = biz ? Number(biz.vat_percentage) || 0.18 : 0.18;
+      const markupPct = biz ? Number(biz.markup_percentage) || 1.18 : 1.18;
+      const managerSalary = biz ? Number(biz.manager_monthly_salary) || 0 : 0;
+
+      const currentTotal = entries.reduce((s, r) => s + (Number(r.total_register) || 0), 0);
+      const prevTotal = prevEntries.reduce((s, r) => s + (Number(r.total_register) || 0), 0);
+      const incomeBeforeVat = currentTotal / (1 + vatPct);
+
+      const totalLabor = entries.reduce((s, d) => s + (Number(d.labor_cost) || 0) + (Number(d.manager_daily_cost) || 0), 0);
+      const totalLaborHours = entries.reduce((s, d) => s + (Number(d.labor_hours) || 0), 0);
+      const totalDiscounts = entries.reduce((s, d) => s + (Number(d.discounts) || 0), 0);
+      const totalWaste = entries.reduce((s, d) => s + (Number(d.waste) || 0), 0);
+      const actualWorkDays = entries.reduce((s, d) => s + (Number(d.day_factor) || 0), 0);
+
+      // Add manager salary to labor cost using the same formula as dashboard
+      const laborCostWithManager = managerSalary > 0 && actualWorkDays > 0
+        ? (totalLabor + (managerSalary / daysInMonth) * actualWorkDays) * markupPct
+        : totalLabor * markupPct;
+
+      const invoices = currentInvoices || [];
+      const prevInvoiceList = prevInvoices || [];
+
+      const goodsInvoices = invoices.filter((i) => (i.suppliers as unknown as { expense_type: string }).expense_type === "goods_purchases");
+      const currentExpInvoices = invoices.filter((i) => (i.suppliers as unknown as { expense_type: string }).expense_type === "current_expenses");
+
+      const totalGoods = goodsInvoices.reduce((s, i) => s + (Number(i.subtotal) || 0), 0);
+      const totalCurrentExp = currentExpInvoices.reduce((s, i) => s + (Number(i.subtotal) || 0), 0);
+      const totalAllExpenses = totalGoods + totalCurrentExp;
+
+      const prevGoods = prevInvoiceList.filter((i) => (i.suppliers as unknown as { expense_type: string }).expense_type === "goods_purchases").reduce((s, i) => s + (Number(i.subtotal) || 0), 0);
+      const prevCurrentExp = prevInvoiceList.filter((i) => (i.suppliers as unknown as { expense_type: string }).expense_type === "current_expenses").reduce((s, i) => s + (Number(i.subtotal) || 0), 0);
+
+      const goal = (goals || [])[0];
+
+      // Filter payment splits by business
+      const bizPaymentSplits = (allPaymentSplits || []).filter((ps) => {
+        const payment = ps.payments as unknown as { business_id: string };
+        return businessIds.includes(payment.business_id);
+      });
+
+      // Filter receipt data and product usage by entry IDs
+      const bizReceipts = (receiptData || []).filter((r) => entryIds.includes(r.daily_entry_id));
+      const bizProducts = (productUsage || []).filter((p) => entryIds.includes(p.daily_entry_id));
+
+      // ====================================================================
+      // 1. REVENUE: Monthly trend
+      // ====================================================================
       if (prevTotal > 0 && currentTotal > 0) {
         const changePct = ((currentTotal - prevTotal) / prevTotal) * 100;
         const isUp = changePct > 0;
         results.push({
           id: "revenue-trend",
-          title: isUp ? "מגמת הכנסות עולה" : "ירידה בהכנסות",
+          title: isUp ? "מגמת הכנסות עולה" : "ירידה בהכנסות לעומת חודש קודם",
           description: isUp
             ? `ההכנסות החודש עלו ב-${formatPercent(Math.abs(changePct))} בהשוואה לחודש שעבר. המומנטום חיובי — כדאי לבדוק מה השתנה ולהמשיך את המגמה.`
-            : `ההכנסות החודש ירדו ב-${formatPercent(Math.abs(changePct))} בהשוואה לחודש שעבר. מומלץ לבדוק אם מדובר בעונתיות או בבעיה שצריך לטפל בה.`,
+            : `ההכנסות החודש ירדו ב-${formatPercent(Math.abs(changePct))} לעומת חודש קודם. מומלץ לבדוק אם מדובר בעונתיות או בבעיה שצריך לטפל בה.`,
           severity: isUp ? "positive" : "negative",
           category: "revenue",
           value: `${formatCurrencyFull(currentTotal)} (חודש נוכחי) מול ${formatCurrencyFull(prevTotal)} (חודש קודם)`,
@@ -249,118 +411,272 @@ export default function InsightsPage() {
       }
 
       // ====================================================================
-      // 2. Best and worst days analysis
+      // 2. REVENUE: Monthly pace projection
       // ====================================================================
-      const { data: dailyData } = await supabase
-        .from("daily_entries")
-        .select("entry_date, total_register, day_factor")
-        .in("business_id", businessIds)
-        .gte("entry_date", currentMonthStart)
-        .lte("entry_date", currentMonthEnd)
-        .is("deleted_at", null)
-        .order("total_register", { ascending: false });
-
-      if (dailyData && dailyData.length >= 3) {
-        const best = dailyData[0];
-        const worst = dailyData[dailyData.length - 1];
-        const bestDate = new Date(best.entry_date);
-        const worstDate = new Date(worst.entry_date);
-        const dayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+      if (entries.length >= 3 && actualWorkDays > 0) {
+        const dailyAvg = currentTotal / actualWorkDays;
+        const monthlyPace = dailyAvg * daysInMonth;
+        const revenueTarget = goal ? Number(goal.revenue_target) || 0 : 0;
 
         results.push({
-          id: "best-day",
-          title: "היום הכי רווחי החודש",
-          description: `יום ${dayNames[bestDate.getDay()]} ${bestDate.toLocaleDateString("he-IL")} היה היום עם ההכנסה הגבוהה ביותר החודש. הפער בין היום הטוב לגרוע ביותר הוא ${formatCurrencyFull(Number(best.total_register) - Number(worst.total_register))}.`,
+          id: "monthly-pace",
+          title: "קצב הכנסות חודשי צפוי",
+          description: `לפי ממוצע יומי של ${formatCurrencyFull(dailyAvg)}, הקצב החודשי צפוי להגיע ל-${formatCurrencyFull(monthlyPace)}${revenueTarget > 0 ? `. היעד החודשי הוא ${formatCurrencyFull(revenueTarget)} — ${monthlyPace >= revenueTarget ? "את/ה בדרך לעמוד ביעד" : `חסרים ${formatCurrencyFull(revenueTarget - monthlyPace)}`}.` : "."}`,
+          severity: revenueTarget > 0 ? (monthlyPace >= revenueTarget ? "positive" : "warning") : "info",
+          category: "revenue",
+          value: `קצב צפוי: ${formatCurrencyFull(monthlyPace)}${revenueTarget > 0 ? ` | יעד: ${formatCurrencyFull(revenueTarget)}` : ""}`,
+        });
+      }
+
+      // ====================================================================
+      // 3. REVENUE: Best/worst days + gap
+      // ====================================================================
+      if (entries.length >= 3) {
+        const sorted = [...entries].sort((a, b) => Number(b.total_register) - Number(a.total_register));
+        const best = sorted[0];
+        const worst = sorted[sorted.length - 1];
+        const bestDate = new Date(best.entry_date);
+        const worstDate = new Date(worst.entry_date);
+        const gap = Number(best.total_register) - Number(worst.total_register);
+
+        results.push({
+          id: "best-worst-day",
+          title: "פער בין היום החזק לחלש",
+          description: `היום הכי חזק היה ${DAY_NAMES[bestDate.getDay()]} ${bestDate.toLocaleDateString("he-IL")} (${formatCurrencyFull(Number(best.total_register))}). היום הכי חלש היה ${DAY_NAMES[worstDate.getDay()]} ${worstDate.toLocaleDateString("he-IL")} (${formatCurrencyFull(Number(worst.total_register))}). הפער הוא ${formatCurrencyFull(gap)} — כלומר הפוטנציאל של כל יום חלש להתקרב ליום חזק הוא משמעותי.`,
           severity: "info",
           category: "revenue",
-          value: formatCurrencyFull(Number(best.total_register)),
+          value: `${formatCurrencyFull(Number(best.total_register))} (שיא) → ${formatCurrencyFull(Number(worst.total_register))} (שפל)`,
         });
+      }
 
-        // Average revenue per day
-        const avg = currentTotal / dailyData.length;
-        const aboveAvg = dailyData.filter((d) => Number(d.total_register) > avg).length;
-        const belowAvg = dailyData.length - aboveAvg;
+      // ====================================================================
+      // 4. REVENUE: Day-of-week pattern analysis
+      // ====================================================================
+      if (entries.length >= 7) {
+        const dayTotals: Record<number, { total: number; count: number; labor: number; hours: number }> = {};
+        for (const entry of entries) {
+          const dow = new Date(entry.entry_date).getDay();
+          if (!dayTotals[dow]) dayTotals[dow] = { total: 0, count: 0, labor: 0, hours: 0 };
+          dayTotals[dow].total += Number(entry.total_register) || 0;
+          dayTotals[dow].count += 1;
+          dayTotals[dow].labor += Number(entry.labor_cost) || 0;
+          dayTotals[dow].hours += Number(entry.labor_hours) || 0;
+        }
 
-        if (belowAvg > aboveAvg) {
+        const dayAvgs = Object.entries(dayTotals)
+          .map(([day, data]) => ({ day: Number(day), avg: data.total / data.count, laborPct: data.total > 0 ? (data.labor / data.total * 100) : 0, avgHours: data.hours / data.count }))
+          .sort((a, b) => b.avg - a.avg);
+
+        if (dayAvgs.length >= 3) {
+          const bestDay = dayAvgs[0];
+          const worstDay = dayAvgs[dayAvgs.length - 1];
+          const ratio = worstDay.avg > 0 ? bestDay.avg / worstDay.avg : 0;
+
+          results.push({
+            id: "day-pattern",
+            title: `${DAY_NAMES[bestDay.day]} הוא היום החזק ביותר`,
+            description: `ממוצע יומי ב${DAY_NAMES[bestDay.day]}: ${formatCurrencyFull(bestDay.avg)} לעומת ${formatCurrencyFull(worstDay.avg)} ב${DAY_NAMES[worstDay.day]} (פי ${ratio.toFixed(1)}). ${ratio > 1.5 ? "שווה לשקול פעילויות שיווקיות או אירועים בימים החלשים כדי למקסם הכנסות." : "הפיזור בין הימים סביר."}`,
+            severity: ratio > 1.5 ? "warning" : "info",
+            category: "operations",
+            value: `${DAY_NAMES[bestDay.day]}: ${formatCurrencyFull(bestDay.avg)} | ${DAY_NAMES[worstDay.day]}: ${formatCurrencyFull(worstDay.avg)}`,
+          });
+
+          // Find the day with worst labor efficiency
+          const worstLaborDay = dayAvgs.reduce((worst, d) => d.laborPct > worst.laborPct ? d : worst, dayAvgs[0]);
+          const bestLaborDay = dayAvgs.reduce((best, d) => d.laborPct > 0 && d.laborPct < best.laborPct ? d : best, dayAvgs[0]);
+
+          if (worstLaborDay.laborPct - bestLaborDay.laborPct > 5) {
+            results.push({
+              id: "labor-day-efficiency",
+              title: `יום ${DAY_NAMES[worstLaborDay.day]} הכי יקר בעלות כ״א`,
+              description: `ביום ${DAY_NAMES[worstLaborDay.day]} עלות כוח האדם מגיעה ל-${formatPercent(worstLaborDay.laborPct)} מההכנסות (ממוצע ${formatNumber(worstLaborDay.avgHours)} שעות), לעומת ${formatPercent(bestLaborDay.laborPct)} ביום ${DAY_NAMES[bestLaborDay.day]}. כדאי לבדוק אם אפשר לצמצם שעות ב${DAY_NAMES[worstLaborDay.day]} או להגדיל הכנסות.`,
+              severity: "warning",
+              category: "labor",
+              value: `${DAY_NAMES[worstLaborDay.day]}: ${formatPercent(worstLaborDay.laborPct)} | ${DAY_NAMES[bestLaborDay.day]}: ${formatPercent(bestLaborDay.laborPct)}`,
+            });
+          }
+        }
+      }
+
+      // ====================================================================
+      // 5. REVENUE: Below average days alert
+      // ====================================================================
+      if (entries.length >= 5) {
+        const avg = currentTotal / entries.length;
+        const belowAvg = entries.filter((d) => Number(d.total_register) < avg);
+        if (belowAvg.length > entries.length / 2) {
           results.push({
             id: "below-avg-days",
             title: "רוב הימים מתחת לממוצע",
-            description: `${belowAvg} מתוך ${dailyData.length} ימים היו מתחת לממוצע היומי של ${formatCurrencyFull(avg)}. כמה ימים חזקים במיוחד מושכים את הממוצע למעלה — שווה לבדוק מה מייחד אותם.`,
+            description: `${belowAvg.length} מתוך ${entries.length} ימים היו מתחת לממוצע היומי של ${formatCurrencyFull(avg)}. כמה ימים חזקים מושכים את הממוצע למעלה — שווה לבדוק מה מייחד אותם ולנסות לשכפל את ההצלחה.`,
             severity: "warning",
             category: "operations",
-            value: `ממוצע יומי: ${formatCurrencyFull(avg)}`,
+            value: `ממוצע יומי: ${formatCurrencyFull(avg)} | ${belowAvg.length}/${entries.length} ימים מתחתיו`,
           });
         }
       }
 
       // ====================================================================
-      // 3. Labor cost analysis
+      // 6. LABOR: Cost analysis vs target
       // ====================================================================
-      const { data: laborData } = await supabase
-        .from("daily_entries")
-        .select("total_register, labor_cost, manager_daily_cost")
-        .in("business_id", businessIds)
-        .gte("entry_date", currentMonthStart)
-        .lte("entry_date", currentMonthEnd)
-        .is("deleted_at", null);
+      if (incomeBeforeVat > 0 && laborCostWithManager > 0) {
+        const laborPct = (laborCostWithManager / incomeBeforeVat) * 100;
+        const laborTarget = goal ? Number(goal.labor_cost_target_pct) || 0 : 0;
 
-      if (laborData && laborData.length > 0) {
-        const totalRevForLabor = laborData.reduce((s, d) => s + (Number(d.total_register) || 0), 0);
-        const totalLabor = laborData.reduce((s, d) => s + (Number(d.labor_cost) || 0) + (Number(d.manager_daily_cost) || 0), 0);
+        if (laborTarget > 0) {
+          const diff = laborPct - laborTarget;
+          const diffAmount = (diff / 100) * incomeBeforeVat;
+          results.push({
+            id: "labor-vs-target",
+            title: diff > 0 ? "חריגה ביעד עלות כוח אדם" : "עלות כוח אדם מתחת ליעד",
+            description: diff > 0
+              ? `עלות כ״א עומדת על ${formatPercent(laborPct)} מהפדיון לפני מע״מ — חריגה של ${formatPercent(Math.abs(diff))} מהיעד (${formatPercent(laborTarget)}). המשמעות: ${formatCurrencyFull(Math.abs(diffAmount))} עודף בהוצאות עובדים החודש.`
+              : `עלות כ״א עומדת על ${formatPercent(laborPct)} — מתחת ליעד של ${formatPercent(laborTarget)} ב-${formatPercent(Math.abs(diff))}. חיסכון של ${formatCurrencyFull(Math.abs(diffAmount))} בהוצאות עובדים.`,
+            severity: diff > 3 ? "negative" : diff > 0 ? "warning" : "positive",
+            category: "labor",
+            value: `בפועל: ${formatPercent(laborPct)} (${formatCurrencyFull(laborCostWithManager)}) | יעד: ${formatPercent(laborTarget)}`,
+          });
+        } else {
+          results.push({
+            id: "labor-pct",
+            title: `עלות כוח אדם: ${formatPercent(laborPct)}`,
+            description: laborPct > 30
+              ? `עלות כ״א היא ${formatPercent(laborPct)} מהפדיון — מעל הסף המומלץ של 30%. מומלץ לבדוק שעות עבודה בימים חלשים ולשקול אופטימיזציה.`
+              : laborPct < 20
+              ? `עלות כ״א היא רק ${formatPercent(laborPct)} מהפדיון — מתחת לממוצע בענף (20%-30%). יעילות מצוינת, אבל כדאי לוודא שזה לא על חשבון איכות השירות.`
+              : `עלות כ״א היא ${formatPercent(laborPct)} מהפדיון — בטווח הנורמלי של 20%-30%.`,
+            severity: laborPct > 30 ? "negative" : laborPct < 20 ? "positive" : "info",
+            category: "labor",
+            value: `${formatCurrencyFull(laborCostWithManager)} (${formatPercent(laborPct)} מפדיון)`,
+          });
+        }
+      }
 
-        if (totalRevForLabor > 0) {
-          const laborPct = (totalLabor / totalRevForLabor) * 100;
+      // ====================================================================
+      // 7. LABOR: Hours efficiency
+      // ====================================================================
+      if (totalLaborHours > 0 && currentTotal > 0) {
+        const revenuePerHour = currentTotal / totalLaborHours;
+        const costPerHour = totalLabor / totalLaborHours;
+        const avgHoursPerDay = totalLaborHours / entries.length;
 
-          if (laborPct > 30) {
+        results.push({
+          id: "labor-hours-efficiency",
+          title: `${formatCurrencyFull(revenuePerHour)} הכנסה לשעת עבודה`,
+          description: `ממוצע ${formatNumber(avgHoursPerDay)} שעות עבודה ליום, עם הכנסה של ${formatCurrencyFull(revenuePerHour)} לכל שעת עבודה. עלות שעת עבודה ממוצעת: ${formatCurrencyFull(costPerHour)}. כלומר כל שעת עבודה מניבה פי ${(revenuePerHour / costPerHour).toFixed(1)} מעלותה.`,
+          severity: revenuePerHour > costPerHour * 3 ? "positive" : revenuePerHour > costPerHour * 2 ? "info" : "warning",
+          category: "labor",
+          value: `${formatNumber(totalLaborHours)} שעות | ${formatCurrencyFull(revenuePerHour)}/שעה | עלות: ${formatCurrencyFull(costPerHour)}/שעה`,
+        });
+      }
+
+      // ====================================================================
+      // 8. FOOD COST: vs target
+      // ====================================================================
+      if (incomeBeforeVat > 0 && totalGoods > 0) {
+        const foodPct = (totalGoods / incomeBeforeVat) * 100;
+        const foodTarget = goal ? Number(goal.food_cost_target_pct) || 0 : 0;
+
+        if (foodTarget > 0) {
+          const diff = foodPct - foodTarget;
+          const diffAmount = (diff / 100) * incomeBeforeVat;
+          results.push({
+            id: "food-cost-target",
+            title: diff > 0 ? "חריגה ביעד עלות סחורה" : "עלות סחורה מתחת ליעד",
+            description: diff > 0
+              ? `עלות הסחורה (קניות) עומדת על ${formatPercent(foodPct)} — חריגה של ${formatPercent(Math.abs(diff))} מיעד ${formatPercent(foodTarget)}. זה אומר ${formatCurrencyFull(Math.abs(diffAmount))} עודף בקניות. כדאי לבדוק מחירי ספקים, פחת, וגודל מנות.`
+              : `עלות הסחורה היא ${formatPercent(foodPct)} — מתחת ליעד של ${formatPercent(foodTarget)}. חיסכון של ${formatCurrencyFull(Math.abs(diffAmount))}.`,
+            severity: diff > 3 ? "negative" : diff > 0 ? "warning" : "positive",
+            category: "expenses",
+            value: `בפועל: ${formatPercent(foodPct)} (${formatCurrencyFull(totalGoods)}) | יעד: ${formatPercent(foodTarget)}`,
+          });
+        }
+
+        // Food cost change vs prev month
+        if (prevGoods > 0) {
+          const foodChange = ((totalGoods - prevGoods) / prevGoods) * 100;
+          if (Math.abs(foodChange) > 10) {
             results.push({
-              id: "labor-high",
-              title: "עלות כוח אדם גבוהה",
-              description: `עלות כוח האדם עומדת על ${formatPercent(laborPct)} מההכנסות — מעל הסף המומלץ של 30%. מומלץ לבדוק שעות עבודה בימים חלשים ולשקול אופטימיזציה של המשמרות.`,
-              severity: "negative",
-              category: "labor",
-              value: `${formatCurrencyFull(totalLabor)} מתוך ${formatCurrencyFull(totalRevForLabor)}`,
-            });
-          } else if (laborPct < 20) {
-            results.push({
-              id: "labor-efficient",
-              title: "יעילות כוח אדם מצוינת",
-              description: `עלות כוח האדם היא רק ${formatPercent(laborPct)} מההכנסות — הרבה מתחת לממוצע בענף. זה אומר שהצוות עובד ביעילות גבוהה או שאפשר להוסיף עובדים כדי לשפר שירות.`,
-              severity: "positive",
-              category: "labor",
-              value: `${formatPercent(laborPct)} מההכנסות`,
-            });
-          } else {
-            results.push({
-              id: "labor-ok",
-              title: "עלות כוח אדם בנורמה",
-              description: `עלות כוח האדם עומדת על ${formatPercent(laborPct)} מההכנסות — בטווח הנורמלי של 20%-30%. ניתן לנסות לייעל ע״י התאמת משמרות לימים חזקים.`,
-              severity: "info",
-              category: "labor",
-              value: `${formatCurrencyFull(totalLabor)} (${formatPercent(laborPct)})`,
+              id: "food-cost-trend",
+              title: foodChange > 0 ? "עלייה בעלויות סחורה" : "ירידה בעלויות סחורה",
+              description: foodChange > 0
+                ? `עלויות הסחורה (קניות) עלו ב-${formatPercent(Math.abs(foodChange))} לעומת חודש קודם. כדאי לבדוק: עליית מחירי ספקים? הזמנות גדולות יותר? פחת שעלה?`
+                : `עלויות הסחורה ירדו ב-${formatPercent(Math.abs(foodChange))} לעומת חודש קודם. אם לא ירדה הפעילות — זו חיסכון אמיתי.`,
+              severity: foodChange > 15 ? "negative" : foodChange > 0 ? "warning" : "positive",
+              category: "suppliers",
+              value: `${formatCurrencyFull(totalGoods)} (חודש נוכחי) מול ${formatCurrencyFull(prevGoods)} (חודש קודם)`,
             });
           }
         }
       }
 
       // ====================================================================
-      // 4. Top suppliers by spending
+      // 9. EXPENSES: Current expenses analysis
       // ====================================================================
-      const { data: invoicesData } = await supabase
-        .from("invoices")
-        .select("supplier_id, subtotal, suppliers!inner(name, expense_type)")
-        .in("business_id", businessIds)
-        .gte("invoice_date", currentMonthStart)
-        .lte("invoice_date", currentMonthEnd)
-        .is("deleted_at", null);
+      if (incomeBeforeVat > 0 && totalCurrentExp > 0) {
+        const expPct = (totalCurrentExp / incomeBeforeVat) * 100;
+        const expTarget = goal ? Number(goal.current_expenses_target) || 0 : 0;
 
-      if (invoicesData && invoicesData.length > 0) {
+        if (expTarget > 0) {
+          const diff = totalCurrentExp - expTarget;
+          results.push({
+            id: "current-exp-target",
+            title: diff > 0 ? "חריגה ביעד הוצאות שוטפות" : "הוצאות שוטפות מתחת ליעד",
+            description: diff > 0
+              ? `ההוצאות השוטפות הגיעו ל-${formatCurrencyFull(totalCurrentExp)} — חריגה של ${formatCurrencyFull(Math.abs(diff))} מיעד ${formatCurrencyFull(expTarget)}.`
+              : `ההוצאות השוטפות הן ${formatCurrencyFull(totalCurrentExp)} — מתחת ליעד של ${formatCurrencyFull(expTarget)} ב-${formatCurrencyFull(Math.abs(diff))}.`,
+            severity: diff > 0 ? "negative" : "positive",
+            category: "expenses",
+            value: `${formatCurrencyFull(totalCurrentExp)} (${formatPercent(expPct)} מפדיון) | יעד: ${formatCurrencyFull(expTarget)}`,
+          });
+        }
+
+        // Current expenses change vs prev month
+        if (prevCurrentExp > 0) {
+          const expChange = ((totalCurrentExp - prevCurrentExp) / prevCurrentExp) * 100;
+          if (Math.abs(expChange) > 10) {
+            results.push({
+              id: "current-exp-trend",
+              title: expChange > 0 ? "עלייה בהוצאות שוטפות" : "ירידה בהוצאות שוטפות",
+              description: expChange > 0
+                ? `ההוצאות השוטפות עלו ב-${formatPercent(Math.abs(expChange))} לעומת חודש קודם (${formatCurrencyFull(totalCurrentExp)} מול ${formatCurrencyFull(prevCurrentExp)}). כדאי לבדוק אילו ספקים גדלו.`
+                : `ההוצאות השוטפות ירדו ב-${formatPercent(Math.abs(expChange))} לעומת חודש קודם. חיסכון של ${formatCurrencyFull(Math.abs(totalCurrentExp - prevCurrentExp))}.`,
+              severity: expChange > 0 ? "warning" : "positive",
+              category: "expenses",
+            });
+          }
+        }
+      }
+
+      // ====================================================================
+      // 10. PROFIT: Operating profit calculation
+      // ====================================================================
+      if (incomeBeforeVat > 0) {
+        const allExpenses = laborCostWithManager + totalGoods + totalCurrentExp;
+        const operatingProfit = incomeBeforeVat - allExpenses;
+        const profitPct = (operatingProfit / incomeBeforeVat) * 100;
+
+        results.push({
+          id: "operating-profit",
+          title: operatingProfit >= 0 ? `רווח תפעולי: ${formatPercent(profitPct)}` : `הפסד תפעולי: ${formatPercent(Math.abs(profitPct))}`,
+          description: operatingProfit >= 0
+            ? `אחרי כל ההוצאות (כ״א: ${formatCurrencyFull(laborCostWithManager)}, סחורה: ${formatCurrencyFull(totalGoods)}, שוטפות: ${formatCurrencyFull(totalCurrentExp)}), נותר רווח תפעולי של ${formatCurrencyFull(operatingProfit)} (${formatPercent(profitPct)} מהפדיון).`
+            : `סך ההוצאות (${formatCurrencyFull(allExpenses)}) עולה על הפדיון (${formatCurrencyFull(incomeBeforeVat)}). הפסד תפעולי של ${formatCurrencyFull(Math.abs(operatingProfit))}. נדרשת בדיקה דחופה.`,
+          severity: profitPct > 10 ? "positive" : profitPct > 0 ? "info" : "negative",
+          category: "revenue",
+          value: `פדיון: ${formatCurrencyFull(incomeBeforeVat)} | הוצאות: ${formatCurrencyFull(allExpenses)} | רווח: ${formatCurrencyFull(operatingProfit)}`,
+        });
+      }
+
+      // ====================================================================
+      // 11. SUPPLIERS: Top supplier concentration
+      // ====================================================================
+      if (invoices.length > 0) {
         const supplierTotals: Record<string, { name: string; total: number; type: string }> = {};
-        for (const inv of invoicesData) {
+        for (const inv of invoices) {
           const sid = inv.supplier_id;
           const supplier = inv.suppliers as unknown as { name: string; expense_type: string };
-          if (!supplierTotals[sid]) {
-            supplierTotals[sid] = { name: supplier.name, total: 0, type: supplier.expense_type };
-          }
+          if (!supplierTotals[sid]) supplierTotals[sid] = { name: supplier.name, total: 0, type: supplier.expense_type };
           supplierTotals[sid].total += Number(inv.subtotal) || 0;
         }
 
@@ -368,42 +684,113 @@ export default function InsightsPage() {
         const totalSpending = sorted.reduce((s, v) => s + v.total, 0);
 
         if (sorted.length >= 2) {
-          const topSupplier = sorted[0];
-          const topPct = (topSupplier.total / totalSpending) * 100;
+          const top3 = sorted.slice(0, 3);
+          const top3Total = top3.reduce((s, v) => s + v.total, 0);
+          const top3Pct = (top3Total / totalSpending) * 100;
 
-          if (topPct > 40) {
+          results.push({
+            id: "top-suppliers",
+            title: `3 ספקים מובילים = ${formatPercent(top3Pct)} מההוצאות`,
+            description: `הספקים הגדולים ביותר: ${top3.map((s) => `${s.name} (${formatCurrencyFull(s.total)})`).join(", ")}. ${top3Pct > 60 ? "ריכוז גבוה בספקים בודדים מגביר סיכון ויכולת מיקוח — שווה לבדוק חלופות." : "הפיזור בין הספקים סביר."}`,
+            severity: top3Pct > 70 ? "warning" : "info",
+            category: "suppliers",
+            value: `סה״כ הוצאות ספקים: ${formatCurrencyFull(totalSpending)}`,
+          });
+        }
+      }
+
+      // ====================================================================
+      // 12. FIXED EXPENSES: Review
+      // ====================================================================
+      if (fixedSuppliers && fixedSuppliers.length > 0) {
+        const totalFixed = fixedSuppliers.reduce((s, sup) => s + (Number(sup.monthly_expense_amount) || 0), 0);
+        if (totalFixed > 0 && incomeBeforeVat > 0) {
+          const fixedPct = (totalFixed / incomeBeforeVat) * 100;
+          const topFixed = [...fixedSuppliers].sort((a, b) => (Number(b.monthly_expense_amount) || 0) - (Number(a.monthly_expense_amount) || 0)).slice(0, 3);
+
+          results.push({
+            id: "fixed-expenses",
+            title: `${fixedSuppliers.length} הוצאות קבועות — ${formatCurrencyFull(totalFixed)}/חודש`,
+            description: `הוצאות קבועות מהוות ${formatPercent(fixedPct)} מהפדיון. הגדולות: ${topFixed.map((s) => `${s.name} (${formatCurrencyFull(Number(s.monthly_expense_amount) || 0)})`).join(", ")}. ${fixedPct > 20 ? "מומלץ לעבור על הרשימה ולבדוק אם כולן הכרחיות." : "הרמה סבירה."}`,
+            severity: fixedPct > 25 ? "warning" : "info",
+            category: "expenses",
+            value: `${formatCurrencyFull(totalFixed)} / חודש (${formatPercent(fixedPct)} מפדיון)`,
+          });
+        }
+      }
+
+      // ====================================================================
+      // 13. INCOME SOURCES: Ticket average analysis
+      // ====================================================================
+      if (incomeData.length > 0 && (incomeSources || []).length > 0) {
+        const sourceMap = new Map((incomeSources || []).map((s) => [s.id, s]));
+        const goalMap = new Map((incomeSourceGoals || []).map((g) => [g.income_source_id, g]));
+
+        const sourceAgg: Record<string, { name: string; total: number; orders: number }> = {};
+        for (const ib of incomeData) {
+          const source = sourceMap.get(ib.income_source_id);
+          if (!source) continue;
+          if (!sourceAgg[ib.income_source_id]) sourceAgg[ib.income_source_id] = { name: source.name, total: 0, orders: 0 };
+          sourceAgg[ib.income_source_id].total += Number(ib.amount) || 0;
+          sourceAgg[ib.income_source_id].orders += Number(ib.orders_count) || 0;
+        }
+
+        for (const [sourceId, agg] of Object.entries(sourceAgg)) {
+          if (agg.orders === 0) continue;
+          const avgTicket = agg.total / agg.orders;
+          const goalData = goalMap.get(sourceId);
+          const ticketTarget = goalData ? Number(goalData.avg_ticket_target) || 0 : 0;
+
+          if (ticketTarget > 0) {
+            const diff = avgTicket - ticketTarget;
+            const totalImpact = diff * agg.orders;
             results.push({
-              id: "supplier-concentration",
-              title: "תלות גבוהה בספק אחד",
-              description: `הספק "${topSupplier.name}" מהווה ${formatPercent(topPct)} מסך ההוצאות על ספקים החודש. תלות כזו בספק יחיד מגבירה סיכון — מומלץ לבדוק חלופות או לנהל מו״מ על מחירים.`,
-              severity: "warning",
-              category: "suppliers",
-              value: `${formatCurrencyFull(topSupplier.total)} מתוך ${formatCurrencyFull(totalSpending)}`,
+              id: `ticket-${sourceId}`,
+              title: diff >= 0 ? `תיק ממוצע "${agg.name}" מעל היעד` : `תיק ממוצע "${agg.name}" מתחת ליעד`,
+              description: diff >= 0
+                ? `התיק הממוצע ב"${agg.name}" הוא ${formatCurrencyFull(avgTicket)} — מעל יעד ${formatCurrencyFull(ticketTarget)} ב-${formatCurrencyFull(Math.abs(diff))}. ב-${formatNumber(agg.orders)} הזמנות, זה הוסיף ${formatCurrencyFull(Math.abs(totalImpact))} להכנסות.`
+                : `התיק הממוצע ב"${agg.name}" הוא ${formatCurrencyFull(avgTicket)} — מתחת ליעד ${formatCurrencyFull(ticketTarget)} ב-${formatCurrencyFull(Math.abs(diff))}. ב-${formatNumber(agg.orders)} הזמנות, הפער עלה ${formatCurrencyFull(Math.abs(totalImpact))}. כדאי לבדוק אם ניתן לשפר ע״י מכירה נלווית (upsell).`,
+              severity: diff >= 0 ? "positive" : "warning",
+              category: "revenue",
+              value: `ממוצע: ${formatCurrencyFull(avgTicket)} | יעד: ${formatCurrencyFull(ticketTarget)} | ${formatNumber(agg.orders)} הזמנות`,
+            });
+          } else if (agg.orders > 10) {
+            // No target but has data — show insight anyway
+            results.push({
+              id: `ticket-info-${sourceId}`,
+              title: `תיק ממוצע "${agg.name}": ${formatCurrencyFull(avgTicket)}`,
+              description: `${formatNumber(agg.orders)} הזמנות ב"${agg.name}" עם תיק ממוצע של ${formatCurrencyFull(avgTicket)}. סה״כ ${formatCurrencyFull(agg.total)} (${formatPercent((agg.total / currentTotal) * 100)} מההכנסות).`,
+              severity: "info",
+              category: "revenue",
             });
           }
+        }
+      }
 
-          // Supplier spending vs previous month
-          const { data: prevInvoicesData } = await supabase
-            .from("invoices")
-            .select("subtotal")
-            .in("business_id", businessIds)
-            .gte("invoice_date", prevMonthStart)
-            .lte("invoice_date", prevMonthEnd)
-            .is("deleted_at", null);
+      // ====================================================================
+      // 14. RECEIPTS: Payment method breakdown
+      // ====================================================================
+      if (bizReceipts.length > 0) {
+        const receiptTotals: Record<string, number> = {};
+        for (const r of bizReceipts) {
+          const name = (r.receipt_types as unknown as { name: string }).name;
+          receiptTotals[name] = (receiptTotals[name] || 0) + (Number(r.amount) || 0);
+        }
 
-          const prevSpending = (prevInvoicesData || []).reduce((s, r) => s + (Number(r.subtotal) || 0), 0);
-          if (prevSpending > 0) {
-            const spendingChange = ((totalSpending - prevSpending) / prevSpending) * 100;
-            if (Math.abs(spendingChange) > 10) {
+        const totalReceipts = Object.values(receiptTotals).reduce((s, v) => s + v, 0);
+        if (totalReceipts > 0) {
+          const sorted = Object.entries(receiptTotals).sort((a, b) => b[1] - a[1]);
+          const cashEntry = sorted.find(([name]) => name.includes("מזומן"));
+          if (cashEntry) {
+            const cashPct = (cashEntry[1] / totalReceipts) * 100;
+            if (cashPct > 30) {
               results.push({
-                id: "supplier-spending-change",
-                title: spendingChange > 0 ? "עלייה בהוצאות ספקים" : "ירידה בהוצאות ספקים",
-                description: spendingChange > 0
-                  ? `הוצאות הספקים עלו ב-${formatPercent(Math.abs(spendingChange))} בהשוואה לחודש שעבר. כדאי לבדוק אם מדובר בעליית מחירים, בהגדלת הזמנות, או בשניהם.`
-                  : `הוצאות הספקים ירדו ב-${formatPercent(Math.abs(spendingChange))} בהשוואה לחודש שעבר. אם זה לא בגלל ירידה בפעילות, זו חיסכון מוצלח.`,
-                severity: spendingChange > 0 ? "warning" : "positive",
-                category: "expenses",
-                value: `${formatCurrencyFull(totalSpending)} מול ${formatCurrencyFull(prevSpending)} (חודש קודם)`,
+                id: "cash-ratio",
+                title: `${formatPercent(cashPct)} מהתקבולים במזומן`,
+                description: `אחוז המזומן גבוה (${formatCurrencyFull(cashEntry[1])} מתוך ${formatCurrencyFull(totalReceipts)}). ${cashPct > 50 ? "כדאי לשקול תמריצים לתשלום באשראי כדי לשפר תזרים ומעקב." : ""}`,
+                severity: cashPct > 50 ? "warning" : "info",
+                category: "cashflow",
+                value: sorted.map(([name, total]) => `${name}: ${formatCurrencyFull(total)} (${formatPercent((total / totalReceipts) * 100)})`).join(" | "),
               });
             }
           }
@@ -411,238 +798,200 @@ export default function InsightsPage() {
       }
 
       // ====================================================================
-      // 5. Unpaid invoices / overdue payments
+      // 15. PRODUCTS: Managed product cost tracking
       // ====================================================================
-      const today = now.toISOString().split("T")[0];
-      const { data: overduePayments } = await supabase
-        .from("payment_splits")
-        .select("amount, due_date, payments!inner(business_id, supplier_id, suppliers!inner(name))")
-        .lte("due_date", today)
-        .is("payments.deleted_at", null);
+      if (bizProducts.length > 0 && (managedProducts || []).length > 0 && incomeBeforeVat > 0) {
+        const prodMap = new Map((managedProducts || []).map((p) => [p.id, p]));
 
-      if (overduePayments && overduePayments.length > 0) {
-        // Filter by selected businesses
-        const relevantOverdue = overduePayments.filter((ps) => {
-          const payment = ps.payments as unknown as { business_id: string };
-          return businessIds.includes(payment.business_id);
-        });
+        const prodAgg: Record<string, { name: string; totalCost: number; totalQty: number; unit: string; targetPct: number }> = {};
+        for (const pu of bizProducts) {
+          const prod = prodMap.get(pu.product_id);
+          if (!prod) continue;
+          if (!prodAgg[pu.product_id]) prodAgg[pu.product_id] = { name: prod.name, totalCost: 0, totalQty: 0, unit: prod.unit || "", targetPct: Number(prod.target_pct) || 0 };
+          const qty = Number(pu.quantity) || 0;
+          const cost = Number(pu.unit_cost_at_time) || Number(prod.unit_cost) || 0;
+          prodAgg[pu.product_id].totalCost += qty * cost;
+          prodAgg[pu.product_id].totalQty += qty;
+        }
 
-        if (relevantOverdue.length > 0) {
-          const totalOverdue = relevantOverdue.reduce((s, ps) => s + (Number(ps.amount) || 0), 0);
-          const oldestDate = relevantOverdue.reduce((oldest, ps) => {
-            return ps.due_date < oldest ? ps.due_date : oldest;
-          }, relevantOverdue[0].due_date);
+        for (const agg of Object.values(prodAgg)) {
+          if (agg.totalCost === 0) continue;
+          const pct = (agg.totalCost / incomeBeforeVat) * 100;
 
-          const daysOld = Math.floor((now.getTime() - new Date(oldestDate).getTime()) / (1000 * 60 * 60 * 24));
-
-          results.push({
-            id: "overdue-payments",
-            title: `${relevantOverdue.length} תשלומים שעבר מועד הפירעון`,
-            description: `יש ${relevantOverdue.length} תשלומים בסך ${formatCurrencyFull(totalOverdue)} שמועד הפירעון שלהם עבר. התשלום הוותיק ביותר מאוחר ב-${daysOld} ימים. מומלץ לטפל בזה בהקדם כדי לשמור על יחסי ספקים תקינים.`,
-            severity: "negative",
-            category: "cashflow",
-            value: `${formatCurrencyFull(totalOverdue)} (${relevantOverdue.length} תשלומים)`,
-          });
+          if (agg.targetPct > 0) {
+            const diff = pct - agg.targetPct;
+            results.push({
+              id: `product-${agg.name}`,
+              title: diff > 0 ? `"${agg.name}" חורג מהיעד` : `"${agg.name}" מתחת ליעד`,
+              description: diff > 0
+                ? `עלות "${agg.name}" (${formatNumber(agg.totalQty)} ${agg.unit}) מגיעה ל-${formatPercent(pct)} מהפדיון — מעל יעד ${formatPercent(agg.targetPct)} ב-${formatPercent(Math.abs(diff))}. חריגה של ${formatCurrencyFull((Math.abs(diff) / 100) * incomeBeforeVat)}.`
+                : `עלות "${agg.name}" היא ${formatPercent(pct)} — מתחת ליעד ${formatPercent(agg.targetPct)}.`,
+              severity: diff > 1 ? "warning" : diff > 0 ? "info" : "positive",
+              category: "expenses",
+              value: `${formatCurrencyFull(agg.totalCost)} (${formatNumber(agg.totalQty)} ${agg.unit}) | ${formatPercent(pct)} מפדיון`,
+            });
+          }
         }
       }
 
       // ====================================================================
-      // 6. Upcoming payments in next 7 days
+      // 16. CASHFLOW: Overdue payments
+      // ====================================================================
+      const overduePayments = bizPaymentSplits.filter((ps) => ps.due_date <= today);
+      if (overduePayments.length > 0) {
+        const totalOverdue = overduePayments.reduce((s, ps) => s + (Number(ps.amount) || 0), 0);
+        const oldest = overduePayments.reduce((o, ps) => ps.due_date < o ? ps.due_date : o, overduePayments[0].due_date);
+        const daysOld = Math.floor((now.getTime() - new Date(oldest).getTime()) / (1000 * 60 * 60 * 24));
+
+        results.push({
+          id: "overdue-payments",
+          title: `${overduePayments.length} תשלומים שעבר מועד פירעון`,
+          description: `יש ${overduePayments.length} תשלומים בסך ${formatCurrencyFull(totalOverdue)} שעבר מועד פירעונם. הוותיק מאוחר ב-${daysOld} ימים. מומלץ לטפל בהקדם כדי לשמור על יחסי ספקים תקינים ולהימנע מריביות.`,
+          severity: "negative",
+          category: "cashflow",
+          value: `${formatCurrencyFull(totalOverdue)} (${overduePayments.length} תשלומים, הוותיק: ${daysOld} ימים)`,
+        });
+      }
+
+      // ====================================================================
+      // 17. CASHFLOW: Upcoming 7 days
       // ====================================================================
       const next7 = new Date(now);
       next7.setDate(next7.getDate() + 7);
       const next7Str = next7.toISOString().split("T")[0];
+      const upcomingPayments = bizPaymentSplits.filter((ps) => ps.due_date > today && ps.due_date <= next7Str);
 
-      const { data: upcomingPayments } = await supabase
-        .from("payment_splits")
-        .select("amount, due_date, payments!inner(business_id)")
-        .gt("due_date", today)
-        .lte("due_date", next7Str)
-        .is("payments.deleted_at", null);
-
-      if (upcomingPayments && upcomingPayments.length > 0) {
-        const relevant = upcomingPayments.filter((ps) => {
-          const payment = ps.payments as unknown as { business_id: string };
-          return businessIds.includes(payment.business_id);
+      if (upcomingPayments.length > 0) {
+        const totalUpcoming = upcomingPayments.reduce((s, ps) => s + (Number(ps.amount) || 0), 0);
+        results.push({
+          id: "upcoming-payments",
+          title: `${upcomingPayments.length} תשלומים ב-7 ימים הקרובים`,
+          description: `צפויים ${upcomingPayments.length} תשלומים בסך ${formatCurrencyFull(totalUpcoming)} בשבוע הקרוב. יש לוודא תזרים מספיק.`,
+          severity: totalUpcoming > 10000 ? "warning" : "info",
+          category: "cashflow",
+          value: formatCurrencyFull(totalUpcoming),
         });
+      }
 
-        if (relevant.length > 0) {
-          const totalUpcoming = relevant.reduce((s, ps) => s + (Number(ps.amount) || 0), 0);
+      // ====================================================================
+      // 18. CASHFLOW: Total future commitments
+      // ====================================================================
+      const futurePayments = bizPaymentSplits.filter((ps) => ps.due_date > today);
+      if (futurePayments.length > 0) {
+        const totalFuture = futurePayments.reduce((s, ps) => s + (Number(ps.amount) || 0), 0);
+        const lastDue = futurePayments.reduce((l, ps) => ps.due_date > l ? ps.due_date : l, futurePayments[0].due_date);
+        const monthsAhead = Math.ceil((new Date(lastDue).getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30));
+
+        // Group by month
+        const monthlyTotals: Record<string, number> = {};
+        for (const ps of futurePayments) {
+          const month = ps.due_date.substring(0, 7);
+          monthlyTotals[month] = (monthlyTotals[month] || 0) + (Number(ps.amount) || 0);
+        }
+        const peakMonth = Object.entries(monthlyTotals).sort((a, b) => b[1] - a[1])[0];
+
+        results.push({
+          id: "future-commitments",
+          title: `${formatCurrencyFull(totalFuture)} התחייבויות עתידיות`,
+          description: `יש ${futurePayments.length} תשלומים עתידיים לתקופה של ${monthsAhead} חודשים. החודש עם ההוצאה הגבוהה ביותר: ${peakMonth[0]} (${formatCurrencyFull(peakMonth[1])}). חשוב לוודא תזרים מספיק בחודשים הבאים.`,
+          severity: totalFuture > incomeBeforeVat ? "warning" : "info",
+          category: "cashflow",
+          value: `${futurePayments.length} תשלומים | שיא: ${peakMonth[0]} (${formatCurrencyFull(peakMonth[1])})`,
+        });
+      }
+
+      // ====================================================================
+      // 19. GOALS: Revenue target progress
+      // ====================================================================
+      if (goal && currentTotal > 0) {
+        const revenueTarget = Number(goal.revenue_target) || 0;
+        if (revenueTarget > 0) {
+          const progressPct = (currentTotal / revenueTarget) * 100;
+          const expectedPct = (dayOfMonth / daysInMonth) * 100;
+          const gapPct = progressPct - expectedPct;
+          const dailyNeeded = (revenueTarget - currentTotal) / (daysInMonth - dayOfMonth);
+
           results.push({
-            id: "upcoming-payments",
-            title: `${relevant.length} תשלומים ב-7 הימים הקרובים`,
-            description: `צפויים ${relevant.length} תשלומים בסך ${formatCurrencyFull(totalUpcoming)} בשבוע הקרוב. יש לוודא שיש מספיק תזרים לכסות אותם.`,
-            severity: totalUpcoming > 10000 ? "warning" : "info",
+            id: "goal-progress",
+            title: gapPct >= 0 ? "מקדימים את יעד ההכנסות" : "פיגור ביעד ההכנסות",
+            description: gapPct >= 0
+              ? `הגעת ל-${formatPercent(progressPct)} מהיעד (צריך ${formatPercent(expectedPct)} לפי הקצב). ב-${daysInMonth - dayOfMonth} הימים שנותרו צריך ממוצע של ${formatCurrencyFull(dailyNeeded)} ליום כדי לעמוד ביעד — קצב נמוך מהממוצע הנוכחי, מה שאומר שאתם בדרך הנכונה.`
+              : `הגעת ל-${formatPercent(progressPct)} מהיעד (${formatPercent(expectedPct)} צפוי). חסרים ${formatCurrencyFull(revenueTarget - currentTotal)} ב-${daysInMonth - dayOfMonth} ימים — צריך ממוצע של ${formatCurrencyFull(dailyNeeded)} ליום, ${dailyNeeded > currentTotal / entries.length ? "מעל הממוצע הנוכחי" : "קרוב לממוצע הנוכחי"}.`,
+            severity: gapPct >= 5 ? "positive" : gapPct >= -5 ? "info" : "negative",
+            category: "goals",
+            value: `${formatCurrencyFull(currentTotal)} / ${formatCurrencyFull(revenueTarget)} (${formatPercent(progressPct)})`,
+          });
+        }
+      }
+
+      // ====================================================================
+      // 20. OPERATIONS: Discounts analysis
+      // ====================================================================
+      if (totalDiscounts > 0 && currentTotal > 0) {
+        const discountPct = (totalDiscounts / currentTotal) * 100;
+        const avgDailyDiscount = totalDiscounts / entries.length;
+        results.push({
+          id: "discounts",
+          title: discountPct > 3 ? "אחוז הנחות גבוה" : `סה״כ הנחות: ${formatPercent(discountPct)}`,
+          description: `סך ההנחות הגיע ל-${formatCurrencyFull(totalDiscounts)} (${formatPercent(discountPct)} מההכנסות), ממוצע ${formatCurrencyFull(avgDailyDiscount)} ליום. ${discountPct > 3 ? "שווה לבדוק: מנות לדוגמה? ביטולים? הנחות ללקוחות שאפשר לצמצם?" : "הרמה סבירה."}`,
+          severity: discountPct > 5 ? "negative" : discountPct > 3 ? "warning" : "info",
+          category: "operations",
+          value: `${formatCurrencyFull(totalDiscounts)} (${formatPercent(discountPct)} מהכנסות)`,
+        });
+      }
+
+      // ====================================================================
+      // 21. OPERATIONS: Waste analysis
+      // ====================================================================
+      if (totalWaste > 0 && currentTotal > 0) {
+        const wastePct = (totalWaste / currentTotal) * 100;
+        results.push({
+          id: "waste",
+          title: wastePct > 3 ? "אחוז פחת גבוה" : "פחת בגבולות הסביר",
+          description: wastePct > 3
+            ? `הפחת עומד על ${formatPercent(wastePct)} מההכנסות (${formatCurrencyFull(totalWaste)}). מעל 3% נחשב גבוה. מומלץ לבדוק: אחסון לקוי? הכנה מוקדמת מדי? גודל מנות?`
+            : `הפחת עומד על ${formatPercent(wastePct)} (${formatCurrencyFull(totalWaste)}). בטווח הסביר.`,
+          severity: wastePct > 3 ? "negative" : "info",
+          category: "operations",
+          value: `${formatCurrencyFull(totalWaste)} (${formatPercent(wastePct)})`,
+        });
+      }
+
+      // ====================================================================
+      // 22. OPERATIONS: Data completeness
+      // ====================================================================
+      const expectedDays = dayOfMonth;
+      const missingDays = expectedDays - entries.length;
+      if (missingDays > 2) {
+        results.push({
+          id: "missing-entries",
+          title: `${missingDays} ימים חסרים במילוי יומי`,
+          description: `מתוך ${expectedDays} ימים שעברו החודש, רק ${entries.length} ימים מולאו. חסרים ${missingDays} ימים. נתונים חסרים פוגעים בדיוק התובנות ובמעקב. מומלץ להשלים בהקדם.`,
+          severity: missingDays > 5 ? "negative" : "warning",
+          category: "operations",
+          value: `${entries.length} / ${expectedDays} ימים מולאו`,
+        });
+      }
+
+      // ====================================================================
+      // 23. NET CASHFLOW: Income vs all payments this month
+      // ====================================================================
+      if (currentTotal > 0) {
+        const monthPayments = bizPaymentSplits.filter((ps) =>
+          ps.due_date >= currentMonthStart && ps.due_date <= currentMonthEnd
+        );
+        const totalMonthPayments = monthPayments.reduce((s, ps) => s + (Number(ps.amount) || 0), 0);
+        const netCashflow = currentTotal - totalMonthPayments - totalAllExpenses;
+
+        if (totalMonthPayments > 0 || totalAllExpenses > 0) {
+          results.push({
+            id: "net-cashflow",
+            title: netCashflow >= 0 ? "תזרים חודשי חיובי" : "תזרים חודשי שלילי",
+            description: `הכנסות: ${formatCurrencyFull(currentTotal)}, תשלומים לספקים: ${formatCurrencyFull(totalMonthPayments)}, חשבוניות שוטפות: ${formatCurrencyFull(totalAllExpenses)}. ${netCashflow >= 0 ? `נשאר עודף של ${formatCurrencyFull(netCashflow)}.` : `חסרים ${formatCurrencyFull(Math.abs(netCashflow))}.`}`,
+            severity: netCashflow >= 0 ? "positive" : "negative",
             category: "cashflow",
-            value: formatCurrencyFull(totalUpcoming),
+            value: `נטו: ${formatCurrencyFull(netCashflow)}`,
           });
-        }
-      }
-
-      // ====================================================================
-      // 7. Goals progress
-      // ====================================================================
-      const { data: goals } = await supabase
-        .from("goals")
-        .select("*")
-        .in("business_id", businessIds)
-        .eq("year", currentYear)
-        .eq("month", currentMonth)
-        .is("deleted_at", null);
-
-      if (goals && goals.length > 0 && currentTotal > 0) {
-        for (const goal of goals) {
-          if (goal.revenue_target && Number(goal.revenue_target) > 0) {
-            const progressPct = (currentTotal / Number(goal.revenue_target)) * 100;
-            const dayOfMonth = now.getDate();
-            const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
-            const expectedPct = (dayOfMonth / daysInMonth) * 100;
-
-            if (progressPct < expectedPct - 15) {
-              results.push({
-                id: `goal-behind-${goal.business_id}`,
-                title: "פיגור ביעד ההכנסות",
-                description: `עמדת על ${formatPercent(progressPct)} מיעד ההכנסות החודשי, בעוד שלפי הקצב הצפוי היית אמור להיות ב-${formatPercent(expectedPct)}. הפער הוא ${formatCurrencyFull(Number(goal.revenue_target) * (expectedPct / 100) - currentTotal)}.`,
-                severity: "negative",
-                category: "goals",
-                value: `${formatCurrencyFull(currentTotal)} מתוך ${formatCurrencyFull(Number(goal.revenue_target))}`,
-              });
-            } else if (progressPct >= expectedPct + 10) {
-              results.push({
-                id: `goal-ahead-${goal.business_id}`,
-                title: "מקדימים את יעד ההכנסות",
-                description: `כבר הגעת ל-${formatPercent(progressPct)} מהיעד החודשי, בעוד שלפי הקצב הצפוי צריך להיות ב-${formatPercent(expectedPct)}. קצב מצוין — אם ממשיכים ככה, תסגרו את החודש מעל היעד.`,
-                severity: "positive",
-                category: "goals",
-                value: `${formatCurrencyFull(currentTotal)} מתוך ${formatCurrencyFull(Number(goal.revenue_target))}`,
-              });
-            }
-          }
-        }
-      }
-
-      // ====================================================================
-      // 8. Discount analysis
-      // ====================================================================
-      if (dailyData && dailyData.length > 0) {
-        const { data: discountData } = await supabase
-          .from("daily_entries")
-          .select("discounts, total_register")
-          .in("business_id", businessIds)
-          .gte("entry_date", currentMonthStart)
-          .lte("entry_date", currentMonthEnd)
-          .is("deleted_at", null);
-
-        if (discountData) {
-          const totalDiscounts = discountData.reduce((s, d) => s + (Number(d.discounts) || 0), 0);
-          const totalRevForDisc = discountData.reduce((s, d) => s + (Number(d.total_register) || 0), 0);
-
-          if (totalRevForDisc > 0 && totalDiscounts > 0) {
-            const discountPct = (totalDiscounts / totalRevForDisc) * 100;
-            if (discountPct > 5) {
-              results.push({
-                id: "high-discounts",
-                title: "אחוז הנחות גבוה",
-                description: `סך ההנחות החודש הגיע ל-${formatPercent(discountPct)} מההכנסות (${formatCurrencyFull(totalDiscounts)}). שווה לבדוק אם ההנחות מוצדקות — למשל שגיאות, עודף מנות לדוגמה, או הנחות לקוחות שאפשר לצמצם.`,
-                severity: "warning",
-                category: "operations",
-                value: `${formatCurrencyFull(totalDiscounts)} (${formatPercent(discountPct)})`,
-              });
-            }
-          }
-        }
-      }
-
-      // ====================================================================
-      // 9. Day-of-week performance analysis
-      // ====================================================================
-      if (dailyData && dailyData.length >= 7) {
-        const dayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
-        const dayTotals: Record<number, { total: number; count: number }> = {};
-
-        for (const entry of dailyData) {
-          const dayOfWeek = new Date(entry.entry_date).getDay();
-          if (!dayTotals[dayOfWeek]) dayTotals[dayOfWeek] = { total: 0, count: 0 };
-          dayTotals[dayOfWeek].total += Number(entry.total_register) || 0;
-          dayTotals[dayOfWeek].count += 1;
-        }
-
-        const dayAvgs = Object.entries(dayTotals)
-          .map(([day, data]) => ({ day: Number(day), avg: data.total / data.count }))
-          .sort((a, b) => b.avg - a.avg);
-
-        if (dayAvgs.length >= 3) {
-          const best = dayAvgs[0];
-          const worst = dayAvgs[dayAvgs.length - 1];
-          const ratio = worst.avg > 0 ? best.avg / worst.avg : 0;
-
-          if (ratio > 2) {
-            results.push({
-              id: "day-performance-gap",
-              title: `פער משמעותי בין ימי השבוע`,
-              description: `יום ${dayNames[best.day]} מכניס פי ${ratio.toFixed(1)} מיום ${dayNames[worst.day]} בממוצע. שווה לחשוב על אירועים, מבצעים, או שינוי שעות פעילות בימים החלשים כדי למקסם הכנסות.`,
-              severity: "info",
-              category: "operations",
-              value: `${dayNames[best.day]}: ${formatCurrencyFull(best.avg)} מול ${dayNames[worst.day]}: ${formatCurrencyFull(worst.avg)}`,
-            });
-          }
-        }
-      }
-
-      // ====================================================================
-      // 10. Fixed expenses awareness
-      // ====================================================================
-      const { data: fixedSuppliers } = await supabase
-        .from("suppliers")
-        .select("name, monthly_expense_amount")
-        .in("business_id", businessIds)
-        .eq("is_fixed_expense", true)
-        .eq("is_active", true)
-        .is("deleted_at", null);
-
-      if (fixedSuppliers && fixedSuppliers.length > 0) {
-        const totalFixed = fixedSuppliers.reduce((s, sup) => s + (Number(sup.monthly_expense_amount) || 0), 0);
-
-        if (totalFixed > 0 && currentTotal > 0) {
-          const fixedPct = (totalFixed / currentTotal) * 100;
-          results.push({
-            id: "fixed-expenses",
-            title: `${fixedSuppliers.length} הוצאות קבועות פעילות`,
-            description: `סך ההוצאות הקבועות החודשיות הוא ${formatCurrencyFull(totalFixed)} (${formatPercent(fixedPct)} מההכנסות). מומלץ לעבור על הרשימה אחת לתקופה ולבדוק אם כולן עדיין הכרחיות.`,
-            severity: fixedPct > 15 ? "warning" : "info",
-            category: "expenses",
-            value: `${formatCurrencyFull(totalFixed)} / חודש`,
-          });
-        }
-      }
-
-      // ====================================================================
-      // 11. Waste analysis
-      // ====================================================================
-      if (laborData && laborData.length > 0) {
-        const { data: wasteData } = await supabase
-          .from("daily_entries")
-          .select("waste, total_register")
-          .in("business_id", businessIds)
-          .gte("entry_date", currentMonthStart)
-          .lte("entry_date", currentMonthEnd)
-          .is("deleted_at", null);
-
-        if (wasteData) {
-          const totalWaste = wasteData.reduce((s, d) => s + (Number(d.waste) || 0), 0);
-          if (totalWaste > 0 && currentTotal > 0) {
-            const wastePct = (totalWaste / currentTotal) * 100;
-            results.push({
-              id: "waste-analysis",
-              title: wastePct > 3 ? "אחוז פחת גבוה" : "פחת בגבולות הסביר",
-              description: wastePct > 3
-                ? `הפחת החודשי עומד על ${formatPercent(wastePct)} מההכנסות (${formatCurrencyFull(totalWaste)}). מעל 3% זה גבוה — מומלץ לבדוק תהליכי אחסון, הכנה, ונהלי מנות כדי לצמצם.`
-                : `הפחת החודשי עומד על ${formatPercent(wastePct)} מההכנסות (${formatCurrencyFull(totalWaste)}). זה בטווח הסביר, אבל תמיד שווה לחפש דרכים לצמצם.`,
-              severity: wastePct > 3 ? "negative" : "info",
-              category: "operations",
-              value: `${formatCurrencyFull(totalWaste)} (${formatPercent(wastePct)})`,
-            });
-          }
         }
       }
 
@@ -709,6 +1058,12 @@ export default function InsightsPage() {
               <span className="text-emerald-400 text-[12px] font-medium">{severityCounts.positive} חיוביים</span>
             </div>
           )}
+          {severityCounts.info && (
+            <div className="flex items-center gap-[6px] bg-blue-500/10 border border-blue-500/20 rounded-full px-[12px] py-[4px]">
+              <div className="w-[8px] h-[8px] rounded-full bg-blue-500" />
+              <span className="text-blue-400 text-[12px] font-medium">{severityCounts.info} מידע</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -736,7 +1091,7 @@ export default function InsightsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-[15px]">
         {loading ? (
           <>
-            {[...Array(6)].map((_, i) => (
+            {[...Array(9)].map((_, i) => (
               <SkeletonCard key={`skeleton-${i}`} />
             ))}
           </>
