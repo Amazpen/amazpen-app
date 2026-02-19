@@ -753,7 +753,7 @@ export default function ReportsPage() {
                                 {sub.remaining}
                               </span>
                               <div className="w-[50px] sm:w-[65px] h-[6px] sm:h-[8px] bg-white/50 rounded-full border border-[#211A66] overflow-hidden rotate-180">
-                                <div className="h-full bg-[#1A1F4E] transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, 100 - sub.remainingRaw))}%` }} />
+                                <div className="h-full bg-[#5560C7] transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, 100 - sub.remainingRaw))}%` }} />
                               </div>
                             </div>
                             <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
@@ -792,7 +792,7 @@ export default function ReportsPage() {
                                 {sub.remaining}
                               </span>
                               <div className="w-[50px] sm:w-[65px] h-[6px] sm:h-[8px] bg-white/50 rounded-full border border-[#211A66] overflow-hidden rotate-180">
-                                <div className="h-full bg-[#1A1F4E] transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, 100 - sub.remainingRaw))}%` }} />
+                                <div className="h-full bg-[#5560C7] transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, 100 - sub.remainingRaw))}%` }} />
                               </div>
                             </div>
                             <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
