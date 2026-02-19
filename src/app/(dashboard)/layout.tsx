@@ -38,7 +38,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/daily-entries", "/admin/historical-data", "/admin/customers"];
+const existingPages = ["/", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/daily-entries", "/admin/historical-data", "/admin/customers"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -49,6 +49,7 @@ const menuItems = [
   { id: 5, label: "תזרים מזומנים", href: "/cashflow", key: "cashflow", requiresBusiness: true },
   { id: 7, label: "דוח רווח הפסד", href: "/reports", key: "reports", requiresBusiness: true },
   { id: 8, label: "יעדים", href: "/goals", key: "goals", requiresBusiness: true },
+  { id: 9, label: "תובנות", href: "/insights", key: "insights", requiresBusiness: true },
   { id: 10, label: "הגדרות", href: "/settings", key: "settings" },
   { id: 11, label: "התנתקות", href: "#logout", key: "logout", isLogout: true },
 ];
@@ -80,6 +81,7 @@ const pageTitles: Record<string, string> = {
   "/ocr": "קליטת מסמכים OCR",
   "/reports": "דוח רווח הפסד",
   "/goals": "יעדים",
+  "/insights": "תובנות",
   "/settings": "הגדרות",
   "/admin/business/new": "יצירת עסק חדש",
   "/admin/business/edit": "עריכת עסק",
