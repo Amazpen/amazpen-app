@@ -928,8 +928,9 @@ export default function NewBusinessPage() {
         <label className="text-[15px] font-medium text-white text-right">
           <span className="text-[#F64E60]">*</span> סוג עסק
         </label>
+        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
         <Select value={businessType || "__none__"} onValueChange={(val) => { const v = val === "__none__" ? "" : val; setBusinessType(v); if (v !== "other") { setCustomBusinessType(""); } }}>
-          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] !h-[50px] px-[12px] text-[14px] text-white text-right">
+          <SelectTrigger className="w-full h-full bg-transparent border-none shadow-none rounded-[10px] px-[15px] text-[14px] text-white text-right">
             <SelectValue placeholder="בחר סוג עסק" />
           </SelectTrigger>
           <SelectContent>
@@ -941,6 +942,7 @@ export default function NewBusinessPage() {
             ))}
           </SelectContent>
         </Select>
+        </div>
       </div>
 
       {/* Custom Business Type - shown when "other" is selected */}
@@ -2296,9 +2298,14 @@ export default function NewBusinessPage() {
 
       {/* Steps Progress */}
       <div className="flex items-center justify-center mb-[25px]">
-        {[1, 2, 3, 4, 5].map((step, index) => (
+        {([
+          { step: 1, label: "פרטים" },
+          { step: 2, label: "זמנים" },
+          { step: 3, label: "הגדרות" },
+          { step: 4, label: "צוות" },
+          { step: 5, label: "ספקים" },
+        ]).map(({ step, label }, index) => (
           <div key={step} className="flex items-center">
-            {/* Connector line BEFORE the circle (except first) */}
             {index > 0 && (
               <div className={`w-[30px] h-[3px] transition-all duration-300 ${
                 step <= currentStep
@@ -2306,27 +2313,30 @@ export default function NewBusinessPage() {
                   : "bg-[#29318A]/50"
               }`} />
             )}
-            <Button
-              variant="ghost"
-              type="button"
-              onClick={() => step < currentStep && setCurrentStep(step)}
-              suppressHydrationWarning
-              className={`relative w-[36px] h-[36px] rounded-full flex items-center justify-center text-[14px] font-bold transition-all duration-300 z-10 ${
-                step === currentStep
-                  ? "bg-[#29318A] text-white shadow-[0_0_15px_rgba(41,49,138,0.4)]"
-                  : step < currentStep
-                  ? "bg-gradient-to-br from-[#00C853] to-[#69F0AE] text-white cursor-pointer hover:scale-110"
-                  : "bg-[#29318A]/50 text-white/50"
-              }`}
-            >
-              {step < currentStep ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12L10 17L19 8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              ) : (
-                step
-              )}
-            </Button>
+            <div className="flex flex-col items-center gap-[4px]">
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => step < currentStep && setCurrentStep(step)}
+                suppressHydrationWarning
+                className={`relative w-[36px] h-[36px] rounded-full flex items-center justify-center text-[14px] font-bold transition-all duration-300 z-10 ${
+                  step === currentStep
+                    ? "bg-[#29318A] text-white shadow-[0_0_15px_rgba(41,49,138,0.4)]"
+                    : step < currentStep
+                    ? "bg-gradient-to-br from-[#00C853] to-[#69F0AE] text-white cursor-pointer hover:scale-110"
+                    : "bg-[#29318A]/50 text-white/50"
+                }`}
+              >
+                {step < currentStep ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12L10 17L19 8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                ) : (
+                  step
+                )}
+              </Button>
+              <span className={`text-[10px] leading-none whitespace-nowrap ${step === currentStep ? "text-white font-medium" : "text-white/40"}`}>{label}</span>
+            </div>
           </div>
         ))}
       </div>

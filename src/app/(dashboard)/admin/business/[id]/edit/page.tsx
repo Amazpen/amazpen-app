@@ -825,7 +825,7 @@ export default function EditBusinessPage({ params }: PageProps) {
   const canProceedStep2 = true;
   const canProceedStep3 = incomeSources.length > 0;
   const hasOwner = teamMembers.some(m => m.role === "owner");
-  const canSubmit = hasOwner;
+  const canSubmit = true;
 
   if (isLoading) {
     return (
@@ -1775,9 +1775,9 @@ export default function EditBusinessPage({ params }: PageProps) {
 
       {/* Warning if no owner */}
       {!hasOwner && (
-        <div className="bg-[#F64E60]/10 border border-[#F64E60]/30 rounded-[10px] p-[12px]">
-          <p className="text-[13px] text-[#F64E60] text-right">
-            חובה להיות לפחות בעל עסק אחד
+        <div className="bg-[#FFCF00]/10 border border-[#FFCF00]/30 rounded-[10px] p-[12px]">
+          <p className="text-[13px] text-[#FFCF00] text-right">
+            מומלץ להוסיף לפחות בעל עסק אחד
           </p>
         </div>
       )}
@@ -1896,7 +1896,12 @@ export default function EditBusinessPage({ params }: PageProps) {
 
       {/* Steps Progress */}
       <div className="flex items-center justify-center mb-[25px]">
-        {[1, 2, 3, 4].map((step, index) => (
+        {([
+          { step: 1, label: "פרטים" },
+          { step: 2, label: "זמנים" },
+          { step: 3, label: "הגדרות" },
+          { step: 4, label: "צוות" },
+        ]).map(({ step, label }, index) => (
           <div key={step} className="flex items-center">
             {index > 0 && (
               <div className={`w-[30px] h-[3px] transition-all duration-300 ${
@@ -1905,27 +1910,30 @@ export default function EditBusinessPage({ params }: PageProps) {
                   : "bg-[#29318A]/50"
               }`} />
             )}
-            <Button
-              variant="ghost"
-              type="button"
-              onClick={() => setCurrentStep(step)}
-              suppressHydrationWarning
-              className={`relative w-[36px] h-[36px] rounded-full flex items-center justify-center text-[14px] font-bold transition-all duration-300 z-10 ${
-                step === currentStep
-                  ? "bg-gradient-to-br from-[#4956D4] to-[#6B7AE8] text-white shadow-[0_0_15px_rgba(73,86,212,0.4)]"
-                  : step < currentStep
-                  ? "bg-gradient-to-br from-[#00C853] to-[#69F0AE] text-white cursor-pointer hover:scale-110"
-                  : "bg-[#29318A]/50 text-white/50 cursor-pointer hover:bg-[#29318A]"
-              }`}
-            >
-              {step < currentStep ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12L10 17L19 8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              ) : (
-                step
-              )}
-            </Button>
+            <div className="flex flex-col items-center gap-[4px]">
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => setCurrentStep(step)}
+                suppressHydrationWarning
+                className={`relative w-[36px] h-[36px] rounded-full flex items-center justify-center text-[14px] font-bold transition-all duration-300 z-10 ${
+                  step === currentStep
+                    ? "bg-gradient-to-br from-[#4956D4] to-[#6B7AE8] text-white shadow-[0_0_15px_rgba(73,86,212,0.4)]"
+                    : step < currentStep
+                    ? "bg-gradient-to-br from-[#00C853] to-[#69F0AE] text-white cursor-pointer hover:scale-110"
+                    : "bg-[#29318A]/50 text-white/50 cursor-pointer hover:bg-[#29318A]"
+                }`}
+              >
+                {step < currentStep ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12L10 17L19 8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                ) : (
+                  step
+                )}
+              </Button>
+              <span className={`text-[10px] leading-none whitespace-nowrap ${step === currentStep ? "text-white font-medium" : "text-white/40"}`}>{label}</span>
+            </div>
           </div>
         ))}
       </div>
