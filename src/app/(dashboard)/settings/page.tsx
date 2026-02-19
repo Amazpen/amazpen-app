@@ -313,6 +313,7 @@ export default function SettingsPage() {
                   width={100}
                   height={100}
                   unoptimized
+                  priority
                 />
               ) : (
                 <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">
@@ -381,7 +382,7 @@ export default function SettingsPage() {
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="הזן מספר טלפון..."
+              placeholder="...הזן מספר טלפון"
               className="w-full h-[48px] bg-[#29318A]/40 text-white text-[14px] text-right rounded-[10px] border border-white/10 outline-none px-[15px] placeholder:text-white/30 focus:border-[#FFA412]/50 transition-colors"
             />
           </div>
