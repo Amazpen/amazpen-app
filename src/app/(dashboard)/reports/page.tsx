@@ -773,7 +773,7 @@ export default function ReportsPage() {
                           {sub.suppliers.map((supplier, sIndex) => (
                             <div
                               key={sIndex}
-                              className={`flex flex-row-reverse items-center justify-between min-h-[42px] px-[8px] py-[4px] gap-[5px] ${
+                              className={`flex flex-row-reverse items-center justify-between min-h-[42px] pr-[8px] pl-[4px] py-[4px] gap-[5px] ${
                                 sIndex < sub.suppliers.length - 1 ? 'border-b border-white/5' : ''
                               }`}
                             >
