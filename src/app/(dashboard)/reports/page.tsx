@@ -7,6 +7,7 @@ import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
 
 // Supplier row within a subcategory
 interface SupplierDisplay {
@@ -54,6 +55,14 @@ interface ReportSummary {
   operatingProfitPct: number;
   netProfit: number;
   netProfitPct: number;
+}
+
+// Prior liability item for breakdown display
+interface PriorLiabilityItem {
+  supplier_name: string;
+  amount: number;
+  due_date: string;
+  payment_id: string;
 }
 
 // Format number for display
@@ -120,7 +129,8 @@ export default function ReportsPage() {
     netProfitPct: 0,
   });
   const [priorLiabilities, setPriorLiabilities] = useState(0);
-  // showPriorLiabilities state removed - was unused
+  const [priorLiabilitiesItems, setPriorLiabilitiesItems] = useState<PriorLiabilityItem[]>([]);
+  const [showPriorLiabilitiesBreakdown, setShowPriorLiabilitiesBreakdown] = useState(false);
   const [cashFlowForecast, setCashFlowForecast] = useState({ target: 0, actual: 0 });
 
   // Fetch data from Supabase
@@ -193,8 +203,8 @@ export default function ReportsPage() {
         const { data: priorSplits } = await supabase
           .from("payment_splits")
           .select(`
-            amount,
-            payment:payments!inner(id, business_id, deleted_at)
+            amount, due_date,
+            payment:payments!inner(id, business_id, deleted_at, supplier:suppliers(name))
           `)
           .gte("due_date", startDate)
           .lte("due_date", endDate)
@@ -203,6 +213,27 @@ export default function ReportsPage() {
 
         const totalPriorLiabilities = (priorSplits || []).reduce((sum, s) => sum + Number(s.amount || 0), 0);
         setPriorLiabilities(totalPriorLiabilities);
+
+        // Build breakdown items grouped by supplier
+        const supplierMap = new Map<string, { amount: number; due_date: string; payment_id: string }>();
+        for (const s of priorSplits || []) {
+          const payment = s.payment as unknown as { id: string; supplier: { name: string } | null };
+          const name = payment?.supplier?.name || "לא ידוע";
+          const existing = supplierMap.get(name);
+          if (existing) {
+            existing.amount += Number(s.amount || 0);
+          } else {
+            supplierMap.set(name, {
+              amount: Number(s.amount || 0),
+              due_date: s.due_date as string,
+              payment_id: payment?.id || "",
+            });
+          }
+        }
+        const items: PriorLiabilityItem[] = Array.from(supplierMap.entries())
+          .map(([supplier_name, data]) => ({ supplier_name, ...data }))
+          .sort((a, b) => b.amount - a.amount);
+        setPriorLiabilitiesItems(items);
 
         // Fetch all payment splits due this month (cash flow forecast actual)
         const { data: allSplits } = await supabase
@@ -919,22 +950,56 @@ export default function ReportsPage() {
       </section>
 
       {/* Prior Liabilities */}
-      <section aria-label="התחייבויות קודמות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px]">
-        <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-          <span className="text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center invisible">
-            {formatCurrency(priorLiabilities)}
-          </span>
-          <span className="text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center invisible">
-            {formatCurrency(priorLiabilities)}
-          </span>
-          <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
-            {formatCurrency(priorLiabilities)}
-          </span>
-          <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
-            {formatCurrency(priorLiabilities)}
-          </span>
-        </div>
-        <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">התחייבויות קודמות</span>
+      <section aria-label="התחייבויות קודמות" className="bg-[#2C3595] rounded-[10px] overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowPriorLiabilitiesBreakdown(prev => !prev)}
+          className="w-full p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px] cursor-pointer hover:bg-white/5 transition-colors"
+        >
+          <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+            <span className="text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center invisible">
+              {formatCurrency(priorLiabilities)}
+            </span>
+            <span className="text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center invisible">
+              {formatCurrency(priorLiabilities)}
+            </span>
+            <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+              {formatCurrency(priorLiabilities)}
+            </span>
+            <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+              {formatCurrency(priorLiabilities)}
+            </span>
+          </div>
+          <div className="flex flex-row-reverse items-center gap-[4px] shrink-0 w-[90px] sm:w-[140px]">
+            <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4]">התחייבויות קודמות</span>
+            <ChevronDown className={`w-4 h-4 transition-transform ${showPriorLiabilitiesBreakdown ? "rotate-180" : ""}`} />
+          </div>
+        </button>
+
+        {showPriorLiabilitiesBreakdown && priorLiabilitiesItems.length > 0 && (
+          <div className="border-t border-white/10 px-[10px] pb-[10px]">
+            <div className="flex flex-row-reverse justify-between items-center py-[6px] text-[11px] sm:text-[13px] text-white/60 font-medium border-b border-white/10">
+              <span className="w-[120px] sm:w-[160px] text-right">ספק</span>
+              <span className="flex-1 text-center ltr-num">סכום</span>
+            </div>
+            {priorLiabilitiesItems.map((item, idx) => (
+              <div
+                key={`${item.payment_id}-${idx}`}
+                className="flex flex-row-reverse justify-between items-center py-[6px] text-[11px] sm:text-[13px] border-b border-white/5 last:border-b-0"
+              >
+                <span className="w-[120px] sm:w-[160px] text-right text-white/90 truncate">{item.supplier_name}</span>
+                <span className="flex-1 text-center ltr-num font-bold text-[#F64E60]">
+                  {formatCurrency(item.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        {showPriorLiabilitiesBreakdown && priorLiabilitiesItems.length === 0 && priorLiabilities === 0 && (
+          <div className="border-t border-white/10 px-[10px] py-[12px] text-center text-[12px] text-white/50">
+            אין התחייבויות לחודש זה
+          </div>
+        )}
       </section>
 
       {/* Cash Flow Forecast */}
