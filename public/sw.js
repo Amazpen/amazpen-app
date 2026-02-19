@@ -79,6 +79,9 @@ self.addEventListener('fetch', (event) => {
   // Skip chrome-extension and other non-http(s) requests
   if (!event.request.url.startsWith('http')) return;
 
+  // Never cache sw.js itself — browser handles SW updates separately
+  if (event.request.url.includes('/sw.js')) return;
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {

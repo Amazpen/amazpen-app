@@ -22,9 +22,11 @@ export function UpdatePrompt() {
   // Check sw.js BUILD_TIME against stored version
   const checkSwVersion = useCallback(async () => {
     try {
-      const res = await fetch("/sw.js", { cache: "no-store" });
+      // Add cache-busting query param to bypass SW fetch handler cache
+      const res = await fetch(`/sw.js?_cb=${Date.now()}`, { cache: "no-store" });
+      if (!res.ok) return;
       const text = await res.text();
-      const match = text.match(/^\/\/ BUILD_TIME=(\d+)/);
+      const match = text.match(/\/\/ BUILD_TIME=(\d+)/);
       if (!match) return;
       const serverBuild = match[1];
       const storedBuild = localStorage.getItem(SW_BUILD_KEY);
@@ -58,13 +60,21 @@ export function UpdatePrompt() {
     if (typeof window === "undefined") return () => cancelAnimationFrame(id);
     if (!("serviceWorker" in navigator)) return () => cancelAnimationFrame(id);
 
+    // Always run version check regardless of SW state
+    checkSwVersion();
+
+    // Recheck on visibility change and focus
+    const onVisible = () => {
+      if (document.visibilityState === "visible") checkSwVersion();
+    };
+    const onFocus = () => checkSwVersion();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+
     // Check if inline script already detected a waiting worker
     if (window.__SW_WAITING) {
-      const id2 = requestAnimationFrame(() => {
-        setWaitingWorker(window.__SW_WAITING);
-        setVisible(true);
-      });
-      return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
+      setWaitingWorker(window.__SW_WAITING);
+      setVisible(true);
     }
 
     // Subscribe to future SW waiting updates
@@ -75,17 +85,6 @@ export function UpdatePrompt() {
       };
       window.__SW_UPDATE_CALLBACKS.push(callback);
 
-      // Also check sw.js version (covers case where SW already activated without waiting)
-      checkSwVersion();
-
-      // Recheck on visibility change and focus
-      const onVisible = () => {
-        if (document.visibilityState === "visible") checkSwVersion();
-      };
-      const onFocus = () => checkSwVersion();
-      document.addEventListener("visibilitychange", onVisible);
-      window.addEventListener("focus", onFocus);
-
       return () => {
         cancelAnimationFrame(id);
         const idx = window.__SW_UPDATE_CALLBACKS.indexOf(callback);
@@ -95,16 +94,17 @@ export function UpdatePrompt() {
       };
     }
 
-    // Fallback: just check version
-    checkSwVersion();
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelAnimationFrame(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [checkSwVersion]);
 
   const handleUpdate = () => {
     if (waitingWorker) {
       waitingWorker.postMessage({ type: "SKIP_WAITING" });
     } else if (isVersionUpdate) {
-      // SW already activated — just reload to get new assets
       window.location.reload();
     }
   };
@@ -115,7 +115,6 @@ export function UpdatePrompt() {
 
   if (!visible || !mounted) return null;
 
-  // Render via portal directly to document.body to escape any Radix Dialog focus traps
   return createPortal(
     <div
       className="fixed bottom-[20px] left-[10px] right-[10px] lg:left-auto lg:right-[230px] lg:max-w-[400px] z-[999999] animate-slide-up"
@@ -126,7 +125,6 @@ export function UpdatePrompt() {
     >
       <div dir="rtl" className="bg-[#1a7a4c] rounded-[14px] shadow-2xl overflow-hidden">
         <div className="p-[14px_16px] flex items-center gap-[12px]">
-          {/* Update icon */}
           <div className="flex-shrink-0 w-[40px] h-[40px] bg-white/15 rounded-[10px] flex items-center justify-center">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
               <path d="M21 2v6h-6" strokeLinecap="round" strokeLinejoin="round" />
@@ -136,13 +134,11 @@ export function UpdatePrompt() {
             </svg>
           </div>
 
-          {/* Text */}
           <div className="flex-1 min-w-0">
             <p className="text-white text-[14px] font-semibold leading-tight">עדכון מערכת זמין</p>
             <p className="text-white/60 text-[12px] mt-[2px]">גרסה חדשה מוכנה להתקנה</p>
           </div>
 
-          {/* Update button */}
           <Button
             type="button"
             onClick={handleUpdate}
@@ -151,7 +147,6 @@ export function UpdatePrompt() {
             עדכן עכשיו
           </Button>
 
-          {/* Close button */}
           <Button
             type="button"
             variant="ghost"
