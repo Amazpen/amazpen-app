@@ -36,11 +36,23 @@ export function usePushSubscription() {
 
     if (!supported) return
 
+    // Set a timeout to unblock loading if SW.ready takes too long (e.g. in TWA)
+    const timeout = setTimeout(() => {
+      setIsLoading(false)
+    }, 3000)
+
     navigator.serviceWorker.ready.then((reg) => {
       reg.pushManager.getSubscription().then((sub) => {
+        clearTimeout(timeout)
         setIsSubscribed(!!sub)
         setIsLoading(false)
+      }).catch(() => {
+        clearTimeout(timeout)
+        setIsLoading(false)
       })
+    }).catch(() => {
+      clearTimeout(timeout)
+      setIsLoading(false)
     })
   }, [])
 
