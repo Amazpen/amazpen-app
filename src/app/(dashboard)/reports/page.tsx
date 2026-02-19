@@ -764,7 +764,10 @@ export default function ReportsPage() {
                               {sub.target}
                             </span>
                           </div>
-                          <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4] shrink-0 w-[90px] sm:w-[140px] break-words">{sub.name}</span>
+                          <div className="flex flex-row-reverse items-center justify-end gap-[3px] shrink-0 w-[90px] sm:w-[140px]">
+                            <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4] break-words">{sub.name}</span>
+                            <div className="w-[12px] h-[12px] flex-shrink-0" />
+                          </div>
                         </div>
                       )}
                       {/* Suppliers (3rd level) */}
