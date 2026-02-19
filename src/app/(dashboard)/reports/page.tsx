@@ -385,11 +385,19 @@ export default function ReportsPage() {
             }).filter(s => parseFloat(s.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(s.target.replace(/[₪K,]/g, "")) > 0)
               .sort((a, b) => parseFloat(b.actual.replace(/[₪K,]/g, "")) - parseFloat(a.actual.replace(/[₪K,]/g, "")));
           } else {
-            subcategoriesData = children.map(child => {
-              const actual = categoryActuals.get(child.id) || 0;
-              const target = categoryBudgets.get(child.id) || 0;
-              const diff = target - actual;
-              const remaining = target > 0 ? ((target - actual) / target) * 100 : 0;
+            // Collect suppliers assigned directly to the parent (not to any child)
+            const childIds = new Set(children.map(c => c.id));
+            const parentOnlySupplierIds: string[] = [];
+            supplierCategoryMap.forEach((catId, supplierId) => {
+              if ((catId === parent.id || (laborCostNames.has(parent.name) && laborParentIds.has(catId))) && !childIds.has(catId)) {
+                parentOnlySupplierIds.push(supplierId);
+              }
+            });
+            const parentSuppliersAssigned = new Set<string>();
+
+            subcategoriesData = children.map((child, childIndex) => {
+              let actual = categoryActuals.get(child.id) || 0;
+              let target = categoryBudgets.get(child.id) || 0;
 
               // Build suppliers list for this subcategory
               const childSuppliers: SupplierDisplay[] = [];
@@ -412,7 +420,40 @@ export default function ReportsPage() {
                   }
                 }
               });
+
+              // Assign parent-level suppliers to matching child by name, or last child as fallback
+              for (const supplierId of parentOnlySupplierIds) {
+                if (parentSuppliersAssigned.has(supplierId)) continue;
+                const sName = (supplierNames.get(supplierId) || "").trim().toLowerCase();
+                const cName = child.name.trim().toLowerCase();
+                const isMatch = sName.includes(cName) || cName.includes(sName);
+                const isLastChild = childIndex === children.length - 1;
+                if (isMatch || isLastChild) {
+                  parentSuppliersAssigned.add(supplierId);
+                  const sActual = supplierActuals.get(supplierId) || 0;
+                  const sTarget = supplierBudgets.get(supplierId) || 0;
+                  if (sActual > 0 || sTarget > 0) {
+                    const sDiff = sTarget - sActual;
+                    const sRemaining = sTarget > 0 ? ((sTarget - sActual) / sTarget) * 100 : 0;
+                    childSuppliers.push({
+                      name: supplierNames.get(supplierId) || "ספק לא ידוע",
+                      target: formatCurrency(sTarget),
+                      actual: formatCurrency(sActual),
+                      difference: formatDifference(sDiff),
+                      remaining: formatPercentage(sRemaining),
+                      remainingRaw: sRemaining,
+                      diffRaw: sDiff,
+                    });
+                    actual += sActual;
+                    target += sTarget;
+                  }
+                }
+              }
+
               childSuppliers.sort((a, b) => parseFloat(b.actual.replace(/[₪K,]/g, "")) - parseFloat(a.actual.replace(/[₪K,]/g, "")));
+
+              const diff = target - actual;
+              const remaining = target > 0 ? ((target - actual) / target) * 100 : 0;
 
               return {
                 id: child.id,
