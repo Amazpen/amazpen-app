@@ -169,9 +169,6 @@ export default function RootLayout({
                       reg.update().catch(function() {});
                     }
 
-                    // Check every 60 seconds in case user stays on same page
-                    setInterval(function() { lastCheck = 0; checkForUpdate(); }, 60000);
-
                     document.addEventListener('visibilitychange', function() {
                       if (document.visibilityState === 'visible') { lastCheck = 0; checkForUpdate(); }
                     });
