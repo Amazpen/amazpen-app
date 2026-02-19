@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 
@@ -11,10 +11,40 @@ declare global {
   }
 }
 
+const SW_BUILD_KEY = "amazpen_sw_build_time";
+
 export function UpdatePrompt() {
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const [visible, setVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isVersionUpdate, setIsVersionUpdate] = useState(false);
+
+  // Check sw.js BUILD_TIME against stored version
+  const checkSwVersion = useCallback(async () => {
+    try {
+      const res = await fetch("/sw.js", { cache: "no-store" });
+      const text = await res.text();
+      const match = text.match(/^\/\/ BUILD_TIME=(\d+)/);
+      if (!match) return;
+      const serverBuild = match[1];
+      const storedBuild = localStorage.getItem(SW_BUILD_KEY);
+
+      if (!storedBuild) {
+        // First visit — store current version
+        localStorage.setItem(SW_BUILD_KEY, serverBuild);
+        return;
+      }
+
+      if (storedBuild !== serverBuild) {
+        // New version available — show update prompt
+        localStorage.setItem(SW_BUILD_KEY, serverBuild);
+        setIsVersionUpdate(true);
+        setVisible(true);
+      }
+    } catch {
+      // Network error — ignore
+    }
+  }, []);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -33,25 +63,45 @@ export function UpdatePrompt() {
       return () => { cancelAnimationFrame(id); cancelAnimationFrame(id2); };
     }
 
-    // Subscribe to future updates
+    // Subscribe to future SW waiting updates
     if (window.__SW_UPDATE_CALLBACKS) {
       const callback = (worker: ServiceWorker) => {
         setWaitingWorker(worker);
         setVisible(true);
       };
       window.__SW_UPDATE_CALLBACKS.push(callback);
+
+      // Also check sw.js version (covers case where SW already activated without waiting)
+      checkSwVersion();
+
+      // Recheck on visibility change and focus
+      const onVisible = () => {
+        if (document.visibilityState === "visible") checkSwVersion();
+      };
+      const onFocus = () => checkSwVersion();
+      document.addEventListener("visibilitychange", onVisible);
+      window.addEventListener("focus", onFocus);
+
       return () => {
         cancelAnimationFrame(id);
         const idx = window.__SW_UPDATE_CALLBACKS.indexOf(callback);
         if (idx !== -1) window.__SW_UPDATE_CALLBACKS.splice(idx, 1);
+        document.removeEventListener("visibilitychange", onVisible);
+        window.removeEventListener("focus", onFocus);
       };
     }
+
+    // Fallback: just check version
+    checkSwVersion();
     return () => cancelAnimationFrame(id);
-  }, []);
+  }, [checkSwVersion]);
 
   const handleUpdate = () => {
     if (waitingWorker) {
       waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    } else if (isVersionUpdate) {
+      // SW already activated — just reload to get new assets
+      window.location.reload();
     }
   };
 

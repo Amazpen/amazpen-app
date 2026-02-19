@@ -244,7 +244,17 @@
       "Bash(/c/Program Files/nodejs/npx.cmd shadcn@latest add alert-dialog select tabs textarea -y)",
       "Bash(/c/Program Files/nodejs/npx.cmd shadcn@latest add alert-dialog select tabs textarea --overwrite -y)",
       "Bash(/c/Program Files/nodejs/npm.cmd install --legacy-peer-deps)",
-      "Bash(/c/Program Files/nodejs/npx.cmd shadcn@latest add badge table checkbox dialog --overwrite -y)"
+      "Bash(/c/Program Files/nodejs/npx.cmd shadcn@latest add badge table checkbox dialog --overwrite -y)",
+      "WebFetch(domain:www.react.doctor)",
+      "Bash(/c/Program Files/nodejs/npx.cmd -y react-doctor@latest .)",
+      "Bash(/c/Program Files/nodejs/npx.cmd -y react-doctor@latest . --format json)",
+      "Bash(/c/Program Files/nodejs/npx.cmd -y react-doctor@latest . --fix)",
+      "Bash(/c/Program Files/nodejs/npx.cmd react-doctor@latest .)",
+      "WebFetch(domain:www.onething.design)",
+      "WebFetch(domain:www.eleken.co)",
+      "WebFetch(domain:www.ramotion.com)",
+      "WebFetch(domain:web.dev)",
+      "WebFetch(domain:developer.chrome.com)"
     ]
   },
   "enableAllProjectMcpServers": true,
@@ -252,5 +262,8 @@
     "shadcn",
     "supabase-selfhosted",
     "dokploy"
-  ]
+  ],
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
+  }
 }
