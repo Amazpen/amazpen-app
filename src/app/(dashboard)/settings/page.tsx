@@ -31,6 +31,16 @@ export default function SettingsPage() {
   const { refreshProfile } = useDashboard();
   const { isSubscribed, isSupported, isLoading: pushLoading, permission, subscribe, unsubscribe } = usePushSubscription();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+
+  // Close avatar menu on outside click
+  useEffect(() => {
+    if (!showAvatarMenu) return;
+    const close = () => setShowAvatarMenu(false);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [showAvatarMenu]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -337,7 +347,7 @@ export default function SettingsPage() {
               size="icon"
               title="החלפת תמונת פרופיל"
               aria-label="החלפת תמונת פרופיל"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={(e) => { e.stopPropagation(); setShowAvatarMenu(prev => !prev); }}
               disabled={isUploadingAvatar}
               className="absolute bottom-0 left-0 w-[32px] h-[32px] bg-[#FFA412] rounded-full flex items-center justify-center shadow-lg hover:bg-[#FFB94A] transition-colors disabled:opacity-50"
             >
@@ -347,14 +357,55 @@ export default function SettingsPage() {
               </svg>
             </Button>
 
+            {/* Avatar source menu */}
+            {showAvatarMenu && (
+              <div className="absolute -bottom-[80px] left-0 bg-[#1A2150] rounded-[10px] shadow-xl border border-white/10 overflow-hidden z-50 w-[140px]" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={() => { setShowAvatarMenu(false); cameraInputRef.current?.click(); }}
+                  className="flex flex-row-reverse items-center gap-[8px] w-full px-[12px] py-[10px] text-white text-[13px] hover:bg-white/10 transition-colors"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="12" cy="13" r="4" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span>צלם תמונה</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowAvatarMenu(false); fileInputRef.current?.click(); }}
+                  className="flex flex-row-reverse items-center gap-[8px] w-full px-[12px] py-[10px] text-white text-[13px] hover:bg-white/10 transition-colors border-t border-white/10"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="8.5" cy="8.5" r="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M21 15l-5-5L5 21" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span>בחר מהגלריה</span>
+                </button>
+              </div>
+            )}
+
+            {/* File input - gallery */}
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              onChange={handleAvatarChange}
+              onChange={(e) => { handleAvatarChange(e); setShowAvatarMenu(false); }}
               className="hidden"
               title="בחר תמונת פרופיל"
               aria-label="בחר תמונת פרופיל"
+            />
+            {/* File input - camera */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => { handleAvatarChange(e); setShowAvatarMenu(false); }}
+              className="hidden"
+              title="צלם תמונת פרופיל"
+              aria-label="צלם תמונת פרופיל"
             />
           </div>
 
