@@ -631,7 +631,7 @@ export default function ReportsPage() {
             <span className="text-[11px] sm:text-[14px] font-medium flex-1 min-w-0 text-center leading-[1.4]">בפועל</span>
             <span className="text-[11px] sm:text-[14px] font-medium flex-1 min-w-0 text-center leading-[1.4]">יעד</span>
           </div>
-          <div className="flex items-center justify-end shrink-0">
+          <div className="flex items-center justify-end shrink-0 w-[90px] sm:w-[140px]">
             <span className="text-[11px] sm:text-[14px] font-medium text-right leading-[1.4] mr-[14px]">שם ההוצאה</span>
           </div>
         </div>
@@ -666,8 +666,8 @@ export default function ReportsPage() {
                     {category.target}
                   </span>
                 </div>
-                <div className="flex flex-row-reverse items-center justify-end gap-[5px] shrink-0">
-                  <span className="text-[12px] sm:text-[14px] font-bold text-right leading-[1.4]">{category.name}</span>
+                <div className="flex flex-row-reverse items-center justify-end gap-[5px] shrink-0 w-[90px] sm:w-[140px]">
+                  <span className="text-[12px] sm:text-[14px] font-bold text-right leading-[1.4] truncate">{category.name}</span>
                   <svg
                     width="16"
                     height="16"
@@ -708,8 +708,8 @@ export default function ReportsPage() {
                               {sub.target}
                             </span>
                           </div>
-                          <div className="flex flex-row-reverse items-center justify-end gap-[3px] shrink-0">
-                            <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4]">{sub.name}</span>
+                          <div className="flex flex-row-reverse items-center justify-end gap-[3px] shrink-0 w-[90px] sm:w-[140px]">
+                            <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4] truncate">{sub.name}</span>
                             <svg
                               width="12"
                               height="12"
@@ -742,7 +742,7 @@ export default function ReportsPage() {
                               {sub.target}
                             </span>
                           </div>
-                          <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4] shrink-0">{sub.name}</span>
+                          <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4] shrink-0 w-[90px] sm:w-[140px] truncate">{sub.name}</span>
                         </div>
                       )}
                       {/* Suppliers (3rd level) */}
@@ -769,7 +769,7 @@ export default function ReportsPage() {
                                   {supplier.target}
                                 </span>
                               </div>
-                              <span className="text-[10px] sm:text-[12px] font-normal text-right text-white/50 leading-[1.4] shrink-0">{supplier.name}</span>
+                              <span className="text-[10px] sm:text-[12px] font-normal text-right text-white/50 leading-[1.4] shrink-0 w-[90px] sm:w-[140px] truncate">{supplier.name}</span>
                             </div>
                           ))}
                         </div>
@@ -794,7 +794,7 @@ export default function ReportsPage() {
             <span className="text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">{formatCurrency(summary.totalExpenses)}</span>
             <span className="text-[11px] sm:text-[15px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4]">{formatCurrency(summary.expensesTarget)}</span>
           </div>
-          <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0">סה&quot;כ הוצאות</span>
+          <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ הוצאות</span>
         </div>
       </section>
 
