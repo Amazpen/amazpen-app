@@ -199,15 +199,16 @@ export default function ReportsPage() {
             .lte("entry_date", endDate),
         ]);
 
-        // Fetch prior liabilities (payment splits due this month from payments created before this month)
+        // Fetch prior liabilities (payment splits due this month from payments created BEFORE this month)
         const { data: priorSplits } = await supabase
           .from("payment_splits")
           .select(`
             amount, due_date,
-            payment:payments!inner(id, business_id, deleted_at, supplier:suppliers(name))
+            payment:payments!inner(id, business_id, deleted_at, payment_date, supplier:suppliers(name))
           `)
           .gte("due_date", startDate)
           .lte("due_date", endDate)
+          .lt("payment.payment_date", startDate)
           .is("payment.deleted_at", null)
           .in("payment.business_id", selectedBusinesses);
 
@@ -979,18 +980,18 @@ export default function ReportsPage() {
         {showPriorLiabilitiesBreakdown && priorLiabilitiesItems.length > 0 && (
           <div className="border-t border-white/10 px-[10px] pb-[10px]">
             <div className="flex flex-row-reverse justify-between items-center py-[6px] text-[11px] sm:text-[13px] text-white/60 font-medium border-b border-white/10">
-              <span className="w-[120px] sm:w-[160px] text-right">ספק</span>
-              <span className="flex-1 text-center ltr-num">סכום</span>
+              <span className="flex-1 text-right ltr-num">סכום</span>
+              <span className="w-[120px] sm:w-[160px] text-left">ספק</span>
             </div>
             {priorLiabilitiesItems.map((item, idx) => (
               <div
                 key={`${item.payment_id}-${idx}`}
                 className="flex flex-row-reverse justify-between items-center py-[6px] text-[11px] sm:text-[13px] border-b border-white/5 last:border-b-0"
               >
-                <span className="w-[120px] sm:w-[160px] text-right text-white/90 truncate">{item.supplier_name}</span>
-                <span className="flex-1 text-center ltr-num font-bold text-[#F64E60]">
+                <span className="flex-1 text-right ltr-num font-bold text-[#F64E60]">
                   {formatCurrency(item.amount)}
                 </span>
+                <span className="w-[120px] sm:w-[160px] text-left text-white/90 truncate">{item.supplier_name}</span>
               </div>
             ))}
           </div>
