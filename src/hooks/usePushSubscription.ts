@@ -67,8 +67,26 @@ export function usePushSubscription() {
       setPermission(perm)
       if (perm !== 'granted') { setDebugError(`perm=${perm}`); return false }
 
-      setDebugError('waiting SW ready...')
-      const reg = await navigator.serviceWorker.ready
+      setDebugError('getting SW registration...')
+      // Try getRegistration first, then register if needed, with timeout
+      let reg = await navigator.serviceWorker.getRegistration('/')
+      if (!reg) {
+        setDebugError('registering SW...')
+        reg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+      }
+      // Wait for the SW to be active
+      if (reg.installing || reg.waiting) {
+        setDebugError('waiting SW activate...')
+        const sw = reg.installing || reg.waiting
+        await new Promise<void>((resolve) => {
+          if (sw!.state === 'activated') { resolve(); return }
+          sw!.addEventListener('statechange', () => {
+            if (sw!.state === 'activated') resolve()
+          })
+          // Timeout after 5s
+          setTimeout(resolve, 5000)
+        })
+      }
       const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
 
       if (!vapidPublicKey) { setDebugError('no VAPID key'); return false }
