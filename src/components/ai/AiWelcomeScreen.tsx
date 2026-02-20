@@ -1,8 +1,10 @@
 "use client";
 
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { MicroMatrix } from "./AiToolSteps";
 import type { AiSuggestedQuestion } from "@/types/ai";
 
 const userSuggestions: AiSuggestedQuestion[] = [
@@ -64,6 +66,22 @@ interface AiWelcomeScreenProps {
 export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenProps) {
   const router = useRouter();
   const suggestions = isAdmin ? adminSuggestions : userSuggestions;
+  const [showImage, setShowImage] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const minTimeRef = useRef(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      minTimeRef.current = true;
+      if (imageLoaded) setShowImage(true);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [imageLoaded]);
+
+  const handleImageLoad = useCallback(() => {
+    setImageLoaded(true);
+    if (minTimeRef.current) setShowImage(true);
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-8 relative overflow-y-auto" dir="rtl">
@@ -82,17 +100,24 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
         </svg>
       </Button>
 
-      {/* AI Bot Avatar */}
-      <div className="w-[80px] h-[80px] sm:w-[110px] sm:h-[110px] rounded-full overflow-hidden mb-3 sm:mb-5">
+      {/* AI Bot Avatar with MicroMatrix skeleton */}
+      <div className="w-[80px] h-[80px] sm:w-[110px] sm:h-[110px] rounded-full overflow-hidden mb-3 sm:mb-5 relative">
+        {!showImage && (
+          <div className="absolute inset-0 flex items-center justify-center bg-[#1a1f4e] rounded-full">
+            <MicroMatrix size={48} variant="wave" className="sm:hidden" />
+            <MicroMatrix size={64} variant="wave" className="hidden sm:block" />
+          </div>
+        )}
         <Image
           src="https://db.amazpenbiz.co.il/storage/v1/object/public/attachments/ai/ai-avatar.png"
           alt="דדי - העוזר החכם"
           width={110}
           height={110}
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover transition-opacity duration-500 ${showImage ? "opacity-100" : "opacity-0"}`}
           unoptimized
           priority
           loading="eager"
+          onLoad={handleImageLoad}
         />
       </div>
 

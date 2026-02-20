@@ -65,41 +65,18 @@ function SafeChartContainer({ children }: { children: React.ReactNode }) {
   );
 }
 
-// AI bot icon with MicroMatrix skeleton loader
+// AI bot icon
 function AiIcon() {
-  const [showImage, setShowImage] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const minTimeRef = useRef(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      minTimeRef.current = true;
-      if (imageLoaded) setShowImage(true);
-    }, 1800);
-    return () => clearTimeout(timer);
-  }, [imageLoaded]);
-
-  const handleLoad = useCallback(() => {
-    setImageLoaded(true);
-    if (minTimeRef.current) setShowImage(true);
-  }, []);
-
   return (
-    <div className="flex-shrink-0 w-[24px] h-[24px] sm:w-[28px] sm:h-[28px] rounded-full overflow-hidden relative">
-      {!showImage && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#1a1f4e] rounded-full">
-          <MicroMatrix size={18} variant="thinking" />
-        </div>
-      )}
+    <div className="flex-shrink-0 w-[24px] h-[24px] sm:w-[28px] sm:h-[28px] rounded-full overflow-hidden">
       <Image
         src="https://db.amazpenbiz.co.il/storage/v1/object/public/attachments/ai/ai-avatar.png"
         alt="דדי"
         width={28}
         height={28}
-        className={`w-full h-full object-cover transition-opacity duration-300 ${showImage ? "opacity-100" : "opacity-0"}`}
+        className="w-full h-full object-cover"
         unoptimized
         loading="eager"
-        onLoad={handleLoad}
       />
     </div>
   );
