@@ -1,11 +1,58 @@
 "use client";
 
+import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 
 interface AiMarkdownRendererProps {
   content: string;
+}
+
+/** Regex to match currency amounts, percentages, and standalone numbers */
+const NUMBER_PATTERN = /(\u20AA[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?(?:\s*\u20AA)|[\d,]+(?:\.\d+)?%|(?<![א-ת\w])[\d,]{2,}(?:\.\d+)?(?![א-ת\w]))/g;
+
+/** Regex to detect emoji at the start of a string */
+const LEADING_EMOJI = /^(\p{Emoji_Presentation}|\p{Extended_Pictographic})\s*/u;
+
+/** Highlight numbers and amounts in children text nodes */
+function highlightNumbers(children: React.ReactNode): React.ReactNode {
+  return React.Children.map(children, (child) => {
+    if (typeof child !== "string") return child;
+
+    const parts = child.split(NUMBER_PATTERN);
+    if (parts.length === 1) return child;
+
+    return parts.map((part, i) => {
+      if (NUMBER_PATTERN.test(part)) {
+        return (
+          <span key={i} className="text-white font-semibold" dir="ltr" style={{ unicodeBidi: "embed" }}>
+            {part}
+          </span>
+        );
+      }
+      // Reset lastIndex since we reuse the regex
+      NUMBER_PATTERN.lastIndex = 0;
+      return part;
+    });
+  });
+}
+
+/** Wrap leading emoji in a styled span for clean RTL display */
+function handleLeadingEmoji(children: React.ReactNode): { emoji: string | null; rest: React.ReactNode } {
+  const childArray = React.Children.toArray(children);
+  if (childArray.length === 0) return { emoji: null, rest: children };
+
+  const first = childArray[0];
+  if (typeof first !== "string") return { emoji: null, rest: children };
+
+  const match = first.match(LEADING_EMOJI);
+  if (!match) return { emoji: null, rest: children };
+
+  const emoji = match[1];
+  const remaining = first.slice(match[0].length);
+  const newChildren = [remaining, ...childArray.slice(1)];
+  return { emoji, rest: newChildren };
 }
 
 const components: Components = {
@@ -22,11 +69,22 @@ const components: Components = {
   h3: ({ children }) => (
     <h3 className="text-white text-base font-bold mb-2">{children}</h3>
   ),
-  p: ({ children }) => (
-    <p className="text-white/90 text-[13px] sm:text-[14px] leading-relaxed mb-2 last:mb-0 [overflow-wrap:anywhere]">
-      {children}
-    </p>
-  ),
+  p: ({ children }) => {
+    const { emoji, rest } = handleLeadingEmoji(children);
+    if (emoji) {
+      return (
+        <p className="text-white/90 text-[13px] sm:text-[14px] leading-relaxed mb-2 last:mb-0 [overflow-wrap:anywhere] flex items-start gap-1.5">
+          <span className="text-[16px] leading-[1.4] flex-shrink-0 inline-block w-[20px] text-center" style={{ unicodeBidi: "isolate" }}>{emoji}</span>
+          <span className="flex-1 min-w-0">{highlightNumbers(rest)}</span>
+        </p>
+      );
+    }
+    return (
+      <p className="text-white/90 text-[13px] sm:text-[14px] leading-relaxed mb-2 last:mb-0 [overflow-wrap:anywhere]">
+        {highlightNumbers(children)}
+      </p>
+    );
+  },
   strong: ({ children }) => (
     <strong className="text-white font-bold">{children}</strong>
   ),
@@ -43,7 +101,7 @@ const components: Components = {
       {children}
     </ol>
   ),
-  li: ({ children }) => <li className="text-white/90">{children}</li>,
+  li: ({ children }) => <li className="text-white/90">{highlightNumbers(children)}</li>,
   a: ({ href, children }) => (
     <a
       href={href}
@@ -99,7 +157,7 @@ const components: Components = {
     </th>
   ),
   td: ({ children }) => (
-    <td className="text-white/80 text-right px-2 sm:px-3 py-1.5 sm:py-2">{children}</td>
+    <td className="text-white/80 text-right px-2 sm:px-3 py-1.5 sm:py-2">{highlightNumbers(children)}</td>
   ),
   hr: () => <hr className="border-white/10 my-3" />,
 };
