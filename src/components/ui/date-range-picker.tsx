@@ -250,7 +250,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
                 <SelectTrigger className="bg-transparent text-[12px] text-white text-center py-[3px] border-none h-auto min-h-0 px-[2px] w-auto gap-1">
                   <SelectValue placeholder="חודש" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" side="top" className="max-h-[250px]">
                   {hebrewMonths.map((month) => (
                     <SelectItem key={month.value} value={month.value}>
                       {month.label}
@@ -267,7 +267,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
                 <SelectTrigger className="bg-transparent text-[12px] text-white text-center py-[3px] border-none h-auto min-h-0 px-[2px] w-auto gap-1">
                   <SelectValue placeholder="שנה" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" side="top" className="max-h-[250px]">
                   {years.map((year) => (
                     <SelectItem key={year} value={String(year)}>
                       {year}
