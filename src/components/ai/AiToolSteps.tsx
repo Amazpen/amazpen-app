@@ -565,10 +565,20 @@ const VARIANTS: Record<MatrixVariant, VariantConfig> = {
   },
   thinking: {
     keyframe: "mmBreathe",
-    duration: 2.2,
-    color: "bg-indigo-300",
-    shape: "circle",
-    delay: (_i, row, col) => (col + row) * 0.08,
+    duration: 1.6,
+    color: "bg-fuchsia-400",
+    shape: "diamond",
+    delay: (_i, row, col) => {
+      // Spiral pattern from center outward
+      const order = [4, 1, 5, 7, 3, 0, 2, 8, 6]; // center → edges spiral
+      const idx = order.indexOf(row * 3 + col);
+      return (idx >= 0 ? idx : 0) * 0.1;
+    },
+    sizeMultiplier: (_i, row, col) => {
+      // Center biggest, shrinks outward
+      const dist = Math.abs(row - 1) + Math.abs(col - 1);
+      return dist === 0 ? 1.3 : dist === 1 ? 1 : 0.8;
+    },
   },
   data: {
     keyframe: "mmScan",

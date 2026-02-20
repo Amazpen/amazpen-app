@@ -507,10 +507,10 @@ input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
 
 /* AI Micro-matrix loading animations — different patterns per state */
 
-/* Default: diagonal wave */
+/* Default: diagonal wave — punchy */
 @keyframes mmWave {
-  0%, 100% { opacity: 0.15; transform: scale(0.7); }
-  40% { opacity: 0.9; transform: scale(1); }
+  0%, 100% { opacity: 0.2; transform: scale(0.6); }
+  40% { opacity: 1; transform: scale(1.15); }
 }
 
 /* Thinking: energetic morph — scale + rotate + full opacity pulse */
@@ -522,26 +522,29 @@ input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
   100% { opacity: 0.3; transform: scale(0.5) rotate(180deg); }
 }
 
-/* Database/query: scanning rows */
+/* Database/query: scanning rows — bold flash */
 @keyframes mmScan {
-  0%, 100% { opacity: 0.1; transform: scale(0.5); }
-  30% { opacity: 1; transform: scale(1.1); }
-  60% { opacity: 0.4; transform: scale(0.8); }
+  0%, 100% { opacity: 0.15; transform: scale(0.4); }
+  30% { opacity: 1; transform: scale(1.2); }
+  60% { opacity: 0.5; transform: scale(0.9); }
 }
 
-/* Calculate: rapid flicker */
+/* Calculate: rapid flicker — sharp binary pulse */
 @keyframes mmCompute {
-  0%, 100% { opacity: 0.15; transform: scale(0.8); }
-  25% { opacity: 0.95; transform: scale(1.05); }
-  50% { opacity: 0.2; transform: scale(0.75); }
-  75% { opacity: 0.8; transform: scale(1); }
+  0%, 100% { opacity: 0.1; transform: scale(0.6) rotate(0deg); }
+  20% { opacity: 1; transform: scale(1.2) rotate(90deg); }
+  40% { opacity: 0.15; transform: scale(0.5) rotate(180deg); }
+  60% { opacity: 1; transform: scale(1.1) rotate(270deg); }
+  80% { opacity: 0.2; transform: scale(0.7) rotate(360deg); }
 }
 
-/* Success: radiate outward from center */
+/* Goals: radiate outward — heartbeat burst */
 @keyframes mmRadiate {
-  0% { opacity: 0.2; transform: scale(0.6); }
-  50% { opacity: 1; transform: scale(1.15); }
-  100% { opacity: 0.2; transform: scale(0.6); }
+  0% { opacity: 0.15; transform: scale(0.4); }
+  30% { opacity: 1; transform: scale(1.25); }
+  50% { opacity: 0.6; transform: scale(0.9); }
+  70% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 0.15; transform: scale(0.4); }
 }
 
 /* Error: shake pulse */
