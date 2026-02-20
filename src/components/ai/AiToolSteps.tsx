@@ -184,33 +184,46 @@ function summarizeOutput(toolName: string, output: unknown): string {
   }
 }
 
+/** Format elapsed seconds into readable Hebrew */
+function formatElapsed(ms: number): string {
+  const secs = Math.round(ms / 100) / 10; // one decimal
+  if (secs < 1) return "פחות משנייה";
+  if (secs === 1) return "שנייה";
+  return `${secs} שניות`;
+}
+
 /** Get a more specific summary text based on tool types used */
-function getSmartSummary(groups: ToolGroup[]): string {
+function getSmartSummary(groups: ToolGroup[], elapsedMs?: number): string {
   const totalSteps = groups.reduce((sum, g) => sum + g.count, 0);
+  const timeSuffix = elapsedMs && elapsedMs > 800 ? ` · ${formatElapsed(elapsedMs)}` : "";
+
   if (totalSteps === 1) {
     const g = groups[0];
-    switch (g.toolName) {
-      case "getMonthlySummary": return "בדקתי סיכום חודשי";
-      case "queryDatabase": return "שלפתי נתונים מהמערכת";
-      case "getBusinessSchedule": return "בדקתי לוח עבודה";
-      case "getGoals": return "בדקתי יעדים";
-      case "calculate": return "חישבתי נתון";
-      default: return "בדקתי נתון אחד";
-    }
+    const base = (() => {
+      switch (g.toolName) {
+        case "getMonthlySummary": return "בדקתי סיכום חודשי";
+        case "queryDatabase": return "שלפתי נתונים מהמערכת";
+        case "getBusinessSchedule": return "בדקתי לוח עבודה";
+        case "getGoals": return "בדקתי יעדים";
+        case "calculate": return "חישבתי נתון";
+        default: return "בדקתי נתון אחד";
+      }
+    })();
+    return base + timeSuffix;
   }
 
   const uniqueTools = new Set(groups.map((g) => g.toolName));
   if (uniqueTools.has("getMonthlySummary") && groups.find((g) => g.toolName === "getMonthlySummary")!.count > 1) {
     const bizCount = groups.find((g) => g.toolName === "getMonthlySummary")!.count;
-    return `בדקתי ${bizCount} עסקים`;
+    return `בדקתי ${bizCount} עסקים` + timeSuffix;
   }
   if (uniqueTools.has("queryDatabase") && uniqueTools.has("getMonthlySummary")) {
-    return `אספתי וניתחתי ${totalSteps} מקורות נתונים`;
+    return `אספתי וניתחתי ${totalSteps} מקורות נתונים` + timeSuffix;
   }
   if (uniqueTools.has("queryDatabase") && totalSteps > 1) {
-    return `הרצתי ${totalSteps} שאילתות`;
+    return `הרצתי ${totalSteps} שאילתות` + timeSuffix;
   }
-  return `ביצעתי ${totalSteps} פעולות כדי לענות`;
+  return `ביצעתי ${totalSteps} פעולות כדי לענות` + timeSuffix;
 }
 
 /** A group of similar tool invocations */
@@ -302,25 +315,32 @@ const MIN_LOADING_MS = 1500;
 export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showLoading, setShowLoading] = useState(true);
+  const [showBurst, setShowBurst] = useState(false);
   const loadStartRef = useRef<number>(Date.now());
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const elapsedRef = useRef<number>(0);
 
   const rawAllDone = steps.every((s) => s.state === "output-available") && !isStreaming;
+  const doneCount = steps.filter((s) => s.state === "output-available").length;
 
   useEffect(() => {
     if (!rawAllDone) {
-      // Reset timer when loading starts/continues
       loadStartRef.current = Date.now();
       setShowLoading(true);
+      setShowBurst(false);
       if (timerRef.current) clearTimeout(timerRef.current);
     } else {
-      // Done — but hold the loading state for at least MIN_LOADING_MS
-      const elapsed = Date.now() - loadStartRef.current;
-      const remaining = MIN_LOADING_MS - elapsed;
+      elapsedRef.current = Date.now() - loadStartRef.current;
+      const remaining = MIN_LOADING_MS - elapsedRef.current;
+      const finalize = () => {
+        setShowBurst(true);
+        // Burst plays for 600ms, then settle to final state
+        setTimeout(() => { setShowBurst(false); setShowLoading(false); }, 600);
+      };
       if (remaining > 0) {
-        timerRef.current = setTimeout(() => setShowLoading(false), remaining);
+        timerRef.current = setTimeout(finalize, remaining);
       } else {
-        setShowLoading(false);
+        finalize();
       }
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
@@ -328,7 +348,7 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
 
   if (steps.length === 0) return null;
 
-  const allDone = rawAllDone && !showLoading;
+  const allDone = rawAllDone && !showLoading && !showBurst;
   const activeStep = !allDone ? (steps.find((s) => s.state !== "output-available") || steps[steps.length - 1]) : undefined;
   const groups = groupSteps(steps);
 
@@ -340,9 +360,13 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
         onClick={() => setIsExpanded((prev) => !prev)}
         className="flex items-center gap-2.5 w-full text-right px-3 py-2 transition-colors cursor-pointer select-none hover:bg-white/[0.03] rounded-[10px]"
       >
-        {/* Status icon */}
-        {allDone ? (
-          <div className="w-6 h-6 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+        {/* Status icon — burst → done → loading matrix */}
+        {showBurst ? (
+          <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+            <MicroMatrix size={18} variant="wave" className="mm-burst" />
+          </div>
+        ) : allDone ? (
+          <div className="w-6 h-6 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0 animate-[mmFadeIn_0.3s_ease-out]">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
               <polyline points="20 6 9 17 4 12" />
             </svg>
@@ -357,15 +381,21 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
         <div className="flex-1 min-w-0">
           {allDone ? (
             <span className="text-white/55 text-[12px] font-medium">
-              {getSmartSummary(groups)}
-            </span>
-          ) : activeStep ? (
-            <span className="text-white/65 text-[12px] font-medium">
-              {activeStep.label}
-              {activeStep.detail && <span className="text-white/35 mr-1.5">— {activeStep.detail}</span>}
+              {getSmartSummary(groups, elapsedRef.current)}
             </span>
           ) : (
-            <span className="text-white/60 text-[12px] font-medium">מעבד...</span>
+            <div className="flex items-center gap-2">
+              <span className="text-white/65 text-[12px] font-medium">
+                {activeStep?.label || "מעבד..."}
+                {activeStep?.detail && <span className="text-white/35 mr-1.5">— {activeStep.detail}</span>}
+              </span>
+              {/* Live progress counter */}
+              {steps.length > 1 && (
+                <span className="text-white/25 text-[11px] font-mono tabular-nums">
+                  {doneCount}/{steps.length}
+                </span>
+              )}
+            </div>
           )}
         </div>
 
@@ -702,10 +732,10 @@ export function MicroMatrix({
               ...shapeBase,
               width: dotSize,
               height: dotSize,
-              // Center within the grid cell if size differs
               margin: mult !== 1 ? `${(baseDotSize - dotSize) / 2}px` : undefined,
               animation: `${config.keyframe} ${config.duration}s ease-in-out infinite`,
               animationDelay: `${config.delay(i, row, col)}s`,
+              transition: "background-color 0.4s ease, border-radius 0.4s ease, clip-path 0.4s ease",
             }}
           />
         );
