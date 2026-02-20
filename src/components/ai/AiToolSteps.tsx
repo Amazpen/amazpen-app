@@ -5,11 +5,77 @@ import type { UIMessage } from "ai";
 
 const MONTH_NAMES = ["", "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 
-/** Tool display configuration with Hebrew labels */
-const toolDisplayMap: Record<string, { label: string; emoji: string; getDetail?: (input: Record<string, unknown>) => string }> = {
+/* ── Tool icon SVGs (no emojis) ── */
+
+function IconChart({ className = "" }: { className?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M18 20V10" /><path d="M12 20V4" /><path d="M6 20v-6" />
+    </svg>
+  );
+}
+
+function IconSearch({ className = "" }: { className?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+
+function IconCalendar({ className = "" }: { className?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect width="18" height="18" x="3" y="4" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" />
+    </svg>
+  );
+}
+
+function IconTarget({ className = "" }: { className?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" />
+    </svg>
+  );
+}
+
+function IconCalculate({ className = "" }: { className?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect width="16" height="20" x="4" y="2" rx="2" /><path d="M8 6h8" /><path d="M8 10h8" /><path d="M8 14h4" /><path d="M8 18h4" />
+    </svg>
+  );
+}
+
+function IconLightbulb({ className = "" }: { className?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" /><path d="M9 18h6" /><path d="M10 22h4" />
+    </svg>
+  );
+}
+
+function IconGear({ className = "" }: { className?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+/** Tool display configuration with Hebrew labels and colored icons */
+const toolDisplayMap: Record<string, {
+  label: string;
+  icon: (props: { className?: string }) => React.ReactElement;
+  color: string; // Tailwind text color for the icon
+  bgColor: string; // Tailwind bg color for the icon wrapper
+  getDetail?: (input: Record<string, unknown>) => string;
+}> = {
   getMonthlySummary: {
     label: "שליפת סיכום חודשי",
-    emoji: "📊",
+    icon: IconChart,
+    color: "text-cyan-400",
+    bgColor: "bg-cyan-400/15",
     getDetail: (input) => {
       const month = input.month as number;
       const year = input.year as number;
@@ -18,16 +84,22 @@ const toolDisplayMap: Record<string, { label: string; emoji: string; getDetail?:
   },
   queryDatabase: {
     label: "שאילתה מבסיס הנתונים",
-    emoji: "🔍",
+    icon: IconSearch,
+    color: "text-blue-400",
+    bgColor: "bg-blue-400/15",
     getDetail: (input) => (input.explanation as string) || "",
   },
   getBusinessSchedule: {
     label: "בדיקת לוח עבודה",
-    emoji: "📅",
+    icon: IconCalendar,
+    color: "text-orange-400",
+    bgColor: "bg-orange-400/15",
   },
   getGoals: {
     label: "בדיקת יעדים עסקיים",
-    emoji: "🎯",
+    icon: IconTarget,
+    color: "text-violet-400",
+    bgColor: "bg-violet-400/15",
     getDetail: (input) => {
       const month = input.month as number;
       const year = input.year as number;
@@ -36,19 +108,29 @@ const toolDisplayMap: Record<string, { label: string; emoji: string; getDetail?:
   },
   calculate: {
     label: "חישוב מתמטי",
-    emoji: "🧮",
+    icon: IconCalculate,
+    color: "text-amber-400",
+    bgColor: "bg-amber-400/15",
     getDetail: (input) => (input.expression as string) || "",
   },
   proposeAction: {
     label: "הכנת הצעה",
-    emoji: "💡",
+    icon: IconLightbulb,
+    color: "text-yellow-400",
+    bgColor: "bg-yellow-400/15",
   },
+};
+
+const defaultToolDisplay = {
+  label: "",
+  icon: IconGear,
+  color: "text-white/50",
+  bgColor: "bg-white/10",
 };
 
 export interface ToolStep {
   toolName: string;
   label: string;
-  emoji: string;
   detail: string;
   state: string;
   resultSummary: string;
@@ -58,9 +140,7 @@ export interface ToolStep {
 function getBusinessNameFromOutput(output: unknown): string {
   if (!output || typeof output !== "object") return "";
   const out = output as Record<string, unknown>;
-  // From computed summary
   if (out.businessName && typeof out.businessName === "string") return out.businessName;
-  // From cached metrics table
   if (out.business_name && typeof out.business_name === "string") return out.business_name as string;
   return "";
 }
@@ -137,7 +217,6 @@ function getSmartSummary(groups: ToolGroup[]): string {
 interface ToolGroup {
   toolName: string;
   label: string;
-  emoji: string;
   count: number;
   items: ToolStep[];
   allDone: boolean;
@@ -157,7 +236,6 @@ function groupSteps(steps: ToolStep[]): ToolGroup[] {
       groups.push({
         toolName: step.toolName,
         label: step.label,
-        emoji: step.emoji,
         count: 1,
         items: [step],
         allDone: step.state === "output-available",
@@ -186,11 +264,10 @@ export function getToolSteps(message: UIMessage): ToolStep[] {
       if (seen.has(key)) continue;
       seen.add(key);
 
-      const display = toolDisplayMap[toolName] || { label: toolName, emoji: "⚙️" };
+      const display = toolDisplayMap[toolName] || defaultToolDisplay;
       const input = (toolPart.input || {}) as Record<string, unknown>;
       const isDone = toolPart.state === "output-available";
 
-      // Build detail with business name from output if available
       let detail = display.getDetail ? display.getDetail(input) : "";
       if (isDone && toolName === "getMonthlySummary") {
         const bizName = getBusinessNameFromOutput(toolPart.output);
@@ -203,8 +280,7 @@ export function getToolSteps(message: UIMessage): ToolStep[] {
 
       steps.push({
         toolName,
-        label: display.label,
-        emoji: display.emoji,
+        label: display.label || toolName,
         detail,
         state: toolPart.state || "output-available",
         resultSummary,
@@ -258,7 +334,7 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
             </span>
           ) : activeStep ? (
             <span className="text-white/65 text-[12px] font-medium">
-              {activeStep.emoji} {activeStep.label}
+              {activeStep.label}
               {activeStep.detail && <span className="text-white/35 mr-1.5">— {activeStep.detail}</span>}
             </span>
           ) : (
@@ -295,40 +371,51 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
 
             <div className="space-y-1">
               {groups.map((group, gIdx) => {
-                // Single item in group - render normally
                 if (group.count === 1) {
                   const step = group.items[0];
                   const isDone = step.state === "output-available";
                   const isActive = step.state === "input-streaming" || step.state === "input-available";
+                  const display = toolDisplayMap[step.toolName] || defaultToolDisplay;
+                  const ToolIcon = display.icon;
 
                   return (
                     <div key={`${step.toolName}-${gIdx}`} className="relative pr-6">
-                      <div className={`absolute right-[3px] top-2.5 w-[9px] h-[9px] rounded-full border-2 ${
-                        isDone ? "bg-emerald-400 border-emerald-400"
-                          : isActive ? "bg-indigo-400 border-indigo-400 animate-pulse"
-                            : "bg-white/20 border-white/30"
-                      }`} />
+                      {/* Timeline dot - colored per tool */}
+                      <div className={`absolute right-[1px] top-2 w-[13px] h-[13px] rounded-full flex items-center justify-center ${
+                        isDone ? display.bgColor
+                          : isActive ? display.bgColor
+                            : "bg-white/10"
+                      }`}>
+                        <div className={`w-[5px] h-[5px] rounded-full ${
+                          isDone ? display.color.replace("text-", "bg-")
+                            : isActive ? `${display.color.replace("text-", "bg-")} animate-pulse`
+                              : "bg-white/30"
+                        }`} />
+                      </div>
                       <div className={`py-1.5 px-2.5 rounded-lg ${isActive ? "bg-white/[0.04]" : ""}`}>
                         <div className="flex items-center gap-2">
-                          <span className="text-[14px] leading-none">{step.emoji}</span>
+                          <ToolIcon className={display.color} />
                           <span className={`text-[12px] font-medium ${isDone ? "text-white/70" : isActive ? "text-white/80" : "text-white/50"}`}>
                             {step.label}
                           </span>
                           {isDone && <CheckIcon />}
-                          {isActive && <SpinnerIcon toolName={step.toolName} />}
+                          {isActive && <MicroMatrix size={14} variant={toolToVariant(step.toolName)} />}
                         </div>
                         {step.detail && (
                           <p className="text-white/35 text-[11px] mt-0.5 mr-[30px] leading-snug line-clamp-2">{step.detail}</p>
                         )}
                         {isDone && step.resultSummary && (
-                          <p className="text-emerald-400/50 text-[11px] mt-0.5 mr-[30px] leading-snug">← {step.resultSummary}</p>
+                          <p className={`text-[11px] mt-0.5 mr-[30px] leading-snug ${
+                            step.resultSummary === "אין נתונים עדיין" ? "text-white/25" : `${display.color} opacity-60`
+                          }`}>
+                            {step.resultSummary}
+                          </p>
                         )}
                       </div>
                     </div>
                   );
                 }
 
-                // Multiple items - render as collapsed group
                 return (
                   <GroupedSteps key={`group-${group.toolName}-${gIdx}`} group={group} />
                 );
@@ -345,12 +432,17 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
 function GroupedSteps({ group }: { group: ToolGroup }) {
   const [expanded, setExpanded] = useState(false);
   const hasData = group.items.some((s) => s.resultSummary && s.resultSummary !== "אין נתונים עדיין");
+  const display = toolDisplayMap[group.toolName] || defaultToolDisplay;
+  const ToolIcon = display.icon;
 
   return (
     <div className="relative pr-6">
-      <div className={`absolute right-[3px] top-2.5 w-[9px] h-[9px] rounded-full border-2 ${
-        group.allDone ? "bg-emerald-400 border-emerald-400" : "bg-indigo-400 border-indigo-400 animate-pulse"
-      }`} />
+      {/* Timeline dot - colored per tool */}
+      <div className={`absolute right-[1px] top-2 w-[13px] h-[13px] rounded-full flex items-center justify-center ${display.bgColor}`}>
+        <div className={`w-[5px] h-[5px] rounded-full ${
+          group.allDone ? display.color.replace("text-", "bg-") : `${display.color.replace("text-", "bg-")} animate-pulse`
+        }`} />
+      </div>
 
       <div className="py-1.5 px-2.5 rounded-lg">
         {/* Group header */}
@@ -359,12 +451,12 @@ function GroupedSteps({ group }: { group: ToolGroup }) {
           onClick={() => setExpanded((p) => !p)}
           className="flex items-center gap-2 w-full text-right cursor-pointer select-none"
         >
-          <span className="text-[14px] leading-none">{group.emoji}</span>
+          <ToolIcon className={display.color} />
           <span className={`text-[12px] font-medium ${group.allDone ? "text-white/70" : "text-white/80"}`}>
             {group.label}
           </span>
-          <span className="text-white/30 text-[11px] font-medium bg-white/[0.06] px-1.5 py-0.5 rounded-full">
-            ×{group.count}
+          <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded-full ${display.bgColor} ${display.color}`}>
+            {group.count}x
           </span>
           {group.allDone && <CheckIcon />}
           {hasData && (
@@ -389,10 +481,10 @@ function GroupedSteps({ group }: { group: ToolGroup }) {
           <div className="mt-1 mr-[30px] space-y-0.5">
             {group.items.map((step, idx) => (
               <div key={idx} className="flex items-baseline gap-1.5 text-[11px]">
-                <span className="text-white/25">•</span>
+                <span className={display.color} style={{ fontSize: "6px" }}>●</span>
                 <span className="text-white/40 truncate max-w-[200px]">{step.detail || step.label}</span>
                 {step.resultSummary && (
-                  <span className={step.resultSummary === "אין נתונים עדיין" ? "text-white/20" : "text-emerald-400/50"}>
+                  <span className={step.resultSummary === "אין נתונים עדיין" ? "text-white/20" : `${display.color} opacity-60`}>
                     — {step.resultSummary}
                   </span>
                 )}
@@ -413,25 +505,22 @@ function CheckIcon() {
   );
 }
 
-/**
- * Animation variant presets — each maps to a keyframe, color, speed, and delay pattern.
- *
- * Variants:
- *  - "thinking"   — slow breathe, subtle stagger (waiting for AI to start)
- *  - "data"       — scanning rows, row-by-row delay (getMonthlySummary, queryDatabase)
- *  - "compute"    — rapid flicker, random-ish stagger (calculate)
- *  - "goals"      — radiate outward from center (getGoals, getBusinessSchedule)
- *  - "error"      — shake pulse in red
- *  - "wave"       — default diagonal wave
- */
+/* ── MicroMatrix: dynamic 3×3 grid animation with unique shapes per variant ── */
+
 export type MatrixVariant = "thinking" | "data" | "compute" | "goals" | "error" | "wave";
+
+/** Shape types for dots */
+type DotShape = "circle" | "square" | "diamond" | "star" | "triangle" | "ring";
 
 interface VariantConfig {
   keyframe: string;
   duration: number;
   color: string;
-  /** Returns per-dot delay in seconds based on index (0–8), row (0–2), col (0–2) */
+  shape: DotShape;
+  /** Per-dot delay in seconds */
   delay: (i: number, row: number, col: number) => number;
+  /** Optional per-dot size multiplier (e.g. center dot bigger) */
+  sizeMultiplier?: (i: number, row: number, col: number) => number;
 }
 
 const VARIANTS: Record<MatrixVariant, VariantConfig> = {
@@ -439,42 +528,81 @@ const VARIANTS: Record<MatrixVariant, VariantConfig> = {
     keyframe: "mmWave",
     duration: 1.4,
     color: "bg-indigo-400",
+    shape: "circle",
     delay: (_i, row, col) => (col + row) * 0.12,
+    // Outer dots slightly larger for a "ripple" feel
+    sizeMultiplier: (_i, row, col) => {
+      const dist = Math.abs(row - 1) + Math.abs(col - 1);
+      return dist === 0 ? 0.8 : dist === 1 ? 1 : 1.15;
+    },
   },
   thinking: {
     keyframe: "mmBreathe",
     duration: 2.2,
     color: "bg-indigo-300",
+    shape: "circle",
     delay: (_i, row, col) => (col + row) * 0.08,
   },
   data: {
     keyframe: "mmScan",
     duration: 1.2,
     color: "bg-cyan-400",
-    // Row-by-row scan: all dots in same row share a delay, rows cascade
+    shape: "square",
     delay: (_i, row, col) => row * 0.2 + col * 0.06,
   },
   compute: {
     keyframe: "mmCompute",
     duration: 0.8,
     color: "bg-amber-400",
-    // Pseudo-random stagger using a simple hash
+    shape: "diamond",
     delay: (i) => ((i * 7 + 3) % 9) * 0.07,
   },
   goals: {
     keyframe: "mmRadiate",
     duration: 1.6,
     color: "bg-violet-400",
-    // Distance from center dot (index 4)
+    shape: "star",
     delay: (_i, row, col) => Math.max(Math.abs(row - 1), Math.abs(col - 1)) * 0.18,
+    // Center dot is bigger — radiating outward
+    sizeMultiplier: (_i, row, col) => {
+      const dist = Math.max(Math.abs(row - 1), Math.abs(col - 1));
+      return dist === 0 ? 1.4 : 1;
+    },
   },
   error: {
     keyframe: "mmError",
     duration: 0.6,
     color: "bg-red-400",
+    shape: "triangle",
     delay: (i) => i * 0.03,
   },
 };
+
+/** Get CSS styles for each dot shape */
+function getShapeStyles(shape: DotShape, dotSize: number): React.CSSProperties {
+  switch (shape) {
+    case "circle":
+      return { borderRadius: "50%" };
+    case "square":
+      return { borderRadius: `${Math.max(1, dotSize * 0.15)}px` };
+    case "diamond":
+      return { borderRadius: `${Math.max(1, dotSize * 0.15)}px`, transform: "rotate(45deg)" };
+    case "star":
+      return {
+        borderRadius: "50%",
+        clipPath: "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)",
+      };
+    case "triangle":
+      return {
+        borderRadius: "0",
+        clipPath: "polygon(50% 10%, 100% 90%, 0% 90%)",
+      };
+    case "ring":
+      return { borderRadius: "50%" };
+    default:
+      return { borderRadius: "50%" };
+  }
+}
 
 /** Map tool names to matrix variants */
 function toolToVariant(toolName: string | undefined): MatrixVariant {
@@ -495,9 +623,8 @@ function toolToVariant(toolName: string | undefined): MatrixVariant {
 }
 
 /**
- * CSS-only micro matrix loading indicator (3×3 dot grid).
- * Dynamic animation changes based on the `variant` prop.
- * Exported so AiMessageBubble can use it for the thinking bubble.
+ * CSS-only micro matrix loading indicator (3×3 grid).
+ * Each variant has its own: keyframe, color, speed, delay pattern, AND dot shape.
  */
 export function MicroMatrix({
   size = 16,
@@ -508,15 +635,16 @@ export function MicroMatrix({
   variant?: MatrixVariant;
   className?: string;
 }) {
-  const dotSize = Math.max(2, Math.round(size / 5));
+  const baseDotSize = Math.max(2, Math.round(size / 5));
   const gap = Math.max(1, Math.round(size / 8));
   const config = VARIANTS[variant];
+  const shapeBase = getShapeStyles(config.shape, baseDotSize);
 
   return (
     <div
       className={`inline-grid flex-shrink-0 ${className}`}
       style={{
-        gridTemplateColumns: `repeat(3, ${dotSize}px)`,
+        gridTemplateColumns: `repeat(3, ${baseDotSize}px)`,
         gap: `${gap}px`,
         width: size,
         height: size,
@@ -526,13 +654,19 @@ export function MicroMatrix({
       {Array.from({ length: 9 }, (_, i) => {
         const row = Math.floor(i / 3);
         const col = i % 3;
+        const mult = config.sizeMultiplier ? config.sizeMultiplier(i, row, col) : 1;
+        const dotSize = Math.round(baseDotSize * mult);
+
         return (
           <div
             key={i}
-            className={`rounded-full ${config.color}`}
+            className={config.color}
             style={{
+              ...shapeBase,
               width: dotSize,
               height: dotSize,
+              // Center within the grid cell if size differs
+              margin: mult !== 1 ? `${(baseDotSize - dotSize) / 2}px` : undefined,
               animation: `${config.keyframe} ${config.duration}s ease-in-out infinite`,
               animationDelay: `${config.delay(i, row, col)}s`,
             }}
@@ -541,8 +675,4 @@ export function MicroMatrix({
       })}
     </div>
   );
-}
-
-function SpinnerIcon({ toolName }: { toolName?: string }) {
-  return <MicroMatrix size={14} variant={toolToVariant(toolName)} />;
 }

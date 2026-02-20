@@ -16,6 +16,16 @@ interface Business {
   created_at: string;
 }
 
+const BUSINESS_TYPE_LABELS: Record<string, string> = {
+  restaurant: "מסעדה",
+  cafe: "בית קפה",
+  retail: "קמעונאות",
+  services: "שירותים",
+  manufacturing: "ייצור",
+  municipality: "עירייה",
+  other: "אחר",
+};
+
 export default function EditBusinessSelectPage() {
   const router = useRouter();
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -157,7 +167,7 @@ export default function EditBusinessSelectPage() {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-[16px] font-bold text-white truncate">{business.name}</h3>
                   <div className="flex items-center gap-[8px] mt-[4px]">
-                    {business.business_type && <span className="text-[12px] text-white/50">{business.business_type}</span>}
+                    {business.business_type && <span className="text-[12px] text-white/50">{BUSINESS_TYPE_LABELS[business.business_type!] || business.business_type}</span>}
                     <span className="text-[11px] px-[8px] py-[2px] rounded-full bg-[#3CD856]/20 text-[#3CD856]">פעיל</span>
                   </div>
                 </div>
@@ -197,7 +207,7 @@ export default function EditBusinessSelectPage() {
                     <div className="flex-1 min-w-0">
                       <h3 className="text-[16px] font-bold text-white truncate">{business.name}</h3>
                       <div className="flex items-center gap-[8px] mt-[4px]">
-                        {business.business_type && <span className="text-[12px] text-white/50">{business.business_type}</span>}
+                        {business.business_type && <span className="text-[12px] text-white/50">{BUSINESS_TYPE_LABELS[business.business_type!] || business.business_type}</span>}
                         <span className="text-[11px] px-[8px] py-[2px] rounded-full bg-[#F64E60]/20 text-[#F64E60]">לא פעיל</span>
                       </div>
                     </div>
