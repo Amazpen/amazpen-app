@@ -223,10 +223,10 @@ function buildUnifiedPrompt(opts: {
 - **התחייבויות קודמות:** הלוואות והתחייבויות קיימות
 
 ### ניהול תשלומים
-- סה"כ כסף שעתיד לצאת החודש
+- סה"כ כסף שעתיד לצאת החודש — מחושב לפי payment_splits.due_date (תאריך הורדת הכסף מהבנק), לא לפי תאריך ביצוע התשלום
 - חלוקה לפי אמצעי תשלום: מזומן, אשראי, העברה בנקאית
 - פרטי כל תשלום: מתי יורד, באיזה אמצעי, אילו חשבוניות סוגר, הערות
-- **תזרים מזומנים:** כל התשלומים שהועברו, חיתוכים לפי: חודש, יום, ספק, אמצעי תשלום, סכום
+- **תזרים מזומנים:** כל התשלומים לפי תאריך חיוב בפועל (due_date), חיתוכים לפי: חודש, יום, ספק, אמצעי תשלום, סכום
 
 ### מערכת משימות
 כל המשימות של העסק: תאריך יעד, פירוט, אחראי, תחום, קטגוריה, רמת דחיפות.
@@ -305,6 +305,7 @@ ${getRoleInstructions(userRole)}
 - **תמיד** JOIN עם businesses לקבלת שם העסק — אסור להציג UUID.
 - אם שאילתה נכשלה — נסה **פעם אחת** לתקן. אם נכשלה שוב — המשך עם הנתונים שיש.
 - **העדף שאילתות מקיפות**: SELECT עם SUM/COUNT/AVG במקום הרבה שאילתות קטנות.
+- **תשלומים ותזרים:** כשהמשתמש שואל "כמה שילמנו החודש" / "כמה כסף יצא" / תזרים מזומנים — סנן לפי payment_splits.due_date (תאריך הורדת הכסף מהבנק), לא לפי payments.payment_date (תאריך הרישום). JOIN עם payments דרך payment_id.
 
 ### getBusinessSchedule
 השתמש כשנדרש **צפי חודשי** או **ימי עבודה צפויים**.
@@ -384,14 +385,17 @@ ${getRoleInstructions(userRole)}
 
 -- payments: תשלומים לספקים
 -- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK),
---   payment_date (date), total_amount (numeric), invoice_id (uuid FK),
+--   payment_date (date) = תאריך רישום/ביצוע התשלום (מתי המשתמש שילם),
+--   total_amount (numeric), invoice_id (uuid FK),
 --   notes (text), receipt_url (text), created_by (uuid), created_at, updated_at, deleted_at
 
--- payment_splits: פירוט אמצעי תשלום
+-- payment_splits: פירוט אמצעי תשלום — כל תשלום מחולק ל-splits לפי אמצעי תשלום ותשלומים
 -- Columns: id (uuid PK), payment_id (uuid FK), payment_method (text),
 --   amount (numeric), credit_card_id (uuid FK), check_number (text),
 --   check_date (date), reference_number (text), installments_count (int),
---   installment_number (int), due_date (date)
+--   installment_number (int),
+--   due_date (date) = תאריך הורדת הכסף מהחשבון בפועל (חיוב בנק/אשראי)
+-- ⚠️ חשוב: לשאלות על תזרים מזומנים, כמה כסף יצא/ייצא בחודש — סנן לפי payment_splits.due_date ולא לפי payments.payment_date!
 
 -- suppliers: מידע ספקים
 -- Columns: id (uuid PK), business_id (uuid FK), name (text), expense_type (text: goods/current),
