@@ -480,6 +480,14 @@ input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
   animation: fadeIn 0.35s ease-out forwards;
 }
 
+@keyframes pulseRed {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.animate-pulse-red {
+  animation: pulseRed 1.5s ease-in-out infinite;
+}
+
 /* Chart Skeleton Bar Heights */
 .skeleton-bar-h-50 { height: 50%; }
 .skeleton-bar-h-55 { height: 55%; }

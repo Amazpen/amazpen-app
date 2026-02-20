@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
@@ -8,6 +9,14 @@ import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
+
+// Lazy loaded Recharts components
+const LazyBarChart = dynamic(() => import("recharts").then((mod) => ({ default: mod.BarChart })), { ssr: false });
+const LazyBar = dynamic(() => import("recharts").then((mod) => ({ default: mod.Bar })), { ssr: false });
+const LazyXAxis = dynamic(() => import("recharts").then((mod) => ({ default: mod.XAxis })), { ssr: false });
+const LazyYAxis = dynamic(() => import("recharts").then((mod) => ({ default: mod.YAxis })), { ssr: false });
+const LazyTooltip = dynamic(() => import("recharts").then((mod) => ({ default: mod.Tooltip })), { ssr: false });
+const LazyResponsiveContainer = dynamic(() => import("recharts").then((mod) => ({ default: mod.ResponsiveContainer })), { ssr: false });
 
 // Supplier row within a subcategory
 interface SupplierDisplay {
@@ -18,6 +27,8 @@ interface SupplierDisplay {
   remaining: string;
   remainingRaw: number;
   diffRaw: number;
+  actualRaw: number;
+  targetRaw: number;
 }
 
 // Expense category data for display
@@ -30,6 +41,8 @@ interface SubcategoryDisplay {
   remaining: string;
   remainingRaw: number;
   diffRaw: number;
+  actualRaw: number;
+  targetRaw: number;
   suppliers: SupplierDisplay[];
 }
 
@@ -42,6 +55,8 @@ interface ExpenseCategoryDisplay {
   remaining: string;
   remainingRaw: number;
   diffRaw: number;
+  actualRaw: number;
+  targetRaw: number;
   subcategories: SubcategoryDisplay[];
 }
 
@@ -84,6 +99,20 @@ function formatDifference(value: number): string {
 function formatPercentage(value: number): string {
   const sign = value >= 0 ? "" : "";
   return `${sign}${value.toFixed(2)}%`;
+}
+
+// Progress bar color based on utilization (100 - remainingRaw)
+function getProgressBarColor(remainingRaw: number): string {
+  const used = 100 - remainingRaw;
+  if (used > 80) return "bg-[#F64E60]"; // Red - over/near budget
+  if (used > 50) return "bg-[#FFA412]"; // Orange - warning
+  return "bg-[#17DB4E]"; // Green - safe
+}
+
+// Tooltip text for progress bar
+function getProgressTooltip(actualRaw: number, targetRaw: number): string {
+  const fmtNum = (n: number) => `₪${Math.round(n).toLocaleString("he-IL")}`;
+  return `נוצל ${fmtNum(actualRaw)} מתוך ${fmtNum(targetRaw)}`;
 }
 
 export default function ReportsPage() {
@@ -132,6 +161,102 @@ export default function ReportsPage() {
   const [priorLiabilitiesItems, setPriorLiabilitiesItems] = useState<PriorLiabilityItem[]>([]);
   const [showPriorLiabilitiesBreakdown, setShowPriorLiabilitiesBreakdown] = useState(false);
   const [cashFlowForecast, setCashFlowForecast] = useState({ target: 0, actual: 0 });
+
+  // 6-month trends chart data
+  const [trendsData, setTrendsData] = useState<{ month: string; income: number; expenses: number }[]>([]);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const [chartDimensions, setChartDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) setChartDimensions({ width, height });
+      }
+    });
+    observer.observe(chartContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Fetch 6-month trends for chart
+  useEffect(() => {
+    const fetchTrends = async () => {
+      if (selectedBusinesses.length === 0 || !selectedYear || !selectedMonth) {
+        setTrendsData([]);
+        return;
+      }
+
+      const year = parseInt(selectedYear);
+      const month = parseInt(selectedMonth.replace("_", ""));
+      if (isNaN(year) || isNaN(month)) return;
+
+      const supabase = createClient();
+      const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+
+      // Build 6-month range ending at selected month
+      const months: { year: number; month: number; label: string }[] = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(year, month - 1 - i, 1);
+        months.push({ year: d.getFullYear(), month: d.getMonth() + 1, label: monthNames[d.getMonth()] });
+      }
+
+      const firstStart = `${months[0].year}-${String(months[0].month).padStart(2, "0")}-01`;
+      const lastEnd = new Date(months[5].year, months[5].month, 0).toISOString().split("T")[0];
+
+      const [{ data: dailyData }, { data: invoicesData }] = await Promise.all([
+        supabase
+          .from("daily_entries")
+          .select("entry_date, total_register")
+          .in("business_id", selectedBusinesses)
+          .is("deleted_at", null)
+          .gte("entry_date", firstStart)
+          .lte("entry_date", lastEnd),
+        supabase
+          .from("invoices")
+          .select("invoice_date, subtotal")
+          .in("business_id", selectedBusinesses)
+          .is("deleted_at", null)
+          .in("invoice_type", ["current", "goods"])
+          .gte("invoice_date", firstStart)
+          .lte("invoice_date", lastEnd),
+      ]);
+
+      const incomeByMonth = new Map<string, number>();
+      const expensesByMonth = new Map<string, number>();
+
+      for (const m of months) {
+        const key = `${m.year}-${String(m.month).padStart(2, "0")}`;
+        incomeByMonth.set(key, 0);
+        expensesByMonth.set(key, 0);
+      }
+
+      for (const entry of dailyData || []) {
+        const key = entry.entry_date?.substring(0, 7);
+        if (key && incomeByMonth.has(key)) {
+          incomeByMonth.set(key, (incomeByMonth.get(key) || 0) + Number(entry.total_register || 0));
+        }
+      }
+
+      for (const inv of invoicesData || []) {
+        const key = inv.invoice_date?.substring(0, 7);
+        if (key && expensesByMonth.has(key)) {
+          expensesByMonth.set(key, (expensesByMonth.get(key) || 0) + Number(inv.subtotal || 0));
+        }
+      }
+
+      setTrendsData(months.map(m => {
+        const key = `${m.year}-${String(m.month).padStart(2, "0")}`;
+        return {
+          month: m.label,
+          income: Math.round(incomeByMonth.get(key) || 0),
+          expenses: Math.round(expensesByMonth.get(key) || 0),
+        };
+      }));
+    };
+
+    fetchTrends();
+  }, [selectedBusinesses, selectedYear, selectedMonth]);
 
   // Fetch data from Supabase
   useEffect(() => {
@@ -411,6 +536,8 @@ export default function ReportsPage() {
                 remaining: formatPercentage(remaining),
                 remainingRaw: remaining,
                 diffRaw: diff,
+                actualRaw: actual,
+                targetRaw: target,
                 suppliers: [],
               };
             }).filter(s => parseFloat(s.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(s.target.replace(/[₪K,]/g, "")) > 0)
@@ -464,6 +591,8 @@ export default function ReportsPage() {
                       remaining: formatPercentage(sRemaining),
                       remainingRaw: sRemaining,
                       diffRaw: sDiff,
+                      actualRaw: sActual,
+                      targetRaw: sTarget,
                     });
                   }
                 }
@@ -491,6 +620,8 @@ export default function ReportsPage() {
                       remaining: formatPercentage(sRemaining),
                       remainingRaw: sRemaining,
                       diffRaw: sDiff,
+                      actualRaw: sActual,
+                      targetRaw: sTarget,
                     });
                     actual += sActual;
                     target += sTarget;
@@ -512,6 +643,8 @@ export default function ReportsPage() {
                 remaining: formatPercentage(remaining),
                 remainingRaw: remaining,
                 diffRaw: diff,
+                actualRaw: actual,
+                targetRaw: target,
                 suppliers: childSuppliers,
               };
             });
@@ -538,6 +671,8 @@ export default function ReportsPage() {
             remaining: formatPercentage(parentRemaining),
             remainingRaw: parentRemaining,
             diffRaw: parentDiff,
+            actualRaw: parentActual,
+            targetRaw: parentTarget,
             subcategories: subcategoriesData,
           };
         }).filter(cat => parseFloat(cat.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(cat.target.replace(/[₪K,]/g, "")) > 0 || cat.subcategories.length > 0);
@@ -712,6 +847,44 @@ export default function ReportsPage() {
         <span className="text-[14px] sm:text-[16px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ הכנסות ללא מע&quot;מ</span>
       </section>
 
+      {/* 6-Month Income vs Expenses Chart */}
+      {trendsData.length > 0 && (
+        <section aria-label="מגמות הכנסות מול הוצאות" className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]">
+          <div className="flex flex-row-reverse items-center justify-between">
+            <span className="text-[18px] font-bold leading-[1.4]">הכנסות מול הוצאות — 6 חודשים</span>
+            <div className="flex items-center gap-[12px]">
+              <div className="flex items-center gap-[4px]">
+                <div className="w-[10px] h-[10px] rounded-[2px] bg-[#17DB4E]" />
+                <span className="text-[11px] text-white/60">הכנסות</span>
+              </div>
+              <div className="flex items-center gap-[4px]">
+                <div className="w-[10px] h-[10px] rounded-[2px] bg-[#F64E60]" />
+                <span className="text-[11px] text-white/60">הוצאות</span>
+              </div>
+            </div>
+          </div>
+          <div ref={chartContainerRef} className="w-full h-[220px]">
+            {chartDimensions && chartDimensions.width > 0 && (
+              <LazyResponsiveContainer width={chartDimensions.width} height={chartDimensions.height}>
+                <LazyBarChart data={trendsData} barGap={2} barCategoryGap="20%">
+                  <LazyXAxis dataKey="month" tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <LazyYAxis tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)} width={40} />
+                  <LazyTooltip
+                    contentStyle={{ background: "#1a1f4e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, direction: "rtl" }}
+                    labelStyle={{ color: "white", fontWeight: "bold", marginBottom: 4 }}
+                    itemStyle={{ color: "white" }}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    formatter={((value: number) => `₪${value.toLocaleString("he-IL")}`) as any}
+                  />
+                  <LazyBar dataKey="income" name="הכנסות" fill="#17DB4E" radius={[4, 4, 0, 0]} />
+                  <LazyBar dataKey="expenses" name="הוצאות" fill="#F64E60" radius={[4, 4, 0, 0]} />
+                </LazyBarChart>
+              </LazyResponsiveContainer>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Expenses Section */}
       <section id="onboarding-reports-categories" aria-label="פירוט הוצאות" className="bg-[#0F1535] rounded-[10px] p-[7px_0_0_0] min-h-[40px] flex flex-col">
         {/* Header Row */}
@@ -753,8 +926,8 @@ export default function ReportsPage() {
                     <span className={`text-[11px] sm:text-[14px] font-bold ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                       {category.remaining}
                     </span>
-                    <div className="w-[60px] sm:w-[75px] h-[8px] sm:h-[10px] bg-white/50 rounded-full border border-[#211A66] overflow-hidden rotate-180">
-                      <div className="h-full bg-[#3B44A8] transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, 100 - category.remainingRaw))}%` }} />
+                    <div className="w-[60px] sm:w-[75px] h-[8px] sm:h-[10px] bg-white/50 rounded-full border border-[#211A66] overflow-hidden rotate-180" title={getProgressTooltip(category.actualRaw, category.targetRaw)}>
+                      <div className={`h-full transition-all duration-300 ${getProgressBarColor(category.remainingRaw)} ${category.remainingRaw <= 0 ? 'animate-pulse-red' : ''}`} style={{ width: `${Math.min(100, Math.max(0, 100 - category.remainingRaw))}%` }} />
                     </div>
                   </div>
                   <span className={`text-[11px] sm:text-[14px] font-bold flex-1 min-w-0 text-center ltr-num leading-[1.4] ${category.diffRaw > 0 ? 'text-[#17DB4E]' : category.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
@@ -800,8 +973,8 @@ export default function ReportsPage() {
                               <span className={`text-[10px] sm:text-[13px] font-medium ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                                 {sub.remaining}
                               </span>
-                              <div className="w-[50px] sm:w-[65px] h-[6px] sm:h-[8px] bg-white/50 rounded-full border border-[#211A66] overflow-hidden rotate-180">
-                                <div className="h-full bg-[#5560C7] transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, 100 - sub.remainingRaw))}%` }} />
+                              <div className="w-[50px] sm:w-[65px] h-[6px] sm:h-[8px] bg-white/50 rounded-full border border-[#211A66] overflow-hidden rotate-180" title={getProgressTooltip(sub.actualRaw, sub.targetRaw)}>
+                                <div className={`h-full transition-all duration-300 ${getProgressBarColor(sub.remainingRaw)} ${sub.remainingRaw <= 0 ? 'animate-pulse-red' : ''}`} style={{ width: `${Math.min(100, Math.max(0, 100 - sub.remainingRaw))}%` }} />
                               </div>
                             </div>
                             <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
@@ -839,8 +1012,8 @@ export default function ReportsPage() {
                               <span className={`text-[10px] sm:text-[13px] font-medium ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                                 {sub.remaining}
                               </span>
-                              <div className="w-[50px] sm:w-[65px] h-[6px] sm:h-[8px] bg-white/50 rounded-full border border-[#211A66] overflow-hidden rotate-180">
-                                <div className="h-full bg-[#5560C7] transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, 100 - sub.remainingRaw))}%` }} />
+                              <div className="w-[50px] sm:w-[65px] h-[6px] sm:h-[8px] bg-white/50 rounded-full border border-[#211A66] overflow-hidden rotate-180" title={getProgressTooltip(sub.actualRaw, sub.targetRaw)}>
+                                <div className={`h-full transition-all duration-300 ${getProgressBarColor(sub.remainingRaw)} ${sub.remainingRaw <= 0 ? 'animate-pulse-red' : ''}`} style={{ width: `${Math.min(100, Math.max(0, 100 - sub.remainingRaw))}%` }} />
                               </div>
                             </div>
                             <span className={`text-[10px] sm:text-[13px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] ${sub.diffRaw > 0 ? 'text-[#17DB4E]' : sub.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
@@ -874,8 +1047,8 @@ export default function ReportsPage() {
                                   <span className={`text-[9px] sm:text-[12px] font-normal ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
                                     {supplier.remaining}
                                   </span>
-                                  <div className="w-[40px] sm:w-[55px] h-[5px] sm:h-[6px] bg-white/50 rounded-full border border-[#211A66] overflow-hidden rotate-180">
-                                    <div className="h-full bg-[#3B44A8] transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, 100 - supplier.remainingRaw))}%` }} />
+                                  <div className="w-[40px] sm:w-[55px] h-[5px] sm:h-[6px] bg-white/50 rounded-full border border-[#211A66] overflow-hidden rotate-180" title={getProgressTooltip(supplier.actualRaw, supplier.targetRaw)}>
+                                    <div className={`h-full transition-all duration-300 ${getProgressBarColor(supplier.remainingRaw)} ${supplier.remainingRaw <= 0 ? 'animate-pulse-red' : ''}`} style={{ width: `${Math.min(100, Math.max(0, 100 - supplier.remainingRaw))}%` }} />
                                   </div>
                                 </div>
                                 <span className={`text-[9px] sm:text-[12px] font-normal flex-1 min-w-0 text-center ltr-num leading-[1.4] ${supplier.diffRaw > 0 ? 'text-[#17DB4E]' : supplier.diffRaw < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
