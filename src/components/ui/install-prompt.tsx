@@ -79,9 +79,10 @@ export function InstallPrompt() {
 
   return (
     <div
-      className="fixed bottom-[20px] left-[10px] right-[10px] lg:left-auto lg:right-[230px] lg:max-w-[400px] z-[9998] animate-slide-up"
+      dir="rtl"
+      className="fixed bottom-[20px] left-1/2 -translate-x-1/2 z-[9998] w-[calc(100%-20px)] max-w-[400px] animate-slide-up"
     >
-      <div dir="rtl" className="bg-[#29318A] rounded-[14px] shadow-2xl overflow-hidden">
+      <div className="bg-[#29318A] rounded-[12px] shadow-2xl border border-white/10 overflow-hidden">
         <div className="p-[14px_16px] flex items-center gap-[12px]">
           {/* App icon */}
           <div className="flex-shrink-0 w-[40px] h-[40px] bg-white/15 rounded-[10px] flex items-center justify-center">
