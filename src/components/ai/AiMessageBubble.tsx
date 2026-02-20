@@ -185,7 +185,7 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
             )}
             {!displayText && thinkingStatus ? (
               <div className="flex gap-2.5 items-center h-[20px]">
-                <MicroMatrix size={16} />
+                <MicroMatrix size={16} variant="thinking" />
                 <span className="text-white/60 text-[13px]">{thinkingStatus}</span>
               </div>
             ) : displayText ? (
@@ -272,7 +272,7 @@ export function AiThinkingBubble({ status }: { status: string }) {
         <div className="flex-1 min-w-0">
           <div className="bg-[#29318A] text-white px-3 sm:px-4 py-2.5 sm:py-3 rounded-[16px] rounded-tr-[4px]">
             <div className="flex gap-2.5 items-center h-[20px]">
-              <MicroMatrix size={16} />
+              <MicroMatrix size={16} variant="thinking" />
               <span className="text-white/60 text-[13px]">{status}</span>
             </div>
           </div>

@@ -246,7 +246,7 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
           </div>
         ) : (
           <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-            <MicroMatrix size={18} />
+            <MicroMatrix size={18} variant={activeStep ? toolToVariant(activeStep.toolName) : "thinking"} />
           </div>
         )}
 
@@ -315,7 +315,7 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
                             {step.label}
                           </span>
                           {isDone && <CheckIcon />}
-                          {isActive && <SpinnerIcon />}
+                          {isActive && <SpinnerIcon toolName={step.toolName} />}
                         </div>
                         {step.detail && (
                           <p className="text-white/35 text-[11px] mt-0.5 mr-[30px] leading-snug line-clamp-2">{step.detail}</p>
@@ -414,12 +414,103 @@ function CheckIcon() {
 }
 
 /**
- * CSS-only micro matrix loading indicator (3×3 dot grid with wave animation).
+ * Animation variant presets — each maps to a keyframe, color, speed, and delay pattern.
+ *
+ * Variants:
+ *  - "thinking"   — slow breathe, subtle stagger (waiting for AI to start)
+ *  - "data"       — scanning rows, row-by-row delay (getMonthlySummary, queryDatabase)
+ *  - "compute"    — rapid flicker, random-ish stagger (calculate)
+ *  - "goals"      — radiate outward from center (getGoals, getBusinessSchedule)
+ *  - "error"      — shake pulse in red
+ *  - "wave"       — default diagonal wave
+ */
+export type MatrixVariant = "thinking" | "data" | "compute" | "goals" | "error" | "wave";
+
+interface VariantConfig {
+  keyframe: string;
+  duration: number;
+  color: string;
+  /** Returns per-dot delay in seconds based on index (0–8), row (0–2), col (0–2) */
+  delay: (i: number, row: number, col: number) => number;
+}
+
+const VARIANTS: Record<MatrixVariant, VariantConfig> = {
+  wave: {
+    keyframe: "mmWave",
+    duration: 1.4,
+    color: "bg-indigo-400",
+    delay: (_i, row, col) => (col + row) * 0.12,
+  },
+  thinking: {
+    keyframe: "mmBreathe",
+    duration: 2.2,
+    color: "bg-indigo-300",
+    delay: (_i, row, col) => (col + row) * 0.08,
+  },
+  data: {
+    keyframe: "mmScan",
+    duration: 1.2,
+    color: "bg-cyan-400",
+    // Row-by-row scan: all dots in same row share a delay, rows cascade
+    delay: (_i, row, col) => row * 0.2 + col * 0.06,
+  },
+  compute: {
+    keyframe: "mmCompute",
+    duration: 0.8,
+    color: "bg-amber-400",
+    // Pseudo-random stagger using a simple hash
+    delay: (i) => ((i * 7 + 3) % 9) * 0.07,
+  },
+  goals: {
+    keyframe: "mmRadiate",
+    duration: 1.6,
+    color: "bg-violet-400",
+    // Distance from center dot (index 4)
+    delay: (_i, row, col) => Math.max(Math.abs(row - 1), Math.abs(col - 1)) * 0.18,
+  },
+  error: {
+    keyframe: "mmError",
+    duration: 0.6,
+    color: "bg-red-400",
+    delay: (i) => i * 0.03,
+  },
+};
+
+/** Map tool names to matrix variants */
+function toolToVariant(toolName: string | undefined): MatrixVariant {
+  switch (toolName) {
+    case "getMonthlySummary":
+    case "queryDatabase":
+      return "data";
+    case "calculate":
+      return "compute";
+    case "getGoals":
+    case "getBusinessSchedule":
+      return "goals";
+    case "proposeAction":
+      return "wave";
+    default:
+      return "wave";
+  }
+}
+
+/**
+ * CSS-only micro matrix loading indicator (3×3 dot grid).
+ * Dynamic animation changes based on the `variant` prop.
  * Exported so AiMessageBubble can use it for the thinking bubble.
  */
-export function MicroMatrix({ size = 16, className = "" }: { size?: number; className?: string }) {
+export function MicroMatrix({
+  size = 16,
+  variant = "wave",
+  className = "",
+}: {
+  size?: number;
+  variant?: MatrixVariant;
+  className?: string;
+}) {
   const dotSize = Math.max(2, Math.round(size / 5));
   const gap = Math.max(1, Math.round(size / 8));
+  const config = VARIANTS[variant];
 
   return (
     <div
@@ -432,22 +523,26 @@ export function MicroMatrix({ size = 16, className = "" }: { size?: number; clas
         placeContent: "center",
       }}
     >
-      {Array.from({ length: 9 }, (_, i) => (
-        <div
-          key={i}
-          className="rounded-full bg-indigo-400"
-          style={{
-            width: dotSize,
-            height: dotSize,
-            animation: `microMatrixPulse 1.4s ease-in-out infinite`,
-            animationDelay: `${((i % 3) + Math.floor(i / 3)) * 0.12}s`,
-          }}
-        />
-      ))}
+      {Array.from({ length: 9 }, (_, i) => {
+        const row = Math.floor(i / 3);
+        const col = i % 3;
+        return (
+          <div
+            key={i}
+            className={`rounded-full ${config.color}`}
+            style={{
+              width: dotSize,
+              height: dotSize,
+              animation: `${config.keyframe} ${config.duration}s ease-in-out infinite`,
+              animationDelay: `${config.delay(i, row, col)}s`,
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
 
-function SpinnerIcon() {
-  return <MicroMatrix size={14} />;
+function SpinnerIcon({ toolName }: { toolName?: string }) {
+  return <MicroMatrix size={14} variant={toolToVariant(toolName)} />;
 }

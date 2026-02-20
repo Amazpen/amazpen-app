@@ -497,10 +497,48 @@ input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
 .skeleton-bar-h-68 { height: 68%; }
 .skeleton-bar-h-72 { height: 72%; }
 
-/* AI Micro-matrix loading animation */
-@keyframes microMatrixPulse {
+/* AI Micro-matrix loading animations — different patterns per state */
+
+/* Default: diagonal wave */
+@keyframes mmWave {
   0%, 100% { opacity: 0.15; transform: scale(0.7); }
   40% { opacity: 0.9; transform: scale(1); }
+}
+
+/* Thinking: slow breathe */
+@keyframes mmBreathe {
+  0%, 100% { opacity: 0.12; transform: scale(0.6); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+/* Database/query: scanning rows */
+@keyframes mmScan {
+  0%, 100% { opacity: 0.1; transform: scale(0.5); }
+  30% { opacity: 1; transform: scale(1.1); }
+  60% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* Calculate: rapid flicker */
+@keyframes mmCompute {
+  0%, 100% { opacity: 0.15; transform: scale(0.8); }
+  25% { opacity: 0.95; transform: scale(1.05); }
+  50% { opacity: 0.2; transform: scale(0.75); }
+  75% { opacity: 0.8; transform: scale(1); }
+}
+
+/* Success: radiate outward from center */
+@keyframes mmRadiate {
+  0% { opacity: 0.2; transform: scale(0.6); }
+  50% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 0.2; transform: scale(0.6); }
+}
+
+/* Error: shake pulse */
+@keyframes mmError {
+  0%, 100% { opacity: 0.3; transform: scale(0.8) translateX(0); }
+  25% { opacity: 0.9; transform: scale(1) translateX(1px); }
+  50% { opacity: 0.5; transform: scale(0.9) translateX(-1px); }
+  75% { opacity: 0.9; transform: scale(1) translateX(0.5px); }
 }
 
 /* OCR Document Queue - scrollbar hiding (progressive enhancement) */
