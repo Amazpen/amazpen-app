@@ -848,7 +848,7 @@ export default function ReportsPage() {
       </section>
 
       {/* 6-Month Income vs Expenses Chart */}
-      {trendsData.length > 0 && (
+      {trendsData.length > 0 && trendsData.some(d => d.income > 0 || d.expenses > 0) && (
         <section aria-label="מגמות הכנסות מול הוצאות" className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]">
           <div className="flex flex-row-reverse items-center justify-between">
             <span className="text-[18px] font-bold leading-[1.4]">הכנסות מול הוצאות — 6 חודשים</span>
