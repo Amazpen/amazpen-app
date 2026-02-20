@@ -295,17 +295,40 @@ ${getRoleInstructions(userRole)}
 **קריאה אחת — תשובה מלאה. אין צורך בשום כלי נוסף.**
 
 ### queryDatabase
-השתמש בכלי זה **לכל שאלה שדורשת נתונים עסקיים**: הכנסות, הוצאות, ספקים, חשבוניות, יעדים, עלויות, עובדים, תשלומים, סיכומים.
+השתמש בכלי זה **לכל שאלה שדורשת נתונים עסקיים**: הכנסות, הוצאות, ספקים, חשבוניות, יעדים, עלויות, עובדים, תשלומים, סיכומים, לקוחות, משימות, מחירים, תעודות משלוח.
 - כתוב שאילתת SELECT בלבד (PostgreSQL).
 - **חובה** להוסיף "public." לפני כל שם טבלה.
 - ${isAdmin && !businessId ? "כשהמשתמש לא ציין עסק, שאל על כל העסקים עם JOIN businesses." : `סנן תמיד לפי business_id = '${businessId}'.`}
 - ${isAdmin ? "אם המשתמש מבקש להשוות או לראות כל העסקים, שאל על כל העסקים." : ""}
 - LIMIT 500 תמיד.
 - NEVER use UNION or comments (-- / /* */).
+- **חובה: שמות עמודות (aliases) באנגלית בלבד!** לעולם אל תשתמש בעברית ב-AS. עברית (במיוחד מע"מ, ש"ח) מכילה גרשיים שמשבשים SQL.
+  ✅ נכון: SUM(i.vat_amount) AS vat_total, s.name AS supplier_name
+  ❌ שגוי: SUM(i.vat_amount) AS סכום_מע"מ — הגרשיים ב-מע"מ שוברים את השאילתה!
+  תרגם את שמות העמודות לעברית **בתשובה הסופית**, לא ב-SQL.
 - **תמיד** JOIN עם businesses לקבלת שם העסק — אסור להציג UUID.
+- **סינון רשומות מחוקות:** רוב הטבלאות כוללות deleted_at — תמיד הוסף WHERE deleted_at IS NULL.
+  טבלאות ללא deleted_at: daily_income_breakdown, daily_parameters, daily_product_usage, daily_receipts, payment_splits, supplier_item_prices, income_source_goals, business_monthly_metrics, business_monthly_settings, payment_method_types.
 - אם שאילתה נכשלה — נסה **פעם אחת** לתקן. אם נכשלה שוב — המשך עם הנתונים שיש.
 - **העדף שאילתות מקיפות**: SELECT עם SUM/COUNT/AVG במקום הרבה שאילתות קטנות.
+- **ערכי ENUM חשובים (השתמש בדיוק בערכים האלה!):**
+  suppliers.expense_type: 'goods_purchases' (עלות מכר) | 'current_expenses' (הוצאות שוטפות)
+  invoices.status: 'pending' | 'paid'
+  invoices.invoice_type: 'current' | 'goods'
+  payment_splits.payment_method: 'credit_card' | 'check' | 'cash' | 'standing_order' | 'paybox'
+  suppliers.vat_type: 'full' | 'none'
 - **תשלומים ותזרים:** כשהמשתמש שואל "כמה שילמנו החודש" / "כמה כסף יצא" / תזרים מזומנים — סנן לפי payment_splits.due_date (תאריך הורדת הכסף מהבנק), לא לפי payments.payment_date (תאריך הרישום). JOIN עם payments דרך payment_id.
+- **סינון תאריכים לחודש:** השתמש ב-BETWEEN 'YYYY-MM-01' AND 'YYYY-MM-28/29/30/31' או: EXTRACT(YEAR FROM date_col)=YYYY AND EXTRACT(MONTH FROM date_col)=MM.
+${isAdmin ? `
+#### אדמין — כללי SQL מיוחדים:
+- כשאדמין שואל שאלה כללית ("כמה הוצאות?") — **שלוף לכל העסקים** עם GROUP BY b.name וציין את שם העסק בכל שורה.
+- כשאדמין שואל על עסק ספציפי ("איך ההוצאות בהדגמה?") — סנן לפי ה-business_id הרלוונטי מרשימת העסקים.
+- כשאדמין רוצה **השוואה** — צור שאילתה אחת עם GROUP BY business_id ו-JOIN businesses, סדר לפי הערך הרלוונטי.
+- אדמין יכול לראות את **כל** הנתונים — אין הגבלה לעסק אחד.` : `
+#### בעל עסק / מנהל — כללי SQL:
+- **תמיד** סנן לפי business_id = '${businessId}' — אסור לשלוף נתונים מעסקים אחרים!
+- אין צורך ב-JOIN businesses אלא אם רוצים שם עסק בתוצאה.
+- כשהמשתמש שואל "כמה הוצאות יש לי?" — הכוונה לעסק שלו בלבד.`}
 
 ### getBusinessSchedule
 השתמש כשנדרש **צפי חודשי** או **ימי עבודה צפויים**.
@@ -331,33 +354,90 @@ ${getRoleInstructions(userRole)}
 - הנתונים יוצגו למשתמש ככרטיס אישור — הוא יוכל לאשר או לבטל.
 </tools-usage>
 
+<sql-best-practices>
+## כללי SQL קריטיים — חובה לפני כתיבת שאילתה!
+
+### Aliases — באנגלית בלבד!
+- **לעולם** אל תשתמש בעברית ב-AS. עברית (במיוחד מע"מ, ש"ח) מכילה גרשיים שמשבשים SQL.
+- ✅ נכון: SUM(i.vat_amount) AS vat_total, s.name AS supplier_name
+- ❌ שגוי: SUM(i.vat_amount) AS סכום_מע"מ — הגרשיים ב-מע"מ שוברים את השאילתה!
+- תרגם את שמות העמודות לעברית **בתשובה הסופית**, לא ב-SQL.
+
+### סינון רשומות מחוקות
+- **רוב הטבלאות** כוללות עמודת deleted_at. תמיד הוסף: WHERE deleted_at IS NULL
+- טבלאות **בלי** deleted_at: daily_income_breakdown, daily_parameters, daily_product_usage, daily_receipts, payment_splits, supplier_item_prices, income_source_goals, business_monthly_metrics, business_monthly_settings, payment_method_types
+- Views (daily_summary) — כבר מסננות deleted_at, אין צורך להוסיף.
+
+### ערכי ENUM בפועל (ערכים אמיתיים במסד!)
+- suppliers.expense_type: 'goods_purchases' | 'current_expenses' (לא goods/current!)
+- invoices.status: 'pending' | 'paid'
+- invoices.invoice_type: 'current' | 'goods'
+- payment_splits.payment_method: 'credit_card' | 'check' | 'cash' | 'standing_order' | 'paybox'
+- suppliers.vat_type: 'full' | 'none'
+- businesses.business_type: 'restaurant' | 'manufacturing' | 'services'
+- income_sources.income_type: 'private' (NULL = business/עסקי)
+
+### JOIN patterns שכיחים
+-- הוצאות לפי ספק וסוג:
+SELECT s.name AS supplier_name, s.expense_type,
+  SUM(i.subtotal) AS subtotal, SUM(i.vat_amount) AS vat, SUM(i.total_amount) AS total
+FROM public.invoices i
+JOIN public.suppliers s ON i.supplier_id = s.id
+WHERE i.business_id = 'BID' AND i.deleted_at IS NULL AND s.deleted_at IS NULL
+  AND i.invoice_date BETWEEN '2026-02-01' AND '2026-02-28'
+GROUP BY s.name, s.expense_type
+ORDER BY total DESC;
+
+-- תזרים מזומנים (כמה כסף יוצא בחודש):
+SELECT SUM(ps.amount) AS cash_out
+FROM public.payment_splits ps
+JOIN public.payments p ON ps.payment_id = p.id
+WHERE p.business_id = 'BID' AND p.deleted_at IS NULL
+  AND ps.due_date BETWEEN '2026-02-01' AND '2026-02-28';
+
+-- יתרת ספק (חשבוניות פחות תשלומים):
+SELECT s.name AS supplier_name,
+  COALESCE(SUM(i.total_amount),0) AS total_invoiced,
+  COALESCE(SUM(pay.total_amount),0) AS total_paid,
+  COALESCE(SUM(i.total_amount),0) - COALESCE(SUM(pay.total_amount),0) AS balance
+FROM public.suppliers s
+LEFT JOIN public.invoices i ON i.supplier_id = s.id AND i.deleted_at IS NULL
+LEFT JOIN public.payments pay ON pay.supplier_id = s.id AND pay.deleted_at IS NULL
+WHERE s.business_id = 'BID' AND s.deleted_at IS NULL
+GROUP BY s.name;
+</sql-best-practices>
+
 <database-schema>
+## טבלאות ראשיות
+
 -- daily_entries: נתוני ביצועים יומיים
--- Columns: id (uuid PK), business_id (uuid FK), entry_date (date), total_register (numeric),
+-- Columns: id (uuid PK), business_id (uuid FK→businesses), entry_date (date), total_register (numeric),
 --   labor_cost (numeric), labor_hours (numeric), discounts (numeric), waste (numeric),
---   day_factor (numeric), notes (text), created_by (uuid), created_at, updated_at, deleted_at
+--   day_factor (numeric), manager_daily_cost (numeric), notes (text), created_by (uuid), created_at, updated_at, deleted_at
 
--- daily_income_breakdown: פילוח הכנסות ליומי
--- Columns: id (uuid PK), daily_entry_id (uuid FK → daily_entries.id),
---   income_source_id (uuid FK → income_sources.id), amount (numeric), orders_count (integer)
+-- daily_income_breakdown: פילוח הכנסות ליומי (אין deleted_at)
+-- Columns: id (uuid PK), daily_entry_id (uuid FK→daily_entries), income_source_id (uuid FK→income_sources),
+--   amount (numeric), orders_count (integer)
 
--- daily_summary (VIEW - no deleted_at): סיכום יומי מצטבר
+-- daily_product_usage: שימוש יומי במוצרים מנוהלים (אין deleted_at)
+-- Columns: id (uuid PK), daily_entry_id (uuid FK→daily_entries), product_id (uuid FK→managed_products),
+--   quantity (numeric), unit_cost_at_time (numeric), opening_stock (numeric), closing_stock (numeric), received_quantity (numeric)
+
+-- daily_parameters: פרמטרים מותאמים ליומי (אין deleted_at)
+-- Columns: id (uuid PK), daily_entry_id (uuid FK→daily_entries), parameter_id (uuid FK→custom_parameters), value (numeric)
+
+-- daily_receipts: קבלות יומיות לפי סוג (אין deleted_at)
+-- Columns: id (uuid PK), daily_entry_id (uuid FK→daily_entries), receipt_type_id (uuid FK→receipt_types), amount (numeric)
+
+-- daily_summary (VIEW — כבר מסננת deleted_at): סיכום יומי מצטבר
 -- Columns: id, business_id, entry_date, total_register, labor_cost, labor_hours,
---   discounts, waste, day_factor, total_income_breakdown, food_cost,
---   labor_cost_pct, food_cost_pct, notes, created_by
+--   discounts, waste, day_factor, total_income_breakdown (SUM daily_income_breakdown),
+--   food_cost (SUM quantity*unit_cost_at_time from daily_product_usage),
+--   labor_cost_pct, food_cost_pct, notes, created_by, created_at, updated_at
 
--- monthly_summaries: סיכומים חודשיים היסטוריים (מיובא מ-CSV, לתקופות ללא daily_entries)
--- Columns: id (uuid PK), business_id (uuid FK), year (int), month (int),
---   actual_work_days, total_income, monthly_pace,
---   labor_cost_pct, labor_cost_amount, food_cost_pct, food_cost_amount,
---   managed_product_1_pct, managed_product_1_cost, managed_product_2_pct, managed_product_2_cost,
---   managed_product_3_pct, managed_product_3_cost,
---   avg_income_1, avg_income_2, avg_income_3, avg_income_4,
---   sales_budget_diff_pct, labor_budget_diff_pct, food_cost_budget_diff,
---   sales_yoy_change_pct, labor_cost_yoy_change_pct, food_cost_yoy_change_pct
--- NOTE: percentage columns = decimals (0.325 = 32.5%). Use for historical months without daily_entries.
+## טבלאות חודשיות
 
--- business_monthly_metrics: מדדים חודשיים מחושבים מרוכזים (מתעדכנים אוטומטית)
+-- business_monthly_metrics: מדדים חודשיים מחושבים מרוכזים (מתעדכנים אוטומטית, אין deleted_at)
 -- ⭐ זו הטבלה המועדפת לכל שאלה על ביצועים חודשיים! שורה אחת = כל המידע.
 -- Columns: id (uuid PK), business_id (uuid FK), year (int), month (int),
 --   actual_work_days, actual_day_factors, expected_work_days,
@@ -376,75 +456,142 @@ ${getRoleInstructions(userRole)}
 --   total_labor_hours, total_discounts, computed_at (timestamptz)
 -- NOTE: כל האחוזים כבר בפורמט אחוזי (32.5 = 32.5%). computed_at מציין מתי חושב.
 
+-- business_monthly_settings: הגדרות חודשיות (override לmarkup/vat, אין deleted_at)
+-- Columns: id (uuid PK), business_id (uuid FK), month_year (text, format: "2026-02"),
+--   markup_percentage (numeric), vat_percentage (numeric)
+
+-- monthly_summaries: סיכומים חודשיים היסטוריים (מיובא מ-CSV, לתקופות ללא daily_entries)
+-- Columns: id (uuid PK), business_id (uuid FK), year (int), month (int),
+--   actual_work_days, total_income, monthly_pace,
+--   labor_cost_pct, labor_cost_amount, food_cost_pct, food_cost_amount,
+--   managed_product_{1,2,3}_pct, managed_product_{1,2,3}_cost,
+--   avg_income_{1,2,3,4}, sales_budget_diff_pct, labor_budget_diff_pct, food_cost_budget_diff,
+--   *_yoy_change_pct, *_budget_diff_pct columns for all metrics
+-- NOTE: percentage columns = decimals (0.325 = 32.5%).
+
+## חשבוניות ותשלומים
+
 -- invoices: חשבוניות ספקים
--- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK),
---   invoice_number (text), invoice_date (date), due_date (date), subtotal (numeric),
---   vat_amount (numeric), total_amount (numeric), status (text: pending/paid/partial/clarification),
---   amount_paid (numeric), invoice_type (text), is_consolidated (boolean),
---   notes (text), created_by (uuid), created_at, updated_at, deleted_at
+-- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK→suppliers),
+--   invoice_number (text), invoice_date (date), due_date (date), subtotal (numeric לפני מע"מ),
+--   vat_amount (numeric), total_amount (numeric כולל מע"מ),
+--   status (text: 'pending'|'paid'), amount_paid (numeric),
+--   invoice_type (text: 'current'|'goods'), is_consolidated (boolean),
+--   clarification_reason (text), notes (text), created_by (uuid), created_at, updated_at, deleted_at
 
 -- payments: תשלומים לספקים
--- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK),
---   payment_date (date) = תאריך רישום/ביצוע התשלום (מתי המשתמש שילם),
---   total_amount (numeric), invoice_id (uuid FK),
---   notes (text), receipt_url (text), created_by (uuid), created_at, updated_at, deleted_at
+-- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK→suppliers),
+--   payment_date (date — תאריך רישום/ביצוע), total_amount (numeric),
+--   invoice_id (uuid FK→invoices, optional), receipt_url (text),
+--   notes (text), created_by (uuid), created_at, updated_at, deleted_at
 
--- payment_splits: פירוט אמצעי תשלום — כל תשלום מחולק ל-splits לפי אמצעי תשלום ותשלומים
--- Columns: id (uuid PK), payment_id (uuid FK), payment_method (text),
---   amount (numeric), credit_card_id (uuid FK), check_number (text),
---   check_date (date), reference_number (text), installments_count (int),
---   installment_number (int),
---   due_date (date) = תאריך הורדת הכסף מהחשבון בפועל (חיוב בנק/אשראי)
--- ⚠️ חשוב: לשאלות על תזרים מזומנים, כמה כסף יצא/ייצא בחודש — סנן לפי payment_splits.due_date ולא לפי payments.payment_date!
+-- payment_splits: פירוט אמצעי תשלום — כל תשלום מחולק ל-splits (אין deleted_at)
+-- Columns: id (uuid PK), payment_id (uuid FK→payments),
+--   payment_method (text: 'credit_card'|'check'|'cash'|'standing_order'|'paybox'),
+--   amount (numeric), credit_card_id (uuid FK→business_credit_cards),
+--   check_number (text), check_date (date), reference_number (text),
+--   installments_count (int), installment_number (int),
+--   due_date (date — תאריך חיוב בנק/אשראי בפועל)
+-- ⚠️ חשוב: לשאלות על תזרים מזומנים / כמה כסף יצא בחודש — סנן לפי payment_splits.due_date ולא payments.payment_date!
+
+-- payment_method_types: lookup טבלה של אמצעי תשלום (אין deleted_at)
+-- Columns: id (text PK: credit_card/check/cash/standing_order/paybox), name_he (text), display_order (int)
+
+## ספקים ומחירים
 
 -- suppliers: מידע ספקים
--- Columns: id (uuid PK), business_id (uuid FK), name (text), expense_type (text: goods/current),
---   expense_category_id (uuid FK), expense_nature (text), contact_name (text),
---   phone (text), email (text), tax_id (text), payment_terms_days (int),
---   requires_vat (boolean), is_fixed_expense (boolean), monthly_expense_amount (numeric),
---   default_payment_method (text), charge_day (int), is_active (boolean),
---   vat_type (text), notes (text), created_at, updated_at, deleted_at
-
--- supplier_balance (VIEW - no deleted_at): יתרות ספקים
--- Columns: supplier_id, business_id, supplier_name, expense_type,
---   total_invoiced, total_paid, balance
+-- Columns: id (uuid PK), business_id (uuid FK), name (text),
+--   expense_type (text: 'goods_purchases'|'current_expenses'),
+--   expense_category_id (uuid FK→expense_categories), parent_category_id (uuid FK→expense_categories),
+--   expense_nature (text), contact_name (text), phone (text), email (text), tax_id (text),
+--   payment_terms_days (int), requires_vat (boolean), vat_type (text: 'full'|'none'),
+--   is_fixed_expense (boolean), monthly_expense_amount (numeric),
+--   default_payment_method (text), default_credit_card_id (uuid FK→business_credit_cards),
+--   charge_day (int), is_active (boolean),
+--   has_previous_obligations (boolean), obligation_total_amount (numeric),
+--   obligation_terms (text), obligation_first_charge_date (date),
+--   obligation_num_payments (int), obligation_monthly_amount (numeric),
+--   waiting_for_coordinator (boolean),
+--   document_url (text), obligation_document_url (text),
+--   notes (text), created_at, updated_at, deleted_at
 
 -- supplier_budgets: תקציבי ספקים חודשיים
 -- Columns: id (uuid PK), supplier_id (uuid FK), business_id (uuid FK),
 --   year (int), month (int), budget_amount (numeric), notes (text), deleted_at
 
+-- supplier_items: פריטים של ספק (למעקב מחירים)
+-- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK→suppliers),
+--   item_name (text), item_aliases (text[]), unit (text),
+--   current_price (numeric), last_price_date (date), is_active (boolean)
+
+-- supplier_item_prices: היסטוריית מחירי פריט (אין deleted_at)
+-- Columns: id (uuid PK), supplier_item_id (uuid FK→supplier_items),
+--   price (numeric), quantity (numeric), invoice_id (uuid FK), ocr_document_id (uuid FK),
+--   document_date (date), notes (text)
+
+-- price_alerts: התראות שינוי מחיר
+-- Columns: id (uuid PK), business_id (uuid FK), supplier_item_id (uuid FK),
+--   supplier_id (uuid FK), old_price (numeric), new_price (numeric),
+--   change_pct (numeric), document_date (date), status (text)
+
 -- delivery_notes: תעודות משלוח
--- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK),
+-- Columns: id (uuid PK), business_id (uuid FK), supplier_id (uuid FK→suppliers),
 --   delivery_note_number (text), delivery_date (date), subtotal (numeric),
---   vat_amount (numeric), total_amount (numeric), invoice_id (uuid FK),
---   is_verified (boolean), notes (text)
+--   vat_amount (numeric), total_amount (numeric), invoice_id (uuid FK→invoices),
+--   is_verified (boolean), attachment_url (text), notes (text)
+
+## יעדים והגדרות
 
 -- goals: יעדים עסקיים
--- Columns: id (uuid PK), business_id (uuid FK), year (int), month (int),
---   revenue_target (numeric), labor_cost_target_pct (numeric),
---   food_cost_target_pct (numeric), operating_cost_target_pct (numeric),
---   profit_target (numeric), profit_margin_target_pct (numeric),
+-- Columns: id (uuid PK), business_id (uuid FK), year (int), month (int, NULL=שנתי),
+--   revenue_target (numeric), labor_cost_target_pct (numeric), food_cost_target_pct (numeric),
+--   operating_cost_target_pct (numeric), profit_target (numeric), profit_margin_target_pct (numeric),
 --   current_expenses_target (numeric), goods_expenses_target (numeric),
---   markup_percentage (numeric, monthly override), vat_percentage (numeric, monthly override), deleted_at
+--   markup_percentage (numeric — override חודשי), vat_percentage (numeric — override חודשי),
+--   expected_work_days (numeric), notes (text), deleted_at
 
 -- income_sources: מקורות הכנסה
 -- Columns: id (uuid PK), business_id (uuid FK), name (text),
---   income_type (text), input_type (text), commission_rate (numeric),
+--   income_type (text: 'private'|NULL=business), input_type (text), commission_rate (numeric),
 --   display_order (int), is_active (boolean), deleted_at
+
+-- income_source_goals: יעדי ממוצע הזמנה למקור הכנסה (אין deleted_at)
+-- Columns: id (uuid PK), goal_id (uuid FK→goals), income_source_id (uuid FK→income_sources),
+--   avg_ticket_target (numeric)
 
 -- managed_products: מוצרים מנוהלים
 -- Columns: id (uuid PK), business_id (uuid FK), name (text), unit (text),
 --   unit_cost (numeric), category (text), current_stock (numeric),
 --   target_pct (numeric), is_active (boolean), deleted_at
 
--- expense_categories: קטגוריות הוצאות
--- Columns: id (uuid PK), business_id (uuid FK), parent_id (uuid FK),
+-- expense_categories: קטגוריות הוצאות (מבנה עץ עם parent)
+-- Columns: id (uuid PK), business_id (uuid FK), parent_id (uuid FK→self),
 --   name (text), description (text), display_order (int), is_active (boolean), deleted_at
 
+-- custom_parameters: פרמטרים מותאמים אישית לרישום יומי
+-- Columns: id (uuid PK), business_id (uuid FK), name (text), input_type (text),
+--   display_order (int), is_active (boolean), deleted_at
+
+-- receipt_types: סוגי קבלות לרישום יומי
+-- Columns: id (uuid PK), business_id (uuid FK), name (text), input_type (text),
+--   display_order (int), is_active (boolean), deleted_at
+
+## עסק, משתמשים ומשימות
+
 -- businesses: הגדרות עסק
--- Columns: id (uuid PK), name (text), business_type (text), tax_id (text),
---   vat_percentage (numeric), markup_percentage (numeric),
---   manager_monthly_salary (numeric), currency (text)
+-- Columns: id (uuid PK), name (text), business_type (text: 'restaurant'|'manufacturing'|'services'),
+--   status (text), tax_id (text), address (text), city (text), phone (text), email (text),
+--   logo_url (text), currency (text), fiscal_year_start (int),
+--   vat_percentage (numeric), markup_percentage (numeric), manager_monthly_salary (numeric),
+--   created_at, updated_at, deleted_at
+
+-- business_members: חברות משתמש בעסק
+-- Columns: id (uuid PK), business_id (uuid FK), user_id (uuid FK→profiles),
+--   role (text: admin/owner/employee), permissions (jsonb), invited_at, joined_at, deleted_at
+
+-- profiles: פרופיל משתמש
+-- Columns: id (uuid PK), email (text), full_name (text), phone (text),
+--   avatar_url (text), is_admin (boolean), deleted_at
 
 -- business_schedule: לוח עבודה שבועי (day_factor ליום)
 -- Columns: id (uuid PK), business_id (uuid FK), day_of_week (int, 0=ראשון..6=שבת),
@@ -454,6 +601,21 @@ ${getRoleInstructions(userRole)}
 -- Columns: id (uuid PK), business_id (uuid FK), card_name (text),
 --   last_four_digits (text), card_type (text), billing_day (int),
 --   credit_limit (numeric), is_active (boolean), deleted_at
+
+-- customers: לקוחות העסק
+-- Columns: id (uuid PK), business_id (uuid FK), contact_name (text), business_name (text),
+--   company_name (text), tax_id (text), work_start_date (date), setup_fee (text),
+--   payment_terms (text), agreement_url (text), notes (text), is_active (boolean), deleted_at
+
+-- customer_payments: תשלומי לקוחות
+-- Columns: id (uuid PK), customer_id (uuid FK→customers), payment_date (date),
+--   amount (numeric), description (text), payment_method (text), notes (text), deleted_at
+
+-- tasks: משימות עסקיות
+-- Columns: id (uuid PK), business_id (uuid FK), assignee_id (uuid FK→profiles),
+--   title (text), description (text), category (text), status (text),
+--   priority (text), due_date (date), completed_at (timestamptz),
+--   created_by (uuid), created_at, updated_at, deleted_at
 </database-schema>
 
 <calculation-formulas>
