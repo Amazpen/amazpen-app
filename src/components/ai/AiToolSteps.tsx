@@ -3,7 +3,9 @@
 import { useState, useRef, useEffect } from "react";
 import type { UIMessage } from "ai";
 
-/** Tool display configuration with Hebrew labels and descriptions */
+const MONTH_NAMES = ["", "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+
+/** Tool display configuration with Hebrew labels */
 const toolDisplayMap: Record<string, { label: string; emoji: string; getDetail?: (input: Record<string, unknown>) => string }> = {
   getMonthlySummary: {
     label: "שליפת סיכום חודשי",
@@ -11,8 +13,7 @@ const toolDisplayMap: Record<string, { label: string; emoji: string; getDetail?:
     getDetail: (input) => {
       const month = input.month as number;
       const year = input.year as number;
-      const months = ["", "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
-      return month && year ? `${months[month] || month}/${year}` : "";
+      return month && year ? `${MONTH_NAMES[month] || month}/${year}` : "";
     },
   },
   queryDatabase: {
@@ -30,8 +31,7 @@ const toolDisplayMap: Record<string, { label: string; emoji: string; getDetail?:
     getDetail: (input) => {
       const month = input.month as number;
       const year = input.year as number;
-      const months = ["", "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
-      return month && year ? `${months[month] || month}/${year}` : "";
+      return month && year ? `${MONTH_NAMES[month] || month}/${year}` : "";
     },
   },
   calculate: {
@@ -54,20 +54,34 @@ export interface ToolStep {
   resultSummary: string;
 }
 
+/** Try to extract business name from tool output */
+function getBusinessNameFromOutput(output: unknown): string {
+  if (!output || typeof output !== "object") return "";
+  const out = output as Record<string, unknown>;
+  // From computed summary
+  if (out.businessName && typeof out.businessName === "string") return out.businessName;
+  // From cached metrics table
+  if (out.business_name && typeof out.business_name === "string") return out.business_name as string;
+  return "";
+}
+
 /** Summarize tool output for display */
 function summarizeOutput(toolName: string, output: unknown): string {
   if (!output || typeof output !== "object") return "";
   const out = output as Record<string, unknown>;
 
-  if (out.error) return `שגיאה: ${out.error}`;
+  if (out.error) return `שגיאה: ${String(out.error).slice(0, 60)}`;
 
   switch (toolName) {
     case "getMonthlySummary": {
       const income = out.total_income ?? (out.actuals && (out.actuals as Record<string, unknown>).totalIncome);
-      if (income !== undefined && income !== null) {
-        return `הכנסות: ₪${Number(income).toLocaleString("he-IL")}`;
+      const incomeNum = income !== undefined && income !== null ? Number(income) : NaN;
+      if (!isNaN(incomeNum) && incomeNum > 0) {
+        return `הכנסות: ₪${incomeNum.toLocaleString("he-IL")}`;
       }
-      if (out.businessName) return `עסק: ${out.businessName}`;
+      if (!isNaN(incomeNum) && incomeNum === 0) {
+        return "אין נתונים עדיין";
+      }
       return "נתונים התקבלו";
     }
     case "queryDatabase": {
@@ -91,10 +105,11 @@ function summarizeOutput(toolName: string, output: unknown): string {
 }
 
 /** Get a more specific summary text based on tool types used */
-function getSmartSummary(steps: ToolStep[]): string {
-  if (steps.length === 1) {
-    const step = steps[0];
-    switch (step.toolName) {
+function getSmartSummary(groups: ToolGroup[]): string {
+  const totalSteps = groups.reduce((sum, g) => sum + g.count, 0);
+  if (totalSteps === 1) {
+    const g = groups[0];
+    switch (g.toolName) {
       case "getMonthlySummary": return "בדקתי סיכום חודשי";
       case "queryDatabase": return "שלפתי נתונים מהמערכת";
       case "getBusinessSchedule": return "בדקתי לוח עבודה";
@@ -103,11 +118,54 @@ function getSmartSummary(steps: ToolStep[]): string {
       default: return "בדקתי נתון אחד";
     }
   }
-  const hasQuery = steps.some((s) => s.toolName === "queryDatabase");
-  const hasSummary = steps.some((s) => s.toolName === "getMonthlySummary");
-  if (hasSummary && hasQuery) return `אספתי וניתחתי ${steps.length} מקורות נתונים`;
-  if (hasQuery && steps.length > 1) return `הרצתי ${steps.length} שאילתות`;
-  return `ביצעתי ${steps.length} פעולות כדי לענות`;
+
+  const uniqueTools = new Set(groups.map((g) => g.toolName));
+  if (uniqueTools.has("getMonthlySummary") && groups.find((g) => g.toolName === "getMonthlySummary")!.count > 1) {
+    const bizCount = groups.find((g) => g.toolName === "getMonthlySummary")!.count;
+    return `בדקתי ${bizCount} עסקים`;
+  }
+  if (uniqueTools.has("queryDatabase") && uniqueTools.has("getMonthlySummary")) {
+    return `אספתי וניתחתי ${totalSteps} מקורות נתונים`;
+  }
+  if (uniqueTools.has("queryDatabase") && totalSteps > 1) {
+    return `הרצתי ${totalSteps} שאילתות`;
+  }
+  return `ביצעתי ${totalSteps} פעולות כדי לענות`;
+}
+
+/** A group of similar tool invocations */
+interface ToolGroup {
+  toolName: string;
+  label: string;
+  emoji: string;
+  count: number;
+  items: ToolStep[];
+  allDone: boolean;
+}
+
+/** Group consecutive same-tool steps */
+function groupSteps(steps: ToolStep[]): ToolGroup[] {
+  const groups: ToolGroup[] = [];
+
+  for (const step of steps) {
+    const last = groups[groups.length - 1];
+    if (last && last.toolName === step.toolName) {
+      last.items.push(step);
+      last.count++;
+      last.allDone = last.allDone && step.state === "output-available";
+    } else {
+      groups.push({
+        toolName: step.toolName,
+        label: step.label,
+        emoji: step.emoji,
+        count: 1,
+        items: [step],
+        allDone: step.state === "output-available",
+      });
+    }
+  }
+
+  return groups;
 }
 
 /** Extract tool steps from a message's parts */
@@ -123,7 +181,6 @@ export function getToolSteps(message: UIMessage): ToolStep[] {
       const toolPart = part as any;
       const toolName = toolPart.toolName || part.type.replace("tool-", "");
 
-      // Create a unique key per invocation (tool + input hash)
       const inputStr = JSON.stringify(toolPart.input || {});
       const key = `${toolName}:${inputStr}`;
       if (seen.has(key)) continue;
@@ -131,9 +188,17 @@ export function getToolSteps(message: UIMessage): ToolStep[] {
 
       const display = toolDisplayMap[toolName] || { label: toolName, emoji: "⚙️" };
       const input = (toolPart.input || {}) as Record<string, unknown>;
-      const detail = display.getDetail ? display.getDetail(input) : "";
-
       const isDone = toolPart.state === "output-available";
+
+      // Build detail with business name from output if available
+      let detail = display.getDetail ? display.getDetail(input) : "";
+      if (isDone && toolName === "getMonthlySummary") {
+        const bizName = getBusinessNameFromOutput(toolPart.output);
+        if (bizName) {
+          detail = detail ? `${bizName} — ${detail}` : bizName;
+        }
+      }
+
       const resultSummary = isDone ? summarizeOutput(toolName, toolPart.output) : "";
 
       steps.push({
@@ -170,6 +235,7 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
 
   const allDone = steps.every((s) => s.state === "output-available") && !isStreaming;
   const activeStep = steps.find((s) => s.state !== "output-available");
+  const groups = groupSteps(steps);
 
   return (
     <div className="mb-3 bg-white/[0.04] rounded-[10px] border border-white/[0.06]">
@@ -196,7 +262,7 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
         <div className="flex-1 min-w-0">
           {allDone ? (
             <span className="text-white/55 text-[12px] font-medium">
-              {getSmartSummary(steps)}
+              {getSmartSummary(groups)}
             </span>
           ) : activeStep ? (
             <span className="text-white/65 text-[12px] font-medium">
@@ -230,69 +296,135 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
         style={{ maxHeight: isExpanded ? `${contentHeight + 16}px` : "0px" }}
       >
         <div ref={contentRef}>
-          {/* Separator */}
           <div className="mx-3 h-px bg-white/[0.06]" />
 
           <div className="px-3 py-2 mr-0.5 relative">
-            {/* Vertical timeline line */}
             <div className="absolute right-3 top-3 bottom-3 w-px bg-white/[0.08]" />
 
             <div className="space-y-1">
-              {steps.map((step, idx) => {
-                const isDone = step.state === "output-available";
-                const isActive = step.state === "input-streaming" || step.state === "input-available";
+              {groups.map((group, gIdx) => {
+                // Single item in group - render normally
+                if (group.count === 1) {
+                  const step = group.items[0];
+                  const isDone = step.state === "output-available";
+                  const isActive = step.state === "input-streaming" || step.state === "input-available";
 
-                return (
-                  <div key={`${step.toolName}-${idx}`} className="relative pr-6">
-                    {/* Timeline dot - larger */}
-                    <div className={`absolute right-[3px] top-2.5 w-[9px] h-[9px] rounded-full border-2 ${
-                      isDone
-                        ? "bg-emerald-400 border-emerald-400"
-                        : isActive
-                          ? "bg-indigo-400 border-indigo-400 animate-pulse"
-                          : "bg-white/20 border-white/30"
-                    }`} />
-
-                    <div className={`py-1.5 px-2.5 rounded-lg ${isActive ? "bg-white/[0.04]" : ""}`}>
-                      {/* Tool name + emoji */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-[14px] leading-none">{step.emoji}</span>
-                        <span className={`text-[12px] font-medium ${isDone ? "text-white/70" : isActive ? "text-white/80" : "text-white/50"}`}>
-                          {step.label}
-                        </span>
-                        {isDone && (
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 flex-shrink-0">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
+                  return (
+                    <div key={`${step.toolName}-${gIdx}`} className="relative pr-6">
+                      <div className={`absolute right-[3px] top-2.5 w-[9px] h-[9px] rounded-full border-2 ${
+                        isDone ? "bg-emerald-400 border-emerald-400"
+                          : isActive ? "bg-indigo-400 border-indigo-400 animate-pulse"
+                            : "bg-white/20 border-white/30"
+                      }`} />
+                      <div className={`py-1.5 px-2.5 rounded-lg ${isActive ? "bg-white/[0.04]" : ""}`}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[14px] leading-none">{step.emoji}</span>
+                          <span className={`text-[12px] font-medium ${isDone ? "text-white/70" : isActive ? "text-white/80" : "text-white/50"}`}>
+                            {step.label}
+                          </span>
+                          {isDone && <CheckIcon />}
+                          {isActive && <SpinnerIcon />}
+                        </div>
+                        {step.detail && (
+                          <p className="text-white/35 text-[11px] mt-0.5 mr-[30px] leading-snug line-clamp-2">{step.detail}</p>
                         )}
-                        {isActive && (
-                          <div className="w-3.5 h-3.5 flex-shrink-0">
-                            <div className="w-3.5 h-3.5 border-[1.5px] border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
-                          </div>
+                        {isDone && step.resultSummary && (
+                          <p className="text-emerald-400/50 text-[11px] mt-0.5 mr-[30px] leading-snug">← {step.resultSummary}</p>
                         )}
                       </div>
-
-                      {/* Detail line - with line-clamp instead of truncate */}
-                      {step.detail && (
-                        <p className="text-white/35 text-[11px] mt-0.5 mr-[30px] leading-snug line-clamp-2">
-                          {step.detail}
-                        </p>
-                      )}
-
-                      {/* Result summary */}
-                      {isDone && step.resultSummary && (
-                        <p className="text-emerald-400/50 text-[11px] mt-0.5 mr-[30px] leading-snug">
-                          ← {step.resultSummary}
-                        </p>
-                      )}
                     </div>
-                  </div>
+                  );
+                }
+
+                // Multiple items - render as collapsed group
+                return (
+                  <GroupedSteps key={`group-${group.toolName}-${gIdx}`} group={group} />
                 );
               })}
             </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Collapsed group of same-tool invocations */
+function GroupedSteps({ group }: { group: ToolGroup }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasData = group.items.some((s) => s.resultSummary && s.resultSummary !== "אין נתונים עדיין");
+
+  return (
+    <div className="relative pr-6">
+      <div className={`absolute right-[3px] top-2.5 w-[9px] h-[9px] rounded-full border-2 ${
+        group.allDone ? "bg-emerald-400 border-emerald-400" : "bg-indigo-400 border-indigo-400 animate-pulse"
+      }`} />
+
+      <div className="py-1.5 px-2.5 rounded-lg">
+        {/* Group header */}
+        <button
+          type="button"
+          onClick={() => setExpanded((p) => !p)}
+          className="flex items-center gap-2 w-full text-right cursor-pointer select-none"
+        >
+          <span className="text-[14px] leading-none">{group.emoji}</span>
+          <span className={`text-[12px] font-medium ${group.allDone ? "text-white/70" : "text-white/80"}`}>
+            {group.label}
+          </span>
+          <span className="text-white/30 text-[11px] font-medium bg-white/[0.06] px-1.5 py-0.5 rounded-full">
+            ×{group.count}
+          </span>
+          {group.allDone && <CheckIcon />}
+          {hasData && (
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`text-white/20 mr-auto transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          )}
+        </button>
+
+        {/* Expanded sub-items */}
+        {expanded && (
+          <div className="mt-1 mr-[30px] space-y-0.5">
+            {group.items.map((step, idx) => (
+              <div key={idx} className="flex items-baseline gap-1.5 text-[11px]">
+                <span className="text-white/25">•</span>
+                <span className="text-white/40 truncate max-w-[200px]">{step.detail || step.label}</span>
+                {step.resultSummary && (
+                  <span className={step.resultSummary === "אין נתונים עדיין" ? "text-white/20" : "text-emerald-400/50"}>
+                    — {step.resultSummary}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 flex-shrink-0">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function SpinnerIcon() {
+  return (
+    <div className="w-3.5 h-3.5 flex-shrink-0">
+      <div className="w-3.5 h-3.5 border-[1.5px] border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
     </div>
   );
 }
