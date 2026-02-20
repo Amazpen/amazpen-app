@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
@@ -164,20 +164,6 @@ export default function ReportsPage() {
 
   // 6-month trends chart data
   const [trendsData, setTrendsData] = useState<{ month: string; income: number; expenses: number }[]>([]);
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const [chartDimensions, setChartDimensions] = useState<{ width: number; height: number } | null>(null);
-
-  useEffect(() => {
-    if (!chartContainerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        if (width > 0 && height > 0) setChartDimensions({ width, height });
-      }
-    });
-    observer.observe(chartContainerRef.current);
-    return () => observer.disconnect();
-  }, []);
 
   // Fetch 6-month trends for chart
   useEffect(() => {
@@ -863,25 +849,21 @@ export default function ReportsPage() {
               </div>
             </div>
           </div>
-          <div ref={chartContainerRef} className="w-full h-[220px]">
-            {chartDimensions && chartDimensions.width > 0 && (
-              <LazyResponsiveContainer width={chartDimensions.width} height={chartDimensions.height}>
-                <LazyBarChart data={trendsData} barGap={2} barCategoryGap="20%">
-                  <LazyXAxis dataKey="month" tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <LazyYAxis tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)} width={40} />
-                  <LazyTooltip
-                    contentStyle={{ background: "#1a1f4e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, direction: "rtl" }}
-                    labelStyle={{ color: "white", fontWeight: "bold", marginBottom: 4 }}
-                    itemStyle={{ color: "white" }}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    formatter={((value: number) => `₪${value.toLocaleString("he-IL")}`) as any}
-                  />
-                  <LazyBar dataKey="income" name="הכנסות" fill="#17DB4E" radius={[4, 4, 0, 0]} />
-                  <LazyBar dataKey="expenses" name="הוצאות" fill="#F64E60" radius={[4, 4, 0, 0]} />
-                </LazyBarChart>
-              </LazyResponsiveContainer>
-            )}
-          </div>
+          <LazyResponsiveContainer width="100%" height={220}>
+            <LazyBarChart data={trendsData} barGap={2} barCategoryGap="20%">
+              <LazyXAxis dataKey="month" tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 12 }} axisLine={false} tickLine={false} />
+              <LazyYAxis tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)} width={40} />
+              <LazyTooltip
+                contentStyle={{ background: "#1a1f4e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, direction: "rtl" }}
+                labelStyle={{ color: "white", fontWeight: "bold", marginBottom: 4 }}
+                itemStyle={{ color: "white" }}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                formatter={((value: number) => `₪${value.toLocaleString("he-IL")}`) as any}
+              />
+              <LazyBar dataKey="income" name="הכנסות" fill="#17DB4E" radius={[4, 4, 0, 0]} />
+              <LazyBar dataKey="expenses" name="הוצאות" fill="#F64E60" radius={[4, 4, 0, 0]} />
+            </LazyBarChart>
+          </LazyResponsiveContainer>
         </section>
       )}
 
