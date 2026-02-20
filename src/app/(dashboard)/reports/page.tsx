@@ -836,8 +836,7 @@ export default function ReportsPage() {
       {/* 6-Month Income vs Expenses Chart */}
       {trendsData.length > 0 && trendsData.some(d => d.income > 0 || d.expenses > 0) && (
         <section aria-label="מגמות הכנסות מול הוצאות" className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]">
-          <div className="flex flex-row-reverse items-center justify-between">
-            <span className="text-[18px] font-bold leading-[1.4]">הכנסות מול הוצאות — 6 חודשים</span>
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-[12px]">
               <div className="flex items-center gap-[4px]">
                 <div className="w-[10px] h-[10px] rounded-[2px] bg-[#17DB4E]" />
@@ -848,6 +847,7 @@ export default function ReportsPage() {
                 <span className="text-[11px] text-white/60">הוצאות</span>
               </div>
             </div>
+            <span className="text-[18px] font-bold leading-[1.4]">הכנסות מול הוצאות — 6 חודשים</span>
           </div>
           <LazyResponsiveContainer width="100%" height={220}>
             <LazyBarChart data={trendsData} barGap={2} barCategoryGap="20%">
