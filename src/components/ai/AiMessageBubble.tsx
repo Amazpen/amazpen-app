@@ -9,6 +9,7 @@ import type { UIMessage } from "ai";
 import type { AiChartData, AiProposedAction } from "@/types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
 import { AiActionCard } from "./AiActionCard";
+import { AiToolSteps, getToolSteps } from "./AiToolSteps";
 
 const LazyBarChart = dynamic(
   () => import("recharts").then((mod) => ({ default: mod.BarChart })),
@@ -145,15 +146,17 @@ interface AiMessageBubbleProps {
   message: UIMessage;
   thinkingStatus?: string | null;
   errorText?: string;
+  isStreaming?: boolean;
   getChartData: (message: UIMessage) => AiChartData | undefined;
   getDisplayText: (message: UIMessage) => string;
 }
 
-export function AiMessageBubble({ message, thinkingStatus, errorText, getChartData, getDisplayText }: AiMessageBubbleProps) {
+export function AiMessageBubble({ message, thinkingStatus, errorText, isStreaming, getChartData, getDisplayText }: AiMessageBubbleProps) {
   const isUser = message.role === "user";
   const displayText = getDisplayText(message);
   const chartData = isUser ? undefined : getChartData(message);
   const proposedAction = isUser ? null : getProposedAction(message);
+  const toolSteps = isUser ? [] : getToolSteps(message);
 
   if (isUser) {
     return (
@@ -174,6 +177,9 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, getChartDa
         <AiIcon />
         <div className="flex-1 min-w-0">
           <div className="bg-[#29318A] text-white px-3 sm:px-4 py-2.5 sm:py-3 rounded-[16px] rounded-tr-[4px] overflow-hidden">
+            {toolSteps.length > 0 && (
+              <AiToolSteps steps={toolSteps} isStreaming={isStreaming} />
+            )}
             {!displayText && thinkingStatus ? (
               <div className="flex gap-2 items-center h-[20px]">
                 <span className="text-white/60 text-[13px]">{thinkingStatus}</span>

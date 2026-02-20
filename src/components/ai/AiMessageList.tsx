@@ -45,6 +45,7 @@ export function AiMessageList({ messages, isLoading, thinkingStatus, lastError, 
           message={message}
           thinkingStatus={isLoading && idx === messages.length - 1 ? thinkingStatus : null}
           errorText={!isLoading && idx === messages.length - 1 && lastError ? lastError : undefined}
+          isStreaming={isLoading && idx === messages.length - 1}
           getChartData={getChartData}
           getDisplayText={getDisplayText}
         />
