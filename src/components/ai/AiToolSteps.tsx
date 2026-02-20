@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { UIMessage } from "ai";
 
 /** Tool display configuration with Hebrew labels and descriptions */
@@ -90,6 +90,26 @@ function summarizeOutput(toolName: string, output: unknown): string {
   }
 }
 
+/** Get a more specific summary text based on tool types used */
+function getSmartSummary(steps: ToolStep[]): string {
+  if (steps.length === 1) {
+    const step = steps[0];
+    switch (step.toolName) {
+      case "getMonthlySummary": return "בדקתי סיכום חודשי";
+      case "queryDatabase": return "שלפתי נתונים מהמערכת";
+      case "getBusinessSchedule": return "בדקתי לוח עבודה";
+      case "getGoals": return "בדקתי יעדים";
+      case "calculate": return "חישבתי נתון";
+      default: return "בדקתי נתון אחד";
+    }
+  }
+  const hasQuery = steps.some((s) => s.toolName === "queryDatabase");
+  const hasSummary = steps.some((s) => s.toolName === "getMonthlySummary");
+  if (hasSummary && hasQuery) return `אספתי וניתחתי ${steps.length} מקורות נתונים`;
+  if (hasQuery && steps.length > 1) return `הרצתי ${steps.length} שאילתות`;
+  return `ביצעתי ${steps.length} פעולות כדי לענות`;
+}
+
 /** Extract tool steps from a message's parts */
 export function getToolSteps(message: UIMessage): ToolStep[] {
   if (message.role !== "assistant") return [];
@@ -137,6 +157,14 @@ interface AiToolStepsProps {
 
 export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = useState(0);
+
+  useEffect(() => {
+    if (contentRef.current) {
+      setContentHeight(contentRef.current.scrollHeight);
+    }
+  }, [steps, isExpanded]);
 
   if (steps.length === 0) return null;
 
@@ -144,39 +172,39 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
   const activeStep = steps.find((s) => s.state !== "output-available");
 
   return (
-    <div className="mb-2.5">
+    <div className="mb-3 bg-white/[0.04] rounded-[10px] border border-white/[0.06]">
       {/* Clickable header */}
       <button
         type="button"
         onClick={() => setIsExpanded((prev) => !prev)}
-        className="flex items-center gap-2 w-full text-right hover:bg-white/[0.03] rounded-lg px-1 py-1 -mx-1 transition-colors cursor-pointer select-none"
+        className="flex items-center gap-2.5 w-full text-right px-3 py-2 transition-colors cursor-pointer select-none hover:bg-white/[0.03] rounded-[10px]"
       >
         {/* Status icon */}
         {allDone ? (
-          <div className="w-5 h-5 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
+          <div className="w-6 h-6 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
         ) : (
-          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-            <div className="w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+          <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+            <div className="w-[18px] h-[18px] border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
           </div>
         )}
 
         {/* Summary text */}
         <div className="flex-1 min-w-0">
           {allDone ? (
-            <span className="text-white/50 text-[12px]">
-              ביצעתי {steps.length} {steps.length === 1 ? "פעולה" : "פעולות"} כדי לענות
+            <span className="text-white/55 text-[12px] font-medium">
+              {getSmartSummary(steps)}
             </span>
           ) : activeStep ? (
-            <span className="text-white/60 text-[12px]">
+            <span className="text-white/65 text-[12px] font-medium">
               {activeStep.emoji} {activeStep.label}
-              {activeStep.detail && <span className="text-white/35 mr-1">— {activeStep.detail}</span>}
+              {activeStep.detail && <span className="text-white/35 mr-1.5">— {activeStep.detail}</span>}
             </span>
           ) : (
-            <span className="text-white/60 text-[12px]">מעבד...</span>
+            <span className="text-white/60 text-[12px] font-medium">מעבד...</span>
           )}
         </div>
 
@@ -187,80 +215,84 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2"
+          strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={`text-white/30 flex-shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+          className={`text-white/25 flex-shrink-0 transition-transform duration-300 ease-out ${isExpanded ? "rotate-180" : ""}`}
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
 
-      {/* Expanded details */}
-      {isExpanded && (
-        <div className="mt-1 mr-2.5 relative">
-          {/* Vertical timeline line */}
-          <div className="absolute right-0 top-1 bottom-1 w-px bg-white/10" />
+      {/* Animated expandable area */}
+      <div
+        className="overflow-hidden transition-[max-height] duration-300 ease-out"
+        style={{ maxHeight: isExpanded ? `${contentHeight + 16}px` : "0px" }}
+      >
+        <div ref={contentRef}>
+          {/* Separator */}
+          <div className="mx-3 h-px bg-white/[0.06]" />
 
-          <div className="space-y-0.5">
-            {steps.map((step, idx) => {
-              const isDone = step.state === "output-available";
-              const isActive = step.state === "input-streaming" || step.state === "input-available";
-              const isLast = idx === steps.length - 1;
+          <div className="px-3 py-2 mr-0.5 relative">
+            {/* Vertical timeline line */}
+            <div className="absolute right-3 top-3 bottom-3 w-px bg-white/[0.08]" />
 
-              return (
-                <div key={`${step.toolName}-${idx}`} className="relative pr-5">
-                  {/* Timeline dot */}
-                  <div className={`absolute right-[-3px] top-2.5 w-[7px] h-[7px] rounded-full border-2 ${
-                    isDone
-                      ? "bg-emerald-400 border-emerald-400"
-                      : isActive
-                        ? "bg-indigo-400 border-indigo-400 animate-pulse"
-                        : "bg-white/20 border-white/30"
-                  }`} />
+            <div className="space-y-1">
+              {steps.map((step, idx) => {
+                const isDone = step.state === "output-available";
+                const isActive = step.state === "input-streaming" || step.state === "input-available";
 
-                  <div className={`py-1.5 px-2 rounded-md ${isActive ? "bg-white/[0.03]" : ""}`}>
-                    {/* Tool name + emoji */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[13px] leading-none">{step.emoji}</span>
-                      <span className={`text-[12px] font-medium ${isDone ? "text-white/70" : isActive ? "text-white/80" : "text-white/50"}`}>
-                        {step.label}
-                      </span>
-                      {isDone && (
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 flex-shrink-0">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
+                return (
+                  <div key={`${step.toolName}-${idx}`} className="relative pr-6">
+                    {/* Timeline dot - larger */}
+                    <div className={`absolute right-[3px] top-2.5 w-[9px] h-[9px] rounded-full border-2 ${
+                      isDone
+                        ? "bg-emerald-400 border-emerald-400"
+                        : isActive
+                          ? "bg-indigo-400 border-indigo-400 animate-pulse"
+                          : "bg-white/20 border-white/30"
+                    }`} />
+
+                    <div className={`py-1.5 px-2.5 rounded-lg ${isActive ? "bg-white/[0.04]" : ""}`}>
+                      {/* Tool name + emoji */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[14px] leading-none">{step.emoji}</span>
+                        <span className={`text-[12px] font-medium ${isDone ? "text-white/70" : isActive ? "text-white/80" : "text-white/50"}`}>
+                          {step.label}
+                        </span>
+                        {isDone && (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 flex-shrink-0">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                        {isActive && (
+                          <div className="w-3.5 h-3.5 flex-shrink-0">
+                            <div className="w-3.5 h-3.5 border-[1.5px] border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Detail line - with line-clamp instead of truncate */}
+                      {step.detail && (
+                        <p className="text-white/35 text-[11px] mt-0.5 mr-[30px] leading-snug line-clamp-2">
+                          {step.detail}
+                        </p>
                       )}
-                      {isActive && (
-                        <div className="w-3 h-3 flex-shrink-0">
-                          <div className="w-3 h-3 border-[1.5px] border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
-                        </div>
+
+                      {/* Result summary */}
+                      {isDone && step.resultSummary && (
+                        <p className="text-emerald-400/50 text-[11px] mt-0.5 mr-[30px] leading-snug">
+                          ← {step.resultSummary}
+                        </p>
                       )}
                     </div>
-
-                    {/* Detail line (query explanation, month/year, etc) */}
-                    {step.detail && (
-                      <p className="text-white/35 text-[11px] mt-0.5 mr-[23px] leading-snug truncate max-w-[280px]">
-                        {step.detail}
-                      </p>
-                    )}
-
-                    {/* Result summary */}
-                    {isDone && step.resultSummary && (
-                      <p className="text-white/40 text-[11px] mt-0.5 mr-[23px] leading-snug">
-                        → {step.resultSummary}
-                      </p>
-                    )}
                   </div>
-
-                  {/* Separator */}
-                  {!isLast && <div className="h-px bg-white/[0.04] mr-2 ml-1" />}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

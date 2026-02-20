@@ -254,7 +254,14 @@
       "WebFetch(domain:www.eleken.co)",
       "WebFetch(domain:www.ramotion.com)",
       "WebFetch(domain:web.dev)",
-      "WebFetch(domain:developer.chrome.com)"
+      "WebFetch(domain:developer.chrome.com)",
+      "WebFetch(domain:docs.pwabuilder.com)",
+      "Bash(keytool:*)",
+      "Bash(\"/c/Program Files/Java/jdk-\"*/bin/keytool)",
+      "Bash(\"/c/Program Files/Android/Android Studio/jbr/bin/keytool\" -list -v -keystore \"/c/Users/netn1/Downloads/amazpen-android/signing.keystore\" -alias my-key-alias -storepass DCBM_ik7TwUb)",
+      "Bash(openssl version:*)",
+      "Bash(openssl pkcs7:*)",
+      "WebFetch(domain:go.microsoft.com)"
     ]
   },
   "enableAllProjectMcpServers": true,

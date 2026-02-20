@@ -180,6 +180,9 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
             {toolSteps.length > 0 && (
               <AiToolSteps steps={toolSteps} isStreaming={isStreaming} />
             )}
+            {toolSteps.length > 0 && displayText && (
+              <div className="h-px bg-white/[0.06] -mx-3 sm:-mx-4 mb-2.5" />
+            )}
             {!displayText && thinkingStatus ? (
               <div className="flex gap-2 items-center h-[20px]">
                 <span className="text-white/60 text-[13px]">{thinkingStatus}</span>

@@ -584,54 +584,40 @@ function PaymentsPageInner() {
           setBusinessCreditCards(creditCardsData);
         }
 
-        // Fetch payments for the date range
+        // Fetch payment splits for the date range — filtered by due_date (actual bank debit date)
+        // instead of payment_date (when user recorded the payment) for accurate cash flow reporting
         const startDate = dateRange.start.toISOString().split("T")[0];
         const endDate = dateRange.end.toISOString().split("T")[0];
 
-        const { data: paymentsData } = await supabase
-          .from("payments")
+        const { data: splitsData } = await supabase
+          .from("payment_splits")
           .select(`
-            *,
-            supplier:suppliers(id, name),
-            payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id),
-            invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes),
-            creator:profiles!payments_created_by_fkey(full_name)
+            id, due_date, amount, payment_method,
+            payment:payments!inner(id, business_id, deleted_at, total_amount,
+              supplier:suppliers(id, name))
           `)
-          .in("business_id", selectedBusinesses)
-          .is("deleted_at", null)
-          .gte("payment_date", startDate)
-          .lte("payment_date", endDate)
-          .order("payment_date", { ascending: false })
-          .limit(50);
+          .gte("due_date", startDate)
+          .lte("due_date", endDate)
+          .is("payment.deleted_at", null)
+          .in("payment.business_id", selectedBusinesses)
+          .order("due_date", { ascending: false })
+          .limit(500);
 
-        if (paymentsData) {
+        if (splitsData) {
           // Calculate payment method summary + supplier breakdown per method
           const methodTotals = new Map<string, number>();
           const methodSuppliers = new Map<string, Map<string, number>>();
 
-          for (const payment of paymentsData) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const supplierName = (payment as any).supplier?.name || "לא ידוע";
-            if (payment.payment_splits && payment.payment_splits.length > 0) {
-              for (const split of payment.payment_splits) {
-                const method = split.payment_method || "other";
-                const amount = Number(split.amount);
-                const current = methodTotals.get(method) || 0;
-                methodTotals.set(method, current + amount);
-                // Track supplier breakdown
-                if (!methodSuppliers.has(method)) methodSuppliers.set(method, new Map());
-                const supplierMap = methodSuppliers.get(method)!;
-                supplierMap.set(supplierName, (supplierMap.get(supplierName) || 0) + amount);
-              }
-            } else {
-              // Fallback if no splits
-              const amount = Number(payment.total_amount);
-              const current = methodTotals.get("other") || 0;
-              methodTotals.set("other", current + amount);
-              if (!methodSuppliers.has("other")) methodSuppliers.set("other", new Map());
-              const supplierMap = methodSuppliers.get("other")!;
-              supplierMap.set(supplierName, (supplierMap.get(supplierName) || 0) + amount);
-            }
+          for (const split of splitsData) {
+            const payment = split.payment as unknown as { id: string; supplier: { name: string } | null };
+            const supplierName = payment?.supplier?.name || "לא ידוע";
+            const method = split.payment_method || "other";
+            const amount = Number(split.amount);
+
+            methodTotals.set(method, (methodTotals.get(method) || 0) + amount);
+            if (!methodSuppliers.has(method)) methodSuppliers.set(method, new Map());
+            const supplierMap = methodSuppliers.get(method)!;
+            supplierMap.set(supplierName, (supplierMap.get(supplierName) || 0) + amount);
           }
 
           // Calculate total for percentages
