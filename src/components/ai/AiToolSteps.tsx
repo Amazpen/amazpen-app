@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import type { UIMessage } from "ai";
 
 const MONTH_NAMES = ["", "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
@@ -222,14 +222,6 @@ interface AiToolStepsProps {
 
 export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [contentHeight, setContentHeight] = useState(0);
-
-  useEffect(() => {
-    if (contentRef.current) {
-      setContentHeight(contentRef.current.scrollHeight);
-    }
-  }, [steps, isExpanded]);
 
   if (steps.length === 0) return null;
 
@@ -254,7 +246,7 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
           </div>
         ) : (
           <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-            <div className="w-[18px] h-[18px] border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+            <MicroMatrix size={18} />
           </div>
         )}
 
@@ -290,12 +282,12 @@ export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
         </svg>
       </button>
 
-      {/* Animated expandable area */}
+      {/* Expandable area with grid transition */}
       <div
-        className="overflow-hidden transition-[max-height] duration-300 ease-out"
-        style={{ maxHeight: isExpanded ? `${contentHeight + 16}px` : "0px" }}
+        className="grid transition-[grid-template-rows] duration-300 ease-out"
+        style={{ gridTemplateRows: isExpanded ? "1fr" : "0fr" }}
       >
-        <div ref={contentRef}>
+        <div className="overflow-hidden">
           <div className="mx-3 h-px bg-white/[0.06]" />
 
           <div className="px-3 py-2 mr-0.5 relative">
@@ -421,10 +413,41 @@ function CheckIcon() {
   );
 }
 
-function SpinnerIcon() {
+/**
+ * CSS-only micro matrix loading indicator (3×3 dot grid with wave animation).
+ * Exported so AiMessageBubble can use it for the thinking bubble.
+ */
+export function MicroMatrix({ size = 16, className = "" }: { size?: number; className?: string }) {
+  const dotSize = Math.max(2, Math.round(size / 5));
+  const gap = Math.max(1, Math.round(size / 8));
+
   return (
-    <div className="w-3.5 h-3.5 flex-shrink-0">
-      <div className="w-3.5 h-3.5 border-[1.5px] border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+    <div
+      className={`inline-grid flex-shrink-0 ${className}`}
+      style={{
+        gridTemplateColumns: `repeat(3, ${dotSize}px)`,
+        gap: `${gap}px`,
+        width: size,
+        height: size,
+        placeContent: "center",
+      }}
+    >
+      {Array.from({ length: 9 }, (_, i) => (
+        <div
+          key={i}
+          className="rounded-full bg-indigo-400"
+          style={{
+            width: dotSize,
+            height: dotSize,
+            animation: `microMatrixPulse 1.4s ease-in-out infinite`,
+            animationDelay: `${((i % 3) + Math.floor(i / 3)) * 0.12}s`,
+          }}
+        />
+      ))}
     </div>
   );
+}
+
+function SpinnerIcon() {
+  return <MicroMatrix size={14} />;
 }

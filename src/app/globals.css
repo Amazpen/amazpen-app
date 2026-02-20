@@ -497,6 +497,12 @@ input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
 .skeleton-bar-h-68 { height: 68%; }
 .skeleton-bar-h-72 { height: 72%; }
 
+/* AI Micro-matrix loading animation */
+@keyframes microMatrixPulse {
+  0%, 100% { opacity: 0.15; transform: scale(0.7); }
+  40% { opacity: 0.9; transform: scale(1); }
+}
+
 /* OCR Document Queue - scrollbar hiding (progressive enhancement) */
 .scrollbar-hide {
   -ms-overflow-style: none; /* IE/Edge */

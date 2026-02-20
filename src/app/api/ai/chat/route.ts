@@ -808,6 +808,14 @@ function buildTools(
       execute: async ({ businessId: bizId, year, month }) => {
         console.log(`[AI Tool] getMonthlySummary: ${bizId} ${year}/${month}`);
         try {
+          // Fetch business name for display in tool steps UI
+          const { data: bizRow } = await adminSupabase
+            .from("businesses")
+            .select("name")
+            .eq("id", bizId)
+            .maybeSingle();
+          const bizName = bizRow?.name || "";
+
           // Try reading from cached metrics table first
           const { data: cached } = await adminSupabase
             .from("business_monthly_metrics")
@@ -827,7 +835,7 @@ function buildTools(
             // For current month, refresh if older than 30 min; for past months, always use cache
             if (!isCurrentMonth || age < STALE_MS) {
               console.log(`[AI Tool] getMonthlySummary: using cached metrics (age=${Math.round(age / 60000)}m)`);
-              return cached;
+              return { ...cached, businessName: bizName };
             }
           }
 

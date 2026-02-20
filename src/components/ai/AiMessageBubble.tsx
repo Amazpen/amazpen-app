@@ -9,7 +9,7 @@ import type { UIMessage } from "ai";
 import type { AiChartData, AiProposedAction } from "@/types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
 import { AiActionCard } from "./AiActionCard";
-import { AiToolSteps, getToolSteps } from "./AiToolSteps";
+import { AiToolSteps, getToolSteps, MicroMatrix } from "./AiToolSteps";
 
 const LazyBarChart = dynamic(
   () => import("recharts").then((mod) => ({ default: mod.BarChart })),
@@ -184,13 +184,9 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
               <div className="h-px bg-white/[0.06] -mx-3 sm:-mx-4 mb-2.5" />
             )}
             {!displayText && thinkingStatus ? (
-              <div className="flex gap-2 items-center h-[20px]">
+              <div className="flex gap-2.5 items-center h-[20px]">
+                <MicroMatrix size={16} />
                 <span className="text-white/60 text-[13px]">{thinkingStatus}</span>
-                <div className="flex gap-1.5 items-center">
-                  <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:0ms]" />
-                  <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:150ms]" />
-                  <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:300ms]" />
-                </div>
               </div>
             ) : displayText ? (
               <AiMarkdownRenderer content={displayText} />
@@ -275,13 +271,9 @@ export function AiThinkingBubble({ status }: { status: string }) {
         <AiIcon />
         <div className="flex-1 min-w-0">
           <div className="bg-[#29318A] text-white px-3 sm:px-4 py-2.5 sm:py-3 rounded-[16px] rounded-tr-[4px]">
-            <div className="flex gap-2 items-center h-[20px]">
+            <div className="flex gap-2.5 items-center h-[20px]">
+              <MicroMatrix size={16} />
               <span className="text-white/60 text-[13px]">{status}</span>
-              <div className="flex gap-1.5 items-center">
-                <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:0ms]" />
-                <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:150ms]" />
-                <div className="w-[6px] h-[6px] rounded-full bg-white/40 animate-bounce [animation-delay:300ms]" />
-              </div>
             </div>
           </div>
         </div>
