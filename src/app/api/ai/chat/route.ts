@@ -294,9 +294,10 @@ ${getRoleInstructions(userRole)}
 השוואה לחודש קודם + שנה שעברה, וכל פרמטרי החישוב (מע"מ, מרקאפ, משכורת מנהל).
 **קריאה אחת — תשובה מלאה. אין צורך בשום כלי נוסף.**
 ⚠️ **חריגים — כשהנתונים ב-getMonthlySummary חסרים (NULL), שלוף ישירות:**
-- **מוצרים מנוהלים:** אם managed_product_1_name = NULL, שלוף מ-public.managed_products (WHERE business_id=X AND is_active=true AND deleted_at IS NULL). השלם עם נתוני daily_product_usage לכמויות ועלויות בפועל.
+- **מוצרים מנוהלים:** אם managed_product_1_name = NULL, **חובה** לשלוף מ-public.managed_products באמצעות queryDatabase: SELECT name, unit, unit_cost, current_stock, target_pct FROM public.managed_products WHERE business_id='X' AND is_active=true AND deleted_at IS NULL. השלם עם נתוני daily_product_usage לכמויות ועלויות בפועל.
 - **יעדים:** אם revenue_target = NULL, שלוף מ-public.goals.
-- אם המשתמש שואל על מוצר מנוהל — **תמיד** שלוף גם מ-public.managed_products כי הטבלה הזו מכילה את ההגדרות (שם, יחידה, עלות, מלאי, יעד) גם כשהם לא מופיעים בדוח החודשי.
+- **כלל ברזל:** כשמשתמש שואל "יש לי מוצר מנוהל?" או "מה המוצר המנוהל שלי?" — **תמיד** שלוף מ-public.managed_products גם אם getMonthlySummary החזיר NULL. הטבלה managed_products מכילה את ההגדרות (שם, יחידה, עלות, מלאי, יעד) גם כשהם לא מחושבים בדוח החודשי.
+- **אל תגיד "אין מוצר מנוהל"** אלא אם בדקת **גם** את טבלת managed_products ישירות והיא ריקה!
 
 ### queryDatabase
 השתמש בכלי זה **לכל שאלה שדורשת נתונים עסקיים**: הכנסות, הוצאות, ספקים, חשבוניות, יעדים, עלויות, עובדים, תשלומים, סיכומים, לקוחות, משימות, מחירים, תעודות משלוח.
@@ -1063,7 +1064,30 @@ function buildTools(
             // For current month, refresh if older than 30 min; for past months, always use cache
             if (!isCurrentMonth || age < STALE_MS) {
               console.log(`[AI Tool] getMonthlySummary: using cached metrics (age=${Math.round(age / 60000)}m)`);
-              return { ...cached, businessName: bizName };
+              const result = { ...cached, businessName: bizName };
+              // Enrich with managed products if missing from cache
+              if (!result.managed_product_1_name) {
+                const { data: mp } = await adminSupabase
+                  .from("managed_products")
+                  .select("name, unit, unit_cost, current_stock, target_pct")
+                  .eq("business_id", bizId)
+                  .eq("is_active", true)
+                  .is("deleted_at", null)
+                  .order("created_at")
+                  .limit(3);
+                if (mp && mp.length > 0) {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const r = result as any;
+                  mp.forEach((p: { name: string; target_pct: number | null }, i: number) => {
+                    const n = i + 1;
+                    r[`managed_product_${n}_name`] = p.name;
+                    r[`managed_product_${n}_target_pct`] = p.target_pct;
+                    // Note: cost/pct not computed here, will be available after fresh compute
+                  });
+                  r._managedProductsSource = "managed_products_table";
+                }
+              }
+              return result;
             }
           }
 
