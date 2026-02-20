@@ -293,6 +293,10 @@ ${getRoleInstructions(userRole)}
 הוצאות שוטפות, מוצרים מנוהלים (עד 3), פירוט במקום/במשלוח (סכום + כמות + ממוצע),
 השוואה לחודש קודם + שנה שעברה, וכל פרמטרי החישוב (מע"מ, מרקאפ, משכורת מנהל).
 **קריאה אחת — תשובה מלאה. אין צורך בשום כלי נוסף.**
+⚠️ **חריגים — כשהנתונים ב-getMonthlySummary חסרים (NULL), שלוף ישירות:**
+- **מוצרים מנוהלים:** אם managed_product_1_name = NULL, שלוף מ-public.managed_products (WHERE business_id=X AND is_active=true AND deleted_at IS NULL). השלם עם נתוני daily_product_usage לכמויות ועלויות בפועל.
+- **יעדים:** אם revenue_target = NULL, שלוף מ-public.goals.
+- אם המשתמש שואל על מוצר מנוהל — **תמיד** שלוף גם מ-public.managed_products כי הטבלה הזו מכילה את ההגדרות (שם, יחידה, עלות, מלאי, יעד) גם כשהם לא מופיעים בדוח החודשי.
 
 ### queryDatabase
 השתמש בכלי זה **לכל שאלה שדורשת נתונים עסקיים**: הכנסות, הוצאות, ספקים, חשבוניות, יעדים, עלויות, עובדים, תשלומים, סיכומים, לקוחות, משימות, מחירים, תעודות משלוח.
@@ -862,6 +866,52 @@ async function computeMonthlySummary(
   const foodTarget = Number(goalsData?.food_cost_target_pct) || 0;
   const foodDiffPct = foodTarget > 0 ? foodCostPct - foodTarget : null;
 
+  // 7. Managed products — fetch active products + their monthly usage
+  const { data: managedProducts } = await sb
+    .from("managed_products")
+    .select("id, name, unit, unit_cost, target_pct")
+    .eq("business_id", bizId)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .order("created_at")
+    .limit(3);
+
+  type ManagedProductResult = { name: string; cost: number; pct: number; targetPct: number | null; diffPct: number | null };
+  const mpResults: ManagedProductResult[] = [];
+
+  if (managedProducts && managedProducts.length > 0) {
+    // Get daily_entry IDs for this month
+    const { data: entryIds } = await execReadOnlyQuery(sb,
+      `SELECT id FROM public.daily_entries
+       WHERE business_id = '${bizId}'
+         AND entry_date >= '${monthStart}' AND entry_date < '${nextMonth}'
+         AND deleted_at IS NULL`
+    );
+    const ids = Array.isArray(entryIds) ? entryIds.map((r: { id: string }) => r.id) : [];
+
+    for (const mp of managedProducts) {
+      let totalCost = 0;
+      if (ids.length > 0) {
+        const idList = ids.map((r) => `'${r}'`).join(",");
+        const { data: usageAgg } = await execReadOnlyQuery(sb,
+          `SELECT COALESCE(SUM(quantity * unit_cost_at_time), 0) as total_cost
+           FROM public.daily_product_usage
+           WHERE daily_entry_id IN (${idList}) AND product_id = '${mp.id}'`
+        );
+        totalCost = Array.isArray(usageAgg) && usageAgg[0] ? Number(usageAgg[0].total_cost) || 0 : 0;
+      }
+      const pct = incomeBeforeVat > 0 ? (totalCost / incomeBeforeVat) * 100 : 0;
+      const tPct = mp.target_pct != null ? Number(mp.target_pct) : null;
+      mpResults.push({
+        name: mp.name,
+        cost: Math.round(totalCost),
+        pct: Math.round(pct * 100) / 100,
+        targetPct: tPct,
+        diffPct: tPct != null ? Math.round((pct - tPct) * 100) / 100 : null,
+      });
+    }
+  }
+
   return {
     businessName: bizData?.name || "",
     period: { year, month, monthStart, daysInMonth },
@@ -884,6 +934,7 @@ async function computeMonthlySummary(
       currentExpenses: Math.round(currentExpenses),
       currentExpensesPct: Math.round(currentExpensesPct * 100) / 100,
     },
+    managedProducts: mpResults,
     targets: {
       revenueTarget,
       laborTargetPct: laborTarget,
@@ -936,6 +987,21 @@ function storeMetricsInBackground(
     current_expenses_target_pct: null,
     current_expenses_diff_pct: null,
     current_expenses_diff_amount: null,
+    managed_product_1_name: summary.managedProducts?.[0]?.name ?? null,
+    managed_product_1_cost: summary.managedProducts?.[0]?.cost ?? null,
+    managed_product_1_pct: summary.managedProducts?.[0]?.pct ?? null,
+    managed_product_1_target_pct: summary.managedProducts?.[0]?.targetPct ?? null,
+    managed_product_1_diff_pct: summary.managedProducts?.[0]?.diffPct ?? null,
+    managed_product_2_name: summary.managedProducts?.[1]?.name ?? null,
+    managed_product_2_cost: summary.managedProducts?.[1]?.cost ?? null,
+    managed_product_2_pct: summary.managedProducts?.[1]?.pct ?? null,
+    managed_product_2_target_pct: summary.managedProducts?.[1]?.targetPct ?? null,
+    managed_product_2_diff_pct: summary.managedProducts?.[1]?.diffPct ?? null,
+    managed_product_3_name: summary.managedProducts?.[2]?.name ?? null,
+    managed_product_3_cost: summary.managedProducts?.[2]?.cost ?? null,
+    managed_product_3_pct: summary.managedProducts?.[2]?.pct ?? null,
+    managed_product_3_target_pct: summary.managedProducts?.[2]?.targetPct ?? null,
+    managed_product_3_diff_pct: summary.managedProducts?.[2]?.diffPct ?? null,
     vat_pct: r2(summary.params.vatPct),
     markup_pct: r2(summary.params.markup),
     manager_salary: r2(summary.params.managerSalary),
