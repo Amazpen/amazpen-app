@@ -591,13 +591,16 @@ export default function CashFlowPage() {
             ))}
           </div>
 
-          {/* Date picker - left side in RTL */}
+          {/* Date picker with label - left side in RTL */}
           {dateRange && (
-            <DateRangePicker
-              dateRange={activeRange || dateRange}
-              onChange={handleDateRangeChange}
-              variant="compact"
-            />
+            <div className="flex items-center gap-[8px]">
+              <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
+              <DateRangePicker
+                dateRange={activeRange || dateRange}
+                onChange={handleDateRangeChange}
+                variant="compact"
+              />
+            </div>
           )}
         </div>
 

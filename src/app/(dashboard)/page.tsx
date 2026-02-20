@@ -2338,8 +2338,13 @@ export default function DashboardPage() {
               </>
             )}
           </div>
-          {/* Left side - Date picker - hide when search is open */}
-          {!isSearchOpen && dateRange && <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />}
+          {/* Left side - Date picker with label - hide when search is open */}
+          {!isSearchOpen && dateRange && (
+            <div className="flex items-center gap-[8px]">
+              <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
+              <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
+            </div>
+          )}
         </div>
 
         {/* Cards Grid - Responsive: 2 cols mobile, 3 tablet, 4-6 desktop */}
@@ -2592,14 +2597,17 @@ export default function DashboardPage() {
                   </Button>
                 )}
               </div>
-              {/* Date picker for single business users */}
+              {/* Date picker with label for single business users */}
               {isSingleBusiness && dateRange && (
-                <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
+                <div className="flex items-center gap-[8px]">
+                  <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
+                  <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
+                </div>
               )}
             </div>
 
             {/* Data Cards - New Design - Grid on desktop */}
-            <div id="onboarding-data-cards" className="flex flex-col lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-[15px] w-full mt-[15px]">
+            <div id="onboarding-data-cards" key={isLoadingSummary ? "loading" : "loaded"} className={`flex flex-col lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-[15px] w-full mt-[15px] ${!isLoadingSummary && !isInitialLoad ? 'animate-fade-in' : ''}`}>
               {(isInitialLoad || isLoadingSummary) && selectedBusinesses.length > 0 ? (
                 // Skeleton loaders for data cards - shown during loading
                 <>

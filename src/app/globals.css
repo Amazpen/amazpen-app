@@ -472,6 +472,14 @@ input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
   animation: install-prompt-glow 3s ease-in-out 0.5s infinite;
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
 /* Chart Skeleton Bar Heights */
 .skeleton-bar-h-50 { height: 50%; }
 .skeleton-bar-h-55 { height: 55%; }
@@ -505,10 +513,13 @@ input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
   40% { opacity: 0.9; transform: scale(1); }
 }
 
-/* Thinking: slow breathe */
+/* Thinking: energetic morph — scale + rotate + full opacity pulse */
 @keyframes mmBreathe {
-  0%, 100% { opacity: 0.12; transform: scale(0.6); }
-  50% { opacity: 0.7; transform: scale(1.05); }
+  0% { opacity: 0.3; transform: scale(0.5) rotate(0deg); }
+  25% { opacity: 1; transform: scale(1.15) rotate(45deg); }
+  50% { opacity: 0.5; transform: scale(0.8) rotate(90deg); }
+  75% { opacity: 1; transform: scale(1.1) rotate(135deg); }
+  100% { opacity: 0.3; transform: scale(0.5) rotate(180deg); }
 }
 
 /* Database/query: scanning rows */

@@ -2217,7 +2217,10 @@ function ExpensesPageInner() {
         >
           הזנת הוצאה
         </Button>
-        <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
+        <div className="flex items-center gap-[8px]">
+          <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
+          <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
+        </div>
       </div>
 
       {/* Chart and Summary Section */}
