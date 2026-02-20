@@ -190,7 +190,7 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
               </div>
             ) : displayText ? (
               <AiMarkdownRenderer content={displayText} />
-            ) : !proposedAction && !chartData ? (
+            ) : !isStreaming && !proposedAction && !chartData ? (
               <span className="text-white/50 text-[13px]">{errorText ? `שגיאה: ${errorText}` : "לא הצלחתי לייצר תשובה. נסה לשאול שוב."}</span>
             ) : null}
             {chartData && (
