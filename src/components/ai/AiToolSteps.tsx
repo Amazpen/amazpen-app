@@ -63,7 +63,7 @@ function summarizeOutput(toolName: string, output: unknown): string {
 
   switch (toolName) {
     case "getMonthlySummary": {
-      const income = out.total_income ?? out.actuals && (out.actuals as Record<string, unknown>).totalIncome;
+      const income = out.total_income ?? (out.actuals && (out.actuals as Record<string, unknown>).totalIncome);
       if (income !== undefined && income !== null) {
         return `הכנסות: ₪${Number(income).toLocaleString("he-IL")}`;
       }
