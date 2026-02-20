@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { UIMessage } from "ai";
 
 const MONTH_NAMES = ["", "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
@@ -296,13 +296,40 @@ interface AiToolStepsProps {
   isStreaming?: boolean;
 }
 
+/** Minimum time (ms) to show the loading matrix so the user can see the animation */
+const MIN_LOADING_MS = 1500;
+
 export function AiToolSteps({ steps, isStreaming }: AiToolStepsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showLoading, setShowLoading] = useState(true);
+  const loadStartRef = useRef<number>(Date.now());
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const rawAllDone = steps.every((s) => s.state === "output-available") && !isStreaming;
+
+  useEffect(() => {
+    if (!rawAllDone) {
+      // Reset timer when loading starts/continues
+      loadStartRef.current = Date.now();
+      setShowLoading(true);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    } else {
+      // Done — but hold the loading state for at least MIN_LOADING_MS
+      const elapsed = Date.now() - loadStartRef.current;
+      const remaining = MIN_LOADING_MS - elapsed;
+      if (remaining > 0) {
+        timerRef.current = setTimeout(() => setShowLoading(false), remaining);
+      } else {
+        setShowLoading(false);
+      }
+    }
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [rawAllDone]);
 
   if (steps.length === 0) return null;
 
-  const allDone = steps.every((s) => s.state === "output-available") && !isStreaming;
-  const activeStep = steps.find((s) => s.state !== "output-available");
+  const allDone = rawAllDone && !showLoading;
+  const activeStep = !allDone ? (steps.find((s) => s.state !== "output-available") || steps[steps.length - 1]) : undefined;
   const groups = groupSteps(steps);
 
   return (
