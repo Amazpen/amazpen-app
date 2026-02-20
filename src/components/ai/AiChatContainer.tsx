@@ -43,9 +43,10 @@ export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
 
       {/* Main content area */}
       {isLoadingHistory ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-        </div>
+        <AiWelcomeScreen
+          isAdmin={isAdmin}
+          onSuggestionClick={handleSuggestionClick}
+        />
       ) : hasMessages ? (
         <AiMessageList
           messages={messages}
