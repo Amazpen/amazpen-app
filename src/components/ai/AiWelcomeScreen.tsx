@@ -4,8 +4,61 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { MicroMatrix } from "./AiToolSteps";
 import type { AiSuggestedQuestion } from "@/types/ai";
+
+/** 5×5 circular matrix skeleton for the large avatar — fills the whole circle */
+function AvatarMatrixSkeleton() {
+  const gridSize = 5;
+  const total = gridSize * gridSize;
+  // Which cells are inside a circle (skip corners for round shape)
+  const isInCircle = (row: number, col: number) => {
+    const cx = (gridSize - 1) / 2;
+    const cy = (gridSize - 1) / 2;
+    const dist = Math.sqrt((row - cx) ** 2 + (col - cy) ** 2);
+    return dist <= 2.3;
+  };
+  // Spiral delay from center outward
+  const getDelay = (row: number, col: number) => {
+    const cx = (gridSize - 1) / 2;
+    const dist = Math.abs(row - cx) + Math.abs(col - cx);
+    return dist * 0.12;
+  };
+  // Alternating colors for a dynamic feel
+  const colors = ["bg-indigo-400", "bg-cyan-400", "bg-violet-400", "bg-blue-400", "bg-purple-400"];
+  const getColor = (row: number, col: number) => colors[(row * gridSize + col) % colors.length];
+
+  return (
+    <div
+      className="inline-grid w-full h-full"
+      style={{
+        gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
+        gap: "3px",
+        padding: "12%",
+      }}
+    >
+      {Array.from({ length: total }, (_, i) => {
+        const row = Math.floor(i / gridSize);
+        const col = i % gridSize;
+        if (!isInCircle(row, col)) {
+          return <div key={i} />;
+        }
+        return (
+          <div
+            key={i}
+            className={getColor(row, col)}
+            style={{
+              borderRadius: "50%",
+              aspectRatio: "1",
+              width: "100%",
+              animation: `mmBreathe 1.4s ease-in-out infinite`,
+              animationDelay: `${getDelay(row, col)}s`,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
 
 const userSuggestions: AiSuggestedQuestion[] = [
   { text: "איך החודש שלי? תן סיכום", icon: "summary" },
@@ -100,12 +153,11 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
         </svg>
       </Button>
 
-      {/* AI Bot Avatar with MicroMatrix skeleton */}
+      {/* AI Bot Avatar with matrix skeleton */}
       <div className="w-[80px] h-[80px] sm:w-[110px] sm:h-[110px] rounded-full overflow-hidden mb-3 sm:mb-5 relative">
         {!showImage && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#1a1f4e] rounded-full">
-            <MicroMatrix size={48} variant="wave" className="sm:hidden" />
-            <MicroMatrix size={64} variant="wave" className="hidden sm:block" />
+          <div className="absolute inset-0 bg-[#1a1f4e] rounded-full">
+            <AvatarMatrixSkeleton />
           </div>
         )}
         <Image
