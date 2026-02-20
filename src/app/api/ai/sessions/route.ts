@@ -77,15 +77,32 @@ export async function DELETE() {
     return jsonResponse({ error: "לא מחובר" }, 401);
   }
 
-  // Use service role to delete all sessions for this user (cascade deletes messages)
+  // Use service role to delete all sessions + messages for this user
   const adminSupabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  await adminSupabase
+  // Get all session IDs for this user
+  const { data: sessions } = await adminSupabase
     .from("ai_chat_sessions")
-    .delete()
+    .select("id")
     .eq("user_id", user.id);
+
+  if (sessions && sessions.length > 0) {
+    const sessionIds = sessions.map((s) => s.id);
+
+    // Delete messages first (FK is NO ACTION, not CASCADE)
+    await adminSupabase
+      .from("ai_chat_messages")
+      .delete()
+      .in("session_id", sessionIds);
+
+    // Then delete sessions
+    await adminSupabase
+      .from("ai_chat_sessions")
+      .delete()
+      .eq("user_id", user.id);
+  }
 
   return jsonResponse({ success: true });
 }
