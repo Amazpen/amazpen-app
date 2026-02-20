@@ -183,7 +183,7 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
             {toolSteps.length > 0 && displayText && (
               <div className="h-px bg-white/[0.06] -mx-3 sm:-mx-4 mb-2.5" />
             )}
-            {!displayText && thinkingStatus ? (
+            {!displayText && thinkingStatus && toolSteps.length === 0 ? (
               <div className="flex gap-2.5 items-center h-[20px]">
                 <MicroMatrix size={16} variant="thinking" />
                 <span className="text-white/60 text-[13px]">{thinkingStatus}</span>
