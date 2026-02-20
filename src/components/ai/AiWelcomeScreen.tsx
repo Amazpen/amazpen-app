@@ -7,20 +7,20 @@ import type { AiSuggestedQuestion } from "@/types/ai";
 
 const userSuggestions: AiSuggestedQuestion[] = [
   { text: "איך החודש שלי? תן סיכום", icon: "summary" },
-  { text: "מי הספק הכי יקר שלי?", icon: "expenses" },
   { text: "מה ההכנסות היום?", icon: "revenue" },
-  { text: "השווה לי בין החודש לחודש שעבר", icon: "comparison" },
   { text: "מה המצב מול היעדים?", icon: "targets" },
-  { text: "כמה אחוז עלות העובדים מההכנסות?", icon: "general" },
+  { text: "מה זה מוצר מנוהל ואיך זה עוזר לי?", icon: "general" },
+  { text: "מה רואים בדשבורד הראשי?", icon: "summary" },
+  { text: "איך עובד התהליך החודשי במצפן?", icon: "comparison" },
 ];
 
 const adminSuggestions: AiSuggestedQuestion[] = [
   { text: "תן סקירה של כל העסקים", icon: "summary" },
   { text: "איזה עסק הכי רווחי החודש?", icon: "revenue" },
-  { text: "השווה עלות עובדים בין העסקים", icon: "comparison" },
   { text: "איפה יש חריגה מהיעדים?", icon: "targets" },
   { text: "מה סך ההוצאות החודש לכל העסקים?", icon: "expenses" },
-  { text: "איזה ספקים הכי יקרים ברמת מערכת?", icon: "general" },
+  { text: "מה זה סטטוס בירור בהוצאות?", icon: "general" },
+  { text: "איך בנויה התוכנית העסקית החודשית?", icon: "comparison" },
 ];
 
 const iconMap: Record<AiSuggestedQuestion["icon"], React.ReactNode> = {
