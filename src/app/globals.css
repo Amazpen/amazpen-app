@@ -403,6 +403,9 @@ input[type="date"]:not(.date-compact) {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
+  /* Force LTR so calendar icon space goes to left, not right (RTL fix) */
+  direction: ltr;
+  text-align: right;
 }
 
 input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
@@ -417,6 +420,17 @@ input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
   cursor: pointer;
   margin: 0;
   padding: 0;
+}
+
+/* On mobile, fully hide the indicator to remove its reserved space */
+@media (max-width: 768px) {
+  input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
+    display: none !important;
+    -webkit-appearance: none;
+    width: 0;
+    height: 0;
+    position: static;
+  }
 }
 
 input[type="date"]:not(.date-compact)::-webkit-inner-spin-button,
