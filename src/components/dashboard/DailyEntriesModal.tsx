@@ -1042,7 +1042,7 @@ export function DailyEntriesModal({
                     type="date"
                     value={editFormData.entry_date}
                     onChange={(e) => setEditFormData({ ...editFormData, entry_date: e.target.value })}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px] [color-scheme:dark]"
+                    className="w-full bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px] [color-scheme:dark]"
                   />
                 </div>
 

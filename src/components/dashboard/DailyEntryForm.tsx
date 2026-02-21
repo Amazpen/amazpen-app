@@ -937,7 +937,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     type="date"
                     value={formData.entry_date}
                     onChange={(e) => handleChange("entry_date", e.target.value)}
-                    className={`bg-transparent border text-white text-right h-[50px] rounded-[10px] px-[10px] [color-scheme:dark] ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'}`}
+                    className={`w-full bg-transparent border text-white text-right h-[50px] rounded-[10px] px-[10px] [color-scheme:dark] ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'}`}
                   />
                   {dateWarning && (
                     <span className="text-[12px] text-[#FFA500] text-right mt-[3px]">{dateWarning}</span>
@@ -1054,7 +1054,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     type="date"
                     value={formData.entry_date}
                     onChange={(e) => handleChange("entry_date", e.target.value)}
-                    className={`bg-transparent border text-white text-right h-[50px] rounded-[10px] px-[10px] [color-scheme:dark] ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'}`}
+                    className={`w-full bg-transparent border text-white text-right h-[50px] rounded-[10px] px-[10px] [color-scheme:dark] ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'}`}
                   />
                   {dateWarning && (
                     <span className="text-[12px] text-[#FFA500] text-right mt-[3px]">{dateWarning}</span>
