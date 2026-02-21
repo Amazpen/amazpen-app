@@ -2988,7 +2988,7 @@ export default function DashboardPage() {
 
                 if (isPearla) {
                   return (
-                    <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[7px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('laborCost', 'עלות עובדים')}>
+                    <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] px-[7px] py-[10px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('laborCost', 'עלות עובדים')}>
                       <div className="flex flex-row-reverse justify-between items-center w-full gap-[15px]">
                         <div className="flex flex-row items-center gap-[10px]">
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${laborDiffColor}`}>
