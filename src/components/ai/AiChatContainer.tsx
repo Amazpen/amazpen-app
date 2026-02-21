@@ -96,7 +96,7 @@ export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
   }, []);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-60px)] h-[calc(100dvh-60px)] bg-[#0F1535]">
+    <div className="flex flex-col h-[calc(100vh-70px)] sm:h-[calc(100vh-66px)] h-[calc(100dvh-70px)] sm:h-[calc(100dvh-66px)] overflow-hidden bg-[#0F1535]">
       {/* Chat header bar */}
       {hasMessages && (
         <div className="flex-shrink-0 sticky top-0 z-10 bg-[#0F1535] flex items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2 border-b border-white/10" dir="rtl">
