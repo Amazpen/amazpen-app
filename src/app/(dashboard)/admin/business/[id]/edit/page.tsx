@@ -149,6 +149,14 @@ export default function EditBusinessPage({ params }: PageProps) {
   const [isUploadingMemberAvatar, setIsUploadingMemberAvatar] = useState(false);
   const memberAvatarInputRef = useRef<HTMLInputElement>(null);
 
+  // Existing user selection mode
+  const [addMode, setAddMode] = useState<"new" | "existing">("new");
+  const [existingUserSearch, setExistingUserSearch] = useState("");
+  const [existingUsers, setExistingUsers] = useState<{ id: string; email: string; full_name: string | null; avatar_url: string | null }[]>([]);
+  const [selectedExistingUser, setSelectedExistingUser] = useState<{ id: string; email: string; full_name: string | null; avatar_url: string | null } | null>(null);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Load existing business data
   useEffect(() => {
     const loadBusinessData = async () => {
@@ -507,6 +515,60 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   const handleRemoveTeamMember = (index: number) => {
     setTeamMembers(teamMembers.filter((_, i) => i !== index));
+  };
+
+  // Search existing users for adding to business
+  const searchExistingUsers = useCallback(async (query: string) => {
+    if (!query.trim() || query.trim().length < 2) {
+      setExistingUsers([]);
+      return;
+    }
+    setIsSearchingUsers(true);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, avatar_url")
+        .or(`email.ilike.%${query.trim()}%,full_name.ilike.%${query.trim()}%`)
+        .limit(10);
+
+      // Filter out users already in teamMembers
+      const existingEmails = teamMembers.map(m => m.email.toLowerCase());
+      const filtered = (data || []).filter(u => !existingEmails.includes(u.email.toLowerCase()));
+      setExistingUsers(filtered);
+    } catch (err) {
+      console.error("Error searching users:", err);
+    } finally {
+      setIsSearchingUsers(false);
+    }
+  }, [teamMembers]);
+
+  const handleExistingUserSearchChange = (value: string) => {
+    setExistingUserSearch(value);
+    setSelectedExistingUser(null);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => searchExistingUsers(value), 300);
+  };
+
+  const handleAddExistingUser = () => {
+    if (!selectedExistingUser) return;
+    if (teamMembers.some(m => m.email.toLowerCase() === selectedExistingUser.email.toLowerCase())) {
+      showToast("משתמש עם אימייל זה כבר נוסף", "warning");
+      return;
+    }
+
+    setTeamMembers([...teamMembers, {
+      email: selectedExistingUser.email,
+      name: selectedExistingUser.full_name || "",
+      phone: "",
+      avatar_url: selectedExistingUser.avatar_url || "",
+      role: newMemberRole,
+      isExisting: false,
+    }]);
+
+    setSelectedExistingUser(null);
+    setExistingUserSearch("");
+    setExistingUsers([]);
   };
 
   // Toggle business status (active/inactive)
@@ -1536,184 +1598,329 @@ export default function EditBusinessPage({ params }: PageProps) {
 
       {/* Add Team Member Form */}
       <form className="bg-[#0F1535] rounded-[15px] p-[8px]" onSubmit={(e) => e.preventDefault()}>
-        <h3 className="text-[15px] font-bold text-white text-right mb-[10px]">הוספת משתמש חדש</h3>
+        <h3 className="text-[15px] font-bold text-white text-right mb-[10px]">הוספת משתמש</h3>
 
-        {/* Email */}
-        <div className="flex flex-col gap-[5px] mb-[10px]">
-          <label className="text-[14px] font-medium text-white text-right">
-            <span className="text-[#F64E60]">*</span> אימייל
-          </label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-            <Input
-              type="email"
-              value={newMemberEmail}
-              onChange={(e) => setNewMemberEmail(e.target.value)}
-              placeholder="user@example.com"
-              className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] placeholder:text-white/30"
-            />
-          </div>
+        {/* Mode Toggle */}
+        <div className="flex gap-[10px] mb-[15px]">
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={() => { setAddMode("existing"); setSelectedExistingUser(null); setExistingUserSearch(""); setExistingUsers([]); }}
+            className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
+              addMode === "existing"
+                ? "bg-[#00B894] text-white"
+                : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+            }`}
+          >
+            משתמש קיים
+          </Button>
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={() => setAddMode("new")}
+            className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
+              addMode === "new"
+                ? "bg-[#0075FF] text-white"
+                : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+            }`}
+          >
+            משתמש חדש
+          </Button>
         </div>
 
-        {/* Password */}
-        <div className="flex flex-col gap-[5px] mb-[10px]">
-          <label className="text-[14px] font-medium text-white text-right">
-            <span className="text-[#F64E60]">*</span> סיסמה
-          </label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-            <Input
-              type="password"
-              autoComplete="new-password"
-              value={newMemberPassword}
-              onChange={(e) => setNewMemberPassword(e.target.value)}
-              placeholder="לפחות 6 תווים"
-              className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] placeholder:text-white/30"
-            />
-          </div>
-        </div>
-
-        {/* Name */}
-        <div className="flex flex-col gap-[5px] mb-[10px]">
-          <label className="text-[14px] font-medium text-white text-right">שם מלא</label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-            <Input
-              type="text"
-              value={newMemberName}
-              onChange={(e) => setNewMemberName(e.target.value)}
-              placeholder="שם מלא"
-              className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] placeholder:text-white/30"
-            />
-          </div>
-        </div>
-
-        {/* Phone */}
-        <div className="flex flex-col gap-[5px] mb-[10px]">
-          <label className="text-[14px] font-medium text-white text-right">מספר טלפון</label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-            <Input
-              type="tel"
-              value={newMemberPhone}
-              onChange={(e) => setNewMemberPhone(e.target.value)}
-              placeholder="050-0000000"
-              className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] placeholder:text-white/30"
-            />
-          </div>
-        </div>
-
-        {/* Avatar Upload */}
-        <div className="flex flex-col gap-[5px] mb-[10px]">
-          <label className="text-[14px] font-medium text-white text-right">תמונת פרופיל</label>
-          <div className="flex items-center gap-[10px]">
-            {/* Preview */}
-            <div className="w-[45px] h-[45px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
-              {newMemberAvatarUrl ? (
-                <Image
-                  src={newMemberAvatarUrl}
-                  alt="תצוגה מקדימה"
-                  className="w-full h-full object-cover"
-                  width={45}
-                  height={45}
-                  unoptimized
+        {addMode === "existing" ? (
+          <>
+            {/* Search Existing Users */}
+            <div className="flex flex-col gap-[5px] mb-[10px]">
+              <label className="text-[14px] font-medium text-white text-right">חיפוש משתמש</label>
+              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                <Input
+                  type="text"
+                  value={existingUserSearch}
+                  onChange={(e) => handleExistingUserSearchChange(e.target.value)}
+                  placeholder="חיפוש לפי אימייל או שם..."
+                  className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] placeholder:text-white/30"
                 />
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white/50">
-                  <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
-                </svg>
-              )}
+              </div>
             </div>
-            {/* Upload Button */}
-            <input
-              ref={memberAvatarInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleMemberAvatarUpload}
-              aria-label="העלה תמונת פרופיל"
-              className="hidden"
-            />
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() => memberAvatarInputRef.current?.click()}
-              disabled={isUploadingMemberAvatar}
-              className="flex-1 border border-[#4C526B] rounded-[10px] h-[45px] flex items-center justify-center gap-[8px] text-white/70 hover:text-white hover:border-white/50 transition-colors disabled:opacity-50"
-            >
-              {isUploadingMemberAvatar ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                  </svg>
-                  מעלה...
-                </>
-              ) : (
-                <>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    <path d="M17 8L12 3L7 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M12 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                  העלה תמונה
-                </>
-              )}
-            </Button>
-            {newMemberAvatarUrl && (
-              <Button
-                variant="ghost"
-                size="icon"
-                type="button"
-                onClick={() => setNewMemberAvatarUrl("")}
-                className="w-[45px] h-[45px] border border-[#F64E60]/50 rounded-[10px] flex items-center justify-center text-[#F64E60] hover:bg-[#F64E60]/20 transition-colors"
-                title="הסר תמונה"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-              </Button>
+
+            {/* Search Results */}
+            {isSearchingUsers && (
+              <div className="text-center py-[10px]">
+                <span className="text-white/50 text-[13px]">מחפש...</span>
+              </div>
             )}
-          </div>
-        </div>
 
-        {/* Role Selection */}
-        <div className="flex flex-col gap-[5px] mb-[15px]">
-          <label className="text-[14px] font-medium text-white text-right">תפקיד</label>
-          <div className="flex gap-[10px]">
-            <Button
-              variant="ghost"
-              type="button"
-              onClick={() => setNewMemberRole("owner")}
-              className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
-                newMemberRole === "owner"
-                  ? "bg-[#9B59B6] text-white"
-                  : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
-              }`}
-            >
-              בעל עסק
-            </Button>
-            <Button
-              variant="ghost"
-              type="button"
-              onClick={() => setNewMemberRole("employee")}
-              className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
-                newMemberRole === "employee"
-                  ? "bg-[#3498DB] text-white"
-                  : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
-              }`}
-            >
-              עובד
-            </Button>
-          </div>
-        </div>
+            {!isSearchingUsers && existingUserSearch.trim().length >= 2 && existingUsers.length === 0 && (
+              <div className="text-center py-[10px]">
+                <span className="text-white/40 text-[13px]">לא נמצאו משתמשים</span>
+              </div>
+            )}
 
-        {/* Add Button */}
-        <Button
-          variant="default"
-          type="button"
-          onClick={handleAddTeamMember}
-          disabled={!newMemberEmail.trim() || !newMemberPassword.trim() || newMemberPassword.length < 6}
-          className="w-full h-[45px] bg-gradient-to-r from-[#0075FF] to-[#00D4FF] text-white text-[14px] font-bold rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          + הוסף משתמש
-        </Button>
+            {existingUsers.length > 0 && (
+              <div className="flex flex-col gap-[6px] mb-[10px] max-h-[200px] overflow-y-auto">
+                {existingUsers.map((user) => (
+                  <div
+                    key={user.id}
+                    onClick={() => setSelectedExistingUser(user)}
+                    className={`flex flex-row-reverse items-center gap-[10px] p-[10px] rounded-[10px] cursor-pointer transition-all ${
+                      selectedExistingUser?.id === user.id
+                        ? "bg-[#00B894]/20 border border-[#00B894]"
+                        : "bg-[#1A1F37] border border-transparent hover:border-[#4C526B]"
+                    }`}
+                  >
+                    <div className="w-[36px] h-[36px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {user.avatar_url ? (
+                        <Image
+                          src={user.avatar_url}
+                          alt={user.full_name || user.email}
+                          className="w-full h-full object-cover"
+                          width={36}
+                          height={36}
+                          unoptimized
+                        />
+                      ) : (
+                        <span className="text-white text-[14px] font-bold">
+                          {(user.full_name || user.email || "?")[0].toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-right flex-1 min-w-0">
+                      <p className="text-[14px] text-white truncate">{user.full_name || user.email}</p>
+                      {user.full_name && <p className="text-[12px] text-white/50 truncate">{user.email}</p>}
+                    </div>
+                    {selectedExistingUser?.id === user.id && (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+                        <path d="M20 6L9 17L4 12" stroke="#00B894" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Role Selection */}
+            <div className="flex flex-col gap-[5px] mb-[15px]">
+              <label className="text-[14px] font-medium text-white text-right">תפקיד</label>
+              <div className="flex gap-[10px]">
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setNewMemberRole("owner")}
+                  className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
+                    newMemberRole === "owner"
+                      ? "bg-[#9B59B6] text-white"
+                      : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                  }`}
+                >
+                  בעל עסק
+                </Button>
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setNewMemberRole("employee")}
+                  className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
+                    newMemberRole === "employee"
+                      ? "bg-[#3498DB] text-white"
+                      : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                  }`}
+                >
+                  עובד
+                </Button>
+              </div>
+            </div>
+
+            {/* Add Existing User Button */}
+            <Button
+              variant="default"
+              type="button"
+              onClick={handleAddExistingUser}
+              disabled={!selectedExistingUser}
+              className="w-full h-[45px] bg-gradient-to-r from-[#00B894] to-[#00D4AA] text-white text-[14px] font-bold rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              + הוסף משתמש קיים
+            </Button>
+          </>
+        ) : (
+          <>
+            {/* Email */}
+            <div className="flex flex-col gap-[5px] mb-[10px]">
+              <label className="text-[14px] font-medium text-white text-right">
+                <span className="text-[#F64E60]">*</span> אימייל
+              </label>
+              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                <Input
+                  type="email"
+                  value={newMemberEmail}
+                  onChange={(e) => setNewMemberEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] placeholder:text-white/30"
+                />
+              </div>
+            </div>
+
+            {/* Password */}
+            <div className="flex flex-col gap-[5px] mb-[10px]">
+              <label className="text-[14px] font-medium text-white text-right">
+                <span className="text-[#F64E60]">*</span> סיסמה
+              </label>
+              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  value={newMemberPassword}
+                  onChange={(e) => setNewMemberPassword(e.target.value)}
+                  placeholder="לפחות 6 תווים"
+                  className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] placeholder:text-white/30"
+                />
+              </div>
+            </div>
+
+            {/* Name */}
+            <div className="flex flex-col gap-[5px] mb-[10px]">
+              <label className="text-[14px] font-medium text-white text-right">שם מלא</label>
+              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                <Input
+                  type="text"
+                  value={newMemberName}
+                  onChange={(e) => setNewMemberName(e.target.value)}
+                  placeholder="שם מלא"
+                  className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] placeholder:text-white/30"
+                />
+              </div>
+            </div>
+
+            {/* Phone */}
+            <div className="flex flex-col gap-[5px] mb-[10px]">
+              <label className="text-[14px] font-medium text-white text-right">מספר טלפון</label>
+              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                <Input
+                  type="tel"
+                  value={newMemberPhone}
+                  onChange={(e) => setNewMemberPhone(e.target.value)}
+                  placeholder="050-0000000"
+                  className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none px-[15px] placeholder:text-white/30"
+                />
+              </div>
+            </div>
+
+            {/* Avatar Upload */}
+            <div className="flex flex-col gap-[5px] mb-[10px]">
+              <label className="text-[14px] font-medium text-white text-right">תמונת פרופיל</label>
+              <div className="flex items-center gap-[10px]">
+                {/* Preview */}
+                <div className="w-[45px] h-[45px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {newMemberAvatarUrl ? (
+                    <Image
+                      src={newMemberAvatarUrl}
+                      alt="תצוגה מקדימה"
+                      className="w-full h-full object-cover"
+                      width={45}
+                      height={45}
+                      unoptimized
+                    />
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white/50">
+                      <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
+                    </svg>
+                  )}
+                </div>
+                {/* Upload Button */}
+                <input
+                  ref={memberAvatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleMemberAvatarUpload}
+                  aria-label="העלה תמונת פרופיל"
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => memberAvatarInputRef.current?.click()}
+                  disabled={isUploadingMemberAvatar}
+                  className="flex-1 border border-[#4C526B] rounded-[10px] h-[45px] flex items-center justify-center gap-[8px] text-white/70 hover:text-white hover:border-white/50 transition-colors disabled:opacity-50"
+                >
+                  {isUploadingMemberAvatar ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                      מעלה...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                        <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        <path d="M17 8L12 3L7 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M12 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                      העלה תמונה
+                    </>
+                  )}
+                </Button>
+                {newMemberAvatarUrl && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => setNewMemberAvatarUrl("")}
+                    className="w-[45px] h-[45px] border border-[#F64E60]/50 rounded-[10px] flex items-center justify-center text-[#F64E60] hover:bg-[#F64E60]/20 transition-colors"
+                    title="הסר תמונה"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Role Selection */}
+            <div className="flex flex-col gap-[5px] mb-[15px]">
+              <label className="text-[14px] font-medium text-white text-right">תפקיד</label>
+              <div className="flex gap-[10px]">
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setNewMemberRole("owner")}
+                  className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
+                    newMemberRole === "owner"
+                      ? "bg-[#9B59B6] text-white"
+                      : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                  }`}
+                >
+                  בעל עסק
+                </Button>
+                <Button
+                  variant="ghost"
+                  type="button"
+                  onClick={() => setNewMemberRole("employee")}
+                  className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
+                    newMemberRole === "employee"
+                      ? "bg-[#3498DB] text-white"
+                      : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                  }`}
+                >
+                  עובד
+                </Button>
+              </div>
+            </div>
+
+            {/* Add Button */}
+            <Button
+              variant="default"
+              type="button"
+              onClick={handleAddTeamMember}
+              disabled={!newMemberEmail.trim() || !newMemberPassword.trim() || newMemberPassword.length < 6}
+              className="w-full h-[45px] bg-gradient-to-r from-[#0075FF] to-[#00D4FF] text-white text-[14px] font-bold rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              + הוסף משתמש חדש
+            </Button>
+          </>
+        )}
       </form>
 
       {/* New Team Members List */}
