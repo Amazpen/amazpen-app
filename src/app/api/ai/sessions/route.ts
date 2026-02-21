@@ -157,3 +157,92 @@ export async function POST(request: NextRequest) {
 
   return jsonResponse({ sessionId: session.id });
 }
+
+// ---------------------------------------------------------------------------
+// PATCH /api/ai/sessions — Search messages across all user sessions
+// ---------------------------------------------------------------------------
+export async function PATCH(request: NextRequest) {
+  const serverSupabase = await createServerClient();
+  const {
+    data: { user },
+  } = await serverSupabase.auth.getUser();
+
+  if (!user) {
+    return jsonResponse({ error: "לא מחובר" }, 401);
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "בקשה לא תקינה" }, 400);
+  }
+
+  const query = typeof body.query === "string" ? body.query.trim() : "";
+  if (query.length < 2) {
+    return jsonResponse({ results: [] });
+  }
+
+  // Search messages across all user's sessions using RLS (user-scoped)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    return jsonResponse({ error: "שירות מסד נתונים לא מוגדר" }, 503);
+  }
+
+  const adminSupabase = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  // Get all session IDs for this user
+  const { data: sessions } = await adminSupabase
+    .from("ai_chat_sessions")
+    .select("id, title, created_at")
+    .eq("user_id", user.id)
+    .order("updated_at", { ascending: false });
+
+  if (!sessions || sessions.length === 0) {
+    return jsonResponse({ results: [] });
+  }
+
+  const sessionIds = sessions.map((s) => s.id);
+  const sessionMap = new Map(sessions.map((s) => [s.id, s]));
+
+  // Search messages by content ILIKE
+  const { data: messages } = await adminSupabase
+    .from("ai_chat_messages")
+    .select("id, session_id, role, content, created_at")
+    .in("session_id", sessionIds)
+    .ilike("content", `%${query}%`)
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  if (!messages || messages.length === 0) {
+    return jsonResponse({ results: [] });
+  }
+
+  const results = messages.map((m) => {
+    const session = sessionMap.get(m.session_id);
+    // Extract snippet around the match
+    const lowerContent = m.content.toLowerCase();
+    const matchIdx = lowerContent.indexOf(query.toLowerCase());
+    const snippetStart = Math.max(0, matchIdx - 40);
+    const snippetEnd = Math.min(m.content.length, matchIdx + query.length + 60);
+    const snippet =
+      (snippetStart > 0 ? "..." : "") +
+      m.content.slice(snippetStart, snippetEnd) +
+      (snippetEnd < m.content.length ? "..." : "");
+
+    return {
+      id: m.id,
+      sessionId: m.session_id,
+      sessionTitle: session?.title || null,
+      sessionDate: session?.created_at || null,
+      role: m.role,
+      snippet,
+      timestamp: m.created_at,
+    };
+  });
+
+  return jsonResponse({ results });
+}

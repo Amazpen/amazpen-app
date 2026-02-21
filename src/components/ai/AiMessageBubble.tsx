@@ -142,6 +142,24 @@ function getProposedAction(message: UIMessage): AiProposedAction | null {
   return null;
 }
 
+/** Highlight matching text in content */
+function HighlightText({ text, query }: { text: string; query?: string }) {
+  if (!query) return <>{text}</>;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} className="bg-yellow-500/30 text-white rounded-sm px-0.5">{part}</mark>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
 interface AiMessageBubbleProps {
   message: UIMessage;
   thinkingStatus?: string | null;
@@ -149,9 +167,10 @@ interface AiMessageBubbleProps {
   isStreaming?: boolean;
   getChartData: (message: UIMessage) => AiChartData | undefined;
   getDisplayText: (message: UIMessage) => string;
+  searchQuery?: string;
 }
 
-export function AiMessageBubble({ message, thinkingStatus, errorText, isStreaming, getChartData, getDisplayText }: AiMessageBubbleProps) {
+export function AiMessageBubble({ message, thinkingStatus, errorText, isStreaming, getChartData, getDisplayText, searchQuery }: AiMessageBubbleProps) {
   const isUser = message.role === "user";
   const displayText = getDisplayText(message);
   const chartData = isUser ? undefined : getChartData(message);
@@ -162,7 +181,9 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
     return (
       <div className="group flex flex-col items-end gap-1" dir="rtl">
         <div className="max-w-[88%] sm:max-w-[80%] lg:max-w-[70%] bg-[#6366f1] text-white text-[13px] sm:text-[14px] leading-relaxed px-3 sm:px-4 py-2 sm:py-2.5 rounded-[16px] rounded-tl-[4px] break-words">
-          <div className="whitespace-pre-wrap [overflow-wrap:anywhere]">{displayText}</div>
+          <div className="whitespace-pre-wrap [overflow-wrap:anywhere]">
+            <HighlightText text={displayText} query={searchQuery} />
+          </div>
         </div>
         <div className="flex items-center gap-1 px-1">
           <CopyButton text={displayText} />
@@ -189,7 +210,7 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
                 <span className="text-white/60 text-[13px]">{thinkingStatus}</span>
               </div>
             ) : displayText ? (
-              <AiMarkdownRenderer content={displayText} />
+              <AiMarkdownRenderer content={displayText} searchQuery={searchQuery} />
             ) : !isStreaming && !proposedAction && !chartData ? (
               <span className="text-white/50 text-[13px]">{errorText ? `שגיאה: ${errorText}` : "לא הצלחתי לייצר תשובה. נסה לשאול שוב."}</span>
             ) : null}

@@ -12,9 +12,10 @@ interface AiMessageListProps {
   lastError?: string | null;
   getChartData: (message: UIMessage) => AiChartData | undefined;
   getDisplayText: (message: UIMessage) => string;
+  searchQuery?: string;
 }
 
-export function AiMessageList({ messages, isLoading, thinkingStatus, lastError, getChartData, getDisplayText }: AiMessageListProps) {
+export function AiMessageList({ messages, isLoading, thinkingStatus, lastError, getChartData, getDisplayText, searchQuery }: AiMessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
@@ -48,6 +49,7 @@ export function AiMessageList({ messages, isLoading, thinkingStatus, lastError, 
           isStreaming={isLoading && idx === messages.length - 1}
           getChartData={getChartData}
           getDisplayText={getDisplayText}
+          searchQuery={searchQuery}
         />
       ))}
       {isLoading && messages.length > 0 && messages[messages.length - 1].role === "user" && (
