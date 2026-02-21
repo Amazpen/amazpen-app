@@ -186,6 +186,42 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
   const isLoading = status === "submitted" || status === "streaming";
   const thinkingStatus = useMemo(() => getThinkingStatus(messages, status), [messages, status]);
 
+  // Haptic feedback: gentle taps during streaming, strong vibration on finish
+  const prevStatusRef = useRef(status);
+  const vibrationRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = status;
+
+    const canVibrate = typeof navigator !== "undefined" && "vibrate" in navigator;
+    if (!canVibrate) return;
+
+    // Started streaming → repeating gentle taps
+    if (status === "streaming" && prev !== "streaming") {
+      if (vibrationRef.current) clearInterval(vibrationRef.current);
+      vibrationRef.current = setInterval(() => {
+        navigator.vibrate(8);
+      }, 300);
+    }
+
+    // Finished streaming → stop taps + strong vibration
+    if (status === "ready" && (prev === "streaming" || prev === "submitted")) {
+      if (vibrationRef.current) {
+        clearInterval(vibrationRef.current);
+        vibrationRef.current = null;
+      }
+      navigator.vibrate([30, 50, 60]);
+    }
+
+    return () => {
+      if (vibrationRef.current) {
+        clearInterval(vibrationRef.current);
+        vibrationRef.current = null;
+      }
+    };
+  }, [status]);
+
   return {
     messages,
     isLoading,
