@@ -933,12 +933,20 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
               <>
                 {/* Pearla-specific form fields */}
                 <FormField label="תאריך האירוע">
-                  <Input
-                    type="date"
-                    value={formData.entry_date}
-                    onChange={(e) => handleChange("entry_date", e.target.value)}
-                    className={`w-full bg-transparent border text-white text-right h-[50px] rounded-[10px] px-[10px] [color-scheme:dark] ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'}`}
-                  />
+                  <div className={`relative ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} border rounded-[10px] h-[50px] px-[10px] flex items-center justify-center`}>
+                    <span className={`text-[16px] font-semibold pointer-events-none ${formData.entry_date ? 'text-white' : 'text-white/40'}`}>
+                      {formData.entry_date
+                        ? new Date(formData.entry_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                        : 'יום/חודש/שנה'}
+                    </span>
+                    <Input
+                      type="date"
+                      title="תאריך האירוע"
+                      value={formData.entry_date}
+                      onChange={(e) => handleChange("entry_date", e.target.value)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    />
+                  </div>
                   {dateWarning && (
                     <span className="text-[12px] text-[#FFA500] text-right mt-[3px]">{dateWarning}</span>
                   )}
@@ -1050,12 +1058,20 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
               <>
                 {/* Original form fields for all other businesses */}
                 <FormField label="תאריך">
-                  <Input
-                    type="date"
-                    value={formData.entry_date}
-                    onChange={(e) => handleChange("entry_date", e.target.value)}
-                    className={`w-full bg-transparent border text-white text-right h-[50px] rounded-[10px] px-[10px] [color-scheme:dark] ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'}`}
-                  />
+                  <div className={`relative ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} border rounded-[10px] h-[50px] px-[10px] flex items-center justify-center`}>
+                    <span className={`text-[16px] font-semibold pointer-events-none ${formData.entry_date ? 'text-white' : 'text-white/40'}`}>
+                      {formData.entry_date
+                        ? new Date(formData.entry_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                        : 'יום/חודש/שנה'}
+                    </span>
+                    <Input
+                      type="date"
+                      title="תאריך"
+                      value={formData.entry_date}
+                      onChange={(e) => handleChange("entry_date", e.target.value)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    />
+                  </div>
                   {dateWarning && (
                     <span className="text-[12px] text-[#FFA500] text-right mt-[3px]">{dateWarning}</span>
                   )}
