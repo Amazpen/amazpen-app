@@ -122,18 +122,59 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
   const [showImage, setShowImage] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const minTimeRef = useRef(false);
+  const hapticIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hapticStepRef = useRef(0);
+
+  // Matrix-synced haptic: pulsing vibration that mirrors the skeleton animation
+  useEffect(() => {
+    if (showImage) return; // stop when image appears
+
+    const canVibrate = typeof navigator !== "undefined" && "vibrate" in navigator;
+    if (!canVibrate) return;
+
+    // Pulse pattern synced to mmBreathe 1.4s cycle with spiral delay
+    // Each tick = one "ring" of the matrix expanding outward
+    hapticStepRef.current = 0;
+    hapticIntervalRef.current = setInterval(() => {
+      const step = hapticStepRef.current % 8;
+      // Build up: center → edges, then pause, then repeat
+      // Steps 0-4: expanding rings (intensity grows), 5-7: breathing pause
+      if (step <= 4) {
+        const intensity = 5 + step * 4; // 5, 9, 13, 17, 21
+        navigator.vibrate(intensity);
+      }
+      // steps 5-7: silence (breathing pause)
+      hapticStepRef.current++;
+    }, 180);
+
+    return () => {
+      if (hapticIntervalRef.current) {
+        clearInterval(hapticIntervalRef.current);
+        hapticIntervalRef.current = null;
+      }
+    };
+  }, [showImage]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       minTimeRef.current = true;
-      if (imageLoaded) setShowImage(true);
+      if (imageLoaded) {
+        setShowImage(true);
+        const canVibrate = typeof navigator !== "undefined" && "vibrate" in navigator;
+        if (canVibrate) navigator.vibrate([20, 40, 50]);
+      }
     }, 2000);
     return () => clearTimeout(timer);
   }, [imageLoaded]);
 
   const handleImageLoad = useCallback(() => {
     setImageLoaded(true);
-    if (minTimeRef.current) setShowImage(true);
+    if (minTimeRef.current) {
+      setShowImage(true);
+      // Completion vibration when avatar appears
+      const canVibrate = typeof navigator !== "undefined" && "vibrate" in navigator;
+      if (canVibrate) navigator.vibrate([20, 40, 50]);
+    }
   }, []);
 
   return (
