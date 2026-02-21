@@ -186,9 +186,21 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
   const isLoading = status === "submitted" || status === "streaming";
   const thinkingStatus = useMemo(() => getThinkingStatus(messages, status), [messages, status]);
 
-  // Haptic feedback: gentle taps during streaming, strong vibration on finish
+  // Dynamic haptic feedback — intensity follows the stream flow
   const prevStatusRef = useRef(status);
-  const vibrationRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const prevTextLenRef = useRef(0);
+  const hapticRafRef = useRef<number | null>(null);
+  const lastVibrateRef = useRef(0);
+
+  // Track text length changes during streaming for dynamic haptics
+  const currentTextLen = useMemo(() => {
+    if (status !== "streaming") return 0;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return 0;
+    return last.parts
+      .filter((p): p is { type: "text"; text: string } => p.type === "text")
+      .reduce((sum, p) => sum + p.text.length, 0);
+  }, [messages, status]);
 
   useEffect(() => {
     const prev = prevStatusRef.current;
@@ -197,30 +209,44 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
     const canVibrate = typeof navigator !== "undefined" && "vibrate" in navigator;
     if (!canVibrate) return;
 
-    // Started streaming → repeating gentle taps
-    if (status === "streaming" && prev !== "streaming") {
-      if (vibrationRef.current) clearInterval(vibrationRef.current);
-      vibrationRef.current = setInterval(() => {
-        navigator.vibrate(8);
-      }, 300);
-    }
-
-    // Finished streaming → stop taps + strong vibration
+    // Finished streaming → strong completion vibration
     if (status === "ready" && (prev === "streaming" || prev === "submitted")) {
-      if (vibrationRef.current) {
-        clearInterval(vibrationRef.current);
-        vibrationRef.current = null;
-      }
-      navigator.vibrate([30, 50, 60]);
+      if (hapticRafRef.current) cancelAnimationFrame(hapticRafRef.current);
+      hapticRafRef.current = null;
+      prevTextLenRef.current = 0;
+      navigator.vibrate([40, 30, 70]);
+      return;
     }
 
-    return () => {
-      if (vibrationRef.current) {
-        clearInterval(vibrationRef.current);
-        vibrationRef.current = null;
-      }
-    };
+    // Not streaming → nothing to do
+    if (status !== "streaming") {
+      prevTextLenRef.current = 0;
+      return;
+    }
   }, [status]);
+
+  // Dynamic vibration based on text flow speed
+  useEffect(() => {
+    const canVibrate = typeof navigator !== "undefined" && "vibrate" in navigator;
+    if (!canVibrate || status !== "streaming") return;
+
+    const delta = currentTextLen - prevTextLenRef.current;
+    prevTextLenRef.current = currentTextLen;
+
+    if (delta <= 0) return;
+
+    const now = performance.now();
+    const timeSinceLast = now - lastVibrateRef.current;
+
+    // Throttle: min 80ms between vibrations
+    if (timeSinceLast < 80) return;
+
+    // Intensity scales with how much text arrived at once
+    // Small chunks (1-5 chars) = light tap, big chunks (20+) = stronger pulse
+    const intensity = Math.min(18, 4 + Math.round(delta * 0.6));
+    navigator.vibrate(intensity);
+    lastVibrateRef.current = now;
+  }, [currentTextLen, status]);
 
   return {
     messages,
