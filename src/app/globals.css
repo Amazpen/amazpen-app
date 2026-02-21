@@ -400,6 +400,9 @@ input[type="date"].date-compact::-moz-calendar-picker-indicator {
 /* Date input - click anywhere to open picker (default) */
 input[type="date"]:not(.date-compact) {
   position: relative;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
 input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
@@ -412,6 +415,15 @@ input[type="date"]:not(.date-compact)::-webkit-calendar-picker-indicator {
   height: 100%;
   opacity: 0;
   cursor: pointer;
+}
+
+input[type="date"]:not(.date-compact)::-webkit-date-and-time-value {
+  text-align: right;
+}
+
+input[type="date"]:not(.date-compact)::-webkit-datetime-edit {
+  width: 100%;
+  padding: 0;
 }
 
 /* Sidebar CSS Variables - moved from inline styles */
