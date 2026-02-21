@@ -433,9 +433,18 @@ input[type="date"]:not(.date-compact)::-webkit-date-and-time-value {
 input[type="date"]:not(.date-compact)::-webkit-datetime-edit {
   width: 100%;
   padding: 0;
+  margin: 0;
 }
 
 input[type="date"]:not(.date-compact)::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+  margin: 0;
+}
+
+input[type="date"]:not(.date-compact)::-webkit-datetime-edit-text,
+input[type="date"]:not(.date-compact)::-webkit-datetime-edit-day-field,
+input[type="date"]:not(.date-compact)::-webkit-datetime-edit-month-field,
+input[type="date"]:not(.date-compact)::-webkit-datetime-edit-year-field {
   padding: 0;
 }
 
