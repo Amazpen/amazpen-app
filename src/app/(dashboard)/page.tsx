@@ -2988,9 +2988,9 @@ export default function DashboardPage() {
 
                 if (isPearla) {
                   return (
-                    <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('laborCost', 'עלות עובדים')}>
+                    <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-[7px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('laborCost', 'עלות עובדים')}>
                       <div className="flex flex-row-reverse justify-between items-center w-full gap-[15px]">
-                        <div className="flex flex-row items-center gap-[10px] ml-[9px]">
+                        <div className="flex flex-row items-center gap-[10px]">
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${laborDiffColor}`}>
                             {formatPercent(detailedSummary?.laborCostPct || 0)}
                           </span>
@@ -2998,7 +2998,7 @@ export default function DashboardPage() {
                             {formatCurrencyFull(detailedSummary?.laborCost || 0)}
                           </span>
                         </div>
-                        <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
+                        <div className="flex flex-row-reverse items-center gap-[6px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">עלות עובדים</span>
                           <div className="icon-bg-purple w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
                             <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
@@ -3014,7 +3014,7 @@ export default function DashboardPage() {
                       </div>
                       {/* Middle section - שכירים / כוח אדם with border */}
                       <div className="flex flex-row-reverse justify-between items-start w-full border-b border-white/50 pb-[5px] mt-[5px]">
-                        <div className="flex flex-col ml-[10px]">
+                        <div className="flex flex-col">
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                             <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">₪0</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">כוח אדם</span>
@@ -3024,7 +3024,7 @@ export default function DashboardPage() {
                             <span className="text-[14px] font-medium text-white leading-[1.4]">כוח אדם (%)</span>
                           </div>
                         </div>
-                        <div className="flex flex-col mr-[10px]">
+                        <div className="flex flex-col">
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                             <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">₪0</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">שכירים</span>
@@ -3037,7 +3037,7 @@ export default function DashboardPage() {
                       </div>
                       {/* Bottom section - הפרשים + ממוצעים */}
                       <div className="flex flex-row-reverse justify-between items-start gap-[10px]">
-                        <div className="flex flex-col ml-[10px]">
+                        <div className="flex flex-col">
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                             <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborDiffColor}`}>{formatPercent(noLaborData ? 0 : (detailedSummary?.laborCostDiffPct || 0))}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מיעד</span>
@@ -3051,7 +3051,7 @@ export default function DashboardPage() {
                             <span className="text-[14px] font-medium text-white leading-[1.4]">ממוצע עובדים לאורח</span>
                           </div>
                         </div>
-                        <div className="flex flex-col mr-[10px]">
+                        <div className="flex flex-col">
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                             <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${laborPrevMonthColor}`}>{formatPercent(noLaborData ? 0 : (detailedSummary?.laborCostPrevMonthChange || 0))}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
