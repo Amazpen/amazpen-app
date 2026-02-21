@@ -1064,10 +1064,13 @@ export default function DashboardPage() {
         };
       });
 
-      // Sort businesses alphabetically by name
-      const sortedBusinessCardsData = businessCardsData.sort((a, b) =>
-        a.name.localeCompare(b.name, 'he')
-      );
+      // Sort businesses by total income (highest first), then alphabetically by name
+      const sortedBusinessCardsData = businessCardsData.sort((a, b) => {
+        if (b.totalIncome !== a.totalIncome) {
+          return b.totalIncome - a.totalIncome;
+        }
+        return a.name.localeCompare(b.name, 'he');
+      });
 
       setBusinessCards(sortedBusinessCardsData);
       setIsLoading(false);
