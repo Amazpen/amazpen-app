@@ -100,16 +100,6 @@ export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
       {/* Chat header bar */}
       {hasMessages && (
         <div className="flex-shrink-0 sticky top-0 z-10 bg-[#0F1535] flex items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2 border-b border-white/10" dir="rtl">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={clearChat}
-            className="flex items-center gap-1.5 text-white hover:text-white/70 text-[12px] transition-colors flex-shrink-0"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            נקה שיחה
-          </Button>
-
           {/* Search area */}
           <div className="flex items-center gap-2">
             {isSearchOpen ? (
@@ -150,6 +140,16 @@ export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
               </Button>
             )}
           </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={clearChat}
+            className="flex items-center gap-1.5 text-white hover:text-white/70 text-[12px] transition-colors flex-shrink-0"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            נקה שיחה
+          </Button>
         </div>
       )}
 
