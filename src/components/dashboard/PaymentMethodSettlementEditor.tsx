@@ -57,25 +57,31 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="bg-[#0F1535] border-white/10 text-white max-w-[420px]" dir="rtl">
-        <DialogHeader>
-          <DialogTitle className="text-right text-[18px]">
-            הגדרות תקבול — {method.name}
-          </DialogTitle>
-          <DialogDescription className="sr-only">הגדרות התחשבנות עבור {method.name}</DialogDescription>
-        </DialogHeader>
+      <DialogContent className="bg-[#0F1535] border-[#2A3178]/60 text-white max-w-[420px] p-0 overflow-hidden" dir="rtl">
+        {/* Header with accent gradient */}
+        <div className="bg-gradient-to-l from-[#4956D4]/20 to-transparent px-[20px] pt-[20px] pb-[14px] border-b border-white/5">
+          <DialogHeader>
+            <DialogTitle className="text-right text-[17px] font-bold text-white flex items-center gap-[8px]">
+              <span className="w-[8px] h-[8px] rounded-full bg-[#4956D4] inline-block shrink-0" />
+              {method.name}
+            </DialogTitle>
+            <DialogDescription className="text-[12px] text-white/40 text-right mt-[4px]">
+              הגדר מתי הכסף מ{method.name} נכנס לחשבון הבנק
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <div className="flex flex-col gap-[14px] mt-[10px]">
+        <div className="flex flex-col gap-[16px] px-[20px] py-[16px]">
           {/* Settlement Type */}
           <div className="flex flex-col gap-[6px]">
-            <label className="text-[13px] text-white/60 text-right">סוג תקבול</label>
+            <label className="text-[12px] font-medium text-white/50 text-right">סוג התחשבנות</label>
             <Select value={settlementType} onValueChange={(v) => setSettlementType(v as SettlementType)}>
-              <SelectTrigger className="bg-[#232B6A] border-white/10 text-white text-right h-[40px]">
+              <SelectTrigger className="w-full bg-[#1A2155] border-[#2A3178] text-white text-right h-[42px] rounded-[10px] hover:border-[#4956D4]/50 transition-colors">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#232B6A] border-white/10">
+              <SelectContent className="bg-[#1A2155] border-[#2A3178]">
                 {(Object.entries(settlementTypeLabels) as [SettlementType, string][]).map(([value, label]) => (
-                  <SelectItem key={value} value={value} className="text-white text-right">
+                  <SelectItem key={value} value={value} className="text-white text-right hover:bg-[#4956D4]/20 focus:bg-[#4956D4]/20 focus:text-white">
                     {label}
                   </SelectItem>
                 ))}
@@ -85,8 +91,8 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
 
           {/* Daily: delay days */}
           {(settlementType === "daily" || settlementType === "same_day") && (
-            <div className="flex flex-col gap-[6px]">
-              <label className="text-[13px] text-white/60 text-right">עיכוב בימים</label>
+            <div className="bg-[#1A2155]/50 rounded-[12px] p-[14px] border border-[#2A3178]/40">
+              <label className="text-[12px] font-medium text-white/50 text-right block mb-[8px]">עיכוב בימים</label>
               <Input
                 type="number"
                 min={0}
@@ -94,9 +100,9 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
                 value={settlementType === "same_day" ? 0 : delayDays}
                 onChange={(e) => setDelayDays(parseInt(e.target.value) || 0)}
                 disabled={settlementType === "same_day"}
-                className="bg-[#232B6A] border-white/10 text-white text-center h-[40px]"
+                className="bg-[#0F1535] border-[#2A3178] text-white text-center h-[42px] rounded-[10px] text-[16px] font-semibold"
               />
-              <p className="text-[11px] text-white/40 text-right">
+              <p className="text-[11px] text-[#4956D4]/80 text-right mt-[6px]">
                 {settlementType === "same_day" ? "נכנס באותו יום" : `נכנס ${delayDays} ימים אחרי הרישום`}
               </p>
             </div>
@@ -104,15 +110,15 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
 
           {/* Weekly: day of week */}
           {settlementType === "weekly" && (
-            <div className="flex flex-col gap-[6px]">
-              <label className="text-[13px] text-white/60 text-right">יום תקבול בשבוע</label>
+            <div className="bg-[#1A2155]/50 rounded-[12px] p-[14px] border border-[#2A3178]/40">
+              <label className="text-[12px] font-medium text-white/50 text-right block mb-[8px]">יום תקבול בשבוע</label>
               <Select value={String(dayOfWeek)} onValueChange={(v) => setDayOfWeek(parseInt(v))}>
-                <SelectTrigger className="bg-[#232B6A] border-white/10 text-white text-right h-[40px]">
+                <SelectTrigger className="w-full bg-[#0F1535] border-[#2A3178] text-white text-right h-[42px] rounded-[10px]">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#232B6A] border-white/10">
+                <SelectContent className="bg-[#1A2155] border-[#2A3178]">
                   {dayOfWeekLabels.map((label, i) => (
-                    <SelectItem key={i} value={String(i)} className="text-white text-right">
+                    <SelectItem key={i} value={String(i)} className="text-white text-right hover:bg-[#4956D4]/20 focus:bg-[#4956D4]/20 focus:text-white">
                       יום {label}
                     </SelectItem>
                   ))}
@@ -123,113 +129,113 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
 
           {/* Monthly: day of month */}
           {settlementType === "monthly" && (
-            <div className="flex flex-col gap-[6px]">
-              <label className="text-[13px] text-white/60 text-right">יום תקבול בחודש</label>
+            <div className="bg-[#1A2155]/50 rounded-[12px] p-[14px] border border-[#2A3178]/40">
+              <label className="text-[12px] font-medium text-white/50 text-right block mb-[8px]">יום תקבול בחודש</label>
               <Input
                 type="number"
                 min={1}
                 max={31}
                 value={dayOfMonth}
                 onChange={(e) => setDayOfMonth(parseInt(e.target.value) || 1)}
-                className="bg-[#232B6A] border-white/10 text-white text-center h-[40px]"
+                className="bg-[#0F1535] border-[#2A3178] text-white text-center h-[42px] rounded-[10px] text-[16px] font-semibold"
               />
             </div>
           )}
 
           {/* Bimonthly: cutoff + 2 settlement days */}
           {settlementType === "bimonthly" && (
-            <>
+            <div className="bg-[#1A2155]/50 rounded-[12px] p-[14px] border border-[#2A3178]/40 flex flex-col gap-[12px]">
               <div className="flex flex-col gap-[6px]">
-                <label className="text-[13px] text-white/60 text-right">תאריך חיתוך (תקופה ראשונה עד יום)</label>
+                <label className="text-[12px] font-medium text-white/50 text-right">תאריך חיתוך (תקופה ראשונה עד יום)</label>
                 <Input
                   type="number"
                   min={1}
                   max={28}
                   value={bimonthlyFirstCutoff}
                   onChange={(e) => setBimonthlyFirstCutoff(parseInt(e.target.value) || 14)}
-                  className="bg-[#232B6A] border-white/10 text-white text-center h-[40px]"
+                  className="bg-[#0F1535] border-[#2A3178] text-white text-center h-[42px] rounded-[10px] text-[16px] font-semibold"
                 />
-                <p className="text-[11px] text-white/40 text-right">
-                  הכנסות מ-1 עד {bimonthlyFirstCutoff} לחודש → נכנסות ב-{bimonthlyFirstSettlement} לחודש הבא
+                <p className="text-[11px] text-[#4956D4]/80 text-right">
+                  הכנסות מ-1 עד {bimonthlyFirstCutoff} לחודש &larr; נכנסות ב-{bimonthlyFirstSettlement} לחודש הבא
                 </p>
               </div>
               <div className="flex gap-[10px]">
                 <div className="flex-1 flex flex-col gap-[6px]">
-                  <label className="text-[13px] text-white/60 text-right">יום תשלום 1</label>
+                  <label className="text-[12px] font-medium text-white/50 text-right">יום תשלום 1</label>
                   <Input
                     type="number"
                     min={1}
                     max={31}
                     value={bimonthlyFirstSettlement}
                     onChange={(e) => setBimonthlyFirstSettlement(parseInt(e.target.value) || 2)}
-                    className="bg-[#232B6A] border-white/10 text-white text-center h-[40px]"
+                    className="bg-[#0F1535] border-[#2A3178] text-white text-center h-[42px] rounded-[10px] text-[16px] font-semibold"
                   />
                 </div>
                 <div className="flex-1 flex flex-col gap-[6px]">
-                  <label className="text-[13px] text-white/60 text-right">יום תשלום 2</label>
+                  <label className="text-[12px] font-medium text-white/50 text-right">יום תשלום 2</label>
                   <Input
                     type="number"
                     min={1}
                     max={31}
                     value={bimonthlySecondSettlement}
                     onChange={(e) => setBimonthlySecondSettlement(parseInt(e.target.value) || 8)}
-                    className="bg-[#232B6A] border-white/10 text-white text-center h-[40px]"
+                    className="bg-[#0F1535] border-[#2A3178] text-white text-center h-[42px] rounded-[10px] text-[16px] font-semibold"
                   />
                 </div>
               </div>
-              <p className="text-[11px] text-white/40 text-right">
-                הכנסות מ-{bimonthlyFirstCutoff + 1} עד סוף החודש → נכנסות ב-{bimonthlySecondSettlement} לחודש הבא
+              <p className="text-[11px] text-[#4956D4]/80 text-right">
+                הכנסות מ-{bimonthlyFirstCutoff + 1} עד סוף החודש &larr; נכנסות ב-{bimonthlySecondSettlement} לחודש הבא
               </p>
-            </>
+            </div>
           )}
 
           {/* Custom (Coupons): settlement date + range */}
           {settlementType === "custom" && (
-            <>
+            <div className="bg-[#1A2155]/50 rounded-[12px] p-[14px] border border-[#2A3178]/40 flex flex-col gap-[12px]">
               <div className="flex flex-col gap-[6px]">
-                <label className="text-[13px] text-white/60 text-right">יום כניסת הקופונים בחודש</label>
+                <label className="text-[12px] font-medium text-white/50 text-right">יום כניסת הקופונים בחודש</label>
                 <Input
                   type="number"
                   min={1}
                   max={31}
                   value={couponSettlementDate}
                   onChange={(e) => setCouponSettlementDate(parseInt(e.target.value) || 1)}
-                  className="bg-[#232B6A] border-white/10 text-white text-center h-[40px]"
+                  className="bg-[#0F1535] border-[#2A3178] text-white text-center h-[42px] rounded-[10px] text-[16px] font-semibold"
                 />
               </div>
               <div className="flex gap-[10px]">
                 <div className="flex-1 flex flex-col gap-[6px]">
-                  <label className="text-[13px] text-white/60 text-right">מיום</label>
+                  <label className="text-[12px] font-medium text-white/50 text-right">מיום</label>
                   <Input
                     type="number"
                     min={1}
                     max={31}
                     value={couponRangeStart}
                     onChange={(e) => setCouponRangeStart(parseInt(e.target.value) || 1)}
-                    className="bg-[#232B6A] border-white/10 text-white text-center h-[40px]"
+                    className="bg-[#0F1535] border-[#2A3178] text-white text-center h-[42px] rounded-[10px] text-[16px] font-semibold"
                   />
                 </div>
                 <div className="flex-1 flex flex-col gap-[6px]">
-                  <label className="text-[13px] text-white/60 text-right">עד יום</label>
+                  <label className="text-[12px] font-medium text-white/50 text-right">עד יום</label>
                   <Input
                     type="number"
                     min={1}
                     max={31}
                     value={couponRangeEnd}
                     onChange={(e) => setCouponRangeEnd(parseInt(e.target.value) || 31)}
-                    className="bg-[#232B6A] border-white/10 text-white text-center h-[40px]"
+                    className="bg-[#0F1535] border-[#2A3178] text-white text-center h-[42px] rounded-[10px] text-[16px] font-semibold"
                   />
                 </div>
               </div>
-              <p className="text-[11px] text-white/40 text-right">
-                כל הקופונים שנרשמו מ-{couponRangeStart} עד {couponRangeEnd} → נכנסים ב-{couponSettlementDate} לחודש הבא
+              <p className="text-[11px] text-[#4956D4]/80 text-right">
+                כל הקופונים שנרשמו מ-{couponRangeStart} עד {couponRangeEnd} &larr; נכנסים ב-{couponSettlementDate} לחודש הבא
               </p>
-            </>
+            </div>
           )}
 
           {/* Commission Rate — shown for all types */}
           <div className="flex flex-col gap-[6px]">
-            <label className="text-[13px] text-white/60 text-right">עמלת סליקה (%)</label>
+            <label className="text-[12px] font-medium text-white/50 text-right">עמלת סליקה (%)</label>
             <Input
               type="number"
               min={0}
@@ -237,27 +243,27 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
               step={0.1}
               value={commissionRate}
               onChange={(e) => setCommissionRate(parseFloat(e.target.value) || 0)}
-              className="bg-[#232B6A] border-white/10 text-white text-center h-[40px]"
+              className="bg-[#1A2155] border-[#2A3178] text-white text-center h-[42px] rounded-[10px]"
             />
             {commissionRate > 0 && (
-              <p className="text-[11px] text-white/40 text-right">
+              <p className="text-[11px] text-[#FA5A7D]/70 text-right">
                 ירד {commissionRate}% מכל הכנסה מ{method.name}
               </p>
             )}
           </div>
 
           {/* Actions */}
-          <div className="flex gap-[10px] mt-[6px]">
+          <div className="flex gap-[10px] pt-[4px]">
             <Button
               onClick={handleSave}
-              className="flex-1 bg-[#4956D4] text-white text-[14px] font-semibold py-[10px] rounded-[8px]"
+              className="flex-1 bg-[#4956D4] hover:bg-[#5A67E0] text-white text-[14px] font-semibold py-[11px] rounded-[10px] transition-colors"
             >
               שמור
             </Button>
             <Button
               variant="ghost"
               onClick={onClose}
-              className="flex-1 text-white/60 text-[14px] py-[10px] rounded-[8px]"
+              className="flex-1 text-white/50 hover:text-white/80 hover:bg-white/5 text-[14px] py-[11px] rounded-[10px] transition-colors"
             >
               ביטול
             </Button>
