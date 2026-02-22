@@ -14,7 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { IncomeSourceSettlementEditor } from "@/components/dashboard/IncomeSourceSettlementEditor";
-import type { IncomeSource, SettlementType } from "@/types";
+import { PaymentMethodSettlementEditor } from "@/components/dashboard/PaymentMethodSettlementEditor";
+import type { IncomeSource, SettlementType, BusinessPaymentMethod } from "@/types";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -108,6 +109,11 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   const [customParameters, setCustomParameters] = useState<{ id?: string; name: string }[]>([]);
   const [newCustomParameter, setNewCustomParameter] = useState("");
+
+  // Payment Method Settlement Config (for cashflow)
+  const [paymentMethodTypes, setPaymentMethodTypes] = useState<{ id: string; name_he: string; display_order: number }[]>([]);
+  const [businessPaymentMethods, setBusinessPaymentMethods] = useState<BusinessPaymentMethod[]>([]);
+  const [editingPaymentMethodId, setEditingPaymentMethodId] = useState<string | null>(null);
 
   // Credit Cards
   interface CreditCard {
@@ -286,6 +292,14 @@ export default function EditBusinessPage({ params }: PageProps) {
       if (cardData) {
         setCreditCards(cardData.map(c => ({ id: c.id, cardName: c.card_name, billingDay: c.billing_day })));
       }
+
+      // Fetch payment method types + business payment methods
+      const [{ data: pmTypes }, { data: bpmData }] = await Promise.all([
+        supabase.from("payment_method_types").select("id, name_he, display_order").order("display_order"),
+        supabase.from("business_payment_methods").select("*").eq("business_id", businessId),
+      ]);
+      if (pmTypes) setPaymentMethodTypes(pmTypes as { id: string; name_he: string; display_order: number }[]);
+      if (bpmData) setBusinessPaymentMethods(bpmData as BusinessPaymentMethod[]);
 
       // Fetch managed products
       const { data: productData } = await supabase
@@ -1299,6 +1313,92 @@ export default function EditBusinessPage({ params }: PageProps) {
           />
         )}
       </div>
+
+      {/* Section: Payment Method Settlement Config */}
+      {paymentMethodTypes.length > 0 && (
+        <div className="bg-[#4956D4]/20 rounded-[15px] p-[8px]">
+          <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">הגדרות תקבול לפי אמצעי תשלום</h3>
+          <p className="text-[12px] text-white/50 text-right mb-[10px]">לחץ על אמצעי תשלום כדי להגדיר מתי הכסף נכנס לבנק</p>
+
+          <div className="flex flex-wrap gap-[8px]">
+            {paymentMethodTypes.map((pm) => {
+              const bpm = businessPaymentMethods.find((b) => b.payment_method_id === pm.id);
+              const typeLabel = bpm ? ({
+                same_day: "באותו יום",
+                daily: "יומי",
+                weekly: "שבועי",
+                monthly: "חודשי",
+                bimonthly: "דו-חודשי",
+                custom: "קופון",
+              } as Record<string, string>)[bpm.settlement_type] || "יומי" : "יומי";
+              const fee = bpm ? Number(bpm.commission_rate) : 0;
+
+              return (
+                <button
+                  key={pm.id}
+                  type="button"
+                  onClick={() => setEditingPaymentMethodId(pm.id)}
+                  className="flex items-center gap-[6px] bg-[#232B6A] rounded-[8px] px-[12px] py-[8px] hover:bg-[#29318A] transition-colors"
+                >
+                  <span className="text-[14px] text-white">{pm.name_he}</span>
+                  <span className="text-[11px] text-white/40">({typeLabel}{fee ? ` · ${fee}%` : ""})</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Payment Method Settlement Editor Dialog */}
+          {editingPaymentMethodId !== null && (() => {
+            const pm = paymentMethodTypes.find((p) => p.id === editingPaymentMethodId);
+            const existing = businessPaymentMethods.find((b) => b.payment_method_id === editingPaymentMethodId);
+            const defaultMethod: BusinessPaymentMethod = {
+              id: "",
+              business_id: businessId,
+              payment_method_id: editingPaymentMethodId,
+              is_active: true,
+              settlement_type: "daily" as SettlementType,
+              settlement_delay_days: 1,
+              commission_rate: 0,
+              created_at: "",
+              updated_at: "",
+            };
+            return (
+              <PaymentMethodSettlementEditor
+                method={existing || defaultMethod}
+                methodName={pm?.name_he || ""}
+                open={true}
+                onClose={() => setEditingPaymentMethodId(null)}
+                onSave={async (updated) => {
+                  const supabase = (await import("@/lib/supabase/client")).createClient();
+                  const payload = {
+                    business_id: businessId,
+                    payment_method_id: editingPaymentMethodId,
+                    is_active: true,
+                    ...updated,
+                  };
+                  const { data } = await supabase
+                    .from("business_payment_methods")
+                    .upsert(payload, { onConflict: "business_id,payment_method_id" })
+                    .select()
+                    .maybeSingle();
+                  if (data) {
+                    setBusinessPaymentMethods((prev) => {
+                      const idx = prev.findIndex((b) => b.payment_method_id === editingPaymentMethodId);
+                      if (idx >= 0) {
+                        const next = [...prev];
+                        next[idx] = data as BusinessPaymentMethod;
+                        return next;
+                      }
+                      return [...prev, data as BusinessPaymentMethod];
+                    });
+                  }
+                  setEditingPaymentMethodId(null);
+                }}
+              />
+            );
+          })()}
+        </div>
+      )}
 
       {/* Section 2: Receipt Types */}
       <div className="bg-[#4956D4]/20 rounded-[15px] p-[8px]">
