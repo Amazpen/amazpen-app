@@ -477,12 +477,20 @@ export default function CashFlowPage() {
       {/* ============= MAIN TABLE ============= */}
       <section className="bg-[#0F1535] rounded-[10px] p-[7px]">
         {/* Table Header */}
-        <div className="flex items-center justify-between min-h-[45px] bg-[#FACC15]/20 rounded-t-[8px] p-[8px] gap-[5px]">
-          <span className="text-[13px] font-bold w-[100px] text-right text-[#FACC15]">תאריך</span>
-          <span className="text-[13px] font-bold flex-1 text-center text-[#FACC15]">הכנסות</span>
-          <span className="text-[13px] font-bold flex-1 text-center text-[#FACC15]">הוצאות</span>
-          <span className="text-[13px] font-bold flex-1 text-center text-[#FACC15]">הפרש יומי</span>
-          <span className="text-[13px] font-bold flex-1 text-center text-[#FACC15]">צפי תזרים</span>
+        <div className="flex items-center gap-[5px] bg-[#29318A] rounded-t-[7px] p-[5px_3px] pe-[13px] mb-[10px]">
+          <div className="w-[70px] sm:w-[90px] flex-shrink-0 text-center">
+            <span className="text-[13px] sm:text-[14px]">תאריך</span>
+          </div>
+          <span className="text-[13px] sm:text-[14px] flex-1 text-center min-w-0">הכנסות</span>
+          <span className="text-[13px] sm:text-[14px] flex-1 text-center min-w-0">הוצאות</span>
+          <span className="text-[13px] sm:text-[14px] w-[60px] sm:w-[75px] flex-shrink-0 text-center">
+            <span className="sm:hidden">הפרש</span>
+            <span className="hidden sm:inline">הפרש יומי</span>
+          </span>
+          <span className="text-[13px] sm:text-[14px] w-[60px] sm:w-[75px] flex-shrink-0 text-center">
+            <span className="sm:hidden">תזרים</span>
+            <span className="hidden sm:inline">צפי תזרים</span>
+          </span>
         </div>
 
         {/* Loading */}
@@ -517,29 +525,29 @@ export default function CashFlowPage() {
                 <Button
                   type="button"
                   onClick={() => toggleMonth(month.key)}
-                  className={`flex items-center justify-between w-full min-h-[50px] p-[8px] gap-[5px] border-b-2 border-white/15 hover:bg-[#29318A]/30 transition-all cursor-pointer ${
+                  className={`flex items-center w-full min-h-[50px] p-[8px] pe-[13px] gap-[5px] border-b-2 border-white/15 hover:bg-[#29318A]/30 transition-all cursor-pointer ${
                     expandedMonths.includes(month.key) ? "rounded-t-[10px]" : ""
                   }`}
                 >
-                  <div className="flex items-center gap-[5px] w-[100px]">
+                  <div className="flex items-center gap-[5px] w-[70px] sm:w-[90px] flex-shrink-0">
                     <svg
                       width="16" height="16" viewBox="0 0 32 32" fill="none"
                       className={`flex-shrink-0 transition-transform ${expandedMonths.includes(month.key) ? "rotate-180" : ""}`}
                     >
                       <path d="M8 12L16 20L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                    <span className="text-[14px] font-bold text-right">{month.label}</span>
+                    <span className="text-[13px] sm:text-[14px] font-bold text-right">{month.label}</span>
                   </div>
-                  <span className="text-[13px] font-bold flex-1 text-center text-[#17DB4E]">
+                  <span className="text-[13px] font-bold flex-1 text-center min-w-0 text-[#17DB4E]">
                     {formatCurrencyFull(month.totalIncome)}
                   </span>
-                  <span className="text-[13px] font-bold flex-1 text-center text-[#F64E60]">
+                  <span className="text-[13px] font-bold flex-1 text-center min-w-0 text-[#F64E60]">
                     {formatCurrencyFull(month.totalExpenses)}
                   </span>
-                  <span className={`text-[13px] font-bold flex-1 text-center ${month.totalDiff >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+                  <span className={`text-[13px] font-bold w-[60px] sm:w-[75px] flex-shrink-0 text-center ${month.totalDiff >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
                     {formatCurrencyFull(month.totalDiff)}
                   </span>
-                  <span className={`text-[13px] font-bold flex-1 text-center ${month.endCumulative >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+                  <span className={`text-[13px] font-bold w-[60px] sm:w-[75px] flex-shrink-0 text-center ${month.endCumulative >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
                     {formatCurrencyFull(month.endCumulative)}
                   </span>
                 </Button>
@@ -552,11 +560,11 @@ export default function CashFlowPage() {
                         <Button
                           type="button"
                           onClick={() => toggleDay(day.date)}
-                          className={`flex items-center justify-between w-full min-h-[42px] p-[8px] gap-[5px] hover:bg-white/5 transition-all cursor-pointer ${
+                          className={`flex items-center w-full min-h-[42px] p-[8px] pe-[13px] gap-[5px] hover:bg-white/5 transition-all cursor-pointer ${
                             dayIndex < month.days.length - 1 && !expandedDays.includes(day.date) ? "border-b border-white/10" : ""
                           }`}
                         >
-                          <div className="flex items-center gap-[5px] w-[100px]">
+                          <div className="flex items-center gap-[5px] w-[70px] sm:w-[90px] flex-shrink-0">
                             <svg
                               width="12" height="12" viewBox="0 0 32 32" fill="none"
                               className={`flex-shrink-0 transition-transform text-white/40 ${expandedDays.includes(day.date) ? "rotate-180" : ""}`}
@@ -565,16 +573,16 @@ export default function CashFlowPage() {
                             </svg>
                             <span className="text-[12px] font-medium text-right text-white/80">{formatDayLabel(day.date)}</span>
                           </div>
-                          <span className={`text-[12px] font-medium flex-1 text-center ${day.totalIncome > 0 ? "text-[#17DB4E]" : "text-white/30"}`}>
+                          <span className={`text-[12px] font-medium flex-1 text-center min-w-0 ${day.totalIncome > 0 ? "text-[#17DB4E]" : "text-white/30"}`}>
                             {day.totalIncome > 0 ? formatCurrencyFull(day.totalIncome) : "-"}
                           </span>
-                          <span className={`text-[12px] font-medium flex-1 text-center ${day.totalExpenses > 0 ? "text-[#F64E60]" : "text-white/30"}`}>
+                          <span className={`text-[12px] font-medium flex-1 text-center min-w-0 ${day.totalExpenses > 0 ? "text-[#F64E60]" : "text-white/30"}`}>
                             {day.totalExpenses > 0 ? formatCurrencyFull(day.totalExpenses) : "-"}
                           </span>
-                          <span className={`text-[12px] font-medium flex-1 text-center ${day.dailyDiff > 0 ? "text-[#17DB4E]" : day.dailyDiff < 0 ? "text-[#F64E60]" : "text-white/30"}`}>
+                          <span className={`text-[12px] font-medium w-[60px] sm:w-[75px] flex-shrink-0 text-center ${day.dailyDiff > 0 ? "text-[#17DB4E]" : day.dailyDiff < 0 ? "text-[#F64E60]" : "text-white/30"}`}>
                             {day.dailyDiff !== 0 ? formatCurrencyFull(day.dailyDiff) : "-"}
                           </span>
-                          <span className={`text-[12px] font-bold flex-1 text-center ${day.cumulative >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+                          <span className={`text-[12px] font-bold w-[60px] sm:w-[75px] flex-shrink-0 text-center ${day.cumulative >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
                             {formatCurrencyFull(day.cumulative)}
                           </span>
                         </Button>
@@ -642,18 +650,18 @@ export default function CashFlowPage() {
             ))}
 
             {/* Totals Row */}
-            <div className="flex items-center justify-between min-h-[50px] p-[8px] gap-[5px] border-t-2 border-white/20 bg-white/5 rounded-b-[8px]">
-              <span className="text-[14px] font-bold w-[100px] text-right">סה&quot;כ</span>
-              <span className="text-[14px] font-bold flex-1 text-center text-[#17DB4E]">
+            <div className="flex items-center min-h-[50px] p-[8px] pe-[13px] gap-[5px] border-t-2 border-white/20 bg-white/5 rounded-b-[8px]">
+              <span className="text-[14px] font-bold w-[70px] sm:w-[90px] flex-shrink-0 text-center">סה&quot;כ</span>
+              <span className="text-[14px] font-bold flex-1 text-center min-w-0 text-[#17DB4E]">
                 {formatCurrencyFull(totalIncome)}
               </span>
-              <span className="text-[14px] font-bold flex-1 text-center text-[#F64E60]">
+              <span className="text-[14px] font-bold flex-1 text-center min-w-0 text-[#F64E60]">
                 {formatCurrencyFull(totalExpenses)}
               </span>
-              <span className={`text-[14px] font-bold flex-1 text-center ${netFlow >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+              <span className={`text-[14px] font-bold w-[60px] sm:w-[75px] flex-shrink-0 text-center ${netFlow >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
                 {formatCurrencyFull(netFlow)}
               </span>
-              <span className={`text-[14px] font-bold flex-1 text-center ${finalBalance >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+              <span className={`text-[14px] font-bold w-[60px] sm:w-[75px] flex-shrink-0 text-center ${finalBalance >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
                 {formatCurrencyFull(finalBalance)}
               </span>
             </div>
