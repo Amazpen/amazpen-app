@@ -339,7 +339,7 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, reference_number, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
         `)
         .eq("id", highlightInvoiceId)
         .in("business_id", selectedBusinesses)
@@ -819,7 +819,7 @@ function ExpensesPageInner() {
             *,
             supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
             creator:profiles!invoices_created_by_fkey(full_name),
-            payments!payments_invoice_id_fkey(id, payment_date, total_amount, reference_number, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
+            payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
           `)
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
@@ -1018,7 +1018,7 @@ function ExpensesPageInner() {
                 checkNumber: split.check_number || "",
                 installmentNumber: split.installment_number || null,
                 installmentsCount: split.installments_count || null,
-                referenceNumber: payment.reference_number || "",
+                referenceNumber: split.reference_number || "",
               });
             }
           }
@@ -1059,7 +1059,7 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, reference_number, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
         `)
         .in("business_id", selectedBusinesses)
         .is("deleted_at", null)
@@ -1729,7 +1729,7 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, reference_number, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
         `)
         .eq("id", editId)
         .maybeSingle();
@@ -2095,7 +2095,7 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, reference_number, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
         `)
         .in("business_id", selectedBusinesses)
         .eq("supplier_id", supplierId)
