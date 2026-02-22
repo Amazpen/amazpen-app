@@ -457,6 +457,7 @@ function PaymentsPageInner() {
 
   // Document viewer popup state (fullscreen preview)
   const [viewerDocUrl, setViewerDocUrl] = useState<string | null>(null);
+  const [viewerDocIsPdf, setViewerDocIsPdf] = useState(false);
 
   // Forecast state
   const [showForecast, setShowForecast] = useState(false);
@@ -1733,17 +1734,24 @@ function PaymentsPageInner() {
 
     const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
     const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
-    const startDate = startDateStr ? new Date(startDateStr) : new Date();
+    // Parse start date manually to avoid UTC timezone shift
+    const parts = startDateStr ? startDateStr.split("-").map(Number) : null;
+    const startYear = parts ? parts[0] : new Date().getFullYear();
+    const startMonth = parts ? parts[1] - 1 : new Date().getMonth(); // 0-based
+    const startDay = parts ? parts[2] : new Date().getDate();
 
     const result = [];
     for (let i = 0; i < numInstallments; i++) {
-      const date = new Date(startDate);
-      date.setMonth(date.getMonth() + i);
+      // Always calculate from original start date to avoid cumulative month overflow
+      const date = new Date(startYear, startMonth + i, startDay);
+
+      // Format manually to avoid toISOString() UTC shift
+      const dateForInput = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
       result.push({
         number: i + 1,
         date: date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
-        dateForInput: date.toISOString().split("T")[0],
+        dateForInput,
         amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
         checkNumber: "",
       });
@@ -3649,12 +3657,12 @@ function PaymentsPageInner() {
                                 {pm.customInstallments.length > 1 && (
                                   <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
                                 )}
-                                <div className="flex-1 relative h-[36px] overflow-hidden">
+                                <div className="flex-1 relative h-[36px]">
                                   <Input
                                     type="text"
                                     readOnly
                                     value={item.dateForInput ? (() => { const [y,m,d] = item.dateForInput.split("-"); return `${d}/${m}/${y.slice(2)}`; })() : ''}
-                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num cursor-pointer"
+                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num pointer-events-none"
                                   />
                                   <Input
                                     type="date"
@@ -3762,11 +3770,11 @@ function PaymentsPageInner() {
                 {receiptFiles.length > 0 && (
                   <div className="flex flex-wrap gap-[8px]">
                     {receiptFiles.map((entry, idx) => {
-                      const isPdf = entry.preview.toLowerCase().includes(".pdf");
+                      const isPdf = entry.preview.toLowerCase().includes(".pdf") || (entry.file?.type === "application/pdf");
                       return (
                         <div key={`receipt-${entry.preview}`} className="relative group border border-[#4C526B] rounded-[7px] w-[80px] h-[80px] overflow-hidden flex items-center justify-center bg-white/5">
                           {isPdf ? (
-                            <Button type="button" onClick={() => window.open(entry.preview, '_blank')} className="flex flex-col items-center gap-[2px] cursor-pointer">
+                            <Button type="button" onClick={() => { setViewerDocIsPdf(true); setViewerDocUrl(entry.preview); }} className="flex flex-col items-center gap-[2px] cursor-pointer">
                               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/60">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                                 <polyline points="14 2 14 8 20 8"/>
@@ -3774,7 +3782,7 @@ function PaymentsPageInner() {
                               <span className="text-[10px] text-white/50">PDF</span>
                             </Button>
                           ) : (
-                            <Button type="button" onClick={() => window.open(entry.preview, '_blank')} className="w-full h-full cursor-pointer">
+                            <Button type="button" onClick={() => { setViewerDocIsPdf(false); setViewerDocUrl(entry.preview); }} className="w-full h-full cursor-pointer">
                               <Image src={entry.preview} alt="קבלה" className="w-full h-full object-cover" width={70} height={70} unoptimized />
                             </Button>
                           )}
@@ -3904,12 +3912,12 @@ function PaymentsPageInner() {
       {viewerDocUrl && typeof window !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80"
-          onClick={() => setViewerDocUrl(null)}
+          onClick={() => { setViewerDocUrl(null); setViewerDocIsPdf(false); }}
         >
           {/* Close button */}
           <Button
             type="button"
-            onClick={() => setViewerDocUrl(null)}
+            onClick={() => { setViewerDocUrl(null); setViewerDocIsPdf(false); }}
             className="absolute top-[16px] right-[16px] z-10 w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer"
           >
             <X size={24} className="text-white" />
@@ -3932,7 +3940,7 @@ function PaymentsPageInner() {
             className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
-            {isPdfUrl(viewerDocUrl) ? (
+            {(isPdfUrl(viewerDocUrl) || viewerDocIsPdf) ? (
               <iframe
                 src={viewerDocUrl}
                 className="w-[90vw] h-[90vh] rounded-[12px] border border-white/20"
