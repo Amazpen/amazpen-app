@@ -847,6 +847,7 @@ function ExpensesPageInner() {
           { data: categoriesData },
           { data: dailyEntries },
           { data: goalsData },
+          { data: businessVatData },
         ] = await Promise.all([
           supabase
             .from("invoices")
@@ -879,15 +880,20 @@ function ExpensesPageInner() {
             .in("business_id", selectedBusinesses)
             .eq("year", targetYear)
             .eq("month", targetMonth),
+          supabase
+            .from("businesses")
+            .select("id, vat_percentage")
+            .in("id", selectedBusinesses),
         ]);
 
         // Calculate total sales before VAT
         const totalRegister = (dailyEntries || []).reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
-        // Use average VAT percentage across selected businesses, default 17%
-        const avgVat = goalsData && goalsData.length > 0
-          ? goalsData.reduce((sum, g) => sum + (Number(g.vat_percentage) || 0.17), 0) / goalsData.length
-          : 0.17;
-        const vatDivisor = 1 + avgVat;
+        // Use goal VAT with business-level fallback (same logic as dashboard)
+        const avgVat = (businessVatData || []).reduce((sum, b) => {
+          const bGoal = (goalsData || []).find(g => g.business_id === b.id);
+          return sum + (bGoal?.vat_percentage != null ? Number(bGoal.vat_percentage) : (Number(b.vat_percentage) || 0));
+        }, 0) / Math.max((businessVatData || []).length, 1);
+        const vatDivisor = avgVat > 0 ? 1 + avgVat : 1;
         const salesBeforeVat = totalRegister / vatDivisor;
         setTotalSalesBeforeVat(salesBeforeVat);
 
