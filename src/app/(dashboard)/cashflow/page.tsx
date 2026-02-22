@@ -66,8 +66,8 @@ const paymentMethodNames: Record<string, string> = {
 const formatCurrencyFull = (amount: number) => {
   const isNegative = amount < 0;
   const absAmount = Math.abs(amount);
-  const sign = isNegative ? "-" : "";
-  return `${sign}₪${Math.round(absAmount).toLocaleString("he-IL")}`;
+  const formatted = `₪${Math.round(absAmount).toLocaleString("he-IL")}`;
+  return isNegative ? `\u200E-${formatted}` : formatted;
 };
 
 const formatLocalDate = (date: Date) => {
