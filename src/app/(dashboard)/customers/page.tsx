@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useDashboard } from "../layout";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -120,6 +121,7 @@ const paymentMethodLabels: Record<string, string> = {
 export default function CustomersPage() {
   const { showToast } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  const { selectedBusinesses, isAdmin } = useDashboard();
 
   // Draft persistence
   const draftKey = "customerForm:draft";
@@ -210,50 +212,92 @@ export default function CustomersPage() {
       setIsLoading(true);
       const supabase = createClient();
 
-      const [
-        { data: businesses },
-        { data: customers },
-        { data: members },
-      ] = await Promise.all([
-        supabase
-          .from("businesses")
-          .select("*")
-          .is("deleted_at", null)
-          .order("name"),
-        supabase
-          .from("customers")
-          .select("*")
-          .is("deleted_at", null),
-        supabase
-          .from("business_members")
-          .select("user_id, role, business_id, profiles(id, full_name, email)"),
-      ]);
+      if (isAdmin) {
+        // Admin: fetch all businesses, all customers, all members
+        const [
+          { data: businesses },
+          { data: customers },
+          { data: members },
+        ] = await Promise.all([
+          supabase
+            .from("businesses")
+            .select("*")
+            .is("deleted_at", null)
+            .order("name"),
+          supabase
+            .from("customers")
+            .select("*")
+            .is("deleted_at", null),
+          supabase
+            .from("business_members")
+            .select("user_id, role, business_id, profiles(id, full_name, email)"),
+        ]);
 
-      const businessList = businesses || [];
-      const customerList = customers || [];
-      const memberList = (members as unknown as (BusinessMember & { business_id: string })[]) || [];
+        const businessList = businesses || [];
+        const customerList = customers || [];
+        const memberList = (members as unknown as (BusinessMember & { business_id: string })[]) || [];
 
-      setAllBusinesses(businessList);
+        setAllBusinesses(businessList);
 
-      // Map businesses to display items
-      const items: CustomerDisplay[] = businessList.map((biz) => ({
-        business: biz,
-        customer: customerList.find((c) => c.business_id === biz.id) || null,
-        members: memberList.filter((m) => m.business_id === biz.id),
-      }));
+        const items: CustomerDisplay[] = businessList.map((biz) => ({
+          business: biz,
+          customer: customerList.find((c) => c.business_id === biz.id) || null,
+          members: memberList.filter((m) => m.business_id === biz.id),
+        }));
 
-      setDisplayItems(items);
+        setDisplayItems(items);
 
-      // Standalone customers (not linked to any business)
-      const standalone = customerList.filter(
-        (c) => !c.business_id || !businessList.some((b) => b.id === c.business_id)
-      );
-      setStandaloneCustomers(standalone);
+        const standalone = customerList.filter(
+          (c) => !c.business_id || !businessList.some((b) => b.id === c.business_id)
+        );
+        setStandaloneCustomers(standalone);
+      } else {
+        // Regular user: fetch only customers for selected businesses
+        if (selectedBusinesses.length === 0) {
+          setDisplayItems([]);
+          setStandaloneCustomers([]);
+          setAllBusinesses([]);
+          setIsLoading(false);
+          return;
+        }
+
+        const [
+          { data: customers },
+          { data: businesses },
+        ] = await Promise.all([
+          supabase
+            .from("customers")
+            .select("*")
+            .is("deleted_at", null)
+            .in("business_id", selectedBusinesses),
+          supabase
+            .from("businesses")
+            .select("*")
+            .is("deleted_at", null)
+            .in("id", selectedBusinesses),
+        ]);
+
+        const customerList = customers || [];
+        const businessList = businesses || [];
+        setAllBusinesses(businessList);
+
+        const items: CustomerDisplay[] = customerList.map((c) => {
+          const biz = businessList.find(b => b.id === c.business_id);
+          return {
+            business: biz || { id: c.business_id, name: c.business_name } as Business,
+            customer: c,
+            members: [],
+          };
+        });
+
+        setDisplayItems(items);
+        setStandaloneCustomers([]);
+      }
 
       setIsLoading(false);
     }
     fetchData();
-  }, [refreshTrigger, showToast]);
+  }, [isAdmin, selectedBusinesses, refreshTrigger, showToast]);
 
   // ─── Detail Fetching ───────────────────────────────────────
 
@@ -408,12 +452,19 @@ export default function CustomersPage() {
     setIsFormOpen(true);
   };
 
-  // Open form for standalone customer (not linked to existing business)
+  // Open form for new customer
   const handleAddStandaloneCustomer = () => {
     resetForm();
     resetCleared();
-    setFormBusinessId(null);
-    setFormBusinessName("");
+    if (!isAdmin && selectedBusinesses.length > 0) {
+      // Regular user: link to their selected business
+      const biz = allBusinesses.find(b => b.id === selectedBusinesses[0]);
+      setFormBusinessId(selectedBusinesses[0]);
+      setFormBusinessName(biz?.name || "");
+    } else {
+      setFormBusinessId(null);
+      setFormBusinessName("");
+    }
     setIsEditMode(false);
     setEditingCustomer(null);
     setIsFormOpen(true);
@@ -891,8 +942,8 @@ export default function CustomersPage() {
                     </Badge>
                   )}
 
-                  {/* Business Logo */}
-                  {item.business.logo_url ? (
+                  {/* Logo / Avatar */}
+                  {isAdmin && item.business.logo_url ? (
                     <Image
                       src={item.business.logo_url}
                       alt={item.business.name}
@@ -904,14 +955,16 @@ export default function CustomersPage() {
                     />
                   ) : (
                     <div className="w-[60px] h-[60px] rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20">
-                      <span className="text-[22px] font-bold text-white/60">{item.business.name.charAt(0)}</span>
+                      <span className="text-[22px] font-bold text-white/60">
+                        {(isAdmin ? item.business.name : (item.customer?.business_name || item.business.name)).charAt(0)}
+                      </span>
                     </div>
                   )}
 
-                  {/* Business Name */}
+                  {/* Name */}
                   <div className="w-full max-w-[160px] text-center px-[4px]">
                     <span className="text-[18px] font-bold text-white leading-[1.4]">
-                      {item.business.name}
+                      {isAdmin ? item.business.name : (item.customer?.business_name || item.business.name)}
                     </span>
                   </div>
 
@@ -920,10 +973,12 @@ export default function CustomersPage() {
                     <span className="text-[14px] text-white/70 text-center">{item.customer.contact_name}</span>
                   )}
 
-                  {/* Members count */}
-                  <span className="text-[12px] text-white/50">
-                    {item.members.length} משתמשים
-                  </span>
+                  {/* Members count — admin only */}
+                  {isAdmin && (
+                    <span className="text-[12px] text-white/50">
+                      {item.members.length} משתמשים
+                    </span>
+                  )}
 
                   {/* Retainer info */}
                   {item.customer?.retainer_amount && item.customer.retainer_amount > 0 && (
@@ -947,8 +1002,8 @@ export default function CustomersPage() {
                 </Button>
               ))}
 
-              {/* Standalone customers (not linked to business) */}
-              {filteredStandalone.map((customer) => (
+              {/* Standalone customers (not linked to business) — admin only */}
+              {isAdmin && filteredStandalone.map((customer) => (
                 <Button
                   variant="ghost"
                   key={customer.id}
