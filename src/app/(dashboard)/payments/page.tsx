@@ -3406,11 +3406,12 @@ function PaymentsPageInner() {
                             {expandedMonths.has(monthKey) && (
                               <div className="flex flex-col">
                                 {/* Column Headers */}
-                                <div className="flex items-center gap-[3px] px-[7px] py-[3px] border-b border-white/20">
+                                <div className="flex items-center gap-[3px] px-[3px] py-[3px] border-b border-white/20">
                                   <div className="w-[24px] flex-shrink-0" />
                                   <span className="text-[14px] text-white/70 flex-1 text-center">תאריך חשבונית</span>
                                   <span className="text-[14px] text-white/70 flex-1 text-center">אסמכתא</span>
                                   <span className="text-[14px] text-white/70 flex-1 text-center">סכום כולל מע&quot;מ</span>
+                                  <span className="text-[14px] text-white/70 min-w-[50px] text-center">פעולות</span>
                                 </div>
 
                                 {/* Invoice Rows */}
@@ -3449,27 +3450,73 @@ function PaymentsPageInner() {
                                           ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </span>
                                       </Button>
-                                      {hasDetails && (
-                                        <Button
-                                          type="button"
-                                          onClick={() => setExpandedOpenInvoiceId(expandedOpenInvoiceId === inv.id ? null : inv.id)}
-                                          className="w-[24px] flex-shrink-0 flex items-center justify-center cursor-pointer"
-                                          title="צפייה במסמכים והערות"
-                                        >
-                                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={`transition-colors ${expandedOpenInvoiceId === inv.id ? 'text-[#bc76ff]' : 'text-white/50 hover:text-white/80'}`}>
-                                            <circle cx="12" cy="12" r="10"/>
-                                            <line x1="12" y1="16" x2="12" y2="12"/>
-                                            <line x1="12" y1="8" x2="12.01" y2="8"/>
-                                          </svg>
-                                        </Button>
-                                      )}
-                                      {!hasDetails && <div className="w-[24px] flex-shrink-0" />}
+                                      <div className="flex items-center gap-[5px] flex-shrink-0">
+                                        {attachmentUrls.length > 0 && (
+                                          <>
+                                            <Button
+                                              type="button"
+                                              title="צפייה במסמך"
+                                              onClick={(e) => { e.stopPropagation(); setViewerDocUrl(attachmentUrls[0]); }}
+                                              className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                            >
+                                              <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                                <circle cx="8.5" cy="8.5" r="1.5"/>
+                                                <polyline points="21 15 16 10 5 21"/>
+                                              </svg>
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              title="הורדת מסמך"
+                                              className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                try {
+                                                  const url = attachmentUrls[0];
+                                                  const res = await fetch(url);
+                                                  const blob = await res.blob();
+                                                  const blobUrl = URL.createObjectURL(blob);
+                                                  const a = document.createElement("a");
+                                                  a.href = blobUrl;
+                                                  a.download = url.split("/").pop() || "document";
+                                                  document.body.appendChild(a);
+                                                  a.click();
+                                                  document.body.removeChild(a);
+                                                  URL.revokeObjectURL(blobUrl);
+                                                } catch {
+                                                  window.open(attachmentUrls[0], "_blank");
+                                                }
+                                              }}
+                                            >
+                                              <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                <polyline points="7 10 12 15 17 10"/>
+                                                <line x1="12" y1="15" x2="12" y2="3"/>
+                                              </svg>
+                                            </Button>
+                                          </>
+                                        )}
+                                        {(attachmentUrls.length > 1 || inv.notes) && (
+                                          <Button
+                                            type="button"
+                                            title="מסמכים והערות"
+                                            onClick={(e) => { e.stopPropagation(); setExpandedOpenInvoiceId(expandedOpenInvoiceId === inv.id ? null : inv.id); }}
+                                            className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                          >
+                                            <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                              <circle cx="12" cy="12" r="10"/>
+                                              <line x1="12" y1="16" x2="12" y2="12"/>
+                                              <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                            </svg>
+                                          </Button>
+                                        )}
+                                      </div>
                                     </div>
 
-                                    {/* Expanded details: attachments + notes */}
-                                    {expandedOpenInvoiceId === inv.id && hasDetails && (
+                                    {/* Expanded details: extra attachments + notes */}
+                                    {expandedOpenInvoiceId === inv.id && (attachmentUrls.length > 1 || inv.notes) && (
                                       <div className="flex flex-col gap-[8px] px-[10px] py-[8px] bg-white/5 rounded-[8px] mx-[5px] mb-[5px]">
-                                        {attachmentUrls.length > 0 && (
+                                        {attachmentUrls.length > 1 && (
                                           <div className="flex flex-wrap gap-[8px]">
                                             {attachmentUrls.map((url: string, idx: number) => (
                                               <Button
