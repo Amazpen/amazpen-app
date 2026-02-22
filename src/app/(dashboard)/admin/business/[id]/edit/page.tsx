@@ -1312,21 +1312,26 @@ export default function EditBusinessPage({ params }: PageProps) {
               const fee = Number(pm.commission_rate) || 0;
 
               return (
-                <div key={pm.id || `new-${index}`} className="flex items-center gap-[4px]">
+                <div key={pm.id || `new-${index}`} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleRemovePaymentMethod(index); }}
+                    aria-label={`הסר ${pm.name}`}
+                    className="text-[#F64E60] hover:text-[#ff6b7a]"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </Button>
                   <button
                     type="button"
                     onClick={() => setEditingPaymentMethodId(pm.id || `new-${index}`)}
-                    className="flex items-center gap-[6px] bg-[#232B6A] rounded-[8px] px-[12px] py-[8px] hover:bg-[#29318A] transition-colors"
+                    className="flex items-center gap-[6px] hover:opacity-80 transition-opacity"
                   >
                     <span className="text-[14px] text-white">{pm.name}</span>
                     <span className="text-[11px] text-white/40">({typeLabel}{fee ? ` · ${fee}%` : ""})</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRemovePaymentMethod(index)}
-                    className="text-red-400 hover:text-red-300 text-[16px] px-[4px]"
-                  >
-                    ✕
                   </button>
                 </div>
               );
