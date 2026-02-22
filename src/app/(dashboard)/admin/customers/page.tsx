@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -29,6 +29,7 @@ interface Business {
   phone: string | null;
   email: string | null;
   logo_url: string | null;
+  vat_percentage?: number | null;
   created_at: string;
   deleted_at: string | null;
 }
@@ -59,6 +60,9 @@ interface Customer {
   retainer_day_of_month: number | null;
   retainer_status: 'active' | 'paused' | 'completed' | null;
   linked_income_source_id: string | null;
+  labor_type: 'global' | 'hourly' | null;
+  labor_monthly_salary: number | null;
+  labor_hourly_rate: number | null;
 }
 
 // Combined display item
@@ -66,6 +70,18 @@ interface CustomerDisplay {
   business: Business;
   customer: Customer | null;
   members: BusinessMember[];
+}
+
+// Customer service type
+interface CustomerService {
+  id: string;
+  customer_id: string;
+  name: string;
+  amount: number;
+  service_date: string;
+  notes: string | null;
+  created_at: string;
+  deleted_at: string | null;
 }
 
 // Customer payment type
@@ -162,8 +178,32 @@ export default function CustomersPage() {
   const [newPaymentMethod, setNewPaymentMethod] = useState("");
   const [newPaymentNotes, setNewPaymentNotes] = useState("");
 
+  // Services state
+  const [services, setServices] = useState<CustomerService[]>([]);
+  const [isAddServiceOpen, setIsAddServiceOpen] = useState(false);
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServiceAmount, setNewServiceAmount] = useState("");
+  const [newServiceDate, setNewServiceDate] = useState("");
+  const [newServiceNotes, setNewServiceNotes] = useState("");
+
+  // Labor cost form state
+  const [fLaborType, setFLaborType] = useState<string>("");
+  const [fLaborMonthlySalary, setFLaborMonthlySalary] = useState("");
+  const [fLaborHourlyRate, setFLaborHourlyRate] = useState("");
+
+  // Survey state
+  const [customerSurvey, setCustomerSurvey] = useState<{id: string; token: string; is_completed: boolean; created_at: string} | null>(null);
+  const [surveyResponses, setSurveyResponses] = useState<{question_key: string; answer_value: string}[]>([]);
+
   // Available businesses for "add standalone" form
-  const [_allBusinesses, setAllBusinesses] = useState<Business[]>([]);
+  const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
+
+  // Dynamic VAT multiplier based on selected business
+  const vatMultiplier = useMemo(() => {
+    const biz = formBusinessId ? allBusinesses.find(b => b.id === formBusinessId) : null;
+    const rate = Number(biz?.vat_percentage) || 0.18;
+    return 1 + rate;
+  }, [formBusinessId, allBusinesses]);
 
   // ─── Data Fetching ─────────────────────────────────────────
 
@@ -231,6 +271,17 @@ export default function CustomersPage() {
     setPayments(data || []);
   }, []);
 
+  const fetchServices = useCallback(async (customerId: string) => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("customer_services")
+      .select("*")
+      .eq("customer_id", customerId)
+      .is("deleted_at", null)
+      .order("service_date", { ascending: false });
+    setServices(data || []);
+  }, []);
+
   // ─── Monthly payments computed ─────────────────────────────
 
   const monthlyPayments = payments.filter((p) => {
@@ -246,11 +297,38 @@ export default function CustomersPage() {
     setSelectedItem(item);
     setDetailMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
     setIsAddPaymentOpen(false);
+    setIsAddServiceOpen(false);
+    setCustomerSurvey(null);
+    setSurveyResponses([]);
     setIsDetailOpen(true);
     if (item.customer) {
-      await fetchPayments(item.customer.id);
+      await Promise.all([
+        fetchPayments(item.customer.id),
+        fetchServices(item.customer.id),
+      ]);
+
+      // Fetch survey if retainer completed
+      if (item.customer.retainer_status === 'completed') {
+        const supabase = createClient();
+        const { data: survey } = await supabase
+          .from("customer_surveys")
+          .select("id, token, is_completed, created_at")
+          .eq("customer_id", item.customer.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        setCustomerSurvey(survey);
+        if (survey?.is_completed) {
+          const { data: responses } = await supabase
+            .from("customer_survey_responses")
+            .select("question_key, answer_value")
+            .eq("survey_id", survey.id);
+          setSurveyResponses(responses || []);
+        }
+      }
     } else {
       setPayments([]);
+      setServices([]);
     }
   };
 
@@ -258,6 +336,9 @@ export default function CustomersPage() {
     setIsDetailOpen(false);
     setSelectedItem(null);
     setPayments([]);
+    setServices([]);
+    setCustomerSurvey(null);
+    setSurveyResponses([]);
   };
 
   const resetForm = () => {
@@ -278,6 +359,9 @@ export default function CustomersPage() {
     setFRetainerMonths("");
     setFRetainerStartDate("");
     setFRetainerDayOfMonth("1");
+    setFLaborType("");
+    setFLaborMonthlySalary("");
+    setFLaborHourlyRate("");
   };
 
   const handleCloseForm = () => {
@@ -308,6 +392,9 @@ export default function CustomersPage() {
       setFRetainerMonths(item.customer.retainer_months != null ? String(item.customer.retainer_months) : "");
       setFRetainerStartDate(item.customer.retainer_start_date || "");
       setFRetainerDayOfMonth(item.customer.retainer_day_of_month != null ? String(item.customer.retainer_day_of_month) : "1");
+      setFLaborType(item.customer.labor_type || "");
+      setFLaborMonthlySalary(item.customer.labor_monthly_salary != null ? String(item.customer.labor_monthly_salary) : "");
+      setFLaborHourlyRate(item.customer.labor_hourly_rate != null ? String(item.customer.labor_hourly_rate) : "");
       setEditingCustomer(item.customer);
       setIsEditMode(true);
     } else {
@@ -1013,7 +1100,7 @@ export default function CustomersPage() {
                 </div>
                 {fRetainerAmount && parseFloat(fRetainerAmount) > 0 && (
                   <span className="text-[13px] text-[#C4B5FD] text-center">
-                    ₪{parseFloat(fRetainerAmount).toLocaleString("he-IL")} + מע&quot;מ = ₪{(parseFloat(fRetainerAmount) * 1.17).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    ₪{parseFloat(fRetainerAmount).toLocaleString("he-IL")} + מע&quot;מ = ₪{(parseFloat(fRetainerAmount) * vatMultiplier).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                   </span>
                 )}
               </div>
@@ -1302,7 +1389,7 @@ export default function CustomersPage() {
                     </div>
                     <div className="flex flex-col items-center text-center">
                       <span className="text-[12px] text-white/60">סכום כולל מע&quot;מ</span>
-                      <span className="text-[14px] text-[#C4B5FD] font-bold">₪{(selectedItem.customer.retainer_amount * 1.17).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                      <span className="text-[14px] text-[#C4B5FD] font-bold">₪{(selectedItem.customer.retainer_amount * (1 + (Number(selectedItem.business.vat_percentage) || 0.18))).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
 

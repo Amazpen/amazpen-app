@@ -346,6 +346,7 @@ function PaymentsPageInner() {
   );
 
   // Data from Supabase
+  const [businessVatRate, setBusinessVatRate] = useState(0.18);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [paymentMethodsData, setPaymentMethodsData] = useState<PaymentMethodSummary[]>([]);
   const [methodSupplierBreakdown, setMethodSupplierBreakdown] = useState<Record<string, MethodSupplierEntry[]>>({});
@@ -560,17 +561,27 @@ function PaymentsPageInner() {
       const supabase = createClient();
 
       try {
-        // Fetch suppliers for the selected businesses
-        const { data: suppliersData } = await supabase
-          .from("suppliers")
-          .select("id, name, expense_type")
-          .in("business_id", selectedBusinesses)
-          .is("deleted_at", null)
-          .eq("is_active", true)
-          .order("name");
+        // Fetch suppliers and business VAT for the selected businesses
+        const [{ data: suppliersData }, { data: bizVatData }] = await Promise.all([
+          supabase
+            .from("suppliers")
+            .select("id, name, expense_type")
+            .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
+            .eq("is_active", true)
+            .order("name"),
+          supabase
+            .from("businesses")
+            .select("id, vat_percentage")
+            .in("id", selectedBusinesses),
+        ]);
 
         if (suppliersData) {
           setSuppliers(suppliersData);
+        }
+        if (bizVatData && bizVatData.length > 0) {
+          const avgVat = bizVatData.reduce((sum, b) => sum + (Number(b.vat_percentage) || 0), 0) / bizVatData.length;
+          if (avgVat > 0) setBusinessVatRate(avgVat);
         }
 
         // Fetch credit cards for the selected businesses
@@ -688,7 +699,7 @@ function PaymentsPageInner() {
         : "1/1";
       const total = Number(p.total_amount);
       const inv = p.invoice;
-      const subtotal = inv ? Number(inv.subtotal) : Math.round(total / 1.18 * 100) / 100;
+      const subtotal = inv ? Number(inv.subtotal) : Math.round(total / (1 + businessVatRate) * 100) / 100;
       const vatAmount = inv ? Number(inv.vat_amount) : Math.round((total - subtotal) * 100) / 100;
       return {
         id: p.id,

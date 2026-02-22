@@ -16,6 +16,7 @@ import { savePriceTrackingForLineItems } from '@/lib/priceTracking';
 interface Business {
   id: string;
   name: string;
+  vat_percentage?: number;
 }
 
 interface Supplier {
@@ -149,7 +150,7 @@ export default function OCRPage() {
         const supabase = createClient();
         const { data } = await supabase
           .from('businesses')
-          .select('id, name')
+          .select('id, name, vat_percentage')
           .is('deleted_at', null)
           .eq('status', 'active')
           .order('name');
@@ -238,6 +239,9 @@ export default function OCRPage() {
 
       try {
         const { data: { user } } = await supabase.auth.getUser();
+
+        // Get business VAT rate from already-loaded businesses data
+        const bizVatRate = Number(businesses.find(b => b.id === formData.business_id)?.vat_percentage) || 0.18;
 
         // Fetch credit cards for billing day lookup (if any payment method uses credit card)
         const hasCreditCard = formData.payment_methods?.some(pm => pm.method === 'credit_card' && pm.creditCardId);
@@ -449,7 +453,7 @@ export default function OCRPage() {
         } else if (formData.document_type === 'summary') {
           // --- SUMMARY (מרכזת) ---
           const total = parseFloat(formData.total_amount);
-          const subtotal = total / 1.17;
+          const subtotal = total / (1 + bizVatRate);
           const vatAmount = total - subtotal;
           const isClosed = formData.summary_is_closed === 'yes';
 
@@ -479,7 +483,7 @@ export default function OCRPage() {
           if (formData.summary_delivery_notes && formData.summary_delivery_notes.length > 0 && invoice) {
             const deliveryNotesData = formData.summary_delivery_notes.map(note => {
               const noteTotal = parseFloat(note.total_amount);
-              const noteSubtotal = noteTotal / 1.17;
+              const noteSubtotal = noteTotal / (1 + bizVatRate);
               const noteVat = noteTotal - noteSubtotal;
               return {
                 invoice_id: invoice.id,

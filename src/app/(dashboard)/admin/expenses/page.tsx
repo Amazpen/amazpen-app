@@ -32,6 +32,7 @@ interface CsvExpense {
 interface Business {
   id: string;
   name: string;
+  vat_percentage?: number;
 }
 
 interface Supplier {
@@ -74,7 +75,7 @@ export default function AdminExpensesPage() {
     async function fetchBusinesses() {
       const { data, error } = await supabase
         .from("businesses")
-        .select("id, name")
+        .select("id, name, vat_percentage")
         .order("name");
 
       if (!error && data) {
@@ -316,13 +317,14 @@ export default function AdminExpensesPage() {
               if (vat_amount > 0) {
                 subtotal = Math.round((total_amount - vat_amount) * 100) / 100;
               } else {
-                // Assume VAT 18%
-                subtotal = Math.round((total_amount / 1.18) * 100) / 100;
+                const csvBizVat = Number(businesses.find(b => b.id === selectedBusinessId)?.vat_percentage) || 0.18;
+                subtotal = Math.round((total_amount / (1 + csvBizVat)) * 100) / 100;
                 vat_amount = Math.round((total_amount - subtotal) * 100) / 100;
               }
             } else if (subtotal > 0 && total_amount === 0) {
               if (vat_amount === 0) {
-                vat_amount = Math.round(subtotal * 0.18 * 100) / 100;
+                const csvBizVat = Number(businesses.find(b => b.id === selectedBusinessId)?.vat_percentage) || 0.18;
+                vat_amount = Math.round(subtotal * csvBizVat * 100) / 100;
               }
               total_amount = Math.round((subtotal + vat_amount) * 100) / 100;
             }

@@ -433,6 +433,7 @@ function ExpensesPageInner() {
 
   // Total sales before VAT for the selected date range (used for % מפדיון calculation)
   const [totalSalesBeforeVat, setTotalSalesBeforeVat] = useState(0);
+  const [businessVatRate, setBusinessVatRate] = useState(0.18);
   const [showStatusClarificationMenu, setShowStatusClarificationMenu] = useState(true);
   const [statusClarificationFile, setStatusClarificationFile] = useState<File | null>(null);
   const [statusClarificationFilePreview, setStatusClarificationFilePreview] = useState<string | null>(null);
@@ -896,6 +897,7 @@ function ExpensesPageInner() {
         const vatDivisor = avgVat > 0 ? 1 + avgVat : 1;
         const salesBeforeVat = totalRegister / vatDivisor;
         setTotalSalesBeforeVat(salesBeforeVat);
+        if (avgVat > 0) setBusinessVatRate(avgVat);
 
         // Calculate totals per supplier (for chart/purchases) and per category with suppliers (for expenses drill-down)
         if (invoicesData) {
@@ -1170,7 +1172,7 @@ function ExpensesPageInner() {
     }
   }, [showAddExpensePopup, editingInvoice, restoreExpenseDraft]);
 
-  const calculatedVat = partialVat ? parseFloat(vatAmount) || 0 : (parseFloat(amountBeforeVat) || 0) * 0.18;
+  const calculatedVat = partialVat ? parseFloat(vatAmount) || 0 : (parseFloat(amountBeforeVat) || 0) * businessVatRate;
   const totalWithVat = (parseFloat(amountBeforeVat) || 0) + calculatedVat;
 
   // Chart data source: categories for expenses/employees tabs, suppliers for purchases tab
@@ -1634,7 +1636,7 @@ function ExpensesPageInner() {
     const supabase = createClient();
 
     try {
-      const calculatedVatEdit = partialVat ? parseFloat(vatAmount) || 0 : (parseFloat(amountBeforeVat) || 0) * 0.18;
+      const calculatedVatEdit = partialVat ? parseFloat(vatAmount) || 0 : (parseFloat(amountBeforeVat) || 0) * businessVatRate;
       const totalWithVatEdit = (parseFloat(amountBeforeVat) || 0) + calculatedVatEdit;
 
       // Build final attachment URLs list from existing previews + new uploads

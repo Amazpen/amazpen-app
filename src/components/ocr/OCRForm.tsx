@@ -23,6 +23,7 @@ interface Supplier {
 interface Business {
   id: string;
   name: string;
+  vat_percentage?: number;
 }
 
 interface CoordinatorSupplier {
@@ -73,7 +74,7 @@ const PAYMENT_METHODS = [
   { value: 'other', label: 'אחר' },
 ];
 
-const VAT_RATE = 0.17;
+const DEFAULT_businessVatRate = 0.18;
 
 // Payment method entry for multiple payment methods support
 interface PaymentMethodEntry {
@@ -273,8 +274,10 @@ export default function OCRForm({
   }, [lineItems]);
 
   // Pearla detection for daily entry
-  const selectedBusinessName = useMemo(() => businesses.find(b => b.id === selectedBusinessId)?.name, [businesses, selectedBusinessId]);
+  const selectedBusiness = useMemo(() => businesses.find(b => b.id === selectedBusinessId), [businesses, selectedBusinessId]);
+  const selectedBusinessName = selectedBusiness?.name;
   const isPearla = selectedBusinessName?.includes("פרלה") || false;
+  const businessVatRate = Number(selectedBusiness?.vat_percentage) || DEFAULT_businessVatRate;
 
   // Load dynamic data for daily entry tab
   useEffect(() => {
@@ -383,7 +386,7 @@ export default function OCRForm({
   // Calculate VAT and total (for invoice/delivery_note tabs)
   const calculatedVat = useMemo(() => {
     const amount = parseFloat(amountBeforeVat) || 0;
-    return amount * VAT_RATE;
+    return amount * businessVatRate;
   }, [amountBeforeVat]);
 
   const totalWithVat = useMemo(() => {
@@ -685,7 +688,7 @@ export default function OCRForm({
       }
       if (data.vat_amount !== undefined) {
         setVatAmount(data.vat_amount.toString());
-        const expectedVat = (data.subtotal || 0) * VAT_RATE;
+        const expectedVat = (data.subtotal || 0) * businessVatRate;
         if (Math.abs((data.vat_amount || 0) - expectedVat) > 0.01) {
           setPartialVat(true);
         }
@@ -938,7 +941,7 @@ export default function OCRForm({
       }
 
       const total = parseFloat(summaryTotalAmount);
-      const subtotal = total / 1.17;
+      const subtotal = total / (1 + businessVatRate);
       const vat = total - subtotal;
 
       const formData: OCRFormData = {

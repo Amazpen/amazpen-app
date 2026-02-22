@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface Business {
   id: string;
   name: string;
+  vat_percentage?: number;
 }
 
 interface Supplier {
@@ -145,7 +146,7 @@ export function ConsolidatedInvoiceModal({
         // Admin sees all businesses
         const { data: allBusinesses } = await supabase
           .from("businesses")
-          .select("id, name")
+          .select("id, name, vat_percentage")
           .is("deleted_at", null)
           .eq("status", "active")
           .order("name");
@@ -375,8 +376,9 @@ export function ConsolidatedInvoiceModal({
       const { data: { user } } = await supabase.auth.getUser();
 
       const total = parseFloat(totalAmount);
-      // Calculate VAT (assuming 17% VAT)
-      const subtotal = total / 1.17;
+      const selectedBiz = businesses.find(b => b.id === selectedBusinessId);
+      const bizVatRate = Number(selectedBiz?.vat_percentage) || 0.18;
+      const subtotal = total / (1 + bizVatRate);
       const vatAmount = total - subtotal;
 
       // Determine status: if closed -> pending (waiting for payment), if not -> needs_review
@@ -411,7 +413,7 @@ export function ConsolidatedInvoiceModal({
       if (deliveryNotes.length > 0 && invoice) {
         const deliveryNotesData = deliveryNotes.map(note => {
           const noteTotal = parseFloat(note.total_amount);
-          const noteSubtotal = noteTotal / 1.17;
+          const noteSubtotal = noteTotal / (1 + bizVatRate);
           const noteVat = noteTotal - noteSubtotal;
 
           return {
