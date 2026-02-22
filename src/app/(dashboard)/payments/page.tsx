@@ -3832,19 +3832,13 @@ function PaymentsPageInner() {
                       const isPdf = entry.preview.toLowerCase().includes(".pdf") || (entry.file?.type === "application/pdf");
                       return (
                         <div key={`receipt-${entry.preview}`} className="relative group border border-[#4C526B] rounded-[7px] w-[80px] h-[80px] overflow-hidden flex items-center justify-center bg-white/5">
-                          {isPdf ? (
-                            <Button type="button" onClick={() => { setViewerDocIsPdf(true); setViewerDocUrl(entry.preview); }} className="flex flex-col items-center gap-[2px] cursor-pointer">
-                              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/60">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                <polyline points="14 2 14 8 20 8"/>
-                              </svg>
-                              <span className="text-[10px] text-white/50">PDF</span>
-                            </Button>
-                          ) : (
-                            <Button type="button" onClick={() => { setViewerDocIsPdf(false); setViewerDocUrl(entry.preview); }} className="w-full h-full cursor-pointer">
+                          <Button type="button" onClick={() => { setViewerDocIsPdf(isPdf); setViewerDocUrl(entry.preview); }} className="w-full h-full cursor-pointer">
+                            {isPdf ? (
+                              <PdfThumbnail url={entry.preview} className="w-full h-full" />
+                            ) : (
                               <Image src={entry.preview} alt="קבלה" className="w-full h-full object-cover" width={70} height={70} unoptimized />
-                            </Button>
-                          )}
+                            )}
+                          </Button>
                           <Button
                             type="button"
                             onClick={() => setReceiptFiles(prev => prev.filter((_, i) => i !== idx))}
