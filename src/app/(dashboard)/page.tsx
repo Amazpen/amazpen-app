@@ -181,6 +181,7 @@ interface DetailedSummary {
   currentExpensesPct: number; // הוצאות שוטפות באחוזים
   currentExpensesTargetPct: number; // יעד הוצאות שוטפות באחוזים
   currentExpensesDiffPct: number; // הפרש מהיעד באחוזים
+  currentExpensesTargetAmount: number; // תקציב הוצאות שוטפות בש"ח
   currentExpensesPrevMonthChange: number; // שינוי מחודש קודם
   currentExpensesPrevYearChange: number; // שינוי משנה שעברה
   privateIncome: number;
@@ -2201,6 +2202,7 @@ export default function DashboardPage() {
         currentExpensesPct,
         currentExpensesTargetPct,
         currentExpensesDiffPct,
+        currentExpensesTargetAmount,
         currentExpensesPrevMonthChange,
         currentExpensesPrevYearChange,
         privateIncome,
@@ -3428,7 +3430,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                       <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expPctColor}`}>
-                        {(noExpData || noTarget) ? '-' : formatCurrencyFullWithSign(((detailedSummary?.currentExpensesDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}
+                        {(noExpData || noTarget) ? '-' : formatCurrencyFullWithSign((detailedSummary?.currentExpenses || 0) - (detailedSummary?.currentExpensesTargetAmount || 0))}
                       </span>
                       <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                     </div>
