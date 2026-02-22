@@ -366,6 +366,18 @@ export default function DashboardPage() {
   const [managedProductChartData, setManagedProductChartData] = useState<{ month: string; actual: number; target: number }[]>([]);
   // נתונים היסטוריים לגרף מגמות - 6 חודשים אחרונים
   const [trendsChartData, setTrendsChartData] = useState<{ month: string; salesActual: number; salesTarget: number; laborCostPct: number; foodCostPct: number }[]>([]);
+  // Daily chart data for month view
+  const [dailyTrendsChartData, setDailyTrendsChartData] = useState<{ month: string; salesActual: number; salesTarget: number; laborCostPct: number; foodCostPct: number }[]>([]);
+  const [dailyOrderAvgChartData, setDailyOrderAvgChartData] = useState<{ month: string; [key: string]: number | string }[]>([]);
+  const [dailyFoodCostChartData, setDailyFoodCostChartData] = useState<{ month: string; actual: number; target: number }[]>([]);
+  const [dailyLaborCostChartData, setDailyLaborCostChartData] = useState<{ month: string; actual: number; target: number }[]>([]);
+  const [dailyManagedProductChartData, setDailyManagedProductChartData] = useState<{ month: string; actual: number; target: number }[]>([]);
+  // Chart period selectors
+  const [trendsChartPeriod, setTrendsChartPeriod] = useState<"year" | "month">("year");
+  const [orderAvgChartPeriod, setOrderAvgChartPeriod] = useState<"year" | "month">("year");
+  const [foodCostChartPeriod, setFoodCostChartPeriod] = useState<"year" | "month">("year");
+  const [laborCostChartPeriod, setLaborCostChartPeriod] = useState<"year" | "month">("year");
+  const [managedProductChartPeriod, setManagedProductChartPeriod] = useState<"year" | "month">("year");
   const [savedDateRange, setSavedDateRange] = usePersistedState<{ start: string; end: string } | null>("dashboard:dateRange", null);
   const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
 
@@ -1265,7 +1277,7 @@ export default function DashboardPage() {
         goodsSupplierIds.length > 0
           ? supabase
               .from("invoices")
-              .select("subtotal")
+              .select("subtotal, invoice_date")
               .in("supplier_id", goodsSupplierIds)
               .in("business_id", selectedBusinesses)
               .gte("invoice_date", startDateStr)
@@ -1559,7 +1571,7 @@ export default function DashboardPage() {
       const { data: productUsageData } = entryIds.length > 0
         ? await supabase
             .from("daily_product_usage")
-            .select("product_id, quantity, unit_cost_at_time")
+            .select("daily_entry_id, product_id, quantity, unit_cost_at_time")
             .in("daily_entry_id", entryIds)
         : { data: [] };
 
@@ -2191,6 +2203,139 @@ export default function DashboardPage() {
       setLaborCostChartData(laborCostChartDataArr);
       setManagedProductChartData(managedProductChartDataArr);
       setTrendsChartData(trendsChartDataArr);
+
+      // ========================================================================
+      // BUILD DAILY CHART DATA - For "החודש" (month) view
+      // Uses current month entries already fetched above
+      // ========================================================================
+      {
+        // Group current entries by date
+        const entriesByDate: Record<string, typeof entries> = {};
+        (entries || []).forEach(e => {
+          const dateKey = e.entry_date;
+          if (!entriesByDate[dateKey]) entriesByDate[dateKey] = [];
+          entriesByDate[dateKey].push(e);
+        });
+
+        // Group breakdowns by entry_id for daily lookup
+        const breakdownsByEntry: Record<string, { daily_entry_id: string; income_source_id: string; amount: number; orders_count: number }[]> = {};
+        (breakdownData || []).forEach(b => {
+          if (!breakdownsByEntry[b.daily_entry_id]) breakdownsByEntry[b.daily_entry_id] = [];
+          breakdownsByEntry[b.daily_entry_id].push(b);
+        });
+
+        // Group goods invoices by date
+        const goodsInvoicesByDate: Record<string, number> = {};
+        (goodsInvoices || []).forEach(inv => {
+          const d = (inv as { subtotal: number; invoice_date: string }).invoice_date;
+          if (d) {
+            goodsInvoicesByDate[d] = (goodsInvoicesByDate[d] || 0) + (Number(inv.subtotal) || 0);
+          }
+        });
+
+        // Group product usage by entry_id
+        const prodUsageByEntry: Record<string, Record<string, number>> = {};
+        (productUsageData || []).forEach(p => {
+          const eid = (p as { daily_entry_id: string; product_id: string; quantity: number }).daily_entry_id;
+          if (!prodUsageByEntry[eid]) prodUsageByEntry[eid] = {};
+          prodUsageByEntry[eid][p.product_id] = (prodUsageByEntry[eid][p.product_id] || 0) + (Number(p.quantity) || 0);
+        });
+
+        // Get sorted dates in the month
+        const allDates = new Set<string>();
+        (entries || []).forEach(e => allDates.add(e.entry_date));
+        const sortedDates = Array.from(allDates).sort();
+
+        // Target values (per day averages from goals)
+        const dailyRevenueTarget = revenueTarget > 0 && expectedWorkDaysInMonth > 0 ? revenueTarget / expectedWorkDaysInMonth : 0;
+        const avgFoodTargetPct = (goalsData || []).reduce((sum, g) => sum + (Number(g.food_cost_target_pct) || 0), 0) / Math.max((goalsData || []).length, 1);
+
+        const dailyTrendsArr: typeof dailyTrendsChartData = [];
+        const dailyOrderAvgArr: typeof dailyOrderAvgChartData = [];
+        const dailyFoodCostArr: typeof dailyFoodCostChartData = [];
+        const dailyLaborCostArr: typeof dailyLaborCostChartData = [];
+        const dailyManagedProductArr: typeof dailyManagedProductChartData = [];
+
+        for (const dateStr of sortedDates) {
+          const dayEntries = entriesByDate[dateStr] || [];
+          const dayNum = new Date(dateStr).getDate().toString();
+
+          const dayIncome = dayEntries.reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
+          const dayIncomeBeforeVat = dayIncome / vatDivisor;
+          const dayRawLabor = dayEntries.reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
+          const dayActualDayFactors = dayEntries.reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
+          const dayLaborCost = (dayRawLabor + (managerDailyCost * dayActualDayFactors)) * totalMarkup;
+          const dayLaborPct = dayIncomeBeforeVat > 0 ? (dayLaborCost / dayIncomeBeforeVat) * 100 : 0;
+          const dayFoodCost = goodsInvoicesByDate[dateStr] || 0;
+          const dayFoodPct = dayIncomeBeforeVat > 0 ? (dayFoodCost / dayIncomeBeforeVat) * 100 : 0;
+
+          // Trends
+          dailyTrendsArr.push({
+            month: dayNum,
+            salesActual: Math.round(dayIncome),
+            salesTarget: Math.round(dailyRevenueTarget),
+            laborCostPct: Math.round(dayLaborPct * 10) / 10,
+            foodCostPct: Math.round(dayFoodPct * 10) / 10,
+          });
+
+          // Order avg - breakdown by income source
+          const dayDataPoint: { month: string; [key: string]: number | string } = { month: dayNum };
+          const dayEntryIds = new Set(dayEntries.map(e => e.id));
+          const dayAggregates: Record<string, { totalAmount: number; ordersCount: number }> = {};
+          dayEntryIds.forEach(eid => {
+            (breakdownsByEntry[eid] || []).forEach(b => {
+              if (!dayAggregates[b.income_source_id]) dayAggregates[b.income_source_id] = { totalAmount: 0, ordersCount: 0 };
+              dayAggregates[b.income_source_id].totalAmount += Number(b.amount) || 0;
+              dayAggregates[b.income_source_id].ordersCount += Number(b.orders_count) || 0;
+            });
+          });
+          (allIncomeSources || []).forEach(source => {
+            const agg = dayAggregates[source.id];
+            const avg = agg && agg.ordersCount > 0 ? agg.totalAmount / agg.ordersCount : 0;
+            dayDataPoint[source.name] = Math.round(avg * 100) / 100;
+          });
+          dailyOrderAvgArr.push(dayDataPoint);
+
+          // Food cost
+          const dayFoodTargetILS = (avgFoodTargetPct / 100) * dayIncomeBeforeVat;
+          dailyFoodCostArr.push({
+            month: dayNum,
+            actual: Math.round(dayFoodCost),
+            target: Math.round(dayFoodTargetILS),
+          });
+
+          // Labor cost
+          dailyLaborCostArr.push({
+            month: dayNum,
+            actual: Math.round(dayLaborPct * 10) / 10,
+            target: Math.round(laborCostTargetPct * 10) / 10,
+          });
+
+          // Managed product
+          const firstManagedProduct = (allManagedProducts || [])[0];
+          if (firstManagedProduct) {
+            let dayQuantity = 0;
+            dayEntryIds.forEach(eid => {
+              dayQuantity += (prodUsageByEntry[eid]?.[firstManagedProduct.id]) || 0;
+            });
+            const unitCost = Number(firstManagedProduct.unit_cost) || 0;
+            const dayActualCost = unitCost * dayQuantity;
+            const targetPct = Number(firstManagedProduct.target_pct) || 0;
+            const dayTargetCost = (targetPct / 100) * dayIncomeBeforeVat;
+            dailyManagedProductArr.push({
+              month: dayNum,
+              actual: Math.round(dayActualCost),
+              target: Math.round(dayTargetCost),
+            });
+          }
+        }
+
+        setDailyTrendsChartData(dailyTrendsArr);
+        setDailyOrderAvgChartData(dailyOrderAvgArr);
+        setDailyFoodCostChartData(dailyFoodCostArr);
+        setDailyLaborCostChartData(dailyLaborCostArr);
+        setDailyManagedProductChartData(dailyManagedProductArr);
+      }
 
       setDetailedSummary({
         totalIncome,
@@ -3523,7 +3668,7 @@ export default function DashboardPage() {
               <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">מגמות</h3>
-                  <Select defaultValue="year">
+                  <Select value={trendsChartPeriod} onValueChange={(v) => setTrendsChartPeriod(v as "year" | "month")}>
                     <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
                       <SelectValue />
                     </SelectTrigger>
@@ -3535,7 +3680,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyComposedChart data={trendsChartData} barGap={4} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                    <LazyComposedChart data={trendsChartPeriod === "month" ? dailyTrendsChartData : trendsChartData} barGap={4} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <defs>
                         <linearGradient id="colorSalesActual" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#00E096" stopOpacity={0.8}/>
@@ -3671,7 +3816,7 @@ export default function DashboardPage() {
               <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">ממוצע הכנסה</h3>
-                  <Select defaultValue="year">
+                  <Select value={orderAvgChartPeriod} onValueChange={(v) => setOrderAvgChartPeriod(v as "year" | "month")}>
                     <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
                       <SelectValue />
                     </SelectTrigger>
@@ -3683,7 +3828,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyBarChart data={orderAvgChartData} barGap={2} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                    <LazyBarChart data={orderAvgChartPeriod === "month" ? dailyOrderAvgChartData : orderAvgChartData} barGap={2} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
@@ -3781,7 +3926,7 @@ export default function DashboardPage() {
               <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">ניהול עלות מכר</h3>
-                  <Select defaultValue="year">
+                  <Select value={foodCostChartPeriod} onValueChange={(v) => setFoodCostChartPeriod(v as "year" | "month")}>
                     <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
                       <SelectValue />
                     </SelectTrigger>
@@ -3793,7 +3938,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyBarChart data={foodCostChartData} barGap={4} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                    <LazyBarChart data={foodCostChartPeriod === "month" ? dailyFoodCostChartData : foodCostChartData} barGap={4} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
@@ -3861,7 +4006,7 @@ export default function DashboardPage() {
               <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">עלות עבודה</h3>
-                  <Select defaultValue="year">
+                  <Select value={laborCostChartPeriod} onValueChange={(v) => setLaborCostChartPeriod(v as "year" | "month")}>
                     <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
                       <SelectValue />
                     </SelectTrigger>
@@ -3873,7 +4018,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyAreaChart data={laborCostChartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                    <LazyAreaChart data={laborCostChartPeriod === "month" ? dailyLaborCostChartData : laborCostChartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <defs>
                         <linearGradient id="colorLaborActual" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#00E096" stopOpacity={0.4}/>
@@ -3997,7 +4142,7 @@ export default function DashboardPage() {
               <div className="data-card-new rounded-[10px] p-[7px]">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">{managedProductsSummary[0]?.name || 'מוצר מנוהל'}</h3>
-                  <Select defaultValue="year">
+                  <Select value={managedProductChartPeriod} onValueChange={(v) => setManagedProductChartPeriod(v as "year" | "month")}>
                     <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
                       <SelectValue />
                     </SelectTrigger>
@@ -4009,7 +4154,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="h-[280px] w-full bg-[#0f1535]/40 rounded-[8px]" dir="ltr">
                   <SafeChartContainer>
-                    <LazyBarChart data={managedProductChartData} barGap={4} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                    <LazyBarChart data={managedProductChartPeriod === "month" ? dailyManagedProductChartData : managedProductChartData} barGap={4} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
                       <LazyXAxis
                         dataKey="month"
