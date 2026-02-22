@@ -109,12 +109,50 @@ export interface CashflowIncomeOverride {
   id: string;
   business_id: string;
   settlement_date: string;
-  income_source_id: string;
+  payment_method_id: string;
   original_amount: number;
   override_amount: number;
   note?: string;
   created_by?: string;
   created_at: string;
+}
+
+// Payment Method Types (אמצעי תשלום — lookup table)
+export interface PaymentMethodType {
+  id: string; // 'cash', 'credit_card', '10bc', 'wolt', 'boss'
+  name_he: string;
+  display_order: number;
+}
+
+// Business Payment Methods (הגדרות תקבול לפי אמצעי תשלום לכל עסק)
+export interface BusinessPaymentMethod {
+  id: string;
+  business_id: string;
+  payment_method_id: string;
+  is_active: boolean;
+  settlement_type: SettlementType;
+  settlement_delay_days: number;
+  settlement_day_of_week?: number;
+  settlement_day_of_month?: number;
+  bimonthly_first_cutoff?: number;
+  bimonthly_first_settlement?: number;
+  bimonthly_second_settlement?: number;
+  commission_rate: number;
+  coupon_settlement_date?: number;
+  coupon_range_start?: number;
+  coupon_range_end?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Daily Payment Breakdown (פירוק הכנסה יומית לפי אמצעי תשלום)
+export interface DailyPaymentBreakdown {
+  id: string;
+  daily_entry_id: string;
+  payment_method_id: string;
+  amount: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // Receipt Types (תקבולים)

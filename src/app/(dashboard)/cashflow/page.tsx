@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { calculateSettledIncome, type SettledIncome } from "@/lib/cashflow/settlement";
-import type { IncomeSource, CashflowSettings } from "@/types";
+import type { BusinessPaymentMethod, CashflowSettings } from "@/types";
 
 // ============================================================================
 // TYPES
@@ -140,7 +140,7 @@ export default function CashFlowPage() {
   }, []);
 
   useMultiTableRealtime(
-    ["daily_entries", "daily_income_breakdown", "payment_splits", "payments", "cashflow_settings", "cashflow_income_overrides"],
+    ["daily_entries", "daily_payment_breakdown", "payment_splits", "payments", "cashflow_settings", "cashflow_income_overrides", "business_payment_methods"],
     handleRealtimeChange,
     selectedBusinesses.length > 0
   );
@@ -181,16 +181,18 @@ export default function CashFlowPage() {
         const lookbackStr = formatLocalDate(lookbackDate);
 
         // 2. Parallel queries
-        const [sourcesResult, incomeResult, splitsResult, overridesResult] = await Promise.all([
+        const [pmTypesResult, bpmResult, paymentBreakdownResult, splitsResult, overridesResult] = await Promise.all([
           supabase
-            .from("income_sources")
+            .from("payment_method_types")
+            .select("id, name_he, display_order")
+            .order("display_order"),
+          supabase
+            .from("business_payment_methods")
             .select("*")
-            .eq("business_id", businessId)
-            .eq("is_active", true)
-            .is("deleted_at", null),
+            .eq("business_id", businessId),
           supabase
-            .from("daily_income_breakdown")
-            .select("amount, income_source_id, daily_entries!inner(entry_date, business_id)")
+            .from("daily_payment_breakdown")
+            .select("amount, payment_method_id, daily_entries!inner(entry_date, business_id)")
             .eq("daily_entries.business_id", businessId)
             .gte("daily_entries.entry_date", lookbackStr)
             .lte("daily_entries.entry_date", endDateStr),
@@ -209,24 +211,28 @@ export default function CashFlowPage() {
             .lte("settlement_date", endDateStr),
         ]);
 
-        const incomeSources = (sourcesResult.data || []) as IncomeSource[];
-        const incomeEntries = (incomeResult.data || []).map((row: Record<string, unknown>) => {
+        const pmTypes = (pmTypesResult.data || []) as { id: string; name_he: string; display_order: number }[];
+        const pmNameMap: Record<string, string> = {};
+        pmTypes.forEach((t) => { pmNameMap[t.id] = t.name_he; });
+
+        const businessPaymentMethods = (bpmResult.data || []) as BusinessPaymentMethod[];
+        const paymentEntries = (paymentBreakdownResult.data || []).map((row: Record<string, unknown>) => {
           const dailyEntry = row.daily_entries as Record<string, unknown>;
           return {
             entry_date: dailyEntry.entry_date as string,
-            income_source_id: row.income_source_id as string,
+            payment_method_id: row.payment_method_id as string,
             amount: Number(row.amount) || 0,
           };
         });
 
         // 3. Calculate settled income
-        const settledMap = calculateSettledIncome(incomeEntries, incomeSources);
+        const settledMap = calculateSettledIncome(paymentEntries, businessPaymentMethods, pmNameMap);
 
         // 4. Apply overrides
         const overrides = overridesResult.data || [];
-        const overrideMap = new Map<string, number>(); // key: "date|source_id" → override_amount
+        const overrideMap = new Map<string, number>(); // key: "date|payment_method_id" → override_amount
         for (const ov of overrides) {
-          overrideMap.set(`${ov.settlement_date}|${ov.income_source_id}`, Number(ov.override_amount));
+          overrideMap.set(`${ov.settlement_date}|${ov.payment_method_id}`, Number(ov.override_amount));
         }
 
         // 5. Build expense map by due_date
@@ -260,7 +266,7 @@ export default function CashFlowPage() {
           // Income: get settled items for this date, apply overrides
           let incomeItems = settledMap.get(dateStr) || [];
           incomeItems = incomeItems.map((item) => {
-            const overrideKey = `${dateStr}|${item.income_source_id}`;
+            const overrideKey = `${dateStr}|${item.payment_method_id}`;
             if (overrideMap.has(overrideKey)) {
               const overrideAmt = overrideMap.get(overrideKey)!;
               return { ...item, net_amount: overrideAmt, fee_amount: item.gross_amount - overrideAmt };
@@ -349,11 +355,11 @@ export default function CashFlowPage() {
     await supabase.from("cashflow_income_overrides").upsert({
       business_id: selectedBusinesses[0],
       settlement_date: overrideItem.date,
-      income_source_id: overrideItem.item.income_source_id,
+      payment_method_id: overrideItem.item.payment_method_id,
       original_amount: overrideItem.item.gross_amount,
       override_amount: amount,
       note: overrideNote || null,
-    }, { onConflict: "business_id,settlement_date,income_source_id" });
+    }, { onConflict: "business_id,settlement_date,payment_method_id" });
 
     setOverrideItem(null);
     setOverrideAmount("");
@@ -606,7 +612,7 @@ export default function CashFlowPage() {
                                     className="flex items-center justify-between w-full py-[4px] hover:bg-white/5 rounded px-[4px] transition-colors"
                                   >
                                     <div className="flex items-center gap-[6px]">
-                                      <span className="text-[12px] text-white/80">{item.income_source_name}</span>
+                                      <span className="text-[12px] text-white/80">{item.payment_method_name}</span>
                                       {item.fee_amount > 0 && (
                                         <span className="text-[10px] text-white/30">(-{formatCurrencyFull(item.fee_amount)} עמלה)</span>
                                       )}
@@ -723,7 +729,7 @@ export default function CashFlowPage() {
           {overrideItem && (
             <div className="flex flex-col gap-[14px] mt-[10px]">
               <div className="flex flex-col gap-[4px]">
-                <span className="text-[13px] text-white/60">מקור: {overrideItem.item.income_source_name}</span>
+                <span className="text-[13px] text-white/60">אמצעי תשלום: {overrideItem.item.payment_method_name}</span>
                 <span className="text-[13px] text-white/60">תאריך מקורי: {formatDisplayDate(overrideItem.item.original_entry_date)}</span>
                 <span className="text-[13px] text-white/60">סכום מחושב: {formatCurrencyFull(overrideItem.item.gross_amount)}</span>
               </div>

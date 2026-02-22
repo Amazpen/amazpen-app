@@ -64,6 +64,12 @@ interface ManagedProduct {
   unit_cost: number;
 }
 
+interface PaymentMethod {
+  id: string;
+  name_he: string;
+  display_order: number;
+}
+
 // Form data types
 interface IncomeData {
   amount: string;
@@ -111,6 +117,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const [receiptTypes, setReceiptTypes] = useState<ReceiptType[]>([]);
   const [customParameters, setCustomParameters] = useState<CustomParameter[]>([]);
   const [managedProducts, setManagedProducts] = useState<ManagedProduct[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
 
   // Monthly settings for admin calculated fields
   const [monthlyMarkup, setMonthlyMarkup] = useState<number>(1);
@@ -122,6 +129,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const [receiptData, setReceiptData] = useState<Record<string, string>>({});
   const [parameterData, setParameterData] = useState<Record<string, string>>({});
   const [productUsage, setProductUsage] = useState<Record<string, ProductUsageData>>({});
+  const [paymentData, setPaymentData] = useState<Record<string, string>>({});
   const [dateWarning, setDateWarning] = useState<string | null>(null);
   const latestDateCheck = useRef<string>("");
 
@@ -167,10 +175,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const saveDraft = useCallback(() => {
     if (!isOpen || isEditMode || draftCleared.current) return;
     try {
-      const draft = { formData, incomeData, receiptData, parameterData, productUsage, pearlaData };
+      const draft = { formData, incomeData, receiptData, parameterData, productUsage, pearlaData, paymentData };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     } catch { /* ignore */ }
-  }, [DRAFT_KEY, isOpen, isEditMode, formData, incomeData, receiptData, parameterData, productUsage, pearlaData]);
+  }, [DRAFT_KEY, isOpen, isEditMode, formData, incomeData, receiptData, parameterData, productUsage, pearlaData, paymentData]);
 
   useEffect(() => {
     if (draftLoaded.current) saveDraft();
@@ -193,6 +201,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       if (draft.receiptData) setReceiptData(prev => ({ ...prev, ...draft.receiptData }));
       if (draft.parameterData) setParameterData(prev => ({ ...prev, ...draft.parameterData }));
       if (draft.productUsage) setProductUsage(prev => ({ ...prev, ...draft.productUsage }));
+      if (draft.paymentData) setPaymentData(prev => ({ ...prev, ...draft.paymentData }));
       if (draft.pearlaData) setPearlaData(draft.pearlaData);
     } catch { /* ignore */ }
     draftLoaded.current = true;
@@ -277,6 +286,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         { data: parameters },
         { data: products },
         { data: lastEntry },
+        { data: pmTypes },
       ] = await Promise.all([
         supabase
           .from("income_sources")
@@ -315,6 +325,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           .order("entry_date", { ascending: false })
           .limit(1)
           .maybeSingle(),
+        supabase
+          .from("payment_method_types")
+          .select("id, name_he, display_order")
+          .order("display_order"),
       ]);
 
       // Cache business config for offline use
@@ -348,6 +362,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       setReceiptTypes(receipts || []);
       setCustomParameters(parameters || []);
       setManagedProducts(products || []);
+      setPaymentMethods((pmTypes || []) as PaymentMethod[]);
 
       // Initialize form state for each type
       const initialIncome: Record<string, IncomeData> = {};
@@ -367,6 +382,12 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         initialParams[p.id] = "";
       });
       setParameterData(initialParams);
+
+      const initialPayment: Record<string, string> = {};
+      ((pmTypes || []) as PaymentMethod[]).forEach((pm) => {
+        initialPayment[pm.id] = "";
+      });
+      setPaymentData(initialPayment);
 
       // Initialize products with previous closing stock as opening stock
       const initialProducts: Record<string, ProductUsageData> = {};
@@ -476,6 +497,20 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           };
         });
         setIncomeData((prev) => ({ ...prev, ...existingIncome }));
+      }
+
+      // Load payment method breakdown for this entry
+      const { data: paymentBreakdownData } = await supabase
+        .from("daily_payment_breakdown")
+        .select("payment_method_id, amount")
+        .eq("daily_entry_id", entryId);
+
+      if (paymentBreakdownData) {
+        const existingPayment: Record<string, string> = {};
+        paymentBreakdownData.forEach((b) => {
+          existingPayment[b.payment_method_id] = b.amount?.toString() || "";
+        });
+        setPaymentData((prev) => ({ ...prev, ...existingPayment }));
       }
 
       // Load receipts for this entry
@@ -696,6 +731,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         // Delete existing related data before re-inserting
         await Promise.all([
           supabase.from("daily_income_breakdown").delete().eq("daily_entry_id", dailyEntryId),
+          supabase.from("daily_payment_breakdown").delete().eq("daily_entry_id", dailyEntryId),
           supabase.from("daily_receipts").delete().eq("daily_entry_id", dailyEntryId),
           supabase.from("daily_parameters").delete().eq("daily_entry_id", dailyEntryId),
           supabase.from("daily_product_usage").delete().eq("daily_entry_id", dailyEntryId),
@@ -742,6 +778,20 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
             income_source_id: source.id,
             amount,
             orders_count: ordersCount,
+          });
+          if (error) throw error;
+        }
+      }
+
+      // Save payment method breakdown
+      for (const pm of paymentMethods) {
+        const amount = parseFloat(paymentData[pm.id]) || 0;
+
+        if (amount > 0) {
+          const { error } = await supabase.from("daily_payment_breakdown").insert({
+            daily_entry_id: dailyEntryId,
+            payment_method_id: pm.id,
+            amount,
           });
           if (error) throw error;
         }
@@ -859,6 +909,12 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       };
     });
     setProductUsage(resetProducts);
+
+    const resetPayment: Record<string, string> = {};
+    paymentMethods.forEach((pm) => {
+      resetPayment[pm.id] = "";
+    });
+    setPaymentData(resetPayment);
 
     // Reset Pearla-specific data
     setPearlaData({
@@ -1128,6 +1184,23 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                           />
                         </FormField>
                       </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* אמצעי תשלום - לתזרים מזומנים */}
+                {paymentMethods.length > 0 && (
+                  <div className="flex flex-col gap-4 mt-2">
+                    <SectionHeader title="פירוט אמצעי תשלום" />
+                    {paymentMethods.map((pm) => (
+                      <FormField key={pm.id} label={pm.name_he}>
+                        <NumberInput
+                          placeholder="0"
+                          value={paymentData[pm.id] || ""}
+                          onChange={(v) => setPaymentData((prev) => ({ ...prev, [pm.id]: v }))}
+                          className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                        />
+                      </FormField>
                     ))}
                   </div>
                 )}
