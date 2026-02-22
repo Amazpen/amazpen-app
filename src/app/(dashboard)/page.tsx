@@ -1585,11 +1585,8 @@ export default function DashboardPage() {
       // Calculate current expenses percentage (same formula as food cost)
       const currentExpenses = totalCurrentExpenses;
       const currentExpensesPct = incomeBeforeVatForFood > 0 ? (currentExpenses / incomeBeforeVatForFood) * 100 : 0;
-      // Current expenses target - using current_expenses_target from goals (it's in ILS, need to convert to %)
+      // Current expenses target + diff calculated after monthlyPace (needs monthly pace before VAT)
       const currentExpensesTargetAmount = (goalsData || []).reduce((sum, g) => sum + (Number(g.current_expenses_target) || 0), 0);
-      const currentExpensesTargetPct = incomeBeforeVatForFood > 0 ? (currentExpensesTargetAmount / incomeBeforeVatForFood) * 100 : 0;
-      // Current expenses diff: actual - target
-      const currentExpensesDiffPct = currentExpensesPct - currentExpensesTargetPct;
 
       // For now, set fixed/variable from labor
       const fixedExpenses = laborCost;
@@ -1644,6 +1641,11 @@ export default function DashboardPage() {
         const dailyAverage = totalIncome / sumActualDayFactors;
         monthlyPace = dailyAverage * expectedMonthlyWorkDays;
       }
+
+      // Current expenses target: (תקציב הוצאות שוטפות / מילוי יומי סהכ קופה ללא מעמ) × 100
+      const monthlyPaceBeforeVat = vatDivisorForFood > 0 ? monthlyPace / vatDivisorForFood : 0;
+      const currentExpensesTargetPct = monthlyPaceBeforeVat > 0 ? (currentExpensesTargetAmount / monthlyPaceBeforeVat) * 100 : 0;
+      const currentExpensesDiffPct = currentExpensesPct - currentExpensesTargetPct;
 
       // Calculate target difference (הפרש מהיעד)
       // Formula: ((צפי חודשי / יעד הכנסות) - 1) × 100
@@ -3419,13 +3421,13 @@ export default function DashboardPage() {
                 <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
                   <div className="flex flex-col ml-[10px]">
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expDiffColor}`}>
+                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expPctColor}`}>
                         {(noExpData || noTarget) ? '-' : formatPercentWithSign(detailedSummary?.currentExpensesDiffPct || 0)}
                       </span>
                       <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                     </div>
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expDiffColor}`}>
+                      <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expPctColor}`}>
                         {(noExpData || noTarget) ? '-' : formatCurrencyFullWithSign(((detailedSummary?.currentExpensesDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}
                       </span>
                       <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
