@@ -50,6 +50,15 @@ interface Customer {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  // Retainer fields
+  retainer_amount: number | null;
+  retainer_type: 'monthly' | 'one_time' | 'fixed_term' | null;
+  retainer_months: number | null;
+  retainer_start_date: string | null;
+  retainer_end_date: string | null;
+  retainer_day_of_month: number | null;
+  retainer_status: 'active' | 'paused' | 'completed' | null;
+  linked_income_source_id: string | null;
 }
 
 // Combined display item
@@ -130,6 +139,11 @@ export default function CustomersPage() {
   const [fNotes, setFNotes] = useState("");
   const [fIsActive, setFIsActive] = useState(true);
   const [agreementFile, setAgreementFile] = useState<File | null>(null);
+  const [fRetainerAmount, setFRetainerAmount] = useState("");
+  const [fRetainerType, setFRetainerType] = useState<string>("");
+  const [fRetainerMonths, setFRetainerMonths] = useState("");
+  const [fRetainerStartDate, setFRetainerStartDate] = useState("");
+  const [fRetainerDayOfMonth, setFRetainerDayOfMonth] = useState("1");
 
   // Detail popup state
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -259,6 +273,11 @@ export default function CustomersPage() {
     setAgreementFile(null);
     setFormBusinessId(null);
     setFormBusinessName("");
+    setFRetainerAmount("");
+    setFRetainerType("");
+    setFRetainerMonths("");
+    setFRetainerStartDate("");
+    setFRetainerDayOfMonth("1");
   };
 
   const handleCloseForm = () => {
@@ -284,6 +303,11 @@ export default function CustomersPage() {
       setFPaymentTerms(item.customer.payment_terms || "");
       setFNotes(item.customer.notes || "");
       setFIsActive(item.customer.is_active);
+      setFRetainerAmount(item.customer.retainer_amount != null ? String(item.customer.retainer_amount) : "");
+      setFRetainerType(item.customer.retainer_type || "");
+      setFRetainerMonths(item.customer.retainer_months != null ? String(item.customer.retainer_months) : "");
+      setFRetainerStartDate(item.customer.retainer_start_date || "");
+      setFRetainerDayOfMonth(item.customer.retainer_day_of_month != null ? String(item.customer.retainer_day_of_month) : "1");
       setEditingCustomer(item.customer);
       setIsEditMode(true);
     } else {
@@ -341,6 +365,20 @@ export default function CustomersPage() {
         }
       }
 
+      // Parse retainer fields
+      const retainerAmount = fRetainerAmount ? parseFloat(fRetainerAmount) : null;
+      const retainerType = (fRetainerType as 'monthly' | 'one_time' | 'fixed_term') || null;
+      const retainerMonths = fRetainerMonths ? parseInt(fRetainerMonths, 10) : null;
+      const retainerDayOfMonth = fRetainerDayOfMonth ? parseInt(fRetainerDayOfMonth, 10) : null;
+
+      // Compute end date for fixed_term
+      let retainerEndDate: string | null = null;
+      if (retainerType === 'fixed_term' && fRetainerStartDate && retainerMonths) {
+        const startDate = new Date(fRetainerStartDate);
+        startDate.setMonth(startDate.getMonth() + retainerMonths);
+        retainerEndDate = startDate.toISOString().split('T')[0];
+      }
+
       const customerData = {
         business_id: formBusinessId || null,
         contact_name: fContactName.trim(),
@@ -353,9 +391,22 @@ export default function CustomersPage() {
         agreement_url: agreementUrl,
         notes: fNotes.trim() || null,
         is_active: fIsActive,
+        retainer_amount: retainerAmount,
+        retainer_type: retainerType,
+        retainer_months: retainerMonths,
+        retainer_start_date: fRetainerStartDate || null,
+        retainer_end_date: retainerEndDate,
+        retainer_day_of_month: retainerDayOfMonth,
+        retainer_status: retainerAmount && retainerAmount > 0 ? (isEditMode && editingCustomer?.retainer_status ? editingCustomer.retainer_status : 'active' as const) : null,
       };
 
+      let savedCustomerId: string | null = null;
+      let existingLinkedSourceId: string | null = null;
+
       if (isEditMode && editingCustomer) {
+        savedCustomerId = editingCustomer.id;
+        existingLinkedSourceId = editingCustomer.linked_income_source_id || null;
+
         const { error } = await supabase
           .from("customers")
           .update(customerData)
@@ -369,9 +420,10 @@ export default function CustomersPage() {
         }
         showToast("הלקוח עודכן בהצלחה", "success");
       } else {
+        savedCustomerId = generateUUID();
         const { error } = await supabase
           .from("customers")
-          .insert({ id: generateUUID(), ...customerData });
+          .insert({ id: savedCustomerId, ...customerData });
 
         if (error) {
           showToast("שגיאה בשמירת לקוח", "error");
@@ -381,6 +433,30 @@ export default function CustomersPage() {
         }
         showToast("הלקוח נשמר בהצלחה", "success");
         clearDraft();
+      }
+
+      // Create linked income_source if retainer amount > 0 and no existing link
+      if (retainerAmount && retainerAmount > 0 && !existingLinkedSourceId && formBusinessId && savedCustomerId) {
+        const incomeSourceId = generateUUID();
+        const { error: incomeError } = await supabase
+          .from("income_sources")
+          .insert({
+            id: incomeSourceId,
+            business_id: formBusinessId,
+            name: `ריטיינר — ${fBusinessName.trim()}`,
+            type: "retainer",
+            is_active: true,
+          });
+
+        if (!incomeError) {
+          // Link the income source to the customer
+          await supabase
+            .from("customers")
+            .update({ linked_income_source_id: incomeSourceId })
+            .eq("id", savedCustomerId);
+        } else {
+          console.error("Error creating income source:", incomeError);
+        }
       }
 
       setRefreshTrigger((prev) => prev + 1);
@@ -480,8 +556,9 @@ export default function CustomersPage() {
     saveDraft({
       fContactName, fBusinessName, fCompanyName, fTaxId,
       fWorkStartDate, fSetupFee, fPaymentTerms, fNotes,
+      fRetainerAmount, fRetainerType, fRetainerMonths, fRetainerStartDate, fRetainerDayOfMonth,
     });
-  }, [saveDraft, isFormOpen, isEditMode, fContactName, fBusinessName, fCompanyName, fTaxId, fWorkStartDate, fSetupFee, fPaymentTerms, fNotes]);
+  }, [saveDraft, isFormOpen, isEditMode, fContactName, fBusinessName, fCompanyName, fTaxId, fWorkStartDate, fSetupFee, fPaymentTerms, fNotes, fRetainerAmount, fRetainerType, fRetainerMonths, fRetainerStartDate, fRetainerDayOfMonth]);
 
   useEffect(() => {
     if (draftRestored.current) saveDraftData();
@@ -502,6 +579,11 @@ export default function CustomersPage() {
           if (draft.fSetupFee) setFSetupFee(draft.fSetupFee as string);
           if (draft.fPaymentTerms) setFPaymentTerms(draft.fPaymentTerms as string);
           if (draft.fNotes) setFNotes(draft.fNotes as string);
+          if (draft.fRetainerAmount) setFRetainerAmount(draft.fRetainerAmount as string);
+          if (draft.fRetainerType) setFRetainerType(draft.fRetainerType as string);
+          if (draft.fRetainerMonths) setFRetainerMonths(draft.fRetainerMonths as string);
+          if (draft.fRetainerStartDate) setFRetainerStartDate(draft.fRetainerStartDate as string);
+          if (draft.fRetainerDayOfMonth) setFRetainerDayOfMonth(draft.fRetainerDayOfMonth as string);
         }
         draftRestored.current = true;
       }, 0);
@@ -551,7 +633,7 @@ export default function CustomersPage() {
           variant="default"
           type="button"
           onClick={handleAddStandaloneCustomer}
-          className="w-full md:w-auto min-h-[50px] bg-[#29318A] text-white text-[16px] font-semibold rounded-[5px] px-[24px] py-[12px] transition-colors duration-200 hover:bg-[#3D44A0] shadow-[0_7px_30px_-10px_rgba(41,49,138,0.1)]"
+          className="w-full md:w-auto min-h-[50px] bg-[#6B21A8] text-white text-[16px] font-semibold rounded-[5px] px-[24px] py-[12px] transition-colors duration-200 hover:bg-[#7C3AED] shadow-[0_7px_30px_-10px_rgba(41,49,138,0.1)]"
         >
           הוספת לקוח חדש
         </Button>
@@ -583,7 +665,7 @@ export default function CustomersPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="חיפוש לקוח..."
-              className="bg-[#29318A]/30 border border-[#6B6B6B] rounded-[7px] px-[12px] py-[6px] text-white text-[14px] placeholder:text-white/50 focus:outline-none focus:border-[#29318A] flex-1 text-right"
+              className="bg-[#6B21A8]/30 border border-[#6B6B6B] rounded-[7px] px-[12px] py-[6px] text-white text-[14px] placeholder:text-white/50 focus:outline-none focus:border-[#6B21A8] flex-1 text-right"
               autoFocus
             />
           ) : (
@@ -598,7 +680,7 @@ export default function CustomersPage() {
               {[...Array(6)].map((_, i) => (
                 <div
                   key={`skeleton-${i}`}
-                  className="bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] animate-pulse"
+                  className="bg-[#6B21A8] rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] animate-pulse"
                 >
                   <div className="w-[120px] flex justify-center">
                     <div className="h-[16px] bg-white/20 rounded w-[100px]" />
@@ -630,7 +712,7 @@ export default function CustomersPage() {
                   key={item.business.id}
                   type="button"
                   onClick={() => handleOpenDetail(item)}
-                  className={`bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] h-auto flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#3D44A0] cursor-pointer relative ${item.customer && !item.customer.is_active ? "opacity-40" : ""}`}
+                  className={`bg-[#6B21A8] rounded-[10px] p-[7px] min-h-[170px] h-auto flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#7C3AED] cursor-pointer relative ${item.customer && !item.customer.is_active ? "opacity-40" : ""}`}
                 >
                   {/* Setup badge */}
                   {!item.customer && (
@@ -679,6 +761,26 @@ export default function CustomersPage() {
                   <span className="text-[12px] text-white/50">
                     {item.members.length} משתמשים
                   </span>
+
+                  {/* Retainer info */}
+                  {item.customer?.retainer_amount && item.customer.retainer_amount > 0 && (
+                    <div className="flex flex-col items-center gap-[4px]">
+                      <span className="text-[13px] text-purple-300 font-medium">
+                        ₪{item.customer.retainer_amount.toLocaleString("he-IL")}
+                      </span>
+                      {item.customer.retainer_status && (
+                        <Badge className={`text-[10px] px-[6px] py-[1px] rounded-full font-bold ${
+                          item.customer.retainer_status === 'active'
+                            ? 'bg-[#0BB783]/20 text-[#0BB783]'
+                            : item.customer.retainer_status === 'paused'
+                            ? 'bg-[#F6A609]/20 text-[#F6A609]'
+                            : 'bg-white/10 text-white/50'
+                        }`}>
+                          {item.customer.retainer_status === 'active' ? 'פעיל' : item.customer.retainer_status === 'paused' ? 'מושהה' : 'הסתיים'}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                 </Button>
               ))}
 
@@ -693,7 +795,7 @@ export default function CustomersPage() {
                     customer,
                     members: [],
                   })}
-                  className={`bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] h-auto flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#3D44A0] cursor-pointer relative ${!customer.is_active ? "opacity-40" : ""}`}
+                  className={`bg-[#6B21A8] rounded-[10px] p-[7px] min-h-[170px] h-auto flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#7C3AED] cursor-pointer relative ${!customer.is_active ? "opacity-40" : ""}`}
                 >
                   {!customer.is_active && (
                     <Badge className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">
@@ -860,7 +962,7 @@ export default function CustomersPage() {
             {/* הסכם עבודה - file upload */}
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">הסכם עבודה</label>
-              <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[80px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#29318A] transition-colors">
+              <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[80px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#6B21A8] transition-colors">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-[#979797]">
                   <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M3 15V16C3 18.2091 4.79086 20 7 20H17C19.2091 20 21 18.2091 21 16V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -889,6 +991,97 @@ export default function CustomersPage() {
                   placeholder="הערות נוספות..."
                   className="w-full h-full min-h-[60px] bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none resize-none placeholder:text-white/30"
                 />
+              </div>
+            </div>
+
+            {/* ── Retainer Section ── */}
+            <div className="flex flex-col gap-[10px] mt-[10px] border border-[#7C3AED]/40 rounded-[10px] p-[12px] bg-[#6B21A8]/10">
+              <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right">ריטיינר</h3>
+
+              {/* סכום לפני מע"מ */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[14px] font-medium text-white/80 text-right">סכום לפני מע&quot;מ</label>
+                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                  <Input
+                    type="tel"
+                    title="סכום ריטיינר"
+                    value={fRetainerAmount}
+                    onChange={(e) => setFRetainerAmount(e.target.value)}
+                    placeholder="0"
+                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                  />
+                </div>
+                {fRetainerAmount && parseFloat(fRetainerAmount) > 0 && (
+                  <span className="text-[13px] text-[#C4B5FD] text-center">
+                    ₪{parseFloat(fRetainerAmount).toLocaleString("he-IL")} + מע&quot;מ = ₪{(parseFloat(fRetainerAmount) * 1.17).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                  </span>
+                )}
+              </div>
+
+              {/* סוג תשלום */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[14px] font-medium text-white/80 text-right">סוג תשלום</label>
+                <Select value={fRetainerType || "__none__"} onValueChange={(val) => setFRetainerType(val === "__none__" ? "" : val)}>
+                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                    <SelectValue placeholder="בחר סוג" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">בחר סוג</SelectItem>
+                    <SelectItem value="monthly">ריטיינר חודשי</SelectItem>
+                    <SelectItem value="one_time">חד פעמי</SelectItem>
+                    <SelectItem value="fixed_term">מתמשך ל-X חודשים</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* כמות חודשים - only for fixed_term */}
+              {fRetainerType === "fixed_term" && (
+                <div className="flex flex-col gap-[5px]">
+                  <label className="text-[14px] font-medium text-white/80 text-right">כמות חודשים</label>
+                  <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                    <Input
+                      type="tel"
+                      title="כמות חודשים"
+                      value={fRetainerMonths}
+                      onChange={(e) => setFRetainerMonths(e.target.value)}
+                      placeholder="12"
+                      className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* יום חיוב בחודש - for monthly or fixed_term */}
+              {(fRetainerType === "monthly" || fRetainerType === "fixed_term") && (
+                <div className="flex flex-col gap-[5px]">
+                  <label className="text-[14px] font-medium text-white/80 text-right">יום חיוב בחודש</label>
+                  <Select value={fRetainerDayOfMonth} onValueChange={setFRetainerDayOfMonth}>
+                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                      <SelectValue placeholder="בחר יום" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                        <SelectItem key={day} value={String(day)}>
+                          {day}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* תאריך תחילת ריטיינר */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[14px] font-medium text-white/80 text-right">תאריך תחילת ריטיינר</label>
+                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                  <Input
+                    type="date"
+                    title="תאריך תחילת ריטיינר"
+                    value={fRetainerStartDate}
+                    onChange={(e) => setFRetainerStartDate(e.target.value)}
+                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
+                  />
+                </div>
               </div>
             </div>
 
@@ -925,7 +1118,7 @@ export default function CustomersPage() {
                 type="button"
                 onClick={handleSaveCustomer}
                 disabled={isSubmitting || !fContactName.trim() || !fBusinessName.trim()}
-                className="flex-1 bg-[#29318A] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-[8px]"
+                className="flex-1 bg-[#6B21A8] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#7C3AED] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-[8px]"
               >
                 {isSubmitting ? (
                   <>
@@ -1014,7 +1207,7 @@ export default function CustomersPage() {
           {selectedItem && (
             <div className="p-4" dir="rtl">
               {/* ── Section 1: Customer Info Grid ──────────────── */}
-              <div className="bg-[#29318A]/30 rounded-[10px] p-[15px] mb-[15px]">
+              <div className="bg-[#6B21A8]/30 rounded-[10px] p-[15px] mb-[15px]">
                 {/* Business Name - large */}
                 <div className="flex flex-col items-center text-center mb-[15px]">
                   <span className="text-[20px] text-white font-bold">{selectedItem.business.name}</span>
@@ -1063,7 +1256,7 @@ export default function CustomersPage() {
                     </div>
                     {/* Notes */}
                     {selectedItem.customer.notes && (
-                      <div className="mt-[10px] bg-[#29318A]/20 rounded-[10px] p-[10px] border border-[#4C526B]">
+                      <div className="mt-[10px] bg-[#6B21A8]/20 rounded-[10px] p-[10px] border border-[#4C526B]">
                         <span className="text-[12px] text-white/60">הערות</span>
                         <p className="text-[14px] text-white mt-[4px] text-right whitespace-pre-wrap">{selectedItem.customer.notes}</p>
                       </div>
@@ -1076,7 +1269,7 @@ export default function CustomersPage() {
                       variant="default"
                       type="button"
                       onClick={() => handleSetupCustomer(selectedItem)}
-                      className="bg-[#29318A] text-white text-[14px] font-semibold px-[20px] py-[8px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
+                      className="bg-[#6B21A8] text-white text-[14px] font-semibold px-[20px] py-[8px] rounded-[10px] hover:bg-[#7C3AED] transition-colors"
                     >
                       הקמת לקוח
                     </Button>
@@ -1084,9 +1277,132 @@ export default function CustomersPage() {
                 )}
               </div>
 
+              {/* ── Retainer Section ──────────────── */}
+              {selectedItem.customer?.retainer_amount && selectedItem.customer.retainer_amount > 0 && (
+                <div className="bg-[#6B21A8]/15 border border-[#7C3AED]/30 rounded-[10px] p-[15px] mb-[15px]">
+                  <div className="flex items-center gap-[8px] mb-[12px]">
+                    <h3 className="text-[15px] font-bold text-[#C4B5FD]">ריטיינר</h3>
+                    {selectedItem.customer.retainer_status && (
+                      <Badge className={`text-[11px] px-[8px] py-[2px] rounded-full font-bold ${
+                        selectedItem.customer.retainer_status === 'active'
+                          ? 'bg-[#0BB783]/20 text-[#0BB783]'
+                          : selectedItem.customer.retainer_status === 'paused'
+                          ? 'bg-[#F6A609]/20 text-[#F6A609]'
+                          : 'bg-white/10 text-white/50'
+                      }`}>
+                        {selectedItem.customer.retainer_status === 'active' ? 'פעיל' : selectedItem.customer.retainer_status === 'paused' ? 'מושהה' : 'הסתיים'}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-[10px] mb-[10px]">
+                    <div className="flex flex-col items-center text-center">
+                      <span className="text-[12px] text-white/60">סכום לפני מע&quot;מ</span>
+                      <span className="text-[14px] text-white font-medium">₪{selectedItem.customer.retainer_amount.toLocaleString("he-IL")}</span>
+                    </div>
+                    <div className="flex flex-col items-center text-center">
+                      <span className="text-[12px] text-white/60">סכום כולל מע&quot;מ</span>
+                      <span className="text-[14px] text-[#C4B5FD] font-bold">₪{(selectedItem.customer.retainer_amount * 1.17).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-[10px] mb-[10px]">
+                    <div className="flex flex-col items-center text-center">
+                      <span className="text-[12px] text-white/60">סוג</span>
+                      <span className="text-[14px] text-white font-medium">
+                        {selectedItem.customer.retainer_type === 'monthly' ? 'חודשי' : selectedItem.customer.retainer_type === 'one_time' ? 'חד פעמי' : selectedItem.customer.retainer_type === 'fixed_term' ? `מתמשך (${selectedItem.customer.retainer_months} חודשים)` : '-'}
+                      </span>
+                    </div>
+                    {selectedItem.customer.retainer_day_of_month && (
+                      <div className="flex flex-col items-center text-center">
+                        <span className="text-[12px] text-white/60">יום חיוב</span>
+                        <span className="text-[14px] text-white font-medium">{selectedItem.customer.retainer_day_of_month} לחודש</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-[10px]">
+                    {selectedItem.customer.retainer_start_date && (
+                      <div className="flex flex-col items-center text-center">
+                        <span className="text-[12px] text-white/60">תאריך התחלה</span>
+                        <span dir="ltr" className="text-[14px] text-white font-medium">
+                          {new Date(selectedItem.customer.retainer_start_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        </span>
+                      </div>
+                    )}
+                    {selectedItem.customer.retainer_end_date && (
+                      <div className="flex flex-col items-center text-center">
+                        <span className="text-[12px] text-white/60">תאריך סיום</span>
+                        <span dir="ltr" className="text-[14px] text-white font-medium">
+                          {new Date(selectedItem.customer.retainer_end_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-[8px] mt-[12px]">
+                    {selectedItem.customer.retainer_status === 'active' && (
+                      <Button
+                        variant="outline"
+                        type="button"
+                        onClick={() => {
+                          confirm("האם להשהות את הריטיינר?", async () => {
+                            const supabase = createClient();
+                            await supabase.from("customers").update({ retainer_status: 'paused' }).eq("id", selectedItem!.customer!.id);
+                            showToast("הריטיינר הושהה", "success");
+                            setRefreshTrigger((prev) => prev + 1);
+                            handleCloseDetail();
+                          });
+                        }}
+                        className="flex-1 text-[13px] border-[#F6A609]/50 text-[#F6A609] hover:bg-[#F6A609]/10"
+                      >
+                        השהה ריטיינר
+                      </Button>
+                    )}
+                    {selectedItem.customer.retainer_status === 'paused' && (
+                      <Button
+                        variant="outline"
+                        type="button"
+                        onClick={() => {
+                          confirm("האם לחדש את הריטיינר?", async () => {
+                            const supabase = createClient();
+                            await supabase.from("customers").update({ retainer_status: 'active' }).eq("id", selectedItem!.customer!.id);
+                            showToast("הריטיינר חודש", "success");
+                            setRefreshTrigger((prev) => prev + 1);
+                            handleCloseDetail();
+                          });
+                        }}
+                        className="flex-1 text-[13px] border-[#0BB783]/50 text-[#0BB783] hover:bg-[#0BB783]/10"
+                      >
+                        חדש ריטיינר
+                      </Button>
+                    )}
+                    {(selectedItem.customer.retainer_status === 'active' || selectedItem.customer.retainer_status === 'paused') && (
+                      <Button
+                        variant="outline"
+                        type="button"
+                        onClick={() => {
+                          confirm("האם לעצור את הריטיינר לצמיתות?", async () => {
+                            const supabase = createClient();
+                            await supabase.from("customers").update({ retainer_status: 'completed' }).eq("id", selectedItem!.customer!.id);
+                            showToast("הריטיינר הופסק", "success");
+                            setRefreshTrigger((prev) => prev + 1);
+                            handleCloseDetail();
+                          });
+                        }}
+                        className="flex-1 text-[13px] border-[#F64E60]/50 text-[#F64E60] hover:bg-[#F64E60]/10"
+                      >
+                        עצור ריטיינר
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* ── Section 2: Agreement Document ──────────────── */}
               {selectedItem.customer?.agreement_url && (
-                <div className="bg-[#29318A]/30 rounded-[10px] p-[15px] mb-[15px]">
+                <div className="bg-[#6B21A8]/30 rounded-[10px] p-[15px] mb-[15px]">
                   <h3 className="text-[14px] font-bold text-white mb-[10px]">הסכם עבודה</h3>
                   <div className="flex items-center gap-[10px]">
                     <a
@@ -1103,7 +1419,7 @@ export default function CustomersPage() {
 
               {/* ── Section 3: Active Users ────────────────────── */}
               {selectedItem.members.length > 0 && (
-                <div className="bg-[#29318A]/30 rounded-[10px] p-[15px] mb-[15px]">
+                <div className="bg-[#6B21A8]/30 rounded-[10px] p-[15px] mb-[15px]">
                   <div className="flex items-center gap-[8px] mb-[12px]">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white/60">
                       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1150,7 +1466,7 @@ export default function CustomersPage() {
 
               {/* ── Section 4: Income / Monthly Payments ─────── */}
               {selectedItem.customer && (
-                <div className="bg-[#29318A]/30 rounded-[10px] p-[15px]">
+                <div className="bg-[#6B21A8]/30 rounded-[10px] p-[15px]">
                   <h3 className="text-[16px] font-bold text-white text-center mb-[10px]">הכנסות</h3>
 
                   {/* Total all-time */}
@@ -1241,7 +1557,7 @@ export default function CustomersPage() {
                     variant="default"
                     type="button"
                     onClick={() => setIsAddPaymentOpen(!isAddPaymentOpen)}
-                    className="w-full mt-[15px] bg-[#29318A] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
+                    className="w-full mt-[15px] bg-[#6B21A8] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#7C3AED] transition-colors"
                   >
                     {isAddPaymentOpen ? "ביטול" : "+ הוספת תשלום"}
                   </Button>
