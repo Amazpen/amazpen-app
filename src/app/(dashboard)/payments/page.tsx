@@ -674,7 +674,7 @@ function PaymentsPageInner() {
             .order("payment_date", { ascending: false })
             .range(0, PAYMENTS_PAGE_SIZE - 1);
 
-          const recentDisplay = transformPaymentsData(allPaymentsData || []);
+          const recentDisplay = transformPaymentsData(allPaymentsData || [], suppliersData || []);
           setRecentPaymentsData(recentDisplay);
           setPaymentsOffset(recentDisplay.length);
           setHasMorePayments(recentDisplay.length >= PAYMENTS_PAGE_SIZE);
@@ -692,7 +692,8 @@ function PaymentsPageInner() {
 
   // Transform raw payment data to display format
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const transformPaymentsData = (rawData: any[]): RecentPaymentDisplay[] => {
+  const transformPaymentsData = (rawData: any[], suppliersList?: Supplier[]): RecentPaymentDisplay[] => {
+    const suppliersToUse = suppliersList || suppliers;
     return rawData.map((p) => {
       const firstSplit = p.payment_splits?.[0];
       const installmentInfo = firstSplit?.installments_count && firstSplit?.installment_number
@@ -709,7 +710,7 @@ function PaymentsPageInner() {
         supplier: p.supplier?.name || "לא ידוע",
         supplierId: p.supplier?.id || "",
         expenseType: (() => {
-          const s = suppliers.find(s => s.id === p.supplier?.id);
+          const s = suppliersToUse.find(s => s.id === p.supplier?.id);
           if (s?.expense_type === "goods_purchases") return "purchases";
           if (s?.expense_type === "employee_costs") return "employees";
           return "expenses";
@@ -1279,8 +1280,10 @@ function PaymentsPageInner() {
 
   // Edit payment - pre-populate the form and open Sheet
   const handleEditPayment = (payment: RecentPaymentDisplay) => {
-    // Set expense type first so supplier list filters correctly
-    setExpenseType(payment.expenseType as "expenses" | "purchases" | "employees");
+    // Determine correct expense type from current suppliers data (payment.expenseType may be stale)
+    const supplierData = suppliers.find(s => s.id === payment.supplierId);
+    const correctExpenseType: "expenses" | "purchases" | "employees" = supplierData?.expense_type === "goods_purchases" ? "purchases" : supplierData?.expense_type === "employee_costs" ? "employees" : "expenses";
+    setExpenseType(correctExpenseType);
     setSelectedSupplier(payment.supplierId);
     setPaymentDate(payment.rawDate);
     setNotes(payment.notes || "");
