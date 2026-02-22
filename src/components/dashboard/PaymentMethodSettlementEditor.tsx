@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -62,6 +62,7 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
           <DialogTitle className="text-right text-[18px]">
             הגדרות תקבול — {method.name}
           </DialogTitle>
+          <DialogDescription className="sr-only">הגדרות התחשבנות עבור {method.name}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-[14px] mt-[10px]">
