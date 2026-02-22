@@ -2462,13 +2462,13 @@ function PaymentsPageInner() {
                                         {paymentMethodNames[split.payment_method] || "אחר"}
                                       </span>
                                       {split.receipt_url && /^https?:\/\//.test(split.receipt_url) && (
-                                        <a href={split.receipt_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 text-white opacity-70 hover:opacity-100">
+                                        <Button type="button" onClick={() => setViewerDocUrl(split.receipt_url!)} className="flex-shrink-0 text-white opacity-70 hover:opacity-100 cursor-pointer">
                                           <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
                                             <rect x="4" y="4" width="24" height="24" rx="4" stroke="currentColor" strokeWidth="2"/>
                                             <circle cx="12" cy="13" r="3" stroke="currentColor" strokeWidth="1.5"/>
                                             <path d="M4 22L11 17L16 21L22 16L28 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                                           </svg>
-                                        </a>
+                                        </Button>
                                       )}
                                     </div>
                                   ))}
@@ -2627,13 +2627,13 @@ function PaymentsPageInner() {
                                         {paymentMethodNames[split.payment_method] || "אחר"}
                                       </span>
                                       {split.receipt_url && /^https?:\/\//.test(split.receipt_url) && (
-                                        <a href={split.receipt_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 text-white opacity-70 hover:opacity-100">
+                                        <Button type="button" onClick={() => setViewerDocUrl(split.receipt_url!)} className="flex-shrink-0 text-white opacity-70 hover:opacity-100 cursor-pointer">
                                           <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
                                             <rect x="4" y="4" width="24" height="24" rx="4" stroke="currentColor" strokeWidth="2"/>
                                             <circle cx="12" cy="13" r="3" stroke="currentColor" strokeWidth="1.5"/>
                                             <path d="M4 22L11 17L16 21L22 16L28 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                                           </svg>
-                                        </a>
+                                        </Button>
                                       )}
                                     </div>
                                   ))}

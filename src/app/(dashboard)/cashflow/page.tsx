@@ -674,7 +674,7 @@ export default function CashFlowPage() {
 
       {/* ============= OPENING BALANCE DIALOG ============= */}
       <Dialog open={editingBalance} onOpenChange={setEditingBalance}>
-        <DialogContent className="bg-[#0F1535] border-white/10 text-white max-w-[380px]" dir="rtl">
+        <DialogContent className="bg-[#0F1535] border-white/10 text-white sm:max-w-[380px]" dir="rtl">
           <DialogHeader>
             <DialogTitle className="text-right text-[18px]">מצב בבנק תחילת פעילות</DialogTitle>
           </DialogHeader>
@@ -719,7 +719,7 @@ export default function CashFlowPage() {
 
       {/* ============= INCOME OVERRIDE DIALOG ============= */}
       <Dialog open={!!overrideItem} onOpenChange={(v) => !v && setOverrideItem(null)}>
-        <DialogContent className="bg-[#0F1535] border-white/10 text-white max-w-[380px]" dir="rtl">
+        <DialogContent className="bg-[#0F1535] border-white/10 text-white sm:max-w-[380px]" dir="rtl">
           <DialogHeader>
             <DialogTitle className="text-right text-[18px]">עריכת הכנסה</DialogTitle>
           </DialogHeader>

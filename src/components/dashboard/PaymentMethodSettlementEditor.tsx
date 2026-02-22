@@ -57,7 +57,7 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="bg-[#0F1535] border-[#2A3178]/60 text-white max-w-[420px] p-0 overflow-hidden" dir="rtl">
+      <DialogContent className="bg-[#0F1535] border-[#2A3178]/60 text-white sm:max-w-[420px] p-0 overflow-hidden" dir="rtl">
         {/* Header with accent gradient */}
         <div className="bg-gradient-to-l from-[#4956D4]/20 to-transparent px-[20px] pt-[20px] pb-[14px] border-b border-white/5">
           <DialogHeader>
