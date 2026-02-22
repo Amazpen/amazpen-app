@@ -5,7 +5,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
-import { X, CreditCard } from "lucide-react";
+import { X } from "lucide-react";
+import { CreditCard } from "@phosphor-icons/react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -2180,7 +2181,7 @@ function PaymentsPageInner() {
         {/* Header - Title and Total - hidden when no data */}
         {paymentMethodsData.length > 0 && (
           <div className="flex items-center justify-between">
-            <h2 className="text-[24px] font-bold text-center flex items-center gap-[6px]"><CreditCard size={22} className="text-[#FA5A7D]" />תשלומים שיצאו</h2>
+            <h2 className="text-[24px] font-bold text-center flex items-center gap-[6px]"><CreditCard size={22} color="#FA5A7D" weight="duotone" />תשלומים שיצאו</h2>
             <div className="flex flex-col items-center">
               <span className="text-[24px] font-bold ltr-num">
                 ₪{totalPayments.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
@@ -2231,7 +2232,7 @@ function PaymentsPageInner() {
         {/* Payment Methods Summary Table - hidden when no data */}
         {paymentMethodsData.length > 0 && (
         <div className="max-w-[350px] mx-auto">
-          <h2 className="text-[24px] font-bold text-center mb-[20px] flex items-center justify-center gap-[6px]"><CreditCard size={22} className="text-[#FA5A7D]" />סיכום לפי אמצעי תשלום</h2>
+          <h2 className="text-[24px] font-bold text-center mb-[20px] flex items-center justify-center gap-[6px]"><CreditCard size={22} color="#FA5A7D" weight="duotone" />סיכום לפי אמצעי תשלום</h2>
 
           {/* Table Header */}
           <div className="flex items-center justify-between gap-[20px] border-b border-white/20 p-[5px]">
@@ -2744,7 +2745,7 @@ function PaymentsPageInner() {
           </div>
 
           {/* Title */}
-          <h2 className="text-[24px] font-bold text-center flex items-center justify-center gap-[6px]"><CreditCard size={22} className="text-[#FA5A7D]" />תשלומים אחרונים ששולמו</h2>
+          <h2 className="text-[24px] font-bold text-center flex items-center justify-center gap-[6px]"><CreditCard size={22} color="#FA5A7D" weight="duotone" />תשלומים אחרונים ששולמו</h2>
 
           {/* Download CSV Button */}
           <Button

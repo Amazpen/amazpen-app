@@ -5,7 +5,8 @@ import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Suspense } from "react";
-import { X, ShoppingCart, Building2, Users } from "lucide-react";
+import { X } from "lucide-react";
+import { ShoppingCart, Buildings, UsersThree } from "@phosphor-icons/react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
@@ -2214,9 +2215,9 @@ function ExpensesPageInner() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val as "expenses" | "purchases" | "employees"); setFilterBy(""); setFilterValue(""); }} dir="rtl">
         <TabsList className="w-full bg-transparent rounded-[7px] p-0 h-[50px] sm:h-[60px] mb-[34px] gap-0 border border-[#6B6B6B]">
-          <TabsTrigger value="purchases" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-r-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><ShoppingCart size={16} className="shrink-0" />קניות סחורה</span></TabsTrigger>
-          <TabsTrigger value="expenses" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><Building2 size={16} className="shrink-0" />הוצאות שוטפות</span></TabsTrigger>
-          <TabsTrigger value="employees" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><Users size={16} className="shrink-0" />עלות עובדים</span></TabsTrigger>
+          <TabsTrigger value="purchases" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-r-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><ShoppingCart size={16} weight="duotone" className="shrink-0" />קניות סחורה</span></TabsTrigger>
+          <TabsTrigger value="expenses" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><Buildings size={16} weight="duotone" className="shrink-0" />הוצאות שוטפות</span></TabsTrigger>
+          <TabsTrigger value="employees" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><UsersThree size={16} weight="duotone" className="shrink-0" />עלות עובדים</span></TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -3080,7 +3081,7 @@ function ExpensesPageInner() {
                       )}
                     </svg>
                     <span className={`text-[15px] font-semibold flex items-center gap-[3px] ${expenseType === "goods" ? "text-white" : "text-white/50"}`}>
-                      <ShoppingCart size={14} />קניות סחורה
+                      <ShoppingCart size={14} weight="duotone" />קניות סחורה
                     </span>
                   </Button>
                   <Button
@@ -3096,7 +3097,7 @@ function ExpensesPageInner() {
                       )}
                     </svg>
                     <span className={`text-[15px] font-semibold flex items-center gap-[3px] ${expenseType === "current" ? "text-white" : "text-white/50"}`}>
-                      <Building2 size={14} />הוצאות שוטפות
+                      <Buildings size={14} weight="duotone" />הוצאות שוטפות
                     </span>
                   </Button>
                   <Button
@@ -3112,7 +3113,7 @@ function ExpensesPageInner() {
                       )}
                     </svg>
                     <span className={`text-[15px] font-semibold flex items-center gap-[3px] ${expenseType === "employees" ? "text-white" : "text-white/50"}`}>
-                      <Users size={14} />עלות עובדים
+                      <UsersThree size={14} weight="duotone" />עלות עובדים
                     </span>
                   </Button>
                 </div>

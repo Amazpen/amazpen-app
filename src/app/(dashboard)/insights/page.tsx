@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
-import { TrendingUp, Building2, Users, Truck, ArrowLeftRight, Settings, Target } from "lucide-react";
+import { TrendUp, Buildings, UsersThree, Truck, ArrowsLeftRight, GearSix, Target } from "@phosphor-icons/react";
 
 // ============================================================================
 // TYPES
@@ -71,19 +71,19 @@ const severityLabels: Record<InsightSeverity, string> = {
 // ============================================================================
 // CATEGORY ICONS (SVG)
 // ============================================================================
-const categoryLucideIcons: Record<InsightCategory, React.ElementType> = {
-  revenue: TrendingUp,
-  expenses: Building2,
-  labor: Users,
+const categoryPhosphorIcons: Record<InsightCategory, React.ElementType> = {
+  revenue: TrendUp,
+  expenses: Buildings,
+  labor: UsersThree,
   suppliers: Truck,
-  cashflow: ArrowLeftRight,
-  operations: Settings,
+  cashflow: ArrowsLeftRight,
+  operations: GearSix,
   goals: Target,
 };
 
 const CategoryIcon = ({ category }: { category: InsightCategory }) => {
-  const Icon = categoryLucideIcons[category];
-  return <Icon size={18} className="text-current" strokeWidth={2} />;
+  const Icon = categoryPhosphorIcons[category];
+  return <Icon size={18} color="currentColor" weight="duotone" />;
 };
 
 // ============================================================================

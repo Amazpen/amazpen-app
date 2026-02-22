@@ -19,7 +19,7 @@ import { useApprovals } from '@/hooks/useApprovals';
 import ApprovalModal from '@/components/dashboard/ApprovalModal';
 import { CARD_FIELD_MAP } from '@/types/approvals';
 import { MetricIcon } from '@/lib/metric-icons';
-import { BarChart3, ShoppingCart } from 'lucide-react';
+import { ChartBar, ShoppingCart } from '@phosphor-icons/react';
 import { Clock } from 'lucide-react';
 
 // ============================================================================
@@ -2990,7 +2990,7 @@ export default function DashboardPage() {
                         <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px] mr-[9px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
                           <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center`}>
-                            <BarChart3 size={18} className="text-white" strokeWidth={2} />
+                            <ChartBar size={18} color="white" weight="duotone" />
                           </div>
                         </div>
                       </div>
@@ -3041,7 +3041,7 @@ export default function DashboardPage() {
                         <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px] mr-[9px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
                           <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center`}>
-                            <BarChart3 size={18} className="text-white" strokeWidth={2} />
+                            <ChartBar size={18} color="white" weight="duotone" />
                           </div>
                         </div>
                       </div>
@@ -3092,7 +3092,7 @@ export default function DashboardPage() {
                         <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px] mr-[9px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
                           <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center`}>
-                            <BarChart3 size={18} className="text-white" strokeWidth={2} />
+                            <ChartBar size={18} color="white" weight="duotone" />
                           </div>
                         </div>
                       </div>
@@ -3140,7 +3140,7 @@ export default function DashboardPage() {
                       <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px] mr-[9px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
                         <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center`}>
-                          <BarChart3 size={18} className="text-white" strokeWidth={2} />
+                          <ChartBar size={18} color="white" weight="duotone" />
                         </div>
                       </div>
                     </div>
@@ -3453,7 +3453,7 @@ export default function DashboardPage() {
                       <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">עלות {product.name}</span>
                         <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center`}>
-                          <ShoppingCart size={18} className="text-white" strokeWidth={2} />
+                          <ShoppingCart size={18} color="white" weight="duotone" />
                         </div>
                       </div>
                     </div>
