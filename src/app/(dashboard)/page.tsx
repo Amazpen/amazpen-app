@@ -15,6 +15,10 @@ import { useToast } from "@/components/ui/toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useApprovals } from '@/hooks/useApprovals';
+import ApprovalModal from '@/components/dashboard/ApprovalModal';
+import { CARD_FIELD_MAP } from '@/types/approvals';
+import { Clock } from 'lucide-react';
 
 // ============================================================================
 // LAZY LOADED CHART COMPONENTS - Recharts (~200KB) loaded only when needed
@@ -396,6 +400,8 @@ export default function DashboardPage() {
   const [showAllBusinessCards, setShowAllBusinessCards] = useState(false); // Show all business cards or limit to 6
   const [inactiveBusinessCards, setInactiveBusinessCards] = useState<{ id: string; name: string; logo_url: string | null }[]>([]);
   const [showInactiveBusinesses, setShowInactiveBusinesses] = useState(false);
+  const { pendingCounts, isCardPending, refresh: refreshApprovals } = useApprovals(selectedBusinesses);
+  const [approvalModal, setApprovalModal] = useState<{ open: boolean; fieldNames?: string[]; title?: string }>({ open: false });
 
   const openHistoryModal = useCallback((cardType: string, title: string, sourceId?: string) => {
     setHistoryCardType(cardType);
@@ -2380,6 +2386,13 @@ export default function DashboardPage() {
           {/* Left side - Date picker with label - hide when search is open */}
           {!isSearchOpen && dateRange && (
             <div className="flex items-center gap-[8px]">
+              {pendingCounts.total > 0 && (
+                <div className="flex items-center gap-[6px] bg-orange-500/20 px-[10px] py-[4px] rounded-full cursor-pointer hover:bg-orange-500/30 transition-colors"
+                     onClick={() => setApprovalModal({ open: true })}>
+                  <Clock className="w-[14px] h-[14px] text-orange-400" />
+                  <span className="text-[12px] text-orange-400 font-bold ltr-num">{pendingCounts.total}</span>
+                </div>
+              )}
               <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
               <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
             </div>
@@ -2445,10 +2458,13 @@ export default function DashboardPage() {
                 key={card.id}
                 type="button"
                 onClick={() => toggleCard(card.id)}
-                className={`business-card rounded-[10px] p-[7px] flex flex-col items-center justify-center gap-[5px] min-h-[210px] max-h-[210px] transition-all cursor-pointer overflow-hidden ${
+                className={`business-card rounded-[10px] p-[7px] flex flex-col items-center justify-center gap-[5px] min-h-[210px] max-h-[210px] transition-all cursor-pointer overflow-hidden relative ${
                   selectedBusinesses.includes(card.id) ? "business-card-expanded" : ""
                 }`}
               >
+                {pendingCounts.total > 0 && selectedBusinesses.includes(card.id) && (
+                  <div className="absolute top-[6px] left-[6px] w-[10px] h-[10px] bg-orange-400 rounded-full animate-pulse z-10" />
+                )}
                 {/* Business Image */}
                 <div className="w-[50px] h-[50px] rounded-[10px] overflow-hidden flex-shrink-0 flex items-center justify-center bg-white/10">
                   {card.logo_url ? (
@@ -2694,7 +2710,10 @@ export default function DashboardPage() {
               ) : (
                 <>
               {/* סה"כ הכנסות Card */}
-              <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('totalIncome', 'סה"כ מכירות')}>
+              <div className={`${isCardPending(CARD_FIELD_MAP.totalIncome || []) ? "data-card-pending" : "data-card-new"} flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all relative`} onClick={() => isCardPending(CARD_FIELD_MAP.totalIncome || []) ? setApprovalModal({ open: true, fieldNames: CARD_FIELD_MAP.totalIncome, title: 'סה"כ מכירות' }) : openHistoryModal('totalIncome', 'סה"כ מכירות')}>
+                {isCardPending(CARD_FIELD_MAP.totalIncome || []) && (
+                  <span className="approval-badge absolute top-[6px] left-[6px] text-[10px] px-[6px] py-[2px] rounded-full bg-orange-500/20 z-10">ממתין לאישור</span>
+                )}
                 <div className="flex flex-row-reverse justify-between items-center w-full">
                   <span className={`text-[20px] font-bold leading-[1.4] ltr-num ml-[9px] ${(detailedSummary?.totalIncome || 0) === 0 ? 'text-white' : (detailedSummary?.targetDiffPct || 0) < 0 ? 'text-red-500' : (detailedSummary?.targetDiffPct || 0) > 0 ? 'text-green-500' : 'text-white'}`}>
                     {formatCurrencyFull(detailedSummary?.totalIncome || 0)}
@@ -3024,7 +3043,10 @@ export default function DashboardPage() {
 
                 if (isPearla) {
                   return (
-                    <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] px-[7px] py-[10px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('laborCost', 'עלות עובדים')}>
+                    <div className={`${isCardPending(CARD_FIELD_MAP.laborCost || []) ? "data-card-pending" : "data-card-new"} flex flex-col justify-center gap-[10px] rounded-[10px] px-[7px] py-[10px] min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all relative`} onClick={() => isCardPending(CARD_FIELD_MAP.laborCost || []) ? setApprovalModal({ open: true, fieldNames: CARD_FIELD_MAP.laborCost, title: 'עלות עובדים' }) : openHistoryModal('laborCost', 'עלות עובדים')}>
+                      {isCardPending(CARD_FIELD_MAP.laborCost || []) && (
+                        <span className="approval-badge absolute top-[6px] left-[6px] text-[10px] px-[6px] py-[2px] rounded-full bg-orange-500/20 z-10">ממתין לאישור</span>
+                      )}
                       <div className="flex flex-row-reverse justify-between items-center w-full gap-[15px]">
                         <div className="flex flex-row items-center gap-[10px]">
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${laborDiffColor}`}>
@@ -3107,7 +3129,10 @@ export default function DashboardPage() {
                 }
 
                 return (
-                  <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('laborCost', 'עלות עובדים')}>
+                  <div className={`${isCardPending(CARD_FIELD_MAP.laborCost || []) ? "data-card-pending" : "data-card-new"} flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all relative`} onClick={() => isCardPending(CARD_FIELD_MAP.laborCost || []) ? setApprovalModal({ open: true, fieldNames: CARD_FIELD_MAP.laborCost, title: 'עלות עובדים' }) : openHistoryModal('laborCost', 'עלות עובדים')}>
+                    {isCardPending(CARD_FIELD_MAP.laborCost || []) && (
+                      <span className="approval-badge absolute top-[6px] left-[6px] text-[10px] px-[6px] py-[2px] rounded-full bg-orange-500/20 z-10">ממתין לאישור</span>
+                    )}
                     <div className="flex flex-row-reverse justify-between items-center w-full">
                       <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
                         <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${laborDiffColor}`}>
@@ -3172,7 +3197,10 @@ export default function DashboardPage() {
 
                 if (isPearla) {
                   return (
-                    <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('foodCost', 'עלות מכר')}>
+                    <div className={`${isCardPending(CARD_FIELD_MAP.foodCost || []) ? "data-card-pending" : "data-card-new"} flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all relative`} onClick={() => isCardPending(CARD_FIELD_MAP.foodCost || []) ? setApprovalModal({ open: true, fieldNames: CARD_FIELD_MAP.foodCost, title: 'עלות מכר' }) : openHistoryModal('foodCost', 'עלות מכר')}>
+                      {isCardPending(CARD_FIELD_MAP.foodCost || []) && (
+                        <span className="approval-badge absolute top-[6px] left-[6px] text-[10px] px-[6px] py-[2px] rounded-full bg-orange-500/20 z-10">ממתין לאישור</span>
+                      )}
                       <div className="flex flex-row-reverse justify-between items-center w-full">
                         <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${foodDiffColor}`}>
@@ -3227,7 +3255,10 @@ export default function DashboardPage() {
                 }
 
                 return (
-                  <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('foodCost', 'עלות מכר')}>
+                  <div className={`${isCardPending(CARD_FIELD_MAP.foodCost || []) ? "data-card-pending" : "data-card-new"} flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all relative`} onClick={() => isCardPending(CARD_FIELD_MAP.foodCost || []) ? setApprovalModal({ open: true, fieldNames: CARD_FIELD_MAP.foodCost, title: 'עלות מכר' }) : openHistoryModal('foodCost', 'עלות מכר')}>
+                    {isCardPending(CARD_FIELD_MAP.foodCost || []) && (
+                      <span className="approval-badge absolute top-[6px] left-[6px] text-[10px] px-[6px] py-[2px] rounded-full bg-orange-500/20 z-10">ממתין לאישור</span>
+                    )}
                     <div className="flex flex-row-reverse justify-between items-center w-full">
                       <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
                         <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${foodDiffColor}`}>
@@ -3355,17 +3386,23 @@ export default function DashboardPage() {
               {(() => {
                 const noExpData = (detailedSummary?.totalIncome || 0) === 0 || (detailedSummary?.currentExpenses || 0) === 0;
                 const noTarget = !detailedSummary?.currentExpensesTargetPct || detailedSummary.currentExpensesTargetPct === 0;
+                // Main percentage color: > 0 = red (expenses exist), < 0 = green, 0 = white
+                const expPctValue = detailedSummary?.currentExpensesPct || 0;
+                const expPctColor = noExpData ? 'text-white' : expPctValue > 0 ? 'text-red-500' : expPctValue < 0 ? 'text-green-500' : 'text-white';
                 const expDiffColor = (noExpData || noTarget) ? 'text-white' : (detailedSummary?.currentExpensesDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesDiffPct || 0) < 0 ? 'text-green-500' : 'text-white';
                 const expPrevMonthColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevMonthChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white';
                 const expPrevYearColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevYearChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white';
                 return (
-              <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('currentExpenses', 'הוצאות שוטפות')}>
+              <div className={`${isCardPending(CARD_FIELD_MAP.currentExpenses || []) ? "data-card-pending" : "data-card-new"} flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all relative`} onClick={() => isCardPending(CARD_FIELD_MAP.currentExpenses || []) ? setApprovalModal({ open: true, fieldNames: CARD_FIELD_MAP.currentExpenses, title: 'הוצאות שוטפות' }) : openHistoryModal('currentExpenses', 'הוצאות שוטפות')}>
+                {isCardPending(CARD_FIELD_MAP.currentExpenses || []) && (
+                  <span className="approval-badge absolute top-[6px] left-[6px] text-[10px] px-[6px] py-[2px] rounded-full bg-orange-500/20 z-10">ממתין לאישור</span>
+                )}
                 <div className="flex flex-row-reverse justify-between items-center w-full">
                   <div className="flex flex-row-reverse items-center gap-[10px] ml-[9px]">
-                    <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${expDiffColor}`}>
+                    <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${expPctColor}`}>
                       {formatPercent(detailedSummary?.currentExpensesPct || 0)}
                     </span>
-                    <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${expDiffColor}`}>
+                    <span className={`text-[20px] font-bold text-center leading-[1.4] ltr-num ${expPctColor}`}>
                       {formatCurrencyFull(detailedSummary?.currentExpenses || 0)}
                     </span>
                   </div>
@@ -4079,6 +4116,18 @@ export default function DashboardPage() {
         cardTitle={historyCardTitle}
         businessIds={selectedBusinesses}
         sourceId={historySourceId}
+      />
+
+      {/* Approval Modal */}
+      <ApprovalModal
+        isOpen={approvalModal.open}
+        onClose={() => setApprovalModal({ open: false })}
+        businessId={selectedBusinesses[0] || ''}
+        cardFieldNames={approvalModal.fieldNames}
+        cardTitle={approvalModal.title}
+        onApproved={() => {
+          refreshApprovals();
+        }}
       />
     </div>
   );
