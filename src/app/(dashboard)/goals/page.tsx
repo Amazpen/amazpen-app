@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Target, ShoppingCart, Buildings } from "@phosphor-icons/react";
+import { Trophy, CookingPot, Receipt } from "@phosphor-icons/react";
 
 // Types
 type TabType = "vs-goods" | "vs-current" | "kpi";
@@ -1123,9 +1123,9 @@ export default function GoalsPage() {
         {/* Tab Navigation */}
         <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as TabType)} dir="rtl">
           <TabsList id="onboarding-goals-tabs" className="w-full bg-transparent rounded-[7px] p-0 h-[50px] sm:h-[60px] mb-[10px] gap-0 border border-[#6B6B6B]">
-            <TabsTrigger value="kpi" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-r-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><Target size={16} weight="duotone" className="shrink-0" />יעדי KPI</span></TabsTrigger>
-            <TabsTrigger value="vs-current" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><Buildings size={16} weight="duotone" className="shrink-0" />יעד VS שוטפות</span></TabsTrigger>
-            <TabsTrigger value="vs-goods" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><ShoppingCart size={16} weight="duotone" className="shrink-0" />יעד VS קניות סחורה</span></TabsTrigger>
+            <TabsTrigger value="kpi" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-r-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><Trophy size={16} weight="duotone" className="shrink-0" />יעדי KPI</span></TabsTrigger>
+            <TabsTrigger value="vs-current" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><Receipt size={16} weight="duotone" className="shrink-0" />יעד VS שוטפות</span></TabsTrigger>
+            <TabsTrigger value="vs-goods" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]"><span className="flex items-center gap-[4px]"><CookingPot size={16} weight="duotone" className="shrink-0" />יעד VS קניות סחורה</span></TabsTrigger>
           </TabsList>
         </Tabs>
 

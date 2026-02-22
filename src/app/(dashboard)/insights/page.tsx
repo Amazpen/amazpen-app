@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
-import { TrendUp, Buildings, UsersThree, Truck, ArrowsLeftRight, GearSix, Target } from "@phosphor-icons/react";
+import { ChartLineUp, Receipt, UsersThree, Package, ArrowsLeftRight, GearSix, Trophy } from "@phosphor-icons/react";
 
 // ============================================================================
 // TYPES
@@ -72,13 +72,13 @@ const severityLabels: Record<InsightSeverity, string> = {
 // CATEGORY ICONS (SVG)
 // ============================================================================
 const categoryPhosphorIcons: Record<InsightCategory, React.ElementType> = {
-  revenue: TrendUp,
-  expenses: Buildings,
+  revenue: ChartLineUp,
+  expenses: Receipt,
   labor: UsersThree,
-  suppliers: Truck,
+  suppliers: Package,
   cashflow: ArrowsLeftRight,
   operations: GearSix,
-  goals: Target,
+  goals: Trophy,
 };
 
 const CategoryIcon = ({ category }: { category: InsightCategory }) => {

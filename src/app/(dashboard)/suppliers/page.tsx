@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { Truck } from "@phosphor-icons/react";
+import { Package } from "@phosphor-icons/react";
 import { useDashboard } from "../layout";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
@@ -1299,7 +1299,7 @@ export default function SuppliersPage() {
               autoFocus
             />
           ) : (
-            <span className="text-[18px] font-bold text-white flex items-center gap-[6px]"><Truck size={18} color="rgb(255,164,18)" weight="duotone" />{activeTab === "previous" ? `${suppliersCount} התחייבויות קודמות` : `${suppliersCount} ספקים`}</span>
+            <span className="text-[18px] font-bold text-white flex items-center gap-[6px]"><Package size={18} color="rgb(255,164,18)" weight="duotone" />{activeTab === "previous" ? `${suppliersCount} התחייבויות קודמות` : `${suppliersCount} ספקים`}</span>
           )}
         </div>
 
