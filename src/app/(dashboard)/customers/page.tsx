@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useDashboard } from "../layout";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -119,7 +118,6 @@ const paymentMethodLabels: Record<string, string> = {
 };
 
 export default function CustomersPage() {
-  const { isAdmin } = useDashboard();
   const { showToast } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
 
@@ -209,7 +207,6 @@ export default function CustomersPage() {
 
   useEffect(() => {
     async function fetchData() {
-      if (!isAdmin) return;
       setIsLoading(true);
       const supabase = createClient();
 
@@ -256,7 +253,7 @@ export default function CustomersPage() {
       setIsLoading(false);
     }
     fetchData();
-  }, [isAdmin, refreshTrigger, showToast]);
+  }, [refreshTrigger, showToast]);
 
   // ─── Detail Fetching ───────────────────────────────────────
 
@@ -786,16 +783,6 @@ export default function CustomersPage() {
   );
 
   const totalCount = filteredItems.length + filteredStandalone.length;
-
-  // ─── Access Guard ──────────────────────────────────────────
-
-  if (!isAdmin) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <span className="text-[#979797]">אין הרשאה לצפות בדף זה</span>
-      </div>
-    );
-  }
 
   // ─── Render ────────────────────────────────────────────────
 
