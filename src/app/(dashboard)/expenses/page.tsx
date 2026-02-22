@@ -115,7 +115,7 @@ interface InvoiceDisplay {
   attachmentUrls: string[];
   clarificationReason: string | null;
   isFixed: boolean;
-  linkedPayments: { id: string; paymentId: string; amount: number; method: string; date: string }[];
+  linkedPayments: { id: string; paymentId: string; amount: number; method: string; date: string; checkNumber: string; installmentNumber: number | null; installmentsCount: number | null; referenceNumber: string }[];
 }
 
 const paymentMethodNames: Record<string, string> = {
@@ -339,7 +339,7 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, reference_number, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
         `)
         .eq("id", highlightInvoiceId)
         .in("business_id", selectedBusinesses)
@@ -819,7 +819,7 @@ function ExpensesPageInner() {
             *,
             supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
             creator:profiles!invoices_created_by_fkey(full_name),
-            payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
+            payments!payments_invoice_id_fkey(id, payment_date, total_amount, reference_number, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
           `)
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
@@ -1015,6 +1015,10 @@ function ExpensesPageInner() {
                 amount: Number(split.amount),
                 method: paymentMethodNames[split.payment_method] || "אחר",
                 date: formatDateString(payment.payment_date),
+                checkNumber: split.check_number || "",
+                installmentNumber: split.installment_number || null,
+                installmentsCount: split.installments_count || null,
+                referenceNumber: payment.reference_number || "",
               });
             }
           }
@@ -1055,7 +1059,7 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, reference_number, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
         `)
         .in("business_id", selectedBusinesses)
         .is("deleted_at", null)
@@ -1725,7 +1729,7 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, reference_number, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
         `)
         .eq("id", editId)
         .maybeSingle();
@@ -2091,7 +2095,7 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, reference_number, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number))
         `)
         .in("business_id", selectedBusinesses)
         .eq("supplier_id", supplierId)
@@ -2879,6 +2883,8 @@ function ExpensesPageInner() {
                             <div dir="rtl" className="flex items-center justify-between gap-[3px] border-b border-white/20 min-h-[40px] px-[3px]">
                               <span className="text-[13px] min-w-[50px] text-center">תאריך</span>
                               <span className="text-[13px] flex-1 text-center">אמצעי תשלום</span>
+                              <span className="text-[13px] min-w-[55px] text-center">אסמכתא</span>
+                              <span className="text-[13px] min-w-[45px] text-center">תשלום</span>
                               <span className="text-[13px] w-[65px] text-center">סכום</span>
                             </div>
                             {/* Payment rows - one per payment */}
@@ -2891,6 +2897,8 @@ function ExpensesPageInner() {
                               >
                                 <span className="text-[13px] min-w-[50px] text-center ltr-num">{payment.date}</span>
                                 <span className="text-[13px] flex-1 text-center">{payment.method}</span>
+                                <span className="text-[13px] min-w-[55px] text-center ltr-num">{payment.checkNumber || payment.referenceNumber || "-"}</span>
+                                <span className="text-[13px] min-w-[45px] text-center ltr-num">{payment.installmentsCount && payment.installmentsCount > 1 ? `${payment.installmentNumber}/${payment.installmentsCount}` : "-"}</span>
                                 <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.amount % 1 === 0 ? payment.amount.toLocaleString("he-IL") : payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                             ))}
