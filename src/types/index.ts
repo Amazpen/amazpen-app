@@ -133,6 +133,8 @@ export interface DailyEntry {
   created_by: string;
   created_at: string;
   updated_at: string;
+  data_source?: string;
+  is_fully_approved?: boolean;
 }
 
 // Daily Income Breakdown (פירוט הכנסות יומי)

@@ -264,6 +264,42 @@
   transition: color 0.3s ease-out, opacity 0.3s ease-out;
 }
 
+/* Pending approval state — gray card */
+.data-card-pending {
+  background-color: rgb(60, 65, 80) !important;
+}
+
+.data-card-pending span {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.data-card-pending .approval-badge {
+  color: rgb(255, 164, 18) !important;
+  opacity: 1 !important;
+}
+
+/* Business card pending indicator */
+.business-card-has-pending {
+  position: relative;
+}
+
+.business-card-has-pending::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 10px;
+  height: 10px;
+  background-color: rgb(255, 164, 18);
+  border-radius: 50%;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 /* Icon Backgrounds */
 .icon-bg-pink { background-color: rgb(250, 90, 125); }
 .icon-bg-peach { background-color: rgb(255, 148, 122); }

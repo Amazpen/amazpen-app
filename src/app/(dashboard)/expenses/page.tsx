@@ -17,6 +17,7 @@ import { uploadFile } from "@/lib/uploadFile";
 import { convertPdfToImage } from "@/lib/pdfToImage";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { useApprovals } from '@/hooks/useApprovals';
 import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -63,6 +64,7 @@ interface Invoice {
   created_at: string;
   invoice_type: string | null;
   clarification_reason: string | null;
+  approval_status: string | null;
   // Joined data
   supplier?: Supplier;
   creator_name?: string;
@@ -115,6 +117,7 @@ interface InvoiceDisplay {
   attachmentUrls: string[];
   clarificationReason: string | null;
   isFixed: boolean;
+  approval_status: string | null;
   linkedPayments: { id: string; paymentId: string; amount: number; method: string; date: string; checkNumber: string; installmentNumber: number | null; installmentsCount: number | null; referenceNumber: string }[];
 }
 
@@ -230,6 +233,7 @@ function ExpensesPageInner() {
   const searchParams = useSearchParams();
   const highlightInvoiceId = searchParams.get("invoiceId");
   const { selectedBusinesses, isAdmin } = useDashboard();
+  const { approveInvoice, approvePayment } = useApprovals(selectedBusinesses);
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = usePersistedState<"expenses" | "purchases" | "employees">("expenses:tab", "expenses");
   const [savedDateRange, setSavedDateRange] = usePersistedState<{ start: string; end: string } | null>("expenses:dateRange", null);
@@ -1042,6 +1046,7 @@ function ExpensesPageInner() {
         attachmentUrls: parseAttachmentUrls(inv.attachment_url),
         clarificationReason: inv.clarification_reason || null,
         isFixed: inv.supplier?.is_fixed_expense || false,
+        approval_status: inv.approval_status || null,
         linkedPayments,
       };
     });
@@ -2122,6 +2127,7 @@ function ExpensesPageInner() {
           attachmentUrls: parseAttachmentUrls(inv.attachment_url),
           clarificationReason: inv.clarification_reason || null,
           isFixed: inv.supplier?.is_fixed_expense || false,
+          approval_status: inv.approval_status || null,
           linkedPayments: [],
         }));
         setBreakdownSupplierInvoices(displayInvoices);
@@ -2628,7 +2634,8 @@ function ExpensesPageInner() {
                 key={invoice.id}
                 data-invoice-id={invoice.id}
                 className={`rounded-[7px] p-[7px_3px] border transition-colors ${
-                  expandedInvoiceId === invoice.id ? 'bg-white/5 border-white' : invoice.status === 'בבירור' ? 'border-[#FFA500]' : 'border-transparent'
+                  invoice.approval_status === 'pending_review' ? 'bg-white/5 border-white/20 opacity-60'
+                  : expandedInvoiceId === invoice.id ? 'bg-white/5 border-white' : invoice.status === 'בבירור' ? 'border-[#FFA500]' : 'border-transparent'
                 }`}
               >
                 {/* Main Row */}
@@ -2676,35 +2683,47 @@ function ExpensesPageInner() {
                   </Button>
                   {/* Status - Clickable with dropdown */}
                   <div className="flex justify-center min-w-0" data-status-menu>
-                    <Button
-                      type="button"
-                      onClick={(e) => {
-                        if (invoice.isFixed) {
-                          showToast("לא ניתן לשנות סטטוס להוצאה חודשית קבועה – הסטטוס מתעדכן אוטומטית", "warning");
-                          return;
-                        }
-                        if (showStatusMenu === invoice.id) {
-                          setShowStatusMenu(null);
-                        } else {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setShowStatusMenu(invoice.id);
-                          // Update menu position after render
-                          setTimeout(() => {
-                            if (statusMenuRef.current) {
-                              statusMenuRef.current.style.setProperty('--menu-top', `${rect.bottom + 5}px`);
-                              statusMenuRef.current.style.setProperty('--menu-left', `${rect.left + rect.width / 2}px`);
-                            }
-                          }, 0);
-                        }
-                      }}
-                      className={`text-[12px] font-bold px-[14px] py-[5px] rounded-full cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap min-w-[70px] text-center ${
-                        isFixedPending ? 'bg-[#bc76ff]' :
-                        invoice.status === 'שולם' ? 'bg-[#00E096]' :
-                        invoice.status === 'בבירור' ? 'bg-[#FFA500]' : 'bg-[#29318A]'
-                      }`}
-                    >
-                      {isFixedPending ? 'ה.קבועה' : invoice.status}
-                    </Button>
+                    {invoice.approval_status === 'pending_review' ? (
+                      <button
+                        className="text-[12px] font-bold px-[14px] py-[5px] rounded-full bg-white/20 text-white/60 hover:bg-green-500 hover:text-white transition-colors whitespace-nowrap min-w-[70px] text-center"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          approveInvoice(invoice.id);
+                        }}
+                      >
+                        ממתין לבדיקה ✓
+                      </button>
+                    ) : (
+                      <Button
+                        type="button"
+                        onClick={(e) => {
+                          if (invoice.isFixed) {
+                            showToast("לא ניתן לשנות סטטוס להוצאה חודשית קבועה – הסטטוס מתעדכן אוטומטית", "warning");
+                            return;
+                          }
+                          if (showStatusMenu === invoice.id) {
+                            setShowStatusMenu(null);
+                          } else {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setShowStatusMenu(invoice.id);
+                            // Update menu position after render
+                            setTimeout(() => {
+                              if (statusMenuRef.current) {
+                                statusMenuRef.current.style.setProperty('--menu-top', `${rect.bottom + 5}px`);
+                                statusMenuRef.current.style.setProperty('--menu-left', `${rect.left + rect.width / 2}px`);
+                              }
+                            }, 0);
+                          }
+                        }}
+                        className={`text-[12px] font-bold px-[14px] py-[5px] rounded-full cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap min-w-[70px] text-center ${
+                          isFixedPending ? 'bg-[#bc76ff]' :
+                          invoice.status === 'שולם' ? 'bg-[#00E096]' :
+                          invoice.status === 'בבירור' ? 'bg-[#FFA500]' : 'bg-[#29318A]'
+                        }`}
+                      >
+                        {isFixedPending ? 'ה.קבועה' : invoice.status}
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -4557,13 +4576,25 @@ function ExpensesPageInner() {
                     <span className="text-[14px] text-white text-center ltr-num" style={{ width: 66, maxWidth: 66 }}>{inv.reference || "-"}</span>
                     <span className="text-[14px] text-white text-center ltr-num" style={{ width: 65, maxWidth: 65 }}>₪{inv.amountWithVat.toLocaleString()}</span>
                     <span className="text-[12px] text-center ltr-num" style={{ width: 60, maxWidth: 60 }}>
-                      <span className={`px-[7px] py-[3px] rounded-full ${
-                        inv.status === "שולם" ? "bg-[#00E096]/20 text-[#00E096]" :
-                        inv.status === "בבירור" ? "bg-[#FFA500]/20 text-[#FFA500]" :
-                        "bg-[#29318A] text-white"
-                      }`}>
-                        {inv.status}
-                      </span>
+                      {inv.approval_status === 'pending_review' ? (
+                        <button
+                          className="text-[10px] font-bold px-[7px] py-[3px] rounded-full bg-white/20 text-white/60 hover:bg-green-500 hover:text-white transition-colors whitespace-nowrap"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            approveInvoice(inv.id);
+                          }}
+                        >
+                          ממתין ✓
+                        </button>
+                      ) : (
+                        <span className={`px-[7px] py-[3px] rounded-full ${
+                          inv.status === "שולם" ? "bg-[#00E096]/20 text-[#00E096]" :
+                          inv.status === "בבירור" ? "bg-[#FFA500]/20 text-[#FFA500]" :
+                          "bg-[#29318A] text-white"
+                        }`}>
+                          {inv.status}
+                        </span>
+                      )}
                     </span>
                     <div className="flex items-center justify-center gap-[4px]" style={{ width: 76, maxWidth: 76 }}>
                       {isAdmin && (
