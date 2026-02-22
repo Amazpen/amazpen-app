@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { IncomeSourceSettlementEditor } from "@/components/dashboard/IncomeSourceSettlementEditor";
+import type { IncomeSource, SettlementType } from "@/types";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -97,8 +99,9 @@ export default function EditBusinessPage({ params }: PageProps) {
   });
 
   // Step 3: Income Sources, Receipt Types, Custom Parameters
-  const [incomeSources, setIncomeSources] = useState<{ id?: string; name: string }[]>([]);
+  const [incomeSources, setIncomeSources] = useState<Partial<IncomeSource>[]>([]);
   const [newIncomeSource, setNewIncomeSource] = useState("");
+  const [editingSourceIndex, setEditingSourceIndex] = useState<number | null>(null);
 
   const [receiptTypes, setReceiptTypes] = useState<{ id?: string; name: string }[]>([]);
   const [newReceiptType, setNewReceiptType] = useState("");
@@ -237,16 +240,16 @@ export default function EditBusinessPage({ params }: PageProps) {
         }
       }
 
-      // Fetch income sources
+      // Fetch income sources with settlement rules
       const { data: incomeData } = await supabase
         .from("income_sources")
-        .select("id, name")
+        .select("id, name, settlement_type, settlement_delay_days, settlement_day_of_week, settlement_day_of_month, bimonthly_first_cutoff, bimonthly_first_settlement, bimonthly_second_settlement, commission_rate, coupon_settlement_date, coupon_range_start, coupon_range_end")
         .eq("business_id", businessId)
         .eq("is_active", true)
         .order("display_order");
 
       if (incomeData) {
-        setIncomeSources(incomeData.map(i => ({ id: i.id, name: i.name })));
+        setIncomeSources(incomeData);
       }
 
       // Fetch receipt types
@@ -660,7 +663,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           }, { onConflict: "business_id,day_of_week" });
       }
 
-      // 4. Update income sources - delete removed, insert new
+      // 4. Update income sources - delete removed, insert new, update settlement rules
       const existingIncomeIds = incomeSources.filter(s => s.id).map(s => s.id);
       if (existingIncomeIds.length > 0) {
         await supabase
@@ -676,6 +679,24 @@ export default function EditBusinessPage({ params }: PageProps) {
           .eq("business_id", businessId);
       }
 
+      // Update settlement rules for existing sources
+      const existingSources = incomeSources.filter(s => s.id);
+      for (const s of existingSources) {
+        await supabase.from("income_sources").update({
+          settlement_type: s.settlement_type || "daily",
+          settlement_delay_days: s.settlement_delay_days ?? 1,
+          settlement_day_of_week: s.settlement_day_of_week,
+          settlement_day_of_month: s.settlement_day_of_month,
+          bimonthly_first_cutoff: s.bimonthly_first_cutoff,
+          bimonthly_first_settlement: s.bimonthly_first_settlement,
+          bimonthly_second_settlement: s.bimonthly_second_settlement,
+          commission_rate: s.commission_rate ?? 0,
+          coupon_settlement_date: s.coupon_settlement_date,
+          coupon_range_start: s.coupon_range_start,
+          coupon_range_end: s.coupon_range_end,
+        }).eq("id", s.id);
+      }
+
       const newIncomeSources = incomeSources.filter(s => !s.id);
       if (newIncomeSources.length > 0) {
         await supabase.from("income_sources").insert(
@@ -684,6 +705,9 @@ export default function EditBusinessPage({ params }: PageProps) {
             name: s.name,
             display_order: incomeSources.length + i,
             is_active: true,
+            settlement_type: s.settlement_type || "daily",
+            settlement_delay_days: s.settlement_delay_days ?? 1,
+            commission_rate: s.commission_rate ?? 0,
           }))
         );
       }
@@ -1227,24 +1251,53 @@ export default function EditBusinessPage({ params }: PageProps) {
         </div>
 
         <div className="flex flex-wrap gap-[8px]">
-          {incomeSources.map((source, index) => (
-            <div key={source.id || index} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                type="button"
-                onClick={() => handleRemoveIncomeSource(index)}
-                aria-label={`הסר ${source.name}`}
-                className="text-[#F64E60] hover:text-[#ff6b7a]"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-              </Button>
-              <span className="text-[14px] text-white">{source.name}</span>
-            </div>
-          ))}
+          {incomeSources.map((source, index) => {
+            const settlementLabel = source.settlement_type
+              ? { same_day: "באותו יום", daily: "יומי", weekly: "שבועי", monthly: "חודשי", bimonthly: "דו-חודשי", custom: "קופונים" }[source.settlement_type] || "יומי"
+              : "יומי";
+            return (
+              <div key={source.id || index} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  type="button"
+                  onClick={() => handleRemoveIncomeSource(index)}
+                  aria-label={`הסר ${source.name}`}
+                  className="text-[#F64E60] hover:text-[#ff6b7a]"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => source.id ? setEditingSourceIndex(index) : undefined}
+                  className="flex items-center gap-[6px] hover:opacity-80 transition-opacity"
+                >
+                  <span className="text-[14px] text-white">{source.name}</span>
+                  {source.id && (
+                    <span className="text-[11px] text-white/40">({settlementLabel}{source.commission_rate ? ` · ${source.commission_rate}%` : ""})</span>
+                  )}
+                </button>
+              </div>
+            );
+          })}
         </div>
+
+        {/* Settlement Editor Dialog */}
+        {editingSourceIndex !== null && incomeSources[editingSourceIndex]?.id && (
+          <IncomeSourceSettlementEditor
+            source={incomeSources[editingSourceIndex] as IncomeSource}
+            open={true}
+            onClose={() => setEditingSourceIndex(null)}
+            onSave={(updated) => {
+              setIncomeSources(prev => prev.map((s, i) =>
+                i === editingSourceIndex ? { ...s, ...updated } : s
+              ));
+              setEditingSourceIndex(null);
+            }}
+          />
+        )}
       </div>
 
       {/* Section 2: Receipt Types */}
