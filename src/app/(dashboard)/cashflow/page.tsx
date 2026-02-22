@@ -9,6 +9,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Button } from "@/components/ui/button";
+import { ArrowLeftRight } from "lucide-react";
 
 // ============================================================================
 // LAZY LOADED CHART COMPONENTS
@@ -675,7 +676,7 @@ export default function CashFlowPage() {
       {/* ============= MAIN TRENDS CHART ============= */}
       {!isLoading && chartData.length > 0 && (
         <section className="bg-[#0F1535] rounded-[10px] p-[8px]">
-          <h2 className="text-[18px] font-bold mb-[10px] text-right">מגמות תזרים</h2>
+          <h2 className="text-[18px] font-bold mb-[10px] text-right flex items-center gap-[6px] justify-end"><ArrowLeftRight size={18} className="text-[rgb(59,130,246)]" />מגמות תזרים</h2>
           <div className="w-full" dir="ltr">
             <SafeChartContainer height={280}>
               <LazyComposedChart data={chartData}>
@@ -832,7 +833,7 @@ export default function CashFlowPage() {
 
       {/* ============= DETAILED TABLE ============= */}
       <section className="bg-[#0F1535] rounded-[10px] p-[7px]">
-        <h2 className="text-[18px] font-bold mb-[10px] px-[5px] text-right">פירוט תזרים</h2>
+        <h2 className="text-[18px] font-bold mb-[10px] px-[5px] text-right flex items-center gap-[6px] justify-end"><ArrowLeftRight size={18} className="text-[rgb(59,130,246)]" />פירוט תזרים</h2>
 
         {/* Table Header */}
         <div className="flex flex-row-reverse items-center justify-between min-h-[45px] border-b-2 border-white/15 p-[5px] gap-[5px]">

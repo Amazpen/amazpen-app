@@ -18,6 +18,8 @@ import { Input } from "@/components/ui/input";
 import { useApprovals } from '@/hooks/useApprovals';
 import ApprovalModal from '@/components/dashboard/ApprovalModal';
 import { CARD_FIELD_MAP } from '@/types/approvals';
+import { MetricIcon } from '@/lib/metric-icons';
+import { BarChart3, ShoppingCart } from 'lucide-react';
 import { Clock } from 'lucide-react';
 
 // ============================================================================
@@ -2884,12 +2886,7 @@ export default function DashboardPage() {
                   </span>
                   <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                     <span className="text-[20px] font-bold text-white leading-[1.4]">סה״כ הכנסות</span>
-                    <div className="icon-bg-pink w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                        <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M18 9l-5 5-4-4-3 3" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
+                    <MetricIcon type="totalIncome" />
                   </div>
                 </div>
                 {(() => {
@@ -2992,13 +2989,8 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px] mr-[9px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
-                          <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]`}>
-                            <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
-                              <path d="M4 28V12" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M12 28V4" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M20 28V16" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M28 28V8" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
+                          <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center`}>
+                            <BarChart3 size={18} className="text-white" strokeWidth={2} />
                           </div>
                         </div>
                       </div>
@@ -3048,13 +3040,8 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px] mr-[9px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
-                          <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]`}>
-                            <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
-                              <path d="M4 28V12" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M12 28V4" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M20 28V16" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M28 28V8" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
+                          <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center`}>
+                            <BarChart3 size={18} className="text-white" strokeWidth={2} />
                           </div>
                         </div>
                       </div>
@@ -3104,13 +3091,8 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px] mr-[9px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
-                          <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]`}>
-                            <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
-                              <path d="M4 28V12" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M12 28V4" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M20 28V16" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M28 28V8" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
+                          <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center`}>
+                            <BarChart3 size={18} className="text-white" strokeWidth={2} />
                           </div>
                         </div>
                       </div>
@@ -3157,13 +3139,8 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex flex-row-reverse items-start gap-[6px] min-h-[50px] mr-[9px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">נתונים {source.name}</span>
-                        <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]`}>
-                          <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
-                            <path d="M4 28V12" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M12 28V4" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M20 28V16" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M28 28V8" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
+                        <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center`}>
+                          <BarChart3 size={18} className="text-white" strokeWidth={2} />
                         </div>
                       </div>
                     </div>
@@ -3222,16 +3199,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex flex-row-reverse items-center gap-[6px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">עלות עובדים</span>
-                          <div className="icon-bg-purple w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
-                            <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
-                              <circle cx="16" cy="8" r="4" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M6 28v-2a6 6 0 016-6h8a6 6 0 016 6v2" strokeLinecap="round" strokeLinejoin="round"/>
-                              <circle cx="26" cy="10" r="3" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M26 28v-1.5a4.5 4.5 0 00-2-3.74" strokeLinecap="round" strokeLinejoin="round"/>
-                              <circle cx="6" cy="10" r="3" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M6 28v-1.5a4.5 4.5 0 012-3.74" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </div>
+                          <MetricIcon type="laborCost" />
                         </div>
                       </div>
                       {/* Middle section - שכירים / כוח אדם with border */}
@@ -3308,16 +3276,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">עלות עובדים</span>
-                        <div className="icon-bg-purple w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
-                          <svg width="20" height="20" viewBox="0 0 32 32" fill="none" stroke="white" strokeWidth="2">
-                            <circle cx="16" cy="8" r="4" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M6 28v-2a6 6 0 016-6h8a6 6 0 016 6v2" strokeLinecap="round" strokeLinejoin="round"/>
-                            <circle cx="26" cy="10" r="3" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M26 28v-1.5a4.5 4.5 0 00-2-3.74" strokeLinecap="round" strokeLinejoin="round"/>
-                            <circle cx="6" cy="10" r="3" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M6 28v-1.5a4.5 4.5 0 012-3.74" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </div>
+                        <MetricIcon type="laborCost" />
                       </div>
                     </div>
                     <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
@@ -3376,12 +3335,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">עלות מכר</span>
-                          <div className="icon-bg-orange w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                              <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M18 9l-5 5-4-4-3 3" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </div>
+                          <MetricIcon type="foodCost" />
                         </div>
                       </div>
                       <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
@@ -3434,12 +3388,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">עלות מכר</span>
-                        <div className="icon-bg-orange w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                            <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M18 9l-5 5-4-4-3 3" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </div>
+                        <MetricIcon type="foodCost" />
                       </div>
                     </div>
                     <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
@@ -3503,12 +3452,8 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">עלות {product.name}</span>
-                        <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]`}>
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" strokeLinecap="round" strokeLinejoin="round"/>
-                            <line x1="3" y1="6" x2="21" y2="6" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M16 10a4 4 0 01-8 0" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
+                        <div className={`${iconBgClass} w-[31px] h-[31px] rounded-full flex items-center justify-center`}>
+                          <ShoppingCart size={18} className="text-white" strokeWidth={2} />
                         </div>
                       </div>
                     </div>
@@ -3572,12 +3517,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                     <span className="text-[20px] font-bold text-white leading-[1.4]">הוצאות שוטפות</span>
-                    <div className="icon-bg-peach w-[31px] h-[31px] rounded-full flex items-center justify-center p-[3px]">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                        <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M18 9l-5 5-4-4-3 3" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
+                    <MetricIcon type="currentExpenses" />
                   </div>
                 </div>
                 <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
