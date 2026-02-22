@@ -3147,7 +3147,7 @@ export default function DashboardPage() {
                     <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
                       <div className="flex flex-col ml-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{source.ordersCount}</span>
+                          <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{source.ordersCount.toLocaleString("he-IL")}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">כמות הזמנות</span>
                         </div>
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
