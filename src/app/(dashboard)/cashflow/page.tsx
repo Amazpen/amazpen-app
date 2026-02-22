@@ -403,7 +403,7 @@ export default function CashFlowPage() {
         <div className="flex items-center justify-between flex-wrap gap-[10px]">
           {/* Opening balance */}
           <div className="flex items-center gap-[10px]">
-            <div className="flex flex-col items-end">
+            <div className="flex flex-col items-center">
               <span className="text-[12px] text-white/50">מצב בבנק תחילת פעילות</span>
               <button
                 type="button"
