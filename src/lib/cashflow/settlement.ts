@@ -1,4 +1,4 @@
-import type { BusinessPaymentMethod, SettlementType } from "@/types";
+import type { PaymentMethodType, SettlementType } from "@/types";
 
 export interface DailyPaymentEntry {
   entry_date: string; // YYYY-MM-DD
@@ -104,10 +104,10 @@ function calculateSettlementDate(entryDate: string, rules: SettlementRules): str
  */
 export function calculateSettledIncome(
   dailyPaymentEntries: DailyPaymentEntry[],
-  businessPaymentMethods: BusinessPaymentMethod[],
+  paymentMethods: PaymentMethodType[],
   paymentMethodNames: Record<string, string>
 ): Map<string, SettledIncome[]> {
-  const methodMap = new Map(businessPaymentMethods.map((m) => [m.payment_method_id, m]));
+  const methodMap = new Map(paymentMethods.map((m) => [m.id, m]));
   const result = new Map<string, SettledIncome[]>();
 
   for (const entry of dailyPaymentEntries) {

@@ -5,14 +5,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { BusinessPaymentMethod, SettlementType } from "@/types";
+import type { PaymentMethodType, SettlementType } from "@/types";
 
 interface PaymentMethodSettlementEditorProps {
-  method: BusinessPaymentMethod;
-  methodName: string;
+  method: PaymentMethodType;
   open: boolean;
   onClose: () => void;
-  onSave: (updated: Partial<BusinessPaymentMethod>) => void;
+  onSave: (updated: Partial<PaymentMethodType>) => void;
 }
 
 const settlementTypeLabels: Record<SettlementType, string> = {
@@ -26,7 +25,7 @@ const settlementTypeLabels: Record<SettlementType, string> = {
 
 const dayOfWeekLabels = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
-export function PaymentMethodSettlementEditor({ method, methodName, open, onClose, onSave }: PaymentMethodSettlementEditorProps) {
+export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }: PaymentMethodSettlementEditorProps) {
   const [settlementType, setSettlementType] = useState<SettlementType>((method.settlement_type as SettlementType) || "daily");
   const [delayDays, setDelayDays] = useState(method.settlement_delay_days ?? 1);
   const [dayOfWeek, setDayOfWeek] = useState(method.settlement_day_of_week ?? 0);
@@ -61,7 +60,7 @@ export function PaymentMethodSettlementEditor({ method, methodName, open, onClos
       <DialogContent className="bg-[#0F1535] border-white/10 text-white max-w-[420px]" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right text-[18px]">
-            הגדרות תקבול — {methodName}
+            הגדרות תקבול — {method.name}
           </DialogTitle>
         </DialogHeader>
 
@@ -241,7 +240,7 @@ export function PaymentMethodSettlementEditor({ method, methodName, open, onClos
             />
             {commissionRate > 0 && (
               <p className="text-[11px] text-white/40 text-right">
-                ירד {commissionRate}% מכל הכנסה מ{methodName}
+                ירד {commissionRate}% מכל הכנסה מ{method.name}
               </p>
             )}
           </div>

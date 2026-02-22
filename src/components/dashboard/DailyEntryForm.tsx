@@ -66,7 +66,7 @@ interface ManagedProduct {
 
 interface PaymentMethod {
   id: string;
-  name_he: string;
+  name: string;
   display_order: number;
 }
 
@@ -327,7 +327,9 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           .maybeSingle(),
         supabase
           .from("payment_method_types")
-          .select("id, name_he, display_order")
+          .select("id, name, display_order")
+          .eq("business_id", businessId)
+          .eq("is_active", true)
           .order("display_order"),
       ]);
 
@@ -1193,7 +1195,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                   <div className="flex flex-col gap-4 mt-2">
                     <SectionHeader title="פירוט אמצעי תשלום" />
                     {paymentMethods.map((pm) => (
-                      <FormField key={pm.id} label={pm.name_he}>
+                      <FormField key={pm.id} label={pm.name}>
                         <NumberInput
                           placeholder="0"
                           value={paymentData[pm.id] || ""}

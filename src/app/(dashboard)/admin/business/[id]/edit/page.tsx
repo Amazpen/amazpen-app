@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { IncomeSourceSettlementEditor } from "@/components/dashboard/IncomeSourceSettlementEditor";
 import { PaymentMethodSettlementEditor } from "@/components/dashboard/PaymentMethodSettlementEditor";
-import type { IncomeSource, SettlementType, BusinessPaymentMethod } from "@/types";
+import type { IncomeSource, SettlementType, PaymentMethodType } from "@/types";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -110,9 +110,9 @@ export default function EditBusinessPage({ params }: PageProps) {
   const [customParameters, setCustomParameters] = useState<{ id?: string; name: string }[]>([]);
   const [newCustomParameter, setNewCustomParameter] = useState("");
 
-  // Payment Method Settlement Config (for cashflow)
-  const [paymentMethodTypes, setPaymentMethodTypes] = useState<{ id: string; name_he: string; display_order: number }[]>([]);
-  const [businessPaymentMethods, setBusinessPaymentMethods] = useState<BusinessPaymentMethod[]>([]);
+  // Payment Methods (for cashflow settlement)
+  const [paymentMethods, setPaymentMethods] = useState<Partial<PaymentMethodType>[]>([]);
+  const [newPaymentMethodName, setNewPaymentMethodName] = useState("");
   const [editingPaymentMethodId, setEditingPaymentMethodId] = useState<string | null>(null);
 
   // Credit Cards
@@ -293,13 +293,14 @@ export default function EditBusinessPage({ params }: PageProps) {
         setCreditCards(cardData.map(c => ({ id: c.id, cardName: c.card_name, billingDay: c.billing_day })));
       }
 
-      // Fetch payment method types + business payment methods
-      const [{ data: pmTypes }, { data: bpmData }] = await Promise.all([
-        supabase.from("payment_method_types").select("id, name_he, display_order").order("display_order"),
-        supabase.from("business_payment_methods").select("*").eq("business_id", businessId),
-      ]);
-      if (pmTypes) setPaymentMethodTypes(pmTypes as { id: string; name_he: string; display_order: number }[]);
-      if (bpmData) setBusinessPaymentMethods(bpmData as BusinessPaymentMethod[]);
+      // Fetch payment methods (single table, per-business)
+      const { data: pmData } = await supabase
+        .from("payment_method_types")
+        .select("*")
+        .eq("business_id", businessId)
+        .eq("is_active", true)
+        .order("display_order");
+      if (pmData) setPaymentMethods(pmData as PaymentMethodType[]);
 
       // Fetch managed products
       const { data: productData } = await supabase
@@ -464,6 +465,17 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   const handleRemoveManagedProduct = (index: number) => {
     setManagedProducts(managedProducts.filter((_, i) => i !== index));
+  };
+
+  const handleAddPaymentMethod = () => {
+    if (newPaymentMethodName.trim() && !paymentMethods.some(pm => pm.name === newPaymentMethodName.trim())) {
+      setPaymentMethods([...paymentMethods, { name: newPaymentMethodName.trim(), settlement_type: "daily" as SettlementType, settlement_delay_days: 1, commission_rate: 0 }]);
+      setNewPaymentMethodName("");
+    }
+  };
+
+  const handleRemovePaymentMethod = (index: number) => {
+    setPaymentMethods(paymentMethods.filter((_, i) => i !== index));
   };
 
   // Handle member avatar upload
@@ -848,7 +860,56 @@ export default function EditBusinessPage({ params }: PageProps) {
         );
       }
 
-      // 9. Handle team members - remove deleted, add new
+      // 9. Update payment methods
+      const existingPmIds = paymentMethods.filter(pm => pm.id).map(pm => pm.id);
+      if (existingPmIds.length > 0) {
+        await supabase
+          .from("payment_method_types")
+          .update({ is_active: false })
+          .eq("business_id", businessId)
+          .not("id", "in", `(${existingPmIds.join(",")})`);
+      } else {
+        await supabase
+          .from("payment_method_types")
+          .update({ is_active: false })
+          .eq("business_id", businessId);
+      }
+
+      // Update existing payment methods (settlement rules)
+      const existingPms = paymentMethods.filter(pm => pm.id);
+      for (const pm of existingPms) {
+        await supabase.from("payment_method_types").update({
+          name: pm.name,
+          settlement_type: pm.settlement_type || "daily",
+          settlement_delay_days: pm.settlement_delay_days ?? 1,
+          settlement_day_of_week: pm.settlement_day_of_week,
+          settlement_day_of_month: pm.settlement_day_of_month,
+          bimonthly_first_cutoff: pm.bimonthly_first_cutoff,
+          bimonthly_first_settlement: pm.bimonthly_first_settlement,
+          bimonthly_second_settlement: pm.bimonthly_second_settlement,
+          commission_rate: pm.commission_rate ?? 0,
+          coupon_settlement_date: pm.coupon_settlement_date,
+          coupon_range_start: pm.coupon_range_start,
+          coupon_range_end: pm.coupon_range_end,
+        }).eq("id", pm.id);
+      }
+
+      const newPms = paymentMethods.filter(pm => !pm.id);
+      if (newPms.length > 0) {
+        await supabase.from("payment_method_types").insert(
+          newPms.map((pm, i) => ({
+            business_id: businessId,
+            name: pm.name,
+            display_order: paymentMethods.length + i,
+            is_active: true,
+            settlement_type: pm.settlement_type || "daily",
+            settlement_delay_days: pm.settlement_delay_days ?? 1,
+            commission_rate: pm.commission_rate ?? 0,
+          }))
+        );
+      }
+
+      // 10. Handle team members - remove deleted, add new
       const existingMemberIds = teamMembers.filter(m => m.id && m.isExisting).map(m => m.id);
       const { data: currentMembers } = await supabase
         .from("business_members")
@@ -1314,91 +1375,118 @@ export default function EditBusinessPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Section: Payment Method Settlement Config */}
-      {paymentMethodTypes.length > 0 && (
-        <div className="bg-[#4956D4]/20 rounded-[15px] p-[8px]">
-          <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">הגדרות תקבול לפי אמצעי תשלום</h3>
-          <p className="text-[12px] text-white/50 text-right mb-[10px]">לחץ על אמצעי תשלום כדי להגדיר מתי הכסף נכנס לבנק</p>
+      {/* Section: Payment Methods (names + settlement config) */}
+      <div className="bg-[#4956D4]/20 rounded-[15px] p-[8px]">
+        <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">אמצעי תשלום</h3>
+        <p className="text-[12px] text-white/50 text-right mb-[10px]">הוסף אמצעי תשלום (מזומן, אשראי, 10ביס וכו&apos;)</p>
 
-          <div className="flex flex-wrap gap-[8px]">
-            {paymentMethodTypes.map((pm) => {
-              const bpm = businessPaymentMethods.find((b) => b.payment_method_id === pm.id);
-              const typeLabel = bpm ? ({
+        {/* Add new payment method */}
+        <div className="flex gap-[10px] mb-[10px]">
+          <Button
+            variant="default"
+            size="sm"
+            type="button"
+            onClick={handleAddPaymentMethod}
+            disabled={!newPaymentMethodName.trim()}
+            className="bg-[#4956D4] text-white text-[14px] font-semibold px-[15px] py-[10px] rounded-[8px] disabled:opacity-50"
+          >
+            הוסף
+          </Button>
+          <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
+            <Input
+              type="text"
+              value={newPaymentMethodName}
+              onChange={(e) => setNewPaymentMethodName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddPaymentMethod())}
+              placeholder="שם אמצעי תשלום"
+              className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[8px] border-none outline-none px-[12px] placeholder:text-white/30"
+            />
+          </div>
+        </div>
+
+        {/* Payment method list with settlement badges */}
+        {paymentMethods.length > 0 && (
+          <div className="flex flex-wrap gap-[8px] mb-[10px]">
+            {paymentMethods.map((pm, index) => {
+              const typeLabel = ({
                 same_day: "באותו יום",
                 daily: "יומי",
                 weekly: "שבועי",
                 monthly: "חודשי",
                 bimonthly: "דו-חודשי",
                 custom: "קופון",
-              } as Record<string, string>)[bpm.settlement_type] || "יומי" : "יומי";
-              const fee = bpm ? Number(bpm.commission_rate) : 0;
+              } as Record<string, string>)[pm.settlement_type || "daily"] || "יומי";
+              const fee = Number(pm.commission_rate) || 0;
 
               return (
-                <button
-                  key={pm.id}
-                  type="button"
-                  onClick={() => setEditingPaymentMethodId(pm.id)}
-                  className="flex items-center gap-[6px] bg-[#232B6A] rounded-[8px] px-[12px] py-[8px] hover:bg-[#29318A] transition-colors"
-                >
-                  <span className="text-[14px] text-white">{pm.name_he}</span>
-                  <span className="text-[11px] text-white/40">({typeLabel}{fee ? ` · ${fee}%` : ""})</span>
-                </button>
+                <div key={pm.id || `new-${index}`} className="flex items-center gap-[4px]">
+                  <button
+                    type="button"
+                    onClick={() => setEditingPaymentMethodId(pm.id || `new-${index}`)}
+                    className="flex items-center gap-[6px] bg-[#232B6A] rounded-[8px] px-[12px] py-[8px] hover:bg-[#29318A] transition-colors"
+                  >
+                    <span className="text-[14px] text-white">{pm.name}</span>
+                    <span className="text-[11px] text-white/40">({typeLabel}{fee ? ` · ${fee}%` : ""})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePaymentMethod(index)}
+                    className="text-red-400 hover:text-red-300 text-[16px] px-[4px]"
+                  >
+                    ✕
+                  </button>
+                </div>
               );
             })}
           </div>
+        )}
 
-          {/* Payment Method Settlement Editor Dialog */}
-          {editingPaymentMethodId !== null && (() => {
-            const pm = paymentMethodTypes.find((p) => p.id === editingPaymentMethodId);
-            const existing = businessPaymentMethods.find((b) => b.payment_method_id === editingPaymentMethodId);
-            const defaultMethod: BusinessPaymentMethod = {
-              id: "",
-              business_id: businessId,
-              payment_method_id: editingPaymentMethodId,
-              is_active: true,
-              settlement_type: "daily" as SettlementType,
-              settlement_delay_days: 1,
-              commission_rate: 0,
-              created_at: "",
-              updated_at: "",
-            };
-            return (
-              <PaymentMethodSettlementEditor
-                method={existing || defaultMethod}
-                methodName={pm?.name_he || ""}
-                open={true}
-                onClose={() => setEditingPaymentMethodId(null)}
-                onSave={async (updated) => {
-                  const supabase = (await import("@/lib/supabase/client")).createClient();
-                  const payload = {
-                    business_id: businessId,
-                    payment_method_id: editingPaymentMethodId,
-                    is_active: true,
-                    ...updated,
-                  };
-                  const { data } = await supabase
-                    .from("business_payment_methods")
-                    .upsert(payload, { onConflict: "business_id,payment_method_id" })
-                    .select()
-                    .maybeSingle();
-                  if (data) {
-                    setBusinessPaymentMethods((prev) => {
-                      const idx = prev.findIndex((b) => b.payment_method_id === editingPaymentMethodId);
-                      if (idx >= 0) {
-                        const next = [...prev];
-                        next[idx] = data as BusinessPaymentMethod;
-                        return next;
-                      }
-                      return [...prev, data as BusinessPaymentMethod];
-                    });
-                  }
-                  setEditingPaymentMethodId(null);
-                }}
-              />
-            );
-          })()}
-        </div>
-      )}
+        {paymentMethods.length > 0 && (
+          <p className="text-[12px] text-white/50 text-right">לחץ על אמצעי תשלום כדי להגדיר מתי הכסף נכנס לבנק</p>
+        )}
+
+        {/* Payment Method Settlement Editor Dialog */}
+        {editingPaymentMethodId !== null && (() => {
+          const pmIndex = paymentMethods.findIndex((p) => (p.id || `new-${paymentMethods.indexOf(p)}`) === editingPaymentMethodId);
+          const pm = pmIndex >= 0 ? paymentMethods[pmIndex] : null;
+          if (!pm) return null;
+          const methodForEditor: PaymentMethodType = {
+            id: pm.id || "",
+            business_id: businessId,
+            name: pm.name || "",
+            display_order: pm.display_order || 0,
+            is_active: true,
+            settlement_type: (pm.settlement_type as SettlementType) || "daily",
+            settlement_delay_days: pm.settlement_delay_days ?? 1,
+            settlement_day_of_week: pm.settlement_day_of_week,
+            settlement_day_of_month: pm.settlement_day_of_month,
+            bimonthly_first_cutoff: pm.bimonthly_first_cutoff,
+            bimonthly_first_settlement: pm.bimonthly_first_settlement,
+            bimonthly_second_settlement: pm.bimonthly_second_settlement,
+            commission_rate: pm.commission_rate ?? 0,
+            coupon_settlement_date: pm.coupon_settlement_date,
+            coupon_range_start: pm.coupon_range_start,
+            coupon_range_end: pm.coupon_range_end,
+            created_at: pm.created_at || "",
+            updated_at: pm.updated_at || "",
+          };
+          return (
+            <PaymentMethodSettlementEditor
+              method={methodForEditor}
+              open={true}
+              onClose={() => setEditingPaymentMethodId(null)}
+              onSave={(updated) => {
+                setPaymentMethods((prev) => {
+                  const next = [...prev];
+                  next[pmIndex] = { ...next[pmIndex], ...updated };
+                  return next;
+                });
+                setEditingPaymentMethodId(null);
+              }}
+            />
+          );
+        })()}
+      </div>
 
       {/* Section 2: Receipt Types */}
       <div className="bg-[#4956D4]/20 rounded-[15px] p-[8px]">

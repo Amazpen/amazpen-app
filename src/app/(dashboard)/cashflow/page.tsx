@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { calculateSettledIncome, type SettledIncome } from "@/lib/cashflow/settlement";
-import type { BusinessPaymentMethod, CashflowSettings } from "@/types";
+import type { PaymentMethodType, CashflowSettings } from "@/types";
 
 // ============================================================================
 // TYPES
@@ -140,7 +140,7 @@ export default function CashFlowPage() {
   }, []);
 
   useMultiTableRealtime(
-    ["daily_entries", "daily_payment_breakdown", "payment_splits", "payments", "cashflow_settings", "cashflow_income_overrides", "business_payment_methods"],
+    ["daily_entries", "daily_payment_breakdown", "payment_splits", "payments", "cashflow_settings", "cashflow_income_overrides", "payment_method_types"],
     handleRealtimeChange,
     selectedBusinesses.length > 0
   );
@@ -181,15 +181,13 @@ export default function CashFlowPage() {
         const lookbackStr = formatLocalDate(lookbackDate);
 
         // 2. Parallel queries
-        const [pmTypesResult, bpmResult, paymentBreakdownResult, splitsResult, overridesResult] = await Promise.all([
+        const [pmResult, paymentBreakdownResult, splitsResult, overridesResult] = await Promise.all([
           supabase
             .from("payment_method_types")
-            .select("id, name_he, display_order")
-            .order("display_order"),
-          supabase
-            .from("business_payment_methods")
             .select("*")
-            .eq("business_id", businessId),
+            .eq("business_id", businessId)
+            .eq("is_active", true)
+            .order("display_order"),
           supabase
             .from("daily_payment_breakdown")
             .select("amount, payment_method_id, daily_entries!inner(entry_date, business_id)")
@@ -211,11 +209,10 @@ export default function CashFlowPage() {
             .lte("settlement_date", endDateStr),
         ]);
 
-        const pmTypes = (pmTypesResult.data || []) as { id: string; name_he: string; display_order: number }[];
+        const paymentMethods = (pmResult.data || []) as PaymentMethodType[];
         const pmNameMap: Record<string, string> = {};
-        pmTypes.forEach((t) => { pmNameMap[t.id] = t.name_he; });
+        paymentMethods.forEach((t) => { pmNameMap[t.id] = t.name; });
 
-        const businessPaymentMethods = (bpmResult.data || []) as BusinessPaymentMethod[];
         const paymentEntries = (paymentBreakdownResult.data || []).map((row: Record<string, unknown>) => {
           const dailyEntry = row.daily_entries as Record<string, unknown>;
           return {
@@ -226,7 +223,7 @@ export default function CashFlowPage() {
         });
 
         // 3. Calculate settled income
-        const settledMap = calculateSettledIncome(paymentEntries, businessPaymentMethods, pmNameMap);
+        const settledMap = calculateSettledIncome(paymentEntries, paymentMethods, pmNameMap);
 
         // 4. Apply overrides
         const overrides = overridesResult.data || [];
