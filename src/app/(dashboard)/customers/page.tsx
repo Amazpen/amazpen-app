@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useDashboard } from "../../layout";
+import { useDashboard } from "../layout";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
