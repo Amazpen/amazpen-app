@@ -3657,19 +3657,16 @@ function PaymentsPageInner() {
                                 {pm.customInstallments.length > 1 && (
                                   <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
                                 )}
-                                <div className="flex-1 relative h-[36px]">
-                                  <Input
-                                    type="text"
-                                    readOnly
-                                    value={item.dateForInput ? (() => { const [y,m,d] = item.dateForInput.split("-"); return `${d}/${m}/${y.slice(2)}`; })() : ''}
-                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num pointer-events-none"
-                                  />
+                                <div className="flex-1 relative h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] flex items-center justify-center">
+                                  <span className="text-[14px] text-white text-center ltr-num pointer-events-none">
+                                    {item.dateForInput ? (() => { const [y,m,d] = item.dateForInput.split("-"); return `${d}/${m}/${y.slice(2)}`; })() : ''}
+                                  </span>
                                   <Input
                                     type="date"
                                     title={`תאריך תשלום ${item.number}`}
                                     value={item.dateForInput}
                                     onChange={(e) => handleInstallmentDateChange(pm.id, index, e.target.value)}
-                                    className="absolute inset-0 w-full h-[36px] opacity-0 cursor-pointer z-10"
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                   />
                                 </div>
                                 {pm.method === "check" && (
