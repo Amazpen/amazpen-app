@@ -65,6 +65,9 @@ export interface NavItem {
 // Input type for dynamic fields
 export type InputType = "single" | "with_count";
 
+// Settlement type for income sources
+export type SettlementType = "daily" | "weekly" | "monthly" | "bimonthly" | "same_day" | "custom";
+
 // Income Sources (מקורות הכנסה)
 export interface IncomeSource {
   id: string;
@@ -77,6 +80,41 @@ export interface IncomeSource {
   created_at: string;
   updated_at: string;
   deleted_at?: string;
+  // Settlement rules (כללי תקבול)
+  settlement_type: SettlementType;
+  settlement_delay_days: number;
+  settlement_day_of_week?: number;
+  settlement_day_of_month?: number;
+  bimonthly_first_cutoff?: number;
+  bimonthly_first_settlement?: number;
+  bimonthly_second_settlement?: number;
+  commission_rate: number; // fee percentage (עמלת סליקה)
+  coupon_settlement_date?: number;
+  coupon_range_start?: number;
+  coupon_range_end?: number;
+}
+
+// Cashflow Settings (הגדרות תזרים)
+export interface CashflowSettings {
+  id: string;
+  business_id: string;
+  opening_balance: number;
+  opening_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Cashflow Income Override (עריכת הכנסה ידנית)
+export interface CashflowIncomeOverride {
+  id: string;
+  business_id: string;
+  settlement_date: string;
+  income_source_id: string;
+  original_amount: number;
+  override_amount: number;
+  note?: string;
+  created_by?: string;
+  created_at: string;
 }
 
 // Receipt Types (תקבולים)
