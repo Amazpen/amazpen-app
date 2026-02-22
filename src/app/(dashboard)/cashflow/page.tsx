@@ -477,7 +477,7 @@ export default function CashFlowPage() {
       {/* ============= MAIN TABLE ============= */}
       <section className="bg-[#0F1535] rounded-[10px] p-[7px]">
         {/* Table Header */}
-        <div className="flex flex-row-reverse items-center justify-between min-h-[45px] bg-[#FACC15]/20 rounded-t-[8px] p-[8px] gap-[5px]">
+        <div className="flex items-center justify-between min-h-[45px] bg-[#FACC15]/20 rounded-t-[8px] p-[8px] gap-[5px]">
           <span className="text-[13px] font-bold w-[100px] text-right text-[#FACC15]">תאריך</span>
           <span className="text-[13px] font-bold flex-1 text-center text-[#FACC15]">הכנסות</span>
           <span className="text-[13px] font-bold flex-1 text-center text-[#FACC15]">הוצאות</span>
@@ -517,11 +517,11 @@ export default function CashFlowPage() {
                 <Button
                   type="button"
                   onClick={() => toggleMonth(month.key)}
-                  className={`flex flex-row-reverse items-center justify-between w-full min-h-[50px] p-[8px] gap-[5px] border-b-2 border-white/15 hover:bg-[#29318A]/30 transition-all cursor-pointer ${
+                  className={`flex items-center justify-between w-full min-h-[50px] p-[8px] gap-[5px] border-b-2 border-white/15 hover:bg-[#29318A]/30 transition-all cursor-pointer ${
                     expandedMonths.includes(month.key) ? "rounded-t-[10px]" : ""
                   }`}
                 >
-                  <div className="flex flex-row-reverse items-center gap-[5px] w-[100px]">
+                  <div className="flex items-center gap-[5px] w-[100px]">
                     <svg
                       width="16" height="16" viewBox="0 0 32 32" fill="none"
                       className={`flex-shrink-0 transition-transform ${expandedMonths.includes(month.key) ? "rotate-180" : ""}`}
@@ -552,11 +552,11 @@ export default function CashFlowPage() {
                         <Button
                           type="button"
                           onClick={() => toggleDay(day.date)}
-                          className={`flex flex-row-reverse items-center justify-between w-full min-h-[42px] p-[8px] gap-[5px] hover:bg-white/5 transition-all cursor-pointer ${
+                          className={`flex items-center justify-between w-full min-h-[42px] p-[8px] gap-[5px] hover:bg-white/5 transition-all cursor-pointer ${
                             dayIndex < month.days.length - 1 && !expandedDays.includes(day.date) ? "border-b border-white/10" : ""
                           }`}
                         >
-                          <div className="flex flex-row-reverse items-center gap-[5px] w-[100px]">
+                          <div className="flex items-center gap-[5px] w-[100px]">
                             <svg
                               width="12" height="12" viewBox="0 0 32 32" fill="none"
                               className={`flex-shrink-0 transition-transform text-white/40 ${expandedDays.includes(day.date) ? "rotate-180" : ""}`}
@@ -595,9 +595,9 @@ export default function CashFlowPage() {
                                       setOverrideAmount(String(Math.round(item.net_amount)));
                                       setOverrideNote("");
                                     }}
-                                    className="flex flex-row-reverse items-center justify-between w-full py-[4px] hover:bg-white/5 rounded px-[4px] transition-colors"
+                                    className="flex items-center justify-between w-full py-[4px] hover:bg-white/5 rounded px-[4px] transition-colors"
                                   >
-                                    <div className="flex flex-row-reverse items-center gap-[6px]">
+                                    <div className="flex items-center gap-[6px]">
                                       <span className="text-[12px] text-white/80">{item.income_source_name}</span>
                                       {item.fee_amount > 0 && (
                                         <span className="text-[10px] text-white/30">(-{formatCurrencyFull(item.fee_amount)} עמלה)</span>
@@ -615,9 +615,9 @@ export default function CashFlowPage() {
                                 {day.expenseItems.map((item) => (
                                   <div
                                     key={item.id}
-                                    className="flex flex-row-reverse items-center justify-between py-[4px] px-[4px]"
+                                    className="flex items-center justify-between py-[4px] px-[4px]"
                                   >
-                                    <div className="flex flex-row-reverse items-center gap-[6px]">
+                                    <div className="flex items-center gap-[6px]">
                                       <span className="text-[12px] text-white/80">{item.supplier_name}</span>
                                       <span className="text-[10px] text-white/30">{paymentMethodNames[item.payment_method] || item.payment_method}</span>
                                     </div>
@@ -642,7 +642,7 @@ export default function CashFlowPage() {
             ))}
 
             {/* Totals Row */}
-            <div className="flex flex-row-reverse items-center justify-between min-h-[50px] p-[8px] gap-[5px] border-t-2 border-white/20 bg-white/5 rounded-b-[8px]">
+            <div className="flex items-center justify-between min-h-[50px] p-[8px] gap-[5px] border-t-2 border-white/20 bg-white/5 rounded-b-[8px]">
               <span className="text-[14px] font-bold w-[100px] text-right">סה&quot;כ</span>
               <span className="text-[14px] font-bold flex-1 text-center text-[#17DB4E]">
                 {formatCurrencyFull(totalIncome)}
