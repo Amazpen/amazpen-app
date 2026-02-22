@@ -1,146 +1,57 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import dynamic from "next/dynamic";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis } from "recharts";
+import { useState, useEffect, useCallback } from "react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Button } from "@/components/ui/button";
-import { ArrowsLeftRight } from "@phosphor-icons/react";
-
-// ============================================================================
-// LAZY LOADED CHART COMPONENTS
-// ============================================================================
-const LazyComposedChart = dynamic(
-  () => import("recharts").then((mod) => ({ default: mod.ComposedChart })),
-  { ssr: false, loading: () => <ChartSkeleton /> }
-);
-const LazyArea = dynamic(
-  () => import("recharts").then((mod) => ({ default: mod.Area })),
-  { ssr: false }
-);
-const LazyLine = dynamic(
-  () => import("recharts").then((mod) => ({ default: mod.Line })),
-  { ssr: false }
-);
-const LazyXAxis = dynamic(
-  () => import("recharts").then((mod) => ({ default: mod.XAxis })),
-  { ssr: false }
-);
-const LazyYAxis = dynamic(
-  () => import("recharts").then((mod) => ({ default: mod.YAxis })),
-  { ssr: false }
-);
-const LazyResponsiveContainer = dynamic(
-  () => import("recharts").then((mod) => ({ default: mod.ResponsiveContainer })),
-  { ssr: false }
-);
-
-const ChartSkeleton = () => (
-  <div className="w-full h-full flex items-center justify-center bg-white/5 rounded-lg animate-pulse">
-    <div className="text-white/30 text-sm">טוען גרף...</div>
-  </div>
-);
-
-// Safe chart wrapper that prevents -1 width/height errors
-const SafeChartContainer = ({ children, height = 280 }: { children: React.ReactNode; height?: number }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height: h } = entry.contentRect;
-        if (width > 0 && h > 0) {
-          setDimensions({ width, height: h });
-        }
-      }
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div ref={containerRef} className="w-full" style={{ height }}>
-      {dimensions && dimensions.width > 0 && dimensions.height > 0 ? (
-        <LazyResponsiveContainer width={dimensions.width} height={dimensions.height}>
-          {children}
-        </LazyResponsiveContainer>
-      ) : (
-        <ChartSkeleton />
-      )}
-    </div>
-  );
-};
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { calculateSettledIncome, type SettledIncome } from "@/lib/cashflow/settlement";
+import type { IncomeSource, CashflowSettings } from "@/types";
 
 // ============================================================================
 // TYPES
 // ============================================================================
-type TimeGranularity = "daily" | "weekly" | "monthly";
-
-interface CashFlowRow {
-  label: string;
-  startDate: string;
-  endDate: string;
-  inflows: number;
-  outflows: number;
-  net: number;
+interface DayData {
+  date: string; // YYYY-MM-DD
+  incomeItems: SettledIncome[];
+  expenseItems: ExpenseItem[];
+  totalIncome: number;
+  totalExpenses: number;
+  dailyDiff: number;
   cumulative: number;
 }
 
-interface ChartDataPoint {
-  label: string;
-  inflows: number;
-  outflows: number;
-  net: number;
-  cumulative: number;
-}
-
-interface IncomeSourceBreakdown {
+interface ExpenseItem {
   id: string;
-  name: string;
+  supplier_name: string;
   amount: number;
-  color: string;
+  payment_method: string;
+  due_date: string;
 }
 
-interface PaymentMethodBreakdown {
-  id: string;
-  name: string;
-  amount: number;
-  color: string;
-  colorClass: string;
-}
-
-interface ExpenseTypeBreakdown {
-  type: string;
+interface MonthGroup {
+  key: string; // YYYY-MM
   label: string;
-  amount: number;
-  color: string;
+  days: DayData[];
+  totalIncome: number;
+  totalExpenses: number;
+  totalDiff: number;
+  endCumulative: number;
 }
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-const paymentMethodColors: Record<string, { color: string; colorClass: string }> = {
-  check: { color: "#00DD23", colorClass: "bg-[#00DD23]" },
-  cash: { color: "#FF0000", colorClass: "bg-[#FF0000]" },
-  standing_order: { color: "#3964FF", colorClass: "bg-[#3964FF]" },
-  credit_companies: { color: "#FFCF00", colorClass: "bg-[#FFCF00]" },
-  credit_card: { color: "#FF3665", colorClass: "bg-[#FF3665]" },
-  bank_transfer: { color: "#FF7F00", colorClass: "bg-[#FF7F00]" },
-  bit: { color: "#9333ea", colorClass: "bg-[#9333ea]" },
-  paybox: { color: "#06b6d4", colorClass: "bg-[#06b6d4]" },
-  other: { color: "#6b7280", colorClass: "bg-[#6b7280]" },
-};
+const hebrewMonths = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 
 const paymentMethodNames: Record<string, string> = {
   bank_transfer: "העברה בנקאית",
   cash: "מזומן",
-  check: "צ'ק",
+  check: "צ׳ק",
   bit: "ביט",
   paybox: "פייבוקס",
   credit_card: "כרטיס אשראי",
@@ -149,40 +60,9 @@ const paymentMethodNames: Record<string, string> = {
   standing_order: "הוראת קבע",
 };
 
-const expenseTypeLabels: Record<string, string> = {
-  goods_purchases: "קניות סחורה",
-  current_expenses: "הוצאות שוטפות",
-  employee_costs: "עלות עובדים",
-};
-
-const expenseTypeColors: Record<string, string> = {
-  goods_purchases: "#0095FF",
-  current_expenses: "#FF3665",
-  employee_costs: "#FACC15",
-};
-
-const incomeSourcePalette = ["#17DB4E", "#0095FF", "#FACC15", "#FF3665", "#9333ea", "#06b6d4", "#FF7F00", "#00DD23"];
-
-const hebrewMonths = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
-
 // ============================================================================
 // FORMAT FUNCTIONS
 // ============================================================================
-const formatCurrency = (amount: number) => {
-  const isNegative = amount < 0;
-  const absAmount = Math.abs(amount);
-  const sign = isNegative ? "-" : "";
-  if (absAmount >= 1000000) {
-    const millions = absAmount / 1000000;
-    return `${sign}₪${millions % 1 === 0 ? millions.toFixed(0) : millions.toFixed(1)}M`;
-  }
-  if (absAmount >= 1000) {
-    const thousands = absAmount / 1000;
-    return `${sign}₪${thousands % 1 === 0 ? thousands.toFixed(0) : thousands.toFixed(1)}K`;
-  }
-  return `${sign}₪${absAmount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
-
 const formatCurrencyFull = (amount: number) => {
   const isNegative = amount < 0;
   const absAmount = Math.abs(amount);
@@ -197,57 +77,16 @@ const formatLocalDate = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-// ============================================================================
-// DATE BUCKET HELPERS
-// ============================================================================
-function getWeekStart(dateStr: string): string {
+const formatDisplayDate = (dateStr: string) => {
   const d = new Date(dateStr + "T00:00:00");
-  const day = d.getDay(); // 0=Sun
-  d.setDate(d.getDate() - day);
-  return formatLocalDate(d);
-}
+  return d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
+};
 
-function getMonthKey(dateStr: string): string {
-  return dateStr.substring(0, 7); // YYYY-MM
-}
-
-function getBucketKey(dateStr: string, granularity: TimeGranularity): string {
-  if (granularity === "daily") return dateStr;
-  if (granularity === "weekly") return getWeekStart(dateStr);
-  return getMonthKey(dateStr);
-}
-
-function formatBucketLabel(key: string, granularity: TimeGranularity): string {
-  if (granularity === "daily") {
-    const d = new Date(key + "T00:00:00");
-    return d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
-  }
-  if (granularity === "weekly") {
-    const start = new Date(key + "T00:00:00");
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    return `${start.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })} - ${end.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })}`;
-  }
-  // monthly
-  const [y, m] = key.split("-");
-  return `${hebrewMonths[parseInt(m, 10) - 1]} ${y}`;
-}
-
-function getBucketDateRange(key: string, granularity: TimeGranularity): { start: string; end: string } {
-  if (granularity === "daily") return { start: key, end: key };
-  if (granularity === "weekly") {
-    const start = new Date(key + "T00:00:00");
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    return { start: key, end: formatLocalDate(end) };
-  }
-  // monthly
-  const [y, m] = key.split("-");
-  const start = `${y}-${m}-01`;
-  const lastDay = new Date(parseInt(y, 10), parseInt(m, 10), 0).getDate();
-  const end = `${y}-${m}-${String(lastDay).padStart(2, "0")}`;
-  return { start, end };
-}
+const formatDayLabel = (dateStr: string) => {
+  const d = new Date(dateStr + "T00:00:00");
+  const dayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+  return `${dayNames[d.getDay()]} ${d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })}`;
+};
 
 // ============================================================================
 // MAIN COMPONENT
@@ -257,267 +96,223 @@ export default function CashFlowPage() {
   const supabase = createClient();
 
   // Persisted state
-  const [savedDateRange, setSavedDateRange] = usePersistedState<{ start: string; end: string } | null>("cashflow:dateRange", null);
-  const [savedGranularity, setSavedGranularity] = usePersistedState<TimeGranularity>("cashflow:granularity", "daily");
-
-  // Client state
-  const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
-  const [granularity, setGranularity] = useState<TimeGranularity>("daily");
-
-  // Drill-down
-  const [drillDownRange, setDrillDownRange] = useState<{ start: Date; end: Date } | null>(null);
-  const [drillDownGranularity, setDrillDownGranularity] = useState<TimeGranularity | null>(null);
+  const [savedEndDate, setSavedEndDate] = usePersistedState<string | null>("cashflow:endDate", null);
 
   // Data
-  const [cashFlowRows, setCashFlowRows] = useState<CashFlowRow[]>([]);
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-  const [incomeBreakdown, setIncomeBreakdown] = useState<IncomeSourceBreakdown[]>([]);
-  const [paymentMethodData, setPaymentMethodData] = useState<PaymentMethodBreakdown[]>([]);
-  const [expenseTypeData, setExpenseTypeData] = useState<ExpenseTypeBreakdown[]>([]);
-  const [totalInflows, setTotalInflows] = useState(0);
-  const [totalOutflows, setTotalOutflows] = useState(0);
+  const [settings, setSettings] = useState<CashflowSettings | null>(null);
+  const [monthGroups, setMonthGroups] = useState<MonthGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Active range/granularity (drill-down or main)
-  const activeRange = drillDownRange || dateRange;
-  const activeGranularity = drillDownGranularity || granularity;
+  // Opening balance edit
+  const [editingBalance, setEditingBalance] = useState(false);
+  const [balanceInput, setBalanceInput] = useState("");
+  const [balanceDateInput, setBalanceDateInput] = useState("");
 
-  // Initialize date range after hydration
+  // Override modal
+  const [overrideItem, setOverrideItem] = useState<{ date: string; item: SettledIncome } | null>(null);
+  const [overrideAmount, setOverrideAmount] = useState("");
+  const [overrideNote, setOverrideNote] = useState("");
+
+  // Drill-down state
+  const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
+  const [expandedDays, setExpandedDays] = useState<string[]>([]);
+
+  // Date range
+  const [endDate, setEndDate] = useState<Date>(() => {
+    // Default: 3 months from now
+    const d = new Date();
+    d.setMonth(d.getMonth() + 3);
+    return d;
+  });
+
+  // Initialize from persisted
   useEffect(() => {
-    if (savedDateRange) {
-      setDateRange({ start: new Date(savedDateRange.start), end: new Date(savedDateRange.end) });
-    } else {
-      setDateRange({
-        start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-        end: new Date(),
-      });
+    if (savedEndDate) {
+      setEndDate(new Date(savedEndDate));
     }
-    setGranularity(savedGranularity);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Runs once on mount to hydrate from persisted values. Adding savedDateRange/savedGranularity would re-trigger on every save.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleDateRangeChange = useCallback(
-    (range: { start: Date; end: Date }) => {
-      setDateRange(range);
-      setSavedDateRange({ start: range.start.toISOString(), end: range.end.toISOString() });
-      // Clear drill-down when date range changes
-      setDrillDownRange(null);
-      setDrillDownGranularity(null);
-    },
-    [setSavedDateRange]
-  );
-
-  const handleGranularityChange = useCallback(
-    (g: TimeGranularity) => {
-      setGranularity(g);
-      setSavedGranularity(g);
-      setDrillDownRange(null);
-      setDrillDownGranularity(null);
-    },
-    [setSavedGranularity]
-  );
 
   // Realtime
   const handleRealtimeChange = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);
   }, []);
 
-  useMultiTableRealtime(["daily_entries", "payments", "payment_splits"], handleRealtimeChange, selectedBusinesses.length > 0);
+  useMultiTableRealtime(
+    ["daily_entries", "daily_income_breakdown", "payment_splits", "payments", "cashflow_settings", "cashflow_income_overrides"],
+    handleRealtimeChange,
+    selectedBusinesses.length > 0
+  );
 
   // ============================================================================
   // DATA FETCHING
   // ============================================================================
   useEffect(() => {
-    if (!activeRange || selectedBusinesses.length === 0) {
+    if (selectedBusinesses.length === 0) {
       setIsLoading(false);
-      setCashFlowRows([]);
-      setChartData([]);
-      setIncomeBreakdown([]);
-      setPaymentMethodData([]);
-      setExpenseTypeData([]);
-      setTotalInflows(0);
-      setTotalOutflows(0);
+      setMonthGroups([]);
       return;
     }
 
     const fetchData = async () => {
       setIsLoading(true);
-      const startDate = formatLocalDate(activeRange.start);
-      const endDate = formatLocalDate(activeRange.end);
+      const businessId = selectedBusinesses[0];
 
       try {
-        // Parallel queries
-        const [entriesResult, sourcesResult, paymentsResult] = await Promise.all([
-          supabase
-            .from("daily_entries")
-            .select("id, entry_date, total_register")
-            .in("business_id", selectedBusinesses)
-            .is("deleted_at", null)
-            .gte("entry_date", startDate)
-            .lte("entry_date", endDate)
-            .order("entry_date", { ascending: true }),
+        // 1. Fetch settings
+        const { data: settingsData } = await supabase
+          .from("cashflow_settings")
+          .select("*")
+          .eq("business_id", businessId)
+          .maybeSingle();
+
+        setSettings(settingsData);
+
+        const openingBalance = settingsData?.opening_balance ? Number(settingsData.opening_balance) : 0;
+        const openingDate = settingsData?.opening_date || formatLocalDate(new Date());
+        const endDateStr = formatLocalDate(endDate);
+
+        // We need to fetch income entries from BEFORE the opening date too,
+        // because settlement rules may push their settlement date into our range.
+        // Fetch entries from 2 months before opening date to cover bimonthly settlements.
+        const lookbackDate = new Date(openingDate + "T00:00:00");
+        lookbackDate.setMonth(lookbackDate.getMonth() - 2);
+        const lookbackStr = formatLocalDate(lookbackDate);
+
+        // 2. Parallel queries
+        const [sourcesResult, incomeResult, splitsResult, overridesResult] = await Promise.all([
           supabase
             .from("income_sources")
-            .select("id, name")
-            .in("business_id", selectedBusinesses)
-            .eq("is_active", true),
+            .select("*")
+            .eq("business_id", businessId)
+            .eq("is_active", true)
+            .is("deleted_at", null),
           supabase
-            .from("payments")
-            .select(`
-              id, payment_date, total_amount,
-              supplier:suppliers(id, name, expense_type),
-              payment_splits(id, payment_method, amount)
-            `)
-            .in("business_id", selectedBusinesses)
-            .is("deleted_at", null)
-            .gte("payment_date", startDate)
-            .lte("payment_date", endDate)
-            .order("payment_date", { ascending: true }),
+            .from("daily_income_breakdown")
+            .select("amount, income_source_id, daily_entries!inner(entry_date, business_id)")
+            .eq("daily_entries.business_id", businessId)
+            .gte("daily_entries.entry_date", lookbackStr)
+            .lte("daily_entries.entry_date", endDateStr),
+          supabase
+            .from("payment_splits")
+            .select("id, amount, payment_method, due_date, payments!inner(business_id, supplier_id, deleted_at, suppliers(name))")
+            .eq("payments.business_id", businessId)
+            .is("payments.deleted_at", null)
+            .gte("due_date", openingDate)
+            .lte("due_date", endDateStr),
+          supabase
+            .from("cashflow_income_overrides")
+            .select("*")
+            .eq("business_id", businessId)
+            .gte("settlement_date", openingDate)
+            .lte("settlement_date", endDateStr),
         ]);
 
-        const dailyEntries = entriesResult.data || [];
-        const incomeSources = sourcesResult.data || [];
-        const payments = paymentsResult.data || [];
+        const incomeSources = (sourcesResult.data || []) as IncomeSource[];
+        const incomeEntries = (incomeResult.data || []).map((row: Record<string, unknown>) => {
+          const dailyEntry = row.daily_entries as Record<string, unknown>;
+          return {
+            entry_date: dailyEntry.entry_date as string,
+            income_source_id: row.income_source_id as string,
+            amount: Number(row.amount) || 0,
+          };
+        });
 
-        // Fetch income breakdown (depends on entries)
-        const entryIds = dailyEntries.map((e: Record<string, unknown>) => e.id);
-        let incomeBreakdownData: Record<string, unknown>[] = [];
-        if (entryIds.length > 0) {
-          const { data } = await supabase
-            .from("daily_income_breakdown")
-            .select("daily_entry_id, income_source_id, amount")
-            .in("daily_entry_id", entryIds);
-          incomeBreakdownData = data || [];
+        // 3. Calculate settled income
+        const settledMap = calculateSettledIncome(incomeEntries, incomeSources);
+
+        // 4. Apply overrides
+        const overrides = overridesResult.data || [];
+        const overrideMap = new Map<string, number>(); // key: "date|source_id" → override_amount
+        for (const ov of overrides) {
+          overrideMap.set(`${ov.settlement_date}|${ov.income_source_id}`, Number(ov.override_amount));
         }
 
-        // ---- Process data ----
-
-        // 1. Build buckets for cash flow rows
-        const bucketMap = new Map<string, { inflows: number; outflows: number }>();
-
-        for (const entry of dailyEntries) {
-          const key = getBucketKey(entry.entry_date, activeGranularity);
-          const bucket = bucketMap.get(key) || { inflows: 0, outflows: 0 };
-          bucket.inflows += entry.total_register || 0;
-          bucketMap.set(key, bucket);
+        // 5. Build expense map by due_date
+        const expensesByDate = new Map<string, ExpenseItem[]>();
+        for (const split of (splitsResult.data || []) as Record<string, unknown>[]) {
+          const dueDate = split.due_date as string;
+          if (!dueDate) continue;
+          const payment = split.payments as unknown as Record<string, unknown>;
+          const supplier = payment?.suppliers as unknown as Record<string, unknown>;
+          const item: ExpenseItem = {
+            id: split.id as string,
+            supplier_name: (supplier?.name as string) || "לא ידוע",
+            amount: Number(split.amount) || 0,
+            payment_method: (split.payment_method as string) || "other",
+            due_date: dueDate,
+          };
+          const existing = expensesByDate.get(dueDate) || [];
+          existing.push(item);
+          expensesByDate.set(dueDate, existing);
         }
 
-        for (const payment of payments) {
-          const key = getBucketKey(payment.payment_date, activeGranularity);
-          const bucket = bucketMap.get(key) || { inflows: 0, outflows: 0 };
-          bucket.outflows += payment.total_amount || 0;
-          bucketMap.set(key, bucket);
-        }
+        // 6. Build daily data for the range
+        const startD = new Date(openingDate + "T00:00:00");
+        const endD = new Date(endDateStr + "T00:00:00");
+        const days: DayData[] = [];
+        let cumulative = openingBalance;
 
-        // Sort buckets by key
-        const sortedKeys = Array.from(bucketMap.keys()).sort();
-        let cumulative = 0;
-        const rows: CashFlowRow[] = [];
-        const chartPoints: ChartDataPoint[] = [];
+        for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
+          const dateStr = formatLocalDate(d);
 
-        for (const key of sortedKeys) {
-          const bucket = bucketMap.get(key)!;
-          const net = bucket.inflows - bucket.outflows;
-          cumulative += net;
-          const range = getBucketDateRange(key, activeGranularity);
-          const label = formatBucketLabel(key, activeGranularity);
-
-          rows.push({
-            label,
-            startDate: range.start,
-            endDate: range.end,
-            inflows: bucket.inflows,
-            outflows: bucket.outflows,
-            net,
-            cumulative,
+          // Income: get settled items for this date, apply overrides
+          let incomeItems = settledMap.get(dateStr) || [];
+          incomeItems = incomeItems.map((item) => {
+            const overrideKey = `${dateStr}|${item.income_source_id}`;
+            if (overrideMap.has(overrideKey)) {
+              const overrideAmt = overrideMap.get(overrideKey)!;
+              return { ...item, net_amount: overrideAmt, fee_amount: item.gross_amount - overrideAmt };
+            }
+            return item;
           });
 
-          chartPoints.push({ label, inflows: bucket.inflows, outflows: bucket.outflows, net, cumulative });
+          // Expenses
+          const expenseItems = expensesByDate.get(dateStr) || [];
+
+          const totalIncome = incomeItems.reduce((sum, i) => sum + i.net_amount, 0);
+          const totalExpenses = expenseItems.reduce((sum, e) => sum + e.amount, 0);
+          const dailyDiff = totalIncome - totalExpenses;
+          cumulative += dailyDiff;
+
+          days.push({
+            date: dateStr,
+            incomeItems,
+            expenseItems,
+            totalIncome,
+            totalExpenses,
+            dailyDiff,
+            cumulative,
+          });
         }
 
-        setCashFlowRows(rows);
-        setChartData(chartPoints);
+        // 7. Group by month
+        const monthMap = new Map<string, DayData[]>();
+        for (const day of days) {
+          const monthKey = day.date.substring(0, 7);
+          const existing = monthMap.get(monthKey) || [];
+          existing.push(day);
+          monthMap.set(monthKey, existing);
+        }
 
-        const totIn = rows.reduce((sum, r) => sum + r.inflows, 0);
-        const totOut = rows.reduce((sum, r) => sum + r.outflows, 0);
-        setTotalInflows(totIn);
-        setTotalOutflows(totOut);
+        const groups: MonthGroup[] = [];
+        for (const [key, monthDays] of Array.from(monthMap.entries()).sort(([a], [b]) => a.localeCompare(b))) {
+          const [y, m] = key.split("-");
+          const totalIncome = monthDays.reduce((sum, d) => sum + d.totalIncome, 0);
+          const totalExpenses = monthDays.reduce((sum, d) => sum + d.totalExpenses, 0);
+          groups.push({
+            key,
+            label: `${hebrewMonths[parseInt(m, 10) - 1]} ${y}`,
+            days: monthDays,
+            totalIncome,
+            totalExpenses,
+            totalDiff: totalIncome - totalExpenses,
+            endCumulative: monthDays[monthDays.length - 1].cumulative,
+          });
+        }
 
-        // 2. Income source breakdown
-        const sourceAmounts = new Map<string, number>();
-        for (const item of incomeBreakdownData) {
-          const prev = sourceAmounts.get(item.income_source_id as string) || 0;
-          sourceAmounts.set(item.income_source_id as string, prev + (Number(item.amount) || 0));
-        }
-        const sourceNameMap = new Map(incomeSources.map((s: Record<string, unknown>) => [s.id as string, s.name as string]));
-        const incBreakdown: IncomeSourceBreakdown[] = [];
-        let colorIdx = 0;
-        for (const [sourceId, amount] of sourceAmounts.entries()) {
-          if (amount > 0) {
-            incBreakdown.push({
-              id: sourceId,
-              name: sourceNameMap.get(sourceId) || "אחר",
-              amount,
-              color: incomeSourcePalette[colorIdx % incomeSourcePalette.length],
-            });
-            colorIdx++;
-          }
-        }
-        incBreakdown.sort((a, b) => b.amount - a.amount);
-        setIncomeBreakdown(incBreakdown);
-
-        // 3. Payment method breakdown
-        const methodAmounts = new Map<string, number>();
-        for (const payment of payments) {
-          const splits = (payment as Record<string, unknown>).payment_splits as Record<string, unknown>[] || [];
-          if (splits.length > 0) {
-            for (const split of splits) {
-              const method = (split.payment_method as string) || "other";
-              const prev = methodAmounts.get(method) || 0;
-              methodAmounts.set(method, prev + (Number(split.amount) || 0));
-            }
-          } else {
-            const prev = methodAmounts.get("other") || 0;
-            methodAmounts.set("other", prev + (payment.total_amount || 0));
-          }
-        }
-        const pmBreakdown: PaymentMethodBreakdown[] = [];
-        for (const [method, amount] of methodAmounts.entries()) {
-          if (amount > 0) {
-            const colors = paymentMethodColors[method] || paymentMethodColors.other;
-            pmBreakdown.push({
-              id: method,
-              name: paymentMethodNames[method] || method,
-              amount,
-              color: colors.color,
-              colorClass: colors.colorClass,
-            });
-          }
-        }
-        pmBreakdown.sort((a, b) => b.amount - a.amount);
-        setPaymentMethodData(pmBreakdown);
-
-        // 4. Expense type breakdown
-        const typeAmounts = new Map<string, number>();
-        for (const payment of payments) {
-          const expType = ((payment as Record<string, unknown>).supplier as Record<string, unknown>)?.expense_type as string || "current_expenses";
-          const prev = typeAmounts.get(expType) || 0;
-          typeAmounts.set(expType, prev + (payment.total_amount || 0));
-        }
-        const etBreakdown: ExpenseTypeBreakdown[] = [];
-        for (const [type, amount] of typeAmounts.entries()) {
-          if (amount > 0) {
-            etBreakdown.push({
-              type,
-              label: expenseTypeLabels[type] || type,
-              amount,
-              color: expenseTypeColors[type] || "#6b7280",
-            });
-          }
-        }
-        etBreakdown.sort((a, b) => b.amount - a.amount);
-        setExpenseTypeData(etBreakdown);
+        setMonthGroups(groups);
       } catch (err) {
         console.error("Error fetching cash flow data:", err);
       } finally {
@@ -526,38 +321,70 @@ export default function CashFlowPage() {
     };
 
     fetchData();
-  }, [activeRange, activeGranularity, selectedBusinesses, refreshTrigger, supabase]);
+  }, [selectedBusinesses, endDate, refreshTrigger, supabase]);
 
   // ============================================================================
-  // DRILL-DOWN
+  // HANDLERS
   // ============================================================================
-  const handleRowClick = (row: CashFlowRow) => {
-    if (activeGranularity === "monthly") {
-      setDrillDownRange({ start: new Date(row.startDate + "T00:00:00"), end: new Date(row.endDate + "T00:00:00") });
-      setDrillDownGranularity("weekly");
-    } else if (activeGranularity === "weekly") {
-      setDrillDownRange({ start: new Date(row.startDate + "T00:00:00"), end: new Date(row.endDate + "T00:00:00") });
-      setDrillDownGranularity("daily");
-    }
+  const saveOpeningBalance = async () => {
+    if (selectedBusinesses.length === 0) return;
+    const balance = parseFloat(balanceInput.replace(/,/g, "")) || 0;
+    const date = balanceDateInput || formatLocalDate(new Date());
+
+    await supabase.from("cashflow_settings").upsert({
+      business_id: selectedBusinesses[0],
+      opening_balance: balance,
+      opening_date: date,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "business_id" });
+
+    setEditingBalance(false);
+    setRefreshTrigger((prev) => prev + 1);
   };
 
-  const exitDrillDown = () => {
-    setDrillDownRange(null);
-    setDrillDownGranularity(null);
+  const saveOverride = async () => {
+    if (!overrideItem || selectedBusinesses.length === 0) return;
+    const amount = parseFloat(overrideAmount.replace(/,/g, "")) || 0;
+
+    await supabase.from("cashflow_income_overrides").upsert({
+      business_id: selectedBusinesses[0],
+      settlement_date: overrideItem.date,
+      income_source_id: overrideItem.item.income_source_id,
+      original_amount: overrideItem.item.gross_amount,
+      override_amount: amount,
+      note: overrideNote || null,
+    }, { onConflict: "business_id,settlement_date,income_source_id" });
+
+    setOverrideItem(null);
+    setOverrideAmount("");
+    setOverrideNote("");
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  const toggleMonth = (key: string) => {
+    setExpandedMonths((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
+  };
+
+  const toggleDay = (dateStr: string) => {
+    setExpandedDays((prev) => prev.includes(dateStr) ? prev.filter((k) => k !== dateStr) : [...prev, dateStr]);
+  };
+
+  const handleEndDateChange = (range: { start: Date; end: Date }) => {
+    setEndDate(range.end);
+    setSavedEndDate(range.end.toISOString());
   };
 
   // ============================================================================
   // COMPUTED
   // ============================================================================
-  const netCashFlow = totalInflows - totalOutflows;
-  const cumulativeBalance = cashFlowRows.length > 0 ? cashFlowRows[cashFlowRows.length - 1].cumulative : 0;
-  const canDrillDown = activeGranularity !== "daily";
+  const totalIncome = monthGroups.reduce((sum, g) => sum + g.totalIncome, 0);
+  const totalExpenses = monthGroups.reduce((sum, g) => sum + g.totalExpenses, 0);
+  const netFlow = totalIncome - totalExpenses;
+  const finalBalance = monthGroups.length > 0 ? monthGroups[monthGroups.length - 1].endCumulative : (settings?.opening_balance ? Number(settings.opening_balance) : 0);
 
   // ============================================================================
   // RENDER
   // ============================================================================
-
-  // No business selected
   if (selectedBusinesses.length === 0) {
     return (
       <article className="text-white p-[7px] pb-[80px]">
@@ -570,278 +397,92 @@ export default function CashFlowPage() {
 
   return (
     <article aria-label="תזרים מזומנים" className="text-white p-[7px] pb-[80px] flex flex-col gap-[10px]">
-      {/* ============= HEADER + CONTROLS ============= */}
-      <section className="bg-[#0F1535] rounded-[10px] flex flex-col gap-[10px]">
-        {/* Controls Row */}
-        <div className="flex items-center justify-between gap-[10px] flex-wrap">
-          {/* Granularity Toggle - right side in RTL */}
-          <div className="flex items-center border border-[#4C526B] rounded-[7px] overflow-hidden">
-            {(["daily", "weekly", "monthly"] as const).map((g) => (
-              <Button
-                key={g}
+
+      {/* ============= HEADER ============= */}
+      <section className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+        <div className="flex items-center justify-between flex-wrap gap-[10px]">
+          {/* Opening balance */}
+          <div className="flex items-center gap-[10px]">
+            <div className="flex flex-col items-end">
+              <span className="text-[12px] text-white/50">מצב בבנק תחילת פעילות</span>
+              <button
                 type="button"
-                onClick={() => handleGranularityChange(g)}
-                className={`px-[12px] py-[8px] text-[14px] font-bold transition-colors ${
-                  granularity === g && !drillDownGranularity
-                    ? "bg-[#29318A] text-white"
-                    : "text-white/70 hover:text-white hover:bg-white/5"
-                }`}
+                onClick={() => {
+                  setBalanceInput(settings?.opening_balance?.toString() || "0");
+                  setBalanceDateInput(settings?.opening_date || formatLocalDate(new Date()));
+                  setEditingBalance(true);
+                }}
+                className="text-[20px] font-bold text-white hover:text-[#0095FF] transition-colors"
               >
-                {g === "daily" ? "יומי" : g === "weekly" ? "שבועי" : "חודשי"}
-              </Button>
-            ))}
+                {formatCurrencyFull(settings?.opening_balance ? Number(settings.opening_balance) : 0)}
+              </button>
+              {settings?.opening_date && (
+                <span className="text-[11px] text-white/40">{formatDisplayDate(settings.opening_date)}</span>
+              )}
+            </div>
           </div>
 
-          {/* Date picker with label - left side in RTL */}
-          {dateRange && (
-            <div className="flex items-center gap-[8px]">
-              <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
-              <DateRangePicker
-                dateRange={activeRange || dateRange}
-                onChange={handleDateRangeChange}
-                variant="compact"
-              />
-            </div>
-          )}
+          {/* Date range picker */}
+          <div className="flex items-center gap-[8px]">
+            <span className="text-[13px] text-white/50 font-medium hidden sm:inline">צפי עד:</span>
+            <DateRangePicker
+              dateRange={{ start: new Date(settings?.opening_date || formatLocalDate(new Date())), end: endDate }}
+              onChange={handleEndDateChange}
+              variant="compact"
+            />
+          </div>
         </div>
-
-        {/* Drill-down breadcrumb */}
-        {drillDownRange && (
-          <Button
-            type="button"
-            onClick={exitDrillDown}
-            className="text-[14px] text-[#0095FF] hover:underline flex flex-row-reverse items-center gap-[5px] self-start"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-            חזרה ל{granularity === "monthly" ? "תצוגה חודשית" : "תצוגה שבועית"}
-          </Button>
-        )}
       </section>
 
       {/* ============= SUMMARY CARDS ============= */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-[10px]">
-        {/* Total Inflows */}
         <div className="bg-[#0F1535] rounded-[10px] p-[15px] flex flex-col items-center gap-[5px]">
           <span className="text-[13px] text-white/60">סה&quot;כ הכנסות</span>
           {isLoading ? (
             <div className="h-[28px] w-[80px] bg-white/10 rounded animate-pulse" />
           ) : (
-            <span className="text-[22px] font-bold text-[#17DB4E]">{formatCurrencyFull(totalInflows)}</span>
+            <span className="text-[22px] font-bold text-[#17DB4E]">{formatCurrencyFull(totalIncome)}</span>
           )}
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-[#17DB4E]">
-            <path d="M12 19V5m0 0l-5 5m5-5l5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
         </div>
-
-        {/* Total Outflows */}
         <div className="bg-[#0F1535] rounded-[10px] p-[15px] flex flex-col items-center gap-[5px]">
-          <span className="text-[13px] text-white/60">סה&quot;כ יציאות</span>
+          <span className="text-[13px] text-white/60">סה&quot;כ הוצאות</span>
           {isLoading ? (
             <div className="h-[28px] w-[80px] bg-white/10 rounded animate-pulse" />
           ) : (
-            <span className="text-[22px] font-bold text-[#F64E60]">{formatCurrencyFull(totalOutflows)}</span>
+            <span className="text-[22px] font-bold text-[#F64E60]">{formatCurrencyFull(totalExpenses)}</span>
           )}
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-[#F64E60]">
-            <path d="M12 5v14m0 0l5-5m-5 5l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
         </div>
-
-        {/* Net Cash Flow */}
         <div className="bg-[#0F1535] rounded-[10px] p-[15px] flex flex-col items-center gap-[5px]">
-          <span className="text-[13px] text-white/60">תזרים נקי</span>
+          <span className="text-[13px] text-white/60">הפרש נקי</span>
           {isLoading ? (
             <div className="h-[28px] w-[80px] bg-white/10 rounded animate-pulse" />
           ) : (
-            <span className={`text-[22px] font-bold ${netCashFlow >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
-              {formatCurrencyFull(netCashFlow)}
+            <span className={`text-[22px] font-bold ${netFlow >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+              {formatCurrencyFull(netFlow)}
             </span>
           )}
         </div>
-
-        {/* Cumulative Balance */}
         <div className="bg-[#0F1535] rounded-[10px] p-[15px] flex flex-col items-center gap-[5px]">
-          <span className="text-[13px] text-white/60">יתרה מצטברת</span>
+          <span className="text-[13px] text-white/60">צפי תזרים סופי</span>
           {isLoading ? (
             <div className="h-[28px] w-[80px] bg-white/10 rounded animate-pulse" />
           ) : (
-            <span className={`text-[22px] font-bold ${cumulativeBalance >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
-              {formatCurrencyFull(cumulativeBalance)}
+            <span className={`text-[22px] font-bold ${finalBalance >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+              {formatCurrencyFull(finalBalance)}
             </span>
           )}
         </div>
       </section>
 
-      {/* ============= MAIN TRENDS CHART ============= */}
-      {!isLoading && chartData.length > 0 && (
-        <section className="bg-[#0F1535] rounded-[10px] p-[8px]">
-          <h2 className="text-[18px] font-bold mb-[10px] text-right flex items-center gap-[6px] justify-end"><ArrowsLeftRight size={18} color="rgb(59,130,246)" weight="duotone" />מגמות תזרים</h2>
-          <div className="w-full" dir="ltr">
-            <SafeChartContainer height={280}>
-              <LazyComposedChart data={chartData}>
-                <defs>
-                  <linearGradient id="inflowGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#17DB4E" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#17DB4E" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="outflowGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#F64E60" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#F64E60" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <LazyXAxis dataKey="label" tick={{ fill: "#7B91B0", fontSize: 9 }} axisLine={false} tickLine={false} />
-                <LazyYAxis yAxisId="left" orientation="right" tick={{ fill: "#7B91B0", fontSize: 8 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v / 1000}k`} />
-                <LazyYAxis yAxisId="right" orientation="left" tick={{ fill: "#7B91B0", fontSize: 8 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v / 1000}k`} />
-                <LazyArea yAxisId="left" type="monotone" dataKey="inflows" stroke="#17DB4E" strokeWidth={2} fill="url(#inflowGrad)" name="הכנסות" />
-                <LazyArea yAxisId="left" type="monotone" dataKey="outflows" stroke="#F64E60" strokeWidth={2} fill="url(#outflowGrad)" name="יציאות" />
-                <LazyLine yAxisId="right" type="monotone" dataKey="cumulative" stroke="#0095FF" strokeWidth={3} dot={{ fill: "#0095FF", r: 3 }} name="מצטבר" />
-              </LazyComposedChart>
-            </SafeChartContainer>
-          </div>
-
-          {/* Legend */}
-          <div className="flex flex-row-reverse justify-center flex-wrap gap-4 mt-3">
-            <div className="flex flex-row-reverse items-center gap-2">
-              <span className="text-[#7B91B0] text-[10px]">הכנסות</span>
-              <div className="w-[10px] h-[10px] bg-[#17DB4E] rounded-[2px]" />
-            </div>
-            <div className="flex flex-row-reverse items-center gap-2">
-              <span className="text-[#7B91B0] text-[10px]">יציאות</span>
-              <div className="w-[10px] h-[10px] bg-[#F64E60] rounded-[2px]" />
-            </div>
-            <div className="flex flex-row-reverse items-center gap-2">
-              <span className="text-[#7B91B0] text-[10px]">מצטבר</span>
-              <div className="w-[10px] h-[10px] bg-[#0095FF] rounded-full" />
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ============= BREAKDOWN CHARTS ============= */}
-      {!isLoading && (incomeBreakdown.length > 0 || paymentMethodData.length > 0 || expenseTypeData.length > 0) && (
-        <section className="flex flex-col lg:grid lg:grid-cols-3 gap-[10px]">
-          {/* Income by Source */}
-          <div className="bg-[#0F1535] rounded-[10px] p-[15px]">
-            <h3 className="text-[16px] font-bold text-center mb-[10px]">הכנסות לפי מקור</h3>
-            {incomeBreakdown.length > 0 ? (
-              <>
-                <div className="h-[220px] min-w-[1px] min-h-[1px]">
-                  <ResponsiveContainer width="100%" height={220} minWidth={1} minHeight={1}>
-                    <PieChart>
-                      <Pie data={incomeBreakdown} cx="50%" cy="50%" outerRadius={90} dataKey="amount" stroke="none">
-                        {incomeBreakdown.map((entry) => (
-                          <Cell key={entry.id} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex flex-col gap-[2px] mt-[5px]">
-                  {incomeBreakdown.map((src) => (
-                    <div key={src.id} className="flex items-center justify-between py-[4px] border-t border-white/10">
-                      <div className="flex items-center gap-[5px]">
-                        <span className="w-[12px] h-[12px] rounded-full flex-shrink-0" style={{ backgroundColor: src.color }} />
-                        <span className="text-[13px]">{src.name}</span>
-                      </div>
-                      <span className="text-[13px] font-bold">{formatCurrencyFull(src.amount)}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="h-[220px] flex items-center justify-center">
-                <span className="text-[14px] text-white/40">אין נתונים</span>
-              </div>
-            )}
-          </div>
-
-          {/* Outflows by Payment Method */}
-          <div className="bg-[#0F1535] rounded-[10px] p-[15px]">
-            <h3 className="text-[16px] font-bold text-center mb-[10px]">יציאות לפי אמצעי תשלום</h3>
-            {paymentMethodData.length > 0 ? (
-              <>
-                <div className="h-[220px] min-w-[1px] min-h-[1px]">
-                  <ResponsiveContainer width="100%" height={220} minWidth={1} minHeight={1}>
-                    <PieChart>
-                      <Pie data={paymentMethodData} cx="50%" cy="50%" outerRadius={90} dataKey="amount" stroke="none">
-                        {paymentMethodData.map((entry) => (
-                          <Cell key={entry.id} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex flex-col gap-[2px] mt-[5px]">
-                  {paymentMethodData.map((pm) => (
-                    <div key={pm.id} className="flex items-center justify-between py-[4px] border-t border-white/10">
-                      <div className="flex items-center gap-[5px]">
-                        <span className={`w-[12px] h-[12px] rounded-full flex-shrink-0 ${pm.colorClass}`} />
-                        <span className="text-[13px]">{pm.name}</span>
-                      </div>
-                      <span className="text-[13px] font-bold">{formatCurrencyFull(pm.amount)}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="h-[220px] flex items-center justify-center">
-                <span className="text-[14px] text-white/40">אין נתונים</span>
-              </div>
-            )}
-          </div>
-
-          {/* Outflows by Expense Type */}
-          <div className="bg-[#0F1535] rounded-[10px] p-[15px]">
-            <h3 className="text-[16px] font-bold text-center mb-[10px]">יציאות לפי סוג הוצאה</h3>
-            {expenseTypeData.length > 0 ? (
-              <div className="h-[220px] min-w-[1px] min-h-[1px]" dir="ltr">
-                <ResponsiveContainer width="100%" height={220} minWidth={1} minHeight={1}>
-                  <RechartsBarChart data={expenseTypeData} layout="vertical" margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-                    <XAxis type="number" tick={{ fill: "#7B91B0", fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v / 1000}k`} />
-                    <YAxis type="category" dataKey="label" tick={{ fill: "#7B91B0", fontSize: 11 }} axisLine={false} tickLine={false} width={100} />
-                    <Bar dataKey="amount" radius={[0, 4, 4, 0]} barSize={30}>
-                      {expenseTypeData.map((entry) => (
-                        <Cell key={entry.type} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </RechartsBarChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-[220px] flex items-center justify-center">
-                <span className="text-[14px] text-white/40">אין נתונים</span>
-              </div>
-            )}
-            {/* Legend for expense type */}
-            {expenseTypeData.length > 0 && (
-              <div className="flex flex-col gap-[2px] mt-[5px]">
-                {expenseTypeData.map((et) => (
-                  <div key={et.type} className="flex items-center justify-between py-[4px] border-t border-white/10">
-                    <div className="flex items-center gap-[5px]">
-                      <span className="w-[12px] h-[12px] rounded-full flex-shrink-0" style={{ backgroundColor: et.color }} />
-                      <span className="text-[13px]">{et.label}</span>
-                    </div>
-                    <span className="text-[13px] font-bold">{formatCurrencyFull(et.amount)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* ============= DETAILED TABLE ============= */}
+      {/* ============= MAIN TABLE ============= */}
       <section className="bg-[#0F1535] rounded-[10px] p-[7px]">
-        <h2 className="text-[18px] font-bold mb-[10px] px-[5px] text-right flex items-center gap-[6px] justify-end"><ArrowsLeftRight size={18} color="rgb(59,130,246)" weight="duotone" />פירוט תזרים</h2>
-
         {/* Table Header */}
-        <div className="flex flex-row-reverse items-center justify-between min-h-[45px] border-b-2 border-white/15 p-[5px] gap-[5px]">
-          <span className="text-[13px] font-semibold w-[90px] text-right">תקופה</span>
-          <span className="text-[13px] font-medium w-[75px] text-center">הכנסות</span>
-          <span className="text-[13px] font-medium w-[75px] text-center">יציאות</span>
-          <span className="text-[13px] font-medium w-[75px] text-center hidden sm:block">תזרים נקי</span>
-          <span className="text-[13px] font-medium w-[75px] text-center">מצטבר</span>
+        <div className="flex flex-row-reverse items-center justify-between min-h-[45px] bg-[#FACC15]/20 rounded-t-[8px] p-[8px] gap-[5px]">
+          <span className="text-[13px] font-bold w-[100px] text-right text-[#FACC15]">תאריך</span>
+          <span className="text-[13px] font-bold flex-1 text-center text-[#FACC15]">הכנסות</span>
+          <span className="text-[13px] font-bold flex-1 text-center text-[#FACC15]">הוצאות</span>
+          <span className="text-[13px] font-bold flex-1 text-center text-[#FACC15]">הפרש יומי</span>
+          <span className="text-[13px] font-bold flex-1 text-center text-[#FACC15]">צפי תזרים</span>
         </div>
 
         {/* Loading */}
@@ -851,63 +492,271 @@ export default function CashFlowPage() {
               <div key={i} className="h-[45px] bg-white/5 rounded animate-pulse" />
             ))}
           </div>
-        ) : cashFlowRows.length === 0 ? (
-          <div className="flex items-center justify-center py-[40px]">
+        ) : monthGroups.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-[40px] gap-[10px]">
             <span className="text-[16px] text-white/50">אין נתונים להצגה</span>
+            {!settings && (
+              <Button
+                onClick={() => {
+                  setBalanceInput("0");
+                  setBalanceDateInput(formatLocalDate(new Date()));
+                  setEditingBalance(true);
+                }}
+                className="bg-[#4956D4] text-white text-[14px] px-[20px] py-[10px] rounded-[8px]"
+              >
+                הגדר יתרת פתיחה
+              </Button>
+            )}
           </div>
         ) : (
           <div className="flex flex-col">
-            {cashFlowRows.map((row, index) => (
-              <Button
-                key={row.startDate}
-                type="button"
-                onClick={() => canDrillDown && handleRowClick(row)}
-                className={`flex flex-row-reverse items-center justify-between w-full min-h-[45px] p-[5px] gap-[5px] border-b border-white/10 transition-colors ${
-                  canDrillDown ? "hover:bg-[#29318A]/30 cursor-pointer" : "cursor-default"
-                } ${index % 2 === 0 ? "bg-white/[0.02]" : ""}`}
-              >
-                <div className="flex flex-row-reverse items-center gap-[5px] w-[90px]">
-                  <span className="text-[13px] font-bold text-right">{row.label}</span>
-                  {canDrillDown && (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-white/30 flex-shrink-0">
-                      <path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Month Groups */}
+            {monthGroups.map((month) => (
+              <div key={month.key}>
+                {/* Level 1: Month Header */}
+                <Button
+                  type="button"
+                  onClick={() => toggleMonth(month.key)}
+                  className={`flex flex-row-reverse items-center justify-between w-full min-h-[50px] p-[8px] gap-[5px] border-b-2 border-white/15 hover:bg-[#29318A]/30 transition-all cursor-pointer ${
+                    expandedMonths.includes(month.key) ? "rounded-t-[10px]" : ""
+                  }`}
+                >
+                  <div className="flex flex-row-reverse items-center gap-[5px] w-[100px]">
+                    <svg
+                      width="16" height="16" viewBox="0 0 32 32" fill="none"
+                      className={`flex-shrink-0 transition-transform ${expandedMonths.includes(month.key) ? "rotate-180" : ""}`}
+                    >
+                      <path d="M8 12L16 20L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                  )}
-                </div>
-                <span className="text-[13px] font-bold w-[75px] text-center text-[#17DB4E]">
-                  {formatCurrency(row.inflows)}
-                </span>
-                <span className="text-[13px] font-bold w-[75px] text-center text-[#F64E60]">
-                  {formatCurrency(row.outflows)}
-                </span>
-                <span className={`text-[13px] font-bold w-[75px] text-center hidden sm:block ${row.net >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
-                  {formatCurrency(row.net)}
-                </span>
-                <span className={`text-[13px] font-bold w-[75px] text-center ${row.cumulative >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
-                  {formatCurrency(row.cumulative)}
-                </span>
-              </Button>
+                    <span className="text-[14px] font-bold text-right">{month.label}</span>
+                  </div>
+                  <span className="text-[13px] font-bold flex-1 text-center text-[#17DB4E]">
+                    {formatCurrencyFull(month.totalIncome)}
+                  </span>
+                  <span className="text-[13px] font-bold flex-1 text-center text-[#F64E60]">
+                    {formatCurrencyFull(month.totalExpenses)}
+                  </span>
+                  <span className={`text-[13px] font-bold flex-1 text-center ${month.totalDiff >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+                    {formatCurrencyFull(month.totalDiff)}
+                  </span>
+                  <span className={`text-[13px] font-bold flex-1 text-center ${month.endCumulative >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+                    {formatCurrencyFull(month.endCumulative)}
+                  </span>
+                </Button>
+
+                {/* Level 2: Daily Rows (expanded month) */}
+                {expandedMonths.includes(month.key) && (
+                  <div className="bg-[#232B6A] rounded-b-[10px] mb-[5px]">
+                    {month.days.map((day, dayIndex) => (
+                      <div key={day.date}>
+                        <Button
+                          type="button"
+                          onClick={() => toggleDay(day.date)}
+                          className={`flex flex-row-reverse items-center justify-between w-full min-h-[42px] p-[8px] gap-[5px] hover:bg-white/5 transition-all cursor-pointer ${
+                            dayIndex < month.days.length - 1 && !expandedDays.includes(day.date) ? "border-b border-white/10" : ""
+                          }`}
+                        >
+                          <div className="flex flex-row-reverse items-center gap-[5px] w-[100px]">
+                            <svg
+                              width="12" height="12" viewBox="0 0 32 32" fill="none"
+                              className={`flex-shrink-0 transition-transform text-white/40 ${expandedDays.includes(day.date) ? "rotate-180" : ""}`}
+                            >
+                              <path d="M8 12L16 20L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            <span className="text-[12px] font-medium text-right text-white/80">{formatDayLabel(day.date)}</span>
+                          </div>
+                          <span className={`text-[12px] font-medium flex-1 text-center ${day.totalIncome > 0 ? "text-[#17DB4E]" : "text-white/30"}`}>
+                            {day.totalIncome > 0 ? formatCurrencyFull(day.totalIncome) : "-"}
+                          </span>
+                          <span className={`text-[12px] font-medium flex-1 text-center ${day.totalExpenses > 0 ? "text-[#F64E60]" : "text-white/30"}`}>
+                            {day.totalExpenses > 0 ? formatCurrencyFull(day.totalExpenses) : "-"}
+                          </span>
+                          <span className={`text-[12px] font-medium flex-1 text-center ${day.dailyDiff > 0 ? "text-[#17DB4E]" : day.dailyDiff < 0 ? "text-[#F64E60]" : "text-white/30"}`}>
+                            {day.dailyDiff !== 0 ? formatCurrencyFull(day.dailyDiff) : "-"}
+                          </span>
+                          <span className={`text-[12px] font-bold flex-1 text-center ${day.cumulative >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+                            {formatCurrencyFull(day.cumulative)}
+                          </span>
+                        </Button>
+
+                        {/* Level 3: Individual Items (expanded day) */}
+                        {expandedDays.includes(day.date) && (
+                          <div className="bg-[#141A40] border-b border-white/10">
+                            {/* Income items */}
+                            {day.incomeItems.length > 0 && (
+                              <div className="p-[8px]">
+                                <span className="text-[11px] text-[#17DB4E]/70 font-semibold">הכנסות</span>
+                                {day.incomeItems.map((item, idx) => (
+                                  <button
+                                    key={`inc-${idx}`}
+                                    type="button"
+                                    onClick={() => {
+                                      setOverrideItem({ date: day.date, item });
+                                      setOverrideAmount(String(Math.round(item.net_amount)));
+                                      setOverrideNote("");
+                                    }}
+                                    className="flex flex-row-reverse items-center justify-between w-full py-[4px] hover:bg-white/5 rounded px-[4px] transition-colors"
+                                  >
+                                    <div className="flex flex-row-reverse items-center gap-[6px]">
+                                      <span className="text-[12px] text-white/80">{item.income_source_name}</span>
+                                      {item.fee_amount > 0 && (
+                                        <span className="text-[10px] text-white/30">(-{formatCurrencyFull(item.fee_amount)} עמלה)</span>
+                                      )}
+                                    </div>
+                                    <span className="text-[12px] font-bold text-[#17DB4E]">{formatCurrencyFull(item.net_amount)}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {/* Expense items */}
+                            {day.expenseItems.length > 0 && (
+                              <div className="p-[8px] border-t border-white/5">
+                                <span className="text-[11px] text-[#F64E60]/70 font-semibold">הוצאות</span>
+                                {day.expenseItems.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className="flex flex-row-reverse items-center justify-between py-[4px] px-[4px]"
+                                  >
+                                    <div className="flex flex-row-reverse items-center gap-[6px]">
+                                      <span className="text-[12px] text-white/80">{item.supplier_name}</span>
+                                      <span className="text-[10px] text-white/30">{paymentMethodNames[item.payment_method] || item.payment_method}</span>
+                                    </div>
+                                    <span className="text-[12px] font-bold text-[#F64E60]">{formatCurrencyFull(item.amount)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {/* Empty day */}
+                            {day.incomeItems.length === 0 && day.expenseItems.length === 0 && (
+                              <div className="p-[8px] text-center">
+                                <span className="text-[12px] text-white/30">אין תנועות</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
 
             {/* Totals Row */}
-            <div className="flex flex-row-reverse items-center justify-between min-h-[50px] p-[5px] gap-[5px] border-t-2 border-white/20 bg-white/5">
-              <span className="text-[14px] font-bold w-[90px] text-right">סה&quot;כ</span>
-              <span className="text-[14px] font-bold w-[75px] text-center text-[#17DB4E]">
-                {formatCurrency(totalInflows)}
+            <div className="flex flex-row-reverse items-center justify-between min-h-[50px] p-[8px] gap-[5px] border-t-2 border-white/20 bg-white/5 rounded-b-[8px]">
+              <span className="text-[14px] font-bold w-[100px] text-right">סה&quot;כ</span>
+              <span className="text-[14px] font-bold flex-1 text-center text-[#17DB4E]">
+                {formatCurrencyFull(totalIncome)}
               </span>
-              <span className="text-[14px] font-bold w-[75px] text-center text-[#F64E60]">
-                {formatCurrency(totalOutflows)}
+              <span className="text-[14px] font-bold flex-1 text-center text-[#F64E60]">
+                {formatCurrencyFull(totalExpenses)}
               </span>
-              <span className={`text-[14px] font-bold w-[75px] text-center hidden sm:block ${netCashFlow >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
-                {formatCurrency(netCashFlow)}
+              <span className={`text-[14px] font-bold flex-1 text-center ${netFlow >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+                {formatCurrencyFull(netFlow)}
               </span>
-              <span className={`text-[14px] font-bold w-[75px] text-center ${cumulativeBalance >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
-                {formatCurrency(cumulativeBalance)}
+              <span className={`text-[14px] font-bold flex-1 text-center ${finalBalance >= 0 ? "text-[#17DB4E]" : "text-[#F64E60]"}`}>
+                {formatCurrencyFull(finalBalance)}
               </span>
             </div>
           </div>
         )}
       </section>
+
+      {/* ============= OPENING BALANCE DIALOG ============= */}
+      <Dialog open={editingBalance} onOpenChange={setEditingBalance}>
+        <DialogContent className="bg-[#0F1535] border-white/10 text-white max-w-[380px]" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-right text-[18px]">מצב בבנק תחילת פעילות</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-[14px] mt-[10px]">
+            <div className="flex flex-col gap-[6px]">
+              <label className="text-[13px] text-white/60 text-right">יתרה (₪)</label>
+              <Input
+                type="text"
+                value={balanceInput}
+                onChange={(e) => setBalanceInput(e.target.value)}
+                placeholder="0"
+                className="bg-[#232B6A] border-white/10 text-white text-center h-[40px] text-[18px] font-bold"
+              />
+            </div>
+            <div className="flex flex-col gap-[6px]">
+              <label className="text-[13px] text-white/60 text-right">תאריך</label>
+              <Input
+                type="date"
+                value={balanceDateInput}
+                onChange={(e) => setBalanceDateInput(e.target.value)}
+                className="bg-[#232B6A] border-white/10 text-white text-center h-[40px]"
+              />
+            </div>
+            <div className="flex gap-[10px] mt-[6px]">
+              <Button
+                onClick={saveOpeningBalance}
+                className="flex-1 bg-[#4956D4] text-white text-[14px] font-semibold py-[10px] rounded-[8px]"
+              >
+                שמור
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setEditingBalance(false)}
+                className="flex-1 text-white/60 text-[14px] py-[10px] rounded-[8px]"
+              >
+                ביטול
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============= INCOME OVERRIDE DIALOG ============= */}
+      <Dialog open={!!overrideItem} onOpenChange={(v) => !v && setOverrideItem(null)}>
+        <DialogContent className="bg-[#0F1535] border-white/10 text-white max-w-[380px]" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-right text-[18px]">עריכת הכנסה</DialogTitle>
+          </DialogHeader>
+          {overrideItem && (
+            <div className="flex flex-col gap-[14px] mt-[10px]">
+              <div className="flex flex-col gap-[4px]">
+                <span className="text-[13px] text-white/60">מקור: {overrideItem.item.income_source_name}</span>
+                <span className="text-[13px] text-white/60">תאריך מקורי: {formatDisplayDate(overrideItem.item.original_entry_date)}</span>
+                <span className="text-[13px] text-white/60">סכום מחושב: {formatCurrencyFull(overrideItem.item.gross_amount)}</span>
+              </div>
+              <div className="flex flex-col gap-[6px]">
+                <label className="text-[13px] text-white/60 text-right">סכום בפועל (₪)</label>
+                <Input
+                  type="text"
+                  value={overrideAmount}
+                  onChange={(e) => setOverrideAmount(e.target.value)}
+                  className="bg-[#232B6A] border-white/10 text-white text-center h-[40px] text-[18px] font-bold"
+                />
+              </div>
+              <div className="flex flex-col gap-[6px]">
+                <label className="text-[13px] text-white/60 text-right">הערה (אופציונלי)</label>
+                <Input
+                  type="text"
+                  value={overrideNote}
+                  onChange={(e) => setOverrideNote(e.target.value)}
+                  placeholder="למשל: מבצע 5% על חלק מהעסקאות"
+                  className="bg-[#232B6A] border-white/10 text-white text-right h-[40px]"
+                />
+              </div>
+              <div className="flex gap-[10px] mt-[6px]">
+                <Button
+                  onClick={saveOverride}
+                  className="flex-1 bg-[#4956D4] text-white text-[14px] font-semibold py-[10px] rounded-[8px]"
+                >
+                  שמור
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => setOverrideItem(null)}
+                  className="flex-1 text-white/60 text-[14px] py-[10px] rounded-[8px]"
+                >
+                  ביטול
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </article>
   );
 }
