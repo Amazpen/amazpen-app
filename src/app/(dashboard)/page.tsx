@@ -1250,7 +1250,8 @@ export default function DashboardPage() {
       const [
         incomeSourceGoalsResult,
         goodsInvoicesResult,
-        currentExpensesInvoicesResult
+        currentExpensesInvoicesResult,
+        currentExpensesBudgetsResult
       ] = await Promise.all([
         // 1. Fetch income source goals (depends on goalIds)
         goalIds.length > 0
@@ -1282,12 +1283,23 @@ export default function DashboardPage() {
               .gte("invoice_date", startDateStr)
               .lte("invoice_date", endDateStr)
               .is("deleted_at", null)
+          : Promise.resolve({ data: [] }),
+
+        // 4. Get supplier budgets for current_expenses (fallback when goals.current_expenses_target is null)
+        currentExpensesSupplierIds.length > 0
+          ? supabase
+              .from("supplier_budgets")
+              .select("budget_amount")
+              .in("supplier_id", currentExpensesSupplierIds)
+              .eq("year", dateRange.start.getFullYear())
+              .eq("month", dateRange.start.getMonth() + 1)
           : Promise.resolve({ data: [] })
       ]);
 
       const { data: incomeSourceGoalsData } = incomeSourceGoalsResult;
       const { data: goodsInvoices } = goodsInvoicesResult;
       const { data: currentExpensesInvoices } = currentExpensesInvoicesResult;
+      const { data: currentExpensesBudgets } = currentExpensesBudgetsResult;
 
       // Build a map of income_source_id -> avg_ticket_target
       const avgTicketTargetMap: Record<string, number> = {};
@@ -1587,7 +1599,10 @@ export default function DashboardPage() {
       const currentExpenses = totalCurrentExpenses;
       const currentExpensesPct = incomeBeforeVatForFood > 0 ? (currentExpenses / incomeBeforeVatForFood) * 100 : 0;
       // Current expenses target + diff calculated after monthlyPace (needs monthly pace before VAT)
-      const currentExpensesTargetAmount = (goalsData || []).reduce((sum, g) => sum + (Number(g.current_expenses_target) || 0), 0);
+      // Use goals.current_expenses_target if set, otherwise fallback to sum of supplier_budgets
+      const goalsTargetAmount = (goalsData || []).reduce((sum, g) => sum + (Number(g.current_expenses_target) || 0), 0);
+      const supplierBudgetsTotal = (currentExpensesBudgets || []).reduce((sum, b) => sum + (Number(b.budget_amount) || 0), 0);
+      const currentExpensesTargetAmount = goalsTargetAmount > 0 ? goalsTargetAmount : supplierBudgetsTotal;
 
       // For now, set fixed/variable from labor
       const fixedExpenses = laborCost;
