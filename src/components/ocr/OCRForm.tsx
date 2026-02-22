@@ -1437,22 +1437,29 @@ export default function OCRForm({
 
           {/* Items table */}
           <div className="overflow-x-auto">
-            <Table className="w-full text-[13px]" style={{ minWidth: 320 }}>
+            <Table className="w-full text-[13px]" style={{ minWidth: 380, tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: '40%' }} />
+                <col style={{ width: '15%' }} />
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '28px' }} />
+              </colgroup>
               <TableHeader>
-                <TableRow className="border-b border-[#4C526B] text-white/60 whitespace-nowrap">
+                <TableRow className="border-b border-[#4C526B] text-white/60">
                   <TableHead className="text-right py-[6px] pr-[4px]">פריט</TableHead>
-                  <TableHead className="text-center py-[6px] w-[50px]">כמות</TableHead>
-                  <TableHead className="text-center py-[6px] w-[75px]">מחיר</TableHead>
-                  <TableHead className="text-center py-[6px] w-[75px]">סה&quot;כ</TableHead>
-                  <TableHead className="w-[28px]"></TableHead>
+                  <TableHead className="text-center py-[6px]">כמות</TableHead>
+                  <TableHead className="text-center py-[6px]">מחיר</TableHead>
+                  <TableHead className="text-center py-[6px]">סה&quot;כ</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {lineItems.map((li, idx) => (
-                  <TableRow key={`line-${li.description}-${idx}`} className="border-b border-[#4C526B]/50 whitespace-nowrap">
-                    <TableCell className="text-right py-[6px] pr-[4px] text-white max-w-[120px] overflow-hidden text-ellipsis" title={li.description || '-'}>{li.description || '-'}</TableCell>
-                    <TableCell className="text-center py-[6px] text-white/70 ltr-num">{li.quantity || '-'}</TableCell>
-                    <TableCell className="text-center py-[6px] ltr-num leading-tight">
+                  <TableRow key={`line-${li.description}-${idx}`} className="border-b border-[#4C526B]/50">
+                    <TableCell className="text-right py-[6px] pr-[4px] text-white overflow-hidden text-ellipsis whitespace-nowrap" title={li.description || '-'}>{li.description || '-'}</TableCell>
+                    <TableCell className="text-center py-[6px] text-white/70 ltr-num whitespace-nowrap">{li.quantity || '-'}</TableCell>
+                    <TableCell className="text-center py-[6px] ltr-num leading-tight whitespace-nowrap">
                       <span className="text-white">&#8362;{li.unit_price?.toFixed(2) || '0'}</span>
                       {priceCheckDone && li.price_change_pct != null && li.price_change_pct !== 0 && (
                         <span className={`block text-[9px] ${(li.price_change_pct || 0) > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
@@ -1463,14 +1470,14 @@ export default function OCRForm({
                         <span className="block text-[9px] text-[#00D4FF]">חדש</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-center py-[6px] text-white/70 ltr-num">&#8362;{li.total?.toFixed(2) || '0'}</TableCell>
-                    <TableCell className="text-center py-[6px]">
+                    <TableCell className="text-center py-[6px] text-white/70 ltr-num whitespace-nowrap">&#8362;{li.total?.toFixed(2) || '0'}</TableCell>
+                    <TableCell className="text-center py-[6px] p-0">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={() => setLineItems(prev => prev.filter((_, i) => i !== idx))}
-                        className="text-[#F64E60]/60 hover:text-[#F64E60] text-[14px]"
+                        className="text-[#F64E60]/60 hover:text-[#F64E60] text-[14px] h-7 w-7"
                         title="הסר פריט"
                       >
                         &times;
