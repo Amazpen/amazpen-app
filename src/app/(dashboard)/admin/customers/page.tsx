@@ -485,6 +485,9 @@ export default function CustomersPage() {
         retainer_end_date: retainerEndDate,
         retainer_day_of_month: retainerDayOfMonth,
         retainer_status: retainerAmount && retainerAmount > 0 ? (isEditMode && editingCustomer?.retainer_status ? editingCustomer.retainer_status : 'active' as const) : null,
+        labor_type: fLaborType || null,
+        labor_monthly_salary: fLaborMonthlySalary ? parseFloat(fLaborMonthlySalary) : null,
+        labor_hourly_rate: fLaborHourlyRate ? parseFloat(fLaborHourlyRate) : null,
       };
 
       let savedCustomerId: string | null = null;
@@ -636,6 +639,88 @@ export default function CustomersPage() {
     });
   };
 
+  // ─── Service Handlers ────────────────────────────────────
+
+  const handleAddService = async () => {
+    if (!selectedItem?.customer || !newServiceName.trim() || !newServiceAmount) return;
+
+    const amount = parseFloat(newServiceAmount);
+    if (isNaN(amount) || amount <= 0) {
+      showToast("יש להזין סכום תקין", "error");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const supabase = createClient();
+    const serviceId = generateUUID();
+    const customerId = selectedItem.customer.id;
+    const customerBusinessName = selectedItem.business.name;
+
+    const { error } = await supabase.from("customer_services").insert({
+      id: serviceId,
+      customer_id: customerId,
+      name: newServiceName.trim(),
+      amount,
+      service_date: newServiceDate || new Date().toISOString().split('T')[0],
+      notes: newServiceNotes.trim() || null,
+    });
+
+    if (error) {
+      showToast("שגיאה בשמירת שירות", "error");
+      console.error(error);
+    } else {
+      // Also create income_source and daily_income_breakdown entry
+      const incomeSourceId = generateUUID();
+      const businessId = selectedItem.business.id;
+      if (businessId) {
+        const { error: incomeError } = await supabase.from("income_sources").insert({
+          id: incomeSourceId,
+          business_id: businessId,
+          name: `שירות — ${newServiceName.trim()} (${customerBusinessName})`,
+          type: "service",
+          is_active: true,
+        });
+
+        if (!incomeError) {
+          await supabase.from("daily_income_breakdown").insert({
+            id: generateUUID(),
+            business_id: businessId,
+            income_source_id: incomeSourceId,
+            date: newServiceDate || new Date().toISOString().split('T')[0],
+            amount,
+          });
+        }
+      }
+
+      showToast("השירות נשמר", "success");
+      setNewServiceName("");
+      setNewServiceAmount("");
+      setNewServiceDate("");
+      setNewServiceNotes("");
+      setIsAddServiceOpen(false);
+      await fetchServices(customerId);
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleDeleteService = (serviceId: string) => {
+    if (!selectedItem?.customer) return;
+    confirm("האם למחוק את השירות?", async () => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("customer_services")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", serviceId);
+
+      if (error) {
+        showToast("שגיאה במחיקת שירות", "error");
+      } else {
+        showToast("השירות נמחק", "success");
+        await fetchServices(selectedItem!.customer!.id);
+      }
+    });
+  };
+
   // ─── Draft Persistence ────────────────────────────────────
 
   const saveDraftData = useCallback(() => {
@@ -644,8 +729,9 @@ export default function CustomersPage() {
       fContactName, fBusinessName, fCompanyName, fTaxId,
       fWorkStartDate, fSetupFee, fPaymentTerms, fNotes,
       fRetainerAmount, fRetainerType, fRetainerMonths, fRetainerStartDate, fRetainerDayOfMonth,
+      fLaborType, fLaborMonthlySalary, fLaborHourlyRate,
     });
-  }, [saveDraft, isFormOpen, isEditMode, fContactName, fBusinessName, fCompanyName, fTaxId, fWorkStartDate, fSetupFee, fPaymentTerms, fNotes, fRetainerAmount, fRetainerType, fRetainerMonths, fRetainerStartDate, fRetainerDayOfMonth]);
+  }, [saveDraft, isFormOpen, isEditMode, fContactName, fBusinessName, fCompanyName, fTaxId, fWorkStartDate, fSetupFee, fPaymentTerms, fNotes, fRetainerAmount, fRetainerType, fRetainerMonths, fRetainerStartDate, fRetainerDayOfMonth, fLaborType, fLaborMonthlySalary, fLaborHourlyRate]);
 
   useEffect(() => {
     if (draftRestored.current) saveDraftData();
@@ -671,6 +757,9 @@ export default function CustomersPage() {
           if (draft.fRetainerMonths) setFRetainerMonths(draft.fRetainerMonths as string);
           if (draft.fRetainerStartDate) setFRetainerStartDate(draft.fRetainerStartDate as string);
           if (draft.fRetainerDayOfMonth) setFRetainerDayOfMonth(draft.fRetainerDayOfMonth as string);
+          if (draft.fLaborType) setFLaborType(draft.fLaborType as string);
+          if (draft.fLaborMonthlySalary) setFLaborMonthlySalary(draft.fLaborMonthlySalary as string);
+          if (draft.fLaborHourlyRate) setFLaborHourlyRate(draft.fLaborHourlyRate as string);
         }
         draftRestored.current = true;
       }, 0);
@@ -1172,6 +1261,60 @@ export default function CustomersPage() {
               </div>
             </div>
 
+            {/* ── Labor Cost Section ── */}
+            <div className="flex flex-col gap-[10px] mt-[10px] border border-purple-500/30 rounded-[10px] p-[12px] bg-purple-900/10">
+              <h3 className="text-[15px] font-bold text-purple-300 text-right">עלות עבודה</h3>
+
+              {/* סוג עלות */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[14px] font-medium text-white/80 text-right">סוג עלות</label>
+                <Select value={fLaborType || "__none__"} onValueChange={(val) => setFLaborType(val === "__none__" ? "" : val)}>
+                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                    <SelectValue placeholder="בחר סוג" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">בחר סוג</SelectItem>
+                    <SelectItem value="global">גלובלי</SelectItem>
+                    <SelectItem value="hourly">שעתי</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* משכורת חודשית - global */}
+              {fLaborType === "global" && (
+                <div className="flex flex-col gap-[5px]">
+                  <label className="text-[14px] font-medium text-white/80 text-right">משכורת חודשית (₪)</label>
+                  <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                    <Input
+                      type="tel"
+                      title="משכורת חודשית"
+                      value={fLaborMonthlySalary}
+                      onChange={(e) => setFLaborMonthlySalary(e.target.value)}
+                      placeholder="0"
+                      className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* תעריף שעתי - hourly */}
+              {fLaborType === "hourly" && (
+                <div className="flex flex-col gap-[5px]">
+                  <label className="text-[14px] font-medium text-white/80 text-right">תעריף לשעה (₪)</label>
+                  <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                    <Input
+                      type="tel"
+                      title="תעריף שעתי"
+                      value={fLaborHourlyRate}
+                      onChange={(e) => setFLaborHourlyRate(e.target.value)}
+                      placeholder="0"
+                      className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Active/Inactive toggle - edit mode only */}
             {isEditMode && (
               <div className="flex flex-col gap-[10px] items-start" dir="rtl">
@@ -1484,6 +1627,291 @@ export default function CustomersPage() {
                       </Button>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* ── Labor Info ──────────────── */}
+              {selectedItem.customer?.labor_type && (
+                <div className="bg-purple-900/10 border border-purple-500/30 rounded-[10px] p-[15px] mb-[15px]">
+                  <h3 className="text-[15px] font-bold text-purple-300 mb-[10px]">עלות עבודה</h3>
+                  <div className="grid grid-cols-2 gap-[10px]">
+                    <div className="flex flex-col items-center text-center">
+                      <span className="text-[12px] text-white/60">סוג</span>
+                      <span className="text-[14px] text-white font-medium">
+                        {selectedItem.customer.labor_type === 'global' ? 'גלובלי' : 'שעתי'}
+                      </span>
+                    </div>
+                    {selectedItem.customer.labor_type === 'global' && selectedItem.customer.labor_monthly_salary != null && (
+                      <div className="flex flex-col items-center text-center">
+                        <span className="text-[12px] text-white/60">משכורת חודשית</span>
+                        <span className="text-[14px] text-purple-300 font-bold">
+                          ₪{selectedItem.customer.labor_monthly_salary.toLocaleString("he-IL")}
+                        </span>
+                      </div>
+                    )}
+                    {selectedItem.customer.labor_type === 'hourly' && selectedItem.customer.labor_hourly_rate != null && (
+                      <div className="flex flex-col items-center text-center">
+                        <span className="text-[12px] text-white/60">תעריף לשעה</span>
+                        <span className="text-[14px] text-purple-300 font-bold">
+                          ₪{selectedItem.customer.labor_hourly_rate.toLocaleString("he-IL")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Services Section ──────────────── */}
+              {selectedItem.customer && (
+                <div className="bg-purple-900/10 border border-purple-500/30 rounded-[10px] p-[15px] mb-[15px]">
+                  <h3 className="text-[16px] font-bold text-purple-300 text-center mb-[10px]">מוצרים ושירותים</h3>
+
+                  {services.length === 0 ? (
+                    <div className="flex items-center justify-center py-[15px]">
+                      <span className="text-[14px] text-white/50">אין מוצרים/שירותים</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-col gap-[8px] mb-[10px]">
+                        {services.map((service) => (
+                          <div key={service.id} className="flex flex-col gap-[4px] bg-white/5 rounded-[7px] p-[10px]">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[14px] text-white font-medium">{service.name}</span>
+                              <span dir="ltr" className="text-[14px] text-purple-300 font-medium">
+                                ₪{Number(service.amount).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span dir="ltr" className="text-[12px] text-white/60">
+                                {new Date(service.service_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                type="button"
+                                onClick={() => handleDeleteService(service.id)}
+                                className="text-[#F64E60]/50 hover:text-[#F64E60] transition-colors text-[11px]"
+                              >
+                                מחק
+                              </Button>
+                            </div>
+                            {service.notes && (
+                              <span className="text-[12px] text-white/40 text-right">{service.notes}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {/* Total */}
+                      <div className="flex items-center justify-between border-t border-white/10 pt-[8px] mb-[10px]">
+                        <span className="text-[13px] text-white/60">סה&quot;כ</span>
+                        <span dir="ltr" className="text-[16px] text-purple-300 font-bold">
+                          ₪{services.reduce((sum, s) => sum + Number(s.amount), 0).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Add Service Toggle */}
+                  <Button
+                    variant="default"
+                    type="button"
+                    onClick={() => setIsAddServiceOpen(!isAddServiceOpen)}
+                    className="w-full mt-[5px] bg-purple-700 text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-purple-600 transition-colors"
+                  >
+                    {isAddServiceOpen ? "ביטול" : "+ הוסף מוצר/שירות"}
+                  </Button>
+
+                  {/* Add Service Sub-form */}
+                  {isAddServiceOpen && (
+                    <div className="flex flex-col gap-[8px] mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+                      <div className="flex flex-col gap-[3px]">
+                        <label className="text-[13px] text-white/70 text-right">שם השירות/מוצר</label>
+                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
+                          <Input
+                            type="text"
+                            title="שם שירות"
+                            value={newServiceName}
+                            onChange={(e) => setNewServiceName(e.target.value)}
+                            placeholder="לדוגמה: עיצוב לוגו"
+                            className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px] placeholder:text-white/30"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-[3px]">
+                        <label className="text-[13px] text-white/70 text-right">סכום (₪) לפני מע&quot;מ</label>
+                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
+                          <Input
+                            type="tel"
+                            title="סכום"
+                            value={newServiceAmount}
+                            onChange={(e) => setNewServiceAmount(e.target.value)}
+                            placeholder="0"
+                            className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px] placeholder:text-white/30"
+                          />
+                        </div>
+                        {newServiceAmount && parseFloat(newServiceAmount) > 0 && (
+                          <span className="text-[12px] text-purple-300 text-center">
+                            + מע&quot;מ = ₪{(parseFloat(newServiceAmount) * (1 + (Number(selectedItem.business.vat_percentage) || 0.18))).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-[3px]">
+                        <label className="text-[13px] text-white/70 text-right">תאריך</label>
+                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
+                          <Input
+                            type="date"
+                            title="תאריך שירות"
+                            value={newServiceDate}
+                            onChange={(e) => setNewServiceDate(e.target.value)}
+                            className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px]"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-[3px]">
+                        <label className="text-[13px] text-white/70 text-right">הערות</label>
+                        <div className="border border-[#4C526B] rounded-[7px] min-h-[40px] px-[8px] py-[6px]">
+                          <Textarea
+                            title="הערות"
+                            value={newServiceNotes}
+                            onChange={(e) => setNewServiceNotes(e.target.value)}
+                            placeholder="הערות..."
+                            className="w-full bg-transparent text-white text-[13px] text-right rounded-[7px] border-none outline-none resize-none min-h-[28px] placeholder:text-white/30"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        variant="default"
+                        type="button"
+                        onClick={handleAddService}
+                        disabled={!newServiceName.trim() || !newServiceAmount || isSubmitting}
+                        className="w-full bg-purple-600 text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-[6px]"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            שומר...
+                          </>
+                        ) : (
+                          "שמור שירות"
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Survey Section (Churned clients) ──────────────── */}
+              {selectedItem.customer?.retainer_status === 'completed' && (
+                <div className="bg-[#6B21A8]/15 border border-[#7C3AED]/30 rounded-[10px] p-[15px] mb-[15px]">
+                  <h3 className="text-[15px] font-bold text-[#C4B5FD] mb-[10px]">סקר לקוח יוצא</h3>
+
+                  {!customerSurvey ? (
+                    <Button
+                      variant="default"
+                      type="button"
+                      onClick={async () => {
+                        if (!selectedItem.customer) return;
+                        const supabase = createClient();
+                        const token = crypto.randomUUID().replace(/-/g, '').slice(0, 16);
+                        const { data: survey, error } = await supabase
+                          .from("customer_surveys")
+                          .insert({ customer_id: selectedItem.customer.id, token })
+                          .select("id, token")
+                          .single();
+                        if (error) {
+                          showToast("שגיאה ביצירת סקר", "error");
+                          return;
+                        }
+                        const surveyUrl = `${window.location.origin}/survey/${token}`;
+                        navigator.clipboard.writeText(surveyUrl);
+                        showToast("לינק הסקר הועתק ללוח", "success");
+                        setCustomerSurvey({ id: survey.id, token: survey.token, is_completed: false, created_at: new Date().toISOString() });
+                      }}
+                      className="w-full bg-[#6B21A8] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#7C3AED] transition-colors"
+                    >
+                      שלח סקר
+                    </Button>
+                  ) : !customerSurvey.is_completed ? (
+                    <div className="flex flex-col gap-[8px]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[13px] text-white/70">לינק הסקר:</span>
+                        <Badge className="text-[11px] bg-[#F6A609]/20 text-[#F6A609] px-[8px] py-[2px] rounded-full font-bold">
+                          הלינק נשלח
+                        </Badge>
+                      </div>
+                      <Button
+                        variant="outline"
+                        type="button"
+                        onClick={() => {
+                          const surveyUrl = `${window.location.origin}/survey/${customerSurvey.token}`;
+                          navigator.clipboard.writeText(surveyUrl);
+                          showToast("הלינק הועתק ללוח", "success");
+                        }}
+                        className="w-full text-[13px] border-[#4C526B] text-white/70 hover:bg-white/5"
+                      >
+                        העתק לינק
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-[10px]">
+                      <Badge className="self-start text-[11px] bg-[#0BB783]/20 text-[#0BB783] px-[8px] py-[2px] rounded-full font-bold">
+                        הסקר הושלם
+                      </Badge>
+
+                      {/* Service Rating */}
+                      {surveyResponses.find(r => r.question_key === 'service_rating') && (
+                        <div className="flex items-center justify-between bg-white/5 rounded-[7px] p-[10px]">
+                          <span className="text-[13px] text-white/70">דירוג שירות</span>
+                          <div className="flex gap-[2px]">
+                            {Array.from({ length: 5 }, (_, i) => (
+                              <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill={i < Number(surveyResponses.find(r => r.question_key === 'service_rating')?.answer_value || 0) ? "#F6A609" : "none"} stroke="#F6A609" strokeWidth="2">
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                              </svg>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Leave Reason */}
+                      {surveyResponses.find(r => r.question_key === 'leave_reason') && (
+                        <div className="flex flex-col gap-[4px] bg-white/5 rounded-[7px] p-[10px]">
+                          <span className="text-[13px] text-white/70">סיבת עזיבה</span>
+                          <div className="flex flex-wrap gap-[4px]">
+                            {(surveyResponses.find(r => r.question_key === 'leave_reason')?.answer_value || '').split(',').map((reason, i) => (
+                              <Badge key={i} className="text-[11px] bg-white/10 text-white/80 px-[8px] py-[2px] rounded-full">
+                                {reason.trim()}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* NPS */}
+                      {surveyResponses.find(r => r.question_key === 'nps') && (() => {
+                        const nps = Number(surveyResponses.find(r => r.question_key === 'nps')?.answer_value || 0);
+                        const npsColor = nps <= 6 ? 'text-[#F64E60]' : nps <= 8 ? 'text-[#F6A609]' : 'text-[#0BB783]';
+                        return (
+                          <div className="flex items-center justify-between bg-white/5 rounded-[7px] p-[10px]">
+                            <span className="text-[13px] text-white/70">NPS</span>
+                            <span className={`text-[18px] font-bold ${npsColor}`}>{nps}</span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Free Text */}
+                      {surveyResponses.find(r => r.question_key === 'free_text') && (
+                        <div className="flex flex-col gap-[4px] bg-white/5 rounded-[7px] p-[10px]">
+                          <span className="text-[13px] text-white/70">הערות חופשיות</span>
+                          <p className="text-[14px] text-white/80 text-right italic border-r-2 border-purple-500/50 pr-[8px]">
+                            &ldquo;{surveyResponses.find(r => r.question_key === 'free_text')?.answer_value}&rdquo;
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
