@@ -117,18 +117,12 @@ export interface CashflowIncomeOverride {
   created_at: string;
 }
 
-// Payment Method Types (אמצעי תשלום — lookup table)
+// Payment Method Type (אמצעי תשלום לכל עסק — כולל הגדרות תקבול)
 export interface PaymentMethodType {
-  id: string; // 'cash', 'credit_card', '10bc', 'wolt', 'boss'
-  name_he: string;
-  display_order: number;
-}
-
-// Business Payment Methods (הגדרות תקבול לפי אמצעי תשלום לכל עסק)
-export interface BusinessPaymentMethod {
   id: string;
   business_id: string;
-  payment_method_id: string;
+  name: string;
+  display_order: number;
   is_active: boolean;
   settlement_type: SettlementType;
   settlement_delay_days: number;
@@ -144,6 +138,9 @@ export interface BusinessPaymentMethod {
   created_at: string;
   updated_at: string;
 }
+
+// Alias for backward compatibility
+export type BusinessPaymentMethod = PaymentMethodType;
 
 // Daily Payment Breakdown (פירוק הכנסה יומית לפי אמצעי תשלום)
 export interface DailyPaymentBreakdown {
