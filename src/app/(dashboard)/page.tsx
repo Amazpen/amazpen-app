@@ -94,6 +94,10 @@ const LazyCartesianGrid = dynamic(
   () => import("recharts").then((mod) => ({ default: mod.CartesianGrid })),
   { ssr: false }
 );
+const LazyTooltip = dynamic(
+  () => import("recharts").then((mod) => ({ default: mod.Tooltip })),
+  { ssr: false }
+);
 
 // Chart skeleton loader
 const ChartSkeleton = () => (
@@ -101,6 +105,30 @@ const ChartSkeleton = () => (
     <div className="text-white/30 text-sm">טוען גרף...</div>
   </div>
 );
+
+// Custom chart tooltip - dark themed, RTL compatible
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const CustomChartTooltip = ({ active, payload, label, formatter }: { active?: boolean; payload?: any[]; label?: string; formatter?: (value: number, name: string) => string }) => {
+  if (!active || !payload || payload.length === 0) return null;
+  return (
+    <div className="bg-[#1a1f3d] border border-white/20 rounded-lg px-3 py-2 shadow-xl" dir="rtl">
+      <p className="text-white/70 text-[11px] mb-1">{label}</p>
+      {payload.map((entry: { name: string; value: number; color: string; stroke?: string; fill?: string }, index: number) => {
+        // Use stroke or fill as color fallback (for gradient fills like url(#...))
+        const dotColor = entry.color && !entry.color.startsWith('url(') ? entry.color : (entry.stroke || entry.fill || '#fff');
+        return (
+          <div key={index} className="flex items-center gap-2">
+            <div className="w-[8px] h-[8px] rounded-full" style={{ backgroundColor: dotColor }} />
+            <span className="text-white text-[12px] font-semibold ltr-num">
+              {formatter ? formatter(entry.value, entry.name) : entry.value}
+            </span>
+            <span className="text-white/60 text-[11px]">{entry.name}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 // Chart data - כל הגרפים נבנים דינמית מהמסד נתונים
 
@@ -263,6 +291,14 @@ const formatCurrencyFull = (amount: number) => {
   const sign = isNegative ? '-' : '';
   const formatted = Math.round(absAmount).toLocaleString("he-IL");
   return `${sign}₪${formatted}`;
+};
+
+// Format currency with 2 decimal places (for agorot display, e.g., ₪98.00)
+const formatCurrencyDecimals = (amount: number) => {
+  const isNegative = amount < 0;
+  const absAmount = Math.abs(amount);
+  const sign = isNegative ? '-' : '';
+  return `${sign}₪${absAmount.toFixed(2)}`;
 };
 
 // Format currency as full number with sign (e.g., +₪8,500 or -₪8,500.50)
@@ -2928,9 +2964,9 @@ export default function DashboardPage() {
                       <div className="flex flex-row-reverse items-start gap-[10px] ml-[9px]">
                         <div className="flex flex-col items-center">
                           <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>
-                            {formatCurrencyFull(source.avgAmount)}
+                            {formatCurrencyDecimals(source.avgAmount)}
                           </span>
-                          <span className={`text-[14px] font-normal text-center leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>({formatCurrencyWithSign(source.ordersCount === 0 ? 0 : source.avgTicketDiff)})</span>
+                          <span className={`text-[14px] font-normal text-center leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>({formatCurrencyDecimals(source.ordersCount === 0 ? 0 : Math.abs(source.avgTicketDiff))})</span>
                         </div>
                         <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>
                           {formatCurrencyFull(source.totalAmount)}
@@ -3318,7 +3354,8 @@ export default function DashboardPage() {
               {/* עלות הוצאות שוטפות Card */}
               {(() => {
                 const noExpData = (detailedSummary?.totalIncome || 0) === 0 || (detailedSummary?.currentExpenses || 0) === 0;
-                const expDiffColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesDiffPct || 0) < 0 ? 'text-green-500' : 'text-white';
+                const noTarget = !detailedSummary?.currentExpensesTargetPct || detailedSummary.currentExpensesTargetPct === 0;
+                const expDiffColor = (noExpData || noTarget) ? 'text-white' : (detailedSummary?.currentExpensesDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesDiffPct || 0) < 0 ? 'text-green-500' : 'text-white';
                 const expPrevMonthColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevMonthChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white';
                 const expPrevYearColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevYearChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white';
                 return (
@@ -3346,13 +3383,13 @@ export default function DashboardPage() {
                   <div className="flex flex-col ml-[10px]">
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                       <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expDiffColor}`}>
-                        {formatPercentWithSign(noExpData ? 0 : (detailedSummary?.currentExpensesDiffPct || 0))}
+                        {(noExpData || noTarget) ? '-' : formatPercentWithSign(detailedSummary?.currentExpensesDiffPct || 0)}
                       </span>
                       <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                     </div>
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                       <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expDiffColor}`}>
-                        {formatCurrencyFullWithSign(noExpData ? 0 : ((detailedSummary?.currentExpensesDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}
+                        {(noExpData || noTarget) ? '-' : formatCurrencyFullWithSign(((detailedSummary?.currentExpensesDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}
                       </span>
                       <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                     </div>
@@ -3479,6 +3516,7 @@ export default function DashboardPage() {
                         domain={[0, 100]}
                         tickFormatter={(value) => `${value}%`}
                       />
+                      <LazyTooltip content={<CustomChartTooltip formatter={(value, name) => name.includes('%') ? `${value.toFixed(1)}%` : `₪${Math.round(value).toLocaleString('he-IL')}`} />} />
                       {/* Bars - מכירות */}
                       <LazyBar yAxisId="left" dataKey="salesActual" fill="url(#colorSalesActual)" radius={[4, 4, 0, 0]} barSize={20} name="מכירות בפועל" />
                       <LazyBar yAxisId="left" dataKey="salesTarget" fill="url(#colorSalesTarget)" radius={[4, 4, 0, 0]} barSize={20} name="יעד מכירות" />
@@ -3605,6 +3643,7 @@ export default function DashboardPage() {
                         tickLine={false}
                         tickFormatter={(value) => `₪${value}`}
                       />
+                      <LazyTooltip content={<CustomChartTooltip formatter={(value) => `₪${value.toFixed(2)}`} />} />
                       {incomeSourcesSummary.map((source, index) => {
                         const colors = ['#FFA800', '#C618CA', '#BBF417'];
                         return (
@@ -3628,7 +3667,7 @@ export default function DashboardPage() {
                       <div key={source.id} className="flex flex-row-reverse items-center gap-2">
                         <div className="flex flex-col items-end">
                           <span className="text-white text-[11px]">{source.name}</span>
-                          <span className={`font-bold text-[14px] ltr-num ${colorClasses[index % colorClasses.length]}`}>₪{Math.round(source.avgAmount)}</span>
+                          <span className={`font-bold text-[14px] ltr-num ${colorClasses[index % colorClasses.length]}`}>₪{source.avgAmount.toFixed(2)}</span>
                         </div>
                         <div className={`w-[10px] h-[10px] rounded-full ${bgClasses[index % bgClasses.length]}`}></div>
                       </div>
@@ -3714,6 +3753,7 @@ export default function DashboardPage() {
                         tickLine={false}
                         tickFormatter={(value) => value >= 1000 ? `₪${(value/1000).toFixed(0)}k` : `₪${value}`}
                       />
+                      <LazyTooltip content={<CustomChartTooltip formatter={(value) => `₪${Math.round(value).toLocaleString('he-IL')}`} />} />
                       <LazyBar dataKey="target" fill="#0095FF" radius={[4, 4, 0, 0]} barSize={20} name="יעד" />
                       <LazyBar dataKey="actual" fill="#00E096" radius={[4, 4, 0, 0]} barSize={20} name="בפועל" />
                     </LazyBarChart>
@@ -3804,6 +3844,7 @@ export default function DashboardPage() {
                         domain={[0, 100]}
                         tickFormatter={(value) => `${value}%`}
                       />
+                      <LazyTooltip content={<CustomChartTooltip formatter={(value) => `${value.toFixed(1)}%`} />} />
                       <LazyArea
                         type="monotone"
                         dataKey="actual"
@@ -3812,6 +3853,7 @@ export default function DashboardPage() {
                         fillOpacity={1}
                         fill="url(#colorLaborActual)"
                         dot={{ fill: '#00E096', strokeWidth: 2, r: 4 }}
+                        name="בפועל"
                       />
                       <LazyArea
                         type="monotone"
@@ -3821,6 +3863,7 @@ export default function DashboardPage() {
                         fillOpacity={1}
                         fill="url(#colorLaborTarget)"
                         dot={{ fill: '#0095FF', strokeWidth: 2, r: 4 }}
+                        name="יעד"
                       />
                     </LazyAreaChart>
                   </SafeChartContainer>
@@ -3926,6 +3969,7 @@ export default function DashboardPage() {
                         tickLine={false}
                         tickFormatter={(value) => value >= 1000 ? `₪${(value/1000).toFixed(0)}k` : `₪${value}`}
                       />
+                      <LazyTooltip content={<CustomChartTooltip formatter={(value) => `₪${Math.round(value).toLocaleString('he-IL')}`} />} />
                       <LazyBar dataKey="target" fill="#0095FF" radius={[4, 4, 0, 0]} barSize={20} name="יעד" />
                       <LazyBar dataKey="actual" fill="#00E096" radius={[4, 4, 0, 0]} barSize={20} name="בפועל" />
                     </LazyBarChart>
