@@ -542,7 +542,7 @@ export default function CustomersPage() {
   // ─── Render ────────────────────────────────────────────────
 
   return (
-    <div dir="rtl" className="flex flex-col min-h-[calc(100vh-52px)] min-h-[calc(100dvh-52px)] text-white px-[5px] py-[5px] pb-[80px] gap-[10px]">
+    <div dir="rtl" className="flex flex-col min-h-[calc(100vh-52px)] min-h-[calc(100dvh-52px)] text-white px-[5px] md:px-[20px] lg:px-[40px] py-[5px] pb-[80px] gap-[10px] mx-auto w-full max-w-[1600px]">
       <ConfirmDialog />
       {/* Header */}
       <div className="flex flex-col gap-[7px] p-[5px]">
@@ -551,7 +551,7 @@ export default function CustomersPage() {
           variant="default"
           type="button"
           onClick={handleAddStandaloneCustomer}
-          className="w-full min-h-[50px] bg-[#29318A] text-white text-[16px] font-semibold rounded-[5px] px-[24px] py-[12px] transition-colors duration-200 hover:bg-[#3D44A0] shadow-[0_7px_30px_-10px_rgba(41,49,138,0.1)]"
+          className="w-full md:w-auto min-h-[50px] bg-[#29318A] text-white text-[16px] font-semibold rounded-[5px] px-[24px] py-[12px] transition-colors duration-200 hover:bg-[#3D44A0] shadow-[0_7px_30px_-10px_rgba(41,49,138,0.1)]"
         >
           הוספת לקוח חדש
         </Button>
@@ -594,7 +594,7 @@ export default function CustomersPage() {
         {/* Grid */}
         <div className="flex-1 overflow-auto mt-[15px] mx-0">
           {isLoading ? (
-            <div className="grid grid-cols-2 gap-[26px]">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-[26px]">
               {[...Array(6)].map((_, i) => (
                 <div
                   key={`skeleton-${i}`}
@@ -622,7 +622,7 @@ export default function CustomersPage() {
               </span>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-[26px]">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-[26px]">
               {/* Business-linked cards */}
               {filteredItems.map((item) => (
                 <Button
@@ -664,7 +664,7 @@ export default function CustomersPage() {
                   )}
 
                   {/* Business Name */}
-                  <div className="w-[120px] text-center">
+                  <div className="w-full max-w-[160px] text-center px-[4px]">
                     <span className="text-[18px] font-bold text-white leading-[1.4]">
                       {item.business.name}
                     </span>
@@ -705,7 +705,7 @@ export default function CustomersPage() {
                     עצמאי
                   </Badge>
 
-                  <div className="w-[120px] text-center">
+                  <div className="w-full max-w-[160px] text-center px-[4px]">
                     <span className="text-[18px] font-bold text-white leading-[1.4]">
                       {customer.business_name}
                     </span>

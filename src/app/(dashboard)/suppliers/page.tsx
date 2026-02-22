@@ -62,6 +62,16 @@ interface Supplier {
   obligation_document_url?: string;
 }
 
+// Supplier document type from database
+interface SupplierDocument {
+  id: string;
+  supplier_id: string;
+  business_id: string;
+  description: string;
+  document_url: string;
+  created_at: string;
+}
+
 // Supplier with balance info for display
 interface SupplierWithBalance extends Supplier {
   remainingPayment: number;
@@ -137,7 +147,7 @@ export default function SuppliersPage() {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [detailActiveTab, setDetailActiveTab] = useState<"invoices" | "payments">("invoices");
+  const [detailActiveTab, setDetailActiveTab] = useState<"invoices" | "payments" | "documents">("invoices");
   const [supplierInvoices, setSupplierInvoices] = useState<Array<{
     id: string;
     date: string;
@@ -172,6 +182,13 @@ export default function SuppliersPage() {
     amount: number;
   }>>([]);
   const [isUploadingObligationDoc, setIsUploadingObligationDoc] = useState(false);
+
+  // Supplier documents state
+  const [supplierDocuments, setSupplierDocuments] = useState<SupplierDocument[]>([]);
+  const [newDocDescription, setNewDocDescription] = useState("");
+  const [newDocFile, setNewDocFile] = useState<File | null>(null);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [viewDocumentUrl, setViewDocumentUrl] = useState<string | null>(null);
 
   // Edit supplier state
   const [isEditingSupplier, setIsEditingSupplier] = useState(false);
@@ -930,6 +947,9 @@ export default function SuppliersPage() {
     const now = new Date();
     setDetailMonth(new Date(now.getFullYear(), now.getMonth(), 1));
 
+    // Fetch supplier documents
+    fetchSupplierDocuments(supplier.id);
+
     // Fetch supplier financial data
     const supabase = createClient();
 
@@ -1097,6 +1117,69 @@ export default function SuppliersPage() {
     setSupplierDetailData(null);
     setExpandedSupplierInvoiceId(null);
     setShowLinkedPayments(null);
+    setSupplierDocuments([]);
+  };
+
+  // Fetch supplier documents
+  const fetchSupplierDocuments = useCallback(async (supplierId: string) => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("supplier_documents")
+      .select("*")
+      .eq("supplier_id", supplierId)
+      .order("created_at", { ascending: false });
+    if (!error && data) {
+      setSupplierDocuments(data);
+    }
+  }, []);
+
+  // Add document to supplier
+  const handleAddDocument = async () => {
+    if (!selectedSupplier || !newDocFile || !newDocDescription.trim()) return;
+    setIsUploadingDoc(true);
+    try {
+      const ext = newDocFile.name.split(".").pop() || "pdf";
+      const fileName = `${generateUUID()}.${ext}`;
+      const filePath = `supplier-documents/${selectedSupplier.business_id}/${fileName}`;
+      const result = await uploadFile(newDocFile, filePath, "assets");
+      if (!result.success || !result.publicUrl) {
+        showToast("שגיאה בהעלאת המסמך", "error");
+        return;
+      }
+      const supabase = createClient();
+      const { error } = await supabase.from("supplier_documents").insert({
+        supplier_id: selectedSupplier.id,
+        business_id: selectedSupplier.business_id,
+        description: newDocDescription.trim(),
+        document_url: result.publicUrl,
+      });
+      if (error) {
+        showToast("שגיאה בשמירת המסמך", "error");
+        return;
+      }
+      showToast("המסמך נוסף בהצלחה", "success");
+      setNewDocDescription("");
+      setNewDocFile(null);
+      fetchSupplierDocuments(selectedSupplier.id);
+    } catch {
+      showToast("שגיאה בהעלאת המסמך", "error");
+    } finally {
+      setIsUploadingDoc(false);
+    }
+  };
+
+  // Delete document
+  const handleDeleteDocument = (docId: string) => {
+    confirm("האם למחוק את המסמך?", async () => {
+      const supabase = createClient();
+      const { error } = await supabase.from("supplier_documents").delete().eq("id", docId);
+      if (error) {
+        showToast("שגיאה במחיקת המסמך", "error");
+        return;
+      }
+      showToast("המסמך נמחק", "success");
+      if (selectedSupplier) fetchSupplierDocuments(selectedSupplier.id);
+    });
   };
 
   // Get category name by ID
@@ -2118,7 +2201,7 @@ export default function SuppliersPage() {
               </Button>
             </div>
 
-            {/* Tabs Section - חשבוניות פתוחות / תשלומים שבוצעו */}
+            {/* Tabs Section - חשבוניות פתוחות / תשלומים שבוצעו / מסמכים */}
             <div className="mt-[15px] flex flex-col gap-[10px]">
               {/* Tab Buttons */}
               <div className="flex w-full h-[40px] border border-[#6B6B6B] rounded-[7px] overflow-hidden">
@@ -2131,7 +2214,7 @@ export default function SuppliersPage() {
                       : "text-[#979797]"
                   }`}
                 >
-                  <span className="text-[14px] font-bold">חשבוניות פתוחות</span>
+                  <span className="text-[13px] font-bold">חשבוניות</span>
                 </Button>
                 <Button
                   type="button"
@@ -2142,7 +2225,18 @@ export default function SuppliersPage() {
                       : "text-[#979797]"
                   }`}
                 >
-                  <span className="text-[14px] font-bold">תשלומים שבוצעו</span>
+                  <span className="text-[13px] font-bold">תשלומים</span>
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setDetailActiveTab("documents")}
+                  className={`flex-1 flex items-center justify-center transition-colors duration-200 ${
+                    detailActiveTab === "documents"
+                      ? "bg-[#29318A] text-white"
+                      : "text-[#979797]"
+                  }`}
+                >
+                  <span className="text-[13px] font-bold">מסמכים</span>
                 </Button>
               </div>
 
@@ -2509,11 +2603,161 @@ export default function SuppliersPage() {
                   </div>
                 </div>
               )}
+
+              {/* Documents Tab */}
+              {detailActiveTab === "documents" && (
+                <div className="w-full flex flex-col gap-[10px]">
+                  {/* Documents List */}
+                  <div className="flex flex-col gap-[5px]">
+                    {supplierDocuments.length === 0 ? (
+                      <div className="flex items-center justify-center py-[30px]">
+                        <span className="text-[14px] text-white/50">אין מסמכים להצגה</span>
+                      </div>
+                    ) : (
+                      supplierDocuments.map((doc) => (
+                        <div
+                          key={doc.id}
+                          className="bg-white/5 rounded-[7px] p-[10px] flex items-center justify-between gap-[10px]"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] text-white font-medium truncate">{doc.description}</p>
+                            <p className="text-[11px] text-white/40 ltr-num mt-[2px]">
+                              {new Date(doc.created_at).toLocaleDateString("he-IL")}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-[8px] flex-shrink-0">
+                            {/* View document */}
+                            <Button
+                              type="button"
+                              title="צפייה במסמך"
+                              onClick={() => setViewDocumentUrl(doc.document_url)}
+                              className="w-[28px] h-[28px] flex items-center justify-center bg-[#29318A] rounded-[6px] text-white/70 hover:text-white transition-colors"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                              </svg>
+                            </Button>
+                            {/* Download */}
+                            <a
+                              href={doc.document_url}
+                              download
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="הורדה"
+                              className="w-[28px] h-[28px] flex items-center justify-center bg-[#29318A] rounded-[6px] text-white/70 hover:text-white transition-colors"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                              </svg>
+                            </a>
+                            {/* Delete */}
+                            <Button
+                              type="button"
+                              title="מחיקה"
+                              onClick={() => handleDeleteDocument(doc.id)}
+                              className="w-[28px] h-[28px] flex items-center justify-center bg-[#F64E60]/20 rounded-[6px] text-[#F64E60]/70 hover:text-[#F64E60] transition-colors"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                              </svg>
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Add Document Form */}
+                  <div className="bg-white/5 rounded-[7px] p-[12px] flex flex-col gap-[10px]">
+                    <span className="text-[14px] font-medium text-white/80 text-right">הוספת מסמך חדש</span>
+                    <Input
+                      type="text"
+                      placeholder="תיאור המסמך (למשל: חוזה, הסכם...)"
+                      value={newDocDescription}
+                      onChange={(e) => setNewDocDescription(e.target.value)}
+                      className="bg-white/10 border-white/20 text-white text-[14px] text-right placeholder:text-white/30"
+                    />
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                      onChange={(e) => setNewDocFile(e.target.files?.[0] || null)}
+                      className="text-[13px] text-white/60 file:ml-[10px] file:bg-[#29318A] file:text-white file:border-0 file:rounded-[6px] file:px-[12px] file:py-[6px] file:text-[13px] file:cursor-pointer"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleAddDocument}
+                      disabled={isUploadingDoc || !newDocFile || !newDocDescription.trim()}
+                      className="w-full bg-[#29318A] text-white text-[14px] font-semibold py-[10px] rounded-[8px] hover:bg-[#3D44A0] transition-colors disabled:opacity-40"
+                    >
+                      {isUploadingDoc ? "מעלה..." : "הוסף מסמך"}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Document Viewer Popup */}
+      <Sheet open={!!viewDocumentUrl} onOpenChange={(open) => { if (!open) setViewDocumentUrl(null); }}>
+        <SheetContent
+          side="bottom"
+          className="h-[calc(100vh-60px)] h-[calc(100dvh-60px)] bg-[#0f1535] border-t border-[#4C526B] overflow-hidden rounded-t-[20px]"
+          showCloseButton={false}
+        >
+          <SheetHeader className="border-b border-[#4C526B] pb-4">
+            <div className="flex justify-between items-center" dir="ltr">
+              <Button
+                type="button"
+                onClick={() => setViewDocumentUrl(null)}
+                className="text-[#7B91B0] hover:text-white transition-colors"
+                title="סגור"
+              >
+                <X className="w-6 h-6" />
+              </Button>
+              <SheetTitle className="text-white text-xl font-bold">צפייה במסמך</SheetTitle>
+              <a
+                href={viewDocumentUrl || ""}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#7B91B0] hover:text-white transition-colors"
+                title="הורדה"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+              </a>
+            </div>
+          </SheetHeader>
+          <div className="flex-1 w-full h-[calc(100%-60px)] overflow-auto">
+            {viewDocumentUrl && (
+              /\.(jpg|jpeg|png|webp|gif)$/i.test(viewDocumentUrl) ? (
+                <img
+                  src={viewDocumentUrl}
+                  alt="מסמך"
+                  className="w-full h-auto object-contain"
+                />
+              ) : (
+                <iframe
+                  src={viewDocumentUrl}
+                  className="w-full h-full border-0"
+                  title="מסמך"
+                />
+              )
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* Obligation Detail Popup */}
       <Sheet open={showObligationDetailPopup && !!selectedSupplier} onOpenChange={(open) => {
         if (!open) {
