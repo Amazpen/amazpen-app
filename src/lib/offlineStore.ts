@@ -14,7 +14,6 @@ export interface PendingDailyEntry {
   timestamp: number;
   formData: Record<string, unknown>;
   incomeData: Record<string, unknown>;
-  receiptData: Record<string, unknown>;
   parameterData: Record<string, unknown>;
   productUsage: Record<string, unknown>;
   pearlaData?: Record<string, unknown>;
@@ -52,7 +51,6 @@ export interface BusinessConfigCache {
   businessId: string;
   cachedAt: number;
   incomeSources: unknown[];
-  receiptTypes: unknown[];
   customParameters: unknown[];
   managedProducts: unknown[];
   goals: unknown | null;

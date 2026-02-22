@@ -47,10 +47,6 @@ interface IncomeSource {
   name: string;
 }
 
-interface ReceiptType {
-  id: string;
-  name: string;
-}
 
 interface CustomParameter {
   id: string;
@@ -114,7 +110,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
 
   // Dynamic data from database
   const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
-  const [receiptTypes, setReceiptTypes] = useState<ReceiptType[]>([]);
   const [customParameters, setCustomParameters] = useState<CustomParameter[]>([]);
   const [managedProducts, setManagedProducts] = useState<ManagedProduct[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -126,7 +121,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
 
   // Form state
   const [incomeData, setIncomeData] = useState<Record<string, IncomeData>>({});
-  const [receiptData, setReceiptData] = useState<Record<string, string>>({});
   const [parameterData, setParameterData] = useState<Record<string, string>>({});
   const [productUsage, setProductUsage] = useState<Record<string, ProductUsageData>>({});
   const [paymentData, setPaymentData] = useState<Record<string, string>>({});
@@ -175,10 +169,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const saveDraft = useCallback(() => {
     if (!isOpen || isEditMode || draftCleared.current) return;
     try {
-      const draft = { formData, incomeData, receiptData, parameterData, productUsage, pearlaData, paymentData };
+      const draft = { formData, incomeData, parameterData, productUsage, pearlaData, paymentData };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     } catch { /* ignore */ }
-  }, [DRAFT_KEY, isOpen, isEditMode, formData, incomeData, receiptData, parameterData, productUsage, pearlaData, paymentData]);
+  }, [DRAFT_KEY, isOpen, isEditMode, formData, incomeData, parameterData, productUsage, pearlaData, paymentData]);
 
   useEffect(() => {
     if (draftLoaded.current) saveDraft();
@@ -198,7 +192,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       const draft = JSON.parse(saved);
       if (draft.formData) setFormData(draft.formData);
       if (draft.incomeData) setIncomeData(prev => ({ ...prev, ...draft.incomeData }));
-      if (draft.receiptData) setReceiptData(prev => ({ ...prev, ...draft.receiptData }));
       if (draft.parameterData) setParameterData(prev => ({ ...prev, ...draft.parameterData }));
       if (draft.productUsage) setProductUsage(prev => ({ ...prev, ...draft.productUsage }));
       if (draft.paymentData) setPaymentData(prev => ({ ...prev, ...draft.paymentData }));
@@ -237,12 +230,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         const cached = await getBusinessConfig(businessId);
         if (cached) {
           const sources = cached.incomeSources as IncomeSource[];
-          const receipts = cached.receiptTypes as ReceiptType[];
           const parameters = cached.customParameters as CustomParameter[];
           const products = cached.managedProducts as ManagedProduct[];
 
           setIncomeSources(sources);
-          setReceiptTypes(receipts);
           setCustomParameters(parameters);
           setManagedProducts(products);
 
@@ -250,10 +241,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           const initialIncome: Record<string, IncomeData> = {};
           sources.forEach((s) => { initialIncome[s.id] = { amount: "", orders_count: "" }; });
           setIncomeData(initialIncome);
-
-          const initialReceipts: Record<string, string> = {};
-          receipts.forEach((r) => { initialReceipts[r.id] = ""; });
-          setReceiptData(initialReceipts);
 
           const initialParams: Record<string, string> = {};
           parameters.forEach((p) => { initialParams[p.id] = ""; });
@@ -282,7 +269,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       // Load all data in parallel
       const [
         { data: sources },
-        { data: receipts },
         { data: parameters },
         { data: products },
         { data: lastEntry },
@@ -290,13 +276,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       ] = await Promise.all([
         supabase
           .from("income_sources")
-          .select("id, name")
-          .eq("business_id", businessId)
-          .eq("is_active", true)
-          .is("deleted_at", null)
-          .order("display_order"),
-        supabase
-          .from("receipt_types")
           .select("id, name")
           .eq("business_id", businessId)
           .eq("is_active", true)
@@ -337,7 +316,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       try {
         await saveBusinessConfig(businessId, {
           incomeSources: sources || [],
-          receiptTypes: receipts || [],
           customParameters: parameters || [],
           managedProducts: products || [],
           goals: null,
@@ -361,7 +339,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       }
 
       setIncomeSources(sources || []);
-      setReceiptTypes(receipts || []);
       setCustomParameters(parameters || []);
       setManagedProducts(products || []);
       setPaymentMethods((pmTypes || []) as PaymentMethod[]);
@@ -372,12 +349,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         initialIncome[s.id] = { amount: "", orders_count: "" };
       });
       setIncomeData(initialIncome);
-
-      const initialReceipts: Record<string, string> = {};
-      (receipts || []).forEach((r) => {
-        initialReceipts[r.id] = "";
-      });
-      setReceiptData(initialReceipts);
 
       const initialParams: Record<string, string> = {};
       (parameters || []).forEach((p) => {
@@ -515,20 +486,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         setPaymentData((prev) => ({ ...prev, ...existingPayment }));
       }
 
-      // Load receipts for this entry
-      const { data: receiptsData } = await supabase
-        .from("daily_receipts")
-        .select("receipt_type_id, amount")
-        .eq("daily_entry_id", entryId);
-
-      if (receiptsData) {
-        const existingReceipts: Record<string, string> = {};
-        receiptsData.forEach((r) => {
-          existingReceipts[r.receipt_type_id] = r.amount?.toString() || "";
-        });
-        setReceiptData((prev) => ({ ...prev, ...existingReceipts }));
-      }
-
       // Load parameters for this entry
       const { data: parametersData } = await supabase
         .from("daily_parameters")
@@ -641,10 +598,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
     }));
   };
 
-  const handleReceiptChange = (receiptId: string, value: string) => {
-    setReceiptData((prev) => ({ ...prev, [receiptId]: value }));
-  };
-
   const handleParameterChange = (paramId: string, value: string) => {
     setParameterData((prev) => ({ ...prev, [paramId]: value }));
   };
@@ -674,7 +627,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           timestamp: Date.now(),
           formData: { ...formData },
           incomeData: { ...incomeData },
-          receiptData: { ...receiptData },
           parameterData: { ...parameterData },
           productUsage: { ...productUsage },
           pearlaData: isPearla ? { ...pearlaData } : undefined,
@@ -734,7 +686,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         await Promise.all([
           supabase.from("daily_income_breakdown").delete().eq("daily_entry_id", dailyEntryId),
           supabase.from("daily_payment_breakdown").delete().eq("daily_entry_id", dailyEntryId),
-          supabase.from("daily_receipts").delete().eq("daily_entry_id", dailyEntryId),
           supabase.from("daily_parameters").delete().eq("daily_entry_id", dailyEntryId),
           supabase.from("daily_product_usage").delete().eq("daily_entry_id", dailyEntryId),
         ]);
@@ -793,20 +744,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           const { error } = await supabase.from("daily_payment_breakdown").insert({
             daily_entry_id: dailyEntryId,
             payment_method_id: pm.id,
-            amount,
-          });
-          if (error) throw error;
-        }
-      }
-
-      // Save receipts (amount only)
-      for (const receipt of receiptTypes) {
-        const amount = parseFloat(receiptData[receipt.id]) || 0;
-
-        if (amount > 0) {
-          const { error } = await supabase.from("daily_receipts").insert({
-            daily_entry_id: dailyEntryId,
-            receipt_type_id: receipt.id,
             amount,
           });
           if (error) throw error;
@@ -889,12 +826,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       resetIncome[s.id] = { amount: "", orders_count: "" };
     });
     setIncomeData(resetIncome);
-
-    const resetReceipts: Record<string, string> = {};
-    receiptTypes.forEach((r) => {
-      resetReceipts[r.id] = "";
-    });
-    setReceiptData(resetReceipts);
 
     const resetParams: Record<string, string> = {};
     customParameters.forEach((p) => {
@@ -1190,10 +1121,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                   </div>
                 )}
 
-                {/* אמצעי תשלום - לתזרים מזומנים */}
+                {/* תקבולים - לתזרים מזומנים */}
                 {paymentMethods.length > 0 && (
                   <div className="flex flex-col gap-4 mt-2">
-                    <SectionHeader title="פירוט אמצעי תשלום" />
+                    <SectionHeader title="תקבולים" />
                     {paymentMethods.map((pm) => (
                       <FormField key={pm.id} label={pm.name}>
                         <NumberInput
@@ -1294,23 +1225,6 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </FormField>
-
-                {/* תקבולים - דינמי */}
-                {receiptTypes.length > 0 && (
-                  <div className="flex flex-col gap-4 mt-2">
-                    <SectionHeader title="תקבולים" />
-                    {receiptTypes.map((receipt) => (
-                      <FormField key={receipt.id} label={receipt.name}>
-                        <NumberInput
-                          placeholder="0"
-                          value={receiptData[receipt.id] || ""}
-                          onChange={(v) => handleReceiptChange(receipt.id, v)}
-                          className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
-                        />
-                      </FormField>
-                    ))}
-                  </div>
-                )}
 
                 {/* פרמטרים נוספים - דינמי */}
                 {customParameters.length > 0 && (

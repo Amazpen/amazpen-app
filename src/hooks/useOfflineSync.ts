@@ -46,7 +46,6 @@ export function useOfflineSync(): UseOfflineSyncResult {
 
       const formData = entry.formData as Record<string, string>;
       const incomeData = entry.incomeData as Record<string, { amount: string; orders_count: string }>;
-      const receiptData = entry.receiptData as Record<string, string>;
       const parameterData = entry.parameterData as Record<string, string>;
       const productUsage = entry.productUsage as Record<string, { opening_stock: string; received_quantity: string; closing_stock: string }>;
 
@@ -87,18 +86,6 @@ export function useOfflineSync(): UseOfflineSyncResult {
             income_source_id: sourceId,
             amount,
             orders_count: ordersCount,
-          });
-        }
-      }
-
-      // Save receipts
-      for (const [receiptId, value] of Object.entries(receiptData)) {
-        const amount = parseFloat(value) || 0;
-        if (amount > 0) {
-          await supabase.from("daily_receipts").insert({
-            daily_entry_id: dailyEntryId,
-            receipt_type_id: receiptId,
-            amount,
           });
         }
       }

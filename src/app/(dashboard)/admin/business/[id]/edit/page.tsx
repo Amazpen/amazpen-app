@@ -99,13 +99,11 @@ export default function EditBusinessPage({ params }: PageProps) {
     6: "0",
   });
 
-  // Step 3: Income Sources, Receipt Types, Custom Parameters
+  // Step 3: Income Sources, Custom Parameters, Payment Methods
   const [incomeSources, setIncomeSources] = useState<Partial<IncomeSource>[]>([]);
   const [newIncomeSource, setNewIncomeSource] = useState("");
   const [editingSourceIndex, setEditingSourceIndex] = useState<number | null>(null);
 
-  const [receiptTypes, setReceiptTypes] = useState<{ id?: string; name: string }[]>([]);
-  const [newReceiptType, setNewReceiptType] = useState("");
 
   const [customParameters, setCustomParameters] = useState<{ id?: string; name: string }[]>([]);
   const [newCustomParameter, setNewCustomParameter] = useState("");
@@ -258,18 +256,6 @@ export default function EditBusinessPage({ params }: PageProps) {
         setIncomeSources(incomeData);
       }
 
-      // Fetch receipt types
-      const { data: receiptData } = await supabase
-        .from("receipt_types")
-        .select("id, name")
-        .eq("business_id", businessId)
-        .eq("is_active", true)
-        .order("display_order");
-
-      if (receiptData) {
-        setReceiptTypes(receiptData.map(r => ({ id: r.id, name: r.name })));
-      }
-
       // Fetch custom parameters
       const { data: paramData } = await supabase
         .from("custom_parameters")
@@ -360,7 +346,6 @@ export default function EditBusinessPage({ params }: PageProps) {
           if (draft.vatPercentage !== undefined) setVatPercentage(draft.vatPercentage as number);
           if (draft.schedule) setSchedule(draft.schedule as Record<number, string>);
           if (draft.incomeSources) setIncomeSources(draft.incomeSources as typeof incomeSources);
-          if (draft.receiptTypes) setReceiptTypes(draft.receiptTypes as typeof receiptTypes);
           if (draft.customParameters) setCustomParameters(draft.customParameters as typeof customParameters);
           if (draft.creditCards) setCreditCards(draft.creditCards as CreditCard[]);
           if (draft.managedProducts) setManagedProducts(draft.managedProducts as ManagedProduct[]);
@@ -380,12 +365,12 @@ export default function EditBusinessPage({ params }: PageProps) {
       businessName, businessType, customBusinessType, taxId, address, city, phone, email,
       managerSalary, markupPercentage, vatPercentage,
       schedule,
-      incomeSources, receiptTypes, customParameters, creditCards, managedProducts,
+      incomeSources, customParameters, creditCards, managedProducts,
     });
   }, [saveDraft, isLoading, currentStep,
     businessName, businessType, customBusinessType, taxId, address, city, phone, email,
     managerSalary, markupPercentage, vatPercentage,
-    schedule, incomeSources, receiptTypes, customParameters, creditCards, managedProducts]);
+    schedule, incomeSources, customParameters, creditCards, managedProducts]);
 
   useEffect(() => {
     if (draftRestored.current) {
@@ -414,17 +399,6 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   const handleRemoveIncomeSource = (index: number) => {
     setIncomeSources(incomeSources.filter((_, i) => i !== index));
-  };
-
-  const handleAddReceiptType = () => {
-    if (newReceiptType.trim() && !receiptTypes.some(t => t.name === newReceiptType.trim())) {
-      setReceiptTypes([...receiptTypes, { name: newReceiptType.trim() }]);
-      setNewReceiptType("");
-    }
-  };
-
-  const handleRemoveReceiptType = (index: number) => {
-    setReceiptTypes(receiptTypes.filter((_, i) => i !== index));
   };
 
   const handleAddCustomParameter = () => {
@@ -738,35 +712,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         );
       }
 
-      // 5. Update receipt types
-      const existingReceiptIds = receiptTypes.filter(t => t.id).map(t => t.id);
-      if (existingReceiptIds.length > 0) {
-        await supabase
-          .from("receipt_types")
-          .update({ is_active: false })
-          .eq("business_id", businessId)
-          .not("id", "in", `(${existingReceiptIds.join(",")})`);
-      } else {
-        // Deactivate all if none are kept
-        await supabase
-          .from("receipt_types")
-          .update({ is_active: false })
-          .eq("business_id", businessId);
-      }
-
-      const newReceiptTypes = receiptTypes.filter(t => !t.id);
-      if (newReceiptTypes.length > 0) {
-        await supabase.from("receipt_types").insert(
-          newReceiptTypes.map((t, i) => ({
-            business_id: businessId,
-            name: t.name,
-            display_order: receiptTypes.length + i,
-            is_active: true,
-          }))
-        );
-      }
-
-      // 6. Update custom parameters
+      // 5. Update custom parameters
       const existingParamIds = customParameters.filter(p => p.id).map(p => p.id);
       if (existingParamIds.length > 0) {
         await supabase
@@ -1377,8 +1323,8 @@ export default function EditBusinessPage({ params }: PageProps) {
 
       {/* Section: Payment Methods (names + settlement config) */}
       <div className="bg-[#4956D4]/20 rounded-[15px] p-[8px]">
-        <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">אמצעי תשלום</h3>
-        <p className="text-[12px] text-white/50 text-right mb-[10px]">הוסף אמצעי תשלום (מזומן, אשראי, 10ביס וכו&apos;)</p>
+        <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">תקבולים</h3>
+        <p className="text-[12px] text-white/50 text-right mb-[10px]">הוסף תקבול (מזומן, אשראי, 10ביס, וולט וכו&apos;)</p>
 
         {/* Add new payment method */}
         <div className="flex gap-[10px] mb-[10px]">
@@ -1398,7 +1344,7 @@ export default function EditBusinessPage({ params }: PageProps) {
               value={newPaymentMethodName}
               onChange={(e) => setNewPaymentMethodName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddPaymentMethod())}
-              placeholder="שם אמצעי תשלום"
+              placeholder="שם תקבול"
               className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[8px] border-none outline-none px-[12px] placeholder:text-white/30"
             />
           </div>
@@ -1442,7 +1388,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         )}
 
         {paymentMethods.length > 0 && (
-          <p className="text-[12px] text-white/50 text-right">לחץ על אמצעי תשלום כדי להגדיר מתי הכסף נכנס לבנק</p>
+          <p className="text-[12px] text-white/50 text-right">לחץ על תקבול כדי להגדיר מתי הכסף נכנס לבנק</p>
         )}
 
         {/* Payment Method Settlement Editor Dialog */}
@@ -1486,58 +1432,6 @@ export default function EditBusinessPage({ params }: PageProps) {
             />
           );
         })()}
-      </div>
-
-      {/* Section 2: Receipt Types */}
-      <div className="bg-[#4956D4]/20 rounded-[15px] p-[8px]">
-        <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">תקבולים</h3>
-        <p className="text-[12px] text-white/50 text-right mb-[10px]">סוגי תקבולים שונים</p>
-
-        <div className="flex gap-[10px] mb-[10px]">
-          <Button
-            variant="default"
-            size="sm"
-            type="button"
-            onClick={handleAddReceiptType}
-            disabled={!newReceiptType.trim()}
-            className="bg-[#4956D4] text-white text-[14px] font-semibold px-[15px] py-[10px] rounded-[8px] disabled:opacity-50"
-          >
-            הוסף
-          </Button>
-          <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
-            <Input
-              type="text"
-              value={newReceiptType}
-              onChange={(e) => setNewReceiptType(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddReceiptType()}
-              placeholder="שם תקבול"
-              className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[8px] border-none outline-none px-[12px] placeholder:text-white/30"
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-[8px]">
-          {receiptTypes.map((type, index) => (
-            <div key={type.id || index} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                type="button"
-                onClick={() => handleRemoveReceiptType(index)}
-                aria-label={`הסר ${type.name}`}
-                className="text-[#F64E60] hover:text-[#ff6b7a]"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-              </Button>
-              <span className="text-[14px] text-white">{type.name}</span>
-            </div>
-          ))}
-          {receiptTypes.length === 0 && (
-            <span className="text-[12px] text-white/30">אין תקבולים</span>
-          )}
-        </div>
       </div>
 
       {/* Section 3: Custom Parameters */}

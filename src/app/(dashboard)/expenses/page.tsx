@@ -391,6 +391,7 @@ function ExpensesPageInner() {
   // Edit expense state
   const [editingInvoice, setEditingInvoice] = useState<InvoiceDisplay | null>(null);
   const [showEditPopup, setShowEditPopup] = useState(false);
+  const [editReturnTo, setEditReturnTo] = useState<string | null>(null);
 
   // Delete confirmation state
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
@@ -1723,6 +1724,12 @@ function ExpensesPageInner() {
     // Reset attachments
     setEditAttachmentFiles([]);
     setEditAttachmentPreviews([]);
+    // Navigate back to source page if came from deep-link
+    if (editReturnTo) {
+      const returnPath = editReturnTo;
+      setEditReturnTo(null);
+      router.push(returnPath);
+    }
   };
 
   // Handle deep-link edit from supplier card (?edit=invoiceId)
@@ -1731,6 +1738,10 @@ function ExpensesPageInner() {
     const params = new URLSearchParams(window.location.search);
     const editId = params.get("edit");
     if (!editId) return;
+
+    // Store returnTo before clearing params
+    const returnTo = params.get("returnTo");
+    if (returnTo) setEditReturnTo(`/${returnTo}`);
 
     // Clear the query param immediately
     window.history.replaceState({}, "", "/expenses");
