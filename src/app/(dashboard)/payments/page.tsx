@@ -3437,12 +3437,12 @@ function PaymentsPageInner() {
                             {expandedMonths.has(monthKey) && (
                               <div className="flex flex-col">
                                 {/* Column Headers */}
-                                <div className="flex items-center gap-[3px] px-[3px] py-[3px] border-b border-white/20">
-                                  <div className="w-[24px] flex-shrink-0" />
-                                  <span className="text-[14px] text-white/70 flex-1 text-center">תאריך חשבונית</span>
-                                  <span className="text-[14px] text-white/70 flex-1 text-center">אסמכתא</span>
-                                  <span className="text-[14px] text-white/70 flex-1 text-center">סכום כולל מע&quot;מ</span>
-                                  <span className="text-[14px] text-white/70 min-w-[50px] text-center">פעולות</span>
+                                <div className="grid grid-cols-[24px_1fr_1fr_1fr_50px] gap-[3px] px-[3px] py-[3px] border-b border-white/20 items-center">
+                                  <div />
+                                  <span className="text-[14px] text-white/70 text-center">תאריך חשבונית</span>
+                                  <span className="text-[14px] text-white/70 text-center">אסמכתא</span>
+                                  <span className="text-[14px] text-white/70 text-center">סכום כולל מע&quot;מ</span>
+                                  <span className="text-[14px] text-white/70 text-center">פעולות</span>
                                 </div>
 
                                 {/* Invoice Rows */}
@@ -3451,15 +3451,13 @@ function PaymentsPageInner() {
                                   const hasDetails = attachmentUrls.length > 0 || inv.notes;
                                   return (
                                   <div key={inv.id} className="flex flex-col">
-                                    <div className={`flex items-center gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 ${
-                                      selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""
-                                    }`}>
-                                      <Button
-                                        type="button"
-                                        onClick={() => toggleInvoiceSelection(inv.id)}
-                                        className="flex items-center gap-[3px] flex-1 cursor-pointer"
-                                      >
-                                        <div className="w-[24px] flex-shrink-0 flex items-center justify-center">
+                                    <div
+                                      className={`grid grid-cols-[24px_1fr_1fr_1fr_50px] gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 items-center cursor-pointer ${
+                                        selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""
+                                      }`}
+                                      onClick={() => toggleInvoiceSelection(inv.id)}
+                                    >
+                                        <div className="flex items-center justify-center">
                                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                                             {selectedInvoiceIds.has(inv.id) ? (
                                               <>
@@ -3471,17 +3469,16 @@ function PaymentsPageInner() {
                                             )}
                                           </svg>
                                         </div>
-                                        <span className="text-[14px] text-white flex-1 text-center ltr-num">
+                                        <span className="text-[14px] text-white text-center ltr-num">
                                           {new Date(inv.invoice_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
                                         </span>
-                                        <span className="text-[14px] text-white flex-1 text-center ltr-num">
+                                        <span className="text-[14px] text-white text-center ltr-num">
                                           {inv.invoice_number || "-"}
                                         </span>
-                                        <span className="text-[14px] text-white flex-1 text-center ltr-num">
+                                        <span className="text-[14px] text-white text-center ltr-num">
                                           ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </span>
-                                      </Button>
-                                      <div className="flex items-center gap-[5px] flex-shrink-0">
+                                      <div className="flex items-center justify-center gap-[5px]" onClick={(e) => e.stopPropagation()}>
                                         {attachmentUrls.length > 0 && (
                                           <>
                                             <Button
@@ -3733,18 +3730,15 @@ function PaymentsPageInner() {
                                 {pm.customInstallments.length > 1 && (
                                   <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
                                 )}
-                                <label className="flex-1 relative h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] flex items-center justify-center cursor-pointer">
-                                  <span className="text-[14px] text-white text-center ltr-num pointer-events-none">
-                                    {item.dateForInput ? (() => { const [y,m,d] = item.dateForInput.split("-"); return `${d}/${m}/${y.slice(2)}`; })() : ''}
-                                  </span>
+                                <div className="flex-1">
                                   <Input
                                     type="date"
                                     title={`תאריך תשלום ${item.number}`}
                                     value={item.dateForInput}
                                     onChange={(e) => handleInstallmentDateChange(pm.id, index, e.target.value)}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num cursor-pointer [color-scheme:dark]"
                                   />
-                                </label>
+                                </div>
                                 {pm.method === "check" && (
                                   <div className="flex-1">
                                     <Input
