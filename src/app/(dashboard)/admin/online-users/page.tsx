@@ -123,7 +123,7 @@ export default function OnlineUsersPage() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <h1 className="text-white text-xl lg:text-2xl font-bold">משתמשים מחוברים</h1>
-        <div className="bg-[#3CD856] text-white text-sm font-bold px-2.5 py-0.5 rounded-full min-w-[28px] text-center">
+        <div className="bg-[#3CD856] text-white text-sm font-bold p-1.5 rounded-full min-w-[28px] text-center leading-none">
           {onlineUsers.length}
         </div>
       </div>
