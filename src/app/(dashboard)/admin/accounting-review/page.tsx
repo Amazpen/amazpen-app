@@ -389,15 +389,21 @@ export default function AccountingReviewPage() {
         {/* Actions (right in RTL) + Date Range (left in RTL) */}
         <div className="flex items-center justify-between gap-4 flex-shrink-0">
           {selectedIds.size > 0 ? (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-white/60">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-white/70 bg-white/5 px-3 py-1.5 rounded-md border border-white/10">
                 {selectedIds.size} נבחרו
               </span>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={exportCsv}>
+              <Button
+                className="inline-flex items-center gap-2 h-9 px-4 rounded-md border border-white/20 bg-white/5 text-sm font-medium text-white/90 hover:bg-white/10 hover:border-white/30 transition-colors"
+                onClick={exportCsv}
+              >
                 <FileSpreadsheet className="w-4 h-4" />
                 ייצא CSV
               </Button>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={downloadDocuments}>
+              <Button
+                className="inline-flex items-center gap-2 h-9 px-4 rounded-md border border-white/20 bg-white/5 text-sm font-medium text-white/90 hover:bg-white/10 hover:border-white/30 transition-colors"
+                onClick={downloadDocuments}
+              >
                 <Download className="w-4 h-4" />
                 הורד מסמכים
               </Button>
@@ -562,7 +568,7 @@ export default function AccountingReviewPage() {
 
       {/* ===== Detail Panel (slide-over from right in RTL) ===== */}
       {detailInvoice && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-[2000] flex">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/60"
@@ -573,8 +579,7 @@ export default function AccountingReviewPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold">פרטי חשבונית</h2>
               <Button
-                variant="ghost"
-                size="sm"
+                className="h-8 w-8 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center"
                 onClick={() => setDetailInvoice(null)}
               >
                 ✕
