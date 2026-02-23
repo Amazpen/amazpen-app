@@ -228,6 +228,9 @@ export default function SuppliersPage() {
   const [supplierEmail, setSupplierEmail] = useState("");
   const [requestKarteset, setRequestKarteset] = useState(false);
   const [isSendingKarteset, setIsSendingKarteset] = useState(false);
+  const [showKartesetPeriodPicker, setShowKartesetPeriodPicker] = useState(false);
+  const [kartesetPeriodMonth, setKartesetPeriodMonth] = useState(() => new Date().getMonth());
+  const [kartesetPeriodYear, setKartesetPeriodYear] = useState(() => new Date().getFullYear());
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
 
   // Save supplier form draft
@@ -527,10 +530,19 @@ export default function SuppliersPage() {
     setIsAddSupplierModalOpen(true);
   };
 
+  // Handle open karteset period picker
+  const handleOpenKartesetPicker = () => {
+    const now = new Date();
+    setKartesetPeriodMonth(now.getMonth());
+    setKartesetPeriodYear(now.getFullYear());
+    setShowKartesetPeriodPicker(true);
+  };
+
   // Handle send karteset email on-demand
   const handleSendKartesetEmail = async () => {
-    if (!selectedSupplier || !selectedSupplier.email || !selectedSupplier.request_karteset) return;
+    if (!selectedSupplier || !selectedSupplier.email) return;
     setIsSendingKarteset(true);
+    setShowKartesetPeriodPicker(false);
     try {
       const res = await fetch("/api/suppliers/send-karteset", {
         method: "POST",
@@ -538,6 +550,8 @@ export default function SuppliersPage() {
         body: JSON.stringify({
           supplierId: selectedSupplier.id,
           businessId: selectedSupplier.business_id,
+          month: kartesetPeriodMonth,
+          year: kartesetPeriodYear,
         }),
       });
       if (!res.ok) throw new Error("Failed to send");
@@ -2104,9 +2118,9 @@ export default function SuppliersPage() {
                   <Button
                     type="button"
                     title="שלח בקשת כרטסת"
-                    onClick={handleSendKartesetEmail}
+                    onClick={handleOpenKartesetPicker}
                     disabled={isSendingKarteset}
-                    className="w-[24px] h-[24px] flex items-center justify-center text-[#0BB783]/70 hover:text-[#0BB783] transition-colors disabled:opacity-40"
+                    className="w-[24px] h-[24px] flex items-center justify-center text-white/70 hover:text-white transition-colors disabled:opacity-40"
                   >
                     <Send className={`w-[18px] h-[18px] ${isSendingKarteset ? "animate-pulse" : ""}`} />
                   </Button>
@@ -2126,6 +2140,53 @@ export default function SuppliersPage() {
               </div>
             </div>
           </SheetHeader>
+
+          {/* Karteset Period Picker */}
+          {showKartesetPeriodPicker && (
+            <div className="mx-4 mt-3 mb-1 bg-[#29318A]/50 rounded-[10px] p-[12px]">
+              <div className="flex flex-col gap-[10px]">
+                <span className="text-[14px] text-white font-medium text-center">בחר תקופה לבקשת כרטסת</span>
+                <div className="flex items-center justify-center gap-[10px]">
+                  <select
+                    value={kartesetPeriodYear}
+                    onChange={(e) => setKartesetPeriodYear(Number(e.target.value))}
+                    className="bg-[#1B2559] text-white text-[14px] text-center rounded-[8px] border border-[#4C526B] px-[10px] h-[36px] outline-none"
+                  >
+                    {[2024, 2025, 2026, 2027].map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={kartesetPeriodMonth}
+                    onChange={(e) => setKartesetPeriodMonth(Number(e.target.value))}
+                    className="bg-[#1B2559] text-white text-[14px] text-center rounded-[8px] border border-[#4C526B] px-[10px] h-[36px] outline-none"
+                  >
+                    {["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"].map((m, i) => (
+                      <option key={i} value={i}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center justify-center gap-[8px]">
+                  <Button
+                    type="button"
+                    onClick={() => setShowKartesetPeriodPicker(false)}
+                    className="px-[16px] h-[34px] rounded-[8px] bg-[#4C526B]/50 text-white/70 text-[13px] font-medium hover:bg-[#4C526B] transition-colors"
+                  >
+                    ביטול
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSendKartesetEmail}
+                    disabled={isSendingKarteset}
+                    className="px-[16px] h-[34px] rounded-[8px] bg-[#29318A] text-white text-[13px] font-medium hover:bg-[#3D44A0] transition-colors disabled:opacity-40"
+                  >
+                    {isSendingKarteset ? "שולח..." : "שלח בקשת כרטסת"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {selectedSupplier && (
           <div className="p-4">
             {/* Supplier Details Grid */}

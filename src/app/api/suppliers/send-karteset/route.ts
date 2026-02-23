@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 const N8N_WEBHOOK_URL = 'https://n8n-lv4j.onrender.com/webhook/send-karteset-email'
 
 export async function POST(request: NextRequest) {
-  const { supplierId, businessId } = await request.json()
+  const { supplierId, businessId, month, year } = await request.json()
 
   if (!supplierId || !businessId) {
     return NextResponse.json({ error: 'Missing supplierId or businessId' }, { status: 400 })
@@ -54,11 +54,12 @@ export async function POST(request: NextRequest) {
     ownerEmail = user?.email || ''
   }
 
-  // Calculate Hebrew month name
+  // Calculate Hebrew month name (use provided month/year or fallback to current)
   const hebrewMonths = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']
   const now = new Date()
-  const monthName = hebrewMonths[now.getMonth()]
-  const year = now.getFullYear()
+  const selectedMonth = typeof month === 'number' ? month : now.getMonth()
+  const selectedYear = typeof year === 'number' ? year : now.getFullYear()
+  const monthName = hebrewMonths[selectedMonth]
 
   // Call n8n webhook
   const n8nResponse = await fetch(N8N_WEBHOOK_URL, {
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
       businessName: business?.name || 'העסק',
       ownerEmail,
       monthName,
-      year,
+      year: selectedYear,
     }),
   })
 
