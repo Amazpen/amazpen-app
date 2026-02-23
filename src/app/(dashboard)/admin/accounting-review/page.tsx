@@ -382,7 +382,7 @@ export default function AccountingReviewPage() {
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex flex-row-reverse h-full overflow-hidden">
       {/* ===== Main Content ===== */}
       <div className="flex-1 flex flex-col overflow-hidden p-4 gap-4">
         {/* Date Range Filter + Actions */}
@@ -517,7 +517,7 @@ export default function AccountingReviewPage() {
       </div>
 
       {/* ===== Business Sidebar (right in RTL) ===== */}
-      <div className="w-[250px] flex-shrink-0 border-s border-white/10 flex flex-col overflow-hidden">
+      <div className="w-[250px] flex-shrink-0 border-e border-white/10 flex flex-col overflow-hidden">
         <div className="text-center font-bold text-lg p-4 border-b border-white/10">
           בחירת עסק
         </div>
