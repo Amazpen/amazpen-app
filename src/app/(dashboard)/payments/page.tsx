@@ -186,8 +186,9 @@ function formatForecastDate(dateStr: string): string {
 }
 
 function formatForecastDateShort(dateStr: string): string {
-  const date = new Date(dateStr);
-  return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getFullYear()).slice(2)}`;
+  // Parse YYYY-MM-DD from ISO string to avoid UTC timezone shift
+  const [y, m, d] = dateStr.split("T")[0].split("-");
+  return `${d}/${m}/${y.slice(2)}`;
 }
 
 // Payment method options for form
@@ -859,8 +860,9 @@ function PaymentsPageInner() {
 
         total += split.amount;
 
-        const date = new Date(row.due_date);
-        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+        // Parse date as local to avoid UTC timezone shift (e.g. "2026-05-09T21:00:00Z" → "2026-05-10")
+        const [dY, dM] = row.due_date.split("T")[0].split("-");
+        const key = `${dY}-${dM}`;
         if (!monthMap.has(key)) monthMap.set(key, []);
         monthMap.get(key)!.push(split);
 
@@ -994,8 +996,9 @@ function PaymentsPageInner() {
 
         total += split.amount;
 
-        const date = new Date(row.due_date);
-        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+        // Parse date as local to avoid UTC timezone shift
+        const [dY2, dM2] = row.due_date.split("T")[0].split("-");
+        const key = `${dY2}-${dM2}`;
         if (!monthMap.has(key)) monthMap.set(key, []);
         monthMap.get(key)!.push(split);
 
@@ -1319,14 +1322,20 @@ function PaymentsPageInner() {
         const totalForMethod = splits.reduce((sum, s) => sum + s.amount, 0);
         const installmentsCount = splits[0].installments_count || 1;
 
-        const customInstallments = splits.map(s => ({
-              number: s.installment_number || 1,
-              date: s.due_date ? new Date(s.due_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "",
-              dateForInput: s.due_date || "",
-              amount: s.amount,
-              checkNumber: s.check_number || "",
-              manuallyEdited: true,
-            }));
+        const customInstallments = splits.map(s => {
+              // Extract YYYY-MM-DD from ISO timestamp to avoid UTC timezone shift
+              const dueDateStr = s.due_date ? s.due_date.split("T")[0] : "";
+              const [y, m, d] = dueDateStr ? dueDateStr.split("-").map(Number) : [0, 0, 0];
+              const localDate = dueDateStr ? new Date(y, m - 1, d) : null;
+              return {
+                number: s.installment_number || 1,
+                date: localDate ? localDate.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "",
+                dateForInput: dueDateStr,
+                amount: s.amount,
+                checkNumber: s.check_number || "",
+                manuallyEdited: true,
+              };
+            });
 
         entries.push({
           id: entryId++,
@@ -2784,7 +2793,7 @@ function PaymentsPageInner() {
               for (const payment of filtered) {
                 for (const split of payment.rawSplits) {
                   rows.push([
-                    split.due_date ? new Date(split.due_date).toLocaleDateString("he-IL") : payment.date,
+                    split.due_date ? (() => { const [y,m,d] = split.due_date.split("T")[0].split("-"); return `${d}/${m}/${y}`; })() : payment.date,
                     `"${payment.supplier.replace(/"/g, '""')}"`,
                     paymentMethodNames[split.payment_method] || split.payment_method,
                     split.check_number || "-",
