@@ -515,6 +515,14 @@ export default function AccountingReviewPage() {
             </Table>
           )}
         </div>
+
+        {/* Summary row */}
+        {invoices.length > 0 && (
+          <div className="flex items-center justify-between px-4 py-2.5 border border-white/10 rounded-lg text-sm text-white/80">
+            <span>סכום כולל מע&quot;מ: <span className="font-bold text-white ltr-num">{formatCurrency(invoices.reduce((sum, i) => sum + i.total_amount, 0))}</span></span>
+            <span>כמות תנועות: <span className="font-bold text-white ltr-num">{invoices.length}</span></span>
+          </div>
+        )}
       </div>
 
       {/* ===== Business Sidebar (right in RTL) ===== */}
