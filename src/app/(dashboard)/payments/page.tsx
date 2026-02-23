@@ -3202,12 +3202,10 @@ function PaymentsPageInner() {
                                           type="button"
                                           title="מסמכים והערות"
                                           onClick={() => setExpandedOpenInvoiceId(expandedOpenInvoiceId === payment.linkedInvoice!.id ? null : payment.linkedInvoice!.id)}
-                                          className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                          className={`w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-all cursor-pointer ${expandedOpenInvoiceId === payment.linkedInvoice!.id ? "rotate-180" : ""}`}
                                         >
-                                          <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                            <circle cx="12" cy="12" r="10"/>
-                                            <line x1="12" y1="16" x2="12" y2="12"/>
-                                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                          <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M6 9l6 6 6-6"/>
                                           </svg>
                                         </Button>
                                       )}
@@ -3525,12 +3523,10 @@ function PaymentsPageInner() {
                                             type="button"
                                             title="מסמכים והערות"
                                             onClick={(e) => { e.stopPropagation(); setExpandedOpenInvoiceId(expandedOpenInvoiceId === inv.id ? null : inv.id); }}
-                                            className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                            className={`w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-all cursor-pointer ${expandedOpenInvoiceId === inv.id ? "rotate-180" : ""}`}
                                           >
-                                            <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                              <circle cx="12" cy="12" r="10"/>
-                                              <line x1="12" y1="16" x2="12" y2="12"/>
-                                              <line x1="12" y1="8" x2="12.01" y2="8"/>
+                                            <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                              <path d="M6 9l6 6 6-6"/>
                                             </svg>
                                           </Button>
                                         )}
