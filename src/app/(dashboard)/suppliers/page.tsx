@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { ChevronLeft, ChevronRight, X, Mail, Send } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Send } from "lucide-react";
 import { Package } from "@phosphor-icons/react";
 import { useDashboard } from "../layout";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
@@ -1411,12 +1411,6 @@ export default function SuppliersPage() {
                   {/* Inactive Badge */}
                   {supplier.is_active === false && (
                     <Badge className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">לא פעיל</Badge>
-                  )}
-                  {/* Karteset Email Badge */}
-                  {supplier.request_karteset && supplier.email && (
-                    <div className="absolute top-[6px] right-[6px]">
-                      <Mail className="w-[14px] h-[14px] text-[#0BB783]" />
-                    </div>
                   )}
                   {/* Supplier Name */}
                   <div className="w-[120px] text-center">
