@@ -383,7 +383,7 @@ export default function AccountingReviewPage() {
   }
 
   return (
-    <div className="flex flex-row-reverse h-full overflow-hidden">
+    <div className="flex flex-row-reverse overflow-hidden" style={{ height: "calc(100vh - 70px)" }}>
       {/* ===== Main Content ===== */}
       <div className="flex-1 flex flex-col overflow-hidden p-4 gap-4">
         {/* Actions (right in RTL) + Date Range (left in RTL) */}
@@ -527,8 +527,8 @@ export default function AccountingReviewPage() {
         {/* Summary row */}
         {invoices.length > 0 && (
           <div className="flex items-center justify-between px-4 py-2.5 border border-white/10 rounded-lg text-sm text-white/80 flex-shrink-0">
-            <span>סכום כולל מע&quot;מ: <span className="font-bold text-white ltr-num">{formatCurrency(invoices.reduce((sum, i) => sum + i.total_amount, 0))}</span></span>
             <span>כמות תנועות: <span className="font-bold text-white ltr-num">{invoices.length}</span></span>
+            <span>סכום כולל מע&quot;מ: <span className="font-bold text-white ltr-num">{formatCurrency(invoices.reduce((sum, i) => sum + i.total_amount, 0))}</span></span>
           </div>
         )}
       </div>
