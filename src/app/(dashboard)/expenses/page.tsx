@@ -1228,11 +1228,12 @@ function ExpensesPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- chartColors is a static array defined outside the memo; it never changes.
   }, [chartDataSource]);
 
-  // Custom shape renderer for donut chart (recharts v3 uses shape prop with isActive)
+  // Custom shape renderer for donut chart — use activeExpenseIndex from state instead of Recharts' internal isActive
   const renderDonutShape = (props: PieSectorDataItem & { isActive: boolean; index: number }) => {
-    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, isActive, payload, percent } = props as PieSectorDataItem & {
-      isActive: boolean; payload: { displayName: string; amount: number }; percent: number;
+    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, index, payload, percent } = props as PieSectorDataItem & {
+      isActive: boolean; index: number; payload: { displayName: string; amount: number }; percent: number;
     };
+    const isActive = activeExpenseIndex === index;
 
     // Calculate label position at the middle of the arc (always on the colored segment)
     const pct = ((percent as number) * 100);
