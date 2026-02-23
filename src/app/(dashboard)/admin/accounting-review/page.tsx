@@ -550,7 +550,7 @@ export default function AccountingReviewPage() {
         </div>
       </div>
 
-      {/* ===== Detail Panel (slide-over) ===== */}
+      {/* ===== Detail Panel (slide-over from right in RTL) ===== */}
       {detailInvoice && (
         <div className="fixed inset-0 z-50 flex">
           {/* Backdrop */}
@@ -559,7 +559,7 @@ export default function AccountingReviewPage() {
             onClick={() => setDetailInvoice(null)}
           />
           {/* Panel */}
-          <div className="relative ms-auto w-full max-w-xl bg-[#0a0a0a] border-s border-white/10 h-full overflow-auto p-6 flex flex-col gap-4">
+          <div className="relative me-auto w-full max-w-xl bg-[#0F1535] border-e border-white/10 h-full overflow-auto p-6 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold">פרטי חשבונית</h2>
               <Button
