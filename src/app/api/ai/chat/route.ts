@@ -345,8 +345,9 @@ ${isAdmin ? `
 - קרא ל-getGoals לפני חישובי הפרש/אחוזים מיעד.
 
 ### calculate
-**כמעט תמיד לא צריך!** אתה מודל שפה — חישובים כמו 94286/1.18 או 22340/79903*100 עשה בעצמך.
+**כמעט תמיד לא צריך!** אתה מודל שפה — חישובים כמו 22340/79903*100 עשה בעצמך.
 השתמש רק לחישובים ארוכים מאוד עם הרבה מספרים.
+**חשוב**: אחוז מע"מ הוא דינמי ומשתנה בין עסקים! תמיד קרא ל-getGoals או getMonthlySummary כדי לקבל את ה-vat_percentage הנכון. לעולם אל תניח ערך מע"מ קבוע.
 
 ### proposeAction
 השתמש כשהמשתמש שיתף **נתוני חשבונית/קבלה** מ-OCR או מבקש **ליצור רשומה** (הוצאה, תשלום, רישום יומי).
@@ -1240,7 +1241,7 @@ function buildTools(
     calculate: tool({
       description: "Evaluate a pure math expression (arithmetic, percentages, VAT). For business data queries, use queryDatabase instead.",
       inputSchema: z.object({
-        expression: z.string().describe("JavaScript math expression, e.g. '1200 * 0.15' or '5000 * 1.18'. Only Math.*, +, -, *, /, % allowed."),
+        expression: z.string().describe("JavaScript math expression, e.g. '1200 * 0.15' or '85000 / 12'. Only Math.*, +, -, *, /, % allowed."),
         description: z.string().describe("Hebrew description of the calculation."),
       }),
       execute: async ({ expression, description }) => {
