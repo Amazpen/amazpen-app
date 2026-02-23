@@ -12,6 +12,7 @@ import { PushPrompt } from "@/components/ui/push-prompt";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { ConsolidatedInvoiceModal } from "@/components/dashboard/ConsolidatedInvoiceModal";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { usePresenceTrack } from "@/hooks/usePresence";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { OfflineIndicator } from "@/components/ui/offline-indicator";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/daily-entries", "/admin/historical-data"];
+const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/daily-entries", "/admin/historical-data", "/admin/online-users"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -68,6 +69,8 @@ const adminMenuItems = [
   { id: 107, label: "ייבוא תשלומים", href: "/admin/payments", key: "admin-payments" },
   { id: 109, label: "ייבוא מילוי יומי", href: "/admin/daily-entries", key: "admin-daily-entries" },
   { id: 110, label: "ייבוא נתוני עבר", href: "/admin/historical-data", key: "admin-historical-data" },
+  { id: 111, label: "בדיקה ורישום בהנה\"ח", href: "/admin/accounting-review", key: "admin-accounting-review" },
+  { id: 112, label: "משתמשים מחוברים", href: "/admin/online-users", key: "admin-online-users" },
 ];
 
 // Page titles mapping
@@ -92,8 +95,10 @@ const pageTitles: Record<string, string> = {
   "/admin/payments": "ייבוא תשלומים",
   "/admin/daily-entries": "ייבוא מילוי יומי",
   "/admin/historical-data": "ייבוא נתוני עבר",
+  "/admin/accounting-review": "בדיקה ורישום בהנה\"ח",
   "/price-tracking": "מעקב מחירי ספקים",
   "/ai": "עוזר AI",
+  "/admin/online-users": "משתמשים מחוברים",
 };
 
 // Dashboard icon component
@@ -186,6 +191,9 @@ export default function DashboardLayout({
 
   // Keep screen awake while app is visible
   useWakeLock();
+
+  // Track user presence for online-users feature
+  usePresenceTrack(userProfile, pathname);
 
   // Set mounted state after hydration and restore client-only state
   useEffect(() => {
