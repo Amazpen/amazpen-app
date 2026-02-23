@@ -388,7 +388,7 @@ export default function AccountingReviewPage() {
       <div className="flex-1 flex flex-col overflow-hidden p-4 gap-4">
         {/* Date Range Filter + Actions */}
         <div className="flex items-center gap-4">
-          <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
+          <DateRangePicker dateRange={dateRange} onChange={setDateRange} className="ml-auto" />
           {selectedIds.size > 0 && (
             <div className="flex items-center gap-2 mr-auto">
               <span className="text-sm text-white/60">
