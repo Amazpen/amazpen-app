@@ -1,7 +1,7 @@
 "use client";
 
 import { useDashboard } from "../../layout";
-import { usePresenceListener, type PresenceUser } from "@/hooks/usePresence";
+import type { PresenceUser } from "@/hooks/usePresence";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Image from "next/image";
@@ -106,9 +106,8 @@ function UserCard({ user }: { user: PresenceUser }) {
 }
 
 export default function OnlineUsersPage() {
-  const { isAdmin } = useDashboard();
+  const { isAdmin, onlineUsers } = useDashboard();
   const router = useRouter();
-  const onlineUsers = usePresenceListener();
 
   // Redirect non-admin users
   useEffect(() => {

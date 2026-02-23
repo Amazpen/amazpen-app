@@ -12,7 +12,7 @@ import { PushPrompt } from "@/components/ui/push-prompt";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { ConsolidatedInvoiceModal } from "@/components/dashboard/ConsolidatedInvoiceModal";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
-import { usePresenceTrack } from "@/hooks/usePresence";
+import { usePresence, type PresenceUser } from "@/hooks/usePresence";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { OfflineIndicator } from "@/components/ui/offline-indicator";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ interface DashboardContextType {
   toggleBusiness: (id: string) => void;
   isAdmin: boolean;
   refreshProfile: () => Promise<void>;
+  onlineUsers: PresenceUser[];
 }
 
 const DashboardContext = createContext<DashboardContextType>({
@@ -34,6 +35,7 @@ const DashboardContext = createContext<DashboardContextType>({
   toggleBusiness: () => {},
   isAdmin: false,
   refreshProfile: async () => {},
+  onlineUsers: [],
 });
 
 export const useDashboard = () => useContext(DashboardContext);
@@ -192,8 +194,8 @@ export default function DashboardLayout({
   // Keep screen awake while app is visible
   useWakeLock();
 
-  // Track user presence for online-users feature
-  usePresenceTrack(userProfile, pathname);
+  // Track user presence and get online users list
+  const onlineUsers = usePresence(userProfile, pathname);
 
   // Set mounted state after hydration and restore client-only state
   useEffect(() => {
@@ -546,7 +548,7 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
-    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, refreshProfile: fetchUserProfile }}>
+    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, refreshProfile: fetchUserProfile, onlineUsers }}>
       <div className="min-h-screen bg-[#0F1535]">
         {/* Sidebar Overlay - Mobile only */}
         {isMenuOpen && (
