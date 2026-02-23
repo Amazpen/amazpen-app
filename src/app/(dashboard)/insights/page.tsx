@@ -103,8 +103,8 @@ const InsightCard = ({ insight }: { insight: Insight }) => {
           </div>
           <span className="text-white/50 text-[11px] font-medium">{categoryLabels[insight.category]}</span>
         </div>
-        <div className={`p-[6px] rounded-full ${styles.badge} flex-shrink-0`}>
-          <span className={`text-[10px] font-medium ${styles.badgeText}`}>{severityLabels[insight.severity]}</span>
+        <div className={`px-2.5 py-1 rounded-full ${styles.badge} flex-shrink-0 flex items-center justify-center`}>
+          <span className={`text-[10px] font-medium leading-none ${styles.badgeText}`}>{severityLabels[insight.severity]}</span>
         </div>
       </div>
 
