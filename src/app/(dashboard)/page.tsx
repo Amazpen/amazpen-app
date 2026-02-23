@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { useApprovals } from '@/hooks/useApprovals';
 import ApprovalModal from '@/components/dashboard/ApprovalModal';
 import { CARD_FIELD_MAP } from '@/types/approvals';
-import { MetricIcon } from '@/lib/metric-icons';
+import { MetricIcon, getIconBgColor } from '@/lib/metric-icons';
 import { PresentationChart, CookingPot, Scales } from '@phosphor-icons/react';
 import { Clock } from 'lucide-react';
 
@@ -2892,7 +2892,7 @@ export default function DashboardPage() {
                   </span>
                   <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                     <span className="text-[20px] font-bold text-white leading-[1.4]">סה״כ הכנסות</span>
-                    <MetricIcon type="totalIncome" />
+                    <MetricIcon type="totalIncome" colorOverride={getIconBgColor(0)} />
                   </div>
                 </div>
                 {(() => {
@@ -2969,9 +2969,8 @@ export default function DashboardPage() {
 
               {/* Dynamic Income Sources Cards */}
               {incomeSourcesSummary.map((source, index) => {
-                // Alternate colors for icons
-                const iconBgColors = ["icon-bg-peach", "icon-bg-green", "icon-bg-blue", "icon-bg-cyan"];
-                const iconBgClass = iconBgColors[index % iconBgColors.length];
+                // Dynamic color: offset by 1 (totalIncome is index 0)
+                const iconBgClass = getIconBgColor(1 + index);
                 const currentBusinessName = businessCards.find(b => b.id === realBusinessId)?.name || "";
                 const isPearla = currentBusinessName.includes("פרלה");
 
@@ -3178,6 +3177,7 @@ export default function DashboardPage() {
 
               {/* עלות עובדים Card */}
               {(() => {
+                const laborColorIdx = 1 + incomeSourcesSummary.length;
                 const currentBusinessName = businessCards.find(b => b.id === realBusinessId)?.name || "";
                 const isPearla = currentBusinessName.includes("פרלה");
                 const noIncome = (detailedSummary?.totalIncome || 0) === 0;
@@ -3205,7 +3205,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex flex-row-reverse items-center gap-[6px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">עלות עובדים</span>
-                          <MetricIcon type="laborCost" />
+                          <MetricIcon type="laborCost" colorOverride={getIconBgColor(laborColorIdx)} />
                         </div>
                       </div>
                       {/* Middle section - שכירים / כוח אדם with border */}
@@ -3282,7 +3282,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">עלות עובדים</span>
-                        <MetricIcon type="laborCost" />
+                        <MetricIcon type="laborCost" colorOverride={getIconBgColor(laborColorIdx)} />
                       </div>
                     </div>
                     <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
@@ -3313,6 +3313,7 @@ export default function DashboardPage() {
 
               {/* עלות מכר Card */}
               {(() => {
+                const foodColorIdx = 2 + incomeSourcesSummary.length;
                 const currentBusinessName = businessCards.find(b => b.id === realBusinessId)?.name || "";
                 const isPearla = currentBusinessName.includes("פרלה");
                 const noIncome = (detailedSummary?.totalIncome || 0) === 0;
@@ -3341,7 +3342,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                           <span className="text-[20px] font-bold text-white leading-[1.4]">עלות מכר</span>
-                          <MetricIcon type="foodCost" />
+                          <MetricIcon type="foodCost" colorOverride={getIconBgColor(foodColorIdx)} />
                         </div>
                       </div>
                       <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
@@ -3394,7 +3395,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                         <span className="text-[20px] font-bold text-white leading-[1.4]">עלות מכר</span>
-                        <MetricIcon type="foodCost" />
+                        <MetricIcon type="foodCost" colorOverride={getIconBgColor(foodColorIdx)} />
                       </div>
                     </div>
                     <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
@@ -3425,9 +3426,8 @@ export default function DashboardPage() {
 
               {/* Dynamic Managed Products Cards */}
               {managedProductsSummary.map((product, index) => {
-                // Alternate colors for icons
-                const iconBgColors = ["icon-bg-orange", "icon-bg-purple", "icon-bg-pink", "icon-bg-cyan"];
-                const iconBgClass = iconBgColors[index % iconBgColors.length];
+                // Dynamic color: offset by fixed cards (totalIncome + incomeSources + laborCost + foodCost)
+                const iconBgClass = getIconBgColor(3 + incomeSourcesSummary.length + index);
 
                 // Calculate actual percentage
                 const actualPct = detailedSummary?.incomeBeforeVat && product.totalCost > 0
@@ -3499,6 +3499,7 @@ export default function DashboardPage() {
 
               {/* עלות הוצאות שוטפות Card */}
               {(() => {
+                const expColorIdx = 3 + incomeSourcesSummary.length + managedProductsSummary.length;
                 const noExpData = (detailedSummary?.totalIncome || 0) === 0 || (detailedSummary?.currentExpenses || 0) === 0;
                 const noTarget = !detailedSummary?.currentExpensesTargetPct || detailedSummary.currentExpensesTargetPct === 0;
                 // Main percentage color: > 0 = red (expenses exist), < 0 = green, 0 = white
@@ -3523,7 +3524,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                     <span className="text-[20px] font-bold text-white leading-[1.4]">הוצאות שוטפות</span>
-                    <MetricIcon type="currentExpenses" />
+                    <MetricIcon type="currentExpenses" colorOverride={getIconBgColor(expColorIdx)} />
                   </div>
                 </div>
                 <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">

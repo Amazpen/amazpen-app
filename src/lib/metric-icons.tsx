@@ -18,7 +18,7 @@ export const METRIC_ICONS = {
   totalIncome:     { Icon: ChartLineUp, color: 'icon-bg-green' },
   laborCost:       { Icon: UsersThree, color: 'icon-bg-purple' },
   foodCost:        { Icon: CookingPot, color: 'icon-bg-orange' },
-  currentExpenses: { Icon: Receipt, color: 'icon-bg-peach' },
+  currentExpenses: { Icon: Receipt, color: 'icon-bg-yellow' },
   deliveries:      { Icon: MopedFront, color: 'icon-bg-yellow' },
   suppliers:       { Icon: Package, color: 'icon-bg-orange' },
   goals:           { Icon: Trophy, color: 'icon-bg-green' },
@@ -31,12 +31,29 @@ export const METRIC_ICONS = {
 
 export type MetricType = keyof typeof METRIC_ICONS;
 
-export function MetricIcon({ type, size = 31 }: { type: MetricType; size?: number }) {
+// Global palette for dynamic card color cycling — no two adjacent cards share a color
+export const ICON_BG_PALETTE = [
+  'icon-bg-green',
+  'icon-bg-peach',
+  'icon-bg-cyan',
+  'icon-bg-purple',
+  'icon-bg-orange',
+  'icon-bg-blue',
+  'icon-bg-pink',
+  'icon-bg-yellow',
+] as const;
+
+/** Get icon background color by global card index — cycles through all 8 colors */
+export function getIconBgColor(index: number): string {
+  return ICON_BG_PALETTE[index % ICON_BG_PALETTE.length];
+}
+
+export function MetricIcon({ type, size = 31, colorOverride }: { type: MetricType; size?: number; colorOverride?: string }) {
   const { Icon, color } = METRIC_ICONS[type];
   const iconSize = Math.round(size * 0.58);
   return (
     <div
-      className={`${color} rounded-full flex items-center justify-center`}
+      className={`${colorOverride || color} rounded-full flex items-center justify-center`}
       style={{ width: size, height: size }}
     >
       <Icon size={iconSize} color="white" weight="duotone" />
