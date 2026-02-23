@@ -774,6 +774,7 @@ function ExpensesPageInner() {
 
   // Fetch data from Supabase
   useEffect(() => {
+    let stale = false;
     const fetchData = async () => {
       if (selectedBusinesses.length === 0) {
         setExpensesData([]);
@@ -837,6 +838,8 @@ function ExpensesPageInner() {
           .order("invoice_date", { ascending: false })
           .range(0, INVOICES_PAGE_SIZE - 1);
 
+        if (stale) return;
+
         if (invoicesListData) {
           const displayInvoices = transformInvoicesData(invoicesListData);
           setRecentInvoices(displayInvoices);
@@ -891,6 +894,8 @@ function ExpensesPageInner() {
             .select("id, vat_percentage")
             .in("id", selectedBusinesses),
         ]);
+
+        if (stale) return;
 
         // Calculate total sales before VAT
         const totalRegister = (dailyEntries || []).reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
@@ -1012,6 +1017,7 @@ function ExpensesPageInner() {
     };
 
     fetchData();
+    return () => { stale = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- transformInvoicesData is a plain function (not stateful), defined below; adding it would require memoization for no benefit.
   }, [selectedBusinesses, dateRange, activeTab, refreshTrigger]);
 
