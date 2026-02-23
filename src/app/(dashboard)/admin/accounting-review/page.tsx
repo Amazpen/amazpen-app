@@ -407,7 +407,7 @@ export default function AccountingReviewPage() {
         </div>
 
         {/* Invoice Table */}
-        <div className="flex-1 overflow-auto border border-white/10 rounded-lg">
+        <div className="flex-1 min-h-0 overflow-auto border border-white/10 rounded-lg">
           {!selectedBusinessId ? (
             <div className="flex items-center justify-center h-full text-white/40">
               בחר עסק מהרשימה
@@ -423,7 +423,7 @@ export default function AccountingReviewPage() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow className="border-b border-white/20">
+                <TableRow className="border-b border-white/20 sticky top-0 bg-[#0F1535] z-10">
                   <TableHead className="w-10 text-center">
                     <Checkbox
                       checked={
@@ -518,7 +518,7 @@ export default function AccountingReviewPage() {
 
         {/* Summary row */}
         {invoices.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-2.5 border border-white/10 rounded-lg text-sm text-white/80">
+          <div className="flex items-center justify-between px-4 py-2.5 border border-white/10 rounded-lg text-sm text-white/80 flex-shrink-0">
             <span>סכום כולל מע&quot;מ: <span className="font-bold text-white ltr-num">{formatCurrency(invoices.reduce((sum, i) => sum + i.total_amount, 0))}</span></span>
             <span>כמות תנועות: <span className="font-bold text-white ltr-num">{invoices.length}</span></span>
           </div>
