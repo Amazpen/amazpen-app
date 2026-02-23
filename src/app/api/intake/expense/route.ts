@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
       invoice_number,
       due_date,
       notes,
+      reference_date,
       line_items,
       data_source = 'api',
     } = body;
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest) {
         total_amount,
         invoice_number: invoice_number || null,
         due_date: due_date || null,
+        reference_date: reference_date || null,
         notes: notes || null,
         status: 'pending',
         approval_status: 'pending_review',

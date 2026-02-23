@@ -66,6 +66,7 @@ interface Invoice {
   invoice_type: string | null;
   clarification_reason: string | null;
   approval_status: string | null;
+  reference_date: string | null;
   // Joined data
   supplier?: Supplier;
   creator_name?: string;
@@ -119,6 +120,7 @@ interface InvoiceDisplay {
   clarificationReason: string | null;
   isFixed: boolean;
   approval_status: string | null;
+  referenceDate: string | null;
   linkedPayments: { id: string; paymentId: string; amount: number; method: string; date: string; checkNumber: string; installmentNumber: number | null; installmentsCount: number | null; referenceNumber: string }[];
 }
 
@@ -283,6 +285,7 @@ function ExpensesPageInner() {
 
   // Form state for new expense
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [referenceDate, setReferenceDate] = useState("");
   const [expenseType, setExpenseType] = useState<"current" | "goods" | "employees">("current");
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -1057,6 +1060,7 @@ function ExpensesPageInner() {
         clarificationReason: inv.clarification_reason || null,
         isFixed: inv.supplier?.is_fixed_expense || false,
         approval_status: inv.approval_status || null,
+        referenceDate: inv.reference_date ? formatDateString(inv.reference_date) : null,
         linkedPayments,
       };
     });
@@ -1125,14 +1129,14 @@ function ExpensesPageInner() {
   const saveExpenseDraftData = useCallback(() => {
     if (!showAddExpensePopup) return;
     saveExpenseDraft({
-      expenseDate, expenseType, selectedSupplier, invoiceNumber,
+      expenseDate, referenceDate, expenseType, selectedSupplier, invoiceNumber,
       amountBeforeVat, partialVat, vatAmount, notes,
       isPaidInFull, needsClarification, clarificationReason,
       paymentMethod, paymentDate, paymentInstallments, paymentReference, paymentNotes,
       popupPaymentMethods,
     });
   }, [saveExpenseDraft, showAddExpensePopup,
-    expenseDate, expenseType, selectedSupplier, invoiceNumber,
+    expenseDate, referenceDate, expenseType, selectedSupplier, invoiceNumber,
     amountBeforeVat, partialVat, vatAmount, notes,
     isPaidInFull, needsClarification, clarificationReason,
     paymentMethod, paymentDate, paymentInstallments, paymentReference, paymentNotes,
@@ -1152,6 +1156,7 @@ function ExpensesPageInner() {
         const draft = restoreExpenseDraft();
         if (draft) {
           if (draft.expenseDate) setExpenseDate(draft.expenseDate as string);
+          if (draft.referenceDate) setReferenceDate(draft.referenceDate as string);
           if (draft.expenseType) setExpenseType(draft.expenseType as "current" | "goods" | "employees");
           if (draft.selectedSupplier) setSelectedSupplier(draft.selectedSupplier as string);
           if (draft.invoiceNumber) setInvoiceNumber(draft.invoiceNumber as string);
@@ -1414,6 +1419,7 @@ function ExpensesPageInner() {
             supplier_id: selectedSupplier,
             invoice_number: invoiceNumber || null,
             invoice_date: expenseDate,
+            reference_date: referenceDate || null,
             subtotal: parseFloat(amountBeforeVat),
             vat_amount: calculatedVat,
             total_amount: totalWithVat,
@@ -1566,6 +1572,7 @@ function ExpensesPageInner() {
     setShowAddExpensePopup(false);
     // Reset form
     setExpenseDate(new Date().toISOString().split("T")[0]);
+    setReferenceDate("");
     setExpenseType("current");
     setSelectedSupplier("");
     setInvoiceNumber("");
@@ -1621,6 +1628,16 @@ function ExpensesPageInner() {
     setAmountBeforeVat(invoice.amountBeforeVat.toString());
     setNotes(invoice.notes);
     setClarificationReason(invoice.clarificationReason || "");
+    // Set reference date (convert from DD.MM.YY display format to YYYY-MM-DD)
+    if (invoice.referenceDate) {
+      const refParts = invoice.referenceDate.split('.');
+      if (refParts.length === 3) {
+        const refYear = refParts[2].length === 2 ? `20${refParts[2]}` : refParts[2];
+        setReferenceDate(`${refYear}-${refParts[1]}-${refParts[0]}`);
+      }
+    } else {
+      setReferenceDate("");
+    }
     // Set existing attachment previews
     setEditAttachmentPreviews(invoice.attachmentUrls);
     setEditAttachmentFiles([]);
@@ -1669,6 +1686,7 @@ function ExpensesPageInner() {
         supplier_id: selectedSupplier,
         invoice_number: invoiceNumber || null,
         invoice_date: expenseDate,
+        reference_date: referenceDate || null,
         subtotal: parseFloat(amountBeforeVat),
         vat_amount: calculatedVatEdit,
         total_amount: totalWithVatEdit,
@@ -1713,6 +1731,7 @@ function ExpensesPageInner() {
     setEditingInvoice(null);
     // Reset form
     setExpenseDate(new Date().toISOString().split("T")[0]);
+    setReferenceDate("");
     setExpenseType("current");
     setSelectedSupplier("");
     setInvoiceNumber("");
@@ -2148,6 +2167,7 @@ function ExpensesPageInner() {
           clarificationReason: inv.clarification_reason || null,
           isFixed: inv.supplier?.is_fixed_expense || false,
           approval_status: inv.approval_status || null,
+          referenceDate: inv.reference_date ? formatDateString(inv.reference_date) : null,
           linkedPayments: [],
         }));
         setBreakdownSupplierInvoices(displayInvoices);
@@ -2462,6 +2482,7 @@ function ExpensesPageInner() {
                 {[
                   { value: "", label: "ללא סינון" },
                   { value: "date", label: "תאריך חשבונית" },
+                  { value: "reference_date", label: "תאריך אסמכתא" },
                   { value: "supplier", label: "ספק" },
                   { value: "reference", label: "מספר תעודה" },
                   { value: "amount", label: "סכום לפני מע\"מ" },
@@ -2504,6 +2525,7 @@ function ExpensesPageInner() {
                 if (!searchVal) return true;
                 switch (filterBy) {
                   case "date": return inv.date.includes(searchVal);
+                  case "reference_date": return inv.referenceDate?.includes(searchVal) || false;
                   case "supplier": return inv.supplier.toLowerCase().includes(searchVal);
                   case "reference": return inv.reference.toLowerCase().includes(searchVal);
                   case "amount": return inv.amountBeforeVat.toLocaleString().includes(searchVal) || inv.amountBeforeVat.toString().includes(searchVal);
@@ -2555,7 +2577,7 @@ function ExpensesPageInner() {
         {filterBy && filterBy !== "fixed" && (
           <div className="flex items-center gap-[10px] px-[10px]">
             <span className="text-[13px] text-white/60 whitespace-nowrap">
-              {filterBy === "date" ? "תאריך:" : filterBy === "supplier" ? "ספק:" : filterBy === "reference" ? "אסמכתא:" : filterBy === "amount" ? "סכום:" : "הערות:"}
+              {filterBy === "date" ? "תאריך:" : filterBy === "reference_date" ? "תאריך אסמכתא:" : filterBy === "supplier" ? "ספק:" : filterBy === "reference" ? "אסמכתא:" : filterBy === "amount" ? "סכום:" : "הערות:"}
             </span>
             <Input
               type="text"
@@ -2626,6 +2648,7 @@ function ExpensesPageInner() {
                 if (!searchVal) return true;
                 switch (filterBy) {
                   case "date": return inv.date.includes(searchVal);
+                  case "reference_date": return inv.referenceDate?.includes(searchVal) || false;
                   case "supplier": return inv.supplier.toLowerCase().includes(searchVal);
                   case "reference": return inv.reference.toLowerCase().includes(searchVal);
                   case "amount": return inv.amountBeforeVat.toLocaleString().includes(searchVal) || inv.amountBeforeVat.toString().includes(searchVal);
@@ -3070,6 +3093,25 @@ function ExpensesPageInner() {
                     title="תאריך הוצאה"
                     value={expenseDate}
                     onChange={(e) => setExpenseDate(e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                </div>
+              </div>
+
+              {/* Reference Date Field */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[15px] font-medium text-white text-right">תאריך אסמכתא <span className="text-white/40 text-[12px]">(אופציונלי)</span></label>
+                <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
+                  <span className={`text-[16px] font-semibold pointer-events-none ${referenceDate ? 'text-white' : 'text-white/40'}`}>
+                    {referenceDate
+                      ? new Date(referenceDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                      : 'יום/חודש/שנה'}
+                  </span>
+                  <Input
+                    type="date"
+                    title="תאריך אסמכתא"
+                    value={referenceDate}
+                    onChange={(e) => setReferenceDate(e.target.value)}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                   />
                 </div>
@@ -3956,6 +3998,25 @@ function ExpensesPageInner() {
                 </div>
               </div>
 
+              {/* Reference Date Field */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[15px] font-medium text-white text-right">תאריך אסמכתא <span className="text-white/40 text-[12px]">(אופציונלי)</span></label>
+                <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
+                  <span className={`text-[16px] font-semibold pointer-events-none ${referenceDate ? 'text-white' : 'text-white/40'}`}>
+                    {referenceDate
+                      ? new Date(referenceDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                      : 'יום/חודש/שנה'}
+                  </span>
+                  <Input
+                    type="date"
+                    title="תאריך אסמכתא"
+                    value={referenceDate}
+                    onChange={(e) => setReferenceDate(e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                </div>
+              </div>
+
               {/* Supplier Select */}
               <SupplierSearchSelect
                 suppliers={suppliers}
@@ -4592,7 +4653,10 @@ function ExpensesPageInner() {
               ) : (
                 breakdownSupplierInvoices.map((inv) => (
                   <div key={inv.id} className="flex items-center justify-between px-[5px] py-[10px] border-b border-white/5">
-                    <span className="text-[14px] text-white text-right ltr-num" style={{ width: 81, maxWidth: 81 }}>{inv.date}</span>
+                    <div className="flex flex-col text-right" style={{ width: 81, maxWidth: 81 }}>
+                      <span className="text-[14px] text-white ltr-num">{inv.date}</span>
+                      {inv.referenceDate && <span className="text-[10px] text-white/40 ltr-num">אסמכתא: {inv.referenceDate}</span>}
+                    </div>
                     <span className="text-[14px] text-white text-center ltr-num" style={{ width: 66, maxWidth: 66 }}>{inv.reference || "-"}</span>
                     <span className="text-[14px] text-white text-center ltr-num" style={{ width: 65, maxWidth: 65 }}>₪{inv.amountWithVat.toLocaleString()}</span>
                     <span className="text-[12px] text-center ltr-num" style={{ width: 60, maxWidth: 60 }}>
