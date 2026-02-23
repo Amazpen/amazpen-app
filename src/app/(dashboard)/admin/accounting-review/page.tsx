@@ -45,6 +45,7 @@ const DocumentViewer = dynamic(
 interface Business {
   id: string;
   name: string;
+  logo_url: string | null;
 }
 
 interface InvoiceRow {
@@ -152,7 +153,7 @@ export default function AccountingReviewPage() {
     async function fetchBusinesses() {
       const { data } = await supabase
         .from("businesses")
-        .select("id, name")
+        .select("id, name, logo_url")
         .order("name");
       if (data) setBusinesses(data);
     }
@@ -525,14 +526,25 @@ export default function AccountingReviewPage() {
           {businesses.map((biz) => (
             <button
               key={biz.id}
-              className={`w-full text-center py-3 px-4 transition-colors text-sm ${
+              className={`w-full flex items-center gap-2.5 py-3 px-4 transition-colors text-sm ${
                 selectedBusinessId === biz.id
                   ? "bg-primary text-white"
                   : "hover:bg-white/5 text-white/80"
               }`}
               onClick={() => setSelectedBusinessId(biz.id)}
             >
-              {biz.name}
+              {biz.logo_url ? (
+                <img
+                  src={biz.logo_url}
+                  alt=""
+                  className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 text-xs font-bold">
+                  {biz.name.charAt(0)}
+                </div>
+              )}
+              <span className="truncate">{biz.name}</span>
             </button>
           ))}
         </div>
