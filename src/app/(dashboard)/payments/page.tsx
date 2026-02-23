@@ -2766,7 +2766,7 @@ function PaymentsPageInner() {
           </div>
 
           {/* Title */}
-          <h2 className="text-[24px] font-bold text-center flex items-center justify-center gap-[6px]"><Wallet size={22} color="#FA5A7D" weight="duotone" />תשלומים אחרונים ששולמו</h2>
+          <h2 className="text-[24px] font-bold text-center">תשלומים אחרונים ששולמו</h2>
 
           {/* Download CSV Button */}
           <Button
