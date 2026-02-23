@@ -833,7 +833,7 @@ async function computeMonthlySummary(
   let expectedWorkDays = 0;
   for (let d = 1; d <= daysInMonth; d++) {
     const dow = new Date(year, month - 1, d).getDay();
-    expectedWorkDays += scheduleMap.get(dow) ?? 1;
+    expectedWorkDays += scheduleMap.get(dow) ?? 0;
   }
 
   // 6. Compute everything
@@ -846,7 +846,8 @@ async function computeMonthlySummary(
   const sumDayFactors = Number(daily.sum_day_factors) || 0;
   const workDays = Number(daily.work_days) || 0;
 
-  const dailyAvg = sumDayFactors > 0 ? incomeBeforeVat / sumDayFactors : 0;
+  // monthlyPace uses totalIncome (WITH VAT) — same as dashboard
+  const dailyAvg = sumDayFactors > 0 ? totalIncome / sumDayFactors : 0;
   const monthlyPace = dailyAvg * expectedWorkDays;
 
   const managerDailyCost = expectedWorkDays > 0 ? managerSalary / expectedWorkDays : 0;
@@ -861,12 +862,25 @@ async function computeMonthlySummary(
 
   const revenueTarget = Number(goalsData?.revenue_target) || 0;
   const targetDiffPct = revenueTarget > 0 ? ((monthlyPace / revenueTarget) - 1) * 100 : null;
+  // targetDiffAmount: (pace - target) / expectedWorkDays × actualDayFactors — same as dashboard
+  const targetDiffAmount = (revenueTarget > 0 && expectedWorkDays > 0)
+    ? ((monthlyPace - revenueTarget) / expectedWorkDays) * sumDayFactors
+    : null;
 
   const laborTarget = Number(goalsData?.labor_cost_target_pct) || 0;
   const laborDiffPct = laborTarget > 0 ? laborCostPct - laborTarget : null;
 
   const foodTarget = Number(goalsData?.food_cost_target_pct) || 0;
   const foodDiffPct = foodTarget > 0 ? foodCostPct - foodTarget : null;
+
+  // Current expenses target percentage — same as dashboard
+  // Use goals.current_expenses_target if set, otherwise 0
+  const currentExpensesTargetAmount = Number(goalsData?.current_expenses_target) || 0;
+  const monthlyPaceBeforeVat = monthlyPace / (1 + vatPct);
+  const currentExpensesTargetPct = monthlyPaceBeforeVat > 0
+    ? (currentExpensesTargetAmount / monthlyPaceBeforeVat) * 100
+    : 0;
+  const currentExpensesDiffPct = currentExpensesPct - currentExpensesTargetPct;
 
   // 7. Managed products — fetch active products + their monthly usage
   const { data: managedProducts } = await sb
@@ -922,7 +936,7 @@ async function computeMonthlySummary(
       incomeBeforeVat: Math.round(incomeBeforeVat),
       workDays,
       sumDayFactors: Math.round(sumDayFactors * 100) / 100,
-      dailyAvgBeforeVat: Math.round(dailyAvg),
+      dailyAvg: Math.round(dailyAvg),
       monthlyPace: Math.round(monthlyPace),
       expectedWorkDays: Math.round(expectedWorkDays * 100) / 100,
       totalDiscounts: Math.round(Number(daily.total_discounts)),
@@ -935,6 +949,8 @@ async function computeMonthlySummary(
       foodCostPct: Math.round(foodCostPct * 100) / 100,
       currentExpenses: Math.round(currentExpenses),
       currentExpensesPct: Math.round(currentExpensesPct * 100) / 100,
+      currentExpensesTargetPct: Math.round(currentExpensesTargetPct * 100) / 100,
+      currentExpensesDiffPct: Math.round(currentExpensesDiffPct * 100) / 100,
     },
     managedProducts: mpResults,
     targets: {
@@ -942,6 +958,7 @@ async function computeMonthlySummary(
       laborTargetPct: laborTarget,
       foodTargetPct: foodTarget,
       targetDiffPct: targetDiffPct !== null ? Math.round(targetDiffPct * 100) / 100 : null,
+      targetDiffAmount: targetDiffAmount !== null ? Math.round(targetDiffAmount) : null,
       laborDiffPct: laborDiffPct !== null ? Math.round(laborDiffPct * 100) / 100 : null,
       foodDiffPct: foodDiffPct !== null ? Math.round(foodDiffPct * 100) / 100 : null,
     },
@@ -970,10 +987,10 @@ function storeMetricsInBackground(
     total_income: summary.actuals.totalIncome,
     income_before_vat: summary.actuals.incomeBeforeVat,
     monthly_pace: summary.actuals.monthlyPace,
-    daily_avg: summary.actuals.dailyAvgBeforeVat,
+    daily_avg: summary.actuals.dailyAvg,
     revenue_target: summary.targets.revenueTarget,
     target_diff_pct: summary.targets.targetDiffPct,
-    target_diff_amount: null, // not available from old computeMonthlySummary
+    target_diff_amount: summary.targets.targetDiffAmount,
     labor_cost_amount: summary.costs.laborCostTotal,
     labor_cost_pct: summary.costs.laborCostPct,
     labor_target_pct: summary.targets.laborTargetPct,
