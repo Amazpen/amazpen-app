@@ -3622,10 +3622,10 @@ function PaymentsPageInner() {
                     {/* Payment Method Select */}
                     <Select value={pm.method || "__none__"} onValueChange={(val) => updatePaymentMethodField(pm.id, "method", val === "__none__" ? "" : val)}>
                       <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
-                        <SelectValue placeholder="בחר אמצעי תשלום..." />
+                        <SelectValue placeholder="...בחר אמצעי תשלום" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__" disabled>בחר אמצעי תשלום...</SelectItem>
+                        <SelectItem value="__none__" disabled>...בחר אמצעי תשלום</SelectItem>
                         {paymentMethodOptions.map((method) => (
                           <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
                         ))}
