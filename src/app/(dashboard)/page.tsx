@@ -2678,21 +2678,27 @@ export default function DashboardPage() {
 
                     {/* עלות עובדים Row - color based on laborCostDiffPct like detailedSummary */}
                     <div className="flex items-center justify-center gap-[5px] w-full" dir="rtl">
-                      <span className="text-white text-[12px] font-bold">
-                        עלות עובדים
+                      <span className={`text-[11px] font-bold ltr-num ${card.laborCostDiffPct === 0 ? 'text-white/50' : card.laborCostDiffPct > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                        ({formatPercent(card.laborCostDiffPct)})
                       </span>
                       <span className={`text-[12px] font-bold ltr-num ${card.laborCostDiffPct === 0 ? 'text-white' : card.laborCostDiffPct > 0 ? 'text-red-500' : 'text-green-500'}`}>
                         {formatPercent(card.laborCostPct)}
+                      </span>
+                      <span className="text-white text-[12px] font-bold">
+                        עלות עובדים
                       </span>
                     </div>
 
                     {/* עלות מכר Row */}
                     <div className="flex items-center justify-center gap-[5px] w-full" dir="rtl">
-                      <span className="text-white text-[12px] font-bold">
-                        עלות מכר
+                      <span className={`text-[11px] font-bold ltr-num ${card.foodCostDiffPct === 0 ? 'text-white/50' : card.foodCostDiffPct > 0 ? 'text-red-500' : card.foodCostDiffPct < 0 ? 'text-green-500' : 'text-white'}`}>
+                        ({formatPercent(card.foodCostDiffPct)})
                       </span>
                       <span className={`text-[12px] font-bold ltr-num ${card.foodCostDiffPct > 0 ? 'text-red-500' : card.foodCostDiffPct < 0 ? 'text-green-500' : 'text-white'}`}>
                         {formatPercent(card.foodCostPct)}
+                      </span>
+                      <span className="text-white text-[12px] font-bold">
+                        עלות מכר
                       </span>
                     </div>
                   </>
