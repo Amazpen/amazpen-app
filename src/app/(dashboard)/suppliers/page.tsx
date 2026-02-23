@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Mail } from "lucide-react";
 import { Package } from "@phosphor-icons/react";
 import { useDashboard } from "../layout";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
@@ -54,6 +54,8 @@ interface Supplier {
   has_previous_obligations?: boolean;
   waiting_for_coordinator?: boolean;
   is_active?: boolean;
+  email?: string;
+  request_karteset?: boolean;
   // Obligation fields (for previous obligations / loans)
   obligation_total_amount?: number;
   obligation_monthly_amount?: number;
@@ -223,6 +225,8 @@ export default function SuppliersPage() {
   const [primaryPaymentMethod, setPrimaryPaymentMethod] = useState("");
   const [selectedCreditCardId, setSelectedCreditCardId] = useState("");
   const [fixedNote, setFixedNote] = useState("");
+  const [supplierEmail, setSupplierEmail] = useState("");
+  const [requestKarteset, setRequestKarteset] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
 
   // Save supplier form draft
@@ -235,6 +239,7 @@ export default function SuppliersPage() {
       expenseType, category, parentCategory, paymentTerms,
       vatRequired, isFixedExpense, chargeDay, monthlyExpenseAmount,
       primaryPaymentMethod, selectedCreditCardId, fixedNote,
+      supplierEmail, requestKarteset,
     });
   }, [saveSupplierDraft, isAddSupplierModalOpen, isEditingSupplier,
     supplierName, hasPreviousObligations, waitingForCoordinator,
@@ -242,7 +247,8 @@ export default function SuppliersPage() {
     obligationNumPayments, obligationMonthlyAmount,
     expenseType, category, parentCategory, paymentTerms,
     vatRequired, isFixedExpense, chargeDay, monthlyExpenseAmount,
-    primaryPaymentMethod, selectedCreditCardId, fixedNote]);
+    primaryPaymentMethod, selectedCreditCardId, fixedNote,
+    supplierEmail, requestKarteset]);
 
   useEffect(() => {
     if (supplierDraftRestored.current) {
@@ -277,6 +283,8 @@ export default function SuppliersPage() {
           if (draft.primaryPaymentMethod) setPrimaryPaymentMethod(draft.primaryPaymentMethod as string);
           if (draft.selectedCreditCardId) setSelectedCreditCardId(draft.selectedCreditCardId as string);
           if (draft.fixedNote) setFixedNote(draft.fixedNote as string);
+          if (draft.supplierEmail) setSupplierEmail(draft.supplierEmail as string);
+          if (draft.requestKarteset !== undefined) setRequestKarteset(draft.requestKarteset as boolean);
         }
         supplierDraftRestored.current = true;
       }, 0);
@@ -472,6 +480,8 @@ export default function SuppliersPage() {
     setSelectedCreditCardId("");
     setFixedNote("");
     setAttachedFile(null);
+    setSupplierEmail("");
+    setRequestKarteset(false);
     setIsAddingCategory(false);
     setIsAddingParentCategory(false);
     setNewCategoryName("");
@@ -508,6 +518,8 @@ export default function SuppliersPage() {
     setHasPreviousObligations(selectedSupplier.has_previous_obligations || false);
     setWaitingForCoordinator(selectedSupplier.waiting_for_coordinator || false);
     setIsSupplierActive(selectedSupplier.is_active !== false);
+    setSupplierEmail(selectedSupplier.email || "");
+    setRequestKarteset(selectedSupplier.request_karteset || false);
 
     // Close detail popup and open add/edit modal
     setShowSupplierDetailPopup(false);
@@ -615,6 +627,8 @@ export default function SuppliersPage() {
           has_previous_obligations: hasPreviousObligations,
           waiting_for_coordinator: waitingForCoordinator,
           is_active: isSupplierActive,
+          email: supplierEmail.trim() || null,
+          request_karteset: supplierEmail.trim() ? requestKarteset : false,
         })
         .eq("id", editingSupplierData.id);
 
@@ -790,6 +804,8 @@ export default function SuppliersPage() {
           obligation_monthly_amount: hasPreviousObligations && obligationMonthlyAmount ? parseFloat(obligationMonthlyAmount) : null,
           obligation_document_url: obligationDocumentUrl,
           is_active: true,
+          email: supplierEmail.trim() || null,
+          request_karteset: supplierEmail.trim() ? requestKarteset : false,
         })
         .select()
         .single();
@@ -1349,6 +1365,12 @@ export default function SuppliersPage() {
                   {supplier.is_active === false && (
                     <Badge className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">לא פעיל</Badge>
                   )}
+                  {/* Karteset Email Badge */}
+                  {supplier.request_karteset && supplier.email && (
+                    <div className="absolute top-[6px] right-[6px]">
+                      <Mail className="w-[14px] h-[14px] text-[#0BB783]" />
+                    </div>
+                  )}
                   {/* Supplier Name */}
                   <div className="w-[120px] text-center">
                     <span className="text-[18px] font-bold text-white leading-[1.4]">
@@ -1415,6 +1437,36 @@ export default function SuppliersPage() {
                   />
                 </div>
               </div>
+
+              {/* Email */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[15px] font-medium text-white text-right">כתובת מייל</label>
+                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                  <Input
+                    type="email"
+                    dir="ltr"
+                    title="כתובת מייל"
+                    value={supplierEmail}
+                    onChange={(e) => setSupplierEmail(e.target.value)}
+                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
+                    placeholder="example@email.com"
+                  />
+                </div>
+              </div>
+
+              {/* Request Karteset Toggle - only show when email exists */}
+              {supplierEmail.trim() && (
+                <div className="flex items-center justify-between px-[5px]">
+                  <label className="text-[14px] font-medium text-white">שלח בקשת כרטסת כל 2 לחודש</label>
+                  <button
+                    type="button"
+                    onClick={() => setRequestKarteset(!requestKarteset)}
+                    className={`w-[44px] h-[24px] rounded-full transition-colors duration-200 flex items-center ${requestKarteset ? "bg-[#0BB783]" : "bg-[#4C526B]"}`}
+                  >
+                    <div className={`w-[20px] h-[20px] bg-white rounded-full transition-transform duration-200 mx-[2px] ${requestKarteset ? "mr-auto" : "ml-auto"}`} />
+                  </button>
+                </div>
+              )}
 
               {/* Checkboxes - התחייבויות קודמות (only in previous tab), ממתין למרכזת */}
               <div className="flex flex-col gap-[10px] items-start" dir="rtl">
@@ -2039,6 +2091,12 @@ export default function SuppliersPage() {
                   <span className="text-[12px] text-white/60">שם ספק</span>
                   <span className="text-[14px] text-white font-medium">{selectedSupplier.name}</span>
                 </div>
+                {selectedSupplier.email && (
+                  <div className="flex flex-col items-center text-center">
+                    <span className="text-[12px] text-white/60">מייל</span>
+                    <span className="text-[14px] text-white font-medium" dir="ltr">{selectedSupplier.email}</span>
+                  </div>
+                )}
                 <div className="flex flex-col items-center text-center">
                   <span className="text-[12px] text-white/60">תנאי תשלום (שוטף+)</span>
                   <span className="text-[14px] text-white font-medium">{selectedSupplier.payment_terms_days || "-"}</span>
@@ -2869,6 +2927,23 @@ export default function SuppliersPage() {
                       />
                     </div>
                   </div>
+
+                  {/* Email */}
+                  {selectedSupplier.email && (
+                    <div className="flex flex-col gap-[3px]">
+                      <span className="text-[15px] font-medium text-white text-right">כתובת מייל</span>
+                      <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center">
+                        <Input
+                          type="email"
+                          dir="ltr"
+                          title="כתובת מייל"
+                          disabled
+                          value={selectedSupplier.email}
+                          className="w-full h-full bg-transparent text-white text-[14px] text-center outline-none px-[10px]"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* סכום שנלקח */}
                   <div className="flex flex-col gap-[3px]">
