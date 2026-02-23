@@ -564,6 +564,11 @@ export default function SuppliersPage() {
       return;
     }
 
+    if (supplierEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supplierEmail.trim())) {
+      showToast("כתובת מייל לא תקינה", "warning");
+      return;
+    }
+
     setIsSubmitting(true);
     const supabase = createClient();
 
@@ -724,6 +729,11 @@ export default function SuppliersPage() {
   const handleSaveSupplier = async () => {
     if (!supplierName.trim()) {
       showToast("יש להזין שם ספק", "warning");
+      return;
+    }
+
+    if (supplierEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supplierEmail.trim())) {
+      showToast("כתובת מייל לא תקינה", "warning");
       return;
     }
 
