@@ -1285,6 +1285,8 @@ function PaymentsPageInner() {
     const correctExpenseType: "expenses" | "purchases" | "employees" = supplierData?.expense_type === "goods_purchases" ? "purchases" : supplierData?.expense_type === "employee_costs" ? "employees" : "expenses";
     setExpenseType(correctExpenseType);
     setSelectedSupplier(payment.supplierId);
+    // Skip the paymentDate useEffect so it doesn't regenerate installments over the edit data
+    skipPaymentDateEffect.current = true;
     setPaymentDate(payment.rawDate);
     setNotes(payment.notes || "");
     setReference(payment.reference || "");
@@ -2060,7 +2062,14 @@ function PaymentsPageInner() {
   };
 
   // Update installments when payment date changes - only for payment methods that haven't been customized
+  // Track whether we should skip the next paymentDate effect (e.g. when opening edit mode)
+  const skipPaymentDateEffect = useRef(false);
+
   useEffect(() => {
+    if (skipPaymentDateEffect.current) {
+      skipPaymentDateEffect.current = false;
+      return;
+    }
     setPaymentMethods(prev => prev.map(p => {
       const numInstallments = parseInt(p.installments) || 1;
       const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
@@ -3292,7 +3301,7 @@ function PaymentsPageInner() {
                 <div className="flex items-start">
                   <span className="text-[16px] font-medium text-white">תאריך קבלה</span>
                 </div>
-                <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
+                <label className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center cursor-pointer">
                   <span className={`text-[16px] font-semibold pointer-events-none ${paymentDate ? 'text-white' : 'text-white/40'}`}>
                     {paymentDate
                       ? (() => { const [y,m,d] = paymentDate.split("-"); return `${d}/${m}/${y}`; })()
@@ -3305,7 +3314,7 @@ function PaymentsPageInner() {
                     onChange={(e) => setPaymentDate(e.target.value)}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                   />
-                </div>
+                </label>
               </div>
 
               {/* Expense Type */}
@@ -3719,7 +3728,7 @@ function PaymentsPageInner() {
                                 {pm.customInstallments.length > 1 && (
                                   <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
                                 )}
-                                <div className="flex-1 relative h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] flex items-center justify-center">
+                                <label className="flex-1 relative h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] flex items-center justify-center cursor-pointer">
                                   <span className="text-[14px] text-white text-center ltr-num pointer-events-none">
                                     {item.dateForInput ? (() => { const [y,m,d] = item.dateForInput.split("-"); return `${d}/${m}/${y.slice(2)}`; })() : ''}
                                   </span>
@@ -3730,7 +3739,7 @@ function PaymentsPageInner() {
                                     onChange={(e) => handleInstallmentDateChange(pm.id, index, e.target.value)}
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                   />
-                                </div>
+                                </label>
                                 {pm.method === "check" && (
                                   <div className="flex-1">
                                     <Input
