@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { ChevronLeft, ChevronRight, X, Mail } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Mail, Send } from "lucide-react";
 import { Package } from "@phosphor-icons/react";
 import { useDashboard } from "../layout";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
@@ -227,6 +227,7 @@ export default function SuppliersPage() {
   const [fixedNote, setFixedNote] = useState("");
   const [supplierEmail, setSupplierEmail] = useState("");
   const [requestKarteset, setRequestKarteset] = useState(false);
+  const [isSendingKarteset, setIsSendingKarteset] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
 
   // Save supplier form draft
@@ -524,6 +525,28 @@ export default function SuppliersPage() {
     // Close detail popup and open add/edit modal
     setShowSupplierDetailPopup(false);
     setIsAddSupplierModalOpen(true);
+  };
+
+  // Handle send karteset email on-demand
+  const handleSendKartesetEmail = async () => {
+    if (!selectedSupplier || !selectedSupplier.email || !selectedSupplier.request_karteset) return;
+    setIsSendingKarteset(true);
+    try {
+      const res = await fetch("/api/suppliers/send-karteset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          supplierId: selectedSupplier.id,
+          businessId: selectedSupplier.business_id,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to send");
+      showToast("מייל בקשת כרטסת נשלח בהצלחה", "success");
+    } catch {
+      showToast("שגיאה בשליחת המייל", "warning");
+    } finally {
+      setIsSendingKarteset(false);
+    }
   };
 
   // Handle delete supplier (soft delete) - only if no invoices or payments exist
@@ -2074,6 +2097,18 @@ export default function SuppliersPage() {
                       <line x1="10" y1="11" x2="10" y2="17"/>
                       <line x1="14" y1="11" x2="14" y2="17"/>
                     </svg>
+                  </Button>
+                )}
+                {/* Send karteset email button */}
+                {selectedSupplier?.email && selectedSupplier?.request_karteset && (
+                  <Button
+                    type="button"
+                    title="שלח בקשת כרטסת"
+                    onClick={handleSendKartesetEmail}
+                    disabled={isSendingKarteset}
+                    className="w-[24px] h-[24px] flex items-center justify-center text-[#0BB783]/70 hover:text-[#0BB783] transition-colors disabled:opacity-40"
+                  >
+                    <Send className={`w-[18px] h-[18px] ${isSendingKarteset ? "animate-pulse" : ""}`} />
                   </Button>
                 )}
                 {/* Edit button */}
