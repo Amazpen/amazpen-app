@@ -104,6 +104,23 @@ export async function DELETE() {
       .eq("user_id", user.id);
   }
 
+  // Invalidate cached monthly metrics for current month so AI recalculates fresh
+  const now = new Date();
+  const { data: userBusinesses } = await adminSupabase
+    .from("business_members")
+    .select("business_id")
+    .eq("user_id", user.id);
+
+  if (userBusinesses && userBusinesses.length > 0) {
+    const bizIds = userBusinesses.map((b) => b.business_id);
+    await adminSupabase
+      .from("business_monthly_metrics")
+      .delete()
+      .in("business_id", bizIds)
+      .eq("year", now.getFullYear())
+      .eq("month", now.getMonth() + 1);
+  }
+
   return jsonResponse({ success: true });
 }
 
