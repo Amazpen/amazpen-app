@@ -3394,7 +3394,7 @@ function PaymentsPageInner() {
                   <Button
                     type="button"
                     onClick={() => setShowOpenInvoices(!showOpenInvoices)}
-                    className="bg-[#29318A] text-white text-[18px] font-bold py-[12px] px-[24px] rounded-[5px] transition-colors hover:bg-[#3D44A0] flex items-center justify-center gap-[8px]"
+                    className="bg-[#29318A] text-white text-[18px] font-bold py-[12px] px-[24px] rounded-[7px] transition-colors hover:bg-[#3D44A0] flex items-center justify-center gap-[8px]"
                   >
                     <span>חשבוניות פתוחות ({openInvoices.length})</span>
                     <svg
