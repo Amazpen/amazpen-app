@@ -41,7 +41,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/daily-entries", "/admin/historical-data", "/admin/online-users", "/admin/accounting-review", "/admin/day-exceptions"];
+const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/daily-entries", "/admin/historical-data", "/admin/online-users", "/admin/accounting-review", "/admin/day-exceptions", "/admin/bonus-plans"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -54,6 +54,7 @@ const menuItems = [
   { id: 7, label: "דוח רווח הפסד", href: "/reports", key: "reports", requiresBusiness: true },
   { id: 8, label: "יעדים", href: "/goals", key: "goals", requiresBusiness: true },
   { id: 9, label: "תובנות", href: "/insights", key: "insights", requiresBusiness: true },
+  { id: 13, label: "תכניות בונוסים", href: "/admin/bonus-plans", key: "bonus-plans", requiresBusiness: true },
   { id: 10, label: "הגדרות", href: "/settings", key: "settings" },
   { id: 11, label: "התנתקות", href: "#logout", key: "logout", isLogout: true },
 ];
@@ -74,6 +75,7 @@ const adminMenuItems = [
   { id: 111, label: "בדיקה ורישום בהנה\"ח", href: "/admin/accounting-review", key: "admin-accounting-review" },
   { id: 112, label: "משתמשים מחוברים", href: "/admin/online-users", key: "admin-online-users" },
   { id: 113, label: "חריגות ימי עסקים", href: "/admin/day-exceptions", key: "admin-day-exceptions" },
+  { id: 114, label: "תכניות בונוסים", href: "/admin/bonus-plans", key: "admin-bonus-plans" },
 ];
 
 // Page titles mapping
@@ -103,6 +105,7 @@ const pageTitles: Record<string, string> = {
   "/ai": "עוזר AI",
   "/admin/online-users": "משתמשים מחוברים",
   "/admin/day-exceptions": "חריגות ימי עסקים",
+  "/admin/bonus-plans": "תכניות בונוסים ותגמול",
 };
 
 // Dashboard icon component

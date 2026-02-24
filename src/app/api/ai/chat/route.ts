@@ -153,8 +153,9 @@ function buildUnifiedPrompt(opts: {
   isAdmin: boolean;
   allBusinesses: Array<{ id: string; name: string }>;
   pageHint: string;
+  bonusPlanContext?: string;
 }): string {
-  const { userName, userRole, businessId, businessName, isAdmin, allBusinesses, pageHint } = opts;
+  const { userName, userRole, businessId, businessName, isAdmin, allBusinesses, pageHint, bonusPlanContext } = opts;
   const now = new Date();
   const today = now.toISOString().split("T")[0];
   const israelTime = now.toLocaleString("he-IL", { timeZone: "Asia/Jerusalem", dateStyle: "full", timeStyle: "short" });
@@ -272,7 +273,7 @@ ${bizContext}${adminBizList}
 ${pageHint ? `הגיע מדף: ${pageHint}` : ""}
 </user-context>
 
-<role-instructions>
+${bonusPlanContext ? `${bonusPlanContext}\n\n` : ""}<role-instructions>
 ${getRoleInstructions(userRole)}
 </role-instructions>
 
@@ -1484,6 +1485,40 @@ export async function POST(request: NextRequest) {
     userRole = roleMap[membership.role] || membership.role || "משתמש";
   }
 
+  // 5b. Load bonus plans for non-admin users
+  let bonusPlanContext = "";
+  if (!isAdmin && user.id && businessId) {
+    const bonusSb = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: bonusPlans } = await bonusSb
+      .from("bonus_plans")
+      .select("area_name, measurement_type, data_source, is_lower_better, custom_source_label, tier1_label, tier1_threshold, tier1_amount, tier2_label, tier2_threshold, tier2_amount, tier3_label, tier3_threshold, tier3_amount")
+      .eq("employee_user_id", user.id)
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .is("deleted_at", null);
+
+    if (bonusPlans && bonusPlans.length > 0) {
+      const planLines = bonusPlans.map((p, i) => {
+        const unit = p.measurement_type === "percentage" ? "%" : "₪";
+        const dir = p.is_lower_better ? "נמוך = טוב" : "גבוה = טוב";
+        return `${i + 1}. תחום: ${p.area_name} | מדידה: ${unit} | ${dir}
+   רמות: ${p.tier1_label}=${p.tier1_threshold != null ? p.tier1_threshold + unit : ""}→₪${p.tier1_amount} | ${p.tier2_label}=${p.tier2_threshold != null ? p.tier2_threshold + unit : ""}→₪${p.tier2_amount} | ${p.tier3_label}=${p.tier3_threshold != null ? p.tier3_threshold + unit : ""}→₪${p.tier3_amount}`;
+      });
+      bonusPlanContext = `<bonus-plans>
+לעובד זה יש תכניות בונוס פעילות:
+${planLines.join("\n")}
+
+הוראות חשובות:
+- כשהעובד פותח שיחה או שואל על הביצועים/בונוס שלו, **חובה לפתוח פרואקטיבית בסטטוס הבונוס**.
+- השתמש ב-getMonthlySummary כדי לקבל נתונים עדכניים על התחום שלו.
+- תן טיפים מעשיים ומעודדים לשיפור בתחום האחריות.
+- אם העובד מצליח — עודד אותו. אם לא עומד ביעד — תן עצות קונקרטיות מה לשפר.
+</bonus-plans>`;
+    }
+  }
+
   // 6. Page context
   const pageHint = getPageContextHint(pageContext);
 
@@ -1521,6 +1556,7 @@ export async function POST(request: NextRequest) {
     isAdmin,
     allBusinesses,
     pageHint,
+    bonusPlanContext,
   });
 
   // 10. Stream response with Vercel AI SDK
