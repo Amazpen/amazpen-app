@@ -1561,7 +1561,7 @@ export default function DashboardPage() {
         let prevYearChange = prevYearAggregate.ordersCount > 0 ? avgAmount - prevYearAvg : 0;
         // Fallback to monthly_summaries if no live data
         if (prevYearAggregate.ordersCount === 0 && incPrevYearMonthlySummaries?.[0]) {
-          const sourceIndex = activeSources.findIndex(s => s.id === source.id);
+          const sourceIndex = (allIncomeSources || []).findIndex(s => s.id === source.id);
           if (sourceIndex >= 0 && sourceIndex < 4) {
             const historicalAvg = Number((incPrevYearMonthlySummaries[0] as Record<string, unknown>)[`avg_income_${sourceIndex + 1}`]) || 0;
             if (historicalAvg > 0) {
