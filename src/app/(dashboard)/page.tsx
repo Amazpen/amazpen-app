@@ -3010,7 +3010,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex flex-col mr-[10px] invisible">
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                            <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">{formatCurrencyFull(source.prevMonthChange)}</span>
+                            <span className="text-[16px] font-semibold leading-[1.4] ltr-num text-white">{formatCurrencyDecimals(source.prevMonthChange)}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
@@ -3160,11 +3160,11 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex flex-col mr-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.prevMonthChange < 0 ? 'text-red-500' : source.prevMonthChange > 0 ? 'text-green-500' : 'text-white'}`}>{formatCurrencyFull(source.ordersCount === 0 ? 0 : source.prevMonthChange)}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.prevMonthChange < 0 ? 'text-red-500' : source.prevMonthChange > 0 ? 'text-green-500' : 'text-white'}`}>{formatCurrencyDecimals(source.ordersCount === 0 ? 0 : source.prevMonthChange)}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
                         </div>
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.prevYearChange < 0 ? 'text-red-500' : source.prevYearChange > 0 ? 'text-green-500' : 'text-white'}`}>{formatCurrencyFull(source.ordersCount === 0 ? 0 : source.prevYearChange)}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.prevYearChange < 0 ? 'text-red-500' : source.prevYearChange > 0 ? 'text-green-500' : 'text-white'}`}>{formatCurrencyDecimals(source.ordersCount === 0 ? 0 : source.prevYearChange)}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
                         </div>
                       </div>
