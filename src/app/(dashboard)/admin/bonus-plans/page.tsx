@@ -43,6 +43,12 @@ function formatValue(value: number | null, type: "percentage" | "currency"): str
   return formatCurrency(value);
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  owner: "בעל עסק",
+  manager: "מנהל",
+  employee: "עובד",
+};
+
 function tierBadgeColor(tier: 1 | 2 | 3 | null): string {
   if (tier === 3) return "bg-green-500/20 text-green-400 border-green-500/30";
   if (tier === 2) return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
@@ -435,7 +441,7 @@ export default function BonusPlansPage() {
               resetForm();
               setShowForm(true);
             }}
-            className="h-[40px] bg-[#4A56D4] hover:bg-[#5A66E4] text-white rounded-[10px] font-medium gap-1.5"
+            className="h-[40px] px-4 bg-[#4A56D4] hover:bg-[#5A66E4] text-white rounded-[10px] font-medium gap-1.5"
           >
             <Plus className="w-4 h-4" />
             תכנית חדשה
@@ -470,10 +476,10 @@ export default function BonusPlansPage() {
                     <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                       <SelectValue placeholder="בחר עובד..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent dir="rtl">
                       {employees.map((e) => (
                         <SelectItem key={e.user_id} value={e.user_id}>
-                          {e.full_name} ({e.role})
+                          {e.full_name} ({ROLE_LABELS[e.role] || e.role})
                         </SelectItem>
                       ))}
                     </SelectContent>
