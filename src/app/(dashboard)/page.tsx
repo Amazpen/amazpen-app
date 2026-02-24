@@ -1416,11 +1416,14 @@ export default function DashboardPage() {
       const incPrevYearStartStr = formatLocalDate(incPrevYearStart);
       const incPrevYearEndStr = formatLocalDate(incPrevYearEnd);
 
-      // Run all three period queries in parallel
+      // Run all period queries in parallel
+      const incPrevYearMonth = incPrevYearStart.getMonth() + 1;
+      const incPrevYearYear = incPrevYearStart.getFullYear();
       const [
         breakdownResult,
         incPrevMonthEntriesResult,
-        incPrevYearEntriesResult
+        incPrevYearEntriesResult,
+        incPrevYearMonthlySummaryResult
       ] = await Promise.all([
         // Current period breakdown
         entryIds.length > 0
@@ -1446,12 +1449,21 @@ export default function DashboardPage() {
           .in("business_id", selectedBusinesses)
           .gte("entry_date", incPrevYearStartStr)
           .lte("entry_date", incPrevYearEndStr)
-          .is("deleted_at", null)
+          .is("deleted_at", null),
+
+        // Previous year monthly summaries (fallback for income source averages)
+        supabase
+          .from("monthly_summaries")
+          .select("avg_income_1, avg_income_2, avg_income_3, avg_income_4")
+          .in("business_id", selectedBusinesses)
+          .eq("year", incPrevYearYear)
+          .eq("month", incPrevYearMonth)
       ]);
 
       const { data: breakdownData } = breakdownResult;
       const { data: incPrevMonthEntries } = incPrevMonthEntriesResult;
       const { data: incPrevYearEntries } = incPrevYearEntriesResult;
+      const { data: incPrevYearMonthlySummaries } = incPrevYearMonthlySummaryResult;
 
       const incPrevMonthEntryIds = (incPrevMonthEntries || []).map(e => e.id);
       const incPrevYearEntryIds = (incPrevYearEntries || []).map(e => e.id);
@@ -1544,9 +1556,20 @@ export default function DashboardPage() {
 
         // Previous year average for this income source
         const prevYearAggregate = incPrevYearAggregates[source.id] || { totalAmount: 0, ordersCount: 0 };
-        const prevYearAvg = prevYearAggregate.ordersCount > 0 ? prevYearAggregate.totalAmount / prevYearAggregate.ordersCount : 0;
+        let prevYearAvg = prevYearAggregate.ordersCount > 0 ? prevYearAggregate.totalAmount / prevYearAggregate.ordersCount : 0;
         // אם אין נתונים משנה שעברה, הפרש = 0
-        const prevYearChange = prevYearAggregate.ordersCount > 0 ? avgAmount - prevYearAvg : 0;
+        let prevYearChange = prevYearAggregate.ordersCount > 0 ? avgAmount - prevYearAvg : 0;
+        // Fallback to monthly_summaries if no live data
+        if (prevYearAggregate.ordersCount === 0 && incPrevYearMonthlySummaries?.[0]) {
+          const sourceIndex = activeSources.findIndex(s => s.id === source.id);
+          if (sourceIndex >= 0 && sourceIndex < 4) {
+            const historicalAvg = Number((incPrevYearMonthlySummaries[0] as Record<string, unknown>)[`avg_income_${sourceIndex + 1}`]) || 0;
+            if (historicalAvg > 0) {
+              prevYearAvg = historicalAvg;
+              prevYearChange = avgAmount - historicalAvg;
+            }
+          }
+        }
 
         return {
           id: source.id,
@@ -1745,7 +1768,7 @@ export default function DashboardPage() {
         // Previous year monthly summaries (fallback for historical data)
         supabase
           .from("monthly_summaries")
-          .select("total_income")
+          .select("total_income, labor_cost_pct, food_cost_pct, managed_product_1_pct, managed_product_2_pct, managed_product_3_pct, avg_income_1, avg_income_2, avg_income_3, avg_income_4")
           .in("business_id", selectedBusinesses)
           .eq("year", prevYearYear)
           .eq("month", prevYearMonth),
@@ -1834,7 +1857,12 @@ export default function DashboardPage() {
       const prevYearLaborCost = (prevYearRawLaborCost + (managerDailyCost * prevYearActualWorkDays)) * totalMarkup;
       const prevYearIncomeBeforeVat = prevYearIncome / vatDivisor;
       const prevYearLaborCostPct = prevYearIncomeBeforeVat > 0 ? (prevYearLaborCost / prevYearIncomeBeforeVat) * 100 : 0;
-      const laborCostPrevYearChange = prevYearLaborCostPct > 0 ? laborCostPct - prevYearLaborCostPct : 0;
+      let laborCostPrevYearChange = prevYearLaborCostPct > 0 ? laborCostPct - prevYearLaborCostPct : 0;
+      // Fallback to monthly_summaries if no live data
+      if (laborCostPrevYearChange === 0 && prevYearMonthlySummaries?.[0]?.labor_cost_pct) {
+        const historicalPct = Number(prevYearMonthlySummaries[0].labor_cost_pct);
+        if (historicalPct > 0) laborCostPrevYearChange = laborCostPct - historicalPct;
+      }
 
       // Calculate food cost changes
       const prevMonthFoodCost = (prevMonthGoodsInvoices || []).reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);
@@ -1845,7 +1873,12 @@ export default function DashboardPage() {
       const prevYearFoodCost = (prevYearGoodsInvoices || []).reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);
       const prevYearFoodCostPct = prevYearIncomeBeforeVat > 0 ? (prevYearFoodCost / prevYearIncomeBeforeVat) * 100 : 0;
       const hasPrevYearData = prevYearIncomeBeforeVat > 0 && (prevYearGoodsInvoices || []).length > 0;
-      const foodCostPrevYearChange = hasPrevYearData ? foodCostPct - prevYearFoodCostPct : 0;
+      let foodCostPrevYearChange = hasPrevYearData ? foodCostPct - prevYearFoodCostPct : 0;
+      // Fallback to monthly_summaries if no live data
+      if (foodCostPrevYearChange === 0 && prevYearMonthlySummaries?.[0]?.food_cost_pct) {
+        const historicalPct = Number(prevYearMonthlySummaries[0].food_cost_pct);
+        if (historicalPct > 0) foodCostPrevYearChange = foodCostPct - historicalPct;
+      }
 
       // Calculate current expenses changes
       const prevMonthCurrentExpenses = (prevMonthCurrentExpensesInvoices || []).reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);
@@ -1924,8 +1957,19 @@ export default function DashboardPage() {
         // Previous year
         const prevYearQuantity = prevYearProductQuantities[product.id] || 0;
         const prevYearCost = unitCost * prevYearQuantity;
-        const prevYearPct = prevYearIncomeBeforeVat > 0 && prevYearQuantity > 0 ? (prevYearCost / prevYearIncomeBeforeVat) * 100 : null;
-        const prevYearChange = prevYearPct !== null ? currentPct - prevYearPct : 0;
+        let prevYearPct = prevYearIncomeBeforeVat > 0 && prevYearQuantity > 0 ? (prevYearCost / prevYearIncomeBeforeVat) * 100 : null;
+        let prevYearChange = prevYearPct !== null ? currentPct - prevYearPct : 0;
+        // Fallback to monthly_summaries if no live data
+        if (prevYearPct === null && prevYearMonthlySummaries?.[0]) {
+          const productIndex = (allManagedProducts || []).findIndex(p => p.id === product.id);
+          if (productIndex >= 0 && productIndex < 3) {
+            const historicalPct = Number((prevYearMonthlySummaries[0] as Record<string, unknown>)[`managed_product_${productIndex + 1}_pct`]) || 0;
+            if (historicalPct > 0) {
+              prevYearPct = historicalPct;
+              prevYearChange = currentPct - historicalPct;
+            }
+          }
+        }
 
         return {
           id: product.id,
