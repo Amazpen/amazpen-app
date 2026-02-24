@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
-import { usePersistedState } from "@/hooks/usePersistedState";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { resolveBonusPlanStatus } from "@/lib/bonusPlanResolver";
 import { DATA_SOURCE_OPTIONS } from "@/types/bonus";
 import type { BonusPlan, BonusPlanStatus } from "@/types/bonus";
+import { useDashboard } from "@/app/(dashboard)/layout";
 import {
   Select,
   SelectContent,
@@ -19,11 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Trash2, Pencil, Plus, X, Trophy } from "lucide-react";
 
 // ===== Types =====
-
-interface Business {
-  id: string;
-  name: string;
-}
 
 interface Employee {
   user_id: string;
@@ -61,17 +56,14 @@ export default function BonusPlansPage() {
   const supabase = createClient();
   const { showToast } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  const { selectedBusinesses } = useDashboard();
+  const selectedBusinessId = selectedBusinesses[0] || "";
 
   // Auth & access
   const [hasAccess, setHasAccess] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-
-  // Business selection
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [selectedBusinessId, setSelectedBusinessId] =
-    usePersistedState<string>("admin-bonus-plans:businessId", "");
 
   // Employees for selected business
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -148,36 +140,6 @@ export default function BonusPlansPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ===== Fetch businesses =====
-  useEffect(() => {
-    if (!hasAccess) return;
-    async function fetchBusinesses() {
-      if (isAdmin) {
-        // Admin sees all businesses
-        const { data } = await supabase
-          .from("businesses")
-          .select("id, name")
-          .order("name");
-        if (data) setBusinesses(data);
-      } else {
-        // Owner/manager sees only their businesses
-        const { data: memberships } = await supabase
-          .from("business_members")
-          .select("business_id, businesses(id, name)")
-          .eq("user_id", userId!)
-          .in("role", ["owner", "manager"])
-          .is("deleted_at", null);
-        if (memberships) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const bizList = memberships.map((m: any) => m.businesses).filter(Boolean);
-          setBusinesses(bizList);
-        }
-      }
-    }
-    fetchBusinesses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasAccess, isAdmin, userId]);
-
   // ===== Fetch employees for selected business =====
   useEffect(() => {
     if (!hasAccess || !selectedBusinessId) {
@@ -249,6 +211,12 @@ export default function BonusPlansPage() {
     if (hasAccess) fetchPlans();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBusinessId, hasAccess]);
+
+  // Reset form when business changes
+  useEffect(() => {
+    setShowForm(false);
+    setEditingPlanId(null);
+  }, [selectedBusinessId]);
 
   // ===== Reset form =====
   const resetForm = useCallback(() => {
@@ -475,33 +443,10 @@ export default function BonusPlansPage() {
         )}
       </div>
 
-      {/* Business selector */}
-      <div className="mb-6">
-        <label className="block text-sm text-white/70 mb-2">בחר עסק</label>
-        <Select
-          value={selectedBusinessId}
-          onValueChange={(val) => {
-            setSelectedBusinessId(val);
-            resetForm();
-          }}
-        >
-          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
-            <SelectValue placeholder="בחר עסק..." />
-          </SelectTrigger>
-          <SelectContent>
-            {businesses.map((b) => (
-              <SelectItem key={b.id} value={b.id}>
-                {b.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
       {/* No business selected */}
       {!selectedBusinessId ? (
         <div className="text-center py-16 text-white/40 text-lg">
-          יש לבחור עסק
+          יש לבחור עסק מהתפריט הצדדי
         </div>
       ) : (
         <>
