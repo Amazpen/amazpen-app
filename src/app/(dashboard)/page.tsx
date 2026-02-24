@@ -1403,11 +1403,9 @@ export default function DashboardPage() {
       // ========================================================================
       const entryIds = (entries || []).map(e => e.id);
 
-      // Calculate date ranges for historical comparisons
-      const incPrevMonthStart = new Date(dateRange.start);
-      incPrevMonthStart.setMonth(incPrevMonthStart.getMonth() - 1);
-      const incPrevMonthEnd = new Date(dateRange.end);
-      incPrevMonthEnd.setMonth(incPrevMonthEnd.getMonth() - 1);
+      // Calculate date ranges for historical comparisons — use full previous calendar month
+      const incPrevMonthStart = new Date(dateRange.start.getFullYear(), dateRange.start.getMonth() - 1, 1);
+      const incPrevMonthEnd = new Date(dateRange.start.getFullYear(), dateRange.start.getMonth(), 0); // last day of prev month
       const incPrevMonthStartStr = formatLocalDate(incPrevMonthStart);
       const incPrevMonthEndStr = formatLocalDate(incPrevMonthEnd);
 
