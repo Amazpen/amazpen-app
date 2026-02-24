@@ -66,13 +66,16 @@ export async function resolveBonusPlanStatus(
     .is("deleted_at", null)
     .maybeSingle();
 
+  const metricsRecord = metrics as Record<string, unknown> | null;
+  const goalRecord = goal as Record<string, unknown> | null;
+
   const currentValue: number | null =
-    metrics?.[mapping.metricsCol] != null
-      ? Number(metrics[mapping.metricsCol])
+    metricsRecord?.[mapping.metricsCol] != null
+      ? Number(metricsRecord[mapping.metricsCol])
       : null;
 
   const goalValue: number | null =
-    goal?.[mapping.goalCol] != null ? Number(goal[mapping.goalCol]) : null;
+    goalRecord?.[mapping.goalCol] != null ? Number(goalRecord[mapping.goalCol]) : null;
 
   if (currentValue === null) {
     return { currentValue: null, goalValue, qualifiedTier: null, bonusAmount: 0 };
