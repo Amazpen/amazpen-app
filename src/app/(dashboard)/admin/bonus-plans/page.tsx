@@ -441,7 +441,7 @@ export default function BonusPlansPage() {
               resetForm();
               setShowForm(true);
             }}
-            className="h-[40px] px-4 bg-[#4A56D4] hover:bg-[#5A66E4] text-white rounded-[10px] font-medium gap-1.5"
+            className="inline-flex items-center h-[40px] px-4 bg-[#4A56D4] hover:bg-[#5A66E4] text-white rounded-[10px] font-medium gap-1.5 whitespace-nowrap shrink-0"
           >
             <Plus className="w-4 h-4" />
             תכנית חדשה
@@ -472,11 +472,11 @@ export default function BonusPlansPage() {
                 {/* Employee */}
                 <div>
                   <label className="text-white/70 text-sm mb-1.5 block">עובד</label>
-                  <Select value={formEmployeeId} onValueChange={setFormEmployeeId}>
-                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                  <Select dir="rtl" value={formEmployeeId} onValueChange={setFormEmployeeId}>
+                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white">
                       <SelectValue placeholder="בחר עובד..." />
                     </SelectTrigger>
-                    <SelectContent dir="rtl">
+                    <SelectContent>
                       {employees.map((e) => (
                         <SelectItem key={e.user_id} value={e.user_id}>
                           {e.full_name} ({ROLE_LABELS[e.role] || e.role})
@@ -501,8 +501,8 @@ export default function BonusPlansPage() {
                 {/* Data source */}
                 <div>
                   <label className="text-white/70 text-sm mb-1.5 block">מקור נתונים</label>
-                  <Select value={formDataSource} onValueChange={handleDataSourceChange}>
-                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                  <Select dir="rtl" value={formDataSource} onValueChange={handleDataSourceChange}>
+                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white">
                       <SelectValue placeholder="בחר מקור נתונים..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -531,8 +531,8 @@ export default function BonusPlansPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-white/70 text-sm mb-1.5 block">סוג מדידה</label>
-                        <Select value={formMeasurementType} onValueChange={(v) => setFormMeasurementType(v as "percentage" | "currency")}>
-                          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                        <Select dir="rtl" value={formMeasurementType} onValueChange={(v) => setFormMeasurementType(v as "percentage" | "currency")}>
+                          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -544,10 +544,11 @@ export default function BonusPlansPage() {
                       <div>
                         <label className="text-white/70 text-sm mb-1.5 block">כיוון</label>
                         <Select
+                          dir="rtl"
                           value={formIsLowerBetter ? "lower" : "higher"}
                           onValueChange={(v) => setFormIsLowerBetter(v === "lower")}
                         >
-                          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -653,10 +654,11 @@ export default function BonusPlansPage() {
                   <div>
                     <label className="text-white/70 text-sm mb-1.5 block">פוש יומי</label>
                     <Select
+                      dir="rtl"
                       value={formPushEnabled ? "on" : "off"}
                       onValueChange={(v) => setFormPushEnabled(v === "on")}
                     >
-                      <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                      <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -667,8 +669,8 @@ export default function BonusPlansPage() {
                   </div>
                   <div>
                     <label className="text-white/70 text-sm mb-1.5 block">שעת שליחה</label>
-                    <Select value={formPushHour} onValueChange={setFormPushHour}>
-                      <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                    <Select dir="rtl" value={formPushHour} onValueChange={setFormPushHour}>
+                      <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
