@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import type { OCRLineItem } from '@/types/ocr';
+import type { OCRLineItem, OCRExtractedData } from '@/types/ocr';
 import { savePriceTrackingForLineItems } from '@/lib/priceTracking';
 
 // Supplier from database
@@ -409,6 +409,10 @@ function ExpensesPageInner() {
   const [editAttachmentFiles, setEditAttachmentFiles] = useState<File[]>([]);
   const [editAttachmentPreviews, setEditAttachmentPreviews] = useState<string[]>([]);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+
+  // OCR processing state
+  const [isOcrProcessing, setIsOcrProcessing] = useState(false);
+  const [ocrApplied, setOcrApplied] = useState(false);
 
   // Invoice filter & sort state
   const [filterBy, setFilterBy] = useState<string>("");
@@ -1370,6 +1374,50 @@ function ExpensesPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSupplier, selectedBusinesses, expenseLineItems.length]);
 
+  // Process OCR on uploaded file and populate form fields
+  const processOcr = useCallback(async (file: File) => {
+    setIsOcrProcessing(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("suppliers", JSON.stringify(suppliers.map((s) => ({ id: s.id, name: s.name }))));
+
+      const res = await fetch("/api/ai/ocr-extract", { method: "POST", body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "OCR failed");
+      }
+
+      const data: OCRExtractedData = await res.json();
+
+      // Populate form fields from extracted data
+      if (data.document_date) setExpenseDate(data.document_date);
+      if (data.document_number) setInvoiceNumber(data.document_number);
+      if (data.subtotal !== undefined) setAmountBeforeVat(data.subtotal.toString());
+      if (data.vat_amount !== undefined) {
+        const expectedVat = (data.subtotal || 0) * 0.18;
+        if (Math.abs((data.vat_amount || 0) - expectedVat) > 0.5) {
+          setPartialVat(true);
+          setVatAmount(data.vat_amount.toString());
+        }
+      }
+      if (data.matched_supplier_id) setSelectedSupplier(data.matched_supplier_id);
+      if (data.line_items && data.line_items.length > 0) {
+        setExpenseLineItems(data.line_items);
+        setShowLineItems(true);
+        setExpenseType("goods");
+      }
+
+      setOcrApplied(true);
+      showToast("נתונים זוהו מהמסמך בהצלחה", "success");
+    } catch (err) {
+      console.error("OCR extraction error:", err);
+      showToast("לא הצלחנו לזהות נתונים מהמסמך", "error");
+    } finally {
+      setIsOcrProcessing(false);
+    }
+  }, [suppliers, showToast]);
+
   // Handle saving new expense
   const handleSaveExpense = async () => {
     if (!selectedSupplier || !expenseDate || !amountBeforeVat) {
@@ -1435,6 +1483,7 @@ function ExpensesPageInner() {
             created_by: user?.id || null,
             invoice_type: expenseType,
             clarification_reason: needsClarification ? clarificationReason : null,
+            ...(ocrApplied ? { approval_status: 'pending_review', data_source: 'ocr' } : {}),
           })
           .select()
           .single();
@@ -1600,6 +1649,8 @@ function ExpensesPageInner() {
     setPaymentReceiptPreview(null);
     setNewAttachmentFiles([]);
     setNewAttachmentPreviews([]);
+    setIsOcrProcessing(false);
+    setOcrApplied(false);
     setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }]);
     setShowClarificationMenu(false);
     setExpenseLineItems([]);
@@ -3494,6 +3545,11 @@ function ExpensesPageInner() {
                           return URL.createObjectURL(f);
                         }));
                         setNewAttachmentPreviews(prev => [...prev, ...previews]);
+
+                        // Auto-trigger OCR on the first uploaded file
+                        if (!ocrApplied && arr.length > 0) {
+                          processOcr(arr[0]);
+                        }
                       }
                       e.target.value = "";
                     }}
@@ -3502,6 +3558,18 @@ function ExpensesPageInner() {
                 </label>
                 {isUploadingAttachment && (
                   <span className="text-[12px] text-white/50 text-center">מעלה קבצים...</span>
+                )}
+                {isOcrProcessing && (
+                  <div className="flex items-center gap-[8px] justify-center py-[8px]">
+                    <svg className="animate-spin h-4 w-4 text-[#29318A]" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span className="text-[13px] text-white/70">מזהה נתונים מהמסמך...</span>
+                  </div>
+                )}
+                {ocrApplied && !isOcrProcessing && (
+                  <span className="text-[12px] text-green-400 text-center">נתונים זוהו ומולאו בטופס - ניתן לערוך לפני שמירה</span>
                 )}
               </div>
 

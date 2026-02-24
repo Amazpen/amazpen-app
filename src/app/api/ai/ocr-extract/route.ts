@@ -1,0 +1,135 @@
+import { createClient as createServerClient } from "@/lib/supabase/server";
+import { NextRequest } from "next/server";
+import { generateObject } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
+import { ocrImage, extractPdfText, MAX_FILE_SIZE, ACCEPTED_IMAGE_TYPES } from "@/lib/ocr";
+
+const lineItemSchema = z.object({
+  description: z.string().optional().describe("שם הפריט"),
+  quantity: z.number().optional().describe("כמות"),
+  unit_price: z.number().optional().describe("מחיר ליחידה"),
+  total: z.number().optional().describe("סה״כ לפריט"),
+});
+
+const invoiceSchema = z.object({
+  supplier_name: z.string().optional().describe("שם הספק/העסק שהנפיק את החשבונית"),
+  document_number: z.string().optional().describe("מספר חשבונית או תעודת משלוח"),
+  document_date: z.string().optional().describe("תאריך המסמך בפורמט YYYY-MM-DD"),
+  subtotal: z.number().optional().describe("סכום לפני מע״מ"),
+  vat_amount: z.number().optional().describe("סכום מע״מ"),
+  total_amount: z.number().optional().describe("סכום כולל מע״מ"),
+  line_items: z.array(lineItemSchema).optional().describe("פריטים בחשבונית"),
+});
+
+interface SupplierInfo {
+  id: string;
+  name: string;
+}
+
+export async function POST(request: NextRequest) {
+  if (!process.env.GOOGLE_VISION_API_KEY) {
+    return Response.json({ error: "שירות OCR לא מוגדר" }, { status: 503 });
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    return Response.json({ error: "שירות AI לא מוגדר" }, { status: 503 });
+  }
+
+  // Authenticate user
+  const serverSupabase = await createServerClient();
+  const {
+    data: { user },
+  } = await serverSupabase.auth.getUser();
+
+  if (!user) {
+    return Response.json({ error: "לא מחובר" }, { status: 401 });
+  }
+
+  const formData = await request.formData();
+  const file = formData.get("file") as File | null;
+  const suppliersJson = formData.get("suppliers") as string | null;
+
+  if (!file) {
+    return Response.json({ error: "חסר קובץ" }, { status: 400 });
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    return Response.json({ error: "הקובץ גדול מדי (מקסימום 10MB)" }, { status: 400 });
+  }
+
+  const isImage = ACCEPTED_IMAGE_TYPES.includes(file.type);
+  const isPdf = file.type === "application/pdf";
+
+  if (!isImage && !isPdf) {
+    return Response.json({ error: "סוג קובץ לא נתמך" }, { status: 400 });
+  }
+
+  try {
+    // Step 1: Extract raw text via OCR
+    let rawText: string;
+    if (isImage) {
+      rawText = await ocrImage(file);
+    } else {
+      rawText = await extractPdfText(file);
+    }
+
+    if (!rawText || rawText.length < 5) {
+      return Response.json({ error: "לא זוהה טקסט במסמך" }, { status: 422 });
+    }
+
+    // Step 2: Extract structured data using AI
+    const { object: extracted } = await generateObject({
+      model: openai("gpt-4.1-mini"),
+      schema: invoiceSchema,
+      prompt: `אתה מערכת חילוץ נתונים מחשבוניות ותעודות משלוח בעברית.
+חלץ את הנתונים הבאים מהטקסט של המסמך:
+- שם הספק (supplier_name)
+- מספר חשבונית/תעודה (document_number)
+- תאריך המסמך (document_date) בפורמט YYYY-MM-DD
+- סכום לפני מע״מ (subtotal)
+- סכום מע״מ (vat_amount)
+- סכום כולל מע״מ (total_amount)
+- פריטים (line_items) - אם ישנם פריטים ברשימה עם כמות ומחיר
+
+אם שדה לא מופיע במסמך, השמט אותו.
+עבור תאריכים בעברית (למשל 17/02/2026) המר לפורמט YYYY-MM-DD.
+עבור סכומים, החזר מספרים בלבד (ללא סימן ₪ או פסיקים).
+
+טקסט המסמך:
+${rawText}`,
+    });
+
+    // Step 3: Supplier matching
+    let matchedSupplierId: string | undefined;
+    if (extracted.supplier_name && suppliersJson) {
+      try {
+        const suppliers: SupplierInfo[] = JSON.parse(suppliersJson);
+        const extractedName = extracted.supplier_name.trim();
+        const matched = suppliers.find(
+          (s) => s.name.includes(extractedName) || extractedName.includes(s.name)
+        );
+        if (matched) {
+          matchedSupplierId = matched.id;
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    return Response.json({
+      supplier_name: extracted.supplier_name,
+      document_number: extracted.document_number,
+      document_date: extracted.document_date,
+      subtotal: extracted.subtotal,
+      vat_amount: extracted.vat_amount,
+      total_amount: extracted.total_amount,
+      line_items: extracted.line_items,
+      matched_supplier_id: matchedSupplierId,
+      raw_text: rawText,
+    });
+  } catch (err) {
+    console.error("[OCR-Extract] Error:", err);
+    return Response.json({ error: "שגיאה בזיהוי נתונים מהמסמך" }, { status: 500 });
+  }
+}
