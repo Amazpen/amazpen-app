@@ -293,10 +293,11 @@ export default function GoalsPage() {
         const perSupplierCurrentActuals = new Map<string, number>();
         const perSupplierGoodsActuals = new Map<string, number>();
         (invoicesData || []).forEach(inv => {
-          if (inv.invoice_type === "current") {
+          const expType = supplierExpenseTypeMap.get(inv.supplier_id);
+          if (expType === "current_expenses") {
             const current = perSupplierCurrentActuals.get(inv.supplier_id) || 0;
             perSupplierCurrentActuals.set(inv.supplier_id, current + Number(inv.subtotal));
-          } else if (inv.invoice_type === "goods") {
+          } else if (expType === "goods_purchases") {
             const current = perSupplierGoodsActuals.get(inv.supplier_id) || 0;
             perSupplierGoodsActuals.set(inv.supplier_id, current + Number(inv.subtotal));
           }
@@ -498,14 +499,14 @@ export default function GoalsPage() {
         const vatDivisor = avgVatPercentage > 0 ? 1 + avgVatPercentage : 1;
         const incomeBeforeVat = totalRevenue / vatDivisor;
 
-        // Calculate food cost from goods invoices
+        // Calculate food cost from goods_purchases suppliers
         const totalGoodsCost = (invoicesData || [])
-          .filter(inv => inv.invoice_type === "goods")
+          .filter(inv => supplierExpenseTypeMap.get(inv.supplier_id) === "goods_purchases")
           .reduce((sum, inv) => sum + Number(inv.subtotal), 0);
 
-        // Calculate current expenses total
+        // Calculate current expenses from current_expenses suppliers
         const totalCurrentExpenses = (invoicesData || [])
-          .filter(inv => inv.invoice_type === "current")
+          .filter(inv => supplierExpenseTypeMap.get(inv.supplier_id) === "current_expenses")
           .reduce((sum, inv) => sum + Number(inv.subtotal), 0);
 
         // Calculate percentages against income before VAT
