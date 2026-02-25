@@ -3481,8 +3481,8 @@ export default function DashboardPage() {
                 const noProdData = (detailedSummary?.totalIncome || 0) === 0 || product.totalCost === 0;
                 const diffPct = noProdData ? 0 : actualPct - targetPct;
 
-                // Calculate diff in ILS
-                const diffILS = noProdData ? 0 : (diffPct / 100) * (detailedSummary?.revenueTargetBeforeVat || 0);
+                // Calculate diff in ILS (based on actual income, not target)
+                const diffILS = noProdData ? 0 : (diffPct / 100) * (detailedSummary?.incomeBeforeVat || 0);
 
                 // Determine color based on diff
                 const diffColor = noProdData ? 'text-white' : diffPct > 0 ? 'text-red-500' : diffPct < 0 ? 'text-green-500' : 'text-white';
