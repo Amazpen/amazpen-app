@@ -1236,7 +1236,7 @@ export default function DashboardPage() {
         // 8. Get suppliers with expense_type = 'current_expenses'
         supabase
           .from("suppliers")
-          .select("id")
+          .select("id, is_fixed_expense")
           .in("business_id", selectedBusinesses)
           .eq("expense_type", "current_expenses")
           .eq("is_active", true)
@@ -1257,6 +1257,7 @@ export default function DashboardPage() {
       const goalIds = (goalsData || []).map(g => g.id);
       const goodsSupplierIds = (goodsSuppliers || []).map(s => s.id);
       const currentExpensesSupplierIds = (currentExpensesSuppliers || []).map(s => s.id);
+      const fixedExpenseSupplierIds = (currentExpensesSuppliers || []).filter(s => s.is_fixed_expense).map(s => s.id);
 
       // ========================================================================
       // PARALLEL QUERIES BATCH 2 - Dependent on batch 1 results
@@ -1299,12 +1300,12 @@ export default function DashboardPage() {
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
-        // 4. Get supplier budgets for current_expenses (fallback when goals.current_expenses_target is null)
-        currentExpensesSupplierIds.length > 0
+        // 4. Get supplier budgets for fixed monthly expense suppliers only (target calculation)
+        fixedExpenseSupplierIds.length > 0
           ? supabase
               .from("supplier_budgets")
               .select("budget_amount")
-              .in("supplier_id", currentExpensesSupplierIds)
+              .in("supplier_id", fixedExpenseSupplierIds)
               .eq("year", dateRange.start.getFullYear())
               .eq("month", dateRange.start.getMonth() + 1)
           : Promise.resolve({ data: [] })
@@ -1633,11 +1634,8 @@ export default function DashboardPage() {
       // Calculate current expenses percentage (same formula as food cost)
       const currentExpenses = totalCurrentExpenses;
       const currentExpensesPct = incomeBeforeVatForFood > 0 ? (currentExpenses / incomeBeforeVatForFood) * 100 : 0;
-      // Current expenses target + diff calculated after monthlyPace (needs monthly pace before VAT)
-      // Use goals.current_expenses_target if set, otherwise fallback to sum of supplier_budgets
-      const goalsTargetAmount = (goalsData || []).reduce((sum, g) => sum + (Number(g.current_expenses_target) || 0), 0);
-      const supplierBudgetsTotal = (currentExpensesBudgets || []).reduce((sum, b) => sum + (Number(b.budget_amount) || 0), 0);
-      const currentExpensesTargetAmount = goalsTargetAmount > 0 ? goalsTargetAmount : supplierBudgetsTotal;
+      // Current expenses target = sum of fixed monthly expense supplier budgets only
+      const currentExpensesTargetAmount = (currentExpensesBudgets || []).reduce((sum, b) => sum + (Number(b.budget_amount) || 0), 0);
 
       // For now, set fixed/variable from labor
       const fixedExpenses = laborCost;
@@ -3394,7 +3392,7 @@ export default function DashboardPage() {
                             <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מיעד</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatCurrencyFullWithSign(noFoodData ? 0 : ((detailedSummary?.foodCostDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}</span>
+                            <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatCurrencyFullWithSign(noFoodData ? 0 : ((detailedSummary?.foodCostDiffPct || 0) / 100) * (detailedSummary?.incomeBeforeVat || 0))}</span>
                             <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                           </div>
                           <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
@@ -3447,7 +3445,7 @@ export default function DashboardPage() {
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                         </div>
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatCurrencyFullWithSign(noFoodData ? 0 : ((detailedSummary?.foodCostDiffPct || 0) / 100) * (detailedSummary?.revenueTargetBeforeVat || 0))}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${foodDiffColor}`}>{formatCurrencyFullWithSign(noFoodData ? 0 : ((detailedSummary?.foodCostDiffPct || 0) / 100) * (detailedSummary?.incomeBeforeVat || 0))}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                         </div>
                       </div>
