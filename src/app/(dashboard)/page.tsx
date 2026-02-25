@@ -3544,9 +3544,9 @@ export default function DashboardPage() {
                 const expColorIdx = 3 + incomeSourcesSummary.length + managedProductsSummary.length;
                 const noExpData = (detailedSummary?.totalIncome || 0) === 0 || (detailedSummary?.currentExpenses || 0) === 0;
                 const noTarget = !detailedSummary?.currentExpensesTargetPct || detailedSummary.currentExpensesTargetPct === 0;
-                // Main percentage color: > 0 = red (expenses exist), < 0 = green, 0 = white
-                const expPctValue = detailedSummary?.currentExpensesPct || 0;
-                const expPctColor = noExpData ? 'text-white' : expPctValue > 0 ? 'text-red-500' : expPctValue < 0 ? 'text-green-500' : 'text-white';
+                // Main percentage color: based on diff from target (< 0 = green/under budget, > 0 = red/over budget)
+                const expDiffValue = detailedSummary?.currentExpensesDiffPct || 0;
+                const expPctColor = (noExpData || noTarget) ? 'text-white' : expDiffValue > 0 ? 'text-red-500' : expDiffValue < 0 ? 'text-green-500' : 'text-white';
                 const expDiffColor = (noExpData || noTarget) ? 'text-white' : (detailedSummary?.currentExpensesDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesDiffPct || 0) < 0 ? 'text-green-500' : 'text-white';
                 const expPrevMonthColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevMonthChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white';
                 const expPrevYearColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevYearChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white';
