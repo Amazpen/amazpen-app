@@ -651,14 +651,14 @@ export default function GoalsPage() {
           {
             id: "current-expenses",
             name: "הוצאות שוטפות (₪)",
-            target: Number(goal?.current_expenses_target) ||
-              // Fallback: sum supplier budgets for current_expenses type
+            target:
+              // Sum supplier budgets for fixed monthly expense suppliers only (not previous obligations)
               (suppliersData || [])
-                .filter(s => s.expense_type === "current_expenses")
+                .filter(s => s.expense_type === "current_expenses" && s.is_fixed_expense)
                 .reduce((sum, s) => sum + (supplierBudgetMap.get(s.id) || 0), 0),
             actual: totalCurrentExpenses,
             unit: "₪",
-            editable: true,
+            editable: false,
             isExpense: true,
           },
           {
