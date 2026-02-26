@@ -261,7 +261,11 @@
       "Bash(\"/c/Program Files/Android/Android Studio/jbr/bin/keytool\" -list -v -keystore \"/c/Users/netn1/Downloads/amazpen-android/signing.keystore\" -alias my-key-alias -storepass DCBM_ik7TwUb)",
       "Bash(openssl version:*)",
       "Bash(openssl pkcs7:*)",
-      "WebFetch(domain:go.microsoft.com)"
+      "WebFetch(domain:go.microsoft.com)",
+      "Bash(for f in *.csv)",
+      "Bash(do echo \"=== $f ===\")",
+      "Bash(do printf '\\\\xEF\\\\xBB\\\\xBF')",
+      "Bash(cat -n \"c:/Users/netn1/Downloads/amazpen-new/src/app/\\(dashboard\\)/goals/page.tsx\")"
     ]
   },
   "enableAllProjectMcpServers": true,
