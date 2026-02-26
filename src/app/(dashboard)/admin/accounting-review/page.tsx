@@ -20,11 +20,21 @@ import {
   type DateRange,
 } from "@/components/ui/date-range-picker";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Download,
   FileSpreadsheet,
   ArrowUpDown,
   Eye,
   Loader2,
+  Search,
+  CheckCheck,
+  X,
 } from "lucide-react";
 
 // Lazy-load DocumentViewer (avoids loading pdfjs unless needed)
@@ -121,6 +131,11 @@ export default function AccountingReviewPage() {
   // Detail panel
   const [detailInvoice, setDetailInvoice] = useState<InvoiceRow | null>(null);
 
+  // Filters
+  const [filterSupplier, setFilterSupplier] = useState<string>("");
+  const [filterReference, setFilterReference] = useState<string>("");
+  const [filterAccounting, setFilterAccounting] = useState<string>("all"); // "all" | "yes" | "no"
+
   // ===== Auth check =====
   useEffect(() => {
     async function checkAdmin() {
@@ -170,6 +185,9 @@ export default function AccountingReviewPage() {
     setIsLoadingInvoices(true);
     setSelectedIds(new Set());
     setDetailInvoice(null);
+    setFilterSupplier("");
+    setFilterReference("");
+    setFilterAccounting("all");
 
     const startStr = dateRange.start.toISOString().split("T")[0];
     const endStr = dateRange.end.toISOString().split("T")[0];
@@ -246,6 +264,25 @@ export default function AccountingReviewPage() {
             : inv
         )
       );
+
+      // Update detail panel if open
+      setDetailInvoice((prev) =>
+        prev?.id === invoice.id
+          ? {
+              ...prev,
+              approval_status: newStatus,
+              review_approved_by: updatePayload.review_approved_by,
+              review_approved_at: updatePayload.review_approved_at,
+            }
+          : prev
+      );
+
+      showToast(
+        newStatus === "accounting_approved"
+          ? `חשבונית ${invoice.invoice_number || ""} סומנה כנרשמה בהנה"ח`
+          : `חשבונית ${invoice.invoice_number || ""} סומנה כלא נרשמה`,
+        newStatus === "accounting_approved" ? "success" : "info"
+      );
     },
     [supabase, userId, showToast]
   );
@@ -261,17 +298,74 @@ export default function AccountingReviewPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === invoices.length) {
+    if (selectedIds.size === filteredInvoices.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(invoices.map((i) => i.id)));
+      setSelectedIds(new Set(filteredInvoices.map((i) => i.id)));
     }
   };
 
+  // Unique suppliers for filter dropdown
+  const uniqueSuppliers = useMemo(() => {
+    const names = [...new Set(invoices.map((i) => i.supplier_name))];
+    return names.sort((a, b) => a.localeCompare(b, "he"));
+  }, [invoices]);
+
+  // Filtered invoices
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((inv) => {
+      if (filterSupplier && inv.supplier_name !== filterSupplier) return false;
+      if (filterReference && !(inv.invoice_number || "").includes(filterReference)) return false;
+      if (filterAccounting === "yes" && inv.approval_status !== "accounting_approved") return false;
+      if (filterAccounting === "no" && inv.approval_status === "accounting_approved") return false;
+      return true;
+    });
+  }, [invoices, filterSupplier, filterReference, filterAccounting]);
+
   const selectedInvoices = useMemo(
-    () => invoices.filter((i) => selectedIds.has(i.id)),
-    [invoices, selectedIds]
+    () => filteredInvoices.filter((i) => selectedIds.has(i.id)),
+    [filteredInvoices, selectedIds]
   );
+
+  // ===== Bulk approve selected invoices =====
+  const bulkApprove = useCallback(async () => {
+    const toApprove = selectedInvoices.filter(
+      (inv) => inv.approval_status !== "accounting_approved"
+    );
+    if (toApprove.length === 0) {
+      showToast("כל החשבוניות שנבחרו כבר נרשמו", "info");
+      return;
+    }
+
+    const ids = toApprove.map((inv) => inv.id);
+    const { error } = await supabase
+      .from("invoices")
+      .update({
+        approval_status: "accounting_approved",
+        review_approved_by: userId,
+        review_approved_at: new Date().toISOString(),
+      })
+      .in("id", ids);
+
+    if (error) {
+      showToast("שגיאה בעדכון סטטוס", "error");
+      return;
+    }
+
+    setInvoices((prev) =>
+      prev.map((inv) =>
+        ids.includes(inv.id)
+          ? {
+              ...inv,
+              approval_status: "accounting_approved",
+              review_approved_by: userId,
+              review_approved_at: new Date().toISOString(),
+            }
+          : inv
+      )
+    );
+    showToast(`${toApprove.length} חשבוניות סומנו כנרשמו בהנה"ח`, "success");
+  }, [selectedInvoices, supabase, userId, showToast]);
 
   // ===== CSV Export =====
   const exportCsv = useCallback(() => {
@@ -284,6 +378,7 @@ export default function AccountingReviewPage() {
       'סכום אחרי מע"מ',
       'נרשם בהנה"ח',
       "הערות",
+      "קישור למסמך",
     ];
     const rows = selectedInvoices.map((inv) => [
       formatDate(inv.invoice_date),
@@ -293,6 +388,7 @@ export default function AccountingReviewPage() {
       inv.total_amount.toString(),
       inv.approval_status === "accounting_approved" ? "כן" : "לא",
       inv.notes || "",
+      inv.attachment_url || "",
     ]);
 
     const BOM = "\uFEFF";
@@ -324,32 +420,35 @@ export default function AccountingReviewPage() {
       return;
     }
 
-    if (withAttachments.length === 1) {
-      window.open(withAttachments[0].attachment_url!, "_blank");
-      return;
-    }
-
-    // Multiple files — download as ZIP
+    // Download as ZIP (even single file — consistent behavior)
     try {
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
 
-      showToast("מכין קובץ ZIP להורדה...", "info");
+      showToast(`מכין ${withAttachments.length} מסמכים להורדה...`, "info");
 
+      let successCount = 0;
       await Promise.all(
         withAttachments.map(async (inv, idx) => {
           try {
             const res = await fetch(inv.attachment_url!);
+            if (!res.ok) return;
             const blob = await res.blob();
             const ext =
               inv.attachment_url!.split(".").pop()?.split("?")[0] || "pdf";
             const filename = `${inv.supplier_name}_${inv.invoice_number || idx}_${formatDate(inv.invoice_date)}.${ext}`;
             zip.file(filename, blob);
+            successCount++;
           } catch {
             // Skip failed downloads
           }
         })
       );
+
+      if (successCount === 0) {
+        showToast("לא הצלחנו להוריד את המסמכים", "error");
+        return;
+      }
 
       const content = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(content);
@@ -358,9 +457,11 @@ export default function AccountingReviewPage() {
       a.download = `invoices-${new Date().toISOString().split("T")[0]}.zip`;
       a.click();
       URL.revokeObjectURL(url);
-      showToast(`הורדו ${withAttachments.length} מסמכים`, "success");
+      showToast(`הורדו ${successCount} מסמכים בקובץ ZIP`, "success");
     } catch {
-      showToast("שגיאה בהורדת מסמכים", "error");
+      // Fallback: open each in a new tab
+      withAttachments.forEach((inv) => window.open(inv.attachment_url!, "_blank"));
+      showToast("לא הצלחנו ליצור ZIP, נפתחו בכרטיסיות חדשות", "info");
     }
   }, [selectedInvoices, showToast]);
 
@@ -386,13 +487,20 @@ export default function AccountingReviewPage() {
     <div className="flex flex-row-reverse overflow-hidden" style={{ height: "calc(100vh - 70px)" }}>
       {/* ===== Main Content ===== */}
       <div className="flex-1 flex flex-col overflow-hidden p-4 gap-4">
-        {/* Actions (right in RTL) + Date Range (left in RTL) */}
+        {/* Actions + Date Range */}
         <div className="flex items-center justify-between gap-4 flex-shrink-0">
           {selectedIds.size > 0 ? (
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-white/70 bg-white/5 px-3 py-1.5 rounded-md border border-white/10">
                 {selectedIds.size} נבחרו
               </span>
+              <Button
+                className="inline-flex items-center gap-2 h-9 px-4 rounded-md border border-green-500/30 bg-green-500/10 text-sm font-medium text-green-400 hover:bg-green-500/20 hover:border-green-500/40 transition-colors"
+                onClick={bulkApprove}
+              >
+                <CheckCheck className="w-4 h-4" />
+                סמן כנרשמו
+              </Button>
               <Button
                 className="inline-flex items-center gap-2 h-9 px-4 rounded-md border border-white/20 bg-white/5 text-sm font-medium text-white/90 hover:bg-white/10 hover:border-white/30 transition-colors"
                 onClick={exportCsv}
@@ -414,6 +522,86 @@ export default function AccountingReviewPage() {
           <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
         </div>
 
+        {/* Filters */}
+        {selectedBusinessId && invoices.length > 0 && (
+          <div className="flex items-center gap-3 flex-shrink-0 flex-wrap">
+            {/* Supplier filter */}
+            <Select value={filterSupplier || "__all__"} onValueChange={(v) => setFilterSupplier(v === "__all__" ? "" : v)}>
+              <SelectTrigger className="h-9 min-w-[160px] border-white/20 bg-white/5 text-sm text-white/90">
+                <SelectValue placeholder="כל הספקים" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">כל הספקים</SelectItem>
+                {uniqueSuppliers.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {filterSupplier && filterSupplier !== "__all__" && (
+              <button
+                className="text-white/40 hover:text-white/70 transition-colors -ms-2"
+                onClick={() => setFilterSupplier("")}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+
+            {/* Reference number filter */}
+            <div className="relative">
+              <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="חיפוש אסמכתא..."
+                value={filterReference}
+                onChange={(e) => setFilterReference(e.target.value)}
+                className="h-9 ps-8 pe-3 w-[160px] rounded-md border border-white/20 bg-white/5 text-sm text-white/90 placeholder:text-white/40 outline-none focus:border-white/40 transition-colors"
+              />
+              {filterReference && (
+                <button
+                  className="absolute end-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+                  onClick={() => setFilterReference("")}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Accounting status filter */}
+            <Select value={filterAccounting} onValueChange={setFilterAccounting}>
+              <SelectTrigger className="h-9 min-w-[140px] border-white/20 bg-white/5 text-sm text-white/90">
+                <SelectValue placeholder='נרשם בהנה"ח' />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">הכל</SelectItem>
+                <SelectItem value="yes">נרשם - כן</SelectItem>
+                <SelectItem value="no">נרשם - לא</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Active filters count */}
+            {(filterSupplier || filterReference || filterAccounting !== "all") && (
+              <button
+                className="text-xs text-white/50 hover:text-white/80 underline transition-colors"
+                onClick={() => {
+                  setFilterSupplier("");
+                  setFilterReference("");
+                  setFilterAccounting("all");
+                }}
+              >
+                נקה סינון
+              </button>
+            )}
+
+            {filteredInvoices.length !== invoices.length && (
+              <span className="text-xs text-white/40">
+                מציג {filteredInvoices.length} מתוך {invoices.length}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Invoice Table */}
         <div className="flex-1 min-h-0 overflow-auto border border-white/10 rounded-lg">
           {!selectedBusinessId ? (
@@ -424,9 +612,9 @@ export default function AccountingReviewPage() {
             <div className="flex items-center justify-center h-full">
               <Loader2 className="animate-spin w-6 h-6 text-white/40" />
             </div>
-          ) : invoices.length === 0 ? (
+          ) : filteredInvoices.length === 0 ? (
             <div className="flex items-center justify-center h-full text-white/40">
-              אין חשבוניות בטווח התאריכים שנבחר
+              {invoices.length === 0 ? "אין חשבוניות בטווח התאריכים שנבחר" : "אין תוצאות לסינון שנבחר"}
             </div>
           ) : (
             <Table>
@@ -435,8 +623,8 @@ export default function AccountingReviewPage() {
                   <TableHead className="w-10 text-center">
                     <Checkbox
                       checked={
-                        selectedIds.size === invoices.length &&
-                        invoices.length > 0
+                        selectedIds.size === filteredInvoices.length &&
+                        filteredInvoices.length > 0
                       }
                       onCheckedChange={toggleSelectAll}
                     />
@@ -465,7 +653,7 @@ export default function AccountingReviewPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {invoices.map((inv) => (
+                {filteredInvoices.map((inv) => (
                   <TableRow
                     key={inv.id}
                     className="border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer"
@@ -525,10 +713,10 @@ export default function AccountingReviewPage() {
         </div>
 
         {/* Summary row */}
-        {invoices.length > 0 && (
+        {filteredInvoices.length > 0 && (
           <div className="flex items-center justify-between px-4 py-2.5 border border-white/10 rounded-lg text-sm text-white/80 flex-shrink-0">
-            <span>כמות תנועות: <span className="font-bold text-white ltr-num">{invoices.length}</span></span>
-            <span>סכום כולל מע&quot;מ: <span className="font-bold text-white ltr-num">{formatCurrency(invoices.reduce((sum, i) => sum + i.total_amount, 0))}</span></span>
+            <span>כמות תנועות: <span className="font-bold text-white ltr-num">{filteredInvoices.length}</span></span>
+            <span>סכום כולל מע&quot;מ: <span className="font-bold text-white ltr-num">{formatCurrency(filteredInvoices.reduce((sum, i) => sum + i.total_amount, 0))}</span></span>
           </div>
         )}
       </div>
