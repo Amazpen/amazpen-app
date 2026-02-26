@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { generateUUID } from "@/lib/utils";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -95,6 +96,15 @@ interface CustomerPayment {
   notes: string | null;
   created_at: string;
   deleted_at: string | null;
+}
+
+// Customer document type
+interface CustomerDocument {
+  id: string;
+  customer_id: string;
+  description: string;
+  document_url: string;
+  created_at: string;
 }
 
 // Business member
@@ -194,6 +204,14 @@ export default function CustomersPage() {
   // Survey state
   const [customerSurvey, setCustomerSurvey] = useState<{id: string; token: string; is_completed: boolean; created_at: string} | null>(null);
   const [surveyResponses, setSurveyResponses] = useState<{question_key: string; answer_value: string}[]>([]);
+
+  // Documents state
+  const [customerDocuments, setCustomerDocuments] = useState<CustomerDocument[]>([]);
+  const [isAddDocumentOpen, setIsAddDocumentOpen] = useState(false);
+  const [newDocDescription, setNewDocDescription] = useState("");
+  const [newDocFile, setNewDocFile] = useState<File | null>(null);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
 
   // Available businesses for "add standalone" form
   const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
@@ -323,6 +341,56 @@ export default function CustomersPage() {
     setServices(data || []);
   }, []);
 
+  const fetchDocuments = useCallback(async (customerId: string) => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("customer_documents")
+      .select("*")
+      .eq("customer_id", customerId)
+      .order("created_at", { ascending: false });
+    setCustomerDocuments(data || []);
+  }, []);
+
+  const handleAddDocument = async () => {
+    if (!selectedItem?.customer || !newDocDescription.trim() || !newDocFile) return;
+    setIsUploadingDoc(true);
+    try {
+      const ext = newDocFile.name.split(".").pop() || "pdf";
+      const path = `customer-documents/${generateUUID()}.${ext}`;
+      const result = await uploadFile(newDocFile, path, "assets");
+      if (!result.publicUrl) throw new Error("Upload failed");
+
+      const supabase = createClient();
+      const { error } = await supabase.from("customer_documents").insert({
+        customer_id: selectedItem.customer.id,
+        description: newDocDescription.trim(),
+        document_url: result.publicUrl,
+      });
+      if (error) throw error;
+
+      await fetchDocuments(selectedItem.customer.id);
+      setNewDocDescription("");
+      setNewDocFile(null);
+      setIsAddDocumentOpen(false);
+      showToast("המסמך נוסף בהצלחה", "success");
+    } catch {
+      showToast("שגיאה בהעלאת המסמך", "error");
+    } finally {
+      setIsUploadingDoc(false);
+    }
+  };
+
+  const handleDeleteDocument = (docId: string) => {
+    if (!selectedItem?.customer) return;
+    const customerId = selectedItem.customer.id;
+    confirm("האם למחוק את המסמך?", async () => {
+      const supabase = createClient();
+      await supabase.from("customer_documents").delete().eq("id", docId);
+      await fetchDocuments(customerId);
+      showToast("המסמך נמחק", "success");
+    });
+  };
+
   // ─── Monthly payments computed ─────────────────────────────
 
   const monthlyPayments = payments.filter((p) => {
@@ -339,6 +407,7 @@ export default function CustomersPage() {
     setDetailMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
     setIsAddPaymentOpen(false);
     setIsAddServiceOpen(false);
+    setIsAddDocumentOpen(false);
     setCustomerSurvey(null);
     setSurveyResponses([]);
     setIsDetailOpen(true);
@@ -346,6 +415,7 @@ export default function CustomersPage() {
       await Promise.all([
         fetchPayments(item.customer.id),
         fetchServices(item.customer.id),
+        fetchDocuments(item.customer.id),
       ]);
 
       // Fetch survey if retainer completed
@@ -380,6 +450,8 @@ export default function CustomersPage() {
     setServices([]);
     setCustomerSurvey(null);
     setSurveyResponses([]);
+    setCustomerDocuments([]);
+    setIsAddDocumentOpen(false);
   };
 
   const resetForm = () => {
@@ -840,6 +912,35 @@ export default function CustomersPage() {
   return (
     <div dir="rtl" className="flex flex-col min-h-[calc(100vh-52px)] min-h-[calc(100dvh-52px)] text-white px-[5px] md:px-[20px] lg:px-[40px] py-[5px] pb-[80px] gap-[10px] mx-auto w-full max-w-[1600px]">
       <ConfirmDialog />
+
+      {/* Document Preview Dialog */}
+      <Dialog open={!!previewDocUrl} onOpenChange={(open) => !open && setPreviewDocUrl(null)}>
+        <DialogContent className="max-w-[90vw] max-h-[90vh] w-[900px] h-[80vh] p-0 bg-[#1E1E2E] border-[#4C526B] overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between px-[16px] py-[10px] border-b border-[#4C526B]">
+            <h3 className="text-[15px] font-bold text-white">תצוגת מסמך</h3>
+            <div className="flex items-center gap-[8px]">
+              <a
+                href={previewDocUrl || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[13px] text-[#3F97FF] hover:underline"
+              >
+                פתח בלשונית חדשה
+              </a>
+            </div>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            {previewDocUrl && (
+              <iframe
+                src={previewDocUrl}
+                title="תצוגת מסמך"
+                className="w-full h-full border-0"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <div className="flex flex-col gap-[7px] p-[5px]">
         {/* Add Standalone Customer Button */}
@@ -1971,6 +2072,85 @@ export default function CustomersPage() {
                       פתח הסכם
                     </a>
                   </div>
+                </div>
+              )}
+
+              {/* ── Section 2.5: Customer Documents ─────────────── */}
+              {selectedItem.customer && (
+                <div className="bg-[#6B21A8]/30 rounded-[10px] p-[15px] mb-[15px]">
+                  <div className="flex items-center justify-between mb-[10px]">
+                    <h3 className="text-[14px] font-bold text-white">מסמכים</h3>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setIsAddDocumentOpen(!isAddDocumentOpen)}
+                      className="text-[12px] text-[#3F97FF] hover:text-[#3F97FF]/80 h-[28px] px-[8px]"
+                    >
+                      {isAddDocumentOpen ? "ביטול" : "+ הוסף מסמך"}
+                    </Button>
+                  </div>
+
+                  {/* Add document form */}
+                  {isAddDocumentOpen && (
+                    <div className="bg-[#1E1E2E] rounded-[8px] p-[12px] mb-[10px] flex flex-col gap-[8px]">
+                      <Input
+                        type="text"
+                        title="תיאור המסמך"
+                        placeholder="תיאור המסמך (למשל: חוזה עבודה 2025)"
+                        value={newDocDescription}
+                        onChange={(e) => setNewDocDescription(e.target.value)}
+                        className="bg-transparent border-[#4C526B] text-white text-[14px] h-[40px] text-right placeholder:text-white/30"
+                      />
+                      <label className="border border-[#4C526B] border-dashed rounded-[8px] h-[40px] px-[10px] flex items-center justify-center cursor-pointer hover:border-[#6B21A8] transition-colors">
+                        <span className="text-[13px] text-[#979797]">
+                          {newDocFile ? newDocFile.name : "לחץ לבחירת קובץ"}
+                        </span>
+                        <input
+                          type="file"
+                          title="העלאת מסמך"
+                          onChange={(e) => setNewDocFile(e.target.files?.[0] || null)}
+                          className="hidden"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
+                        />
+                      </label>
+                      <Button
+                        size="sm"
+                        onClick={handleAddDocument}
+                        disabled={!newDocDescription.trim() || !newDocFile || isUploadingDoc}
+                        className="bg-[#6B21A8] hover:bg-[#7C3AED] text-white h-[36px] text-[13px]"
+                      >
+                        {isUploadingDoc ? "מעלה..." : "העלה מסמך"}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Documents list */}
+                  {customerDocuments.length > 0 ? (
+                    <div className="flex flex-col gap-[6px]">
+                      {customerDocuments.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between bg-[#1E1E2E] rounded-[8px] px-[12px] py-[8px]">
+                          <button
+                            onClick={() => setPreviewDocUrl(doc.document_url)}
+                            className="text-[13px] text-[#3F97FF] hover:underline text-right flex-1 cursor-pointer"
+                          >
+                            {doc.description}
+                          </button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteDocument(doc.id)}
+                            className="text-red-400 hover:text-red-300 h-[24px] w-[24px] p-0 mr-[8px]"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    !isAddDocumentOpen && (
+                      <p className="text-[13px] text-white/40 text-center">אין מסמכים</p>
+                    )
+                  )}
                 </div>
               )}
 
