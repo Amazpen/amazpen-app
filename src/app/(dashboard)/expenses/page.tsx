@@ -285,7 +285,8 @@ function ExpensesPageInner() {
 
   // Form state for new expense
   const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [referenceDate, setReferenceDate] = useState("");
+  const [referenceDate, setReferenceDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const referenceDateManuallySet = useRef(false);
   const [expenseType, setExpenseType] = useState<"current" | "goods" | "employees">("current");
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -1166,7 +1167,12 @@ function ExpensesPageInner() {
         const draft = restoreExpenseDraft();
         if (draft) {
           if (draft.expenseDate) setExpenseDate(draft.expenseDate as string);
-          if (draft.referenceDate) setReferenceDate(draft.referenceDate as string);
+          if (draft.referenceDate) {
+            setReferenceDate(draft.referenceDate as string);
+            referenceDateManuallySet.current = (draft.referenceDate as string) !== (draft.expenseDate as string);
+          } else if (draft.expenseDate) {
+            setReferenceDate(draft.expenseDate as string);
+          }
           if (draft.expenseType) setExpenseType(draft.expenseType as "current" | "goods" | "employees");
           if (draft.selectedSupplier) setSelectedSupplier(draft.selectedSupplier as string);
           if (draft.invoiceNumber) setInvoiceNumber(draft.invoiceNumber as string);
@@ -1391,7 +1397,12 @@ function ExpensesPageInner() {
       const data: OCRExtractedData = await res.json();
 
       // Populate form fields from extracted data
-      if (data.document_date) setExpenseDate(data.document_date);
+      if (data.document_date) {
+        setExpenseDate(data.document_date);
+        if (!referenceDateManuallySet.current) {
+          setReferenceDate(data.document_date);
+        }
+      }
       if (data.document_number) setInvoiceNumber(data.document_number);
       if (data.subtotal !== undefined) setAmountBeforeVat(data.subtotal.toString());
       if (data.vat_amount !== undefined) {
@@ -1627,8 +1638,10 @@ function ExpensesPageInner() {
   const handleClosePopup = () => {
     setShowAddExpensePopup(false);
     // Reset form
-    setExpenseDate(new Date().toISOString().split("T")[0]);
-    setReferenceDate("");
+    const today = new Date().toISOString().split("T")[0];
+    setExpenseDate(today);
+    setReferenceDate(today);
+    referenceDateManuallySet.current = false;
     setExpenseType("current");
     setSelectedSupplier("");
     setInvoiceNumber("");
@@ -1693,8 +1706,15 @@ function ExpensesPageInner() {
         const refYear = refParts[2].length === 2 ? `20${refParts[2]}` : refParts[2];
         setReferenceDate(`${refYear}-${refParts[1]}-${refParts[0]}`);
       }
+      referenceDateManuallySet.current = true;
     } else {
-      setReferenceDate("");
+      // Default to invoice date
+      const dateParts2 = invoice.date.split('.');
+      if (dateParts2.length === 3) {
+        const year2 = dateParts2[2].length === 2 ? `20${dateParts2[2]}` : dateParts2[2];
+        setReferenceDate(`${year2}-${dateParts2[1]}-${dateParts2[0]}`);
+      }
+      referenceDateManuallySet.current = false;
     }
     // Set existing attachment previews
     setEditAttachmentPreviews(invoice.attachmentUrls);
@@ -1788,8 +1808,10 @@ function ExpensesPageInner() {
     setShowEditPopup(false);
     setEditingInvoice(null);
     // Reset form
-    setExpenseDate(new Date().toISOString().split("T")[0]);
-    setReferenceDate("");
+    const today = new Date().toISOString().split("T")[0];
+    setExpenseDate(today);
+    setReferenceDate(today);
+    referenceDateManuallySet.current = false;
     setExpenseType("current");
     setSelectedSupplier("");
     setInvoiceNumber("");
@@ -3150,7 +3172,12 @@ function ExpensesPageInner() {
                     type="date"
                     title="תאריך הוצאה"
                     value={expenseDate}
-                    onChange={(e) => setExpenseDate(e.target.value)}
+                    onChange={(e) => {
+                      setExpenseDate(e.target.value);
+                      if (!referenceDateManuallySet.current) {
+                        setReferenceDate(e.target.value);
+                      }
+                    }}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                   />
                 </div>
@@ -3158,7 +3185,7 @@ function ExpensesPageInner() {
 
               {/* Reference Date Field */}
               <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">תאריך אסמכתא <span className="text-white/40 text-[12px]">(אופציונלי)</span></label>
+                <label className="text-[15px] font-medium text-white text-right">תאריך אסמכתא</label>
                 <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
                   <span className={`text-[16px] font-semibold pointer-events-none ${referenceDate ? 'text-white' : 'text-white/40'}`}>
                     {referenceDate
@@ -3169,7 +3196,10 @@ function ExpensesPageInner() {
                     type="date"
                     title="תאריך אסמכתא"
                     value={referenceDate}
-                    onChange={(e) => setReferenceDate(e.target.value)}
+                    onChange={(e) => {
+                      setReferenceDate(e.target.value);
+                      referenceDateManuallySet.current = true;
+                    }}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                   />
                 </div>
@@ -4067,7 +4097,12 @@ function ExpensesPageInner() {
                     type="date"
                     title="תאריך הוצאה"
                     value={expenseDate}
-                    onChange={(e) => setExpenseDate(e.target.value)}
+                    onChange={(e) => {
+                      setExpenseDate(e.target.value);
+                      if (!referenceDateManuallySet.current) {
+                        setReferenceDate(e.target.value);
+                      }
+                    }}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                   />
                 </div>
@@ -4075,7 +4110,7 @@ function ExpensesPageInner() {
 
               {/* Reference Date Field */}
               <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">תאריך אסמכתא <span className="text-white/40 text-[12px]">(אופציונלי)</span></label>
+                <label className="text-[15px] font-medium text-white text-right">תאריך אסמכתא</label>
                 <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
                   <span className={`text-[16px] font-semibold pointer-events-none ${referenceDate ? 'text-white' : 'text-white/40'}`}>
                     {referenceDate
@@ -4086,7 +4121,10 @@ function ExpensesPageInner() {
                     type="date"
                     title="תאריך אסמכתא"
                     value={referenceDate}
-                    onChange={(e) => setReferenceDate(e.target.value)}
+                    onChange={(e) => {
+                      setReferenceDate(e.target.value);
+                      referenceDateManuallySet.current = true;
+                    }}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                   />
                 </div>
