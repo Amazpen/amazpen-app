@@ -2224,7 +2224,7 @@ function PaymentsPageInner() {
         {/* Payment Methods Summary Table - hidden when no data */}
         {paymentMethodsData.length > 0 && (
         <div className="max-w-[350px] mx-auto">
-          <h2 className="text-[24px] font-bold text-center mb-[20px] flex items-center justify-center gap-[6px]"><Wallet size={22} color="#FA5A7D" weight="duotone" />סיכום לפי אמצעי תשלום</h2>
+          <h2 className="text-[24px] font-bold text-center mb-[20px]">סיכום לפי אמצעי תשלום</h2>
 
           {/* Table Header */}
           <div className="flex items-center justify-between gap-[20px] border-b border-white/20 p-[5px]">
@@ -2253,7 +2253,9 @@ function PaymentsPageInner() {
                   <span className="text-[16px] text-right">{method.name}</span>
                 </div>
                 <span className="text-[16px] w-[110px] text-center ltr-num">
-                  ₪{method.amount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  ₪{method.amount % 1 === 0
+                    ? method.amount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                    : method.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
                 <span className="text-[16px] w-[65px] text-center ltr-num">{method.percentage.toFixed(2)}%</span>
               </Button>
