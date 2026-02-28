@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronLeft, ChevronRight, X, Send } from "lucide-react";
-import { Package } from "@phosphor-icons/react";
 import { useDashboard } from "../layout";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
@@ -1464,7 +1463,7 @@ export default function SuppliersPage() {
               autoFocus
             />
           ) : (
-            <span className="text-[18px] font-bold text-white flex items-center gap-[6px]"><Package size={18} color="rgb(255,164,18)" weight="duotone" />{activeTab === "previous" ? `${suppliersCount} התחייבויות קודמות` : `${suppliersCount} ספקים`}</span>
+            <span className="text-[18px] font-bold text-white flex items-center gap-[6px]">{activeTab === "previous" ? `${suppliersCount} התחייבויות קודמות` : `${suppliersCount} ספקים`}</span>
           )}
         </div>
 
@@ -1566,16 +1565,21 @@ export default function SuppliersPage() {
                       {supplier.name}
                     </span>
                   </div>
-                  <div className="w-[100px] flex flex-col items-center">
+                  <div className="flex flex-col items-center">
                     <span className="text-[18px] font-normal text-white text-center leading-[1.4]">
                       נותר לתשלום
                     </span>
                     <span dir="ltr" className={`text-[18px] font-semibold text-center leading-[1.4] ${supplier.remainingPayment < 0 ? "text-[#0BB783]" : supplier.remainingPayment > 0 ? "text-[#F64E60]" : "text-white"}`}>
                       ₪{supplier.remainingPayment < 0 ? "-" : ""}{Math.abs(supplier.remainingPayment).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                     </span>
-                    <span className="text-[16px] font-bold text-white text-center leading-[1.4]">
-                      {Number(supplier.revenuePercentage.toFixed(2))}% מהכנסות
-                    </span>
+                    <div className="flex items-center gap-[4px]">
+                      <span dir="ltr" className="text-[16px] font-bold text-white leading-[1.4]">
+                        {Number(supplier.revenuePercentage.toFixed(2))}%
+                      </span>
+                      <span className="text-[16px] font-bold text-white leading-[1.4]">
+                        מהכנסות
+                      </span>
+                    </div>
                   </div>
                 </Button>
               ))}
