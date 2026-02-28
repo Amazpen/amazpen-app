@@ -599,8 +599,8 @@ function PaymentsPageInner() {
 
         // Fetch payment splits for the date range — filtered by due_date (actual bank debit date)
         // instead of payment_date (when user recorded the payment) for accurate cash flow reporting
-        const startDate = dateRange.start.toISOString().split("T")[0];
-        const endDate = dateRange.end.toISOString().split("T")[0];
+        const startDate = `${dateRange.start.getFullYear()}-${String(dateRange.start.getMonth() + 1).padStart(2, '0')}-${String(dateRange.start.getDate()).padStart(2, '0')}`;
+        const endDate = `${dateRange.end.getFullYear()}-${String(dateRange.end.getMonth() + 1).padStart(2, '0')}-${String(dateRange.end.getDate()).padStart(2, '0')}`;
 
         const { data: splitsData } = await supabase
           .from("payment_splits")
@@ -805,7 +805,8 @@ function PaymentsPageInner() {
 
     setIsLoadingForecast(true);
     const supabase = createClient();
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     try {
       const { data, error } = await supabase
@@ -898,7 +899,8 @@ function PaymentsPageInner() {
       return;
     }
     const supabase = createClient();
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const { data, error } = await supabase
       .from("prior_commitments")
       .select("id, name, monthly_amount, total_installments, start_date, end_date")
@@ -946,7 +948,8 @@ function PaymentsPageInner() {
 
     setIsLoadingPast(true);
     const supabase = createClient();
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     try {
       const { data, error } = await supabase
