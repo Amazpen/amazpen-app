@@ -94,27 +94,20 @@ export default function CommitmentsImportPage() {
   // ============================================================================
 
   useEffect(() => {
-    (async () => {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user?.user) return;
+    async function fetchBusinesses() {
+      const { data, error } = await supabase
+        .from("businesses")
+        .select("id, name")
+        .order("name");
 
-      const { data: memberships } = await supabase
-        .from("business_members")
-        .select("business_id, businesses(id, name)")
-        .eq("user_id", user.user.id);
-
-      if (memberships) {
-        const biz = memberships
-          .map((m) => {
-            const b = m.businesses as unknown as { id: string; name: string };
-            return b ? { id: b.id, name: b.name } : null;
-          })
-          .filter(Boolean) as { id: string; name: string }[];
-        setBusinesses(biz);
-        if (!selectedBusinessId && biz.length > 0) setSelectedBusinessId(biz[0].id);
+      if (!error && data) {
+        setBusinesses(data);
+        if (!selectedBusinessId && data.length > 0) setSelectedBusinessId(data[0].id);
       }
-    })();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }
+    fetchBusinesses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ============================================================================
   // CSV PARSING
