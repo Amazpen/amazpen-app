@@ -955,7 +955,7 @@ function PaymentsPageInner() {
           id, due_date, amount, payment_method, installment_number, installments_count,
           payment:payments!inner(id, business_id, deleted_at, receipt_url, notes, supplier:suppliers(name))
         `)
-        .lt("due_date", today)
+        .lte("due_date", today)
         .is("payment.deleted_at", null)
         .in("payment.business_id", selectedBusinesses)
         .order("due_date", { ascending: false })
