@@ -2173,7 +2173,7 @@ function PaymentsPageInner() {
         {/* Header - Title and Total - hidden when no data */}
         {paymentMethodsData.length > 0 && (
           <div className="flex items-center justify-between">
-            <h2 className="text-[24px] font-bold text-center flex items-center gap-[6px]"><Wallet size={22} color="#FA5A7D" weight="duotone" />תשלומים שיצאו</h2>
+            <h2 className="text-[24px] font-bold text-center">תשלומים שיצאו</h2>
             <div className="flex flex-col items-center">
               <span className="text-[24px] font-bold ltr-num">
                 ₪{totalPayments.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
