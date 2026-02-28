@@ -352,12 +352,16 @@ export default function SuppliersPage() {
         .select("*")
         .in("business_id", selectedBusinesses);
 
-      // Fetch current month invoices per supplier (total_amount = with VAT)
+      // Fetch current month invoices per supplier (for monthly_expense_amount check)
       const now = new Date();
-      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-      const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`;
+      const currentYear = now.getFullYear();
+      const monthStart = `${currentYear}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+      const monthEnd = `${currentYear}-${String(now.getMonth() + 1).padStart(2, "0")}-${new Date(currentYear, now.getMonth() + 1, 0).getDate()}`;
+      const yearStart = `${currentYear}-01-01`;
+      const yearEnd = `${currentYear}-12-31`;
       const supplierIds = (suppliersData || []).map((s: Record<string, unknown>) => s.id);
 
+      // Fetch current month invoices (for monthly_expense_amount check)
       const { data: monthlyInvoicesData } = supplierIds.length > 0
         ? await supabase
             .from("invoices")
@@ -368,26 +372,44 @@ export default function SuppliersPage() {
             .lte("invoice_date", monthEnd)
         : { data: [] };
 
-      // Sum invoices per supplier
+      // Sum current month invoices per supplier (for monthly_expense check)
       const supplierMonthlyPurchases = new Map<string, number>();
       for (const inv of monthlyInvoicesData || []) {
         const prev = supplierMonthlyPurchases.get(inv.supplier_id) || 0;
         supplierMonthlyPurchases.set(inv.supplier_id, prev + Number(inv.total_amount));
       }
 
-      // Fetch revenue targets for current month per business
+      // Fetch yearly invoices per supplier (total_amount = with VAT) for revenue percentage
+      const { data: yearlyInvoicesData } = supplierIds.length > 0
+        ? await supabase
+            .from("invoices")
+            .select("supplier_id, total_amount")
+            .in("supplier_id", supplierIds)
+            .is("deleted_at", null)
+            .gte("invoice_date", yearStart)
+            .lte("invoice_date", yearEnd)
+        : { data: [] };
+
+      // Sum yearly invoices per supplier
+      const supplierYearlyPurchases = new Map<string, number>();
+      for (const inv of yearlyInvoicesData || []) {
+        const prev = supplierYearlyPurchases.get(inv.supplier_id) || 0;
+        supplierYearlyPurchases.set(inv.supplier_id, prev + Number(inv.total_amount));
+      }
+
+      // Fetch all revenue targets for current year per business (all months)
       const { data: goalsData } = await supabase
         .from("goals")
         .select("business_id, revenue_target")
         .in("business_id", selectedBusinesses)
-        .eq("year", now.getFullYear())
-        .eq("month", now.getMonth() + 1)
+        .eq("year", currentYear)
         .is("deleted_at", null);
 
-      // Map business_id -> revenue_target
+      // Sum yearly revenue targets per business
       const revenueTargetMap = new Map<string, number>();
       for (const g of goalsData || []) {
-        revenueTargetMap.set(g.business_id, Number(g.revenue_target) || 0);
+        const prev = revenueTargetMap.get(g.business_id) || 0;
+        revenueTargetMap.set(g.business_id, prev + (Number(g.revenue_target) || 0));
       }
 
       // Merge supplier data with balance info
@@ -415,10 +437,10 @@ export default function SuppliersPage() {
           }
         }
 
-        // Calculate revenue percentage: (monthly purchases with VAT / revenue target) * 100
-        const monthlyPurchases = supplierMonthlyPurchases.get(supplier.id) || 0;
-        const revenueTarget = revenueTargetMap.get(supplier.business_id) || 0;
-        const revenuePercentage = revenueTarget > 0 ? (monthlyPurchases / revenueTarget) * 100 : 0;
+        // Calculate revenue percentage: (yearly purchases with VAT / yearly revenue target with VAT) * 100
+        const yearlyPurchases = supplierYearlyPurchases.get(supplier.id) || 0;
+        const yearlyRevenueTarget = revenueTargetMap.get(supplier.business_id) || 0;
+        const revenuePercentage = yearlyRevenueTarget > 0 ? (yearlyPurchases / yearlyRevenueTarget) * 100 : 0;
 
         return {
           ...supplier,
