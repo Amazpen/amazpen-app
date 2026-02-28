@@ -406,6 +406,15 @@ export default function SuppliersPage() {
           remainingPayment = balance?.balance || 0;
         }
 
+        // For suppliers with monthly_expense_amount, add current month expected expense
+        // if no invoice exists yet for the current month
+        if (supplier.monthly_expense_amount && Number(supplier.monthly_expense_amount) > 0) {
+          const hasCurrentMonthInvoice = supplierMonthlyPurchases.has(supplier.id);
+          if (!hasCurrentMonthInvoice) {
+            remainingPayment += Number(supplier.monthly_expense_amount);
+          }
+        }
+
         // Calculate revenue percentage: (monthly purchases with VAT / revenue target) * 100
         const monthlyPurchases = supplierMonthlyPurchases.get(supplier.id) || 0;
         const revenueTarget = revenueTargetMap.get(supplier.business_id) || 0;
@@ -1338,7 +1347,8 @@ export default function SuppliersPage() {
   );
 
   // Calculate total open payment (for suppliers tabs) or commitment total (for previous tab)
-  const today = new Date().toISOString().split("T")[0];
+  const todayDate = new Date();
+  const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
   const commitmentsTotalRemaining = filteredCommitments.reduce((sum, c) => {
     if (c.end_date <= today) return sum;
     const startDate = new Date(c.start_date);
