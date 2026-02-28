@@ -635,7 +635,7 @@ export default function AdminExpensesPage() {
         invoice_type: string;
         clarification_reason: string | null;
         is_consolidated: boolean;
-        data_source: string | null;
+        _bubble_ids: string | null;
       }[] = [];
       let skippedCount = 0;
 
@@ -672,7 +672,7 @@ export default function AdminExpensesPage() {
           invoice_type: expense.invoice_type,
           clarification_reason: expense.clarification_reason || null,
           is_consolidated: expense.is_consolidated,
-          data_source: expense.bubble_payment_ids ? `bubble:${expense.bubble_payment_ids}` : null,
+          _bubble_ids: expense.bubble_payment_ids || null,
         });
       }
 
@@ -692,7 +692,14 @@ export default function AdminExpensesPage() {
       let inserted = 0;
       for (let i = 0; i < records.length; i += batchSize) {
         const batch = records.slice(i, i + batchSize);
-        const { error } = await supabase.from("invoices").insert(batch);
+        // Separate bubble IDs from insert records (PostgREST may not recognize data_source)
+        const bubbleIds = batch.map(r => r._bubble_ids);
+        const cleanBatch = batch.map(({ _bubble_ids, ...rest }) => rest);
+
+        const { data: insertedRows, error } = await supabase
+          .from("invoices")
+          .insert(cleanBatch)
+          .select("id");
 
         if (error) {
           showToast(`שגיאה בייבוא (אחרי ${inserted} הוצאות): ${error.message}`, "error");
@@ -700,6 +707,20 @@ export default function AdminExpensesPage() {
           setImportProgress("");
           return;
         }
+
+        // Update data_source via RPC for rows with bubble IDs
+        if (insertedRows) {
+          for (let j = 0; j < insertedRows.length; j++) {
+            const bubbleId = bubbleIds[j];
+            if (bubbleId) {
+              await supabase.rpc("update_invoice_data_source", {
+                p_invoice_id: insertedRows[j].id,
+                p_data_source: `bubble:${bubbleId}`,
+              });
+            }
+          }
+        }
+
         inserted += batch.length;
         setImportProgress(`מייבא... ${inserted}/${records.length}`);
       }
