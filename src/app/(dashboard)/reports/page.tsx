@@ -473,7 +473,8 @@ export default function ReportsPage() {
 
         // Calculate food cost (עלות מכר) target: (food_cost_target_pct / 100) * (revenue_target / vatDivisor)
         const foodCostTargetPct = Number(goal?.food_cost_target_pct || 0);
-        const foodCostTarget = (foodCostTargetPct / 100) * totalRevenue;
+        const revenueTargetBeforeVat = Number(goal?.revenue_target || 0) / vatDivisor;
+        const foodCostTarget = (foodCostTargetPct / 100) * revenueTargetBeforeVat;
 
         // Group categories by parent
         // Merge "עלויות עובדים" into "עלות עובדים" to avoid duplicates
