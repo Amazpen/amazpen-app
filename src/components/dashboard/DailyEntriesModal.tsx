@@ -652,8 +652,7 @@ export function DailyEntriesModal({
       { data: openPaymentsData },
       { data: allInvoicesData },
       { data: allPaymentsData },
-      { data: allCommitmentSplitsData },
-      { data: paidCommitmentSplitsData },
+      { data: priorCommitmentsData },
     ] = await Promise.all([
       // 1. Entry income breakdown
       supabase
@@ -742,21 +741,12 @@ export function DailyEntriesModal({
         .select("total_amount")
         .eq("business_id", businessId)
         .is("deleted_at", null),
-      // 16. All commitment splits (installments_count > 3) - total obligations
+      // 16. Prior commitments from dedicated table
       supabase
-        .from("payment_splits")
-        .select("amount, installments_count, payments!inner(business_id, deleted_at)")
-        .eq("payments.business_id", businessId)
-        .is("payments.deleted_at", null)
-        .gt("installments_count", 3),
-      // 17. Paid commitment splits (due_date <= entry date) - already paid
-      supabase
-        .from("payment_splits")
-        .select("amount, installments_count, payments!inner(business_id, deleted_at)")
-        .eq("payments.business_id", businessId)
-        .is("payments.deleted_at", null)
-        .gt("installments_count", 3)
-        .lte("due_date", currentEntry?.entry_date || ""),
+        .from("prior_commitments")
+        .select("monthly_amount, total_installments, start_date, end_date")
+        .eq("business_id", businessId)
+        .is("deleted_at", null),
     ]);
 
     // Sequential fetches that depend on parallel results
@@ -940,14 +930,22 @@ export function DailyEntriesModal({
     );
     setOpenSuppliersTotal(() => totalInvoices - totalPayments);
 
-    // Calculate open commitments: all commitment splits - paid commitment splits (due_date <= entry date)
-    const totalCommitments = (allCommitmentSplitsData || []).reduce(
-      (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
+    // Calculate open commitments from prior_commitments table
+    const entryDateStr = currentEntry?.entry_date || new Date().toISOString().split("T")[0];
+    const openCommitments = (priorCommitmentsData || []).reduce(
+      (sum: number, c: Record<string, unknown>) => {
+        const endDate = String(c.end_date || "");
+        if (endDate <= entryDateStr) return sum; // already finished
+        const monthlyAmount = Number(c.monthly_amount) || 0;
+        const totalInstallments = Number(c.total_installments) || 0;
+        const startDate = new Date(String(c.start_date || ""));
+        const entryD = new Date(entryDateStr);
+        const monthsElapsed = Math.max(0, (entryD.getFullYear() - startDate.getFullYear()) * 12 + (entryD.getMonth() - startDate.getMonth()));
+        const remaining = Math.max(0, totalInstallments - monthsElapsed);
+        return sum + (monthlyAmount * remaining);
+      }, 0
     );
-    const paidCommitments = (paidCommitmentSplitsData || []).reduce(
-      (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
-    );
-    setOpenCommitmentsTotal(() => totalCommitments - paidCommitments);
+    setOpenCommitmentsTotal(() => openCommitments);
 
     setIsLoadingDetails(false);
   };

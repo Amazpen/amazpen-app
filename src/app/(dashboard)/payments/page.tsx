@@ -126,15 +126,14 @@ interface ForecastMonth {
   splits: ForecastSplit[];
 }
 
-// Commitment: ongoing obligation (multi-installment payment)
-interface Commitment {
-  payment_id: string;
-  supplier_name: string;
-  notes: string | null;
+// Prior commitment from DB table
+interface PriorCommitment {
+  id: string;
+  name: string;
   monthly_amount: number;
-  last_due_date: string;
-  remaining_count: number;
-  installments_count: number;
+  total_installments: number;
+  start_date: string;
+  end_date: string;
 }
 
 // Supplier breakdown per payment method (for popup)
@@ -469,7 +468,7 @@ function PaymentsPageInner() {
   const [isLoadingForecast, setIsLoadingForecast] = useState(false);
   const [expandedForecastMonths, setExpandedForecastMonths] = useState<Set<string>>(new Set());
   const [expandedForecastDates, setExpandedForecastDates] = useState<Set<string>>(new Set());
-  const [commitments, setCommitments] = useState<Commitment[]>([]);
+  const [priorCommitments, setPriorCommitments] = useState<PriorCommitment[]>([]);
   const [showCommitments, setShowCommitments] = useState(false);
 
   // Past payments state (mirror of forecast but for past splits)
@@ -479,7 +478,7 @@ function PaymentsPageInner() {
   const [isLoadingPast, setIsLoadingPast] = useState(false);
   const [expandedPastMonths, setExpandedPastMonths] = useState<Set<string>>(new Set());
   const [expandedPastDates, setExpandedPastDates] = useState<Set<string>>(new Set());
-  const [pastCommitments, setPastCommitments] = useState<Commitment[]>([]);
+  const [pastCommitments, setPastCommitments] = useState<PriorCommitment[]>([]);
   const [showPastCommitments, setShowPastCommitments] = useState(false);
 
   // Format date string from database
@@ -800,7 +799,7 @@ function PaymentsPageInner() {
     if (selectedBusinesses.length === 0) {
       setForecastMonths([]);
       setForecastTotal(0);
-      setCommitments([]);
+      setPriorCommitments([]);
       return;
     }
 
@@ -830,7 +829,7 @@ function PaymentsPageInner() {
       if (!data || data.length === 0) {
         setForecastMonths([]);
         setForecastTotal(0);
-        setCommitments([]);
+        setPriorCommitments([]);
         setIsLoadingForecast(false);
         return;
       }
@@ -838,9 +837,6 @@ function PaymentsPageInner() {
       // Group by month for forecast
       const monthMap = new Map<string, ForecastSplit[]>();
       let total = 0;
-
-      // Also build commitments from the same data (installments_count > 3)
-      const commitMap = new Map<string, { amount: number; due_dates: string[]; payment: { id: string; notes: string | null; supplier_name: string } }>();
 
       for (const row of data) {
         const payment = row.payment as unknown as { id: string; receipt_url: string | null; notes: string | null; supplier: { name: string } | null };
@@ -865,19 +861,6 @@ function PaymentsPageInner() {
         const key = `${dY}-${dM}`;
         if (!monthMap.has(key)) monthMap.set(key, []);
         monthMap.get(key)!.push(split);
-
-        // Collect commitment data (multi-installment payments)
-        if ((row.installments_count || 0) > 3) {
-          const commitKey = `${payment?.id}__${row.amount}`;
-          if (!commitMap.has(commitKey)) {
-            commitMap.set(commitKey, {
-              amount: Number(row.amount),
-              due_dates: [],
-              payment: { id: payment?.id || "", notes: payment?.notes || null, supplier_name: payment?.supplier?.name || "לא ידוע" },
-            });
-          }
-          commitMap.get(commitKey)!.due_dates.push(row.due_date);
-        }
       }
 
       const months: ForecastMonth[] = Array.from(monthMap.entries())
@@ -898,26 +881,6 @@ function PaymentsPageInner() {
       if (months.length > 0) {
         setExpandedForecastMonths(new Set([months[0].key]));
       }
-
-      // Build commitments list from collected data
-      if (commitMap.size > 0) {
-        const commitList: Commitment[] = Array.from(commitMap.values()).map(({ amount, due_dates, payment: p }) => {
-          const lastDate = due_dates.sort().reverse()[0];
-          return {
-            payment_id: p.id,
-            supplier_name: p.supplier_name,
-            notes: p.notes,
-            monthly_amount: amount,
-            last_due_date: lastDate,
-            remaining_count: due_dates.length,
-            installments_count: due_dates.length,
-          };
-        });
-        commitList.sort((a, b) => b.monthly_amount - a.monthly_amount);
-        setCommitments(commitList);
-      } else {
-        setCommitments([]);
-      }
     } catch (err) {
       console.error("Error fetching forecast:", err);
       showToast("שגיאה בטעינת צפי תשלומים", "error");
@@ -926,6 +889,45 @@ function PaymentsPageInner() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBusinesses]);
+
+  // Fetch prior commitments from DB
+  const fetchPriorCommitments = useCallback(async () => {
+    if (selectedBusinesses.length === 0) {
+      setPriorCommitments([]);
+      setPastCommitments([]);
+      return;
+    }
+    const supabase = createClient();
+    const today = new Date().toISOString().split("T")[0];
+    const { data, error } = await supabase
+      .from("prior_commitments")
+      .select("id, name, monthly_amount, total_installments, start_date, end_date")
+      .in("business_id", selectedBusinesses)
+      .is("deleted_at", null);
+
+    if (error || !data) {
+      setPriorCommitments([]);
+      setPastCommitments([]);
+      return;
+    }
+
+    const future: PriorCommitment[] = [];
+    const past: PriorCommitment[] = [];
+    for (const row of data) {
+      if (row.end_date > today) {
+        future.push(row);
+      } else {
+        past.push(row);
+      }
+    }
+    setPriorCommitments(future);
+    setPastCommitments(past);
+  }, [selectedBusinesses]);
+
+  // Fetch prior commitments when businesses change
+  useEffect(() => {
+    fetchPriorCommitments();
+  }, [fetchPriorCommitments, refreshTrigger]);
 
   // Fetch forecast when toggled on
   useEffect(() => {
@@ -939,7 +941,6 @@ function PaymentsPageInner() {
     if (selectedBusinesses.length === 0) {
       setPastMonths([]);
       setPastTotal(0);
-      setPastCommitments([]);
       return;
     }
 
@@ -969,14 +970,12 @@ function PaymentsPageInner() {
       if (!data || data.length === 0) {
         setPastMonths([]);
         setPastTotal(0);
-        setPastCommitments([]);
         setIsLoadingPast(false);
         return;
       }
 
       const monthMap = new Map<string, ForecastSplit[]>();
       let total = 0;
-      const commitMap = new Map<string, { amount: number; due_dates: string[]; payment: { id: string; notes: string | null; supplier_name: string } }>();
 
       for (const row of data) {
         const payment = row.payment as unknown as { id: string; receipt_url: string | null; notes: string | null; supplier: { name: string } | null };
@@ -1001,18 +1000,6 @@ function PaymentsPageInner() {
         const key = `${dY2}-${dM2}`;
         if (!monthMap.has(key)) monthMap.set(key, []);
         monthMap.get(key)!.push(split);
-
-        if ((row.installments_count || 0) > 3) {
-          const commitKey = `${payment?.id}__${row.amount}`;
-          if (!commitMap.has(commitKey)) {
-            commitMap.set(commitKey, {
-              amount: Number(row.amount),
-              due_dates: [],
-              payment: { id: payment?.id || "", notes: payment?.notes || null, supplier_name: payment?.supplier?.name || "לא ידוע" },
-            });
-          }
-          commitMap.get(commitKey)!.due_dates.push(row.due_date);
-        }
       }
 
       // Sort months descending (newest first) for past payments
@@ -1032,25 +1019,6 @@ function PaymentsPageInner() {
       setPastTotal(total);
       if (months.length > 0) {
         setExpandedPastMonths(new Set([months[0].key]));
-      }
-
-      if (commitMap.size > 0) {
-        const commitList: Commitment[] = Array.from(commitMap.values()).map(({ amount, due_dates, payment: p }) => {
-          const lastDate = due_dates.sort().reverse()[0];
-          return {
-            payment_id: p.id,
-            supplier_name: p.supplier_name,
-            notes: p.notes,
-            monthly_amount: amount,
-            last_due_date: lastDate,
-            remaining_count: due_dates.length,
-            installments_count: due_dates.length,
-          };
-        });
-        commitList.sort((a, b) => b.monthly_amount - a.monthly_amount);
-        setPastCommitments(commitList);
-      } else {
-        setPastCommitments([]);
       }
     } catch (err) {
       console.error("Error fetching past payments:", err);
@@ -2506,7 +2474,7 @@ function PaymentsPageInner() {
               </div>
 
               {/* Commitments Section - התחייבויות קודמות */}
-              {commitments.length > 0 && (
+              {priorCommitments.length > 0 && (
                 <div className="bg-white/5 border border-white/25 rounded-[10px] p-[3px] mx-[5px]">
                   <Button
                     type="button"
@@ -2520,23 +2488,20 @@ function PaymentsPageInner() {
 
                   {showCommitments && (
                     <div className="flex flex-col gap-[1px]">
-                      {commitments.map((c) => {
-                        const endDate = new Date(c.last_due_date);
+                      {priorCommitments.map((c) => {
+                        const endDate = new Date(c.end_date);
                         const endDateStr = `${String(endDate.getDate()).padStart(2, "0")}/${String(endDate.getMonth() + 1).padStart(2, "0")}/${endDate.getFullYear()}`;
-                        const label = c.notes
-                          ? `${c.notes} (מסתיים ${endDateStr})`
-                          : `${c.supplier_name} - מסתיים ${endDateStr}`;
                         return (
                           <div
-                            key={`${c.payment_id}__${c.monthly_amount}`}
+                            key={c.id}
                             className="flex items-center justify-between px-[10px] py-[8px] border-t border-white/10"
                           >
-                            <span className="text-[16px] text-white flex-1">{label}</span>
+                            <span className="text-[16px] text-white flex-1">{`${c.name} (מסתיים ${endDateStr})`}</span>
                             <div className="flex flex-col items-end">
                               <span className="text-[16px] text-white">
                                 {`₪${c.monthly_amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                               </span>
-                              <span className="text-[12px] font-bold text-white">{`סה"כ לתשלום`}</span>
+                              <span className="text-[12px] font-bold text-white">{`${c.total_installments} תשלומים`}</span>
                             </div>
                           </div>
                         );
@@ -2686,22 +2651,19 @@ function PaymentsPageInner() {
                   {showPastCommitments && (
                     <div className="flex flex-col gap-[1px]">
                       {pastCommitments.map((c) => {
-                        const endDate = new Date(c.last_due_date);
+                        const endDate = new Date(c.end_date);
                         const endDateStr = `${String(endDate.getDate()).padStart(2, "0")}/${String(endDate.getMonth() + 1).padStart(2, "0")}/${endDate.getFullYear()}`;
-                        const label = c.notes
-                          ? `${c.notes} (הסתיים ${endDateStr})`
-                          : `${c.supplier_name} - הסתיים ${endDateStr}`;
                         return (
                           <div
-                            key={`${c.payment_id}__${c.monthly_amount}`}
+                            key={c.id}
                             className="flex items-center justify-between px-[10px] py-[8px] border-t border-white/10"
                           >
-                            <span className="text-[16px] text-white flex-1">{label}</span>
+                            <span className="text-[16px] text-white flex-1">{`${c.name} (הסתיים ${endDateStr})`}</span>
                             <div className="flex flex-col items-end">
                               <span className="text-[16px] text-white">
                                 {`₪${c.monthly_amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                               </span>
-                              <span className="text-[12px] font-bold text-white">{`סה"כ שולם`}</span>
+                              <span className="text-[12px] font-bold text-white">{`${c.total_installments} תשלומים`}</span>
                             </div>
                           </div>
                         );

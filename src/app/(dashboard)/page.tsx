@@ -519,7 +519,7 @@ export default function DashboardPage() {
 
       // Fetch additional info: open payments, open suppliers, open commitments
       const businessId = selectedBusinesses[0];
-      const [openPaymentSplitsResult, allInvoicesTotalResult, allPaymentsTotalResult, allCommitmentSplitsResult, paidCommitmentSplitsResult] = await Promise.all([
+      const [openPaymentSplitsResult, allInvoicesTotalResult, allPaymentsTotalResult, priorCommitmentsResult] = await Promise.all([
         // Open payments - payment splits with due_date > today
         supabase
           .from("payment_splits")
@@ -539,21 +539,12 @@ export default function DashboardPage() {
           .select("total_amount")
           .eq("business_id", businessId)
           .is("deleted_at", null),
-        // All commitment splits (installments_count > 3)
+        // All prior commitments (from prior_commitments table)
         supabase
-          .from("payment_splits")
-          .select("amount, installments_count, payments!inner(business_id, deleted_at)")
-          .eq("payments.business_id", businessId)
-          .is("payments.deleted_at", null)
-          .gt("installments_count", 3),
-        // Paid commitment splits (due_date <= today)
-        supabase
-          .from("payment_splits")
-          .select("amount, installments_count, payments!inner(business_id, deleted_at)")
-          .eq("payments.business_id", businessId)
-          .is("payments.deleted_at", null)
-          .gt("installments_count", 3)
-          .lte("due_date", todayStr),
+          .from("prior_commitments")
+          .select("monthly_amount, total_installments, start_date, end_date")
+          .eq("business_id", businessId)
+          .is("deleted_at", null),
       ]);
 
       const openPaymentsTotal = (openPaymentSplitsResult.data || []).reduce(
@@ -566,13 +557,21 @@ export default function DashboardPage() {
         (sum: number, pay: Record<string, unknown>) => sum + (Number(pay.total_amount) || 0), 0
       );
       const openSuppliersTotal = totalInvoicesAmount - totalPaymentsAmount;
-      const totalCommitments = (allCommitmentSplitsResult.data || []).reduce(
-        (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
+      // Calculate open commitments from prior_commitments table
+      // For each commitment: remaining = monthly_amount * remaining_installments
+      const openCommitmentsTotal = (priorCommitmentsResult.data || []).reduce(
+        (sum: number, c: Record<string, unknown>) => {
+          const endDate = String(c.end_date || "");
+          if (endDate <= todayStr) return sum; // already finished
+          const monthlyAmount = Number(c.monthly_amount) || 0;
+          const totalInstallments = Number(c.total_installments) || 0;
+          const startDate = new Date(String(c.start_date || ""));
+          const now = new Date(todayStr);
+          const monthsElapsed = Math.max(0, (now.getFullYear() - startDate.getFullYear()) * 12 + (now.getMonth() - startDate.getMonth()));
+          const remaining = Math.max(0, totalInstallments - monthsElapsed);
+          return sum + (monthlyAmount * remaining);
+        }, 0
       );
-      const paidCommitments = (paidCommitmentSplitsResult.data || []).reduce(
-        (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
-      );
-      const openCommitmentsTotal = totalCommitments - paidCommitments;
 
       const todayBreakdowns = todayBreakdownResult.data || [];
       const allIncomeSources = incomeSourcesResult.data || [];

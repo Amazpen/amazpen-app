@@ -217,6 +217,7 @@ export default function InsightsPage() {
         { data: receiptData },
         { data: productUsage },
         { data: managedProducts },
+        { data: priorCommitmentsData },
       ] = await Promise.all([
         // Current month daily entries
         supabase
@@ -309,6 +310,12 @@ export default function InsightsPage() {
         supabase
           .from("managed_products")
           .select("id, name, unit, unit_cost, target_pct")
+          .in("business_id", businessIds)
+          .is("deleted_at", null),
+        // Prior commitments
+        supabase
+          .from("prior_commitments")
+          .select("name, monthly_amount, total_installments, start_date, end_date")
           .in("business_id", businessIds)
           .is("deleted_at", null),
       ]);
@@ -857,29 +864,37 @@ export default function InsightsPage() {
       }
 
       // ====================================================================
-      // 18. CASHFLOW: Total future commitments
+      // 18. CASHFLOW: Total future commitments (payment splits + prior commitments)
       // ====================================================================
       const futurePayments = bizPaymentSplits.filter((ps) => ps.due_date > today);
-      if (futurePayments.length > 0) {
-        const totalFuture = futurePayments.reduce((s, ps) => s + (Number(ps.amount) || 0), 0);
-        const lastDue = futurePayments.reduce((l, ps) => ps.due_date > l ? ps.due_date : l, futurePayments[0].due_date);
-        const monthsAhead = Math.ceil((new Date(lastDue).getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30));
+      const futurePriorCommitments = (priorCommitmentsData || []).filter(
+        (c: Record<string, unknown>) => String(c.end_date || "") > today
+      );
+      const priorCommitmentsTotal = futurePriorCommitments.reduce(
+        (sum: number, c: Record<string, unknown>) => {
+          const monthlyAmount = Number(c.monthly_amount) || 0;
+          const totalInstallments = Number(c.total_installments) || 0;
+          const startDate = new Date(String(c.start_date || ""));
+          const monthsElapsed = Math.max(0, (now.getFullYear() - startDate.getFullYear()) * 12 + (now.getMonth() - startDate.getMonth()));
+          const remaining = Math.max(0, totalInstallments - monthsElapsed);
+          return sum + (monthlyAmount * remaining);
+        }, 0
+      );
+      const futurePaymentsTotal = futurePayments.reduce((s, ps) => s + (Number(ps.amount) || 0), 0);
+      const totalFuture = futurePaymentsTotal + priorCommitmentsTotal;
 
-        // Group by month
-        const monthlyTotals: Record<string, number> = {};
-        for (const ps of futurePayments) {
-          const month = ps.due_date.substring(0, 7);
-          monthlyTotals[month] = (monthlyTotals[month] || 0) + (Number(ps.amount) || 0);
-        }
-        const peakMonth = Object.entries(monthlyTotals).sort((a, b) => b[1] - a[1])[0];
+      if (totalFuture > 0) {
+        const parts: string[] = [];
+        if (futurePayments.length > 0) parts.push(`${futurePayments.length} תשלומים עתידיים`);
+        if (futurePriorCommitments.length > 0) parts.push(`${futurePriorCommitments.length} התחייבויות קודמות`);
 
         results.push({
           id: "future-commitments",
           title: `${formatCurrencyFull(totalFuture)} התחייבויות עתידיות`,
-          description: `יש ${futurePayments.length} תשלומים עתידיים לתקופה של ${monthsAhead} חודשים. החודש עם ההוצאה הגבוהה ביותר: ${peakMonth[0]} (${formatCurrencyFull(peakMonth[1])}). חשוב לוודא תזרים מספיק בחודשים הבאים.`,
+          description: `${parts.join(" + ")}. חשוב לוודא תזרים מספיק בחודשים הבאים.`,
           severity: totalFuture > incomeBeforeVat ? "warning" : "info",
           category: "cashflow",
-          value: `${futurePayments.length} תשלומים | שיא: ${peakMonth[0]} (${formatCurrencyFull(peakMonth[1])})`,
+          value: parts.join(" | "),
         });
       }
 
