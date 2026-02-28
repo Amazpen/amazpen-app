@@ -29,6 +29,10 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import type { OCRLineItem, OCRExtractedData } from '@/types/ocr';
 import { savePriceTrackingForLineItems } from '@/lib/priceTracking';
 
+// Format date as YYYY-MM-DD using local timezone (avoids UTC shift from toISOString)
+const toLocalDateStr = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
 // Supplier from database
 interface Supplier {
   id: string;
@@ -284,8 +288,8 @@ function ExpensesPageInner() {
   const [expandedCategoryIds, setExpandedCategoryIds] = usePersistedState<string[]>("expenses:expandedCategories", []); // For drill-down (supports multiple)
 
   // Form state for new expense
-  const [expenseDate, setExpenseDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [referenceDate, setReferenceDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [expenseDate, setExpenseDate] = useState(() => toLocalDateStr(new Date()));
+  const [referenceDate, setReferenceDate] = useState(() => toLocalDateStr(new Date()));
   const referenceDateManuallySet = useRef(false);
   const [expenseType, setExpenseType] = useState<"current" | "goods" | "employees">("current");
   const [selectedSupplier, setSelectedSupplier] = useState("");
@@ -509,7 +513,7 @@ function ExpensesPageInner() {
       result.push({
         number: i + 1,
         date: date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
-        dateForInput: date.toISOString().split("T")[0],
+        dateForInput: toLocalDateStr(date),
         amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
       });
     }
@@ -526,20 +530,20 @@ function ExpensesPageInner() {
       if (creditCardId) {
         const card = businessCreditCards.find(c => c.id === creditCardId);
         if (card) {
-          return calculateCreditCardDueDate(invoiceDate || new Date().toISOString().split("T")[0], card.billing_day);
+          return calculateCreditCardDueDate(invoiceDate || toLocalDateStr(new Date()), card.billing_day);
         }
       }
       // No card info - default to 10th of current/next month
       const today = new Date();
       const day = today.getDate();
       if (day < 10) {
-        return new Date(today.getFullYear(), today.getMonth(), 10).toISOString().split("T")[0];
+        return toLocalDateStr(new Date(today.getFullYear(), today.getMonth(), 10));
       } else {
-        return new Date(today.getFullYear(), today.getMonth() + 1, 10).toISOString().split("T")[0];
+        return toLocalDateStr(new Date(today.getFullYear(), today.getMonth() + 1, 10));
       }
     }
     // Cash, bank_transfer, bit, check, paybox, etc. → invoice date
-    return invoiceDate || new Date().toISOString().split("T")[0];
+    return invoiceDate || toLocalDateStr(new Date());
   };
 
   // Calculate due date based on credit card billing day
@@ -552,11 +556,11 @@ function ExpensesPageInner() {
     if (dayOfMonth < billingDay) {
       // Due this month on billing day
       const dueDate = new Date(payDate.getFullYear(), payDate.getMonth(), billingDay);
-      return dueDate.toISOString().split("T")[0];
+      return toLocalDateStr(dueDate);
     } else {
       // Due next month on billing day
       const dueDate = new Date(payDate.getFullYear(), payDate.getMonth() + 1, billingDay);
-      return dueDate.toISOString().split("T")[0];
+      return toLocalDateStr(dueDate);
     }
   };
 
@@ -576,7 +580,7 @@ function ExpensesPageInner() {
       result.push({
         number: i + 1,
         date: date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
-        dateForInput: date.toISOString().split("T")[0],
+        dateForInput: toLocalDateStr(date),
         amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
       });
     }
@@ -658,7 +662,7 @@ function ExpensesPageInner() {
               newOnes.push({
                 number: i + 1,
                 date: date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
-                dateForInput: date.toISOString().split("T")[0],
+                dateForInput: toLocalDateStr(date),
                 amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
               });
             }
@@ -867,7 +871,7 @@ function ExpensesPageInner() {
             .from("invoices")
             .select(`
               *,
-              supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
+              supplier:suppliers(id, name, expense_category_id, is_fixed_expense, is_active, deleted_at),
               creator:profiles!invoices_created_by_fkey(full_name)
             `)
             .in("business_id", selectedBusinesses)
@@ -930,7 +934,13 @@ function ExpensesPageInner() {
           const uncategorizedId = "__uncategorized__";
 
           // Sum invoice amounts by supplier and category
-          for (const inv of invoicesData) {
+          // Filter: only include invoices from active, non-deleted suppliers (matches dashboard calculation)
+          const activeInvoices = invoicesData.filter(inv => {
+            if (!inv.supplier) return false;
+            const sup = inv.supplier as Record<string, unknown>;
+            return sup.is_active !== false && sup.deleted_at == null;
+          });
+          for (const inv of activeInvoices) {
             if (inv.supplier) {
               const supplierId = inv.supplier.id;
               const supplierName = inv.supplier.name;
@@ -1056,7 +1066,7 @@ function ExpensesPageInner() {
       return {
         id: inv.id,
         date: formatDateString(inv.invoice_date),
-        rawDate: inv.invoice_date ? new Date(inv.invoice_date).toISOString().split("T")[0] : "",
+        rawDate: inv.invoice_date ? toLocalDateStr(new Date(inv.invoice_date)) : "",
         supplier: inv.supplier?.name || "לא ידוע",
         reference: inv.invoice_number || "",
         amount: Number(inv.total_amount),
@@ -1638,7 +1648,7 @@ function ExpensesPageInner() {
   const handleClosePopup = () => {
     setShowAddExpensePopup(false);
     // Reset form
-    const today = new Date().toISOString().split("T")[0];
+    const today = toLocalDateStr(new Date());
     setExpenseDate(today);
     setReferenceDate(today);
     referenceDateManuallySet.current = false;
@@ -1808,7 +1818,7 @@ function ExpensesPageInner() {
     setShowEditPopup(false);
     setEditingInvoice(null);
     // Reset form
-    const today = new Date().toISOString().split("T")[0];
+    const today = toLocalDateStr(new Date());
     setExpenseDate(today);
     setReferenceDate(today);
     referenceDateManuallySet.current = false;
@@ -1922,7 +1932,7 @@ function ExpensesPageInner() {
     if (newStatus === 'paid') {
       if (invoice) {
         setPaymentInvoice(invoice);
-        const today = new Date().toISOString().split('T')[0];
+        const today = toLocalDateStr(new Date());
         setPaymentDate(today);
         setPaymentReference("");
         setPaymentNotes("");
@@ -2232,7 +2242,7 @@ function ExpensesPageInner() {
         const displayInvoices: InvoiceDisplay[] = invoicesData.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => ({
           id: inv.id,
           date: formatDateString(inv.invoice_date),
-          rawDate: inv.invoice_date ? new Date(inv.invoice_date).toISOString().split("T")[0] : "",
+          rawDate: inv.invoice_date ? toLocalDateStr(new Date(inv.invoice_date)) : "",
           supplier: inv.supplier?.name || "לא ידוע",
           reference: inv.invoice_number || "",
           amount: Number(inv.total_amount),
@@ -2640,7 +2650,7 @@ function ExpensesPageInner() {
               const url = URL.createObjectURL(blob);
               const link = document.createElement("a");
               link.href = url;
-              link.download = `expenses_${new Date().toISOString().split("T")[0]}.csv`;
+              link.download = `expenses_${toLocalDateStr(new Date())}.csv`;
               link.click();
               URL.revokeObjectURL(url);
             }}
@@ -3625,7 +3635,7 @@ function ExpensesPageInner() {
                     const newVal = !isPaidInFull;
                     setIsPaidInFull(newVal);
                     if (newVal) {
-                      const today = new Date().toISOString().split('T')[0];
+                      const today = toLocalDateStr(new Date());
                       setPaymentDate(today);
                       const amount = totalWithVat > 0 ? totalWithVat.toString() : "";
                       setPopupPaymentMethods([{

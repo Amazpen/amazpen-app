@@ -36,6 +36,10 @@ const hebrewMonths = [
 // Generate years array (2024 to 2031)
 const years = [2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031];
 
+const toLocalDateString = (date: Date) => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
 export function DateRangePicker({ dateRange, onChange, className = "", variant = "compact" }: DateRangePickerProps) {
   const endInputRef = useRef<HTMLInputElement>(null);
   const startInputRef = useRef<HTMLInputElement>(null);
@@ -128,7 +132,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
         <Input
           ref={endInputRef}
           type="date"
-          value={dateRange.end.toISOString().split("T")[0]}
+          value={toLocalDateString(dateRange.end)}
           onChange={(e) => onChange({ ...dateRange, end: new Date(e.target.value) })}
           className="sr-only"
           tabIndex={-1}
@@ -138,7 +142,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
         <Input
           ref={startInputRef}
           type="date"
-          value={dateRange.start.toISOString().split("T")[0]}
+          value={toLocalDateString(dateRange.start)}
           onChange={(e) => onChange({ ...dateRange, start: new Date(e.target.value) })}
           className="sr-only"
           tabIndex={-1}
@@ -174,7 +178,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
       <Input
         ref={endInputRef}
         type="date"
-        value={dateRange.end.toISOString().split("T")[0]}
+        value={toLocalDateString(dateRange.end)}
         onChange={(e) => {
           onChange({ ...dateRange, end: new Date(e.target.value) });
           setIsDropdownOpen(false);
@@ -187,7 +191,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
       <Input
         ref={startInputRef}
         type="date"
-        value={dateRange.start.toISOString().split("T")[0]}
+        value={toLocalDateString(dateRange.start)}
         onChange={(e) => {
           onChange({ ...dateRange, start: new Date(e.target.value) });
           setIsDropdownOpen(false);

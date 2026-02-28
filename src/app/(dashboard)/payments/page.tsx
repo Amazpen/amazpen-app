@@ -23,6 +23,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+// Format date as YYYY-MM-DD using local timezone (avoids UTC shift from toISOString)
+const toLocalDateStr = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
 // Supplier from database
 interface Supplier {
   id: string;
@@ -381,7 +385,7 @@ function PaymentsPageInner() {
   }, [highlightPaymentId, recentPaymentsData]);
 
   // Add payment form state
-  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [paymentDate, setPaymentDate] = useState(() => toLocalDateStr(new Date()));
   const [expenseType, setExpenseType] = useState<"expenses" | "purchases" | "employees">("expenses");
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [reference, setReference] = useState("");
@@ -435,7 +439,7 @@ function PaymentsPageInner() {
     if (showAddPaymentPopup && !editingPaymentId) {
       setPaymentMethods(prev => prev.map(pm => {
         if (pm.customInstallments.length === 0) {
-          return { ...pm, customInstallments: generateInstallments(parseInt(pm.installments) || 1, parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0, paymentDate || new Date().toISOString().split("T")[0]) };
+          return { ...pm, customInstallments: generateInstallments(parseInt(pm.installments) || 1, parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0, paymentDate || toLocalDateStr(new Date())) };
         }
         return pm;
       }));
@@ -1779,7 +1783,7 @@ function PaymentsPageInner() {
       if (creditCardId) {
         const card = businessCreditCards.find(c => c.id === creditCardId);
         if (card) {
-          return calculateCreditCardDueDate(invoiceDate || new Date().toISOString().split("T")[0], card.billing_day);
+          return calculateCreditCardDueDate(invoiceDate || toLocalDateStr(new Date()), card.billing_day);
         }
       }
       const today = new Date();
@@ -1791,7 +1795,7 @@ function PaymentsPageInner() {
         return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-10`;
       }
     }
-    return invoiceDate || new Date().toISOString().split("T")[0];
+    return invoiceDate || toLocalDateStr(new Date());
   };
 
   // Generate installments with credit card billing day logic
@@ -1866,13 +1870,13 @@ function PaymentsPageInner() {
     const isFirstEntry = paymentMethods.length > 0 && paymentMethods[0].id === id;
     if (isFirstEntry && field === "method" && value) {
       const selectedInvoice = openInvoices.find(inv => selectedInvoiceIds.has(inv.id));
-      const invoiceDate = selectedInvoice ? new Date(selectedInvoice.invoice_date).toISOString().split("T")[0] : paymentDate;
+      const invoiceDate = selectedInvoice ? toLocalDateStr(new Date(selectedInvoice.invoice_date)) : paymentDate;
       const smartDate = getSmartPaymentDate(value, invoiceDate);
       if (smartDate) setPaymentDate(smartDate);
     }
     if (isFirstEntry && field === "creditCardId" && value) {
       const selectedInvoice = openInvoices.find(inv => selectedInvoiceIds.has(inv.id));
-      const invoiceDate = selectedInvoice ? new Date(selectedInvoice.invoice_date).toISOString().split("T")[0] : paymentDate;
+      const invoiceDate = selectedInvoice ? toLocalDateStr(new Date(selectedInvoice.invoice_date)) : paymentDate;
       const smartDate = getSmartPaymentDate("credit_card", invoiceDate, value);
       if (smartDate) setPaymentDate(smartDate);
     }
@@ -2113,10 +2117,10 @@ function PaymentsPageInner() {
   }, [selectedSupplier, selectedBusinesses]);
 
   const resetForm = () => {
-    setPaymentDate(new Date().toISOString().split("T")[0]);
+    setPaymentDate(toLocalDateStr(new Date()));
     setExpenseType("purchases");
     setSelectedSupplier("");
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = toLocalDateStr(new Date());
     setPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: generateInstallments(1, 0, todayStr) }]);
     setReference("");
     setNotes("");
@@ -2776,7 +2780,7 @@ function PaymentsPageInner() {
               const url = URL.createObjectURL(blob);
               const link = document.createElement("a");
               link.href = url;
-              link.download = `payments_${new Date().toISOString().split("T")[0]}.csv`;
+              link.download = `payments_${toLocalDateStr(new Date())}.csv`;
               link.click();
               URL.revokeObjectURL(url);
             }}
