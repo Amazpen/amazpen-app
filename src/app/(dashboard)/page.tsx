@@ -264,11 +264,13 @@ const formatCurrency = (amount: number) => {
 
   if (absAmount >= 1000000) {
     const millions = absAmount / 1000000;
-    return `${sign}₪${millions % 1 === 0 ? millions.toFixed(0) : millions.toFixed(1)}M`;
+    const formatted = millions.toFixed(1).replace(/\.0$/, '');
+    return `${sign}₪${formatted}M`;
   }
   if (absAmount >= 1000) {
     const thousands = absAmount / 1000;
-    return `${sign}₪${thousands % 1 === 0 ? thousands.toFixed(0) : thousands.toFixed(1)}K`;
+    const formatted = thousands.toFixed(1).replace(/\.0$/, '');
+    return `${sign}₪${formatted}K`;
   }
   return `${sign}₪${absAmount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
@@ -282,11 +284,13 @@ const formatCurrencyWithSign = (amount: number) => {
 
   if (absAmount >= 1000000) {
     const millions = absAmount / 1000000;
-    return `${sign}₪${millions % 1 === 0 ? millions.toFixed(0) : millions.toFixed(1)}M`;
+    const formatted = millions.toFixed(1).replace(/\.0$/, '');
+    return `${sign}₪${formatted}M`;
   }
   if (absAmount >= 1000) {
     const thousands = absAmount / 1000;
-    return `${sign}₪${thousands % 1 === 0 ? thousands.toFixed(0) : thousands.toFixed(1)}K`;
+    const formatted = thousands.toFixed(1).replace(/\.0$/, '');
+    return `${sign}₪${formatted}K`;
   }
   return `${sign}₪${absAmount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };

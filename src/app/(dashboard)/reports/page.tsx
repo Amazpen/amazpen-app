@@ -83,7 +83,7 @@ interface PriorLiabilityItem {
 // Format number for display
 function formatCurrency(value: number): string {
   if (Math.abs(value) >= 1000) {
-    return `₪${(value / 1000).toFixed(1)}K`;
+    return `₪${(value / 1000).toFixed(1).replace(/\.0$/, '')}K`;
   }
   return `₪${value.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
@@ -91,7 +91,7 @@ function formatCurrency(value: number): string {
 function formatDifference(value: number): string {
   const sign = value >= 0 ? "" : "";
   if (Math.abs(value) >= 1000) {
-    return `₪${sign}${(value / 1000).toFixed(1)}K`;
+    return `₪${sign}${(value / 1000).toFixed(1).replace(/\.0$/, '')}K`;
   }
   return `₪${sign}${value.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }

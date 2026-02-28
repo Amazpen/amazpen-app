@@ -48,7 +48,7 @@ const formatPercent = (value: number) => {
 
 // Format currency abbreviated for chart axis (e.g. 500K, 1.2M)
 const formatCurrencyAbbrev = (value: number) => {
-  if (value >= 1000000) return `₪${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000000) return `₪${(value / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
   if (value >= 1000) return `₪${(value / 1000).toFixed(0)}K`;
   return `₪${value}`;
 };
