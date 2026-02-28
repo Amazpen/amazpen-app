@@ -26,6 +26,7 @@ interface Invoice {
   invoice_number: string;
   supplier_id: string;
   total_amount: number;
+  data_source: string | null;
 }
 
 /** A single split row (from sub-payments CSV or from main CSV rows that ARE splits) */
@@ -50,6 +51,8 @@ interface MergedPayment {
   notes: string;
   receipt_url: string;
   splits: ParsedSplit[];
+  unique_id: string;
+  invoice_id: string | null;
 }
 
 // ===== Constants =====
@@ -206,10 +209,9 @@ export default function AdminPaymentsPage() {
           .order("name"),
         supabase
           .from("invoices")
-          .select("id, invoice_number, supplier_id, total_amount")
+          .select("id, invoice_number, supplier_id, total_amount, data_source")
           .eq("business_id", selectedBusinessId)
-          .is("deleted_at", null)
-          .not("invoice_number", "is", null),
+          .is("deleted_at", null),
       ]);
       if (suppliersRes.data) setSuppliers(suppliersRes.data);
       if (invoicesRes.data) setInvoices(invoicesRes.data);
@@ -224,15 +226,16 @@ export default function AdminPaymentsPage() {
     return suppliers.find(s => s.name.toLowerCase() === normalized);
   }, [suppliers]);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const findInvoice = useCallback((supplierName: string, invoiceNumber: string): Invoice | undefined => {
-    if (!invoiceNumber) return undefined;
-    const supplier = findSupplierByName(supplierName);
-    if (!supplier) return undefined;
-    return invoices.find(
-      inv => inv.supplier_id === supplier.id && inv.invoice_number === invoiceNumber
-    );
-  }, [findSupplierByName, invoices]);
+  // Find invoice by Bubble unique_id (stored in data_source as "bubble:id1 , id2 , ...")
+  const findInvoiceByBubbleId = useCallback((uniqueId: string): Invoice | undefined => {
+    if (!uniqueId) return undefined;
+    return invoices.find(inv => {
+      if (!inv.data_source || !inv.data_source.startsWith("bubble:")) return false;
+      const ids = inv.data_source.slice(7); // remove "bubble:" prefix
+      // IDs may be comma-separated with spaces
+      return ids.split(",").some(id => id.trim() === uniqueId.trim());
+    });
+  }, [invoices]);
 
   // ===== Header aliases for main CSV =====
   const mainHeaderAliases: Record<string, string> = {
@@ -429,6 +432,8 @@ export default function AdminPaymentsPage() {
 
         if (!findSupplierByName(supplierName)) unmatchedSet.add(supplierName);
 
+        const uid = group.uniqueIds[0] || "";
+        const matchedInvoice = findInvoiceByBubbleId(uid);
         payments.push({
           supplier_name: supplierName,
           payment_date: earliestDate,
@@ -437,6 +442,8 @@ export default function AdminPaymentsPage() {
           notes,
           receipt_url: images,
           splits,
+          unique_id: uid,
+          invoice_id: matchedInvoice?.id || null,
         });
       } else {
         // No sub-payments - splits come from main rows themselves
@@ -479,6 +486,8 @@ export default function AdminPaymentsPage() {
 
           if (!findSupplierByName(supplierName)) unmatchedSet.add(supplierName);
 
+          const installUid = group.uniqueIds[0] || "";
+          const installMatchedInvoice = findInvoiceByBubbleId(installUid);
           payments.push({
             supplier_name: supplierName,
             payment_date: earliestDate,
@@ -487,6 +496,8 @@ export default function AdminPaymentsPage() {
             notes,
             receipt_url: images,
             splits,
+            unique_id: installUid,
+            invoice_id: installMatchedInvoice?.id || null,
           });
         } else {
           // Single payment row - check if it has sub-payments from subs CSV (standalone subs)
@@ -508,6 +519,7 @@ export default function AdminPaymentsPage() {
 
           if (!findSupplierByName(supplierName)) unmatchedSet.add(supplierName);
 
+          const singleMatchedInvoice = findInvoiceByBubbleId(uid);
           if (splitAmount > 0 && method !== "other") {
             // Main row has split info
             payments.push({
@@ -528,6 +540,8 @@ export default function AdminPaymentsPage() {
                 notes: "",
                 credit_card_id: "",
               }],
+              unique_id: uid,
+              invoice_id: singleMatchedInvoice?.id || null,
             });
           } else {
             // Main row without split info - will get splits from subs CSV or be a bare payment
@@ -539,6 +553,8 @@ export default function AdminPaymentsPage() {
               notes,
               receipt_url: images,
               splits: [],
+              unique_id: uid,
+              invoice_id: singleMatchedInvoice?.id || null,
             });
           }
         }
@@ -622,6 +638,8 @@ export default function AdminPaymentsPage() {
           notes: "",
           receipt_url: "",
           splits,
+          unique_id: "",
+          invoice_id: null,
         });
       }
     }
@@ -655,7 +673,7 @@ export default function AdminPaymentsPage() {
     setUnmatchedSuppliers(Array.from(unmatchedSet));
     setParsingDone(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mainRows, subsRows, mainFields, subsFields, findSupplierByName]);
+  }, [mainRows, subsRows, mainFields, subsFields, findSupplierByName, findInvoiceByBubbleId]);
 
   // ===== Clear =====
 
@@ -716,17 +734,21 @@ export default function AdminPaymentsPage() {
         setImportProgress(`מייבא... ${inserted + 1}/${mergedPayments.length} - ${payment.supplier_name}`);
 
         // Insert payment
+        const paymentRecord: Record<string, unknown> = {
+          business_id: selectedBusinessId,
+          supplier_id: supplier.id,
+          payment_date: payment.payment_date,
+          total_amount: payment.total_amount,
+          notes: payment.notes || null,
+          created_by: user?.id || null,
+          receipt_url: payment.receipt_url || null,
+        };
+        if (payment.invoice_id) {
+          paymentRecord.invoice_id = payment.invoice_id;
+        }
         const { data: paymentData, error: paymentError } = await supabase
           .from("payments")
-          .insert({
-            business_id: selectedBusinessId,
-            supplier_id: supplier.id,
-            payment_date: payment.payment_date,
-            total_amount: payment.total_amount,
-            notes: payment.notes || null,
-            created_by: user?.id || null,
-            receipt_url: payment.receipt_url || null,
-          })
+          .insert(paymentRecord)
           .select("id")
           .single();
 
@@ -788,6 +810,7 @@ export default function AdminPaymentsPage() {
   const totalSum = mergedPayments.reduce((acc, p) => acc + p.total_amount, 0);
   const matchedCount = mergedPayments.filter(p => findSupplierByName(p.supplier_name)).length;
   const totalSplits = mergedPayments.reduce((acc, p) => acc + p.splits.length, 0);
+  const linkedToInvoice = mergedPayments.filter(p => p.invoice_id).length;
 
   // Method breakdown
   const methodCounts = new Map<string, { count: number; sum: number }>();
@@ -1030,6 +1053,11 @@ export default function AdminPaymentsPage() {
                 <span className="text-[11px] px-[6px] py-[2px] rounded bg-[#8B93FF]/20 text-[#8B93FF]">
                   {`סה"כ פיצולים: ${totalSplits}`}
                 </span>
+                {linkedToInvoice > 0 && (
+                  <span className="text-[11px] px-[6px] py-[2px] rounded bg-[#3CD856]/20 text-[#3CD856]">
+                    מקושרים להוצאות: {linkedToInvoice}
+                  </span>
+                )}
               </div>
               <div className="flex flex-wrap gap-[8px] justify-start mt-[6px]">
                 <span className="text-[11px] px-[6px] py-[2px] rounded bg-[#FFA412]/20 text-[#FFA412]">
@@ -1091,6 +1119,15 @@ export default function AdminPaymentsPage() {
                                   ספק לא נמצא
                                 </span>
                               )}
+                              {payment.invoice_id ? (
+                                <span className="text-[10px] px-[4px] py-[1px] rounded bg-[#3CD856]/20 text-[#3CD856]">
+                                  מקושר להוצאה
+                                </span>
+                              ) : payment.unique_id ? (
+                                <span className="text-[10px] px-[4px] py-[1px] rounded bg-[#FFA412]/20 text-[#FFA412]">
+                                  ללא הוצאה תואמת
+                                </span>
+                              ) : null}
                               {uniqueMethods.map(m => (
                                 <span key={m} className={`text-[10px] px-[4px] py-[1px] rounded ${paymentMethodColors[m] || paymentMethodColors.other}`}>
                                   {paymentMethodNames[m] || "אחר"}

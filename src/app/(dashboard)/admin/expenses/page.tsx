@@ -27,6 +27,7 @@ interface CsvExpense {
   parent_category: string;
   child_category: string;
   requires_vat: boolean;
+  bubble_payment_ids: string;
 }
 
 interface Business {
@@ -224,6 +225,8 @@ export default function AdminExpensesPage() {
             "שנה": "year", "חודש (מספר)": "month", "יום (מספר)": "day",
             // Business
             "עסק": "business_name",
+            // Bubble payment IDs (for migration linking)
+            "תשלומים": "bubble_payment_ids",
           };
 
           const detectedFields = results.meta.fields || [];
@@ -437,6 +440,9 @@ export default function AdminExpensesPage() {
               });
             }
 
+            // Bubble payment IDs (for migration linking)
+            const bubble_payment_ids = getField(row, "bubble_payment_ids");
+
             expenses.push({
               supplier_name,
               invoice_number,
@@ -455,6 +461,7 @@ export default function AdminExpensesPage() {
               parent_category,
               child_category,
               requires_vat,
+              bubble_payment_ids,
             });
           });
 
@@ -628,6 +635,7 @@ export default function AdminExpensesPage() {
         invoice_type: string;
         clarification_reason: string | null;
         is_consolidated: boolean;
+        data_source: string | null;
       }[] = [];
       let skippedCount = 0;
 
@@ -664,6 +672,7 @@ export default function AdminExpensesPage() {
           invoice_type: expense.invoice_type,
           clarification_reason: expense.clarification_reason || null,
           is_consolidated: expense.is_consolidated,
+          data_source: expense.bubble_payment_ids ? `bubble:${expense.bubble_payment_ids}` : null,
         });
       }
 
