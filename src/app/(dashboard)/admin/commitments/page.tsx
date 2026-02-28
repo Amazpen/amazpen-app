@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 
 // ============================================================================
@@ -53,6 +52,12 @@ function parseAmount(raw: string | number | undefined): number {
   const cleaned = raw.replace(/[₪$€,\s]/g, "").trim();
   if (cleaned === "-" || cleaned === "–" || cleaned === "") return 0;
   return parseFloat(cleaned) || 0;
+}
+
+function formatDateDisplay(dateStr: string): string {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
 // ============================================================================
@@ -237,77 +242,125 @@ export default function CommitmentsImportPage() {
   // ============================================================================
 
   return (
-    <div className="p-4 max-w-4xl mx-auto space-y-6" dir="rtl">
-      <h1 className="text-2xl font-bold text-white text-center">ייבוא התחייבויות קודמות</h1>
+    <div className="min-h-screen bg-[#0F1535] p-4 md:p-8" dir="rtl">
+      <div className="max-w-[700px] mx-auto flex flex-col gap-[20px]">
+        {/* Page Title */}
+        <div className="text-center">
+          <h1 className="text-[22px] font-bold text-white">ייבוא התחייבויות קודמות</h1>
+          <p className="text-[14px] text-white/50 mt-1">
+            בחר עסק והעלה קובץ CSV עם נתוני התחייבויות קודמות
+          </p>
+        </div>
 
-      {/* Business selector */}
-      <div className="flex items-center gap-3">
-        <label className="text-sm text-gray-300">עסק:</label>
-        <Select value={selectedBusinessId} onValueChange={setSelectedBusinessId}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="בחר עסק" />
-          </SelectTrigger>
-          <SelectContent>
-            {businesses.map((b) => (
-              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* File upload */}
-      <div className="flex items-center gap-3">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv"
-          onChange={handleFileUpload}
-          className="text-sm text-gray-300"
-        />
-        {csvRows.length > 0 && (
-          <Button variant="outline" size="sm" onClick={handleClear}>
-            נקה
-          </Button>
-        )}
-      </div>
-
-      {/* Preview */}
-      {parsedCommitments.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-white">
-            תצוגה מקדימה - {parsedCommitments.length} התחייבויות ({csvRows.length} תשלומים)
-          </h2>
-
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-right">שם התחייבות</TableHead>
-                <TableHead className="text-right">סכום חודשי</TableHead>
-                <TableHead className="text-right">מס׳ תשלומים</TableHead>
-                <TableHead className="text-right">תאריך התחלה</TableHead>
-                <TableHead className="text-right">תאריך סיום</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {parsedCommitments.map((c, i) => (
-                <TableRow key={i}>
-                  <TableCell className="text-right">{c.name}</TableCell>
-                  <TableCell className="text-right">₪{c.monthly_amount.toLocaleString("he-IL")}</TableCell>
-                  <TableCell className="text-right">{c.total_installments}</TableCell>
-                  <TableCell className="text-right">{c.start_date}</TableCell>
-                  <TableCell className="text-right">{c.end_date}</TableCell>
-                </TableRow>
+        {/* Business Selector */}
+        <div className="bg-[#4956D4]/20 rounded-[15px] p-[15px]">
+          <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">בחר עסק</h3>
+          <Select value={selectedBusinessId || "__none__"} onValueChange={(val) => { setSelectedBusinessId(val === "__none__" ? "" : val); handleClear(); }}>
+            <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+              <SelectValue placeholder="-- בחר עסק --" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">-- בחר עסק --</SelectItem>
+              {businesses.map((b) => (
+                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
               ))}
-            </TableBody>
-          </Table>
+            </SelectContent>
+          </Select>
+        </div>
 
-          <div className="flex items-center gap-3">
-            <Button onClick={handleImport} disabled={isImporting}>
+        {/* CSV Upload */}
+        {selectedBusinessId && (
+          <div className="bg-[#4956D4]/20 rounded-[15px] p-[15px]">
+            <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">העלאת קובץ CSV</h3>
+            <p className="text-[12px] text-white/40 text-right mb-[10px]">
+              כל שורה בקובץ = תשלום בודד. שורות עם אותו ID התחייבות יקובצו יחד.
+            </p>
+
+            {/* Column Mapping Info */}
+            <div className="mb-[12px]">
+              <span className="text-[12px] text-[#8B93FF] font-bold">עמודות נדרשות:</span>
+              <div className="flex flex-wrap gap-[4px] mt-[4px]">
+                {Object.entries(headerAliases).map(([heb]) => (
+                  <span key={heb} className="text-[11px] px-[6px] py-[2px] rounded bg-[#4956D4]/20 text-[#8B93FF]">
+                    {heb}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-[10px]">
+              <label className="flex-1 border border-dashed border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center cursor-pointer hover:border-[#4956D4] transition-colors">
+                <span className="text-[14px] text-white/60">
+                  {csvRows.length > 0 ? `${csvRows.length} שורות נטענו` : "לחץ לבחירת קובץ CSV"}
+                </span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+              {csvRows.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClear}
+                  className="h-[50px] px-[20px] border-[#4C526B] text-white hover:bg-white/10"
+                >
+                  נקה
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Preview */}
+        {parsedCommitments.length > 0 && (
+          <div className="bg-[#4956D4]/20 rounded-[15px] p-[15px]">
+            <div className="flex items-center justify-between mb-[15px]">
+              <h3 className="text-[16px] font-bold text-white">
+                תצוגה מקדימה
+              </h3>
+              <span className="text-[13px] text-[#8B93FF] font-bold">
+                {parsedCommitments.length} התחייבויות | {csvRows.length} תשלומים
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-[8px]">
+              {parsedCommitments.map((c, i) => (
+                <div
+                  key={i}
+                  className="bg-[#0F1535] rounded-[10px] p-[12px] flex flex-col gap-[6px]"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[15px] font-bold text-white">{c.name}</span>
+                    <span dir="ltr" className="text-[15px] font-bold text-[#FFA412]">
+                      ₪{c.monthly_amount.toLocaleString("he-IL")}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[12px] text-white/50">
+                    <span>{c.total_installments} תשלומים</span>
+                    <span>{formatDateDisplay(c.start_date)} → {formatDateDisplay(c.end_date)}</span>
+                  </div>
+                  <div className="text-[12px] text-white/30">
+                    סה״כ: ₪{(c.monthly_amount * c.total_installments).toLocaleString("he-IL")}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Import Button */}
+            <Button
+              onClick={handleImport}
+              disabled={isImporting}
+              className="w-full mt-[15px] h-[50px] bg-[#3CD856] hover:bg-[#34c04c] text-[#0F1535] text-[16px] font-bold rounded-[10px] transition-colors disabled:opacity-50"
+            >
               {isImporting ? importProgress : `ייבא ${parsedCommitments.length} התחייבויות`}
             </Button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
