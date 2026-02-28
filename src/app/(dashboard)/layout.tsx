@@ -41,7 +41,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/daily-entries", "/admin/historical-data", "/admin/online-users", "/admin/accounting-review", "/admin/day-exceptions", "/admin/bonus-plans"];
+const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/commitments", "/admin/daily-entries", "/admin/historical-data", "/admin/online-users", "/admin/accounting-review", "/admin/day-exceptions", "/admin/bonus-plans"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -70,6 +70,7 @@ const adminMenuItems = [
   { id: 105, label: "ייבוא ספקים", href: "/admin/suppliers", key: "admin-suppliers" },
   { id: 106, label: "ייבוא הוצאות", href: "/admin/expenses", key: "admin-expenses" },
   { id: 107, label: "ייבוא תשלומים", href: "/admin/payments", key: "admin-payments" },
+  { id: 108, label: "ייבוא התחייבויות", href: "/admin/commitments", key: "admin-commitments" },
   { id: 109, label: "ייבוא מילוי יומי", href: "/admin/daily-entries", key: "admin-daily-entries" },
   { id: 110, label: "ייבוא נתוני עבר", href: "/admin/historical-data", key: "admin-historical-data" },
   { id: 111, label: "בדיקה ורישום בהנה\"ח", href: "/admin/accounting-review", key: "admin-accounting-review" },
@@ -98,6 +99,7 @@ const pageTitles: Record<string, string> = {
   "/admin/suppliers": "ייבוא ספקים",
   "/admin/expenses": "ייבוא הוצאות",
   "/admin/payments": "ייבוא תשלומים",
+  "/admin/commitments": "ייבוא התחייבויות קודמות",
   "/admin/daily-entries": "ייבוא מילוי יומי",
   "/admin/historical-data": "ייבוא נתוני עבר",
   "/admin/accounting-review": "בדיקה ורישום בהנה\"ח",
