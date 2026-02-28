@@ -334,7 +334,7 @@ export default function CommitmentsImportPage() {
                   </div>
                   <div className="flex items-center justify-between text-[12px] text-white/50">
                     <span>{c.total_installments} תשלומים</span>
-                    <span>{formatDateDisplay(c.start_date)} → {formatDateDisplay(c.end_date)}</span>
+                    <span>{formatDateDisplay(c.end_date)} ← {formatDateDisplay(c.start_date)}</span>
                   </div>
                   <div className="text-[12px] text-white/30">
                     סה״כ: ₪{(c.monthly_amount * c.total_installments).toLocaleString("he-IL")}
