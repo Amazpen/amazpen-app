@@ -81,6 +81,16 @@ interface SupplierWithBalance extends Supplier {
   revenuePercentage: number;
 }
 
+// Prior commitment from DB table
+interface PriorCommitmentRow {
+  id: string;
+  name: string;
+  monthly_amount: number;
+  total_installments: number;
+  start_date: string;
+  end_date: string;
+}
+
 type TabType = "previous" | "current" | "purchases" | "employees";
 
 // Parse attachment_url: supports both single URL string and JSON array of URLs
@@ -124,6 +134,19 @@ export default function SuppliersPage() {
   // Suppliers data from database
   const [suppliers, setSuppliers] = useState<SupplierWithBalance[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Prior commitments data (for "previous" tab)
+  const [priorCommitments, setPriorCommitments] = useState<PriorCommitmentRow[]>([]);
+  const [isAddCommitmentOpen, setIsAddCommitmentOpen] = useState(false);
+  const [selectedCommitment, setSelectedCommitment] = useState<PriorCommitmentRow | null>(null);
+  const [showCommitmentDetail, setShowCommitmentDetail] = useState(false);
+  // Add commitment form fields
+  const [commitmentName, setCommitmentName] = useState("");
+  const [commitmentMonthlyAmount, setCommitmentMonthlyAmount] = useState("");
+  const [commitmentTotalInstallments, setCommitmentTotalInstallments] = useState("");
+  const [commitmentStartDate, setCommitmentStartDate] = useState("");
+  const [commitmentEndDate, setCommitmentEndDate] = useState("");
+  const [isSubmittingCommitment, setIsSubmittingCommitment] = useState(false);
 
   // Categories from database
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -400,6 +423,30 @@ export default function SuppliersPage() {
     }
 
     fetchSuppliers();
+  }, [selectedBusinesses, refreshTrigger]);
+
+  // Fetch prior commitments from database
+  useEffect(() => {
+    async function fetchPriorCommitments() {
+      if (selectedBusinesses.length === 0) {
+        setPriorCommitments([]);
+        return;
+      }
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("prior_commitments")
+        .select("id, name, monthly_amount, total_installments, start_date, end_date")
+        .in("business_id", selectedBusinesses)
+        .is("deleted_at", null)
+        .order("end_date", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching prior commitments:", error);
+        return;
+      }
+      setPriorCommitments(data || []);
+    }
+    fetchPriorCommitments();
   }, [selectedBusinesses, refreshTrigger]);
 
   // Fetch categories from database
@@ -1273,10 +1320,10 @@ export default function SuppliersPage() {
 
   // Filter suppliers by tab and search
   const filteredByTab = suppliers.filter((supplier) => {
-    if (activeTab === "previous") return supplier.has_previous_obligations;
-    if (activeTab === "purchases") return supplier.expense_type === "goods_purchases" && !supplier.has_previous_obligations;
-    if (activeTab === "employees") return supplier.expense_type === "employee_costs" && !supplier.has_previous_obligations;
-    return supplier.expense_type === "current_expenses" && !supplier.has_previous_obligations;
+    if (activeTab === "previous") return false; // previous tab uses prior_commitments, not suppliers
+    if (activeTab === "purchases") return supplier.expense_type === "goods_purchases";
+    if (activeTab === "employees") return supplier.expense_type === "employee_costs";
+    return supplier.expense_type === "current_expenses";
   });
 
   const filteredSuppliers = filteredByTab
@@ -1285,9 +1332,26 @@ export default function SuppliersPage() {
     )
     .sort((a, b) => b.remainingPayment - a.remainingPayment);
 
-  // Calculate total open payment
-  const totalOpenPayment = filteredSuppliers.reduce((sum, item) => sum + item.remainingPayment, 0);
-  const suppliersCount = filteredSuppliers.length;
+  // Filter commitments by search
+  const filteredCommitments = priorCommitments.filter((c) =>
+    c.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Calculate total open payment (for suppliers tabs) or commitment total (for previous tab)
+  const today = new Date().toISOString().split("T")[0];
+  const commitmentsTotalRemaining = filteredCommitments.reduce((sum, c) => {
+    if (c.end_date <= today) return sum;
+    const startDate = new Date(c.start_date);
+    const now = new Date();
+    const monthsElapsed = Math.max(0, (now.getFullYear() - startDate.getFullYear()) * 12 + (now.getMonth() - startDate.getMonth()));
+    const remaining = Math.max(0, c.total_installments - monthsElapsed);
+    return sum + (c.monthly_amount * remaining);
+  }, 0);
+
+  const totalOpenPayment = activeTab === "previous"
+    ? commitmentsTotalRemaining
+    : filteredSuppliers.reduce((sum, item) => sum + item.remainingPayment, 0);
+  const suppliersCount = activeTab === "previous" ? filteredCommitments.length : filteredSuppliers.length;
 
   return (
     <div dir="rtl" className="flex flex-col min-h-[calc(100vh-52px)] text-white px-[5px] py-[5px] pb-[80px] gap-[10px]">
@@ -1308,7 +1372,13 @@ export default function SuppliersPage() {
           type="button"
           onClick={() => {
             if (activeTab === "previous") {
-              setHasPreviousObligations(true);
+              setCommitmentName("");
+              setCommitmentMonthlyAmount("");
+              setCommitmentTotalInstallments("");
+              setCommitmentStartDate("");
+              setCommitmentEndDate("");
+              setIsAddCommitmentOpen(true);
+              return;
             }
             if (activeTab === "purchases") {
               setExpenseType("goods");
@@ -1366,9 +1436,60 @@ export default function SuppliersPage() {
           )}
         </div>
 
-        {/* Suppliers Grid */}
+        {/* Suppliers / Commitments Grid */}
         <div id="onboarding-suppliers-list" className="flex-1 overflow-auto mt-[15px] mx-0">
-          {isLoading ? (
+          {activeTab === "previous" ? (
+            /* Prior Commitments Grid */
+            filteredCommitments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-[50px] gap-[10px]">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-[#979797]">
+                  <path d="M12 8V12M12 16H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span className="text-[16px] text-[#979797]">
+                  {selectedBusinesses.length === 0 ? "יש לבחור עסק" : "אין התחייבויות קודמות"}
+                </span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-[26px]">
+                {filteredCommitments.map((c) => {
+                  const endDate = new Date(c.end_date);
+                  const endDateStr = `${String(endDate.getDate()).padStart(2, "0")}/${String(endDate.getMonth() + 1).padStart(2, "0")}/${endDate.getFullYear()}`;
+                  const isFinished = c.end_date <= today;
+                  return (
+                    <Button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCommitment(c);
+                        setShowCommitmentDetail(true);
+                      }}
+                      className={`bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#3D44A0] cursor-pointer relative ${isFinished ? "opacity-40" : ""}`}
+                    >
+                      {isFinished && (
+                        <Badge className="absolute top-[6px] left-[6px] text-[10px] bg-[#0BB783]/80 text-white px-[6px] py-[2px] rounded-full font-bold">הסתיים</Badge>
+                      )}
+                      <div className="w-[120px] text-center">
+                        <span className="text-[18px] font-bold text-white leading-[1.4]">
+                          {c.name}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span dir="ltr" className="text-[18px] font-semibold text-[#F64E60] text-center leading-[1.4]">
+                          ₪{c.monthly_amount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-[14px] text-white/70 text-center leading-[1.4]">
+                          {c.total_installments} תשלומים
+                        </span>
+                        <span className="text-[14px] text-white/70 text-center leading-[1.4]">
+                          עד {endDateStr}
+                        </span>
+                      </div>
+                    </Button>
+                  );
+                })}
+              </div>
+            )
+          ) : isLoading ? (
             /* Skeleton Loaders for Supplier Cards */
             <div className="grid grid-cols-2 gap-[26px]">
               {[...Array(8)].map((_, i) => (
@@ -1376,12 +1497,9 @@ export default function SuppliersPage() {
                   key={`skeleton-${i}`}
                   className="bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] animate-pulse"
                 >
-                  {/* Skeleton Supplier Name */}
                   <div className="w-[120px] flex justify-center">
                     <div className="w-[80px] h-[22px] bg-white/20 rounded-[5px]" />
                   </div>
-
-                  {/* Skeleton Payment Info */}
                   <div className="w-[100px] flex flex-col items-center gap-[4px]">
                     <div className="w-[80px] h-[18px] bg-white/15 rounded-[5px]" />
                     <div className="w-[50px] h-[18px] bg-[#F64E60]/25 rounded-[5px]" />
@@ -1408,18 +1526,14 @@ export default function SuppliersPage() {
                   onClick={() => handleOpenSupplierDetail(supplier)}
                   className={`bg-[#29318A] rounded-[10px] p-[7px] min-h-[170px] flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#3D44A0] cursor-pointer relative ${supplier.is_active === false ? "opacity-40" : ""}`}
                 >
-                  {/* Inactive Badge */}
                   {supplier.is_active === false && (
                     <Badge className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">לא פעיל</Badge>
                   )}
-                  {/* Supplier Name */}
                   <div className="w-[120px] text-center">
                     <span className="text-[18px] font-bold text-white leading-[1.4]">
                       {supplier.name}
                     </span>
                   </div>
-
-                  {/* Payment Info */}
                   <div className="w-[100px] flex flex-col items-center">
                     <span className="text-[18px] font-normal text-white text-center leading-[1.4]">
                       נותר לתשלום
@@ -3291,6 +3405,234 @@ export default function SuppliersPage() {
                     יציאה
                   </Button>
                 </div>
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
+
+      {/* Add Commitment Modal */}
+      <Sheet open={isAddCommitmentOpen} onOpenChange={(open) => !open && setIsAddCommitmentOpen(false)}>
+        <SheetContent
+          side="bottom"
+          className="h-auto max-h-[80vh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+          showCloseButton={false}
+        >
+          <SheetHeader className="border-b border-[#4C526B] pb-4">
+            <div className="flex justify-between items-center" dir="ltr">
+              <Button type="button" onClick={() => setIsAddCommitmentOpen(false)} className="text-[#7B91B0] hover:text-white transition-colors">
+                <X className="w-6 h-6" />
+              </Button>
+              <SheetTitle className="text-white text-xl font-bold">הוספת התחייבות קודמת</SheetTitle>
+              <div className="w-[24px]" />
+            </div>
+          </SheetHeader>
+
+          <div className="flex flex-col gap-[15px] p-[15px]" dir="rtl">
+            <div className="flex flex-col gap-[5px]">
+              <label className="text-[14px] font-medium text-white/80 text-right">שם ההתחייבות</label>
+              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                <Input
+                  title="שם ההתחייבות"
+                  value={commitmentName}
+                  onChange={(e) => setCommitmentName(e.target.value)}
+                  placeholder="לדוגמה: הלוואה לרכב"
+                  className="w-full h-full bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-[5px]">
+              <label className="text-[14px] font-medium text-white/80 text-right">סכום חודשי</label>
+              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                <Input
+                  title="סכום חודשי"
+                  type="tel"
+                  value={commitmentMonthlyAmount}
+                  onChange={(e) => setCommitmentMonthlyAmount(e.target.value)}
+                  placeholder="₪"
+                  className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-[5px]">
+              <label className="text-[14px] font-medium text-white/80 text-right">מספר תשלומים</label>
+              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                <Input
+                  title="מספר תשלומים"
+                  type="tel"
+                  value={commitmentTotalInstallments}
+                  onChange={(e) => setCommitmentTotalInstallments(e.target.value)}
+                  placeholder="לדוגמה: 12"
+                  className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-[5px]">
+              <label className="text-[14px] font-medium text-white/80 text-right">תאריך התחלה</label>
+              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                <Input
+                  title="תאריך התחלה"
+                  type="date"
+                  value={commitmentStartDate}
+                  onChange={(e) => setCommitmentStartDate(e.target.value)}
+                  className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-[5px]">
+              <label className="text-[14px] font-medium text-white/80 text-right">תאריך סיום</label>
+              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                <Input
+                  title="תאריך סיום"
+                  type="date"
+                  value={commitmentEndDate}
+                  onChange={(e) => setCommitmentEndDate(e.target.value)}
+                  className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
+                />
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              disabled={isSubmittingCommitment || !commitmentName || !commitmentMonthlyAmount || !commitmentStartDate || !commitmentEndDate}
+              onClick={async () => {
+                if (!selectedBusinesses[0]) {
+                  showToast("יש לבחור עסק", "error");
+                  return;
+                }
+                setIsSubmittingCommitment(true);
+                const supabase = createClient();
+                const { data: user } = await supabase.auth.getUser();
+                const { error } = await supabase.from("prior_commitments").insert({
+                  business_id: selectedBusinesses[0],
+                  name: commitmentName,
+                  monthly_amount: parseFloat(commitmentMonthlyAmount) || 0,
+                  total_installments: parseInt(commitmentTotalInstallments) || 1,
+                  start_date: commitmentStartDate,
+                  end_date: commitmentEndDate,
+                  created_by: user?.user?.id || null,
+                });
+                setIsSubmittingCommitment(false);
+                if (error) {
+                  showToast(`שגיאה: ${error.message}`, "error");
+                  return;
+                }
+                showToast("התחייבות נוספה בהצלחה", "success");
+                setIsAddCommitmentOpen(false);
+                setRefreshTrigger((prev) => prev + 1);
+              }}
+              className="w-full bg-[#29318A] text-white text-[16px] font-semibold py-[12px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
+            >
+              {isSubmittingCommitment ? "שומר..." : "שמור התחייבות"}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Commitment Detail Modal */}
+      <Sheet open={showCommitmentDetail} onOpenChange={(open) => { if (!open) { setShowCommitmentDetail(false); setSelectedCommitment(null); } }}>
+        <SheetContent
+          side="bottom"
+          className="h-auto max-h-[80vh] bg-[#0f1535] border-t border-[#4C526B] overflow-y-auto rounded-t-[20px]"
+          showCloseButton={false}
+        >
+          {selectedCommitment && (() => {
+            const c = selectedCommitment;
+            const startDate = new Date(c.start_date);
+            const endDate = new Date(c.end_date);
+            const startStr = `${String(startDate.getDate()).padStart(2, "0")}/${String(startDate.getMonth() + 1).padStart(2, "0")}/${startDate.getFullYear()}`;
+            const endStr = `${String(endDate.getDate()).padStart(2, "0")}/${String(endDate.getMonth() + 1).padStart(2, "0")}/${endDate.getFullYear()}`;
+            const isFinished = c.end_date <= today;
+            const nowD = new Date();
+            const monthsElapsed = Math.max(0, (nowD.getFullYear() - startDate.getFullYear()) * 12 + (nowD.getMonth() - startDate.getMonth()));
+            const remaining = Math.max(0, c.total_installments - monthsElapsed);
+            const totalAmount = c.monthly_amount * c.total_installments;
+            const remainingAmount = c.monthly_amount * remaining;
+
+            return (
+              <div className="flex flex-col gap-[15px] p-[15px]" dir="rtl">
+                <SheetHeader className="border-b border-[#4C526B] pb-4">
+                  <div className="flex justify-between items-center" dir="ltr">
+                    <Button type="button" onClick={() => { setShowCommitmentDetail(false); setSelectedCommitment(null); }} className="text-[#7B91B0] hover:text-white transition-colors">
+                      <X className="w-6 h-6" />
+                    </Button>
+                    <SheetTitle className="text-white text-xl font-bold">{c.name}</SheetTitle>
+                    <div className="w-[24px]" />
+                  </div>
+                </SheetHeader>
+
+                <div className="flex flex-col gap-[10px] bg-[#29318A]/20 rounded-[10px] p-[15px] border border-[#4C526B]">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[14px] text-white/70">סכום חודשי:</span>
+                    <span dir="ltr" className="text-[16px] font-bold text-white">₪{c.monthly_amount.toLocaleString("he-IL")}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[14px] text-white/70">סה״כ תשלומים:</span>
+                    <span className="text-[16px] font-bold text-white">{c.total_installments}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[14px] text-white/70">תשלומים שנותרו:</span>
+                    <span className={`text-[16px] font-bold ${isFinished ? "text-[#0BB783]" : "text-[#F64E60]"}`}>{remaining}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[14px] text-white/70">סה״כ סכום:</span>
+                    <span dir="ltr" className="text-[16px] font-bold text-white">₪{totalAmount.toLocaleString("he-IL")}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[14px] text-white/70">נותר לתשלום:</span>
+                    <span dir="ltr" className={`text-[16px] font-bold ${isFinished ? "text-[#0BB783]" : "text-[#F64E60]"}`}>₪{remainingAmount.toLocaleString("he-IL")}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[14px] text-white/70">תאריך התחלה:</span>
+                    <span className="text-[16px] text-white">{startStr}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[14px] text-white/70">תאריך סיום:</span>
+                    <span className="text-[16px] text-white">{endStr}</span>
+                  </div>
+                  {isFinished && (
+                    <div className="text-center mt-[5px]">
+                      <Badge className="text-[14px] bg-[#0BB783]/20 text-[#0BB783] px-[12px] py-[4px] rounded-full font-bold">התחייבות הסתיימה</Badge>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={() => {
+                    confirm(
+                      `${c.name} תימחק לצמיתות.`,
+                      async () => {
+                        const supabase = createClient();
+                        const { error } = await supabase.from("prior_commitments").update({ deleted_at: new Date().toISOString() }).eq("id", c.id);
+                        if (error) {
+                          showToast(`שגיאה: ${error.message}`, "error");
+                          return;
+                        }
+                        showToast("התחייבות נמחקה", "success");
+                        setShowCommitmentDetail(false);
+                        setSelectedCommitment(null);
+                        setRefreshTrigger((prev) => prev + 1);
+                      },
+                      "למחוק את ההתחייבות?"
+                    );
+                  }}
+                  className="w-full bg-[#F64E60]/20 text-[#F64E60] text-[16px] font-semibold py-[12px] rounded-[10px] hover:bg-[#F64E60]/30 transition-colors"
+                >
+                  מחיקת התחייבות
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={() => { setShowCommitmentDetail(false); setSelectedCommitment(null); }}
+                  className="w-full bg-[#29318A] text-white text-[16px] font-semibold py-[12px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
+                >
+                  סגור
+                </Button>
               </div>
             );
           })()}

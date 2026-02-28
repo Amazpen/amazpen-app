@@ -150,11 +150,10 @@ export default function AdminSuppliersPage() {
             const name = getField(row, "name");
             const expenseTypeRaw = getField(row, "expense_type");
 
-            // Skip rows with no name or no expense type
+            // Skip rows with no name
             if (!name) return;
-            if (!expenseTypeRaw) return;
 
-            // Map expense_type
+            // Map expense_type (default to current_expenses if empty)
             let expense_type = "current_expenses";
             if (expenseTypeRaw === "קניות סחורה" || expenseTypeRaw === "goods_purchases" || expenseTypeRaw === "רכש סחורה" || expenseTypeRaw === "סחורה") {
               expense_type = "goods_purchases";
@@ -284,6 +283,7 @@ export default function AdminSuppliersPage() {
     if (csvInputRef.current) csvInputRef.current.value = "";
   };
 
+  const importingRef = useRef(false);
   const handleImport = async () => {
     if (!selectedBusinessId) {
       showToast("יש לבחור עסק לפני הייבוא", "error");
@@ -293,6 +293,8 @@ export default function AdminSuppliersPage() {
       showToast("אין ספקים לייבוא", "error");
       return;
     }
+    if (importingRef.current) return;
+    importingRef.current = true;
 
     setIsImporting(true);
     setImportProgress("בודק ספקים קיימים...");
@@ -317,6 +319,7 @@ export default function AdminSuppliersPage() {
 
       if (newSuppliers.length === 0) {
         showToast("כל הספקים כבר קיימים בעסק", "error");
+        importingRef.current = false;
         setIsImporting(false);
         setImportProgress("");
         return;
@@ -371,6 +374,7 @@ export default function AdminSuppliersPage() {
 
           if (error) {
             showToast(`שגיאה ביצירת קטגוריה "${parentName}": ${error.message}`, "error");
+            importingRef.current = false;
             setIsImporting(false);
             setImportProgress("");
             return;
@@ -402,6 +406,7 @@ export default function AdminSuppliersPage() {
 
           if (error) {
             showToast(`שגיאה ביצירת קטגוריה "${childName}": ${error.message}`, "error");
+            importingRef.current = false;
             setIsImporting(false);
             setImportProgress("");
             return;
@@ -451,6 +456,7 @@ export default function AdminSuppliersPage() {
 
         if (error) {
           showToast(`שגיאה בייבוא (אחרי ${inserted} ספקים): ${error.message}`, "error");
+          importingRef.current = false;
           setIsImporting(false);
           setImportProgress("");
           return;
@@ -500,6 +506,7 @@ export default function AdminSuppliersPage() {
     } catch {
       showToast("שגיאה בלתי צפויה בייבוא", "error");
     } finally {
+      importingRef.current = false;
       setIsImporting(false);
       setImportProgress("");
     }
