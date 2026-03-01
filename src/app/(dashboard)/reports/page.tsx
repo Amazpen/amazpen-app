@@ -72,12 +72,13 @@ interface ReportSummary {
   netProfitPct: number;
 }
 
-// Prior liability item for breakdown display
+// Prior commitment item for breakdown display
 interface PriorLiabilityItem {
-  supplier_name: string;
-  amount: number;
-  due_date: string;
-  payment_id: string;
+  name: string;
+  monthly_amount: number;
+  total_installments: number;
+  start_date: string;
+  end_date: string;
 }
 
 // Format number for display
@@ -310,42 +311,19 @@ export default function ReportsPage() {
             .lte("entry_date", endDate),
         ]);
 
-        // Fetch prior liabilities (payment splits due this month from payments created BEFORE this month)
-        const { data: priorSplits } = await supabase
-          .from("payment_splits")
-          .select(`
-            amount, due_date,
-            payment:payments!inner(id, business_id, deleted_at, payment_date, supplier:suppliers(name))
-          `)
-          .gte("due_date", startDate)
-          .lte("due_date", endDate)
-          .lt("payment.payment_date", startDate)
-          .is("payment.deleted_at", null)
-          .in("payment.business_id", selectedBusinesses);
+        // Fetch prior commitments that are active during this month
+        const { data: priorCommitmentsData } = await supabase
+          .from("prior_commitments")
+          .select("name, monthly_amount, total_installments, start_date, end_date")
+          .in("business_id", selectedBusinesses)
+          .is("deleted_at", null)
+          .lte("start_date", endDate)
+          .gte("end_date", startDate);
 
-        const totalPriorLiabilities = (priorSplits || []).reduce((sum, s) => sum + Number(s.amount || 0), 0);
+        const activeCommitments = (priorCommitmentsData || []) as PriorLiabilityItem[];
+        const totalPriorLiabilities = activeCommitments.reduce((sum, c) => sum + Number(c.monthly_amount || 0), 0);
         setPriorLiabilities(totalPriorLiabilities);
-
-        // Build breakdown items grouped by supplier
-        const supplierMap = new Map<string, { amount: number; due_date: string; payment_id: string }>();
-        for (const s of priorSplits || []) {
-          const payment = s.payment as unknown as { id: string; supplier: { name: string } | null };
-          const name = payment?.supplier?.name || "לא ידוע";
-          const existing = supplierMap.get(name);
-          if (existing) {
-            existing.amount += Number(s.amount || 0);
-          } else {
-            supplierMap.set(name, {
-              amount: Number(s.amount || 0),
-              due_date: s.due_date as string,
-              payment_id: payment?.id || "",
-            });
-          }
-        }
-        const items: PriorLiabilityItem[] = Array.from(supplierMap.entries())
-          .map(([supplier_name, data]) => ({ supplier_name, ...data }))
-          .sort((a, b) => b.amount - a.amount);
-        setPriorLiabilitiesItems(items);
+        setPriorLiabilitiesItems(activeCommitments.sort((a, b) => Number(b.monthly_amount) - Number(a.monthly_amount)));
 
         // Fetch all payment splits due this month (cash flow forecast actual)
         const { data: allSplits } = await supabase
@@ -1136,18 +1114,18 @@ export default function ReportsPage() {
         {showPriorLiabilitiesBreakdown && priorLiabilitiesItems.length > 0 && (
           <div className="border-t border-white/10 px-[10px] pb-[10px]">
             <div className="flex flex-row-reverse justify-between items-center py-[6px] text-[11px] sm:text-[13px] text-white/60 font-medium border-b border-white/10">
-              <span className="flex-1 text-right ltr-num">סכום</span>
-              <span className="w-[120px] sm:w-[160px] text-left">ספק</span>
+              <span className="flex-1 text-right ltr-num">סכום חודשי</span>
+              <span className="w-[120px] sm:w-[160px] text-left">שם</span>
             </div>
             {priorLiabilitiesItems.map((item, idx) => (
               <div
-                key={`${item.payment_id}-${idx}`}
+                key={`commitment-${idx}`}
                 className="flex flex-row-reverse justify-between items-center py-[6px] text-[11px] sm:text-[13px] border-b border-white/5 last:border-b-0"
               >
                 <span className="flex-1 text-right ltr-num font-bold text-[#F64E60]">
-                  {formatCurrency(item.amount)}
+                  {formatCurrency(item.monthly_amount)}
                 </span>
-                <span className="w-[120px] sm:w-[160px] text-left text-white/90 truncate">{item.supplier_name}</span>
+                <span className="w-[120px] sm:w-[160px] text-left text-white/90 truncate">{item.name}</span>
               </div>
             ))}
           </div>

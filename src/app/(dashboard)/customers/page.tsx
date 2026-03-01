@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useDashboard } from "../layout";
@@ -49,6 +50,9 @@ interface Customer {
   agreement_url: string | null;
   notes: string | null;
   is_active: boolean;
+  is_foreign: boolean;
+  payment_method: string | null;
+  business_type: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -128,7 +132,18 @@ const paymentMethodLabels: Record<string, string> = {
   other: "אחר",
 };
 
+const customerBusinessTypes: { id: string; label: string }[] = [
+  { id: "restaurant", label: "מסעדה" },
+  { id: "cafe", label: "בית קפה" },
+  { id: "retail", label: "קמעונאות" },
+  { id: "services", label: "שירותים" },
+  { id: "manufacturing", label: "ייצור" },
+  { id: "municipality", label: "עירייה" },
+  { id: "other", label: "אחר" },
+];
+
 export default function CustomersPage() {
+  const router = useRouter();
   const { showToast } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
   const { selectedBusinesses, isAdmin } = useDashboard();
@@ -164,6 +179,9 @@ export default function CustomersPage() {
   const [fPaymentTerms, setFPaymentTerms] = useState("");
   const [fNotes, setFNotes] = useState("");
   const [fIsActive, setFIsActive] = useState(true);
+  const [fIsForeign, setFIsForeign] = useState(false);
+  const [fCustomerPaymentMethod, setFCustomerPaymentMethod] = useState("");
+  const [fCustomerBusinessType, setFCustomerBusinessType] = useState("");
   const [agreementFile, setAgreementFile] = useState<File | null>(null);
   const [fRetainerAmount, setFRetainerAmount] = useState("");
   const [fRetainerType, setFRetainerType] = useState<string>("");
@@ -216,12 +234,13 @@ export default function CustomersPage() {
   // Available businesses for "add standalone" form
   const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
 
-  // Dynamic VAT multiplier based on selected business
+  // Dynamic VAT multiplier based on selected business (0 for foreign customers)
   const vatMultiplier = useMemo(() => {
+    if (fIsForeign) return 1; // No VAT for foreign customers
     const biz = formBusinessId ? allBusinesses.find(b => b.id === formBusinessId) : null;
     const rate = Number(biz?.vat_percentage) || 0.18;
     return 1 + rate;
-  }, [formBusinessId, allBusinesses]);
+  }, [formBusinessId, allBusinesses, fIsForeign]);
 
   // ─── Data Fetching ─────────────────────────────────────────
 
@@ -454,23 +473,29 @@ export default function CustomersPage() {
     setIsAddDocumentOpen(false);
   };
 
+  const getTodayStr = () => new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local tz
+
   const resetForm = () => {
+    const today = getTodayStr();
     setFContactName("");
     setFBusinessName("");
     setFCompanyName("");
     setFTaxId("");
-    setFWorkStartDate("");
+    setFWorkStartDate(today);
     setFSetupFee("");
     setFPaymentTerms("");
     setFNotes("");
     setFIsActive(true);
+    setFIsForeign(false);
+    setFCustomerPaymentMethod("");
+    setFCustomerBusinessType("");
     setAgreementFile(null);
     setFormBusinessId(null);
     setFormBusinessName("");
     setFRetainerAmount("");
     setFRetainerType("");
     setFRetainerMonths("");
-    setFRetainerStartDate("");
+    setFRetainerStartDate(today);
     setFRetainerDayOfMonth("1");
     setFLaborType("");
     setFLaborMonthlySalary("");
@@ -500,10 +525,13 @@ export default function CustomersPage() {
       setFPaymentTerms(item.customer.payment_terms || "");
       setFNotes(item.customer.notes || "");
       setFIsActive(item.customer.is_active);
+      setFIsForeign(item.customer.is_foreign || false);
+      setFCustomerPaymentMethod(item.customer.payment_method || "");
+      setFCustomerBusinessType(item.customer.business_type || "");
       setFRetainerAmount(item.customer.retainer_amount != null ? String(item.customer.retainer_amount) : "");
       setFRetainerType(item.customer.retainer_type || "");
       setFRetainerMonths(item.customer.retainer_months != null ? String(item.customer.retainer_months) : "");
-      setFRetainerStartDate(item.customer.retainer_start_date || "");
+      setFRetainerStartDate(item.customer.retainer_start_date || item.customer.work_start_date || "");
       setFRetainerDayOfMonth(item.customer.retainer_day_of_month != null ? String(item.customer.retainer_day_of_month) : "1");
       setFLaborType(item.customer.labor_type || "");
       setFLaborMonthlySalary(item.customer.labor_monthly_salary != null ? String(item.customer.labor_monthly_salary) : "");
@@ -598,6 +626,9 @@ export default function CustomersPage() {
         agreement_url: agreementUrl,
         notes: fNotes.trim() || null,
         is_active: fIsActive,
+        is_foreign: fIsForeign,
+        payment_method: fCustomerPaymentMethod || null,
+        business_type: fCustomerBusinessType || null,
         retainer_amount: retainerAmount,
         retainer_type: retainerType,
         retainer_months: retainerMonths,
@@ -1242,7 +1273,14 @@ export default function CustomersPage() {
                   type="date"
                   title="תאריך תחילת עבודה"
                   value={fWorkStartDate}
-                  onChange={(e) => setFWorkStartDate(e.target.value)}
+                  onChange={(e) => {
+                    const newDate = e.target.value;
+                    setFWorkStartDate(newDate);
+                    // Auto-sync retainer start date if it matches old work_start_date or is empty
+                    if (!fRetainerStartDate || fRetainerStartDate === fWorkStartDate) {
+                      setFRetainerStartDate(newDate);
+                    }
+                  }}
                   className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
                 />
               </div>
@@ -1278,6 +1316,57 @@ export default function CustomersPage() {
               </div>
             </div>
 
+            {/* סוג עסק */}
+            <div className="flex flex-col gap-[5px]">
+              <label className="text-[15px] font-medium text-white text-right">סוג עסק</label>
+              <Select value={fCustomerBusinessType || "__none__"} onValueChange={(val) => setFCustomerBusinessType(val === "__none__" ? "" : val)}>
+                <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                  <SelectValue placeholder="בחר סוג עסק" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">בחר סוג עסק</SelectItem>
+                  {customerBusinessTypes.map((bt) => (
+                    <SelectItem key={bt.id} value={bt.id}>{bt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* אמצעי תשלום */}
+            <div className="flex flex-col gap-[5px]">
+              <label className="text-[15px] font-medium text-white text-right">אמצעי תשלום</label>
+              <Select value={fCustomerPaymentMethod || "__none__"} onValueChange={(val) => setFCustomerPaymentMethod(val === "__none__" ? "" : val)}>
+                <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                  <SelectValue placeholder="בחר אמצעי תשלום" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">בחר אמצעי תשלום</SelectItem>
+                  {Object.entries(paymentMethodLabels).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* לקוח חו"ל */}
+            <div className="flex items-center gap-[10px] py-[5px]">
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => setFIsForeign(!fIsForeign)}
+                className="flex items-center gap-[8px] px-0 hover:bg-transparent"
+              >
+                <div className={`w-[20px] h-[20px] rounded-[4px] border-2 flex items-center justify-center transition-colors ${fIsForeign ? 'bg-[#3F97FF] border-[#3F97FF]' : 'border-[#4C526B]'}`}>
+                  {fIsForeign && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                      <path d="M5 12L10 17L20 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+                <span className="text-[14px] text-white">לקוח חו&quot;ל (ללא מע&quot;מ)</span>
+              </Button>
+            </div>
+
             {/* הסכם עבודה - file upload */}
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">הסכם עבודה</label>
@@ -1297,6 +1386,15 @@ export default function CustomersPage() {
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                 />
               </label>
+              {isEditMode && editingCustomer?.agreement_url && (
+                <button
+                  type="button"
+                  onClick={() => setPreviewDocUrl(editingCustomer.agreement_url)}
+                  className="text-[13px] text-[#3F97FF] hover:underline text-right cursor-pointer"
+                >
+                  צפה בהסכם הנוכחי
+                </button>
+              )}
             </div>
 
             {/* הערות */}
@@ -1317,9 +1415,9 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-[10px] mt-[10px] border border-[#7C3AED]/40 rounded-[10px] p-[12px] bg-[#6B21A8]/10">
               <h3 className="text-[15px] font-bold text-[#C4B5FD] text-right">ריטיינר</h3>
 
-              {/* סכום לפני מע"מ */}
+              {/* סכום */}
               <div className="flex flex-col gap-[5px]">
-                <label className="text-[14px] font-medium text-white/80 text-right">סכום לפני מע&quot;מ</label>
+                <label className="text-[14px] font-medium text-white/80 text-right">{fIsForeign ? 'סכום (ללא מע"מ)' : 'סכום לפני מע"מ'}</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
                   <Input
                     type="tel"
@@ -1332,7 +1430,10 @@ export default function CustomersPage() {
                 </div>
                 {fRetainerAmount && parseFloat(fRetainerAmount) > 0 && (
                   <span className="text-[13px] text-[#C4B5FD] text-center">
-                    ₪{parseFloat(fRetainerAmount).toLocaleString("he-IL")} + מע&quot;מ = ₪{(parseFloat(fRetainerAmount) * vatMultiplier).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    {fIsForeign
+                      ? `₪${parseFloat(fRetainerAmount).toLocaleString("he-IL")} (ללא מע"מ)`
+                      : `₪${parseFloat(fRetainerAmount).toLocaleString("he-IL")} + מע"מ = ₪${(parseFloat(fRetainerAmount) * vatMultiplier).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+                    }
                   </span>
                 )}
               </div>
@@ -1627,11 +1728,58 @@ export default function CustomersPage() {
                         </div>
                       )}
                     </div>
+                    {/* Row 4 - Business Type, Payment Method, Foreign */}
+                    <div className="grid grid-cols-2 gap-[10px] mb-[15px]">
+                      {selectedItem.customer.business_type && (
+                        <div className="flex flex-col items-center text-center">
+                          <span className="text-[12px] text-white/60">סוג עסק</span>
+                          <span className="text-[14px] text-white font-medium">
+                            {customerBusinessTypes.find(bt => bt.id === selectedItem.customer!.business_type)?.label || selectedItem.customer.business_type}
+                          </span>
+                        </div>
+                      )}
+                      {selectedItem.customer.payment_method && (
+                        <div className="flex flex-col items-center text-center">
+                          <span className="text-[12px] text-white/60">אמצעי תשלום</span>
+                          <span className="text-[14px] text-white font-medium">
+                            {paymentMethodLabels[selectedItem.customer.payment_method] || selectedItem.customer.payment_method}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {selectedItem.customer.is_foreign && (
+                      <div className="flex items-center justify-center gap-[6px] mb-[15px]">
+                        <Badge className="bg-[#3F97FF]/20 text-[#3F97FF] text-[12px] px-[10px] py-[3px] rounded-full font-bold">
+                          לקוח חו&quot;ל (ללא מע&quot;מ)
+                        </Badge>
+                      </div>
+                    )}
                     {/* Notes */}
                     {selectedItem.customer.notes && (
                       <div className="mt-[10px] bg-[#6B21A8]/20 rounded-[10px] p-[10px] border border-[#4C526B]">
                         <span className="text-[12px] text-white/60">הערות</span>
                         <p className="text-[14px] text-white mt-[4px] text-right whitespace-pre-wrap">{selectedItem.customer.notes}</p>
+                      </div>
+                    )}
+                    {/* Create Business from Customer - admin only */}
+                    {isAdmin && selectedItem.customer && (
+                      <div className="mt-[12px] flex justify-center">
+                        <Button
+                          variant="default"
+                          type="button"
+                          onClick={() => {
+                            const c = selectedItem.customer!;
+                            const params = new URLSearchParams();
+                            if (c.business_name) params.set("name", c.business_name);
+                            if (c.tax_id) params.set("tax_id", c.tax_id);
+                            if (c.business_type) params.set("business_type", c.business_type);
+                            if (c.contact_name) params.set("contact_name", c.contact_name);
+                            router.push(`/admin/business/new?${params.toString()}`);
+                          }}
+                          className="bg-[#0BB783] hover:bg-[#0BB783]/80 text-white text-[13px] font-semibold px-[16px] py-[8px] rounded-[10px] transition-colors"
+                        >
+                          צור עסק מנתוני הלקוח
+                        </Button>
                       </div>
                     )}
                   </>
@@ -1670,13 +1818,15 @@ export default function CustomersPage() {
 
                   <div className="grid grid-cols-2 gap-[10px] mb-[10px]">
                     <div className="flex flex-col items-center text-center">
-                      <span className="text-[12px] text-white/60">סכום לפני מע&quot;מ</span>
+                      <span className="text-[12px] text-white/60">{selectedItem.customer.is_foreign ? 'סכום (ללא מע"מ)' : 'סכום לפני מע"מ'}</span>
                       <span className="text-[14px] text-white font-medium">₪{selectedItem.customer.retainer_amount.toLocaleString("he-IL")}</span>
                     </div>
-                    <div className="flex flex-col items-center text-center">
-                      <span className="text-[12px] text-white/60">סכום כולל מע&quot;מ</span>
-                      <span className="text-[14px] text-[#C4B5FD] font-bold">₪{(selectedItem.customer.retainer_amount * (1 + (Number(selectedItem.business.vat_percentage) || 0.18))).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
-                    </div>
+                    {!selectedItem.customer.is_foreign && (
+                      <div className="flex flex-col items-center text-center">
+                        <span className="text-[12px] text-white/60">סכום כולל מע&quot;מ</span>
+                        <span className="text-[14px] text-[#C4B5FD] font-bold">₪{(selectedItem.customer.retainer_amount * (1 + (Number(selectedItem.business.vat_percentage) || 0.18))).toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-[10px] mb-[10px]">
@@ -2063,14 +2213,12 @@ export default function CustomersPage() {
                 <div className="bg-[#6B21A8]/30 rounded-[10px] p-[15px] mb-[15px]">
                   <h3 className="text-[14px] font-bold text-white mb-[10px]">הסכם עבודה</h3>
                   <div className="flex items-center gap-[10px]">
-                    <a
-                      href={selectedItem.customer.agreement_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#3F97FF] text-[14px] underline"
+                    <button
+                      onClick={() => setPreviewDocUrl(selectedItem.customer!.agreement_url)}
+                      className="text-[#3F97FF] text-[14px] underline cursor-pointer"
                     >
-                      פתח הסכם
-                    </a>
+                      צפה בהסכם
+                    </button>
                   </div>
                 </div>
               )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
@@ -48,6 +48,7 @@ const daysOfWeek = [
 
 export default function NewBusinessPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { showToast } = useToast();
 
   // Draft persistence
@@ -225,6 +226,14 @@ export default function NewBusinessPage() {
       if (draft.managedProducts) setManagedProducts(draft.managedProducts as ManagedProduct[]);
       if (draft.teamMembers) setTeamMembers(draft.teamMembers as TeamMember[]);
     }
+    // Pre-fill from query params (e.g., when creating business from customer data)
+    const qName = searchParams.get("name");
+    const qTaxId = searchParams.get("tax_id");
+    const qBusinessType = searchParams.get("business_type");
+    if (qName) setBusinessName(qName);
+    if (qTaxId) setTaxId(qTaxId);
+    if (qBusinessType) setBusinessType(qBusinessType);
+
     draftRestored.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

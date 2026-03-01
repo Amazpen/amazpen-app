@@ -433,6 +433,7 @@ function ExpensesPageInner() {
   const [breakdownSupplierTotalWithVat, setBreakdownSupplierTotalWithVat] = useState(0);
   const [breakdownSupplierInvoices, setBreakdownSupplierInvoices] = useState<InvoiceDisplay[]>([]);
   const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
+  const returnToBreakdownRef = useRef(false);
 
   // Status change state
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
@@ -2273,14 +2274,21 @@ function ExpensesPageInner() {
 
   const handleCloseSupplierBreakdown = () => {
     setShowSupplierBreakdownPopup(false);
-    setBreakdownSupplierInvoices([]);
-    setBreakdownSupplierName("");
-    setBreakdownSupplierCategory("");
-    setBreakdownSupplierTotalWithVat(0);
+    // Only clear data if we're not returning to breakdown from a sub-popup
+    if (!returnToBreakdownRef.current) {
+      setBreakdownSupplierInvoices([]);
+      setBreakdownSupplierName("");
+      setBreakdownSupplierCategory("");
+      setBreakdownSupplierTotalWithVat(0);
+    }
   };
 
   // Handle delete confirmation
   const handleDeleteClick = (invoiceId: string) => {
+    if (showSupplierBreakdownPopup) {
+      returnToBreakdownRef.current = true;
+      setShowSupplierBreakdownPopup(false);
+    }
     setDeletingInvoiceId(invoiceId);
     setShowDeleteConfirm(true);
   };
@@ -2302,9 +2310,17 @@ function ExpensesPageInner() {
       if (error) throw error;
 
       showToast("ההוצאה נמחקה בהצלחה", "success");
+      const deletedId = deletingInvoiceId;
       setShowDeleteConfirm(false);
       setDeletingInvoiceId(null);
       setExpandedInvoiceId(null);
+      // Return to supplier breakdown if we came from there
+      if (returnToBreakdownRef.current) {
+        returnToBreakdownRef.current = false;
+        setShowSupplierBreakdownPopup(true);
+        // Remove the deleted invoice from the breakdown list
+        setBreakdownSupplierInvoices(prev => prev.filter(inv => inv.id !== deletedId));
+      }
       setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error("Error deleting expense:", error);
@@ -2318,6 +2334,10 @@ function ExpensesPageInner() {
   const handleCancelDelete = () => {
     setShowDeleteConfirm(false);
     setDeletingInvoiceId(null);
+    if (returnToBreakdownRef.current) {
+      returnToBreakdownRef.current = false;
+      setShowSupplierBreakdownPopup(true);
+    }
   };
 
   // Show message if no business selected
@@ -4866,12 +4886,13 @@ function ExpensesPageInner() {
       {viewerDocUrl && typeof window !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80"
-          onClick={() => setViewerDocUrl(null)}
+          onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); }}
+          onPointerDown={(e) => e.stopPropagation()}
         >
           {/* Close button */}
           <Button
             type="button"
-            onClick={() => setViewerDocUrl(null)}
+            onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); }}
             className="absolute top-[16px] right-[16px] z-10 w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer"
           >
             <X size={24} className="text-white" />
