@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -46,7 +46,15 @@ const daysOfWeek = [
   { id: 6, label: "שבת", short: "ש'" },
 ];
 
-export default function NewBusinessPage() {
+export default function NewBusinessPageWrapper() {
+  return (
+    <Suspense fallback={<div className="text-white p-[20px] text-center">טוען...</div>}>
+      <NewBusinessPage />
+    </Suspense>
+  );
+}
+
+function NewBusinessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();

@@ -9,9 +9,18 @@ export function createClient() {
     return supabaseInstance;
   }
 
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    // During build/prerender env vars may be missing - return a dummy client
+    // that will be replaced on the actual client-side render
+    return null as unknown as SupabaseClient;
+  }
+
   supabaseInstance = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    key,
     {
       realtime: {
         params: {
