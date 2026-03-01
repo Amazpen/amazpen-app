@@ -3695,7 +3695,7 @@ function PaymentsPageInner() {
                             )}
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">סכום</span>
                           </div>
-                          <div className="flex flex-col gap-[8px] max-h-[200px] overflow-y-auto">
+                          <div className="flex flex-col gap-[8px]">
                             {pm.customInstallments.map((item, index) => (
                               <div key={item.number} className="flex items-center gap-[8px]">
                                 {pm.customInstallments.length > 1 && (
@@ -3944,12 +3944,13 @@ function PaymentsPageInner() {
       {viewerDocUrl && typeof window !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80"
-          onClick={() => { setViewerDocUrl(null); setViewerDocIsPdf(false); }}
+          onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); setViewerDocIsPdf(false); }}
+          onPointerDown={(e) => e.stopPropagation()}
         >
           {/* Close button */}
           <Button
             type="button"
-            onClick={() => { setViewerDocUrl(null); setViewerDocIsPdf(false); }}
+            onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); setViewerDocIsPdf(false); }}
             className="absolute top-[16px] right-[16px] z-10 w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer"
           >
             <X size={24} className="text-white" />
