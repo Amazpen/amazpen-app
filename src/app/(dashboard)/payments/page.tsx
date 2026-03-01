@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef, Suspense, Fragment } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { createPortal } from "react-dom";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
 import { X } from "lucide-react";
 import { Wallet } from "@phosphor-icons/react";
@@ -447,11 +446,16 @@ function PaymentsPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAddPaymentPopup, editingPaymentId]);
 
-  // Supplier filtering by expense type
+  // Supplier filtering by expense type (ensure selected supplier is always included when editing)
   const expenseTypeMap = { expenses: "current_expenses", purchases: "goods_purchases", employees: "employee_costs" } as const;
-  const filteredSuppliers = suppliers.filter(s =>
-    s.expense_type === expenseTypeMap[expenseType]
-  );
+  const filteredSuppliers = (() => {
+    const filtered = suppliers.filter(s => s.expense_type === expenseTypeMap[expenseType]);
+    if (selectedSupplier && !filtered.some(s => s.id === selectedSupplier)) {
+      const missing = suppliers.find(s => s.id === selectedSupplier);
+      if (missing) return [missing, ...filtered];
+    }
+    return filtered;
+  })();
 
   // Open invoices state
   const [openInvoices, setOpenInvoices] = useState<OpenInvoice[]>([]);
@@ -3937,103 +3941,102 @@ function PaymentsPageInner() {
                 </Button>
               </div>
             </div>
+
+        {/* Fullscreen Document Viewer Popup - inside SheetContent to avoid Radix modal trap */}
+        {viewerDocUrl && (
+          <div
+            className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80"
+            onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); setViewerDocIsPdf(false); }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <Button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); setViewerDocIsPdf(false); }}
+              className="absolute top-[16px] right-[16px] z-10 w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer"
+            >
+              <X size={24} className="text-white" />
+            </Button>
+            {/* Open in new tab button */}
+            <Button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); window.open(viewerDocUrl, '_blank'); }}
+              className="absolute top-[16px] left-[16px] z-10 flex items-center gap-[6px] px-[12px] py-[8px] rounded-full bg-black/60 hover:bg-black/80 transition-colors text-white text-[13px] cursor-pointer"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+              פתח בכרטיסייה חדשה
+            </Button>
+            {/* Document content */}
+            <div
+              className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {(isPdfUrl(viewerDocUrl) || viewerDocIsPdf) ? (
+                <iframe
+                  src={viewerDocUrl}
+                  className="w-[90vw] h-[90vh] rounded-[12px] border border-white/20"
+                  title="תצוגת מסמך"
+                />
+              ) : (
+                <Image
+                  src={viewerDocUrl}
+                  alt="תצוגת מסמך"
+                  className="max-w-[90vw] max-h-[90vh] object-contain rounded-[12px]"
+                  width={800}
+                  height={600}
+                  unoptimized
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Update Confirmation Popup - inside SheetContent to avoid Radix modal trap */}
+        {updateConfirmation && (
+          <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50" onClick={() => setUpdateConfirmation(null)} onPointerDown={(e) => e.stopPropagation()}>
+            <div dir="rtl" className="bg-[#1A1F4E] rounded-[14px] border border-white/20 shadow-2xl p-[20px] w-[360px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-[16px] font-bold text-white text-center mb-[15px]">אישור עדכון תשלום</h3>
+              <p className="text-[14px] text-white/70 text-center mb-[15px]">השינויים הבאים זוהו:</p>
+
+              <div className="flex flex-col gap-[10px] mb-[20px]">
+                {updateConfirmation.changes.map((change) => (
+                  <div key={`change-${change.label}`} className="bg-[#0F1535] rounded-[10px] p-[10px] border border-[#4C526B]">
+                    <span className="text-[13px] font-medium text-white/70 block mb-[6px]">{change.label}</span>
+                    <div className="flex items-center gap-[8px]">
+                      <span className="text-[14px] text-red-400 ltr-num flex-1 text-center line-through">{change.before}</span>
+                      <span className="text-[14px] text-white/50">←</span>
+                      <span className="text-[14px] text-green-400 ltr-num flex-1 text-center font-bold">{change.after}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-[10px]">
+                <Button
+                  type="button"
+                  onClick={() => updateConfirmation.onConfirm()}
+                  className="flex-1 bg-[#29318A] text-white text-[14px] font-bold py-[10px] rounded-[10px] hover:bg-[#3D44A0] transition-colors cursor-pointer"
+                >
+                  אישור עדכון
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setUpdateConfirmation(null)}
+                  className="flex-1 bg-transparent border border-[#4C526B] text-white text-[14px] font-bold py-[10px] rounded-[10px] hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  ביטול
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         </SheetContent>
       </Sheet>
-
-      {/* Fullscreen Document Viewer Popup */}
-      {viewerDocUrl && typeof window !== 'undefined' && createPortal(
-        <div
-          className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80"
-          onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); setViewerDocIsPdf(false); }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          {/* Close button */}
-          <Button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); setViewerDocIsPdf(false); }}
-            className="absolute top-[16px] right-[16px] z-10 w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer"
-          >
-            <X size={24} className="text-white" />
-          </Button>
-          {/* Open in new tab button */}
-          <Button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); window.open(viewerDocUrl, '_blank'); }}
-            className="absolute top-[16px] left-[16px] z-10 flex items-center gap-[6px] px-[12px] py-[8px] rounded-full bg-black/60 hover:bg-black/80 transition-colors text-white text-[13px] cursor-pointer"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/>
-              <line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
-            פתח בכרטיסייה חדשה
-          </Button>
-          {/* Document content */}
-          <div
-            className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {(isPdfUrl(viewerDocUrl) || viewerDocIsPdf) ? (
-              <iframe
-                src={viewerDocUrl}
-                className="w-[90vw] h-[90vh] rounded-[12px] border border-white/20"
-                title="תצוגת מסמך"
-              />
-            ) : (
-              <Image
-                src={viewerDocUrl}
-                alt="תצוגת מסמך"
-                className="max-w-[90vw] max-h-[90vh] object-contain rounded-[12px]"
-                width={800}
-                height={600}
-                unoptimized
-              />
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Update Confirmation Popup */}
-      {updateConfirmation && typeof window !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50" onClick={() => setUpdateConfirmation(null)}>
-          <div dir="rtl" className="bg-[#1A1F4E] rounded-[14px] border border-white/20 shadow-2xl p-[20px] w-[360px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-[16px] font-bold text-white text-center mb-[15px]">אישור עדכון תשלום</h3>
-            <p className="text-[14px] text-white/70 text-center mb-[15px]">השינויים הבאים זוהו:</p>
-
-            <div className="flex flex-col gap-[10px] mb-[20px]">
-              {updateConfirmation.changes.map((change) => (
-                <div key={`change-${change.label}`} className="bg-[#0F1535] rounded-[10px] p-[10px] border border-[#4C526B]">
-                  <span className="text-[13px] font-medium text-white/70 block mb-[6px]">{change.label}</span>
-                  <div className="flex items-center gap-[8px]">
-                    <span className="text-[14px] text-red-400 ltr-num flex-1 text-center line-through">{change.before}</span>
-                    <span className="text-[14px] text-white/50">←</span>
-                    <span className="text-[14px] text-green-400 ltr-num flex-1 text-center font-bold">{change.after}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-[10px]">
-              <Button
-                type="button"
-                onClick={() => updateConfirmation.onConfirm()}
-                className="flex-1 bg-[#29318A] text-white text-[14px] font-bold py-[10px] rounded-[10px] hover:bg-[#3D44A0] transition-colors cursor-pointer"
-              >
-                אישור עדכון
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setUpdateConfirmation(null)}
-                className="flex-1 bg-transparent border border-[#4C526B] text-white text-[14px] font-bold py-[10px] rounded-[10px] hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                ביטול
-              </Button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
     </div>
   );
 }

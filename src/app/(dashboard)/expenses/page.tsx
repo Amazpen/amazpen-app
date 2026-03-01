@@ -1816,6 +1816,14 @@ function ExpensesPageInner() {
 
   // Handle closing edit popup
   const handleCloseEditPopup = () => {
+    // Navigate back to source page FIRST if came from deep-link (before closing popup)
+    // This prevents the user from briefly seeing the expenses page
+    if (editReturnTo) {
+      const returnPath = editReturnTo;
+      setEditReturnTo(null);
+      router.push(returnPath);
+      return;
+    }
     setShowEditPopup(false);
     setEditingInvoice(null);
     // Reset form
@@ -1834,12 +1842,6 @@ function ExpensesPageInner() {
     // Reset attachments
     setEditAttachmentFiles([]);
     setEditAttachmentPreviews([]);
-    // Navigate back to source page if came from deep-link
-    if (editReturnTo) {
-      const returnPath = editReturnTo;
-      setEditReturnTo(null);
-      router.push(returnPath);
-    }
   };
 
   // Handle deep-link edit from supplier card (?edit=invoiceId)
