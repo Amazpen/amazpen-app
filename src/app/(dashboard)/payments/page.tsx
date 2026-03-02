@@ -325,6 +325,13 @@ function PaymentsPageInner() {
   const [filterBy, setFilterBy] = useState<string>("");
   const [filterValue, setFilterValue] = useState<string>("");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [sortColumn, setSortColumn] = useState<"date" | "supplier" | "reference" | "installments" | "method" | "amount" | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
+  const handleColumnSort = (col: "date" | "supplier" | "reference" | "installments" | "method" | "amount") => {
+    if (sortColumn !== col) { setSortColumn(col); setSortOrder("asc"); }
+    else if (sortOrder === "asc") { setSortOrder("desc"); }
+    else { setSortColumn(null); setSortOrder(null); }
+  };
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
 
   // Close filter menu on outside click
@@ -2763,6 +2770,25 @@ function PaymentsPageInner() {
                   default: return true;
                 }
               });
+              if (sortColumn && sortOrder) {
+                filtered.sort((a, b) => {
+                  let cmp = 0;
+                  switch (sortColumn) {
+                    case "date": {
+                      const [dA, mA, yA] = a.date.split(".").map(Number);
+                      const [dB, mB, yB] = b.date.split(".").map(Number);
+                      cmp = ((yA + 2000) * 10000 + mA * 100 + dA) - ((yB + 2000) * 10000 + mB * 100 + dB);
+                      break;
+                    }
+                    case "supplier": cmp = a.supplier.localeCompare(b.supplier, "he"); break;
+                    case "reference": cmp = (a.reference || "").localeCompare(b.reference || "", "he"); break;
+                    case "installments": cmp = a.installments.localeCompare(b.installments); break;
+                    case "method": cmp = a.paymentMethod.localeCompare(b.paymentMethod, "he"); break;
+                    case "amount": cmp = a.totalAmount - b.totalAmount; break;
+                  }
+                  return sortOrder === "asc" ? cmp : -cmp;
+                });
+              }
               const headers = ["תאריך", "ספק", "אמצעי תשלום", "מס׳ צ׳ק", "כמות תשלומים", "סכום", "אסמכתא", "הערות"];
               const rows: string[][] = [];
               for (const payment of filtered) {
@@ -2831,14 +2857,26 @@ function PaymentsPageInner() {
         <div className="w-full flex flex-col">
           {/* Table Header */}
           <div className="flex items-center gap-[5px] bg-[#29318A] rounded-t-[7px] p-[5px_3px] pe-[13px] mb-[10px]">
-            <div className="w-[55px] sm:w-[65px] flex-shrink-0 text-center">
-              <span className="text-[13px] sm:text-[14px]">תאריך</span>
-            </div>
-            <span className="text-[13px] sm:text-[14px] flex-1 text-center min-w-0">ספק</span>
-            <span className="text-[13px] sm:text-[14px] w-[45px] sm:w-[55px] flex-shrink-0 text-center"><span className="sm:hidden">אסמכ׳</span><span className="hidden sm:inline">אסמכתא</span></span>
-            <span className="text-[13px] sm:text-[14px] w-[40px] sm:w-[45px] flex-shrink-0 text-center">תשלומים</span>
-            <span className="text-[13px] sm:text-[14px] w-[50px] sm:w-[55px] flex-shrink-0 text-center">אמצעי</span>
-            <span className="text-[13px] sm:text-[14px] w-[60px] sm:w-[70px] flex-shrink-0 text-center">סכום</span>
+            {([
+              ["date", "תאריך", "w-[55px] sm:w-[65px] flex-shrink-0"],
+              ["supplier", "ספק", "flex-1 min-w-0"],
+              ["reference", "אסמכתא", "w-[45px] sm:w-[55px] flex-shrink-0"],
+              ["installments", "תשלומים", "w-[40px] sm:w-[45px] flex-shrink-0"],
+              ["method", "אמצעי", "w-[50px] sm:w-[55px] flex-shrink-0"],
+              ["amount", "סכום", "w-[60px] sm:w-[70px] flex-shrink-0"],
+            ] as const).map(([col, label, width]) => (
+              <Button
+                key={col}
+                type="button"
+                onClick={() => handleColumnSort(col)}
+                className={`${width} text-[13px] sm:text-[14px] text-center cursor-pointer hover:text-white/80 transition-colors flex items-center justify-center gap-[2px]`}
+              >
+                {col === "reference" ? (<><span className="sm:hidden">אסמכ׳</span><span className="hidden sm:inline">אסמכתא</span></>) : label}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity ${sortColumn === col ? 'opacity-100' : 'opacity-30'}`}>
+                  <path d={sortColumn === col && sortOrder === "desc" ? "M12 5V19M12 19L5 12M12 19L19 12" : "M12 19V5M12 5L5 12M12 5L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </Button>
+            ))}
           </div>
 
           {/* Table Rows */}
@@ -2859,11 +2897,31 @@ function PaymentsPageInner() {
                   default: return true;
                 }
               });
-              return filteredPayments.length === 0 ? (
+              let sortedPayments = filteredPayments;
+              if (sortColumn && sortOrder) {
+                sortedPayments = [...filteredPayments].sort((a, b) => {
+                  let cmp = 0;
+                  switch (sortColumn) {
+                    case "date": {
+                      const [dA, mA, yA] = a.date.split(".").map(Number);
+                      const [dB, mB, yB] = b.date.split(".").map(Number);
+                      cmp = ((yA + 2000) * 10000 + mA * 100 + dA) - ((yB + 2000) * 10000 + mB * 100 + dB);
+                      break;
+                    }
+                    case "supplier": cmp = a.supplier.localeCompare(b.supplier, "he"); break;
+                    case "reference": cmp = (a.reference || "").localeCompare(b.reference || "", "he"); break;
+                    case "installments": cmp = a.installments.localeCompare(b.installments); break;
+                    case "method": cmp = a.paymentMethod.localeCompare(b.paymentMethod, "he"); break;
+                    case "amount": cmp = a.totalAmount - b.totalAmount; break;
+                  }
+                  return sortOrder === "asc" ? cmp : -cmp;
+                });
+              }
+              return sortedPayments.length === 0 ? (
               <div className="flex items-center justify-center py-[40px]">
                 <span className="text-[16px] text-white/50">אין תשלומים להצגה</span>
               </div>
-            ) : filteredPayments.map((payment) => {
+            ) : sortedPayments.map((payment) => {
               // Each split is its own row (no grouping by payment method)
               const methodGroups: Array<{ method: string; methodName: string; totalAmount: number; splits: typeof payment.rawSplits }> = [];
               for (const split of payment.rawSplits) {
