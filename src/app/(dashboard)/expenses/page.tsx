@@ -422,7 +422,13 @@ function ExpensesPageInner() {
   // Invoice filter & sort state
   const [filterBy, setFilterBy] = useState<string>("");
   const [filterValue, setFilterValue] = useState<string>("");
-  const [dateSortOrder, setDateSortOrder] = useState<"asc" | "desc" | null>(null);
+  const [sortColumn, setSortColumn] = useState<"date" | "supplier" | "reference" | "amount" | "status" | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
+  const handleColumnSort = (col: "date" | "supplier" | "reference" | "amount" | "status") => {
+    if (sortColumn !== col) { setSortColumn(col); setSortOrder("asc"); }
+    else if (sortOrder === "asc") { setSortOrder("desc"); }
+    else { setSortColumn(null); setSortOrder(null); }
+  };
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -2645,13 +2651,22 @@ function ExpensesPageInner() {
                   default: return true;
                 }
               });
-              if (dateSortOrder) {
+              if (sortColumn && sortOrder) {
                 filtered = [...filtered].sort((a, b) => {
-                  const [dA, mA, yA] = a.date.split(".").map(Number);
-                  const [dB, mB, yB] = b.date.split(".").map(Number);
-                  const dateA = (yA + 2000) * 10000 + mA * 100 + dA;
-                  const dateB = (yB + 2000) * 10000 + mB * 100 + dB;
-                  return dateSortOrder === "asc" ? dateA - dateB : dateB - dateA;
+                  let cmp = 0;
+                  switch (sortColumn) {
+                    case "date": {
+                      const [dA, mA, yA] = a.date.split(".").map(Number);
+                      const [dB, mB, yB] = b.date.split(".").map(Number);
+                      cmp = ((yA + 2000) * 10000 + mA * 100 + dA) - ((yB + 2000) * 10000 + mB * 100 + dB);
+                      break;
+                    }
+                    case "supplier": cmp = a.supplier.localeCompare(b.supplier, "he"); break;
+                    case "reference": cmp = a.reference.localeCompare(b.reference, "he"); break;
+                    case "amount": cmp = a.amountBeforeVat - b.amountBeforeVat; break;
+                    case "status": cmp = a.status.localeCompare(b.status, "he"); break;
+                  }
+                  return sortOrder === "asc" ? cmp : -cmp;
                 });
               }
               const headers = ["תאריך", "ספק", "אסמכתא", "סכום לפני מע״מ", "סכום כולל מע״מ", "סטטוס", "הערות"];
@@ -2732,22 +2747,19 @@ function ExpensesPageInner() {
         <div id="onboarding-expenses-list" className="w-full flex flex-col gap-[5px]">
           {/* Table Header */}
           <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center">
-            <Button
-              type="button"
-              onClick={() => setDateSortOrder(prev => prev === "asc" ? "desc" : prev === "desc" ? null : "asc")}
-              className="text-[13px] font-medium text-center cursor-pointer hover:text-white/80 transition-colors flex items-center justify-center gap-[3px]"
-            >
-              תאריך
-              {dateSortOrder && (
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
-                  <path d={dateSortOrder === "asc" ? "M12 19V5M12 5L5 12M12 5L19 12" : "M12 5V19M12 19L5 12M12 19L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            {([["date", "תאריך"], ["supplier", "ספק"], ["reference", "אסמכתא"], ["amount", "סכום"], ["status", "סטטוס"]] as const).map(([col, label]) => (
+              <Button
+                key={col}
+                type="button"
+                onClick={() => handleColumnSort(col)}
+                className="text-[13px] font-medium text-center cursor-pointer hover:text-white/80 transition-colors flex items-center justify-center gap-[3px]"
+              >
+                {label}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity ${sortColumn === col ? 'opacity-100' : 'opacity-30'}`}>
+                  <path d={sortColumn === col && sortOrder === "desc" ? "M12 5V19M12 19L5 12M12 19L19 12" : "M12 19V5M12 5L5 12M12 5L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-              )}
-            </Button>
-            <span className="text-[13px] font-medium text-center">ספק</span>
-            <span className="text-[13px] font-medium text-center">אסמכתא</span>
-            <span className="text-[13px] font-medium text-center">סכום</span>
-            <span className="text-[13px] font-medium text-center">סטטוס</span>
+              </Button>
+            ))}
           </div>
 
           {/* Table Rows */}
@@ -2768,13 +2780,22 @@ function ExpensesPageInner() {
                   default: return true;
                 }
               });
-              if (dateSortOrder) {
+              if (sortColumn && sortOrder) {
                 filtered = [...filtered].sort((a, b) => {
-                  const [dA, mA, yA] = a.date.split(".").map(Number);
-                  const [dB, mB, yB] = b.date.split(".").map(Number);
-                  const dateA = (yA + 2000) * 10000 + mA * 100 + dA;
-                  const dateB = (yB + 2000) * 10000 + mB * 100 + dB;
-                  return dateSortOrder === "asc" ? dateA - dateB : dateB - dateA;
+                  let cmp = 0;
+                  switch (sortColumn) {
+                    case "date": {
+                      const [dA, mA, yA] = a.date.split(".").map(Number);
+                      const [dB, mB, yB] = b.date.split(".").map(Number);
+                      cmp = ((yA + 2000) * 10000 + mA * 100 + dA) - ((yB + 2000) * 10000 + mB * 100 + dB);
+                      break;
+                    }
+                    case "supplier": cmp = a.supplier.localeCompare(b.supplier, "he"); break;
+                    case "reference": cmp = a.reference.localeCompare(b.reference, "he"); break;
+                    case "amount": cmp = a.amountBeforeVat - b.amountBeforeVat; break;
+                    case "status": cmp = a.status.localeCompare(b.status, "he"); break;
+                  }
+                  return sortOrder === "asc" ? cmp : -cmp;
                 });
               }
               return filtered.length === 0 ? (
