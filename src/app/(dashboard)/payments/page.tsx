@@ -3261,7 +3261,7 @@ function PaymentsPageInner() {
           showCloseButton={false}
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
-            <div className="flex justify-between items-center" dir="ltr">
+            <div className="flex justify-between items-center flex-row-reverse">
               <Button
                 type="button"
                 onClick={handleClosePopup}

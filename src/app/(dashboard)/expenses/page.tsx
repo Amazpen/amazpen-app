@@ -3174,7 +3174,7 @@ function ExpensesPageInner() {
           showCloseButton={false}
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
-            <div className="flex justify-between items-center" dir="ltr">
+            <div className="flex justify-between items-center flex-row-reverse">
               <Button
                 type="button"
                 onClick={handleClosePopup}
@@ -4099,7 +4099,7 @@ function ExpensesPageInner() {
           showCloseButton={false}
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
-            <div className="flex justify-between items-center" dir="ltr">
+            <div className="flex justify-between items-center flex-row-reverse">
               <Button
                 type="button"
                 onClick={handleCloseEditPopup}
@@ -4368,7 +4368,7 @@ function ExpensesPageInner() {
           showCloseButton={false}
         >
           <SheetHeader className="border-b border-[#4C526B] pb-4">
-            <div className="flex justify-between items-center" dir="ltr">
+            <div className="flex justify-between items-center flex-row-reverse">
               <Button
                 type="button"
                 onClick={handleClosePaymentPopup}
@@ -4754,7 +4754,7 @@ function ExpensesPageInner() {
             <Button
               type="button"
               onClick={handleCloseSupplierBreakdown}
-              className="self-start text-white/50 hover:text-white transition-colors"
+              className="self-end text-white/50 hover:text-white transition-colors"
               title="סגור"
               aria-label="סגור"
             >
