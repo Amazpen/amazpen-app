@@ -40,30 +40,38 @@ export async function ocrImage(file: File): Promise<string> {
   return annotation?.text?.trim() || "";
 }
 
-/** Extract text from a PDF using pdfjs-dist text extraction.
- *  For scanned/image PDFs, returns empty — client should send as image instead. */
+/** Extract text from a PDF using Google Cloud Vision API (supports both digital and scanned PDFs). */
 export async function extractPdfText(file: File): Promise<string> {
-  const pdfjs = await import("pdfjs-dist");
-
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) }).promise;
-
-  const textParts: string[] = [];
-
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const pageText = content.items
-      .map((item) => ("str" in item ? item.str : ""))
-      .join(" ")
-      .trim();
-    textParts.push(pageText);
+  if (!GOOGLE_VISION_API_KEY) {
+    throw new Error("GOOGLE_VISION_API_KEY is not configured");
   }
 
-  // Handle Hebrew UTF-8 BOM if present
-  let fullText = textParts.join("\n\n");
-  if (fullText.charCodeAt(0) === 0xfeff) {
-    fullText = fullText.substring(1);
+  const buffer = await file.arrayBuffer();
+  const base64 = Buffer.from(buffer).toString("base64");
+
+  const body = {
+    requests: [
+      {
+        image: { content: base64 },
+        features: [{ type: "DOCUMENT_TEXT_DETECTION", maxResults: 1 }],
+        imageContext: { languageHints: ["he", "en"] },
+      },
+    ],
+  };
+
+  const res = await fetch(VISION_API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error("[OCR] Vision API error (PDF):", res.status, errBody);
+    throw new Error("Vision API request failed");
   }
-  return fullText.trim();
+
+  const data = await res.json();
+  const annotation = data.responses?.[0]?.fullTextAnnotation;
+  return annotation?.text?.trim() || "";
 }
