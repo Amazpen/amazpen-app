@@ -3890,7 +3890,7 @@ function PaymentsPageInner() {
                     <Button
                       type="button"
                       onClick={addPaymentMethodEntry}
-                      className="w-full bg-[#29318A] text-white text-[14px] font-medium px-[12px] py-[8px] rounded-[7px] hover:bg-[#3D44A0] transition-colors"
+                      className="w-full bg-[#29318A] text-white text-[16px] font-medium h-[50px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
                     >
                       + הוסף אמצעי תשלום
                     </Button>
