@@ -126,28 +126,15 @@ function formatDiff(diff: number, unit: string = "₪"): string {
 }
 
 export default function GoalsPage() {
-  const { selectedBusinesses, isAdmin } = useDashboard();
+  const { selectedBusinesses, isAdmin, globalMonth: selectedMonth, setGlobalMonth: setSelectedMonth, globalYear: selectedYear, setGlobalYear: setSelectedYear } = useDashboard();
   const [activeTab, setActiveTab] = usePersistedState<TabType>("goals:activeTab", "vs-current");
-  const [selectedMonth, setSelectedMonth] = usePersistedState("goals:selectedMonth", "");
-  const [selectedYear, setSelectedYear] = usePersistedState("goals:selectedYear", "");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [isMounted, setIsMounted] = useState(false);
 
   // Year options for the dropdown (computed client-side after mount)
   const years = useMemo(() => {
     const y = new Date().getFullYear();
     return [String(y), String(y + 1)];
   }, []);
-
-  // Initialize date values on client only (only if no saved value)
-  useEffect(() => {
-    if (!isMounted) {
-      if (!selectedMonth) setSelectedMonth(String(new Date().getMonth() + 1).padStart(2, "0"));
-      if (!selectedYear) setSelectedYear(String(new Date().getFullYear()));
-      setIsMounted(true);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedMonth/selectedYear are persisted initial values; setSelectedMonth/setSelectedYear are stable setters. Adding them would cause unnecessary re-runs.
-  }, [isMounted]);
 
   // Realtime subscription
   const handleRealtimeChange = useCallback(() => {
@@ -177,6 +164,7 @@ export default function GoalsPage() {
   const [goalId, setGoalId] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [focusedInputId, setFocusedInputId] = useState<string | null>(null);
+  const [targetInputTexts, setTargetInputTexts] = useState<Map<string, string>>(new Map());
   const [expectedWorkDaysInput, setExpectedWorkDaysInput] = useState<number>(0);
   const [calculatedWorkDays, setCalculatedWorkDays] = useState<number>(0);
   const [daysInMonth, setDaysInMonth] = useState<number>(0);
@@ -604,7 +592,6 @@ export default function GoalsPage() {
         });
 
         const managedProductItems: GoalItem[] = (managedProductsData || [])
-          .filter(p => p.target_pct !== null)
           .map(product => {
             const actualCost = productCostAgg[product.id] || 0;
             const actualPct = incomeBeforeVat > 0 ? (actualCost / incomeBeforeVat) * 100 : 0;
@@ -852,6 +839,8 @@ export default function GoalsPage() {
 
   // Handle KPI target change with debounced save
   const handleTargetChange = (id: string, newTarget: string) => {
+    // Keep raw text in input so decimal point isn't lost mid-typing
+    setTargetInputTexts(prev => new Map(prev).set(id, newTarget));
     const numValue = parseFloat(newTarget) || 0;
     setKpiData(prev => prev.map(item =>
       item.id === id ? { ...item, target: numValue } : item
@@ -1271,7 +1260,7 @@ export default function GoalsPage() {
                             type="text"
                             inputMode="decimal"
                             title={`יעד עבור ${item.name}`}
-                            value={item.unit === "%" ? item.target : item.target.toLocaleString("en-US")}
+                            value={isKpi && targetInputTexts.has(item.id) ? targetInputTexts.get(item.id)! : (item.unit === "%" ? item.target : item.target.toLocaleString("en-US"))}
                             onChange={(e) => {
                               const val = e.target.value.replace(/,/g, "");
                               if (isKpi) {
@@ -1282,8 +1271,18 @@ export default function GoalsPage() {
                                 handleCurrentExpenseTargetChange(item, val, false);
                               }
                             }}
-                            onFocus={() => setFocusedInputId(item.id)}
-                            onBlur={() => setFocusedInputId(null)}
+                            onFocus={() => {
+                              setFocusedInputId(item.id);
+                              if (isKpi) {
+                                setTargetInputTexts(prev => new Map(prev).set(item.id, String(item.target)));
+                              }
+                            }}
+                            onBlur={() => {
+                              setFocusedInputId(null);
+                              if (isKpi) {
+                                setTargetInputTexts(prev => { const m = new Map(prev); m.delete(item.id); return m; });
+                              }
+                            }}
                             style={{ width: focusedInputId === item.id ? '80px' : `${Math.max(1, String(item.unit === "%" ? item.target : item.target.toLocaleString("en-US")).length)}ch` }}
                             className="text-[14px] font-bold text-white text-center bg-transparent border-none outline-none ltr-num"
                             placeholder="0"
