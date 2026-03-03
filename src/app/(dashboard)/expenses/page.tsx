@@ -3486,7 +3486,7 @@ function ExpensesPageInner() {
                           {/* Rows */}
                           {expenseLineItems.map((li, idx) => (
                             <div key={`line-${idx}`} className="flex items-center border-b border-[#4C526B]/50 py-[6px] px-[4px]">
-                              <span className="flex-1 text-right text-white overflow-hidden text-ellipsis whitespace-nowrap pr-[4px]">{li.description || '-'}</span>
+                              <span className="flex-1 min-w-0 text-right text-white overflow-hidden text-ellipsis whitespace-nowrap pr-[4px]">{li.description || '-'}</span>
                               <span className="w-[50px] text-center text-white/70 ltr-num shrink-0">{li.quantity ?? '-'}</span>
                               <span className="w-[80px] text-center ltr-num leading-tight shrink-0">
                                 <span className="text-white">&#8362;{li.unit_price?.toFixed(2) ?? '0'}</span>
