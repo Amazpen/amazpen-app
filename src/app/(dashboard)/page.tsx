@@ -362,6 +362,20 @@ export default function DashboardPage() {
   const [isInitialLoad, setIsInitialLoad] = useState(false); // For skeleton - only when user clicks on business
   const [incomeSourcesSummary, setIncomeSourcesSummary] = useState<IncomeSourceSummary[]>([]);
   const [managedProductsSummary, setManagedProductsSummary] = useState<ManagedProductSummary[]>([]);
+  const [selectedBusinessModel, setSelectedBusinessModel] = useState<"regular" | "service" | null>(null);
+  const [serviceSummary, setServiceSummary] = useState<{
+    totalIncome: number;
+    retainerIncome: number;
+    retainerCount: number;
+    paymentsIncome: number;
+    paymentsCount: number;
+    servicesIncome: number;
+    servicesCount: number;
+    prevMonthTotal: number;
+    prevMonthRetainer: number;
+    prevMonthPayments: number;
+    prevMonthServices: number;
+  } | null>(null);
   // נתונים היסטוריים לגרף ממוצע הזמנה - 6 חודשים אחרונים
   const [orderAvgChartData, setOrderAvgChartData] = useState<{ month: string; [key: string]: number | string }[]>([]);
   // נתונים היסטוריים לגרף ניהול עלות מכר - 6 חודשים אחרונים
@@ -982,7 +996,7 @@ export default function DashboardPage() {
       ] = await Promise.all([
         supabase
           .from("businesses")
-          .select("id, name, logo_url, status, vat_percentage, markup_percentage, manager_monthly_salary")
+          .select("id, name, logo_url, status, vat_percentage, markup_percentage, manager_monthly_salary, business_model")
           .in("id", businessIds)
           .is("deleted_at", null)
           .eq("status", "active"),
@@ -2925,8 +2939,8 @@ export default function DashboardPage() {
               ) : (
                 <>
               {/* Section Header - ניהול הכנסות */}
-              <div className="col-span-full lg:col-span-2 xl:col-span-3 flex flex-row-reverse items-center gap-[8px] mt-[5px]">
-                <span className="text-[15px] font-bold text-white/80">ניהול הכנסות</span>
+              <div className="col-span-full lg:col-span-2 xl:col-span-3 flex items-center gap-[8px] mt-[5px]" dir="rtl">
+                <span className="text-[15px] font-bold text-white/80 shrink-0">ניהול הכנסות</span>
                 <div className="flex-1 h-[1px] bg-white/10" />
               </div>
 
@@ -3225,8 +3239,8 @@ export default function DashboardPage() {
               })}
 
               {/* Section Header - ניהול הוצאות */}
-              <div className="col-span-full lg:col-span-2 xl:col-span-3 flex flex-row-reverse items-center gap-[8px] mt-[5px]">
-                <span className="text-[15px] font-bold text-white/80">ניהול הוצאות</span>
+              <div className="col-span-full lg:col-span-2 xl:col-span-3 flex items-center gap-[8px] mt-[5px]" dir="rtl">
+                <span className="text-[15px] font-bold text-white/80 shrink-0">ניהול הוצאות</span>
                 <div className="flex-1 h-[1px] bg-white/10" />
               </div>
 
