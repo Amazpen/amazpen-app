@@ -3268,15 +3268,13 @@ function ExpensesPageInner() {
         <div className="bg-[#0F1535] rounded-[20px] p-[15px_0px] mt-[10px] flex flex-col gap-[15px] w-full">
           <h2 className="text-[18px] font-bold text-center">מילוי יומי — עלות עובדים</h2>
           <div className="w-full flex flex-col gap-[5px]">
-            {/* Header - identical to invoices table */}
-            <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center">
+            <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-[7px] p-[10px_5px] pe-[13px] items-center">
               <span className="text-[13px] font-medium text-center">תאריך</span>
               <span className="text-[13px] font-medium text-center">עובדים שעתיים</span>
               <span className="text-[13px] font-medium text-center">שעות</span>
               <span className="text-[13px] font-medium text-center">עלות מנהל</span>
               <span className="text-[13px] font-medium text-center">סה&quot;כ</span>
             </div>
-            {/* Rows - identical structure to invoices rows */}
             <div className="max-h-[450px] overflow-y-auto flex flex-col gap-[5px]">
               {dailyLaborEntries.map((entry) => {
                 const dateObj = new Date(entry.entry_date);
@@ -3294,14 +3292,6 @@ function ExpensesPageInner() {
                   </div>
                 );
               })}
-            </div>
-            {/* Footer total - identical to header style */}
-            <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-b-[7px] p-[10px_5px] pe-[13px] items-center">
-              <span className="text-[13px] font-bold text-center">סה&quot;כ</span>
-              <span className="text-[13px] font-bold ltr-num text-center">₪{dailyLaborEntries.reduce((s, e) => s + e.labor_cost, 0).toLocaleString()}</span>
-              <span className="text-[13px] font-bold ltr-num text-center text-white/60">{dailyLaborEntries.reduce((s, e) => s + e.labor_hours, 0)}</span>
-              <span className="text-[13px] font-bold ltr-num text-center">₪{dailyLaborEntries.reduce((s, e) => s + e.manager_daily_cost, 0).toLocaleString()}</span>
-              <span className="text-[13px] font-bold ltr-num text-center">₪{totalLaborFromDaily.toLocaleString()}</span>
             </div>
           </div>
         </div>
