@@ -1,5 +1,3 @@
-import { PDFParse } from "pdf-parse";
-
 const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY;
 const VISION_API_URL = `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`;
 
@@ -14,6 +12,71 @@ export async function ocrImage(file: File): Promise<string> {
 
   const buffer = await file.arrayBuffer();
   const base64 = Buffer.from(buffer).toString("base64");
+
+  return callVisionOCR(base64);
+}
+
+/**
+ * Extract text from a PDF:
+ * - Digital PDF → extract text directly with pdfjs-dist (free, no OCR needed)
+ * - Scanned PDF (image-only, no text layer) → send to Google Vision OCR
+ */
+export async function extractPdfText(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+
+  // Step 1: Try to extract digital text directly (no OCR cost)
+  try {
+    const text = await extractDigitalPdfText(arrayBuffer);
+    if (text.length >= 10) {
+      return text;
+    }
+  } catch {
+    // Fall through to OCR
+  }
+
+  // Step 2: Scanned PDF — send to Google Vision OCR
+  if (!GOOGLE_VISION_API_KEY) {
+    throw new Error("GOOGLE_VISION_API_KEY is not configured");
+  }
+
+  const base64 = Buffer.from(arrayBuffer).toString("base64");
+  return callVisionOCR(base64);
+}
+
+/** Extract embedded text from a digital PDF using pdfjs-dist in Node.js (no worker needed) */
+async function extractDigitalPdfText(arrayBuffer: ArrayBuffer): Promise<string> {
+  // Use legacy build which works without a worker in Node.js
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+
+  // Disable worker — not needed/available in Node.js
+  pdfjs.GlobalWorkerOptions.workerSrc = "";
+
+  const pdf = await pdfjs.getDocument({ data: new Uint8Array(arrayBuffer), useWorkerFetch: false, isEvalSupported: false, useSystemFonts: true }).promise;
+
+  const textParts: string[] = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items
+      .map((item) => ("str" in item ? item.str : ""))
+      .join(" ")
+      .trim();
+    textParts.push(pageText);
+  }
+
+  await pdf.destroy();
+
+  let fullText = textParts.join("\n").trim();
+  // Strip BOM if present
+  if (fullText.charCodeAt(0) === 0xfeff) fullText = fullText.substring(1);
+  return fullText;
+}
+
+/** Call Google Vision DOCUMENT_TEXT_DETECTION on a base64-encoded file */
+async function callVisionOCR(base64: string): Promise<string> {
+  if (!GOOGLE_VISION_API_KEY) {
+    throw new Error("GOOGLE_VISION_API_KEY is not configured");
+  }
 
   const body = {
     requests: [
@@ -34,62 +97,6 @@ export async function ocrImage(file: File): Promise<string> {
   if (!res.ok) {
     const errBody = await res.text();
     console.error("[OCR] Vision API error:", res.status, errBody);
-    throw new Error("Vision API request failed");
-  }
-
-  const data = await res.json();
-  const annotation = data.responses?.[0]?.fullTextAnnotation;
-  return annotation?.text?.trim() || "";
-}
-
-/**
- * Extract text from a PDF:
- * - Digital PDF → extract text directly with pdf-parse (free, no OCR needed)
- * - Scanned PDF (image-only) → send to Google Vision OCR
- */
-export async function extractPdfText(file: File): Promise<string> {
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  // Step 1: Try to extract digital text directly
-  try {
-    const parser = new PDFParse({ data: buffer });
-    const result = await parser.getText();
-    await parser.destroy();
-    const text = result.text?.trim() || "";
-    if (text.length >= 10) {
-      // Digital PDF — has real embedded text, no OCR needed
-      return text;
-    }
-  } catch {
-    // pdf-parse failed — treat as scanned image PDF
-  }
-
-  // Step 2: Scanned PDF — send to Google Vision OCR
-  if (!GOOGLE_VISION_API_KEY) {
-    throw new Error("GOOGLE_VISION_API_KEY is not configured");
-  }
-
-  const base64 = buffer.toString("base64");
-
-  const body = {
-    requests: [
-      {
-        image: { content: base64 },
-        features: [{ type: "DOCUMENT_TEXT_DETECTION", maxResults: 1 }],
-        imageContext: { languageHints: ["he", "en"] },
-      },
-    ],
-  };
-
-  const res = await fetch(VISION_API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errBody = await res.text();
-    console.error("[OCR] Vision API error (scanned PDF):", res.status, errBody);
     throw new Error("Vision API request failed");
   }
 
