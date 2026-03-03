@@ -1408,6 +1408,7 @@ function ExpensesPageInner() {
       const res = await fetch("/api/ai/ocr-extract", { method: "POST", body: fd });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        console.error("[OCR] Server error detail:", err.detail || err.error);
         throw new Error(err.error || "OCR failed");
       }
 

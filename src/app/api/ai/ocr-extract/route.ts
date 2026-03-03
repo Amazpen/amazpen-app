@@ -129,7 +129,9 @@ ${rawText}`,
       raw_text: rawText,
     });
   } catch (err) {
-    console.error("[OCR-Extract] Error:", err);
-    return Response.json({ error: "שגיאה בזיהוי נתונים מהמסמך" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("[OCR-Extract] Error:", message, stack);
+    return Response.json({ error: "שגיאה בזיהוי נתונים מהמסמך", detail: message }, { status: 500 });
   }
 }
