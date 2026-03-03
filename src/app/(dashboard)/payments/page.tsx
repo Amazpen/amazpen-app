@@ -2480,7 +2480,7 @@ function PaymentsPageInner() {
                           {dateGroupsArr.map(([dateKey, splits]) => {
                             const dateExpanded = expandedForecastDates.has(`${month.key}__${dateKey}`);
                             return (
-                            <div key={dateKey} className="bg-white/5 border border-white/25 rounded-[7px] p-[3px_0px_3px_5px] mt-[10px]">
+                            <div key={dateKey} className={`bg-white/5 border rounded-[7px] p-[3px_0px_3px_5px] mt-[10px] transition-colors ${dateExpanded ? "border-white" : "border-white/25"}`}>
                               {/* Date Group Header - clickable */}
                               <Button
                                 type="button"
@@ -2646,7 +2646,7 @@ function PaymentsPageInner() {
                           {dateGroupsArr.map(([dateKey, splits]) => {
                             const dateExpanded = expandedPastDates.has(`${month.key}__${dateKey}`);
                             return (
-                            <div key={dateKey} className="bg-white/5 border border-white/25 rounded-[7px] p-[3px_0px_3px_5px] mt-[10px]">
+                            <div key={dateKey} className={`bg-white/5 border rounded-[7px] p-[3px_0px_3px_5px] mt-[10px] transition-colors ${dateExpanded ? "border-white" : "border-white/25"}`}>
                               <Button
                                 type="button"
                                 onClick={() => togglePastDate(`${month.key}__${dateKey}`)}

@@ -3774,13 +3774,13 @@ export default function DashboardPage() {
                   <div className="flex flex-col ml-[10px]">
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                       <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expPctColor}`}>
-                        {(noExpData || noTarget) ? '-' : formatPercentWithSign(detailedSummary?.currentExpensesDiffPct || 0)}
+                        {(noExpData || noTarget) ? '0%' : formatPercentWithSign(detailedSummary?.currentExpensesDiffPct || 0)}
                       </span>
                       <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                     </div>
                     <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
                       <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${expPctColor}`}>
-                        {(noExpData || noTarget) ? '-' : formatCurrencyFullWithSign((detailedSummary?.currentExpenses || 0) - (detailedSummary?.currentExpensesTargetAmount || 0))}
+                        {(noExpData || noTarget) ? '₪0' : formatCurrencyFullWithSign((detailedSummary?.currentExpenses || 0) - (detailedSummary?.currentExpensesTargetAmount || 0))}
                       </span>
                       <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                     </div>
