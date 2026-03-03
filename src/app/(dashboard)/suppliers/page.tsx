@@ -2194,7 +2194,7 @@ export default function SuppliersPage() {
                   type="button"
                   onClick={isEditingSupplier ? handleUpdateSupplier : handleSaveSupplier}
                   disabled={isSubmitting || !supplierName.trim()}
-                  className="flex-1 bg-[#29318A] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-[8px]"
+                  className="flex-1 bg-[#29318A] text-white text-[18px] font-semibold h-[50px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-[8px]"
                 >
                   {isSubmitting ? (
                     <>
@@ -2212,7 +2212,7 @@ export default function SuppliersPage() {
                   type="button"
                   onClick={handleCloseAddSupplierModal}
                   disabled={isSubmitting}
-                  className="flex-1 bg-transparent border border-[#4C526B] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10 disabled:opacity-50"
+                  className="flex-1 bg-transparent border border-[#4C526B] text-white text-[18px] font-semibold h-[50px] rounded-[10px] transition-colors hover:bg-white/10 disabled:opacity-50"
                 >
                   ביטול
                 </Button>
