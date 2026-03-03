@@ -270,6 +270,16 @@ function ExpensesPageInner() {
   const [expensesData, setExpensesData] = useState<ExpenseSummary[]>([]); // For chart and purchases tab - by supplier
   const [categoryData, setCategoryData] = useState<ExpenseCategorySummary[]>([]); // For expenses tab - by category with drill-down
   const [recentInvoices, setRecentInvoices] = useState<InvoiceDisplay[]>([]);
+
+  // Daily entries labor data for employees tab
+  interface DailyLaborEntry {
+    entry_date: string;
+    labor_cost: number;
+    labor_hours: number;
+    manager_daily_cost: number;
+  }
+  const [dailyLaborEntries, setDailyLaborEntries] = useState<DailyLaborEntry[]>([]);
+  const [totalLaborFromDaily, setTotalLaborFromDaily] = useState(0);
   const [_isLoading, setIsLoading] = useState(true);
   const [hasMoreInvoices, setHasMoreInvoices] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -1023,6 +1033,32 @@ function ExpensesPageInner() {
 
           setCategoryData(categorySummary);
         }
+
+        // For employees tab: fetch daily labor entries
+        if (activeTab === "employees") {
+          const { data: laborData } = await supabase
+            .from("daily_entries")
+            .select("entry_date, labor_cost, labor_hours, manager_daily_cost")
+            .in("business_id", selectedBusinesses)
+            .gte("entry_date", startDate)
+            .lte("entry_date", endDate)
+            .order("entry_date", { ascending: false });
+
+          if (!stale && laborData) {
+            const entries = laborData.map(e => ({
+              entry_date: e.entry_date,
+              labor_cost: Number(e.labor_cost) || 0,
+              labor_hours: Number(e.labor_hours) || 0,
+              manager_daily_cost: Number(e.manager_daily_cost) || 0,
+            })).filter(e => e.labor_cost > 0 || e.manager_daily_cost > 0);
+            setDailyLaborEntries(entries);
+            const total = entries.reduce((sum, e) => sum + e.labor_cost + e.manager_daily_cost, 0);
+            setTotalLaborFromDaily(total);
+          }
+        } else {
+          setDailyLaborEntries([]);
+          setTotalLaborFromDaily(0);
+        }
       } catch (error) {
         console.error("Error fetching expenses data:", error);
       } finally {
@@ -1212,6 +1248,22 @@ function ExpensesPageInner() {
   // Always sorted by amount descending for clear chart readability
   const chartDataSource = useMemo(() => {
     if (activeTab === "purchases") return [...expensesData].sort((a, b) => b.amount - a.amount);
+
+    if (activeTab === "employees") {
+      // Employees tab: combine invoice-based data (categoryData) + daily labor total
+      const result: { id: string; amount: number; percentage: number; name?: string; category?: string }[] = [];
+      // Add daily labor as a single combined item if it exists
+      if (totalLaborFromDaily > 0) {
+        result.push({ id: "__daily_labor__", amount: totalLaborFromDaily, percentage: totalSalesBeforeVat > 0 ? (totalLaborFromDaily / totalSalesBeforeVat) * 100 : 0, name: "מילוי יומי" });
+      }
+      // Add invoice-based employee expense categories
+      for (const cat of categoryData) {
+        result.push({ ...cat, percentage: totalSalesBeforeVat > 0 ? (cat.amount / totalSalesBeforeVat) * 100 : 0 });
+      }
+      result.sort((a, b) => b.amount - a.amount);
+      return result;
+    }
+
     if (expandedCategoryIds.length === 0) return [...categoryData].sort((a, b) => b.amount - a.amount);
 
     // Build mixed chart: non-expanded categories + suppliers from expanded categories
@@ -1233,7 +1285,7 @@ function ExpensesPageInner() {
     // Sort by amount descending for clear chart readability
     result.sort((a, b) => b.amount - a.amount);
     return result;
-  }, [activeTab, expensesData, categoryData, expandedCategoryIds, totalSalesBeforeVat]);
+  }, [activeTab, expensesData, categoryData, expandedCategoryIds, totalSalesBeforeVat, totalLaborFromDaily]);
 
   const totalExpenses = chartDataSource.reduce((sum, item) => sum + item.amount, 0);
 
@@ -2435,7 +2487,12 @@ function ExpensesPageInner() {
         </div>
 
         {/* Expenses Detail Table - hidden when no data */}
-        {(activeTab === "expenses" ? categoryData.length > 0 : expensesData.length > 0) && (
+        {(activeTab === "employees"
+          ? (chartDataSource.length > 0)
+          : activeTab === "expenses"
+            ? categoryData.length > 0
+            : expensesData.length > 0
+        ) && (
         <div className="max-w-[400px] mx-auto">
           <h2 className="text-[24px] font-bold text-center mb-[20px]">פירוט הוצאות</h2>
 
@@ -2444,14 +2501,40 @@ function ExpensesPageInner() {
             <span className="text-[16px] flex-1 text-right">
               {activeTab === "purchases" ? "שם ספק" : "קטגוריית ספק"}
             </span>
-            <span className="text-[16px] flex-1 text-center">סכום לפני מע&quot;מ</span>
+            <span className="text-[16px] flex-1 text-center">סכום</span>
             <span className="text-[16px] flex-1 text-center">(%) מפדיון</span>
           </div>
 
           {/* Table Rows */}
           <div className="flex flex-col">
-            {activeTab !== "purchases" ? (
-              /* הוצאות שוטפות / עלות עובדים - לפי קטגוריה עם drill-down */
+            {activeTab === "employees" ? (
+              /* עלות עובדים - מילוי יומי + חשבוניות */
+              chartDataSource.length === 0 ? (
+                <div className="flex items-center justify-center py-[30px]">
+                  <span className="text-[16px] text-white/50">אין נתונים להצגה</span>
+                </div>
+              ) : (
+                chartDataSource.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className={`flex items-center p-[5px] min-h-[50px] ${index > 0 ? 'border-t border-white/10' : ''}`}
+                  >
+                    <div className="flex items-center gap-[5px] flex-1">
+                      <span
+                        className="w-[12px] h-[12px] rounded-full flex-shrink-0"
+                        style={{ backgroundColor: chartColors[index % chartColors.length] }}
+                      />
+                      <span className="text-[16px] text-right flex-1">
+                        {(item as { name?: string }).name || (item as { category?: string }).category || ""}
+                      </span>
+                    </div>
+                    <span className="text-[16px] flex-1 text-center ltr-num">₪{item.amount.toLocaleString()}</span>
+                    <span className="text-[16px] flex-1 text-center ltr-num">{item.percentage % 1 === 0 ? item.percentage.toFixed(0) : item.percentage.toFixed(2)}%</span>
+                  </div>
+                ))
+              )
+            ) : activeTab !== "purchases" ? (
+              /* הוצאות שוטפות - לפי קטגוריה עם drill-down */
               categoryData.length === 0 ? (
                 <div className="flex items-center justify-center py-[30px]">
                   <span className="text-[16px] text-white/50">אין נתונים להצגה</span>
@@ -2555,7 +2638,7 @@ function ExpensesPageInner() {
         )}
 
         {/* Full Details Button - only show when there's data */}
-        {(activeTab === "expenses" ? categoryData.length > 0 : expensesData.length > 0) && (
+        {(activeTab === "employees" ? chartDataSource.length > 0 : activeTab === "expenses" ? categoryData.length > 0 : expensesData.length > 0) && (
           <div className="flex justify-center mt-0">
             <Button
               type="button"
@@ -3178,6 +3261,59 @@ function ExpensesPageInner() {
           </div>
         </div>
       </div>
+      )}
+
+      {/* Daily Labor Entries Table - only shown in employees tab */}
+      {activeTab === "employees" && dailyLaborEntries.length > 0 && (
+        <div className="bg-[#0F1535] rounded-[20px] p-[15px] mt-[10px]">
+          <h2 className="text-[18px] font-bold text-center mb-[15px]">מילוי יומי — עלות עובדים</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-right">
+              <thead>
+                <tr className="border-b border-white/20 text-white/60 text-[13px]">
+                  <th className="pb-[8px] font-medium text-right pr-[5px]">תאריך</th>
+                  <th className="pb-[8px] font-medium text-center">עלות עובדים שעתיים</th>
+                  <th className="pb-[8px] font-medium text-center">שעות</th>
+                  <th className="pb-[8px] font-medium text-center">עלות מנהל</th>
+                  <th className="pb-[8px] font-medium text-center pl-[5px]">סה&quot;כ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dailyLaborEntries.map((entry, idx) => {
+                  const dateObj = new Date(entry.entry_date);
+                  const dateStr = `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${String(dateObj.getFullYear()).slice(2)}`;
+                  const rowTotal = entry.labor_cost + entry.manager_daily_cost;
+                  return (
+                    <tr key={entry.entry_date} className={`text-[14px] min-h-[44px] ${idx > 0 ? 'border-t border-white/10' : ''}`}>
+                      <td className="py-[8px] pr-[5px] ltr-num text-right">{dateStr}</td>
+                      <td className="py-[8px] text-center ltr-num">{entry.labor_cost > 0 ? `₪${entry.labor_cost.toLocaleString()}` : "—"}</td>
+                      <td className="py-[8px] text-center ltr-num text-white/60">{entry.labor_hours > 0 ? entry.labor_hours : "—"}</td>
+                      <td className="py-[8px] text-center ltr-num">{entry.manager_daily_cost > 0 ? `₪${entry.manager_daily_cost.toLocaleString()}` : "—"}</td>
+                      <td className="py-[8px] text-center ltr-num font-semibold pl-[5px]">₪{rowTotal.toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-white/30 font-bold text-[15px]">
+                  <td className="pt-[10px] pr-[5px]">סה&quot;כ</td>
+                  <td className="pt-[10px] text-center ltr-num">
+                    ₪{dailyLaborEntries.reduce((s, e) => s + e.labor_cost, 0).toLocaleString()}
+                  </td>
+                  <td className="pt-[10px] text-center ltr-num text-white/60">
+                    {dailyLaborEntries.reduce((s, e) => s + e.labor_hours, 0)}
+                  </td>
+                  <td className="pt-[10px] text-center ltr-num">
+                    ₪{dailyLaborEntries.reduce((s, e) => s + e.manager_daily_cost, 0).toLocaleString()}
+                  </td>
+                  <td className="pt-[10px] text-center ltr-num pl-[5px]">
+                    ₪{totalLaborFromDaily.toLocaleString()}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
       )}
 
       {/* Add Expense Popup */}
