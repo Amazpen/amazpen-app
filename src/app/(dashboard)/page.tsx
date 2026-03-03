@@ -1147,6 +1147,13 @@ export default function DashboardPage() {
       });
 
       setBusinessCards(sortedBusinessCardsData);
+
+      // Determine business model for the currently selected business
+      if (selectedBusinesses.length > 0) {
+        const selectedBiz = businesses.find(b => b.id === selectedBusinesses[0]);
+        setSelectedBusinessModel((selectedBiz?.business_model as "regular" | "service") ?? "regular");
+      }
+
       setIsLoading(false);
     };
 
@@ -1212,7 +1219,7 @@ export default function DashboardPage() {
         // 3. Fetch business data for labor cost calculation
         supabase
           .from("businesses")
-          .select("id, markup_percentage, manager_monthly_salary, vat_percentage")
+          .select("id, markup_percentage, manager_monthly_salary, vat_percentage, business_model")
           .in("id", selectedBusinesses),
 
         // 4. Fetch goals data
@@ -2444,6 +2451,85 @@ export default function DashboardPage() {
         prevYearChangePct,
       });
 
+      // ========================================================================
+      // SERVICE BUSINESS DATA FETCH
+      // If any selected business is a service business, fetch customer revenue
+      // ========================================================================
+      const currentBusinessModel = (businessData || []).find(b => b.id === selectedBusinesses[0])?.business_model as "regular" | "service" | undefined;
+      setSelectedBusinessModel(currentBusinessModel ?? "regular");
+
+      if (currentBusinessModel === "service") {
+        const prevMonthStartStr2 = formatLocalDate(new Date(dateRange.start.getFullYear(), dateRange.start.getMonth() - 1, 1));
+        const prevMonthEndStr2 = formatLocalDate(new Date(dateRange.start.getFullYear(), dateRange.start.getMonth(), 0));
+
+        // Fetch all customers for selected businesses
+        const { data: customersData } = await supabase
+          .from("customers")
+          .select("id, retainer_amount, retainer_status, retainer_type")
+          .in("business_id", selectedBusinesses)
+          .is("deleted_at", null)
+          .eq("is_active", true);
+
+        const customerIds = (customersData || []).map(c => c.id);
+
+        const [
+          paymentsResult,
+          servicesResult,
+          prevPaymentsResult,
+          prevServicesResult,
+        ] = await Promise.all([
+          // תשלומי לקוחות — תקופה נוכחית
+          customerIds.length > 0
+            ? supabase.from("customer_payments").select("amount").in("customer_id", customerIds).gte("payment_date", startDateStr).lte("payment_date", endDateStr).is("deleted_at", null)
+            : Promise.resolve({ data: [] }),
+          // שירותים — תקופה נוכחית
+          customerIds.length > 0
+            ? supabase.from("customer_services").select("amount").in("customer_id", customerIds).gte("service_date", startDateStr).lte("service_date", endDateStr).is("deleted_at", null)
+            : Promise.resolve({ data: [] }),
+          // תשלומים — חודש קודם
+          customerIds.length > 0
+            ? supabase.from("customer_payments").select("amount").in("customer_id", customerIds).gte("payment_date", prevMonthStartStr2).lte("payment_date", prevMonthEndStr2).is("deleted_at", null)
+            : Promise.resolve({ data: [] }),
+          // שירותים — חודש קודם
+          customerIds.length > 0
+            ? supabase.from("customer_services").select("amount").in("customer_id", customerIds).gte("service_date", prevMonthStartStr2).lte("service_date", prevMonthEndStr2).is("deleted_at", null)
+            : Promise.resolve({ data: [] }),
+        ]);
+
+        const paymentsData = paymentsResult.data || [];
+        const servicesData = servicesResult.data || [];
+        const prevPaymentsData = prevPaymentsResult.data || [];
+        const prevServicesData = prevServicesResult.data || [];
+
+        // ריטיינרים פעילים — מחושב לפי חודש (retainer_amount per active customer)
+        const activeRetainers = (customersData || []).filter(c => c.retainer_status === 'active' && Number(c.retainer_amount) > 0);
+        const retainerIncome = activeRetainers.reduce((sum, c) => sum + (Number(c.retainer_amount) || 0), 0);
+
+        const paymentsIncome = paymentsData.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        const servicesIncome = servicesData.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+        const totalServiceIncome = retainerIncome + paymentsIncome + servicesIncome;
+
+        const prevPaymentsIncome = prevPaymentsData.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        const prevServicesIncome = prevServicesData.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+        const prevMonthTotal = retainerIncome + prevPaymentsIncome + prevServicesIncome; // ריטיינר קבוע
+
+        setServiceSummary({
+          totalIncome: totalServiceIncome,
+          retainerIncome,
+          retainerCount: activeRetainers.length,
+          paymentsIncome,
+          paymentsCount: paymentsData.length,
+          servicesIncome,
+          servicesCount: servicesData.length,
+          prevMonthTotal,
+          prevMonthRetainer: retainerIncome,
+          prevMonthPayments: prevPaymentsIncome,
+          prevMonthServices: prevServicesIncome,
+        });
+      } else {
+        setServiceSummary(null);
+      }
+
       // Turn off loading states after data is loaded
       setIsInitialLoad(false);
       setIsLoadingSummary(false);
@@ -2950,8 +3036,8 @@ export default function DashboardPage() {
                   <span className="approval-badge absolute top-[6px] left-[6px] text-[10px] px-[6px] py-[2px] rounded-full bg-orange-500/20 z-10">ממתין לאישור</span>
                 )}
                 <div className="flex flex-row-reverse justify-between items-center w-full">
-                  <span className={`text-[20px] font-bold leading-[1.4] ltr-num ml-[9px] ${(detailedSummary?.totalIncome || 0) === 0 ? 'text-white' : (detailedSummary?.targetDiffPct || 0) < 0 ? 'text-red-500' : (detailedSummary?.targetDiffPct || 0) > 0 ? 'text-green-500' : 'text-white'}`}>
-                    {formatCurrencyFull(detailedSummary?.totalIncome || 0)}
+                  <span className={`text-[20px] font-bold leading-[1.4] ltr-num ml-[9px] ${(selectedBusinessModel === "service" ? (serviceSummary?.totalIncome || 0) : (detailedSummary?.totalIncome || 0)) === 0 ? 'text-white' : (detailedSummary?.targetDiffPct || 0) < 0 ? 'text-red-500' : (detailedSummary?.targetDiffPct || 0) > 0 ? 'text-green-500' : 'text-white'}`}>
+                    {formatCurrencyFull(selectedBusinessModel === "service" ? (serviceSummary?.totalIncome || 0) : (detailedSummary?.totalIncome || 0))}
                   </span>
                   <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
                     <span className="text-[20px] font-bold text-white leading-[1.4]">סה״כ הכנסות</span>
@@ -3030,8 +3116,96 @@ export default function DashboardPage() {
                 })()}
               </div>
 
-              {/* Dynamic Income Sources Cards */}
-              {incomeSourcesSummary.map((source, index) => {
+              {/* ================================================================
+                  SERVICE BUSINESS INCOME CARDS
+                  מוצג רק כאשר הנבחר הוא עסק נותן שירות
+              ================================================================ */}
+              {selectedBusinessModel === "service" && serviceSummary && (
+                <>
+                  {/* כרטיס ריטיינרים */}
+                  <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all">
+                    <div className="flex flex-row-reverse justify-between items-center w-full">
+                      <span className={`text-[20px] font-bold leading-[1.4] ltr-num ml-[9px] ${serviceSummary.retainerIncome === 0 ? 'text-white' : 'text-green-500'}`}>
+                        {formatCurrencyFull(serviceSummary.retainerIncome)}
+                      </span>
+                      <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
+                        <span className="text-[20px] font-bold text-white leading-[1.4]">ריטיינרים</span>
+                        <div className={`${getIconBgColor(1)} w-[31px] h-[31px] rounded-full flex items-center justify-center`}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="white" viewBox="0 0 256 256"><path d="M224,56V208H32V48H208A16,16,0,0,1,224,64Z" opacity="0.2"/><path d="M232,208a8,8,0,0,1-8,8H32a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V156.69l50.34-50.35a8,8,0,0,1,11.32,0L128,132.69,180.69,80H160a8,8,0,0,1,0-16h40a8,8,0,0,1,8,8v40a8,8,0,0,1-16,0V91.31l-58.34,58.35a8,8,0,0,1-11.32,0L96,123.31l-56,56V200H224A8,8,0,0,1,232,208Z"/></svg>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
+                      <div className="flex flex-col ml-[10px]">
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{serviceSummary.retainerCount}</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">לקוחות פעילים</span>
+                        </div>
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">
+                            {serviceSummary.retainerCount > 0 ? formatCurrencyFull(serviceSummary.retainerIncome / serviceSummary.retainerCount) : '₪0'}
+                          </span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">ממוצע ללקוח</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col mr-[10px]">
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${(serviceSummary.retainerIncome - serviceSummary.prevMonthRetainer) === 0 ? 'text-white' : (serviceSummary.retainerIncome - serviceSummary.prevMonthRetainer) > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {formatCurrencyFullWithSign(serviceSummary.retainerIncome - serviceSummary.prevMonthRetainer)}
+                          </span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
+                        </div>
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">-</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* כרטיס תשלומים ושירותים */}
+                  <div className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all">
+                    <div className="flex flex-row-reverse justify-between items-center w-full">
+                      <span className={`text-[20px] font-bold leading-[1.4] ltr-num ml-[9px] ${(serviceSummary.paymentsIncome + serviceSummary.servicesIncome) === 0 ? 'text-white' : 'text-green-500'}`}>
+                        {formatCurrencyFull(serviceSummary.paymentsIncome + serviceSummary.servicesIncome)}
+                      </span>
+                      <div className="flex flex-row-reverse items-center gap-[6px] mr-[9px]">
+                        <span className="text-[20px] font-bold text-white leading-[1.4]">תשלומים ושירותים</span>
+                        <div className={`${getIconBgColor(2)} w-[31px] h-[31px] rounded-full flex items-center justify-center`}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="white" viewBox="0 0 256 256"><path d="M224,56V176a8,8,0,0,1-8,8H40a8,8,0,0,1-8-8V56a8,8,0,0,1,8-8H216A8,8,0,0,1,224,56Z" opacity="0.2"/><path d="M216,40H136V24a8,8,0,0,0-16,0V40H40A16,16,0,0,0,24,56V176a16,16,0,0,0,16,16H79.36L57.75,219a8,8,0,0,0,12.5,10l29.59-37h56.32l29.59,37a8,8,0,1,0,12.5-10l-21.61-27H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,136H40V56H216V176ZM104,120v24a8,8,0,0,1-16,0V120a8,8,0,0,1,16,0Zm32-16v40a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm32-16v56a8,8,0,0,1-16,0V88a8,8,0,0,1,16,0Z"/></svg>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
+                      <div className="flex flex-col ml-[10px]">
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{serviceSummary.paymentsCount + serviceSummary.servicesCount}</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">כמות עסקאות</span>
+                        </div>
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{formatCurrencyFull(serviceSummary.paymentsIncome)}</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">תשלומים</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col mr-[10px]">
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${((serviceSummary.paymentsIncome + serviceSummary.servicesIncome) - (serviceSummary.prevMonthPayments + serviceSummary.prevMonthServices)) === 0 ? 'text-white' : ((serviceSummary.paymentsIncome + serviceSummary.servicesIncome) - (serviceSummary.prevMonthPayments + serviceSummary.prevMonthServices)) > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            {formatCurrencyFullWithSign((serviceSummary.paymentsIncome + serviceSummary.servicesIncome) - (serviceSummary.prevMonthPayments + serviceSummary.prevMonthServices))}
+                          </span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
+                        </div>
+                        <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
+                          <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{formatCurrencyFull(serviceSummary.servicesIncome)}</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">שירותים</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Dynamic Income Sources Cards — regular businesses only */}
+              {selectedBusinessModel !== "service" && incomeSourcesSummary.map((source, index) => {
                 // Dynamic color: offset by 1 (totalIncome is index 0)
                 const iconBgClass = getIconBgColor(1 + index);
                 const currentBusinessName = businessCards.find(b => b.id === realBusinessId)?.name || "";
