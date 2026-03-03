@@ -3274,7 +3274,7 @@ function ExpensesPageInner() {
       {activeTab === "employees" && dailyLaborEntries.length > 0 && (
         <div className="bg-[#0F1535] rounded-[20px] p-[15px_0px] mt-[10px] flex flex-col gap-[15px] w-full">
           <h2 className="text-[18px] font-bold text-center">מילוי יומי — עלות עובדים</h2>
-          <div className="w-full flex flex-col gap-[5px]">
+          <div className="w-full flex flex-col">
             {/* Header with sortable columns */}
             <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center">
               {([ ["date", "תאריך"], ["labor_cost", "עובדים שעתיים"], ["labor_hours", "שעות"], ["manager_daily_cost", "עלות מנהל"], ["total", "סה\"כ"] ] as const).map(([col, label]) => (
