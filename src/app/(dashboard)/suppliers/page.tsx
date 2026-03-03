@@ -2343,7 +2343,7 @@ export default function SuppliersPage() {
                 </div>
                 {selectedSupplier.email && (
                   <div className="flex flex-col items-center text-center">
-                    <span className="text-[12px] text-white/60">מייל</span>
+                    <span className="text-[12px] text-white/60">מייל ספק</span>
                     <span className="text-[14px] text-white font-medium" dir="ltr">{selectedSupplier.email}</span>
                   </div>
                 )}
@@ -2449,7 +2449,7 @@ export default function SuppliersPage() {
                   }}
                   className="text-white/60 hover:text-white transition-colors"
                 >
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronLeft className="w-5 h-5" />
                 </Button>
                 <span className="text-[14px] text-white font-medium min-w-[120px] text-center">
                   חודש {detailMonth.toLocaleDateString("he-IL", { month: "long", year: "numeric" })}
@@ -2466,7 +2466,7 @@ export default function SuppliersPage() {
                   }}
                   className="text-white/60 hover:text-white transition-colors"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronRight className="w-5 h-5" />
                 </Button>
               </div>
 
@@ -2992,7 +2992,7 @@ export default function SuppliersPage() {
                     />
                     <input
                       type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                      accept="*/*"
                       onChange={(e) => setNewDocFile(e.target.files?.[0] || null)}
                       className="text-[13px] text-white/60 file:ml-[10px] file:bg-[#29318A] file:text-white file:border-0 file:rounded-[6px] file:px-[12px] file:py-[6px] file:text-[13px] file:cursor-pointer"
                     />

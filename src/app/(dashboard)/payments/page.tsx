@@ -553,6 +553,28 @@ function PaymentsPageInner() {
     });
   };
 
+  const toggleAllInvoices = () => {
+    const allIds = openInvoices.map(inv => inv.id);
+    const allSelected = allIds.length > 0 && allIds.every(id => selectedInvoiceIds.has(id));
+    const newSet = allSelected ? new Set<string>() : new Set(allIds);
+
+    const selectedTotal = openInvoices
+      .filter(inv => newSet.has(inv.id))
+      .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+
+    if (newSet.size > 0) {
+      setPaymentMethods(prev => {
+        const updated = [...prev];
+        const amountStr = selectedTotal.toFixed(2).replace(/\.?0+$/, "") || "0";
+        const startDate = updated[0].customInstallments.length > 0 ? updated[0].customInstallments[0].dateForInput : paymentDate;
+        updated[0] = { ...updated[0], amount: amountStr, customInstallments: generateInstallments(parseInt(updated[0].installments) || 1, selectedTotal, startDate) };
+        return updated;
+      });
+    }
+
+    setSelectedInvoiceIds(newSet);
+  };
+
   const toggleMonthExpanded = (monthKey: string) => {
     setExpandedMonths(prev => {
       const newSet = new Set(prev);
@@ -3470,11 +3492,24 @@ function PaymentsPageInner() {
                             {expandedMonths.has(monthKey) && (
                               <div className="flex flex-col">
                                 {/* Column Headers */}
-                                <div className="grid grid-cols-[24px_1fr_1fr_1fr_50px] gap-[3px] px-[3px] py-[3px] border-b border-white/20 items-center">
-                                  <div />
-                                  <span className="text-[14px] text-white/70 text-center">תאריך חשבונית</span>
+                                <div className="grid grid-cols-[24px_40px_1fr_1fr_1fr_1fr_50px] gap-[3px] px-[3px] py-[3px] border-b border-white/20 items-center">
+                                  <Button type="button" onClick={toggleAllInvoices} className="flex items-center justify-center">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                      {openInvoices.length > 0 && openInvoices.every(inv => selectedInvoiceIds.has(inv.id)) ? (
+                                        <>
+                                          <rect x="3" y="3" width="18" height="18" rx="3" fill="#29318A" stroke="white" strokeWidth="1.5"/>
+                                          <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        </>
+                                      ) : (
+                                        <rect x="3" y="3" width="18" height="18" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" fill="none"/>
+                                      )}
+                                    </svg>
+                                  </Button>
+                                  <span className="text-[12px] text-white/70 text-center">תמונה</span>
+                                  <span className="text-[14px] text-white/70 text-center">תאריך</span>
                                   <span className="text-[14px] text-white/70 text-center">אסמכתא</span>
-                                  <span className="text-[14px] text-white/70 text-center">סכום כולל מע&quot;מ</span>
+                                  <span className="text-[14px] text-white/70 text-center">סכום</span>
+                                  <span className="text-[14px] text-white/70 text-center">סטטוס</span>
                                   <span className="text-[14px] text-white/70 text-center">פעולות</span>
                                 </div>
 
@@ -3485,7 +3520,7 @@ function PaymentsPageInner() {
                                   return (
                                   <div key={inv.id} className="flex flex-col">
                                     <div
-                                      className={`grid grid-cols-[24px_1fr_1fr_1fr_50px] gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 items-center cursor-pointer ${
+                                      className={`grid grid-cols-[24px_40px_1fr_1fr_1fr_1fr_50px] gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 items-center cursor-pointer ${
                                         selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""
                                       }`}
                                       onClick={() => toggleInvoiceSelection(inv.id)}
@@ -3502,61 +3537,42 @@ function PaymentsPageInner() {
                                             )}
                                           </svg>
                                         </div>
-                                        <span className="text-[14px] text-white text-center ltr-num">
+                                        {/* Thumbnail */}
+                                        <div className="flex items-center justify-center" onClick={(e) => { e.stopPropagation(); if (attachmentUrls.length > 0) setViewerDocUrl(attachmentUrls[0]); }}>
+                                          {attachmentUrls.length > 0 ? (
+                                            isPdfUrl(attachmentUrls[0]) ? (
+                                              <div className="w-[34px] h-[34px] rounded-[4px] overflow-hidden border border-white/20 cursor-pointer">
+                                                <PdfThumbnail url={attachmentUrls[0]} className="w-full h-full" />
+                                              </div>
+                                            ) : (
+                                              <div className="w-[34px] h-[34px] rounded-[4px] overflow-hidden border border-white/20 cursor-pointer">
+                                                <Image src={attachmentUrls[0]} alt="מסמך" className="w-full h-full object-cover" width={34} height={34} unoptimized />
+                                              </div>
+                                            )
+                                          ) : (
+                                            <div className="w-[34px] h-[34px] rounded-[4px] border border-white/10 flex items-center justify-center">
+                                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                            </div>
+                                          )}
+                                        </div>
+                                        <span className="text-[13px] text-white text-center ltr-num">
                                           {new Date(inv.invoice_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
                                         </span>
-                                        <span className="text-[14px] text-white text-center ltr-num">
+                                        <span className="text-[13px] text-white text-center ltr-num">
                                           {inv.invoice_number || "-"}
                                         </span>
-                                        <span className="text-[14px] text-white text-center ltr-num">
+                                        <span className="text-[13px] text-white text-center ltr-num">
                                           ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </span>
+                                        {/* Status */}
+                                        <span className={`text-[11px] text-center px-[4px] py-[2px] rounded-[5px] truncate ${
+                                          inv.status === "שולם" ? "bg-[#00E096]/20 text-[#00E096]"
+                                          : inv.status === "בבירור" ? "bg-[#FFA500]/20 text-[#FFA500]"
+                                          : "bg-white/10 text-white/70"
+                                        }`}>
+                                          {inv.status}
+                                        </span>
                                       <div className="flex items-center justify-center gap-[5px]" onClick={(e) => e.stopPropagation()}>
-                                        {attachmentUrls.length > 0 && (
-                                          <>
-                                            <Button
-                                              type="button"
-                                              title="צפייה במסמך"
-                                              onClick={(e) => { e.stopPropagation(); setViewerDocUrl(attachmentUrls[0]); }}
-                                              className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
-                                            >
-                                              <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                                <circle cx="8.5" cy="8.5" r="1.5"/>
-                                                <polyline points="21 15 16 10 5 21"/>
-                                              </svg>
-                                            </Button>
-                                            <Button
-                                              type="button"
-                                              title="הורדת מסמך"
-                                              className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
-                                              onClick={async (e) => {
-                                                e.stopPropagation();
-                                                try {
-                                                  const url = attachmentUrls[0];
-                                                  const res = await fetch(url);
-                                                  const blob = await res.blob();
-                                                  const blobUrl = URL.createObjectURL(blob);
-                                                  const a = document.createElement("a");
-                                                  a.href = blobUrl;
-                                                  a.download = url.split("/").pop() || "document";
-                                                  document.body.appendChild(a);
-                                                  a.click();
-                                                  document.body.removeChild(a);
-                                                  URL.revokeObjectURL(blobUrl);
-                                                } catch {
-                                                  window.open(attachmentUrls[0], "_blank");
-                                                }
-                                              }}
-                                            >
-                                              <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                                <polyline points="7 10 12 15 17 10"/>
-                                                <line x1="12" y1="15" x2="12" y2="3"/>
-                                              </svg>
-                                            </Button>
-                                          </>
-                                        )}
                                         {(attachmentUrls.length > 1 || inv.notes) && (
                                           <Button
                                             type="button"
