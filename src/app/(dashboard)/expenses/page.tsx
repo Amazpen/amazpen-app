@@ -3265,53 +3265,42 @@ function ExpensesPageInner() {
 
       {/* Daily Labor Entries Table - only shown in employees tab */}
       {activeTab === "employees" && dailyLaborEntries.length > 0 && (
-        <div className="bg-[#0F1535] rounded-[20px] p-[15px] mt-[10px]">
-          <h2 className="text-[18px] font-bold text-center mb-[15px]">מילוי יומי — עלות עובדים</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-right">
-              <thead>
-                <tr className="border-b border-white/20 text-white/60 text-[13px]">
-                  <th className="pb-[8px] font-medium text-right pr-[5px]">תאריך</th>
-                  <th className="pb-[8px] font-medium text-center">עלות עובדים שעתיים</th>
-                  <th className="pb-[8px] font-medium text-center">שעות</th>
-                  <th className="pb-[8px] font-medium text-center">עלות מנהל</th>
-                  <th className="pb-[8px] font-medium text-center pl-[5px]">סה&quot;כ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dailyLaborEntries.map((entry, idx) => {
-                  const dateObj = new Date(entry.entry_date);
-                  const dateStr = `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${String(dateObj.getFullYear()).slice(2)}`;
-                  const rowTotal = entry.labor_cost + entry.manager_daily_cost;
-                  return (
-                    <tr key={entry.entry_date} className={`text-[14px] min-h-[44px] ${idx > 0 ? 'border-t border-white/10' : ''}`}>
-                      <td className="py-[8px] pr-[5px] ltr-num text-right">{dateStr}</td>
-                      <td className="py-[8px] text-center ltr-num">{entry.labor_cost > 0 ? `₪${entry.labor_cost.toLocaleString()}` : "—"}</td>
-                      <td className="py-[8px] text-center ltr-num text-white/60">{entry.labor_hours > 0 ? entry.labor_hours : "—"}</td>
-                      <td className="py-[8px] text-center ltr-num">{entry.manager_daily_cost > 0 ? `₪${entry.manager_daily_cost.toLocaleString()}` : "—"}</td>
-                      <td className="py-[8px] text-center ltr-num font-semibold pl-[5px]">₪{rowTotal.toLocaleString()}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="border-t border-white/30 font-bold text-[15px]">
-                  <td className="pt-[10px] pr-[5px]">סה&quot;כ</td>
-                  <td className="pt-[10px] text-center ltr-num">
-                    ₪{dailyLaborEntries.reduce((s, e) => s + e.labor_cost, 0).toLocaleString()}
-                  </td>
-                  <td className="pt-[10px] text-center ltr-num text-white/60">
-                    {dailyLaborEntries.reduce((s, e) => s + e.labor_hours, 0)}
-                  </td>
-                  <td className="pt-[10px] text-center ltr-num">
-                    ₪{dailyLaborEntries.reduce((s, e) => s + e.manager_daily_cost, 0).toLocaleString()}
-                  </td>
-                  <td className="pt-[10px] text-center ltr-num pl-[5px]">
-                    ₪{totalLaborFromDaily.toLocaleString()}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+        <div className="bg-[#0F1535] rounded-[20px] p-[15px_0px] mt-[10px] flex flex-col gap-[15px] w-full">
+          <h2 className="text-[18px] font-bold text-center">מילוי יומי — עלות עובדים</h2>
+          <div className="w-full flex flex-col gap-[5px]">
+            {/* Header */}
+            <div className="grid grid-cols-[0.8fr_1.2fr_0.7fr_1fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] items-center">
+              <span className="text-[12px] font-semibold text-center text-white">תאריך</span>
+              <span className="text-[12px] font-semibold text-center text-white">עובדים שעתיים</span>
+              <span className="text-[12px] font-semibold text-center text-white">שעות</span>
+              <span className="text-[12px] font-semibold text-center text-white">עלות מנהל</span>
+              <span className="text-[12px] font-semibold text-center text-white">סה&quot;כ</span>
+            </div>
+            {/* Rows */}
+            <div className="max-h-[450px] overflow-y-auto flex flex-col gap-[5px]">
+              {dailyLaborEntries.map((entry) => {
+                const dateObj = new Date(entry.entry_date);
+                const dateStr = `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${String(dateObj.getFullYear()).slice(2)}`;
+                const rowTotal = entry.labor_cost + entry.manager_daily_cost;
+                return (
+                  <div key={entry.entry_date} className="grid grid-cols-[0.8fr_1.2fr_0.7fr_1fr_0.9fr] p-[7px_5px] border border-transparent rounded-[7px] items-center hover:bg-[#29318A]/30 transition-colors">
+                    <span className="text-[12px] ltr-num text-center">{dateStr}</span>
+                    <span className="text-[12px] ltr-num text-center">{entry.labor_cost > 0 ? `₪${entry.labor_cost.toLocaleString()}` : "—"}</span>
+                    <span className="text-[12px] ltr-num text-center text-white/60">{entry.labor_hours > 0 ? entry.labor_hours : "—"}</span>
+                    <span className="text-[12px] ltr-num text-center">{entry.manager_daily_cost > 0 ? `₪${entry.manager_daily_cost.toLocaleString()}` : "—"}</span>
+                    <span className="text-[12px] ltr-num text-center font-semibold">₪{rowTotal.toLocaleString()}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Footer total */}
+            <div className="grid grid-cols-[0.8fr_1.2fr_0.7fr_1fr_0.9fr] bg-[#29318A]/50 rounded-b-[7px] p-[10px_5px] items-center border-t border-white/20">
+              <span className="text-[12px] font-bold text-center">סה&quot;כ</span>
+              <span className="text-[12px] font-bold ltr-num text-center">₪{dailyLaborEntries.reduce((s, e) => s + e.labor_cost, 0).toLocaleString()}</span>
+              <span className="text-[12px] font-bold ltr-num text-center text-white/60">{dailyLaborEntries.reduce((s, e) => s + e.labor_hours, 0)}</span>
+              <span className="text-[12px] font-bold ltr-num text-center">₪{dailyLaborEntries.reduce((s, e) => s + e.manager_daily_cost, 0).toLocaleString()}</span>
+              <span className="text-[12px] font-bold ltr-num text-center">₪{totalLaborFromDaily.toLocaleString()}</span>
+            </div>
           </div>
         </div>
       )}
