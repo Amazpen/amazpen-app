@@ -170,7 +170,7 @@ export default function CashFlowPage() {
         setSettings(settingsData);
 
         const openingBalance = settingsData?.opening_balance ? Number(settingsData.opening_balance) : 0;
-        const openingDate = settingsData?.opening_date || formatLocalDate(new Date());
+        const openingDate = settingsData?.opening_date ? String(settingsData.opening_date).substring(0, 10) : formatLocalDate(new Date());
         const endDateStr = formatLocalDate(endDate);
 
         // We need to fetch income entries from BEFORE the opening date too,
@@ -334,12 +334,14 @@ export default function CashFlowPage() {
     const balance = parseFloat(balanceInput.replace(/,/g, "")) || 0;
     const date = balanceDateInput || formatLocalDate(new Date());
 
-    await supabase.from("cashflow_settings").upsert({
+    const { error } = await supabase.from("cashflow_settings").upsert({
       business_id: selectedBusinesses[0],
       opening_balance: balance,
       opening_date: date,
       updated_at: new Date().toISOString(),
     }, { onConflict: "business_id" });
+
+    if (error) { console.error("saveOpeningBalance error:", error); return; }
 
     setEditingBalance(false);
     setRefreshTrigger((prev) => prev + 1);
@@ -349,7 +351,7 @@ export default function CashFlowPage() {
     if (!overrideItem || selectedBusinesses.length === 0) return;
     const amount = parseFloat(overrideAmount.replace(/,/g, "")) || 0;
 
-    await supabase.from("cashflow_income_overrides").upsert({
+    const { error } = await supabase.from("cashflow_income_overrides").upsert({
       business_id: selectedBusinesses[0],
       settlement_date: overrideItem.date,
       payment_method_id: overrideItem.item.payment_method_id,
@@ -357,6 +359,8 @@ export default function CashFlowPage() {
       override_amount: amount,
       note: overrideNote || null,
     }, { onConflict: "business_id,settlement_date,payment_method_id" });
+
+    if (error) { console.error("saveOverride error:", error); return; }
 
     setOverrideItem(null);
     setOverrideAmount("");
@@ -412,7 +416,7 @@ export default function CashFlowPage() {
                 type="button"
                 onClick={() => {
                   setBalanceInput(settings?.opening_balance?.toString() || "0");
-                  setBalanceDateInput(settings?.opening_date || formatLocalDate(new Date()));
+                  setBalanceDateInput(settings?.opening_date ? String(settings.opening_date).substring(0, 10) : formatLocalDate(new Date()));
                   setEditingBalance(true);
                 }}
                 className="text-[20px] font-bold text-white hover:text-[#0095FF] transition-colors"
