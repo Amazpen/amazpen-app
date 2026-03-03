@@ -6,20 +6,20 @@ import { z } from "zod";
 import { ocrImage, extractPdfText, MAX_FILE_SIZE, ACCEPTED_IMAGE_TYPES } from "@/lib/ocr";
 
 const lineItemSchema = z.object({
-  description: z.string().optional().describe("שם הפריט"),
-  quantity: z.number().optional().describe("כמות"),
-  unit_price: z.number().optional().describe("מחיר ליחידה"),
-  total: z.number().optional().describe("סה״כ לפריט"),
+  description: z.string().nullable().describe("שם הפריט"),
+  quantity: z.number().nullable().describe("כמות"),
+  unit_price: z.number().nullable().describe("מחיר ליחידה"),
+  total: z.number().nullable().describe("סה״כ לפריט"),
 });
 
 const invoiceSchema = z.object({
-  supplier_name: z.string().optional().describe("שם הספק/העסק שהנפיק את החשבונית"),
-  document_number: z.string().optional().describe("מספר חשבונית או תעודת משלוח"),
-  document_date: z.string().optional().describe("תאריך המסמך בפורמט YYYY-MM-DD"),
-  subtotal: z.number().optional().describe("סכום לפני מע״מ"),
-  vat_amount: z.number().optional().describe("סכום מע״מ"),
-  total_amount: z.number().optional().describe("סכום כולל מע״מ"),
-  line_items: z.array(lineItemSchema).optional().describe("פריטים בחשבונית"),
+  supplier_name: z.string().nullable().describe("שם הספק/העסק שהנפיק את החשבונית"),
+  document_number: z.string().nullable().describe("מספר חשבונית או תעודת משלוח"),
+  document_date: z.string().nullable().describe("תאריך המסמך בפורמט YYYY-MM-DD"),
+  subtotal: z.number().nullable().describe("סכום לפני מע״מ"),
+  vat_amount: z.number().nullable().describe("סכום מע״מ"),
+  total_amount: z.number().nullable().describe("סכום כולל מע״מ"),
+  line_items: z.array(lineItemSchema).nullable().describe("פריטים בחשבונית"),
 });
 
 interface SupplierInfo {
