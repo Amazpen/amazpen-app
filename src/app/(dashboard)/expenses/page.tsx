@@ -3268,38 +3268,40 @@ function ExpensesPageInner() {
         <div className="bg-[#0F1535] rounded-[20px] p-[15px_0px] mt-[10px] flex flex-col gap-[15px] w-full">
           <h2 className="text-[18px] font-bold text-center">מילוי יומי — עלות עובדים</h2>
           <div className="w-full flex flex-col gap-[5px]">
-            {/* Header */}
-            <div className="grid grid-cols-[0.8fr_1.2fr_0.7fr_1fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] items-center">
-              <span className="text-[12px] font-semibold text-center text-white">תאריך</span>
-              <span className="text-[12px] font-semibold text-center text-white">עובדים שעתיים</span>
-              <span className="text-[12px] font-semibold text-center text-white">שעות</span>
-              <span className="text-[12px] font-semibold text-center text-white">עלות מנהל</span>
-              <span className="text-[12px] font-semibold text-center text-white">סה&quot;כ</span>
+            {/* Header - identical to invoices table */}
+            <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center">
+              <span className="text-[13px] font-medium text-center">תאריך</span>
+              <span className="text-[13px] font-medium text-center">עובדים שעתיים</span>
+              <span className="text-[13px] font-medium text-center">שעות</span>
+              <span className="text-[13px] font-medium text-center">עלות מנהל</span>
+              <span className="text-[13px] font-medium text-center">סה&quot;כ</span>
             </div>
-            {/* Rows */}
+            {/* Rows - identical structure to invoices rows */}
             <div className="max-h-[450px] overflow-y-auto flex flex-col gap-[5px]">
               {dailyLaborEntries.map((entry) => {
                 const dateObj = new Date(entry.entry_date);
                 const dateStr = `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${String(dateObj.getFullYear()).slice(2)}`;
                 const rowTotal = entry.labor_cost + entry.manager_daily_cost;
                 return (
-                  <div key={entry.entry_date} className="grid grid-cols-[0.8fr_1.2fr_0.7fr_1fr_0.9fr] p-[7px_5px] border border-transparent rounded-[7px] items-center hover:bg-[#29318A]/30 transition-colors">
-                    <span className="text-[12px] ltr-num text-center">{dateStr}</span>
-                    <span className="text-[12px] ltr-num text-center">{entry.labor_cost > 0 ? `₪${entry.labor_cost.toLocaleString()}` : "—"}</span>
-                    <span className="text-[12px] ltr-num text-center text-white/60">{entry.labor_hours > 0 ? entry.labor_hours : "—"}</span>
-                    <span className="text-[12px] ltr-num text-center">{entry.manager_daily_cost > 0 ? `₪${entry.manager_daily_cost.toLocaleString()}` : "—"}</span>
-                    <span className="text-[12px] ltr-num text-center font-semibold">₪{rowTotal.toLocaleString()}</span>
+                  <div key={entry.entry_date} className="rounded-[7px] p-[7px_3px] border border-transparent">
+                    <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] w-full p-[5px_5px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] items-center">
+                      <span className="text-[12px] ltr-num text-center">{dateStr}</span>
+                      <span className="text-[12px] ltr-num text-center">{entry.labor_cost > 0 ? `₪${entry.labor_cost.toLocaleString()}` : "—"}</span>
+                      <span className="text-[12px] ltr-num text-center text-white/60">{entry.labor_hours > 0 ? entry.labor_hours : "—"}</span>
+                      <span className="text-[12px] ltr-num text-center">{entry.manager_daily_cost > 0 ? `₪${entry.manager_daily_cost.toLocaleString()}` : "—"}</span>
+                      <span className="text-[12px] ltr-num text-center font-medium">₪{rowTotal.toLocaleString()}</span>
+                    </div>
                   </div>
                 );
               })}
             </div>
-            {/* Footer total */}
-            <div className="grid grid-cols-[0.8fr_1.2fr_0.7fr_1fr_0.9fr] bg-[#29318A]/50 rounded-b-[7px] p-[10px_5px] items-center border-t border-white/20">
-              <span className="text-[12px] font-bold text-center">סה&quot;כ</span>
-              <span className="text-[12px] font-bold ltr-num text-center">₪{dailyLaborEntries.reduce((s, e) => s + e.labor_cost, 0).toLocaleString()}</span>
-              <span className="text-[12px] font-bold ltr-num text-center text-white/60">{dailyLaborEntries.reduce((s, e) => s + e.labor_hours, 0)}</span>
-              <span className="text-[12px] font-bold ltr-num text-center">₪{dailyLaborEntries.reduce((s, e) => s + e.manager_daily_cost, 0).toLocaleString()}</span>
-              <span className="text-[12px] font-bold ltr-num text-center">₪{totalLaborFromDaily.toLocaleString()}</span>
+            {/* Footer total - identical to header style */}
+            <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-b-[7px] p-[10px_5px] pe-[13px] items-center">
+              <span className="text-[13px] font-bold text-center">סה&quot;כ</span>
+              <span className="text-[13px] font-bold ltr-num text-center">₪{dailyLaborEntries.reduce((s, e) => s + e.labor_cost, 0).toLocaleString()}</span>
+              <span className="text-[13px] font-bold ltr-num text-center text-white/60">{dailyLaborEntries.reduce((s, e) => s + e.labor_hours, 0)}</span>
+              <span className="text-[13px] font-bold ltr-num text-center">₪{dailyLaborEntries.reduce((s, e) => s + e.manager_daily_cost, 0).toLocaleString()}</span>
+              <span className="text-[13px] font-bold ltr-num text-center">₪{totalLaborFromDaily.toLocaleString()}</span>
             </div>
           </div>
         </div>
