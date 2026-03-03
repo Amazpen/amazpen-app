@@ -3475,7 +3475,7 @@ function ExpensesPageInner() {
                       {/* Existing items table */}
                       {expenseLineItems.length > 0 && (
                         <div className="overflow-x-auto">
-                          <Table className="w-full text-[13px]">
+                          <Table className="w-full table-fixed text-[13px]">
                             <TableHeader>
                               <TableRow className="border-b border-[#4C526B] text-white/60">
                                 <TableHead className="text-right py-[6px] pr-[4px]">פריט</TableHead>
@@ -3488,10 +3488,10 @@ function ExpensesPageInner() {
                             <TableBody>
                               {expenseLineItems.map((li, idx) => (
                                 <TableRow key={`line-${idx}`} className="border-b border-[#4C526B]/50">
-                                  <TableCell className="text-right py-[6px] pr-[4px] text-white max-w-[120px] overflow-hidden text-ellipsis">{li.description || '-'}</TableCell>
-                                  <TableCell className="text-center py-[6px] text-white/70 ltr-num">{li.quantity || '-'}</TableCell>
-                                  <TableCell className="text-center py-[6px] ltr-num leading-tight">
-                                    <span className="text-white">&#8362;{li.unit_price?.toFixed(2) || '0'}</span>
+                                  <TableCell className="text-right py-[6px] pr-[4px] text-white w-full max-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{li.description || '-'}</TableCell>
+                                  <TableCell className="text-center py-[6px] text-white/70 ltr-num w-[50px] shrink-0">{li.quantity ?? '-'}</TableCell>
+                                  <TableCell className="text-center py-[6px] ltr-num leading-tight w-[75px] shrink-0">
+                                    <span className="text-white">&#8362;{li.unit_price?.toFixed(2) ?? '0'}</span>
                                     {lineItemsPriceCheckDone && li.price_change_pct != null && li.price_change_pct !== 0 && (
                                       <span className={`block text-[9px] ${li.price_change_pct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
                                         {li.price_change_pct > 0 ? '▲' : '▼'}{Math.abs(li.price_change_pct).toFixed(1)}%
@@ -3501,8 +3501,8 @@ function ExpensesPageInner() {
                                       <span className="block text-[9px] text-[#00D4FF]">חדש</span>
                                     )}
                                   </TableCell>
-                                  <TableCell className="text-center py-[6px] text-white/70 ltr-num">&#8362;{li.total?.toFixed(2) || '0'}</TableCell>
-                                  <TableCell className="text-center py-[6px]">
+                                  <TableCell className="text-center py-[6px] text-white/70 ltr-num w-[75px] shrink-0">&#8362;{li.total?.toFixed(2) ?? '0'}</TableCell>
+                                  <TableCell className="text-center py-[6px] w-[28px] shrink-0">
                                     <Button
                                       type="button"
                                       onClick={() => setExpenseLineItems(prev => prev.filter((_, i) => i !== idx))}
