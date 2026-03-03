@@ -65,6 +65,8 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "סוג קובץ לא נתמך" }, { status: 400 });
   }
 
+  console.log(`[OCR-Extract] File: type=${file.type}, size=${file.size}, isImage=${isImage}, isPdf=${isPdf}`);
+
   try {
     // Step 1: Extract raw text via OCR
     let rawText: string;
@@ -73,6 +75,7 @@ export async function POST(request: NextRequest) {
     } else {
       rawText = await extractPdfText(file);
     }
+    console.log(`[OCR-Extract] Raw text length: ${rawText?.length ?? 0}`);
 
     if (!rawText || rawText.length < 5) {
       return Response.json({ error: "לא זוהה טקסט במסמך" }, { status: 422 });

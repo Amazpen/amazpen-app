@@ -101,6 +101,12 @@ async function callVisionOCR(base64: string): Promise<string> {
   }
 
   const data = await res.json();
-  const annotation = data.responses?.[0]?.fullTextAnnotation;
+  const response = data.responses?.[0];
+  console.log("[OCR] Vision response keys:", Object.keys(response || {}));
+  if (response?.error) {
+    console.error("[OCR] Vision API returned error:", JSON.stringify(response.error));
+  }
+  const annotation = response?.fullTextAnnotation;
+  console.log("[OCR] Text length:", annotation?.text?.length ?? 0);
   return annotation?.text?.trim() || "";
 }
