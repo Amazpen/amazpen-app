@@ -426,6 +426,13 @@ function ExpensesPageInner() {
   const [filterValue, setFilterValue] = useState<string>("");
   const [sortColumn, setSortColumn] = useState<"date" | "supplier" | "reference" | "amount" | "status" | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
+  const [laborSortCol, setLaborSortCol] = useState<"date" | "labor_cost" | "labor_hours" | "manager_daily_cost" | "total" | null>(null);
+  const [laborSortOrder, setLaborSortOrder] = useState<"asc" | "desc" | null>(null);
+  const handleLaborSort = (col: "date" | "labor_cost" | "labor_hours" | "manager_daily_cost" | "total") => {
+    if (laborSortCol !== col) { setLaborSortCol(col); setLaborSortOrder("asc"); }
+    else if (laborSortOrder === "asc") { setLaborSortOrder("desc"); }
+    else { setLaborSortCol(null); setLaborSortOrder(null); }
+  };
   const handleColumnSort = (col: "date" | "supplier" | "reference" | "amount" | "status") => {
     if (sortColumn !== col) { setSortColumn(col); setSortOrder("asc"); }
     else if (sortOrder === "asc") { setSortOrder("desc"); }
@@ -3268,15 +3275,30 @@ function ExpensesPageInner() {
         <div className="bg-[#0F1535] rounded-[20px] p-[15px_0px] mt-[10px] flex flex-col gap-[15px] w-full">
           <h2 className="text-[18px] font-bold text-center">מילוי יומי — עלות עובדים</h2>
           <div className="w-full flex flex-col gap-[5px]">
-            <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-[7px] p-[10px_5px] pe-[13px] items-center">
-              <span className="text-[13px] font-medium text-center">תאריך</span>
-              <span className="text-[13px] font-medium text-center">עובדים שעתיים</span>
-              <span className="text-[13px] font-medium text-center">שעות</span>
-              <span className="text-[13px] font-medium text-center">עלות מנהל</span>
-              <span className="text-[13px] font-medium text-center">סה&quot;כ</span>
+            {/* Header with sortable columns */}
+            <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center">
+              {([ ["date", "תאריך"], ["labor_cost", "עובדים שעתיים"], ["labor_hours", "שעות"], ["manager_daily_cost", "עלות מנהל"], ["total", "סה\"כ"] ] as const).map(([col, label]) => (
+                <Button key={col} type="button" onClick={() => handleLaborSort(col)}
+                  className="text-[13px] font-medium text-center cursor-pointer hover:text-white/80 transition-colors flex items-center justify-center gap-[3px]">
+                  {label}
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity ${laborSortCol === col ? 'opacity-100' : 'opacity-30'}`}>
+                    <path d={laborSortCol === col && laborSortOrder === "desc" ? "M12 5V19M12 19L5 12M12 19L19 12" : "M12 19V5M12 5L5 12M12 5L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </Button>
+              ))}
             </div>
+            {/* Rows */}
             <div className="max-h-[450px] overflow-y-auto flex flex-col gap-[5px]">
-              {dailyLaborEntries.map((entry) => {
+              {[...dailyLaborEntries].sort((a, b) => {
+                if (!laborSortCol || !laborSortOrder) return 0;
+                let cmp = 0;
+                if (laborSortCol === "date") cmp = a.entry_date.localeCompare(b.entry_date);
+                else if (laborSortCol === "labor_cost") cmp = a.labor_cost - b.labor_cost;
+                else if (laborSortCol === "labor_hours") cmp = a.labor_hours - b.labor_hours;
+                else if (laborSortCol === "manager_daily_cost") cmp = a.manager_daily_cost - b.manager_daily_cost;
+                else if (laborSortCol === "total") cmp = (a.labor_cost + a.manager_daily_cost) - (b.labor_cost + b.manager_daily_cost);
+                return laborSortOrder === "asc" ? cmp : -cmp;
+              }).map((entry) => {
                 const dateObj = new Date(entry.entry_date);
                 const dateStr = `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${String(dateObj.getFullYear()).slice(2)}`;
                 const rowTotal = entry.labor_cost + entry.manager_daily_cost;
