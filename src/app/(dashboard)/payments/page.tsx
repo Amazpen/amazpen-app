@@ -578,10 +578,17 @@ function PaymentsPageInner() {
     });
   };
 
-  const toggleAllInvoices = () => {
-    const allIds = openInvoices.map(inv => inv.id);
+  const toggleAllInvoices = (monthInvoices?: typeof openInvoices) => {
+    const invoicesToToggle = monthInvoices ?? openInvoices;
+    const allIds = invoicesToToggle.map(inv => inv.id);
     const allSelected = allIds.length > 0 && allIds.every(id => selectedInvoiceIds.has(id));
-    const newSet = allSelected ? new Set<string>() : new Set(allIds);
+
+    const newSet = new Set(selectedInvoiceIds);
+    if (allSelected) {
+      allIds.forEach(id => newSet.delete(id));
+    } else {
+      allIds.forEach(id => newSet.add(id));
+    }
 
     const selectedTotal = openInvoices
       .filter(inv => newSet.has(inv.id))
@@ -3517,9 +3524,9 @@ function PaymentsPageInner() {
                               <div className="flex flex-col">
                                 {/* Column Headers */}
                                 <div className="grid grid-cols-[24px_40px_1fr_1fr_1fr_1fr_50px] gap-[3px] px-[3px] py-[3px] border-b border-white/20 items-center">
-                                  <Button type="button" onClick={toggleAllInvoices} className="flex items-center justify-center">
+                                  <Button type="button" onClick={() => toggleAllInvoices(monthInvoices)} className="flex items-center justify-center">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                      {openInvoices.length > 0 && openInvoices.every(inv => selectedInvoiceIds.has(inv.id)) ? (
+                                      {monthInvoices.length > 0 && monthInvoices.every(inv => selectedInvoiceIds.has(inv.id)) ? (
                                         <>
                                           <rect x="3" y="3" width="18" height="18" rx="3" fill="#29318A" stroke="white" strokeWidth="1.5"/>
                                           <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -3742,7 +3749,14 @@ function PaymentsPageInner() {
                       <Input
                         type="text"
                         inputMode="decimal"
-                        value={pm.amount}
+                        value={(() => {
+                          const raw = pm.amount.replace(/,/g, "");
+                          const num = parseFloat(raw);
+                          if (!raw || isNaN(num)) return pm.amount;
+                          const [intPart, decPart] = raw.split(".");
+                          const formatted = Number(intPart).toLocaleString("he-IL");
+                          return decPart !== undefined ? `${formatted}.${decPart}` : formatted;
+                        })()}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => {
                           // Allow only numbers and a single decimal point
