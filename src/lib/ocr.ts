@@ -10,8 +10,10 @@ export async function ocrImage(file: File): Promise<string> {
     throw new Error("GOOGLE_VISION_API_KEY is not configured");
   }
 
+  console.log(`[OCR] ocrImage called: type=${file.type}, size=${file.size}`);
   const buffer = await file.arrayBuffer();
   const base64 = Buffer.from(buffer).toString("base64");
+  console.log(`[OCR] base64 length: ${base64.length}`);
 
   return callVisionOCR(base64);
 }
