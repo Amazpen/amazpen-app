@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { useDashboard } from "@/app/(dashboard)/layout";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -111,14 +112,8 @@ export default function AccountingReviewPage() {
   const [selectedBusinessId, setSelectedBusinessId] =
     usePersistedState<string>("admin-accounting-review:businessId", "");
 
-  // Date range — default: 1st of current month to today
-  const [dateRange, setDateRange] = useState<DateRange>(() => {
-    const now = new Date();
-    return {
-      start: new Date(now.getFullYear(), now.getMonth(), 1),
-      end: now,
-    };
-  });
+  // Date range — from global context (shared across pages)
+  const { globalDateRange: dateRange, setGlobalDateRange: setDateRange } = useDashboard();
 
   // Invoices
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);

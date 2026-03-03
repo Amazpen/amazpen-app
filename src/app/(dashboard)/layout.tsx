@@ -13,6 +13,7 @@ import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { ConsolidatedInvoiceModal } from "@/components/dashboard/ConsolidatedInvoiceModal";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { usePresence, type PresenceUser } from "@/hooks/usePresence";
+import { usePersistedState } from "@/hooks/usePersistedState";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { OfflineIndicator } from "@/components/ui/offline-indicator";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,12 @@ interface DashboardContextType {
   isAdmin: boolean;
   refreshProfile: () => Promise<void>;
   onlineUsers: PresenceUser[];
+  globalDateRange: { start: Date; end: Date };
+  setGlobalDateRange: (range: { start: Date; end: Date }) => void;
+  globalMonth: string;
+  setGlobalMonth: (month: string) => void;
+  globalYear: string;
+  setGlobalYear: (year: string) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType>({
@@ -36,6 +43,12 @@ const DashboardContext = createContext<DashboardContextType>({
   isAdmin: false,
   refreshProfile: async () => {},
   onlineUsers: [],
+  globalDateRange: { start: new Date(), end: new Date() },
+  setGlobalDateRange: () => {},
+  globalMonth: "",
+  setGlobalMonth: () => {},
+  globalYear: "",
+  setGlobalYear: () => {},
 });
 
 export const useDashboard = () => useContext(DashboardContext);
@@ -194,6 +207,40 @@ export default function DashboardLayout({
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [profileImageLoaded, setProfileImageLoaded] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+
+  // Global date range (expenses, payments, accounting-review)
+  const [savedGlobalDateRange, setSavedGlobalDateRange] = usePersistedState<{ start: string; end: string } | null>(
+    "global:dateRange",
+    null
+  );
+  const [globalDateRange, setGlobalDateRangeState] = useState<{ start: Date; end: Date }>(() => ({
+    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    end: new Date(),
+  }));
+  useEffect(() => {
+    if (savedGlobalDateRange) {
+      setGlobalDateRangeState({
+        start: new Date(savedGlobalDateRange.start),
+        end: new Date(savedGlobalDateRange.end),
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const setGlobalDateRange = useCallback((range: { start: Date; end: Date }) => {
+    setGlobalDateRangeState(range);
+    setSavedGlobalDateRange({ start: range.start.toISOString(), end: range.end.toISOString() });
+  }, [setSavedGlobalDateRange]);
+
+  // Global month/year (goals, reports)
+  const [globalMonth, setGlobalMonthState] = usePersistedState<string>("global:month", "");
+  const [globalYear, setGlobalYearState] = usePersistedState<string>("global:year", "");
+  useEffect(() => {
+    if (!globalMonth) setGlobalMonthState(String(new Date().getMonth() + 1).padStart(2, "0"));
+    if (!globalYear) setGlobalYearState(String(new Date().getFullYear()));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const setGlobalMonth = useCallback((month: string) => setGlobalMonthState(month), [setGlobalMonthState]);
+  const setGlobalYear = useCallback((year: string) => setGlobalYearState(year), [setGlobalYearState]);
 
   // Offline sync
   const offlineSync = useOfflineSync();
@@ -555,7 +602,7 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
-    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, refreshProfile: fetchUserProfile, onlineUsers }}>
+    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, refreshProfile: fetchUserProfile, onlineUsers, globalDateRange, setGlobalDateRange, globalMonth, setGlobalMonth, globalYear, setGlobalYear }}>
       <div className="min-h-screen bg-[#0F1535]">
         {/* Sidebar Overlay - Mobile only */}
         {isMenuOpen && (

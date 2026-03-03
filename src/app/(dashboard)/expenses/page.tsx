@@ -239,20 +239,12 @@ function ExpensesPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightInvoiceId = searchParams.get("invoiceId");
-  const { selectedBusinesses, isAdmin } = useDashboard();
+  const { selectedBusinesses, isAdmin, globalDateRange, setGlobalDateRange } = useDashboard();
   const { approveInvoice, approvePayment } = useApprovals(selectedBusinesses);
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = usePersistedState<"expenses" | "purchases" | "employees">("expenses:tab", "expenses");
-  const [savedDateRange, setSavedDateRange] = usePersistedState<{ start: string; end: string } | null>("expenses:dateRange", null);
-  const [dateRange, setDateRange] = useState({
-    start: savedDateRange ? new Date(savedDateRange.start) : new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    end: savedDateRange ? new Date(savedDateRange.end) : new Date(),
-  });
-  // Sync dateRange to localStorage
-  const handleDateRangeChange = useCallback((range: { start: Date; end: Date }) => {
-    setDateRange(range);
-    setSavedDateRange({ start: range.start.toISOString(), end: range.end.toISOString() });
-  }, [setSavedDateRange]);
+  const dateRange = globalDateRange;
+  const handleDateRangeChange = setGlobalDateRange;
 
   // Draft persistence for add expense form
   const expenseDraftKey = `expenseForm:draft:${selectedBusinesses[0] || "none"}`;
@@ -1643,8 +1635,8 @@ function ExpensesPageInner() {
       // Refresh data
       clearExpenseDraft();
       handleClosePopup();
-      // Trigger re-fetch by updating dateRange slightly
-      setDateRange({ ...dateRange });
+      // Trigger re-fetch
+      setRefreshTrigger(t => t + 1);
     } catch (error) {
       console.error("Error saving expense:", error);
       showToast("שגיאה בשמירת ההוצאה", "error");

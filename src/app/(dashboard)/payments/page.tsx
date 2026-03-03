@@ -287,31 +287,13 @@ export default function PaymentsPage() {
 
 function PaymentsPageInner() {
   const router = useRouter();
-  const { selectedBusinesses, isAdmin } = useDashboard();
+  const { selectedBusinesses, isAdmin, globalDateRange, setGlobalDateRange } = useDashboard();
   const { showToast } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
   const searchParams = useSearchParams();
   const highlightPaymentId = searchParams.get("paymentId");
-  const [savedDateRange, setSavedDateRange] = usePersistedState<{ start: string; end: string } | null>("payments:dateRange", null);
-  const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
-
-  // Initialize date range after hydration to avoid server/client mismatch
-  useEffect(() => {
-    if (savedDateRange) {
-      setDateRange({ start: new Date(savedDateRange.start), end: new Date(savedDateRange.end) });
-    } else {
-      setDateRange({
-        start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-        end: new Date(),
-      });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Runs once on mount to hydrate from persisted savedDateRange. Adding savedDateRange would re-trigger on every save.
-  }, []);
-
-  const handleDateRangeChange = useCallback((range: { start: Date; end: Date }) => {
-    setDateRange(range);
-    setSavedDateRange({ start: range.start.toISOString(), end: range.end.toISOString() });
-  }, [setSavedDateRange]);
+  const dateRange = globalDateRange;
+  const handleDateRangeChange = setGlobalDateRange;
 
   // Draft persistence for add payment form
   const paymentDraftKey = `paymentForm:draft:${selectedBusinesses[0] || "none"}`;
@@ -630,7 +612,7 @@ function PaymentsPageInner() {
   // Fetch data from Supabase
   useEffect(() => {
     const fetchData = async () => {
-      if (selectedBusinesses.length === 0 || !dateRange) {
+      if (selectedBusinesses.length === 0) {
         setPaymentMethodsData([]);
         setRecentPaymentsData([]);
         setSuppliers([]);
@@ -1323,7 +1305,7 @@ function PaymentsPageInner() {
       // Refresh data
       clearPaymentDraft();
       handleClosePopup();
-      setDateRange(prev => prev ? { ...prev } : prev);
+      setRefreshTrigger(t => t + 1);
     } catch (error) {
       console.error("Error saving payment:", error);
       showToast("שגיאה בשמירת התשלום", "error");
@@ -1681,7 +1663,7 @@ function PaymentsPageInner() {
 
       showToast("התשלום עודכן בהצלחה", "success");
       handleClosePopup();
-      setDateRange(prev => prev ? { ...prev } : prev);
+      setRefreshTrigger(t => t + 1);
     } catch (error) {
       console.error("Error updating payment:", error);
       showToast("שגיאה בעדכון התשלום", "error");
@@ -1713,7 +1695,7 @@ function PaymentsPageInner() {
 
       showToast("התשלום נמחק בהצלחה", "success");
       setExpandedPaymentId(null);
-      setDateRange(prev => prev ? { ...prev } : prev);
+      setRefreshTrigger(t => t + 1);
     } catch (error) {
       console.error("Error deleting payment:", error);
       showToast("שגיאה במחיקת התשלום", "error");
@@ -2241,12 +2223,10 @@ function PaymentsPageInner() {
         >
           הוספת תשלום
         </Button>
-        {dateRange && (
-          <div className="flex items-center gap-[8px]">
+        <div className="flex items-center gap-[8px]">
             <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
             <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
           </div>
-        )}
       </div>
 
       {/* Chart and Summary Section */}
@@ -3924,7 +3904,7 @@ function PaymentsPageInner() {
               {/* Receipt Upload — multiple files with thumbnails */}
               <div className="flex flex-col gap-[3px]">
                 <div className="flex items-start">
-                  <span className="text-[16px] font-medium text-white">קבלת תשלום</span>
+                  <span className="text-[16px] font-medium text-white">אסמכתא לקבלת תשלום</span>
                 </div>
                 {/* Existing files list */}
                 {receiptFiles.length > 0 && (

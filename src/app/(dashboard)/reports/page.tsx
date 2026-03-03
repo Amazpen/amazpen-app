@@ -117,23 +117,10 @@ function getProgressTooltip(actualRaw: number, targetRaw: number): string {
 }
 
 export default function ReportsPage() {
-  const { selectedBusinesses } = useDashboard();
-  const [selectedMonth, setSelectedMonth] = usePersistedState("reports:month", "");
-  const [selectedYear, setSelectedYear] = usePersistedState("reports:year", "");
+  const { selectedBusinesses, globalMonth: selectedMonth, setGlobalMonth: setSelectedMonth, globalYear: selectedYear, setGlobalYear: setSelectedYear } = useDashboard();
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [expandedSubcategories, setExpandedSubcategories] = useState<string[]>([]);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [isMounted, setIsMounted] = useState(false);
-
-  // Initialize date values on client only (only if no saved value)
-  useEffect(() => {
-    if (!isMounted) {
-      if (!selectedMonth) setSelectedMonth(String(new Date().getMonth() + 1).padStart(2, "0") + "_");
-      if (!selectedYear) setSelectedYear(String(new Date().getFullYear()));
-      setIsMounted(true);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedMonth/selectedYear are persisted initial values; setSelectedMonth/setSelectedYear are stable setters. Adding them would cause unnecessary re-runs.
-  }, [isMounted]);
 
   // Realtime subscription
   const handleRealtimeChange = useCallback(() => {
@@ -175,7 +162,7 @@ export default function ReportsPage() {
       }
 
       const year = parseInt(selectedYear);
-      const month = parseInt(selectedMonth.replace("_", ""));
+      const month = parseInt(selectedMonth);
       if (isNaN(year) || isNaN(month)) return;
 
       const supabase = createClient();
@@ -249,7 +236,7 @@ export default function ReportsPage() {
   useEffect(() => {
     const fetchData = async () => {
       const year = parseInt(selectedYear);
-      const month = parseInt(selectedMonth.replace("_", ""));
+      const month = parseInt(selectedMonth);
 
       if (selectedBusinesses.length === 0 || isNaN(year) || isNaN(month)) {
         setExpenseCategories([]);
@@ -699,18 +686,18 @@ export default function ReportsPage() {
   };
 
   const months = [
-    { value: "01_", label: "ינואר" },
-    { value: "02_", label: "פברואר" },
-    { value: "03_", label: "מרץ" },
-    { value: "04_", label: "אפריל" },
-    { value: "05_", label: "מאי" },
-    { value: "06_", label: "יוני" },
-    { value: "07_", label: "יולי" },
-    { value: "08_", label: "אוגוסט" },
-    { value: "09_", label: "ספטמבר" },
-    { value: "10_", label: "אוקטובר" },
-    { value: "11_", label: "נובמבר" },
-    { value: "12_", label: "דצמבר" },
+    { value: "01", label: "ינואר" },
+    { value: "02", label: "פברואר" },
+    { value: "03", label: "מרץ" },
+    { value: "04", label: "אפריל" },
+    { value: "05", label: "מאי" },
+    { value: "06", label: "יוני" },
+    { value: "07", label: "יולי" },
+    { value: "08", label: "אוגוסט" },
+    { value: "09", label: "ספטמבר" },
+    { value: "10", label: "אוקטובר" },
+    { value: "11", label: "נובמבר" },
+    { value: "12", label: "דצמבר" },
   ];
 
   // Show message if no business selected
@@ -785,33 +772,6 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      {/* Income Summary Card */}
-      <section aria-label="סיכום הכנסות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[80px] flex flex-row-reverse items-center justify-between gap-[5px]">
-        <div className="flex flex-row-reverse items-center gap-[5px] flex-1 min-w-0">
-          <div className="flex flex-col items-center flex-1 min-w-0">
-            <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4] whitespace-nowrap">הפרש ב-%</span>
-            <span className={`text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {summary.revenueTarget > 0 ? ((summary.totalRevenue / summary.revenueTarget) * 100).toFixed(2) : "0.00"}%
-            </span>
-          </div>
-          <div className="flex flex-col items-center flex-1 min-w-0">
-            <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4] whitespace-nowrap">הפרש ב-₪</span>
-            <span className={`text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {formatCurrency(summary.totalRevenue - summary.revenueTarget)}
-            </span>
-          </div>
-          <div className="flex flex-col items-center flex-1 min-w-0">
-            <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4]">בפועל</span>
-            <span className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.totalRevenue)}</span>
-          </div>
-          <div className="flex flex-col items-center flex-1 min-w-0">
-            <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4]">יעד</span>
-            <span className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.revenueTarget)}</span>
-          </div>
-        </div>
-        <span className="text-[14px] sm:text-[16px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ הכנסות ללא מע&quot;מ</span>
-      </section>
-
       {/* 6-Month Income vs Expenses Chart */}
       {trendsData.length > 0 && trendsData.some(d => d.income > 0 || d.expenses > 0) && (
         <section aria-label="מגמות הכנסות מול הוצאות" className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]">
@@ -845,6 +805,33 @@ export default function ReportsPage() {
           </LazyResponsiveContainer>
         </section>
       )}
+
+      {/* Income Summary Card */}
+      <section aria-label="סיכום הכנסות" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[80px] flex flex-row-reverse items-center justify-between gap-[5px]">
+        <div className="flex flex-row-reverse items-center gap-[5px] flex-1 min-w-0">
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4] whitespace-nowrap">הפרש ב-%</span>
+            <span className={`text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
+              {summary.revenueTarget > 0 ? ((summary.totalRevenue / summary.revenueTarget) * 100).toFixed(2) : "0.00"}%
+            </span>
+          </div>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4] whitespace-nowrap">הפרש ב-₪</span>
+            <span className={`text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${summary.totalRevenue - summary.revenueTarget > 0 ? "text-[#17DB4E]" : summary.totalRevenue - summary.revenueTarget < 0 ? "text-[#F64E60]" : "text-white"}`}>
+              {formatCurrency(summary.totalRevenue - summary.revenueTarget)}
+            </span>
+          </div>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4]">בפועל</span>
+            <span className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.totalRevenue)}</span>
+          </div>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4]">יעד</span>
+            <span className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(summary.revenueTarget)}</span>
+          </div>
+        </div>
+        <span className="text-[14px] sm:text-[16px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ הכנסות ללא מע&quot;מ</span>
+      </section>
 
       {/* Expenses Section */}
       <section id="onboarding-reports-categories" aria-label="פירוט הוצאות" className="bg-[#0F1535] rounded-[10px] p-[7px_0_0_0] min-h-[40px] flex flex-col">
@@ -1022,7 +1009,10 @@ export default function ReportsPage() {
                                   {supplier.target}
                                 </span>
                               </div>
-                              <span className="text-[10px] sm:text-[12px] font-normal text-right text-white leading-[1.4] shrink-0 w-[90px] sm:w-[140px] break-words">{supplier.name}</span>
+                              <div className="flex flex-col items-end shrink-0 w-[90px] sm:w-[140px] gap-[1px]">
+                                <span className="text-[8px] sm:text-[10px] font-normal text-right text-white/40 leading-[1.3] break-words">{category.name} / {sub.name}</span>
+                                <span className="text-[10px] sm:text-[12px] font-normal text-right text-white leading-[1.4] break-words">{supplier.name}</span>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1085,53 +1075,64 @@ export default function ReportsPage() {
       </section>
 
       {/* Prior Liabilities */}
-      <section aria-label="התחייבויות קודמות" className="bg-[#2C3595] rounded-[10px] overflow-hidden">
+      <section aria-label="התחייבויות קודמות" className="bg-[#3A1A2E] rounded-[10px] overflow-hidden border border-[#F64E60]/30">
         <button
           type="button"
           onClick={() => setShowPriorLiabilitiesBreakdown(prev => !prev)}
           className="w-full p-[7px] min-h-[70px] flex flex-row-reverse items-center justify-between gap-[5px] cursor-pointer hover:bg-white/5 transition-colors"
         >
           <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-            <span className="text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center invisible">
-              {formatCurrency(priorLiabilities)}
-            </span>
-            <span className="text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center invisible">
-              {formatCurrency(priorLiabilities)}
-            </span>
-            <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {formatCurrency(priorLiabilities)}
-            </span>
-            <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] flex-1 min-w-0 text-center ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
-              {formatCurrency(priorLiabilities)}
-            </span>
+            {/* Spacers to match 4-column layout of other cards */}
+            <span className="flex-1 min-w-0" />
+            <span className="flex-1 min-w-0" />
+            <div className="flex flex-col items-center flex-1 min-w-0">
+              <span className="text-[10px] sm:text-[12px] text-white/50 leading-[1.3]">בפועל</span>
+              <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+                {formatCurrency(priorLiabilities)}
+              </span>
+            </div>
+            <div className="flex flex-col items-center flex-1 min-w-0">
+              <span className="text-[10px] sm:text-[12px] text-white/50 leading-[1.3]">יעד</span>
+              <span className={`text-[11px] sm:text-[15px] font-bold ltr-num leading-[1.4] ${priorLiabilities > 0 ? "text-[#F64E60]" : "text-white"}`}>
+                {formatCurrency(priorLiabilities)}
+              </span>
+            </div>
           </div>
           <div className="flex flex-row-reverse items-center gap-[4px] shrink-0 w-[90px] sm:w-[140px]">
-            <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4]">התחייבויות קודמות</span>
-            <ChevronDown className={`w-4 h-4 transition-transform ${showPriorLiabilitiesBreakdown ? "rotate-180" : ""}`} />
+            <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] text-[#F64E60]">התחייבויות קודמות</span>
+            <ChevronDown className={`w-4 h-4 transition-transform text-[#F64E60] ${showPriorLiabilitiesBreakdown ? "rotate-180" : ""}`} />
           </div>
         </button>
 
         {showPriorLiabilitiesBreakdown && priorLiabilitiesItems.length > 0 && (
-          <div className="border-t border-white/10 px-[10px] pb-[10px]">
-            <div className="flex flex-row-reverse justify-between items-center py-[6px] text-[11px] sm:text-[13px] text-white/60 font-medium border-b border-white/10">
-              <span className="flex-1 text-right ltr-num">סכום חודשי</span>
-              <span className="w-[120px] sm:w-[160px] text-left">שם</span>
+          <div className="border-t border-[#F64E60]/20 px-[10px] pb-[10px]">
+            {/* Header */}
+            <div className="flex flex-row-reverse justify-between items-center py-[6px] text-[11px] sm:text-[13px] text-white/50 font-medium border-b border-white/10">
+              <span className="w-[90px] sm:w-[120px] text-center">סכום חודשי</span>
+              <span className="flex-1 text-right">שם התחייבות</span>
             </div>
             {priorLiabilitiesItems.map((item, idx) => (
               <div
                 key={`commitment-${idx}`}
-                className="flex flex-row-reverse justify-between items-center py-[6px] text-[11px] sm:text-[13px] border-b border-white/5 last:border-b-0"
+                className="flex flex-row-reverse justify-between items-center py-[7px] text-[11px] sm:text-[13px] border-b border-white/5 last:border-b-0"
               >
-                <span className="flex-1 text-right ltr-num font-bold text-[#F64E60]">
+                <span className="w-[90px] sm:w-[120px] text-center ltr-num font-bold text-[#F64E60]">
                   {formatCurrency(item.monthly_amount)}
                 </span>
-                <span className="w-[120px] sm:w-[160px] text-left text-white/90 truncate">{item.name}</span>
+                <span className="flex-1 text-right text-white/85 pr-[4px]">{item.name}</span>
               </div>
             ))}
+            {/* Total row */}
+            <div className="flex flex-row-reverse justify-between items-center pt-[8px] mt-[4px] border-t border-[#F64E60]/30 text-[11px] sm:text-[13px]">
+              <span className="w-[90px] sm:w-[120px] text-center ltr-num font-bold text-[#F64E60]">
+                {formatCurrency(priorLiabilities)}
+              </span>
+              <span className="flex-1 text-right text-white/60 font-medium">סה&quot;כ</span>
+            </div>
           </div>
         )}
         {showPriorLiabilitiesBreakdown && priorLiabilitiesItems.length === 0 && priorLiabilities === 0 && (
-          <div className="border-t border-white/10 px-[10px] py-[12px] text-center text-[12px] text-white/50">
+          <div className="border-t border-[#F64E60]/20 px-[10px] py-[12px] text-center text-[12px] text-white/50">
             אין התחייבויות לחודש זה
           </div>
         )}
