@@ -64,7 +64,8 @@ function NewBusinessPage() {
   const draftRestored = useRef(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [businessModel, setBusinessModel] = useState<"regular" | "service" | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -106,6 +107,7 @@ function NewBusinessPage() {
   const [managerSalary, setManagerSalary] = useState<number>(0);
   const [markupPercentage, setMarkupPercentage] = useState<number>(18); // אחוז העמסה (נשמר כ-1 + value/100)
   const [vatPercentage, setVatPercentage] = useState<number>(18); // אחוז מע"מ (נשמר כ-1 + value/100)
+  const [sendToAccountant, setSendToAccountant] = useState<boolean>(false);
 
   // Step 2: Business Schedule
   const [schedule, setSchedule] = useState<Record<number, string>>({
@@ -192,14 +194,14 @@ function NewBusinessPage() {
     saveDraft({
       currentStep,
       businessName, businessType, customBusinessType, taxId, address, city, phone, email,
-      managerSalary, markupPercentage, vatPercentage,
+      managerSalary, markupPercentage, vatPercentage, sendToAccountant,
       schedule,
       incomeSources, receiptTypes, customParameters, creditCards, managedProducts,
       teamMembers: teamMembers.map(m => ({ ...m })),
     });
   }, [saveDraft, currentStep,
     businessName, businessType, customBusinessType, taxId, address, city, phone, email,
-    managerSalary, markupPercentage, vatPercentage,
+    managerSalary, markupPercentage, vatPercentage, sendToAccountant,
     schedule, incomeSources, receiptTypes, customParameters, creditCards, managedProducts,
     teamMembers]);
 
@@ -226,6 +228,7 @@ function NewBusinessPage() {
       if (draft.managerSalary !== undefined) setManagerSalary(draft.managerSalary as number);
       if (draft.markupPercentage !== undefined) setMarkupPercentage(draft.markupPercentage as number);
       if (draft.vatPercentage !== undefined) setVatPercentage(draft.vatPercentage as number);
+      if (draft.sendToAccountant !== undefined) setSendToAccountant(draft.sendToAccountant as boolean);
       if (draft.schedule) setSchedule(draft.schedule as Record<number, string>);
       if (draft.incomeSources) setIncomeSources(draft.incomeSources as string[]);
       if (draft.receiptTypes) setReceiptTypes(draft.receiptTypes as string[]);
@@ -663,6 +666,7 @@ function NewBusinessPage() {
         .insert({
           name: businessName,
           business_type: businessType === "other" ? customBusinessType.trim() : businessType,
+          business_model: businessModel ?? "regular",
           tax_id: taxId || null,
           address: address || null,
           city: city || null,
@@ -670,6 +674,7 @@ function NewBusinessPage() {
           email: email || null,
           logo_url: logoUrl,
           status: "active",
+          send_to_accountant: sendToAccountant,
           manager_monthly_salary: managerSalary,
           markup_percentage: 1 + markupPercentage / 100, // המרה מאחוז (1) ל-1.01
           vat_percentage: vatPercentage / 100, // המרה מאחוז (18) ל-0.18
@@ -917,7 +922,7 @@ function NewBusinessPage() {
 
   const canProceedStep1 = businessName.trim() && businessType && (businessType !== "other" || customBusinessType.trim()) && taxId.trim();
   const canProceedStep2 = true; // Schedule has defaults
-  const canProceedStep3 = incomeSources.length > 0;
+  const canProceedStep3 = businessModel === "service" || incomeSources.length > 0;
   const canProceedStep4 = true; // Team members are optional
   const _hasOwner = teamMembers.some(m => m.role === "owner");
   const canSubmit = true;
@@ -1156,6 +1161,20 @@ function NewBusinessPage() {
             accept="image/png,image/jpeg,image/jpg,application/pdf"
           />
         </label>
+      </div>
+
+      {/* Send to Accountant */}
+      <div className="flex flex-row-reverse items-center justify-between bg-[#29318A]/30 rounded-[10px] px-[15px] py-[14px]">
+        <span className="text-[15px] font-medium text-white text-right">שליחת טפסים להנהלת חשבונות</span>
+        <button
+          type="button"
+          onClick={() => setSendToAccountant(!sendToAccountant)}
+          className={`relative w-[46px] h-[26px] rounded-full transition-colors duration-200 flex-shrink-0 ${sendToAccountant ? "bg-[#3CD856]" : "bg-[#4C526B]"}`}
+        >
+          <span
+            className={`absolute top-[3px] w-[20px] h-[20px] bg-white rounded-full shadow transition-all duration-200 ${sendToAccountant ? "right-[3px]" : "left-[3px]"}`}
+          />
+        </button>
       </div>
     </div>
   );
@@ -2306,6 +2325,60 @@ function NewBusinessPage() {
     );
   }
 
+  // For service businesses, step 3 is skipped: steps go 1 → 2 → 4 → 5
+  const getNextStep = (step: number) => {
+    if (businessModel === "service" && step === 2) return 4;
+    return step + 1;
+  };
+  const getPrevStep = (step: number) => {
+    if (businessModel === "service" && step === 4) return 2;
+    return step - 1;
+  };
+  // Step 0: business model selection screen
+  const renderStep0 = () => (
+    <div className="flex flex-col items-center gap-[20px] py-[10px]">
+      <p className="text-[14px] text-white/60 text-center">בחר את סוג העסק שברצונך ליצור</p>
+      <div className="flex flex-col gap-[15px] w-full max-w-[400px]">
+        {/* Regular business */}
+        <button
+          type="button"
+          onClick={() => { setBusinessModel("regular"); setCurrentStep(1); }}
+          className="flex items-start gap-[16px] bg-[#4956D4]/20 hover:bg-[#4956D4]/35 border border-[#4956D4]/50 rounded-[16px] p-[20px] text-right transition-all duration-200"
+        >
+          <div className="w-[48px] h-[48px] rounded-[12px] bg-[#4956D4]/30 flex items-center justify-center flex-shrink-0 mt-[2px]">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className="text-[#818CF8]">
+              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M9 22V12h6v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <div className="flex flex-col gap-[4px]">
+            <span className="text-[17px] font-bold text-white">עסק רגיל</span>
+            <span className="text-[13px] text-white/55 leading-relaxed">מסעדה, בית קפה, חנות — עסק עם מקורות הכנסה ישירים כמו קופה, אפליקציות משלוחים וכו&apos;</span>
+          </div>
+        </button>
+
+        {/* Service business */}
+        <button
+          type="button"
+          onClick={() => { setBusinessModel("service"); setCurrentStep(1); }}
+          className="flex items-start gap-[16px] bg-[#00BCD4]/10 hover:bg-[#00BCD4]/20 border border-[#00BCD4]/40 rounded-[16px] p-[20px] text-right transition-all duration-200"
+        >
+          <div className="w-[48px] h-[48px] rounded-[12px] bg-[#00BCD4]/20 flex items-center justify-center flex-shrink-0 mt-[2px]">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className="text-[#00BCD4]">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <div className="flex flex-col gap-[4px]">
+            <span className="text-[17px] font-bold text-white">עסק נותן שירות</span>
+            <span className="text-[13px] text-white/55 leading-relaxed">עסק שמציע שירותים ללקוחות — ההכנסות מנוהלות דרך עמוד ניהול הלקוחות ולא דרך מקורות הכנסה קבועים</span>
+          </div>
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div dir="rtl" className="flex flex-col min-h-[calc(100vh-52px)] text-white pb-[100px]">
       {/* Header */}
@@ -2313,133 +2386,153 @@ function NewBusinessPage() {
         <h1 className="text-[24px] font-bold text-white">יצירת עסק חדש</h1>
       </div>
 
-      {/* Steps Progress */}
-      <div className="flex items-center justify-center mb-[25px]">
-        {([
-          { step: 1, label: "פרטים" },
-          { step: 2, label: "זמנים" },
-          { step: 3, label: "הגדרות" },
-          { step: 4, label: "צוות" },
-          { step: 5, label: "ספקים" },
-        ]).map(({ step, label }, index) => (
-          <div key={step} className="flex items-center">
-            {index > 0 && (
-              <div className={`w-[30px] h-[3px] transition-all duration-300 ${
-                step <= currentStep
-                  ? "bg-gradient-to-r from-[#00C853] to-[#69F0AE]"
-                  : "bg-[#29318A]/50"
-              }`} />
+      {/* Step 0 — model selection (no progress bar) */}
+      {currentStep === 0 ? (
+        <div className="flex-1 bg-[#0F1535] rounded-[20px] p-[20px]">
+          {renderStep0()}
+        </div>
+      ) : (
+        <>
+          {/* Steps Progress */}
+          <div className="flex items-center justify-center mb-[25px]">
+            {(businessModel === "service"
+              ? [
+                  { step: 1, label: "פרטים" },
+                  { step: 2, label: "זמנים" },
+                  { step: 4, label: "צוות" },
+                  { step: 5, label: "ספקים" },
+                ]
+              : [
+                  { step: 1, label: "פרטים" },
+                  { step: 2, label: "זמנים" },
+                  { step: 3, label: "הגדרות" },
+                  { step: 4, label: "צוות" },
+                  { step: 5, label: "ספקים" },
+                ]
+            ).map(({ step, label }, index) => (
+              <div key={step} className="flex items-center">
+                {index > 0 && (
+                  <div className={`w-[30px] h-[3px] transition-all duration-300 ${
+                    step <= currentStep
+                      ? "bg-gradient-to-r from-[#00C853] to-[#69F0AE]"
+                      : "bg-[#29318A]/50"
+                  }`} />
+                )}
+                <div className="flex flex-col items-center gap-[4px]">
+                  <Button
+                    variant="ghost"
+                    type="button"
+                    onClick={() => step < currentStep && setCurrentStep(step)}
+                    suppressHydrationWarning
+                    className={`relative w-[36px] h-[36px] rounded-full flex items-center justify-center text-[14px] font-bold transition-all duration-300 z-10 ${
+                      step === currentStep
+                        ? "bg-[#29318A] text-white shadow-[0_0_15px_rgba(41,49,138,0.4)]"
+                        : step < currentStep
+                        ? "bg-gradient-to-br from-[#00C853] to-[#69F0AE] text-white cursor-pointer hover:scale-110"
+                        : "bg-[#29318A]/50 text-white/50"
+                    }`}
+                  >
+                    {step < currentStep ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 12L10 17L19 8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    ) : (
+                      index + 1
+                    )}
+                  </Button>
+                  <span className={`text-[10px] leading-none whitespace-nowrap ${step === currentStep ? "text-white font-medium" : "text-white/40"}`}>{label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Step Title */}
+          <div className="text-center mb-[20px]">
+            <h2 className="text-[20px] font-bold text-white">
+              {currentStep === 1 && "פרטי העסק"}
+              {currentStep === 2 && "לוח זמנים"}
+              {currentStep === 3 && "הגדרות והכנסות"}
+              {currentStep === 4 && "צוות העסק"}
+              {currentStep === 5 && "ספקים"}
+            </h2>
+            <p className="text-[13px] text-white/50 mt-[4px]">
+              {currentStep === 1 && "הזן את פרטי העסק הבסיסיים"}
+              {currentStep === 2 && "הגדר את ימי ושעות הפעילות"}
+              {currentStep === 3 && "הוסף מקורות הכנסה, כרטיסים ומוצרים"}
+              {currentStep === 4 && "הוסף בעלים ועובדים לעסק"}
+              {currentStep === 5 && "העלה רשימת ספקים מקובץ CSV"}
+            </p>
+            {businessModel === "service" && (
+              <span className="inline-block mt-[6px] text-[11px] text-[#00BCD4] bg-[#00BCD4]/10 border border-[#00BCD4]/30 rounded-full px-[10px] py-[2px]">
+                עסק נותן שירות
+              </span>
             )}
-            <div className="flex flex-col items-center gap-[4px]">
+          </div>
+
+          {/* Form Container */}
+          <div className="flex-1 bg-[#0F1535] rounded-[20px] p-[10px]">
+            {currentStep === 1 && renderStep1()}
+            {currentStep === 2 && renderStep2()}
+            {currentStep === 3 && renderStep3()}
+            {currentStep === 4 && renderStep4()}
+            {currentStep === 5 && renderStep5()}
+          </div>
+
+          {/* Navigation Buttons */}
+          <div className="fixed bottom-0 left-0 right-0 lg:right-[220px] bg-[#0F1535] border-t border-white/10 p-[15px] flex gap-[10px]">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => currentStep === 1 ? setCurrentStep(0) : setCurrentStep(getPrevStep(currentStep))}
+              className="flex-1 bg-transparent border border-[#4C526B] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
+            >
+              חזרה
+            </Button>
+
+            {currentStep < 5 ? (
               <Button
-                variant="ghost"
+                variant="default"
                 type="button"
-                onClick={() => step < currentStep && setCurrentStep(step)}
-                suppressHydrationWarning
-                className={`relative w-[36px] h-[36px] rounded-full flex items-center justify-center text-[14px] font-bold transition-all duration-300 z-10 ${
-                  step === currentStep
-                    ? "bg-[#29318A] text-white shadow-[0_0_15px_rgba(41,49,138,0.4)]"
-                    : step < currentStep
-                    ? "bg-gradient-to-br from-[#00C853] to-[#69F0AE] text-white cursor-pointer hover:scale-110"
-                    : "bg-[#29318A]/50 text-white/50"
-                }`}
+                onClick={() => setCurrentStep(getNextStep(currentStep))}
+                disabled={
+                  (currentStep === 1 && !canProceedStep1) ||
+                  (currentStep === 2 && !canProceedStep2) ||
+                  (currentStep === 3 && !canProceedStep3) ||
+                  (currentStep === 4 && !canProceedStep4)
+                }
+                className="flex-1 bg-[#29318A] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {step < currentStep ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <path d="M5 12L10 17L19 8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                המשך
+              </Button>
+            ) : (
+              <Button
+                variant="default"
+                type="button"
+                onClick={handleSubmit}
+                disabled={!canSubmit || isSubmitting}
+                className="flex-1 bg-[#3CD856] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#2fb847] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-[8px]"
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    יוצר עסק...
+                  </>
                 ) : (
-                  step
+                  <>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <path d="M5 12L10 17L19 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    צור עסק
+                  </>
                 )}
               </Button>
-              <span className={`text-[10px] leading-none whitespace-nowrap ${step === currentStep ? "text-white font-medium" : "text-white/40"}`}>{label}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Step Title */}
-      <div className="text-center mb-[20px]">
-        <h2 className="text-[20px] font-bold text-white">
-          {currentStep === 1 && "פרטי העסק"}
-          {currentStep === 2 && "לוח זמנים"}
-          {currentStep === 3 && "הגדרות והכנסות"}
-          {currentStep === 4 && "צוות העסק"}
-          {currentStep === 5 && "ספקים"}
-        </h2>
-        <p className="text-[13px] text-white/50 mt-[4px]">
-          {currentStep === 1 && "הזן את פרטי העסק הבסיסיים"}
-          {currentStep === 2 && "הגדר את ימי ושעות הפעילות"}
-          {currentStep === 3 && "הוסף מקורות הכנסה, כרטיסים ומוצרים"}
-          {currentStep === 4 && "הוסף בעלים ועובדים לעסק"}
-          {currentStep === 5 && "העלה רשימת ספקים מקובץ CSV"}
-        </p>
-      </div>
-
-      {/* Form Container */}
-      <div className="flex-1 bg-[#0F1535] rounded-[20px] p-[10px]">
-        {currentStep === 1 && renderStep1()}
-        {currentStep === 2 && renderStep2()}
-        {currentStep === 3 && renderStep3()}
-        {currentStep === 4 && renderStep4()}
-        {currentStep === 5 && renderStep5()}
-      </div>
-
-      {/* Navigation Buttons */}
-      <div className="fixed bottom-0 left-0 right-0 lg:right-[220px] bg-[#0F1535] border-t border-white/10 p-[15px] flex gap-[10px]">
-        {currentStep > 1 && (
-          <Button
-            variant="outline"
-            type="button"
-            onClick={() => setCurrentStep(prev => prev - 1)}
-            className="flex-1 bg-transparent border border-[#4C526B] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
-          >
-            חזרה
-          </Button>
-        )}
-
-        {currentStep < 5 ? (
-          <Button
-            variant="default"
-            type="button"
-            onClick={() => setCurrentStep(prev => prev + 1)}
-            disabled={
-              (currentStep === 1 && !canProceedStep1) ||
-              (currentStep === 2 && !canProceedStep2) ||
-              (currentStep === 3 && !canProceedStep3) ||
-              (currentStep === 4 && !canProceedStep4)
-            }
-            className="flex-1 bg-[#29318A] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            המשך
-          </Button>
-        ) : (
-          <Button
-            variant="default"
-            type="button"
-            onClick={handleSubmit}
-            disabled={!canSubmit || isSubmitting}
-            className="flex-1 bg-[#3CD856] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#2fb847] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-[8px]"
-          >
-            {isSubmitting ? (
-              <>
-                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                יוצר עסק...
-              </>
-            ) : (
-              <>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12L10 17L19 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                צור עסק
-              </>
             )}
-          </Button>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

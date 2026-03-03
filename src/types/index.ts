@@ -19,6 +19,7 @@ export interface Business {
   id: string;
   name: string;
   business_type: string;
+  business_model: "regular" | "service";
   status: "active" | "inactive";
   tax_id?: string;
   address?: string;
@@ -31,6 +32,7 @@ export interface Business {
   markup_percentage: number;
   vat_percentage: number;
   manager_monthly_salary: number;
+  send_to_accountant: boolean;
   created_at: string;
   updated_at: string;
   deleted_at?: string;
