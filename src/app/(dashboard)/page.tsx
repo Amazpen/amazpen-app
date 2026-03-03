@@ -10,7 +10,6 @@ import { HistoryModal } from "@/components/dashboard/HistoryModal";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
-import { usePersistedState } from "@/hooks/usePersistedState";
 import { useToast } from "@/components/ui/toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -348,7 +347,7 @@ const formatLocalDate = (date: Date) => {
 // ============================================================================
 
 export default function DashboardPage() {
-  const { selectedBusinesses, toggleBusiness, setSelectedBusinesses } = useDashboard();
+  const { selectedBusinesses, toggleBusiness, setSelectedBusinesses, globalDateRange, setGlobalDateRange } = useDashboard();
   const { showToast } = useToast();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -398,29 +397,8 @@ export default function DashboardPage() {
   const [foodCostChartPeriod, setFoodCostChartPeriod] = useState<"year" | "month">("year");
   const [laborCostChartPeriod, setLaborCostChartPeriod] = useState<"year" | "month">("year");
   const [managedProductChartPeriod, setManagedProductChartPeriod] = useState<"year" | "month">("year");
-  const [savedDateRange, setSavedDateRange] = usePersistedState<{ start: string; end: string } | null>("dashboard:dateRange", null);
-  const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
-
-  // Initialize date range on client only to avoid hydration mismatch
-  useEffect(() => {
-    if (!dateRange) {
-      if (savedDateRange) {
-         
-        setDateRange({ start: new Date(savedDateRange.start), end: new Date(savedDateRange.end) });
-      } else {
-         
-        setDateRange({
-          start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-          end: new Date(),
-        });
-      }
-    }
-  }, [dateRange, savedDateRange]);
-
-  const handleDateRangeChange = useCallback((range: { start: Date; end: Date }) => {
-    setDateRange(range);
-    setSavedDateRange({ start: range.start.toISOString(), end: range.end.toISOString() });
-  }, [setSavedDateRange]);
+  const dateRange = globalDateRange;
+  const handleDateRangeChange = setGlobalDateRange;
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isDailyEntriesModalOpen, setIsDailyEntriesModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
