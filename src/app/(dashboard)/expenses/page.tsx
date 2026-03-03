@@ -3474,46 +3474,42 @@ function ExpensesPageInner() {
 
                       {/* Existing items table */}
                       {expenseLineItems.length > 0 && (
-                        <div className="overflow-x-auto">
-                          <Table className="w-full table-fixed text-[13px]">
-                            <TableHeader>
-                              <TableRow className="border-b border-[#4C526B] text-white/60">
-                                <TableHead className="text-right py-[6px] pr-[4px]">פריט</TableHead>
-                                <TableHead className="text-center py-[6px] w-[50px]">כמות</TableHead>
-                                <TableHead className="text-center py-[6px] w-[75px]">מחיר</TableHead>
-                                <TableHead className="text-center py-[6px] w-[75px]">סה&quot;כ</TableHead>
-                                <TableHead className="w-[28px]" />
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {expenseLineItems.map((li, idx) => (
-                                <TableRow key={`line-${idx}`} className="border-b border-[#4C526B]/50">
-                                  <TableCell className="text-right py-[6px] pr-[4px] text-white w-full max-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{li.description || '-'}</TableCell>
-                                  <TableCell className="text-center py-[6px] text-white/70 ltr-num w-[50px] shrink-0">{li.quantity ?? '-'}</TableCell>
-                                  <TableCell className="text-center py-[6px] ltr-num leading-tight w-[75px] shrink-0">
-                                    <span className="text-white">&#8362;{li.unit_price?.toFixed(2) ?? '0'}</span>
-                                    {lineItemsPriceCheckDone && li.price_change_pct != null && li.price_change_pct !== 0 && (
-                                      <span className={`block text-[9px] ${li.price_change_pct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
-                                        {li.price_change_pct > 0 ? '▲' : '▼'}{Math.abs(li.price_change_pct).toFixed(1)}%
-                                      </span>
-                                    )}
-                                    {lineItemsPriceCheckDone && li.is_new_item && (
-                                      <span className="block text-[9px] text-[#00D4FF]">חדש</span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="text-center py-[6px] text-white/70 ltr-num w-[75px] shrink-0">&#8362;{li.total?.toFixed(2) ?? '0'}</TableCell>
-                                  <TableCell className="text-center py-[6px] w-[28px] shrink-0">
-                                    <Button
-                                      type="button"
-                                      onClick={() => setExpenseLineItems(prev => prev.filter((_, i) => i !== idx))}
-                                      className="text-[#F64E60]/60 hover:text-[#F64E60] text-[14px] p-0 h-auto"
-                                      title="הסר פריט"
-                                    >&times;</Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
+                        <div className="w-full text-[13px]" dir="rtl">
+                          {/* Header */}
+                          <div className="flex items-center border-b border-[#4C526B] text-white/60 py-[6px] px-[4px]">
+                            <span className="flex-1 text-right">פריט</span>
+                            <span className="w-[50px] text-center shrink-0">כמות</span>
+                            <span className="w-[80px] text-center shrink-0">מחיר</span>
+                            <span className="w-[80px] text-center shrink-0">סה&quot;כ</span>
+                            <span className="w-[24px] shrink-0" />
+                          </div>
+                          {/* Rows */}
+                          {expenseLineItems.map((li, idx) => (
+                            <div key={`line-${idx}`} className="flex items-center border-b border-[#4C526B]/50 py-[6px] px-[4px]">
+                              <span className="flex-1 text-right text-white overflow-hidden text-ellipsis whitespace-nowrap pr-[4px]">{li.description || '-'}</span>
+                              <span className="w-[50px] text-center text-white/70 ltr-num shrink-0">{li.quantity ?? '-'}</span>
+                              <span className="w-[80px] text-center ltr-num leading-tight shrink-0">
+                                <span className="text-white">&#8362;{li.unit_price?.toFixed(2) ?? '0'}</span>
+                                {lineItemsPriceCheckDone && li.price_change_pct != null && li.price_change_pct !== 0 && (
+                                  <span className={`block text-[9px] ${li.price_change_pct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                                    {li.price_change_pct > 0 ? '▲' : '▼'}{Math.abs(li.price_change_pct).toFixed(1)}%
+                                  </span>
+                                )}
+                                {lineItemsPriceCheckDone && li.is_new_item && (
+                                  <span className="block text-[9px] text-[#00D4FF]">חדש</span>
+                                )}
+                              </span>
+                              <span className="w-[80px] text-center text-white/70 ltr-num shrink-0">&#8362;{li.total?.toFixed(2) ?? '0'}</span>
+                              <span className="w-[24px] text-center shrink-0">
+                                <Button
+                                  type="button"
+                                  onClick={() => setExpenseLineItems(prev => prev.filter((_, i) => i !== idx))}
+                                  className="text-[#F64E60]/60 hover:text-[#F64E60] text-[14px] p-0 h-auto"
+                                  title="הסר פריט"
+                                >&times;</Button>
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       )}
 
