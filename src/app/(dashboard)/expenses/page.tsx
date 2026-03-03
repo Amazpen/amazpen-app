@@ -3443,12 +3443,12 @@ function ExpensesPageInner() {
                     onClick={() => setShowLineItems(!showLineItems)}
                     className="flex items-center justify-between w-full border border-[#4C526B] rounded-[10px] h-[50px] px-[15px] bg-transparent hover:bg-[#29318A]/10"
                   >
+                    <span className="text-[15px] font-medium text-white">פריטים (מעקב מחירים)</span>
                     <span className="text-[13px] text-white/50">
                       {expenseLineItems.length > 0
                         ? `${expenseLineItems.length} פריטים`
                         : 'אופציונלי'}
                     </span>
-                    <span className="text-[15px] font-medium text-white">פריטים (מעקב מחירים)</span>
                   </Button>
 
                   {showLineItems && (
