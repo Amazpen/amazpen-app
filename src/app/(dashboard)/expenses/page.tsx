@@ -3632,7 +3632,19 @@ function ExpensesPageInner() {
 
                         // Auto-trigger OCR on the first uploaded file
                         if (!ocrApplied && arr.length > 0) {
-                          processOcr(arr[0]);
+                          const firstFile = arr[0];
+                          // For PDFs: try converting to image first (works for scanned PDFs),
+                          // fallback to raw PDF (works for digital PDFs with embedded text)
+                          if (firstFile.type === "application/pdf") {
+                            try {
+                              const imgFile = await convertPdfToImage(firstFile);
+                              processOcr(imgFile);
+                            } catch {
+                              processOcr(firstFile);
+                            }
+                          } else {
+                            processOcr(firstFile);
+                          }
                         }
                       }
                       e.target.value = "";

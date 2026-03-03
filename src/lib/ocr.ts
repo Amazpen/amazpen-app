@@ -17,30 +17,19 @@ export async function ocrImage(file: File): Promise<string> {
 }
 
 /**
- * Extract text from a PDF:
- * - Digital PDF → extract text directly with pdfjs-dist (free, no OCR needed)
- * - Scanned PDF (image-only, no text layer) → send to Google Vision OCR
+ * Extract text from a digital PDF using pdfjs-dist.
+ * Note: scanned PDFs are handled client-side (converted to image before upload).
  */
 export async function extractPdfText(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
-
-  // Step 1: Try to extract digital text directly (no OCR cost)
   try {
     const text = await extractDigitalPdfText(arrayBuffer);
-    if (text.length >= 10) {
-      return text;
-    }
-  } catch {
-    // Fall through to OCR
+    console.log(`[OCR] Digital PDF text length: ${text.length}`);
+    return text;
+  } catch (err) {
+    console.error("[OCR] Digital PDF extraction failed:", err);
+    return "";
   }
-
-  // Step 2: Scanned PDF — send to Google Vision OCR
-  if (!GOOGLE_VISION_API_KEY) {
-    throw new Error("GOOGLE_VISION_API_KEY is not configured");
-  }
-
-  const base64 = Buffer.from(arrayBuffer).toString("base64");
-  return callVisionOCR(base64);
 }
 
 /** Extract embedded text from a digital PDF using pdfjs-dist in Node.js (no worker needed) */
