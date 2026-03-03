@@ -2924,6 +2924,12 @@ export default function DashboardPage() {
                 </>
               ) : (
                 <>
+              {/* Section Header - ניהול הכנסות */}
+              <div className="col-span-full lg:col-span-2 xl:col-span-3 flex flex-row-reverse items-center gap-[8px] mt-[5px]">
+                <span className="text-[15px] font-bold text-white/80">ניהול הכנסות</span>
+                <div className="flex-1 h-[1px] bg-white/10" />
+              </div>
+
               {/* סה"כ הכנסות Card */}
               <div className={`${isCardPending(CARD_FIELD_MAP.totalIncome || []) ? "data-card-pending" : "data-card-new"} flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all relative`} onClick={() => isCardPending(CARD_FIELD_MAP.totalIncome || []) ? setApprovalModal({ open: true, fieldNames: CARD_FIELD_MAP.totalIncome, title: 'סה"כ מכירות' }) : openHistoryModal('totalIncome', 'סה"כ מכירות')}>
                 {isCardPending(CARD_FIELD_MAP.totalIncome || []) && (
@@ -3217,6 +3223,12 @@ export default function DashboardPage() {
                   </div>
                 );
               })}
+
+              {/* Section Header - ניהול הוצאות */}
+              <div className="col-span-full lg:col-span-2 xl:col-span-3 flex flex-row-reverse items-center gap-[8px] mt-[5px]">
+                <span className="text-[15px] font-bold text-white/80">ניהול הוצאות</span>
+                <div className="flex-1 h-[1px] bg-white/10" />
+              </div>
 
               {/* עלות עובדים Card */}
               {(() => {
