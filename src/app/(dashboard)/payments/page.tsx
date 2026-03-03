@@ -4056,7 +4056,7 @@ function PaymentsPageInner() {
                   type="button"
                   onClick={editingPaymentId ? handleUpdatePayment : handleSavePayment}
                   disabled={isSaving || isUploadingReceipt}
-                  className="w-full bg-[#29318A] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50"
+                  className="w-full bg-[#29318A] text-white text-[18px] font-semibold h-[50px] rounded-[10px] transition-colors hover:bg-[#3D44A0] disabled:opacity-50"
                 >
                   {isSaving ? "שומר..." : isUploadingReceipt ? "מעלה קובץ..." : editingPaymentId ? "עדכון תשלום" : "הוספת תשלום"}
                 </Button>
@@ -4064,7 +4064,7 @@ function PaymentsPageInner() {
                   type="button"
                   onClick={resetForm}
                   disabled={isSaving}
-                  className="w-full text-white/60 text-[16px] font-medium py-[10px] rounded-[10px] transition-colors hover:text-white hover:bg-white/10 disabled:opacity-50"
+                  className="w-full text-white/60 text-[16px] font-medium h-[50px] rounded-[10px] transition-colors hover:text-white hover:bg-white/10 disabled:opacity-50"
                 >
                   איפוס טופס
                 </Button>

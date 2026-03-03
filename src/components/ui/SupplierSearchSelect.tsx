@@ -81,7 +81,7 @@ export default function SupplierSearchSelect({
         {/* Trigger / Display */}
         <div
           onClick={() => { if (!disabled) setIsOpen(!isOpen); }}
-          className={`flex items-center justify-between border border-[#4C526B] rounded-[10px] h-[48px] bg-[#0F1535] px-[12px] cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`flex items-center justify-between border border-[#4C526B] rounded-[10px] h-[50px] bg-[#0F1535] px-[12px] cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <span className={`text-[16px] flex-1 text-center ${selectedSupplier ? 'text-white' : 'text-white/40'}`}>
             {selectedSupplier ? selectedSupplier.name : (emptyMessage && suppliers.length === 0 ? emptyMessage : placeholder)}
