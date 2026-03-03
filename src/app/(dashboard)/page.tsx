@@ -750,7 +750,7 @@ export default function DashboardPage() {
 
       // === Daily Summary Table (TODAY's data only) ===
       const dailyRows: string[][] = [
-        ['סה"כ קופה כולל מע"מ', `₪${Math.round(todayTotalIncome).toLocaleString('he-IL')}`, '', `<span style="color:${diffColor(revTargetDiffPct)}">${revTargetDiffPct.toFixed(1)}%</span>`],
+        ['סה"כ קופה כולל מע"מ', `₪${Math.round(todayTotalIncome).toLocaleString('he-IL')}`, '', `<span style="color:${diffColor(s.targetDiffAmount)}">${s.targetDiffAmount < 0 ? '-' : ''}₪${Math.abs(Math.round(s.targetDiffAmount)).toLocaleString('he-IL')}</span>`],
         ['במקום', `₪${Math.round(todayPrivateIncome).toLocaleString('he-IL')}`, `${todayPrivateCount}`, `<span style="color:${diffColor(todayPrivateDiff)}">${todayPrivateDiff < 0 ? '-' : ''}₪${Math.abs(todayPrivateDiff).toFixed(1)}</span>`],
         ['במשלוח', `₪${Math.round(todayBusinessIncome).toLocaleString('he-IL')}`, `${todayBusinessCount}`, `<span style="color:${diffColor(todayBusinessDiff)}">${todayBusinessDiff < 0 ? '-' : ''}₪${Math.abs(todayBusinessDiff).toFixed(1)}</span>`],
         ['ע. עובדים (%)', `${todayLaborCostPct.toFixed(2)}%`, `${todayTotalOrders}`, `<span style="color:${diffColor(todayLaborCostDiffPct, true)}">${todayLaborCostDiffPct > 0 ? '' : '-'}${Math.abs(todayLaborCostDiffPct).toFixed(2)}%</span>`],
@@ -777,7 +777,7 @@ export default function DashboardPage() {
 
       // === Monthly Cumulative Table (from detailedSummary - full date range) ===
       const cumulativeRows: string[][] = [
-        ['סה"כ קופה', `₪${Math.round(s.totalIncome).toLocaleString('he-IL')}`, `<span style="color:${diffColor(revTargetDiffPct)}">${revTargetDiffPct.toFixed(1)}%</span>`],
+        ['סה"כ קופה', `₪${Math.round(s.totalIncome).toLocaleString('he-IL')}`, `<span style="color:${diffColor(s.targetDiffAmount)}">${s.targetDiffAmount < 0 ? '-' : ''}₪${Math.abs(Math.round(s.targetDiffAmount)).toLocaleString('he-IL')}</span>`],
         ['במקום', `₪${cumPrivateAvg.toFixed(2)}`, `<span style="color:${diffColor(cumPrivateDiff)}">${cumPrivateDiff < 0 ? '-' : ''}₪${Math.abs(cumPrivateDiff).toFixed(1)}</span>`],
         ['במשלוח', `₪${cumBusinessAvg.toFixed(2)}`, `<span style="color:${diffColor(cumBusinessDiff)}">${cumBusinessDiff < 0 ? '-' : ''}₪${Math.abs(cumBusinessDiff).toFixed(1)}</span>`],
         ['ע. עובדים', `${s.laborCostPct.toFixed(2)}%`, `<span style="color:${diffColor(s.laborCostDiffPct, true)}">${s.laborCostDiffPct > 0 ? '' : '-'}${Math.abs(s.laborCostDiffPct).toFixed(1)}%</span>`],
