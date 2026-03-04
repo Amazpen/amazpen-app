@@ -2933,48 +2933,29 @@ function PaymentsPageInner() {
         )}
 
         {/* Table */}
-        <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="w-full max-h-[500px] overflow-y-scroll">
-          <table className="w-full border-collapse table-fixed">
-            <colgroup>
-              <col style={{width: "65px"}} />
-              <col />
-              <col style={{width: "60px"}} />
-              <col style={{width: "50px"}} />
-              <col style={{width: "60px"}} />
-              <col style={{width: "85px"}} />
-            </colgroup>
-            {/* Header */}
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-[#29318A]">
-                {/* Date header - spacer matches the chevron svg in data rows */}
-                <th className="text-[13px] sm:text-[14px] font-medium py-[8px] ps-[4px] pe-[2px] rounded-tr-[7px]">
-                  <button type="button" onClick={() => handleColumnSort("date")} className="inline-flex items-center gap-[2px] cursor-pointer hover:text-white/80 transition-colors">
-                    <span className="w-[14px] flex-shrink-0" />
-                    תאריך
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity ${sortColumn === "date" ? 'opacity-100' : 'opacity-30'}`}>
-                      <path d={sortColumn === "date" && sortOrder === "desc" ? "M12 5V19M12 19L5 12M12 19L19 12" : "M12 19V5M12 5L5 12M12 5L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </button>
-                </th>
-                {([
-                  ["supplier", "ספק", "text-center"],
-                  ["reference", "אסמכתא", "text-center"],
-                  ["installments", "תשלומים", "text-center"],
-                  ["method", "אמצעי", "text-center"],
-                  ["amount", "סכום", "text-center"],
-                ] as const).map(([col, label, align], i) => (
-                  <th key={col} className={`text-[13px] sm:text-[14px] font-medium py-[8px] px-[4px] ${align} ${i === 4 ? 'rounded-tl-[7px]' : ''}`}>
-                    <button type="button" onClick={() => handleColumnSort(col)} className="inline-flex items-center gap-[2px] cursor-pointer hover:text-white/80 transition-colors justify-center w-full">
-                      {col === "reference" ? (<><span className="sm:hidden">אסמכ׳</span><span className="hidden sm:inline">אסמכתא</span></>) : label}
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity ${sortColumn === col ? 'opacity-100' : 'opacity-30'}`}>
-                        <path d={sortColumn === col && sortOrder === "desc" ? "M12 5V19M12 19L5 12M12 19L19 12" : "M12 19V5M12 5L5 12M12 5L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </button>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
+        <div className="w-full flex flex-col">
+          {/* Header */}
+          <div className="grid grid-cols-[0.6fr_1.4fr_0.8fr_0.6fr_0.7fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center">
+            {([
+              ["date", "תאריך"],
+              ["supplier", "ספק"],
+              ["reference", "אסמכתא"],
+              ["installments", "תשלומים"],
+              ["method", "אמצעי"],
+              ["amount", "סכום"],
+            ] as const).map(([col, label]) => (
+              <Button key={col} type="button" onClick={() => handleColumnSort(col)}
+                className="text-[13px] font-medium text-center cursor-pointer hover:text-white/80 transition-colors flex items-center justify-center gap-[3px]">
+                {col === "reference" ? (<><span className="sm:hidden">אסמכ׳</span><span className="hidden sm:inline">אסמכתא</span></>) : label}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity ${sortColumn === col ? 'opacity-100' : 'opacity-30'}`}>
+                  <path d={sortColumn === col && sortOrder === "desc" ? "M12 5V19M12 19L5 12M12 19L19 12" : "M12 19V5M12 5L5 12M12 5L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </Button>
+            ))}
+          </div>
+
+          {/* Rows */}
+          <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="max-h-[450px] overflow-y-auto flex flex-col gap-[5px]">
             {(() => {
               const searchVal = filterValue.trim().toLowerCase();
               const filteredPayments = recentPaymentsData.filter((payment) => {
@@ -3012,7 +2993,9 @@ function PaymentsPageInner() {
                 });
               }
               if (sortedPayments.length === 0) return (
-                <tr><td colSpan={6} className="py-[40px] text-center"><span className="text-[16px] text-white/50">אין תשלומים להצגה</span></td></tr>
+                <div className="flex items-center justify-center py-[40px]">
+                  <span className="text-[16px] text-white/50">אין תשלומים להצגה</span>
+                </div>
               );
               return sortedPayments.map((payment) => {
               const methodGroups: Array<{ method: string; methodName: string; totalAmount: number; splits: typeof payment.rawSplits }> = [];
@@ -3033,64 +3016,55 @@ function PaymentsPageInner() {
               const rowKey = `${payment.id}:${groupIdx}`;
               const isExpanded = expandedPaymentId === rowKey;
               return (
-              <>
-              <tr
+              <div
                 key={rowKey}
                 data-payment-id={payment.id}
-                onClick={() => setExpandedPaymentId(isExpanded ? null : rowKey)}
-                className={`cursor-pointer transition-colors ${isExpanded ? 'bg-white/5' : 'hover:bg-[#29318A]/30'}`}
+                className={`rounded-[7px] p-[7px_3px] border transition-colors ${isExpanded ? 'bg-white/5 border-white' : 'border-transparent'}`}
               >
-                {/* Date */}
-                <td className="py-[10px] ps-[4px] pe-[2px]">
-                  <div className="flex items-center gap-[2px]">
-                    <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''} text-white/50`}>
+                <div
+                  onClick={() => setExpandedPaymentId(isExpanded ? null : rowKey)}
+                  className="grid grid-cols-[0.6fr_1.4fr_0.8fr_0.6fr_0.7fr_0.9fr] w-full p-[5px_5px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] items-center cursor-pointer"
+                >
+                  {/* Date */}
+                  <div className="flex items-center justify-center gap-[2px]">
+                    <svg width="12" height="12" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''} text-white/50`}>
                       <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     <span className="text-[12px] sm:text-[13px] font-medium ltr-num">{payment.date}</span>
                   </div>
-                </td>
 
-                {/* Supplier */}
-                <td className="py-[10px] px-[4px] text-center">
-                  <span className="text-[12px] sm:text-[13px] font-medium leading-tight truncate block">{payment.supplier}</span>
-                </td>
+                  {/* Supplier */}
+                  <span className="text-[12px] sm:text-[13px] font-medium text-center leading-tight break-words px-[2px]">{payment.supplier}</span>
 
-                {/* Reference Number */}
-                <td className="py-[10px] px-[4px] text-center" title={group.splits[0]?.reference_number || payment.reference || ""}>
-                  <span className="text-[12px] sm:text-[13px] font-medium ltr-num truncate block">
+                  {/* Reference Number */}
+                  <span className="text-[12px] sm:text-[13px] font-medium ltr-num text-center truncate px-[2px]" title={group.splits[0]?.reference_number || payment.reference || ""}>
                     {group.splits[0]?.reference_number || payment.reference || "-"}
                   </span>
-                </td>
 
-                {/* Payment split index */}
-                <td className="py-[10px] px-[4px] text-center">
-                  <span className="text-[12px] sm:text-[13px] font-medium ltr-num">
+                  {/* Payment split index */}
+                  <span className="text-[12px] sm:text-[13px] font-medium ltr-num text-center">
                     {totalMethodGroups > 1 ? `${groupIdx + 1}/${totalMethodGroups}` : payment.installments}
                   </span>
-                </td>
 
-                {/* Payment Method */}
-                <td className="py-[10px] px-[4px] text-center">
-                  <span className="text-[12px] sm:text-[13px] font-medium leading-tight truncate block">{group.methodName}</span>
-                </td>
+                  {/* Payment Method */}
+                  <span className="text-[12px] sm:text-[13px] font-medium text-center leading-tight truncate">{group.methodName}</span>
 
-                {/* Amount */}
-                <td className="py-[10px] px-[4px] text-center">
-                  <span className="text-[12px] sm:text-[13px] font-medium ltr-num block">
-                    ₪{group.totalAmount % 1 === 0 ? group.totalAmount.toLocaleString("he-IL") : group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                  {totalMethodGroups > 1 && (
-                    <span className="text-[10px] sm:text-[11px] font-medium ltr-num text-white/70 block">
-                      (₪{payment.totalAmount % 1 === 0 ? payment.totalAmount.toLocaleString("he-IL") : payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                  {/* Amount */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-[12px] sm:text-[13px] font-medium ltr-num">
+                      ₪{group.totalAmount % 1 === 0 ? group.totalAmount.toLocaleString("he-IL") : group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                  )}
-                </td>
-              </tr>
+                    {totalMethodGroups > 1 && (
+                      <span className="text-[10px] sm:text-[11px] font-medium ltr-num text-white/70">
+                        (₪{payment.totalAmount % 1 === 0 ? payment.totalAmount.toLocaleString("he-IL") : payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                      </span>
+                    )}
+                  </div>
+                </div>
 
               {/* Expanded Details */}
               {isExpanded && (
-              <tr key={`${rowKey}-expanded`}><td colSpan={6} className="p-0">
-                  <div className="flex flex-col gap-[10px] mt-[5px] mb-[4px]">
+                  <div className="flex flex-col gap-[10px] mt-[5px]">
                     {/* Header: פרטים נוספים + action icons */}
                     <div className="flex items-center justify-between border-b border-white/20 pb-[8px] px-[7px]" dir="rtl">
                       <span className="text-[16px] font-medium">פרטים נוספים</span>
@@ -3393,20 +3367,18 @@ function PaymentsPageInner() {
                       </div>
                     )}
                   </div>
-              </td></tr>
               )}
-              </>
+              </div>
               );
               });
             });
             })()}
             {isLoadingMore && (
-              <tr><td colSpan={6} className="py-[15px] text-center">
-                <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin inline-block" />
-              </td></tr>
+              <div className="flex items-center justify-center py-[15px]">
+                <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+              </div>
             )}
-            </tbody>
-          </table>
+          </div>
         </div>
       </div>
       )}
