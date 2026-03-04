@@ -605,7 +605,7 @@ export default function ReportsPage() {
                 targetRaw: target,
                 suppliers: childSuppliers,
               };
-            });
+            }).filter(sub => sub.actualRaw > 0 || sub.targetRaw > 0);
           }
 
           // Sum up for parent
