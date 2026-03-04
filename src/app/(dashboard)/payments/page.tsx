@@ -2933,9 +2933,9 @@ function PaymentsPageInner() {
         )}
 
         {/* Table */}
-        <div className="w-full overflow-x-auto">
+        <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="w-full overflow-x-auto max-h-[500px] overflow-y-scroll">
           {/* Header */}
-          <div className="grid grid-cols-[65px_1fr_60px_50px_60px_80px] sm:grid-cols-[75px_1fr_65px_55px_65px_85px] bg-[#29318A] rounded-t-[7px] mb-[4px] pe-[15px]">
+          <div className="grid grid-cols-[65px_1fr_60px_50px_60px_80px] sm:grid-cols-[75px_1fr_65px_55px_65px_85px] bg-[#29318A] rounded-t-[7px] mb-[4px] sticky top-0 z-10">
             {([
               ["date", "תאריך", "text-start ps-[16px]"],
               ["supplier", "ספק", "text-center justify-center"],
@@ -2959,7 +2959,7 @@ function PaymentsPageInner() {
           </div>
 
           {/* Table Rows */}
-          <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="flex flex-col gap-[4px] max-h-[450px] overflow-y-auto">
+          <div className="flex flex-col gap-[4px]">
             {(() => {
               const searchVal = filterValue.trim().toLowerCase();
               const filteredPayments = recentPaymentsData.filter((payment) => {
