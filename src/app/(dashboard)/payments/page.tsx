@@ -2946,18 +2946,27 @@ function PaymentsPageInner() {
             {/* Header */}
             <thead className="sticky top-0 z-10">
               <tr className="bg-[#29318A]">
+                {/* Date header - spacer matches the chevron svg in data rows */}
+                <th className="text-[13px] sm:text-[14px] font-medium py-[8px] ps-[4px] pe-[2px] rounded-tr-[7px]">
+                  <button type="button" onClick={() => handleColumnSort("date")} className="inline-flex items-center gap-[2px] cursor-pointer hover:text-white/80 transition-colors">
+                    <span className="w-[14px] flex-shrink-0" />
+                    תאריך
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity ${sortColumn === "date" ? 'opacity-100' : 'opacity-30'}`}>
+                      <path d={sortColumn === "date" && sortOrder === "desc" ? "M12 5V19M12 19L5 12M12 19L19 12" : "M12 19V5M12 5L5 12M12 5L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                </th>
                 {([
-                  ["date", "תאריך", "text-start ps-[12px]"],
                   ["supplier", "ספק", "text-center"],
                   ["reference", "אסמכתא", "text-center"],
                   ["installments", "תשלומים", "text-center"],
                   ["method", "אמצעי", "text-center"],
                   ["amount", "סכום", "text-center"],
                 ] as const).map(([col, label, align], i) => (
-                  <th key={col} className={`text-[13px] sm:text-[14px] font-medium py-[8px] px-[4px] ${align} ${i === 0 ? 'rounded-tr-[7px]' : ''} ${i === 5 ? 'rounded-tl-[7px]' : ''}`}>
-                    <button type="button" onClick={() => handleColumnSort(col)} className="inline-flex items-center gap-[2px] cursor-pointer hover:text-white/80 transition-colors w-full justify-center">
-                      {col === "date" ? <span className="w-full text-start">{label}</span> : col === "reference" ? (<><span className="sm:hidden">אסמכ׳</span><span className="hidden sm:inline">אסמכתא</span></>) : label}
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity flex-shrink-0 ${sortColumn === col ? 'opacity-100' : 'opacity-30'}`}>
+                  <th key={col} className={`text-[13px] sm:text-[14px] font-medium py-[8px] px-[4px] ${align} ${i === 4 ? 'rounded-tl-[7px]' : ''}`}>
+                    <button type="button" onClick={() => handleColumnSort(col)} className="inline-flex items-center gap-[2px] cursor-pointer hover:text-white/80 transition-colors justify-center w-full">
+                      {col === "reference" ? (<><span className="sm:hidden">אסמכ׳</span><span className="hidden sm:inline">אסמכתא</span></>) : label}
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity ${sortColumn === col ? 'opacity-100' : 'opacity-30'}`}>
                         <path d={sortColumn === col && sortOrder === "desc" ? "M12 5V19M12 19L5 12M12 19L19 12" : "M12 19V5M12 5L5 12M12 5L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </button>
