@@ -385,6 +385,7 @@ export default function ReportsPage() {
         const categoryActuals = new Map<string, number>();
         const supplierActuals = new Map<string, number>();
         const supplierNames = new Map<string, string>();
+        const supplierExpenseTypes = new Map<string, string>();
         // Track which category each supplier belongs to (for 3-level drill-down)
         const supplierCategoryMap = new Map<string, string>();
         let totalGoodsExpenses = 0;
@@ -404,6 +405,7 @@ export default function ReportsPage() {
               supplierActuals.set(supplierId, (supplierActuals.get(supplierId) || 0) + amount);
               if (supplier?.name) supplierNames.set(supplierId, supplier.name);
               if (catId) supplierCategoryMap.set(supplierId, catId);
+              if (expType) supplierExpenseTypes.set(supplierId, expType);
             }
             if (expType === "goods_purchases") {
               totalGoodsExpenses += amount;
@@ -430,6 +432,7 @@ export default function ReportsPage() {
               supplierBudgets.set(supplierId, budgetAmount);
               if (supplier?.name) supplierNames.set(supplierId, supplier.name);
               if (catId) supplierCategoryMap.set(supplierId, catId);
+              if (supplier?.expense_type) supplierExpenseTypes.set(supplierId, supplier.expense_type);
               // Fixed expense supplier with no invoice this month → actual = budget
               if (supplier?.is_fixed_expense && budgetAmount > 0 && !supplierActuals.has(supplierId)) {
                 supplierActuals.set(supplierId, budgetAmount);
@@ -468,18 +471,13 @@ export default function ReportsPage() {
           // For "עלות מכר": show individual goods_purchases suppliers instead of subcategories
           let subcategoriesData: ExpenseCategoryDisplay["subcategories"];
           if (isGoodsCost) {
-            // Build supplier list from all goods_purchases suppliers that have budget or actuals
+            // Build supplier list from goods_purchases suppliers only
             const goodsSupplierIds = new Set<string>();
-            supplierBudgets.forEach((_, id) => goodsSupplierIds.add(id));
+            supplierBudgets.forEach((_, id) => {
+              if (supplierExpenseTypes.get(id) === "goods_purchases") goodsSupplierIds.add(id);
+            });
             supplierActuals.forEach((_, id) => {
-              // Only add if it's a goods supplier (check via invoicesData)
-              if (invoicesData?.some(inv => {
-                const sid = (inv as unknown as { supplier_id: string | null }).supplier_id;
-                const sup = inv.supplier as unknown as { expense_type: string | null } | null;
-                return sid === id && sup?.expense_type === "goods_purchases";
-              })) {
-                goodsSupplierIds.add(id);
-              }
+              if (supplierExpenseTypes.get(id) === "goods_purchases") goodsSupplierIds.add(id);
             });
 
             subcategoriesData = Array.from(goodsSupplierIds).map(supplierId => {
