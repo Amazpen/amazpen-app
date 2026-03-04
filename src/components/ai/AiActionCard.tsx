@@ -72,14 +72,20 @@ export function AiActionCard({ action }: AiActionCardProps) {
           notes: action.expenseData.notes,
         });
       } else if (action.actionType === "payment" && action.paymentData) {
+        const pd = action.paymentData;
         Object.assign(payload, {
-          supplier_id: action.paymentData.supplier_id,
-          payment_date: action.paymentData.payment_date,
-          total_amount: action.paymentData.total_amount,
-          payment_method: action.paymentData.payment_method,
-          check_number: action.paymentData.check_number,
-          reference_number: action.paymentData.reference_number,
-          notes: action.paymentData.notes,
+          supplier_id: pd.supplier_id,
+          payment_date: pd.payment_date,
+          total_amount: pd.total_amount,
+          notes: pd.notes,
+          // Prefer payment_methods array over single method
+          ...(pd.payment_methods && pd.payment_methods.length > 0
+            ? { payment_methods: pd.payment_methods }
+            : {
+                payment_method: pd.payment_method,
+                check_number: pd.check_number,
+                reference_number: pd.reference_number,
+              }),
         });
       } else if (action.actionType === "daily_entry" && action.dailyEntryData) {
         Object.assign(payload, {
@@ -185,9 +191,19 @@ export function AiActionCard({ action }: AiActionCardProps) {
           <>
             <DetailRow label="ספק" value={action.supplierLookup?.name || action.paymentData.supplier_name || "—"} />
             <DetailRow label="תאריך תשלום" value={formatDate(action.paymentData.payment_date)} />
-            <DetailRow label="סכום" value={formatCurrency(action.paymentData.total_amount)} bold />
-            {action.paymentData.payment_method && (
-              <DetailRow label="אמצעי תשלום" value={PAYMENT_METHOD_LABELS[action.paymentData.payment_method] || action.paymentData.payment_method} />
+            <DetailRow label="סכום כולל" value={formatCurrency(action.paymentData.total_amount)} bold />
+            {action.paymentData.payment_methods && action.paymentData.payment_methods.length > 0 ? (
+              action.paymentData.payment_methods.map((m, i) => (
+                <DetailRow
+                  key={i}
+                  label={`אמצעי ${i + 1}`}
+                  value={`${PAYMENT_METHOD_LABELS[m.method] || m.method} — ${formatCurrency(m.amount)}${m.due_date ? ` (חיוב: ${formatDate(m.due_date)})` : ""}`}
+                />
+              ))
+            ) : (
+              action.paymentData.payment_method && (
+                <DetailRow label="אמצעי תשלום" value={PAYMENT_METHOD_LABELS[action.paymentData.payment_method] || action.paymentData.payment_method} />
+              )
             )}
             {action.paymentData.check_number && <DetailRow label="מספר צ׳ק" value={action.paymentData.check_number} />}
             {action.paymentData.notes && <DetailRow label="הערות" value={action.paymentData.notes} />}

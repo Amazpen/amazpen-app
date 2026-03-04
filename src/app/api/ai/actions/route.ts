@@ -15,17 +15,29 @@ const expenseSchema = z.object({
   notes: z.string().optional(),
 });
 
+const paymentMethodEnum = z.enum(["cash", "check", "bank_transfer", "credit_card", "bit", "paybox", "other"]);
+
 const paymentSchema = z.object({
   actionType: z.literal("payment"),
   businessId: z.string().uuid(),
   supplier_id: z.string().uuid(),
   payment_date: z.string(),
   total_amount: z.number().positive(),
-  payment_method: z.enum(["cash", "check", "bank_transfer", "credit_card", "bit", "paybox", "other"]),
+  payment_method: paymentMethodEnum.optional(),
+  payment_methods: z.array(z.object({
+    method: paymentMethodEnum,
+    amount: z.number().positive(),
+    check_number: z.string().optional(),
+    reference_number: z.string().optional(),
+    due_date: z.string().optional(),
+  })).optional(),
   check_number: z.string().optional(),
   reference_number: z.string().optional(),
   notes: z.string().optional(),
-});
+}).refine(
+  d => d.payment_method != null || (d.payment_methods != null && d.payment_methods.length > 0),
+  { message: "Either payment_method or payment_methods must be provided" }
+);
 
 const dailyEntrySchema = z.object({
   actionType: z.literal("daily_entry"),
@@ -106,6 +118,18 @@ export async function POST(request: NextRequest) {
   try {
     if (actionType === "expense") {
       const d = validated as z.infer<typeof expenseSchema>;
+
+      // Auto-detect invoice_type from supplier's expense_type if not provided
+      let invoiceType = d.invoice_type || null;
+      if (!invoiceType) {
+        const { data: sup } = await supabase
+          .from("suppliers")
+          .select("expense_type")
+          .eq("id", d.supplier_id)
+          .maybeSingle();
+        invoiceType = sup?.expense_type === "goods_purchases" ? "goods" : "current";
+      }
+
       const { data: invoice, error } = await supabase
         .from("invoices")
         .insert({
@@ -116,8 +140,9 @@ export async function POST(request: NextRequest) {
           subtotal: d.subtotal,
           vat_amount: d.vat_amount,
           total_amount: d.total_amount,
-          invoice_type: d.invoice_type || "current",
+          invoice_type: invoiceType,
           status: "pending",
+          data_source: "ai",
           notes: d.notes || null,
           created_by: user.id,
         })
@@ -145,13 +170,27 @@ export async function POST(request: NextRequest) {
 
       if (payErr) throw payErr;
 
-      await supabase.from("payment_splits").insert({
-        payment_id: payment.id,
-        payment_method: d.payment_method,
-        amount: d.total_amount,
-        check_number: d.check_number || null,
-        reference_number: d.reference_number || null,
-      });
+      // Build splits — support both single method and array
+      const splits = d.payment_methods && d.payment_methods.length > 0
+        ? d.payment_methods.map(m => ({
+            payment_id: payment.id,
+            payment_method: m.method,
+            amount: m.amount,
+            check_number: m.check_number || null,
+            reference_number: m.reference_number || null,
+            due_date: m.due_date || null,
+          }))
+        : [{
+            payment_id: payment.id,
+            payment_method: d.payment_method!,
+            amount: d.total_amount,
+            check_number: d.check_number || null,
+            reference_number: d.reference_number || null,
+            due_date: null,
+          }];
+
+      const { error: splitErr } = await supabase.from("payment_splits").insert(splits);
+      if (splitErr) throw splitErr;
 
       return json({ success: true, message: "תשלום נוצר בהצלחה", recordId: payment.id, actionType: "payment" });
     }

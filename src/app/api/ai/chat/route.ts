@@ -277,19 +277,19 @@ function buildUnifiedPrompt(opts: {
 
 ### 1. "תן לי סקירה מקיפה על העסק שלי" / "איך העסק שלי?" / "מה המצב?"
 
-קרא תחילה ל-getMonthlySummary. אז ענה **בדיוק** בפורמט הזה:
+קרא תחילה ל-getMonthlySummary. התוצאה כוללת שדה incomeBreakdown — מערך של מקורות הכנסה עם: name, totalAmount, avgTicket, avgTicketTarget, avgTicketDiff. אז ענה **בדיוק** בפורמט הזה:
 
 **הכנסות**
 סה"כ הכנסות כולל מע"מ: [total_income ₪]
 צפי לסיום החודש: [monthly_pace ₪]
 הפרש מהיעד: [target_diff_pct%] ששווה [target_diff_amount ₪] — **[אם שלילי: "פחות טוב מהיעד" באדום | אם חיובי: "טוב יותר מהיעד" בירוק]**
 
-**פירוט מקורות הכנסה** — **חובה טבלת markdown**:
+**פירוט מקורות הכנסה** — **חובה טבלת markdown** (מתוך incomeBreakdown):
+אם incomeBreakdown ריק — כתוב "אין נתוני מקורות הכנסה לחודש זה".
 
 | מקור הכנסה | הכנסות | ממוצע להזמנה | מול יעד | משמעות כספית |
 |-----------|--------|--------------|---------|--------------|
-| [שם מקור 1] | [₪] | [₪] | ✅/⚠️ [± ₪] | [פירוש] |
-| [שם מקור 2] | [₪] | [₪] | ✅/⚠️ [± ₪] | [פירוש] |
+| [name] | [totalAmount ₪] | [avgTicket ₪] | ✅/⚠️ [avgTicketDiff ₪] | [פירוש] |
 
 **פירוט ההוצאות** — **חובה טבלת markdown**:
 
@@ -492,8 +492,19 @@ ${isAdmin ? `
 - ציון ביטחון: 0.9+ = נתונים מלאים וברורים, 0.7-0.9 = נתונים חלקיים, <0.7 = לא ברור.
 - הסבר בעברית למה אתה מציע את הפעולה.
 - **חשוב**: תמיד השתמש בפורמט תאריך YYYY-MM-DD.
-- אם זיהית שם ספק — הכלי יחפש אוטומטית אם הספק קיים במערכת.
+- אם זיהית שם ספק — הכלי יחפש אוטומטית אם הספק קיים במערכת. התוצאה תכלול את ה-expenseType של הספק.
 - הנתונים יוצגו למשתמש ככרטיס אישור — הוא יוכל לאשר או לבטל.
+
+**קביעת invoice_type להוצאה:**
+- אם הספק נמצא: השתמש ב-supplierLookup.expenseType: 'goods_purchases' → invoice_type='goods', 'current_expenses' → invoice_type='current'
+- אם הספק לא נמצא: נסה לנחש לפי ההקשר (סחורה/מלאי → 'goods', שירות/קבוע → 'current')
+- **חשוב**: invoice_type חייב להיות 'goods' או 'current' — לעולם לא ריק
+
+**תשלום עם פיצול אמצעי תשלום:**
+- אם המשתמש מציין יותר מאמצעי תשלום אחד (למשל: "₪100 מזומן + ₪200 אשראי") — השתמש בשדה payment_methods (מערך)
+- כל אלמנט במערך: { method, amount, check_number?, reference_number?, due_date? }
+- אמצעים חוקיים: cash, check, bank_transfer, credit_card, bit, paybox, other
+- due_date: תאריך חיוב בנק (לאשראי: בדרך כלל החודש הבא, לצ'ק: תאריך הצ'ק, למזומן: תאריך התשלום)
 </tools-usage>
 
 <sql-best-practices>
@@ -870,9 +881,8 @@ GROUP BY s.name;
 - צפי לסיום החודש: [סכום ₪]
 - הפרש מהיעד: [אחוז%] ששווה [סכום ₪] — פחות טוב / טוב יותר מהיעד
 
-**פירוט מקורות הכנסה**
-- [שם מקור 1] — הכנסות [₪], ממוצע להזמנה [₪]. הפרש מהיעד [₪] פחות טוב מהיעד — ששווה לך [₪] שיכלו לסגור את ההפרש.
-- [שם מקור 2] — הכנסות [₪], ממוצע להזמנה [₪]. הפרש מהיעד [₪] טוב יותר מהיעד — שהכניס לך [₪] לקופה.
+**פירוט מקורות הכנסה** (מתוך שדה incomeBreakdown בתוצאת getMonthlySummary)
+- [name] — הכנסות [totalAmount ₪], ממוצע להזמנה [avgTicket ₪]. הפרש מהיעד [avgTicketDiff ₪] פחות טוב / טוב יותר מהיעד.
 
 **פירוט הוצאות**
 - עלות עובדים — [%] בפועל, [%] טוב יותר מהיעד ✅ כל הכבוד! חיסכון של [₪]
@@ -1095,7 +1105,69 @@ async function computeMonthlySummary(
     : 0;
   const currentExpensesDiffPct = currentExpensesPct - currentExpensesTargetPct;
 
-  // 7. Managed products — fetch active products + their monthly usage
+  // 7. Income sources breakdown
+  const { data: incomeSourcesRaw } = await execReadOnlyQuery(sb,
+    `SELECT
+       isr.id,
+       isr.name,
+       isr.income_type,
+       COALESCE(SUM(dib.amount), 0) as total_amount,
+       COALESCE(SUM(dib.orders_count), 0) as total_orders,
+       CASE WHEN COALESCE(SUM(dib.orders_count), 0) > 0
+         THEN SUM(dib.amount) / SUM(dib.orders_count)
+         ELSE 0 END as avg_ticket,
+       isg.avg_ticket_target
+     FROM public.income_sources isr
+     LEFT JOIN public.daily_income_breakdown dib ON dib.income_source_id = isr.id
+       AND dib.daily_entry_id IN (
+         SELECT id FROM public.daily_entries
+         WHERE business_id = '${bizId}'
+           AND entry_date >= '${monthStart}' AND entry_date < '${nextMonth}'
+           AND deleted_at IS NULL
+       )
+     LEFT JOIN public.income_source_goals isg ON isg.income_source_id = isr.id
+       AND isg.goal_id = (
+         SELECT id FROM public.goals
+         WHERE business_id = '${bizId}' AND year = ${year} AND month = ${month}
+           AND deleted_at IS NULL
+         LIMIT 1
+       )
+     WHERE isr.business_id = '${bizId}'
+       AND isr.is_active = true
+       AND isr.deleted_at IS NULL
+     GROUP BY isr.id, isr.name, isr.income_type, isg.avg_ticket_target
+     ORDER BY isr.display_order`
+  );
+  type IncomeSourceResult = {
+    name: string;
+    incomeType: string | null;
+    totalAmount: number;
+    totalOrders: number;
+    avgTicket: number;
+    avgTicketTarget: number | null;
+    avgTicketDiff: number | null;
+  };
+  const incomeBreakdown: IncomeSourceResult[] = Array.isArray(incomeSourcesRaw)
+    ? incomeSourcesRaw.map((r: {
+        name: string; income_type: string | null;
+        total_amount: number; total_orders: number;
+        avg_ticket: number; avg_ticket_target: number | null;
+      }) => {
+        const target = r.avg_ticket_target != null ? Number(r.avg_ticket_target) : null;
+        const avgTicket = Math.round(Number(r.avg_ticket) || 0);
+        return {
+          name: r.name,
+          incomeType: r.income_type ?? null,
+          totalAmount: Math.round(Number(r.total_amount) || 0),
+          totalOrders: Number(r.total_orders) || 0,
+          avgTicket,
+          avgTicketTarget: target,
+          avgTicketDiff: target != null ? Math.round(avgTicket - target) : null,
+        };
+      })
+    : [];
+
+  // 8. Managed products — fetch active products + their monthly usage
   const { data: managedProducts } = await sb
     .from("managed_products")
     .select("id, name, unit, unit_cost, target_pct")
@@ -1166,6 +1238,7 @@ async function computeMonthlySummary(
       currentExpensesDiffPct: Math.round(currentExpensesDiffPct * 100) / 100,
     },
     managedProducts: mpResults,
+    incomeBreakdown,
     targets: {
       revenueTarget,
       laborTargetPct: laborTarget,
@@ -1318,6 +1391,56 @@ function buildTools(
                   r._managedProductsSource = "managed_products_table";
                 }
               }
+              // Always enrich cached result with income sources (not stored in cache)
+              const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+              const nextMonth = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`;
+              const { data: isRaw } = await execReadOnlyQuery(adminSupabase,
+                `SELECT
+                   isr.name, isr.income_type,
+                   COALESCE(SUM(dib.amount), 0) as total_amount,
+                   COALESCE(SUM(dib.orders_count), 0) as total_orders,
+                   CASE WHEN COALESCE(SUM(dib.orders_count), 0) > 0
+                     THEN SUM(dib.amount) / SUM(dib.orders_count) ELSE 0 END as avg_ticket,
+                   isg.avg_ticket_target
+                 FROM public.income_sources isr
+                 LEFT JOIN public.daily_income_breakdown dib ON dib.income_source_id = isr.id
+                   AND dib.daily_entry_id IN (
+                     SELECT id FROM public.daily_entries
+                     WHERE business_id = '${bizId}'
+                       AND entry_date >= '${monthStart}' AND entry_date < '${nextMonth}'
+                       AND deleted_at IS NULL
+                   )
+                 LEFT JOIN public.income_source_goals isg ON isg.income_source_id = isr.id
+                   AND isg.goal_id = (
+                     SELECT id FROM public.goals
+                     WHERE business_id = '${bizId}' AND year = ${year} AND month = ${month}
+                       AND deleted_at IS NULL
+                     LIMIT 1
+                   )
+                 WHERE isr.business_id = '${bizId}' AND isr.is_active = true AND isr.deleted_at IS NULL
+                 GROUP BY isr.id, isr.name, isr.income_type, isg.avg_ticket_target
+                 ORDER BY isr.display_order`
+              );
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (result as any).incomeBreakdown = Array.isArray(isRaw)
+                ? isRaw.map((r: {
+                    name: string; income_type: string | null;
+                    total_amount: number; total_orders: number;
+                    avg_ticket: number; avg_ticket_target: number | null;
+                  }) => {
+                    const target = r.avg_ticket_target != null ? Number(r.avg_ticket_target) : null;
+                    const avgTicket = Math.round(Number(r.avg_ticket) || 0);
+                    return {
+                      name: r.name,
+                      incomeType: r.income_type ?? null,
+                      totalAmount: Math.round(Number(r.total_amount) || 0),
+                      totalOrders: Number(r.total_orders) || 0,
+                      avgTicket,
+                      avgTicketTarget: target,
+                      avgTicketDiff: target != null ? Math.round(avgTicket - target) : null,
+                    };
+                  })
+                : [];
               return result;
             }
           }
@@ -1504,8 +1627,15 @@ function buildTools(
         paymentData: z.object({
           supplier_name: z.string().optional().describe("Supplier name"),
           payment_date: z.string().optional().describe("Payment date in YYYY-MM-DD format"),
-          total_amount: z.number().optional().describe("Payment amount"),
-          payment_method: z.enum(["cash", "check", "bank_transfer", "credit_card", "bit", "paybox", "other"]).optional(),
+          total_amount: z.number().optional().describe("Payment total amount"),
+          payment_method: z.enum(["cash", "check", "bank_transfer", "credit_card", "bit", "paybox", "other"]).optional().describe("Single payment method — use only when no split"),
+          payment_methods: z.array(z.object({
+            method: z.enum(["cash", "check", "bank_transfer", "credit_card", "bit", "paybox", "other"]),
+            amount: z.number().describe("Amount for this payment method"),
+            check_number: z.string().optional(),
+            reference_number: z.string().optional(),
+            due_date: z.string().optional().describe("Bank charge date YYYY-MM-DD (credit: next month, check: check date, cash: payment date)"),
+          })).optional().describe("Use when payment is split across multiple methods"),
           check_number: z.string().optional(),
           reference_number: z.string().optional(),
           notes: z.string().optional(),
@@ -1524,14 +1654,14 @@ function buildTools(
 
         // Supplier lookup if name provided
         let resolvedSupplierId: string | null = null;
-        let supplierLookup: { found: boolean; id?: string; name?: string; needsCreation?: boolean } | null = null;
+        let supplierLookup: { found: boolean; id?: string; name?: string; needsCreation?: boolean; expenseType?: string } | null = null;
 
         const supplierName = actionType === "expense" ? expenseData?.supplier_name : paymentData?.supplier_name;
 
         if (supplierName && businessId) {
           const { data: suppliers } = await adminSupabase
             .from("suppliers")
-            .select("id, name")
+            .select("id, name, expense_type")
             .eq("business_id", businessId)
             .ilike("name", `%${supplierName}%`)
             .is("deleted_at", null)
@@ -1539,7 +1669,7 @@ function buildTools(
 
           if (suppliers && suppliers.length > 0) {
             resolvedSupplierId = suppliers[0].id;
-            supplierLookup = { found: true, id: suppliers[0].id, name: suppliers[0].name };
+            supplierLookup = { found: true, id: suppliers[0].id, name: suppliers[0].name, expenseType: suppliers[0].expense_type };
           } else {
             supplierLookup = { found: false, needsCreation: true, name: supplierName };
           }
@@ -1551,7 +1681,16 @@ function buildTools(
           confidence,
           reasoning,
           businessId,
-          expenseData: expenseData ? { ...expenseData, supplier_id: resolvedSupplierId || undefined } : undefined,
+          expenseData: expenseData ? {
+            ...expenseData,
+            supplier_id: resolvedSupplierId || undefined,
+            // Auto-set invoice_type from supplier's expense_type if not provided
+            invoice_type: expenseData.invoice_type || (
+              supplierLookup?.found
+                ? (supplierLookup as { expenseType?: string }).expenseType === "goods_purchases" ? "goods" : "current"
+                : expenseData.invoice_type
+            ),
+          } : undefined,
           paymentData: paymentData ? { ...paymentData, supplier_id: resolvedSupplierId || undefined } : undefined,
           dailyEntryData,
           supplierLookup,

@@ -32,12 +32,21 @@ export interface AiExpenseData {
   notes?: string;
 }
 
+export interface AiPaymentMethod {
+  method: string;
+  amount: number;
+  check_number?: string;
+  reference_number?: string;
+  due_date?: string;
+}
+
 export interface AiPaymentData {
   supplier_name?: string;
   supplier_id?: string;
   payment_date?: string;
   total_amount?: number;
   payment_method?: string;
+  payment_methods?: AiPaymentMethod[];
   check_number?: string;
   reference_number?: string;
   notes?: string;
@@ -57,6 +66,7 @@ export interface AiSupplierLookup {
   id?: string;
   name?: string;
   needsCreation?: boolean;
+  expenseType?: string;
 }
 
 export interface AiProposedAction {
