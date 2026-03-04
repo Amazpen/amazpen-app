@@ -71,6 +71,18 @@ export function useAiChat(businessId: string | undefined, isAdmin = false, viewA
   const [lastError, setLastError] = useState<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const pageContextRef = useRef<string>("");
+  // Keep a ref so the body() closure always reads the latest value
+  const businessIdRef = useRef<string>(businessId || "");
+  const viewAsOwnerRef = useRef<boolean>(viewAsOwner);
+
+  // Sync refs whenever props change
+  useEffect(() => {
+    businessIdRef.current = businessId || "";
+  }, [businessId]);
+
+  useEffect(() => {
+    viewAsOwnerRef.current = viewAsOwner;
+  }, [viewAsOwner]);
 
   // Read page context on mount
   useEffect(() => {
@@ -88,11 +100,11 @@ export function useAiChat(businessId: string | undefined, isAdmin = false, viewA
     transport: new DefaultChatTransport({
       api: "/api/ai/chat",
       body: () => ({
-        businessId: businessId || "",
+        businessId: businessIdRef.current,
         sessionId: sessionIdRef.current || "",
         pageContext: pageContextRef.current || "",
         ocrContext: ocrContextRef.current || "",
-        viewAsOwner,
+        viewAsOwner: viewAsOwnerRef.current,
       }),
     }),
     onError: (error) => {
