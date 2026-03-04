@@ -60,23 +60,88 @@ function AvatarMatrixSkeleton() {
   );
 }
 
-const userSuggestions: AiSuggestedQuestion[] = [
+const ALL_USER_SUGGESTIONS: AiSuggestedQuestion[] = [
+  // סקירה כללית
   { text: "תן לי סקירה מקיפה על העסק שלי", icon: "summary" },
-  { text: "איפה העסק שלי מפסיד כסף?", icon: "expenses" },
-  { text: "מה שלושת הדברים שהכי משפיעים על הרווח שלי כרגע?", icon: "targets" },
-  { text: "מה צפוי לרדת לי השבוע מהבנק?", icon: "comparison" },
-  { text: "מי ההוצאות הכי כבדות שלי?", icon: "revenue" },
   { text: "מה צפי הרווח שלי החודש?", icon: "general" },
+  { text: "איך הביצועים שלי בהשוואה לחודש קודם?", icon: "comparison" },
+  { text: "מה הסיכום הכספי של החודש עד עכשיו?", icon: "summary" },
+  { text: "האם אני בדרך הנכונה להגיע ליעד החודש?", icon: "targets" },
+  { text: "מה הממוצע יומי של ההכנסות שלי החודש?", icon: "revenue" },
+  // הוצאות
+  { text: "איפה העסק שלי מפסיד כסף?", icon: "expenses" },
+  { text: "מי ההוצאות הכי כבדות שלי?", icon: "expenses" },
+  { text: "מה צפוי לרדת לי השבוע מהבנק?", icon: "comparison" },
+  { text: "אילו הוצאות חרגו מהיעד החודש?", icon: "expenses" },
+  { text: "מה עלות המכר שלי ביחס להכנסות?", icon: "expenses" },
+  { text: "כמה שילמתי לספקים החודש?", icon: "expenses" },
+  { text: "אילו ספקים יש לי תשלומים אליהם השבוע הקרוב?", icon: "comparison" },
+  { text: "מה ההוצאות השוטפות הקבועות שלי?", icon: "expenses" },
+  { text: "האם יש הוצאה שעלתה בצורה חריגה לאחרונה?", icon: "expenses" },
+  // עובדים ושכר
+  { text: "מה עלות העובדים ביחס להכנסות?", icon: "targets" },
+  { text: "באילו ימים עלות העובדים הכי גבוהה?", icon: "comparison" },
+  { text: "האם יש חריגה בשעות העבודה החודש?", icon: "targets" },
+  // הכנסות ומכירות
+  { text: "מה שלושת הדברים שהכי משפיעים על הרווח שלי כרגע?", icon: "targets" },
+  { text: "מה ממוצע ההזמנה שלי לפי מקור?", icon: "revenue" },
+  { text: "איזה יום בשבוע מכניס הכי הרבה?", icon: "revenue" },
+  { text: "מה ההכנסות שלי לפי ערוץ מכירה?", icon: "revenue" },
+  { text: "האם יש ירידה בהכנסות בימים מסוימים?", icon: "comparison" },
+  { text: "כמה הזמנות קיבלתי החודש?", icon: "summary" },
+  // ספקים
+  { text: "אילו ספקים העלו מחיר לאחרונה?", icon: "expenses" },
+  { text: "מה הספקים שאני הכי תלוי בהם?", icon: "general" },
+  { text: "האם כדאי להשוות מחירים אצל ספקים מתחרים?", icon: "general" },
+  // יעדים
+  { text: "מה היעדים שלי החודש ואיפה אני עומד?", icon: "targets" },
+  { text: "מה הפער בין היעד להכנסות בפועל?", icon: "targets" },
+  { text: "מה צריך לקרות כדי שאגיע ליעד החודש?", icon: "targets" },
+  // טיפים ועצות
+  { text: "תן לי 3 פעולות שאני יכול לעשות היום כדי לשפר את הרווח", icon: "general" },
+  { text: "מה הדבר הכי חשוב שצריך לשפר בעסק שלי?", icon: "general" },
+  { text: "איך אני יכול לחסוך עוד כסף החודש?", icon: "general" },
+  { text: "מה הסיכון הכספי הגדול ביותר שלי כרגע?", icon: "targets" },
 ];
 
-const adminSuggestions: AiSuggestedQuestion[] = [
+const ALL_ADMIN_SUGGESTIONS: AiSuggestedQuestion[] = [
+  // סקירה כללית
   { text: "תן סקירה של כל העסקים", icon: "summary" },
   { text: "איזה עסק הכי רווחי החודש?", icon: "revenue" },
-  { text: "איפה יש חריגה מהיעדים?", icon: "targets" },
+  { text: "מה סך ההכנסות של כל העסקים החודש?", icon: "revenue" },
   { text: "מה סך ההוצאות החודש לכל העסקים?", icon: "expenses" },
+  { text: "מה הרווח הכולל של כל העסקים החודש?", icon: "summary" },
+  { text: "איך הביצועים הכוללים בהשוואה לחודש קודם?", icon: "comparison" },
+  // יעדים וחריגות
+  { text: "איפה יש חריגה מהיעדים?", icon: "targets" },
+  { text: "אילו עסקים לא עומדים ביעדים החודש?", icon: "targets" },
+  { text: "אילו עסקים חרגו בהוצאות?", icon: "expenses" },
+  { text: "מה הפערים הגדולים ביותר בין יעד לבפועל?", icon: "targets" },
+  // ניתוח עסקים
+  { text: "איזה עסק משפר את עצמו הכי הרבה?", icon: "comparison" },
+  { text: "איזה עסק נמצא במגמת ירידה?", icon: "comparison" },
+  { text: "מה ההבדל בין העסקים מבחינת עלות מכר?", icon: "expenses" },
+  { text: "מה עלות העובדים לפי עסק ביחס להכנסות?", icon: "targets" },
+  // הוצאות ותשלומים
+  { text: "אילו תשלומים לספקים צפויים השבוע?", icon: "comparison" },
+  { text: "מה ההוצאות הגדולות ביותר על פני כל העסקים?", icon: "expenses" },
+  { text: "אילו ספקים מקבלים הכי הרבה כסף ממכלול העסקים?", icon: "expenses" },
+  // כלים ומידע
   { text: "מה זה סטטוס בירור בהוצאות?", icon: "general" },
   { text: "איך בנויה התוכנית העסקית החודשית?", icon: "comparison" },
+  { text: "איך עובד מנגנון היעדים במערכת?", icon: "general" },
+  { text: "מה המשמעות של עלות מכר במערכת?", icon: "general" },
+  // פעולות מומלצות
+  { text: "אילו עסקים דורשים תשומת לב דחופה?", icon: "targets" },
+  { text: "תן לי 3 המלצות לשיפור הביצועים הכוללים", icon: "general" },
+  { text: "אילו עסקים מציגים סיכון כלכלי?", icon: "targets" },
 ];
+
+function pickRandom<T>(arr: T[], count: number): T[] {
+  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
 
 const iconMap: Record<AiSuggestedQuestion["icon"], React.ReactNode> = {
   revenue: (
@@ -120,7 +185,9 @@ interface AiWelcomeScreenProps {
 
 export function AiWelcomeScreen({ isAdmin, adminViewAsOwner, onToggleAdminView, onSuggestionClick }: AiWelcomeScreenProps) {
   const router = useRouter();
-  const suggestions = isAdmin ? adminSuggestions : userSuggestions;
+  const [suggestions] = useState<AiSuggestedQuestion[]>(() =>
+    pickRandom(isAdmin ? ALL_ADMIN_SUGGESTIONS : ALL_USER_SUGGESTIONS, 6)
+  );
   const [showImage, setShowImage] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const minTimeRef = useRef(false);
