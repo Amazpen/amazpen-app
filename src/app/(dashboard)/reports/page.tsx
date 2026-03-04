@@ -284,7 +284,7 @@ export default function ReportsPage() {
             .lte("invoice_date", endDate),
           supabase
             .from("supplier_budgets")
-            .select("budget_amount, supplier_id, supplier:suppliers(name, expense_category_id, expense_type)")
+            .select("budget_amount, supplier_id, supplier:suppliers(name, expense_category_id, expense_type, is_fixed_expense)")
             .in("business_id", selectedBusinesses)
             .eq("year", year)
             .eq("month", month)
@@ -418,17 +418,25 @@ export default function ReportsPage() {
         const supplierBudgets = new Map<string, number>();
         if (supplierBudgetsData) {
           for (const sb of supplierBudgetsData) {
-            const supplier = sb.supplier as unknown as { name: string | null; expense_category_id: string | null; expense_type: string | null } | null;
+            const supplier = sb.supplier as unknown as { name: string | null; expense_category_id: string | null; expense_type: string | null; is_fixed_expense: boolean | null } | null;
             const catId = supplier?.expense_category_id;
             const supplierId = (sb as unknown as { supplier_id: string | null }).supplier_id;
+            const budgetAmount = Number(sb.budget_amount || 0);
             if (catId) {
               const current = categoryBudgets.get(catId) || 0;
-              categoryBudgets.set(catId, current + Number(sb.budget_amount || 0));
+              categoryBudgets.set(catId, current + budgetAmount);
             }
             if (supplierId) {
-              supplierBudgets.set(supplierId, Number(sb.budget_amount || 0));
+              supplierBudgets.set(supplierId, budgetAmount);
               if (supplier?.name) supplierNames.set(supplierId, supplier.name);
               if (catId) supplierCategoryMap.set(supplierId, catId);
+              // Fixed expense supplier with no invoice this month → actual = budget
+              if (supplier?.is_fixed_expense && budgetAmount > 0 && !supplierActuals.has(supplierId)) {
+                supplierActuals.set(supplierId, budgetAmount);
+                if (catId) categoryActuals.set(catId, (categoryActuals.get(catId) || 0) + budgetAmount);
+                if (supplier.expense_type === "current_expenses") totalCurrentExpenses += budgetAmount;
+                else if (supplier.expense_type === "goods_purchases") totalGoodsExpenses += budgetAmount;
+              }
             }
           }
         }
