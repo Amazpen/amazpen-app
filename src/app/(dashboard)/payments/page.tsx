@@ -2933,7 +2933,7 @@ function PaymentsPageInner() {
         )}
 
         {/* Table */}
-        <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="w-full max-h-[500px] overflow-y-auto">
+        <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="w-full max-h-[500px] overflow-y-scroll">
           <table className="w-full border-collapse table-fixed">
             <colgroup>
               <col style={{width: "65px"}} />
