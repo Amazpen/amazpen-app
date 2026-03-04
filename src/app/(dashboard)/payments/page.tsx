@@ -2936,8 +2936,21 @@ function PaymentsPageInner() {
         <div className="w-full flex flex-col">
           {/* Table Header */}
           <div className="flex items-center gap-[5px] bg-[#29318A] rounded-t-[7px] p-[5px_6px] mb-[10px]">
+            {/* Date header - matches data row structure: svg(14px) + text */}
+            <Button
+              type="button"
+              onClick={() => handleColumnSort("date")}
+              className="w-[55px] sm:w-[65px] flex-shrink-0 text-[13px] sm:text-[14px] cursor-pointer hover:text-white/80 transition-colors flex items-center justify-start gap-0"
+            >
+              <span className="w-[14px] flex-shrink-0" />
+              <span className="flex items-center gap-[2px]">
+                תאריך
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity ${sortColumn === "date" ? 'opacity-100' : 'opacity-30'}`}>
+                  <path d={sortColumn === "date" && sortOrder === "desc" ? "M12 5V19M12 19L5 12M12 19L19 12" : "M12 19V5M12 5L5 12M12 5L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </span>
+            </Button>
             {([
-              ["date", "תאריך", "w-[55px] sm:w-[65px] flex-shrink-0 !justify-start ps-[14px]"],
               ["supplier", "ספק", "flex-1 min-w-0"],
               ["reference", "אסמכתא", "w-[45px] sm:w-[55px] flex-shrink-0"],
               ["installments", "תשלומים", "w-[40px] sm:w-[45px] flex-shrink-0"],
