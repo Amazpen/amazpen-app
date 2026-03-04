@@ -3549,12 +3549,7 @@ function PaymentsPageInner() {
                             {expandedMonths.has(monthKey) && (
                               <div className="flex flex-col">
                                 {/* Column Headers */}
-                                <div className="grid grid-cols-[50px_40px_1fr_1fr_1fr_24px] gap-[3px] px-[3px] py-[3px] border-b border-white/20 items-center">
-                                  <span className="text-[14px] text-white/70 text-center">אפשרויות</span>
-                                  <span className="text-[12px] text-white/70 text-center">תמונה</span>
-                                  <span className="text-[14px] text-white/70 text-center">סכום כולל מע&quot;מ</span>
-                                  <span className="text-[14px] text-white/70 text-center">אסמכתא</span>
-                                  <span className="text-[14px] text-white/70 text-center">תאריך חשבונית</span>
+                                <div className="grid grid-cols-[24px_1fr_1fr_1fr_40px_50px] gap-[3px] px-[3px] py-[3px] border-b border-white/20 items-center">
                                   <Button type="button" onClick={() => toggleAllInvoices(monthInvoices)} className="flex items-center justify-center">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                                       {monthInvoices.length > 0 && monthInvoices.every(inv => selectedInvoiceIds.has(inv.id)) ? (
@@ -3567,6 +3562,11 @@ function PaymentsPageInner() {
                                       )}
                                     </svg>
                                   </Button>
+                                  <span className="text-[14px] text-white/70 text-center">תאריך חשבונית</span>
+                                  <span className="text-[14px] text-white/70 text-center">אסמכתא</span>
+                                  <span className="text-[14px] text-white/70 text-center">סכום כולל מע&quot;מ</span>
+                                  <span className="text-[12px] text-white/70 text-center">תמונה</span>
+                                  <span className="text-[14px] text-white/70 text-center">אפשרויות</span>
                                 </div>
 
                                 {/* Invoice Rows */}
@@ -3576,25 +3576,33 @@ function PaymentsPageInner() {
                                   return (
                                   <div key={inv.id} className="flex flex-col">
                                     <div
-                                      className={`grid grid-cols-[50px_40px_1fr_1fr_1fr_24px] gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 items-center cursor-pointer ${
+                                      className={`grid grid-cols-[24px_1fr_1fr_1fr_40px_50px] gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 items-center cursor-pointer ${
                                         selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""
                                       }`}
                                       onClick={() => toggleInvoiceSelection(inv.id)}
                                     >
-                                      <div className="flex items-center justify-center gap-[5px]" onClick={(e) => e.stopPropagation()}>
-                                        {(attachmentUrls.length > 1 || inv.notes) && (
-                                          <Button
-                                            type="button"
-                                            title="מסמכים והערות"
-                                            onClick={(e) => { e.stopPropagation(); setExpandedOpenInvoiceId(expandedOpenInvoiceId === inv.id ? null : inv.id); }}
-                                            className={`w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-all cursor-pointer ${expandedOpenInvoiceId === inv.id ? "rotate-180" : ""}`}
-                                          >
-                                            <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                              <path d="M6 9l6 6 6-6"/>
-                                            </svg>
-                                          </Button>
-                                        )}
-                                      </div>
+                                        {/* Checkbox */}
+                                        <div className="flex items-center justify-center">
+                                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                            {selectedInvoiceIds.has(inv.id) ? (
+                                              <>
+                                                <rect x="3" y="3" width="18" height="18" rx="3" fill="#29318A" stroke="white" strokeWidth="1.5"/>
+                                                <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                              </>
+                                            ) : (
+                                              <rect x="3" y="3" width="18" height="18" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" fill="none"/>
+                                            )}
+                                          </svg>
+                                        </div>
+                                        <span className="text-[13px] text-white text-center ltr-num">
+                                          {new Date(inv.invoice_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                                        </span>
+                                        <span className="text-[13px] text-white text-center ltr-num">
+                                          {inv.invoice_number || "-"}
+                                        </span>
+                                        <span className="text-[13px] text-white text-center ltr-num">
+                                          ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
                                         {/* Thumbnail */}
                                         <div className="flex items-center justify-center" onClick={(e) => { e.stopPropagation(); if (attachmentUrls.length > 0) setViewerDocUrl(attachmentUrls[0]); }}>
                                           {attachmentUrls.length > 0 ? (
@@ -3613,27 +3621,20 @@ function PaymentsPageInner() {
                                             </div>
                                           )}
                                         </div>
-                                        <span className="text-[13px] text-white text-center ltr-num">
-                                          ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                        </span>
-                                        <span className="text-[13px] text-white text-center ltr-num">
-                                          {inv.invoice_number || "-"}
-                                        </span>
-                                        <span className="text-[13px] text-white text-center ltr-num">
-                                          {new Date(inv.invoice_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
-                                        </span>
-                                        <div className="flex items-center justify-center">
-                                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                            {selectedInvoiceIds.has(inv.id) ? (
-                                              <>
-                                                <rect x="3" y="3" width="18" height="18" rx="3" fill="#29318A" stroke="white" strokeWidth="1.5"/>
-                                                <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                              </>
-                                            ) : (
-                                              <rect x="3" y="3" width="18" height="18" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" fill="none"/>
-                                            )}
-                                          </svg>
-                                        </div>
+                                      <div className="flex items-center justify-center gap-[5px]" onClick={(e) => e.stopPropagation()}>
+                                        {(attachmentUrls.length > 1 || inv.notes) && (
+                                          <Button
+                                            type="button"
+                                            title="מסמכים והערות"
+                                            onClick={(e) => { e.stopPropagation(); setExpandedOpenInvoiceId(expandedOpenInvoiceId === inv.id ? null : inv.id); }}
+                                            className={`w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-all cursor-pointer ${expandedOpenInvoiceId === inv.id ? "rotate-180" : ""}`}
+                                          >
+                                            <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                              <path d="M6 9l6 6 6-6"/>
+                                            </svg>
+                                          </Button>
+                                        )}
+                                      </div>
                                     </div>
 
                                     {/* Expanded details: extra attachments + notes */}
