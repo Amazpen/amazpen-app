@@ -250,7 +250,6 @@ export default function GoalsPage() {
         if (budgetsError) console.error("Budgets query error:", budgetsError);
         if (suppliersError) console.error("Suppliers query error:", suppliersError);
         if (invoicesError) console.error("Invoices query error:", invoicesError);
-
         const goal = goalsData?.[0];
         setGoalId(goal?.id || null);
 
@@ -293,8 +292,9 @@ export default function GoalsPage() {
         // For fixed expense suppliers with no invoice this month, actual = budget
         (suppliersData || []).forEach(s => {
           if (s.is_fixed_expense && s.expense_type === "current_expenses") {
-            if (!perSupplierCurrentActuals.has(s.id)) {
-              const budget = supplierBudgetMap.get(s.id) || 0;
+            const hasInvoice = perSupplierCurrentActuals.has(s.id);
+            const budget = supplierBudgetMap.get(s.id) || 0;
+            if (!hasInvoice) {
               if (budget > 0) perSupplierCurrentActuals.set(s.id, budget);
             }
           }
