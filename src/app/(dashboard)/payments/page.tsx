@@ -2933,41 +2933,28 @@ function PaymentsPageInner() {
         )}
 
         {/* Table */}
-        <div className="w-full flex flex-col">
-          {/* Table Header */}
-          <div className="flex items-center gap-[5px] bg-[#29318A] rounded-t-[7px] p-[5px_6px] mb-[10px]">
-            {/* Date header - matches data row structure: svg(14px) + text */}
-            <Button
-              type="button"
-              onClick={() => handleColumnSort("date")}
-              className="w-[55px] sm:w-[65px] flex-shrink-0 text-[13px] sm:text-[14px] cursor-pointer hover:text-white/80 transition-colors flex items-center justify-start gap-0"
-            >
-              <span className="w-[14px] flex-shrink-0" />
-              <span className="flex items-center gap-[2px]">
-                תאריך
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity ${sortColumn === "date" ? 'opacity-100' : 'opacity-30'}`}>
-                  <path d={sortColumn === "date" && sortOrder === "desc" ? "M12 5V19M12 19L5 12M12 19L19 12" : "M12 19V5M12 5L5 12M12 5L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </span>
-            </Button>
+        <div className="w-full overflow-x-auto">
+          {/* Header */}
+          <div className="grid grid-cols-[65px_1fr_60px_50px_60px_80px] sm:grid-cols-[75px_1fr_65px_55px_65px_85px] bg-[#29318A] rounded-t-[7px] mb-[4px]">
             {([
-              ["supplier", "ספק", "flex-1 min-w-0"],
-              ["reference", "אסמכתא", "w-[45px] sm:w-[55px] flex-shrink-0"],
-              ["installments", "תשלומים", "w-[40px] sm:w-[45px] flex-shrink-0"],
-              ["method", "אמצעי", "w-[50px] sm:w-[55px] flex-shrink-0"],
-              ["amount", "סכום", "w-[60px] sm:w-[70px] flex-shrink-0"],
-            ] as const).map(([col, label, width]) => (
-              <Button
+              ["date", "תאריך", "text-start ps-[16px]"],
+              ["supplier", "ספק", "text-center justify-center"],
+              ["reference", "אסמכתא", "text-center justify-center"],
+              ["installments", "תשלומים", "text-center justify-center"],
+              ["method", "אמצעי", "text-center justify-center"],
+              ["amount", "סכום", "text-center justify-center"],
+            ] as const).map(([col, label, align]) => (
+              <button
                 key={col}
                 type="button"
                 onClick={() => handleColumnSort(col)}
-                className={`${width} text-[13px] sm:text-[14px] text-center cursor-pointer hover:text-white/80 transition-colors flex items-center justify-center gap-[2px]`}
+                className={`text-[13px] sm:text-[14px] font-medium py-[8px] px-[4px] inline-flex items-center gap-[2px] cursor-pointer hover:text-white/80 transition-colors ${align}`}
               >
                 {col === "reference" ? (<><span className="sm:hidden">אסמכ׳</span><span className="hidden sm:inline">אסמכתא</span></>) : label}
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity ${sortColumn === col ? 'opacity-100' : 'opacity-30'}`}>
                   <path d={sortColumn === col && sortOrder === "desc" ? "M12 5V19M12 19L5 12M12 19L19 12" : "M12 19V5M12 5L5 12M12 5L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-              </Button>
+              </button>
             ))}
           </div>
 
@@ -3036,15 +3023,14 @@ function PaymentsPageInner() {
               <div
                 key={rowKey}
                 data-payment-id={payment.id}
-                className={`rounded-[7px] p-[7px_3px] border transition-colors ${expandedPaymentId === rowKey ? 'bg-white/5 border-white' : 'border-transparent'}`}
+                className={`rounded-[7px] border transition-colors ${expandedPaymentId === rowKey ? 'bg-white/5 border-white' : 'border-transparent'}`}
               >
-                <Button
-                  type="button"
+                <div
                   onClick={() => setExpandedPaymentId(expandedPaymentId === rowKey ? null : rowKey)}
-                  className="flex items-center gap-[5px] w-full p-[5px_3px] min-h-[45px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] cursor-pointer"
+                  className="grid grid-cols-[65px_1fr_60px_50px_60px_80px] sm:grid-cols-[75px_1fr_65px_55px_65px_85px] items-center cursor-pointer hover:bg-[#29318A]/30 transition-colors rounded-[7px] py-[8px]"
                 >
                   {/* Date */}
-                  <div className="w-[55px] sm:w-[65px] flex-shrink-0 flex items-center justify-start gap-0">
+                  <div className="flex items-center gap-[2px] ps-[4px]">
                     <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${expandedPaymentId === rowKey ? 'rotate-90' : ''} text-white/50`}>
                       <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
@@ -3052,35 +3038,41 @@ function PaymentsPageInner() {
                   </div>
 
                   {/* Supplier */}
-                  <span className="text-[12px] sm:text-[13px] font-medium flex-1 text-center leading-tight min-w-0 truncate">
-                    {payment.supplier}
-                  </span>
+                  <div className="text-center px-[4px] min-w-0">
+                    <span className="text-[12px] sm:text-[13px] font-medium leading-tight truncate block">{payment.supplier}</span>
+                  </div>
 
                   {/* Reference Number */}
-                  <span className="text-[12px] sm:text-[13px] font-medium w-[45px] sm:w-[55px] flex-shrink-0 text-center ltr-num truncate " title={group.splits[0]?.reference_number || payment.reference || ""}>
-                    {group.splits[0]?.reference_number || payment.reference || "-"}
-                  </span>
+                  <div className="text-center px-[4px]" title={group.splits[0]?.reference_number || payment.reference || ""}>
+                    <span className="text-[12px] sm:text-[13px] font-medium ltr-num truncate block">
+                      {group.splits[0]?.reference_number || payment.reference || "-"}
+                    </span>
+                  </div>
 
                   {/* Payment split index */}
-                  <span className="text-[12px] sm:text-[13px] font-medium w-[40px] sm:w-[45px] flex-shrink-0 text-center ltr-num">
-                    {totalMethodGroups > 1 ? `${groupIdx + 1}/${totalMethodGroups}` : payment.installments}
-                  </span>
+                  <div className="text-center px-[4px]">
+                    <span className="text-[12px] sm:text-[13px] font-medium ltr-num">
+                      {totalMethodGroups > 1 ? `${groupIdx + 1}/${totalMethodGroups}` : payment.installments}
+                    </span>
+                  </div>
 
                   {/* Payment Method */}
-                  <span className="text-[12px] sm:text-[13px] font-medium w-[50px] sm:w-[55px] flex-shrink-0 text-center leading-tight truncate">{group.methodName}</span>
+                  <div className="text-center px-[4px]">
+                    <span className="text-[12px] sm:text-[13px] font-medium leading-tight truncate block">{group.methodName}</span>
+                  </div>
 
                   {/* Amount */}
-                  <div className="w-[60px] sm:w-[70px] flex-shrink-0 flex flex-col items-center">
-                    <span className="text-[12px] sm:text-[13px] font-medium ltr-num">
+                  <div className="text-center px-[4px]">
+                    <span className="text-[12px] sm:text-[13px] font-medium ltr-num block">
                       ₪{group.totalAmount % 1 === 0 ? group.totalAmount.toLocaleString("he-IL") : group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     {totalMethodGroups > 1 && (
-                      <span className="text-[10px] sm:text-[11px] font-medium ltr-num text-white/70">
+                      <span className="text-[10px] sm:text-[11px] font-medium ltr-num text-white/70 block">
                         (₪{payment.totalAmount % 1 === 0 ? payment.totalAmount.toLocaleString("he-IL") : payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                       </span>
                     )}
                   </div>
-                </Button>
+                </div>
 
                 {/* Expanded Details */}
                 {expandedPaymentId === rowKey && (
