@@ -2935,7 +2935,7 @@ function PaymentsPageInner() {
         {/* Table */}
         <div className="w-full flex flex-col">
           {/* Table Header */}
-          <div className="flex items-center gap-[5px] bg-[#29318A] rounded-t-[7px] p-[5px_3px] pe-[13px] mb-[10px]">
+          <div className="flex items-center gap-[5px] bg-[#29318A] rounded-t-[7px] p-[5px_3px] mb-[10px]">
             {([
               ["date", "תאריך", "w-[55px] sm:w-[65px] flex-shrink-0"],
               ["supplier", "ספק", "flex-1 min-w-0"],
