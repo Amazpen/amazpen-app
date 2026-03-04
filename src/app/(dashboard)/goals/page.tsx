@@ -290,6 +290,16 @@ export default function GoalsPage() {
             perSupplierGoodsActuals.set(inv.supplier_id, current + Number(inv.subtotal));
           }
         });
+        // For fixed expense suppliers with no invoice this month, actual = budget
+        (suppliersData || []).forEach(s => {
+          if (s.is_fixed_expense && s.expense_type === "current_expenses") {
+            if (!perSupplierCurrentActuals.has(s.id)) {
+              const budget = supplierBudgetMap.get(s.id) || 0;
+              if (budget > 0) perSupplierCurrentActuals.set(s.id, budget);
+            }
+          }
+        });
+
         setSupplierBudgetState(supplierBudgetMap);
         setSupplierActualCurrentState(perSupplierCurrentActuals);
         setSupplierActualGoodsState(perSupplierGoodsActuals);
@@ -304,12 +314,12 @@ export default function GoalsPage() {
           categoryTargets.set(cat.id, 0);
         });
 
-        // Sum up invoices by category (only 'current' type)
-        (invoicesData || []).filter(inv => inv.invoice_type === "current").forEach(inv => {
-          const catId = supplierCategoryMap.get(inv.supplier_id);
-          if (catId) {
-            const current = categoryActuals.get(catId) || 0;
-            categoryActuals.set(catId, current + Number(inv.subtotal));
+        // Sum up actuals by category from per-supplier map (already includes fixed supplier fallbacks)
+        (suppliersData || []).filter(s => s.expense_type === "current_expenses" && s.expense_category_id).forEach(s => {
+          const actual = perSupplierCurrentActuals.get(s.id) || 0;
+          if (actual > 0) {
+            const current = categoryActuals.get(s.expense_category_id) || 0;
+            categoryActuals.set(s.expense_category_id, current + actual);
           }
         });
 
@@ -1320,11 +1330,12 @@ export default function GoalsPage() {
                           const sPct = sTarget > 0 ? (sActual / sTarget) * 100 : 0;
                           const sDiff = sActual - sTarget;
                           const sColor = getStatusColor(sPct, true, sActual, sTarget);
+                          const isFixedSupplier = supplierFixedInfoMap.get(sId)?.isFixed;
 
                           return (
                             <div
                               key={sId}
-                              className={`flex flex-row items-center justify-between gap-[5px] p-[7px] min-h-[42px] ${sIdx < item.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
+                              className={`flex flex-row items-center justify-between gap-[5px] p-[7px] min-h-[42px] ${isFixedSupplier ? 'bg-purple-500/10' : ''} ${sIdx < item.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
                             >
                               {/* Status */}
                               <div className="flex flex-col items-center gap-[2px]">
@@ -1366,7 +1377,7 @@ export default function GoalsPage() {
                               )}
 
                               {/* Supplier Name */}
-                              <span className="flex-1 text-[13px] text-white/70 text-right" dir="rtl">
+                              <span className={`flex-1 text-[13px] text-right ${isFixedSupplier ? 'text-purple-300' : 'text-white/70'}`} dir="rtl">
                                 {supplierNamesMap.get(sId) || sId}
                               </span>
                             </div>
