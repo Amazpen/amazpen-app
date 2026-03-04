@@ -3764,7 +3764,7 @@ function PaymentsPageInner() {
 
                     {/* Payment Method Select */}
                     <Select value={pm.method || "__none__"} onValueChange={(val) => updatePaymentMethodField(pm.id, "method", val === "__none__" ? "" : val)}>
-                      <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                      <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] !h-[50px] px-[12px] text-[18px] text-white text-center">
                         <SelectValue placeholder="...בחר אמצעי תשלום" />
                       </SelectTrigger>
                       <SelectContent>
@@ -3793,7 +3793,7 @@ function PaymentsPageInner() {
                           return updated;
                         }));
                       }}>
-                        <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                        <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] !h-[50px] px-[12px] text-[18px] text-white text-center">
                           <SelectValue placeholder="בחר כרטיס..." />
                         </SelectTrigger>
                         <SelectContent>
