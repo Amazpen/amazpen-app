@@ -61,12 +61,12 @@ function AvatarMatrixSkeleton() {
 }
 
 const userSuggestions: AiSuggestedQuestion[] = [
-  { text: "איך החודש שלי? תן סיכום", icon: "summary" },
-  { text: "מה ההכנסות היום?", icon: "revenue" },
-  { text: "מה המצב מול היעדים?", icon: "targets" },
-  { text: "מה זה מוצר מנוהל ואיך זה עוזר לי?", icon: "general" },
-  { text: "מה רואים בדשבורד הראשי?", icon: "summary" },
-  { text: "איך עובד התהליך החודשי במצפן?", icon: "comparison" },
+  { text: "תן לי סקירה מקיפה על העסק שלי", icon: "summary" },
+  { text: "איפה העסק שלי מפסיד כסף?", icon: "expenses" },
+  { text: "מה שלושת הדברים שהכי משפיעים על הרווח שלי כרגע?", icon: "targets" },
+  { text: "מה צפוי לרדת לי השבוע מהבנק?", icon: "comparison" },
+  { text: "מי ההוצאות הכי כבדות שלי?", icon: "revenue" },
+  { text: "מה צפי הרווח שלי החודש?", icon: "general" },
 ];
 
 const adminSuggestions: AiSuggestedQuestion[] = [
