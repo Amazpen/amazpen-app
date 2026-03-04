@@ -1335,7 +1335,8 @@ export default function GoalsPage() {
                           return (
                             <div
                               key={sId}
-                              className={`flex flex-row items-center justify-between gap-[5px] p-[7px] min-h-[42px] ${isFixedSupplier ? 'bg-purple-500/10' : ''} ${sIdx < item.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
+                              className={`flex flex-row items-center justify-between gap-[5px] p-[7px] min-h-[42px] ${sIdx < item.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
+                              style={isFixedSupplier ? { backgroundColor: 'rgb(188 118 255 / 0.1)' } : undefined}
                             >
                               {/* Status */}
                               <div className="flex flex-col items-center gap-[2px]">
@@ -1377,7 +1378,7 @@ export default function GoalsPage() {
                               )}
 
                               {/* Supplier Name */}
-                              <span className={`flex-1 text-[13px] text-right ${isFixedSupplier ? 'text-purple-300' : 'text-white/70'}`} dir="rtl">
+                              <span className="flex-1 text-[13px] text-right" style={isFixedSupplier ? { color: '#bc76ff' } : { color: 'rgb(255 255 255 / 0.7)' }} dir="rtl">
                                 {supplierNamesMap.get(sId) || sId}
                               </span>
                             </div>
