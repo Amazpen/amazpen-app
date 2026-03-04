@@ -4428,13 +4428,13 @@ export default function DashboardPage() {
       )}
 
       {/* Daily Entries Modal */}
-      {realBusinessId && dateRange && (
+      {(selectedBusinesses[0] || realBusinessId) && dateRange && (
         <DailyEntriesModal
-          key={`daily-entries-${isDailyEntriesModalOpen}-${realBusinessId}`}
+          key={`daily-entries-${isDailyEntriesModalOpen}-${selectedBusinesses[0] || realBusinessId}`}
           isOpen={isDailyEntriesModalOpen}
           onClose={() => setIsDailyEntriesModalOpen(false)}
-          businessId={realBusinessId}
-          businessName={businessCards.find(b => b.id === realBusinessId)?.name || ""}
+          businessId={(selectedBusinesses[0] || realBusinessId) as string}
+          businessName={businessCards.find(b => b.id === (selectedBusinesses[0] || realBusinessId))?.name || ""}
           dateRange={dateRange}
         />
       )}
