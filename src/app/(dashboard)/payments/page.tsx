@@ -2933,33 +2933,39 @@ function PaymentsPageInner() {
         )}
 
         {/* Table */}
-        <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="w-full overflow-x-auto max-h-[500px] overflow-y-scroll">
-          {/* Header */}
-          <div className="grid grid-cols-[65px_1fr_60px_50px_60px_80px] sm:grid-cols-[75px_1fr_65px_55px_65px_85px] bg-[#29318A] rounded-t-[7px] mb-[4px] sticky top-0 z-10">
-            {([
-              ["date", "תאריך", "text-start ps-[16px]"],
-              ["supplier", "ספק", "text-center justify-center"],
-              ["reference", "אסמכתא", "text-center justify-center"],
-              ["installments", "תשלומים", "text-center justify-center"],
-              ["method", "אמצעי", "text-center justify-center"],
-              ["amount", "סכום", "text-center justify-center"],
-            ] as const).map(([col, label, align]) => (
-              <button
-                key={col}
-                type="button"
-                onClick={() => handleColumnSort(col)}
-                className={`text-[13px] sm:text-[14px] font-medium py-[8px] px-[4px] inline-flex items-center gap-[2px] cursor-pointer hover:text-white/80 transition-colors ${align}`}
-              >
-                {col === "reference" ? (<><span className="sm:hidden">אסמכ׳</span><span className="hidden sm:inline">אסמכתא</span></>) : label}
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity ${sortColumn === col ? 'opacity-100' : 'opacity-30'}`}>
-                  <path d={sortColumn === col && sortOrder === "desc" ? "M12 5V19M12 19L5 12M12 19L19 12" : "M12 19V5M12 5L5 12M12 5L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-            ))}
-          </div>
-
-          {/* Table Rows */}
-          <div className="flex flex-col gap-[4px]">
+        <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="w-full max-h-[500px] overflow-y-auto">
+          <table className="w-full border-collapse table-fixed">
+            <colgroup>
+              <col style={{width: "65px"}} />
+              <col />
+              <col style={{width: "60px"}} />
+              <col style={{width: "50px"}} />
+              <col style={{width: "60px"}} />
+              <col style={{width: "85px"}} />
+            </colgroup>
+            {/* Header */}
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-[#29318A]">
+                {([
+                  ["date", "תאריך", "text-start ps-[12px]"],
+                  ["supplier", "ספק", "text-center"],
+                  ["reference", "אסמכתא", "text-center"],
+                  ["installments", "תשלומים", "text-center"],
+                  ["method", "אמצעי", "text-center"],
+                  ["amount", "סכום", "text-center"],
+                ] as const).map(([col, label, align], i) => (
+                  <th key={col} className={`text-[13px] sm:text-[14px] font-medium py-[8px] px-[4px] ${align} ${i === 0 ? 'rounded-tr-[7px]' : ''} ${i === 5 ? 'rounded-tl-[7px]' : ''}`}>
+                    <button type="button" onClick={() => handleColumnSort(col)} className="inline-flex items-center gap-[2px] cursor-pointer hover:text-white/80 transition-colors w-full justify-center">
+                      {col === "date" ? <span className="w-full text-start">{label}</span> : col === "reference" ? (<><span className="sm:hidden">אסמכ׳</span><span className="hidden sm:inline">אסמכתא</span></>) : label}
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" className={`flex-shrink-0 transition-opacity flex-shrink-0 ${sortColumn === col ? 'opacity-100' : 'opacity-30'}`}>
+                        <path d={sortColumn === col && sortOrder === "desc" ? "M12 5V19M12 19L5 12M12 19L19 12" : "M12 19V5M12 5L5 12M12 5L19 12"} stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
             {(() => {
               const searchVal = filterValue.trim().toLowerCase();
               const filteredPayments = recentPaymentsData.filter((payment) => {
@@ -2996,12 +3002,10 @@ function PaymentsPageInner() {
                   return sortOrder === "asc" ? cmp : -cmp;
                 });
               }
-              return sortedPayments.length === 0 ? (
-              <div className="flex items-center justify-center py-[40px]">
-                <span className="text-[16px] text-white/50">אין תשלומים להצגה</span>
-              </div>
-            ) : sortedPayments.map((payment) => {
-              // Each split is its own row (no grouping by payment method)
+              if (sortedPayments.length === 0) return (
+                <tr><td colSpan={6} className="py-[40px] text-center"><span className="text-[16px] text-white/50">אין תשלומים להצגה</span></td></tr>
+              );
+              return sortedPayments.map((payment) => {
               const methodGroups: Array<{ method: string; methodName: string; totalAmount: number; splits: typeof payment.rawSplits }> = [];
               for (const split of payment.rawSplits) {
                 methodGroups.push({
@@ -3011,7 +3015,6 @@ function PaymentsPageInner() {
                   splits: [split],
                 });
               }
-              // Fallback if no splits
               if (methodGroups.length === 0) {
                 methodGroups.push({ method: payment.paymentMethodKey, methodName: payment.paymentMethod, totalAmount: payment.totalAmount, splits: [] });
               }
@@ -3019,64 +3022,66 @@ function PaymentsPageInner() {
 
               return methodGroups.map((group, groupIdx) => {
               const rowKey = `${payment.id}:${groupIdx}`;
+              const isExpanded = expandedPaymentId === rowKey;
               return (
-              <div
+              <>
+              <tr
                 key={rowKey}
                 data-payment-id={payment.id}
-                className={`rounded-[7px] border transition-colors ${expandedPaymentId === rowKey ? 'bg-white/5 border-white' : 'border-transparent'}`}
+                onClick={() => setExpandedPaymentId(isExpanded ? null : rowKey)}
+                className={`cursor-pointer transition-colors ${isExpanded ? 'bg-white/5' : 'hover:bg-[#29318A]/30'}`}
               >
-                <div
-                  onClick={() => setExpandedPaymentId(expandedPaymentId === rowKey ? null : rowKey)}
-                  className="grid grid-cols-[65px_1fr_60px_50px_60px_80px] sm:grid-cols-[75px_1fr_65px_55px_65px_85px] items-center cursor-pointer hover:bg-[#29318A]/30 transition-colors rounded-[7px] py-[8px]"
-                >
-                  {/* Date */}
-                  <div className="flex items-center gap-[2px] ps-[4px]">
-                    <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${expandedPaymentId === rowKey ? 'rotate-90' : ''} text-white/50`}>
+                {/* Date */}
+                <td className="py-[10px] ps-[4px] pe-[2px]">
+                  <div className="flex items-center gap-[2px]">
+                    <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''} text-white/50`}>
                       <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     <span className="text-[12px] sm:text-[13px] font-medium ltr-num">{payment.date}</span>
                   </div>
+                </td>
 
-                  {/* Supplier */}
-                  <div className="text-center px-[4px] min-w-0">
-                    <span className="text-[12px] sm:text-[13px] font-medium leading-tight truncate block">{payment.supplier}</span>
-                  </div>
+                {/* Supplier */}
+                <td className="py-[10px] px-[4px] text-center">
+                  <span className="text-[12px] sm:text-[13px] font-medium leading-tight truncate block">{payment.supplier}</span>
+                </td>
 
-                  {/* Reference Number */}
-                  <div className="text-center px-[4px]" title={group.splits[0]?.reference_number || payment.reference || ""}>
-                    <span className="text-[12px] sm:text-[13px] font-medium ltr-num truncate block">
-                      {group.splits[0]?.reference_number || payment.reference || "-"}
+                {/* Reference Number */}
+                <td className="py-[10px] px-[4px] text-center" title={group.splits[0]?.reference_number || payment.reference || ""}>
+                  <span className="text-[12px] sm:text-[13px] font-medium ltr-num truncate block">
+                    {group.splits[0]?.reference_number || payment.reference || "-"}
+                  </span>
+                </td>
+
+                {/* Payment split index */}
+                <td className="py-[10px] px-[4px] text-center">
+                  <span className="text-[12px] sm:text-[13px] font-medium ltr-num">
+                    {totalMethodGroups > 1 ? `${groupIdx + 1}/${totalMethodGroups}` : payment.installments}
+                  </span>
+                </td>
+
+                {/* Payment Method */}
+                <td className="py-[10px] px-[4px] text-center">
+                  <span className="text-[12px] sm:text-[13px] font-medium leading-tight truncate block">{group.methodName}</span>
+                </td>
+
+                {/* Amount */}
+                <td className="py-[10px] px-[4px] text-center">
+                  <span className="text-[12px] sm:text-[13px] font-medium ltr-num block">
+                    ₪{group.totalAmount % 1 === 0 ? group.totalAmount.toLocaleString("he-IL") : group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                  {totalMethodGroups > 1 && (
+                    <span className="text-[10px] sm:text-[11px] font-medium ltr-num text-white/70 block">
+                      (₪{payment.totalAmount % 1 === 0 ? payment.totalAmount.toLocaleString("he-IL") : payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                     </span>
-                  </div>
+                  )}
+                </td>
+              </tr>
 
-                  {/* Payment split index */}
-                  <div className="text-center px-[4px]">
-                    <span className="text-[12px] sm:text-[13px] font-medium ltr-num">
-                      {totalMethodGroups > 1 ? `${groupIdx + 1}/${totalMethodGroups}` : payment.installments}
-                    </span>
-                  </div>
-
-                  {/* Payment Method */}
-                  <div className="text-center px-[4px]">
-                    <span className="text-[12px] sm:text-[13px] font-medium leading-tight truncate block">{group.methodName}</span>
-                  </div>
-
-                  {/* Amount */}
-                  <div className="text-center px-[4px]">
-                    <span className="text-[12px] sm:text-[13px] font-medium ltr-num block">
-                      ₪{group.totalAmount % 1 === 0 ? group.totalAmount.toLocaleString("he-IL") : group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                    {totalMethodGroups > 1 && (
-                      <span className="text-[10px] sm:text-[11px] font-medium ltr-num text-white/70 block">
-                        (₪{payment.totalAmount % 1 === 0 ? payment.totalAmount.toLocaleString("he-IL") : payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Expanded Details */}
-                {expandedPaymentId === rowKey && (
-                  <div className="flex flex-col gap-[10px] mt-[5px]">
+              {/* Expanded Details */}
+              {isExpanded && (
+              <tr key={`${rowKey}-expanded`}><td colSpan={6} className="p-0">
+                  <div className="flex flex-col gap-[10px] mt-[5px] mb-[4px]">
                     {/* Header: פרטים נוספים + action icons */}
                     <div className="flex items-center justify-between border-b border-white/20 pb-[8px] px-[7px]" dir="rtl">
                       <span className="text-[16px] font-medium">פרטים נוספים</span>
@@ -3379,18 +3384,20 @@ function PaymentsPageInner() {
                       </div>
                     )}
                   </div>
-                )}
-              </div>
+              </td></tr>
+              )}
+              </>
               );
               });
             });
             })()}
             {isLoadingMore && (
-              <div className="flex items-center justify-center py-[15px]">
-                <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-              </div>
+              <tr><td colSpan={6} className="py-[15px] text-center">
+                <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin inline-block" />
+              </td></tr>
             )}
-          </div>
+            </tbody>
+          </table>
         </div>
       </div>
       )}
