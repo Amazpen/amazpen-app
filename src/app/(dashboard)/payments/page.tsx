@@ -884,7 +884,7 @@ function PaymentsPageInner() {
           id, due_date, amount, payment_method, installment_number, installments_count,
           payment:payments!inner(id, business_id, deleted_at, receipt_url, notes, supplier:suppliers(name))
         `)
-        .gt("due_date", today)
+        .gte("due_date", today)
         .is("payment.deleted_at", null)
         .in("payment.business_id", selectedBusinesses)
         .order("due_date", { ascending: true })
@@ -1148,6 +1148,11 @@ function PaymentsPageInner() {
   const handleSavePayment = async () => {
     if (!selectedSupplier || !paymentDate || paymentMethods.every(pm => !pm.amount)) {
       showToast("נא למלא את כל השדות הנדרשים", "warning");
+      return;
+    }
+
+    if (paymentMethods.some(pm => parseFloat(pm.amount.replace(/[^\d.]/g, "")) > 0 && !pm.method)) {
+      showToast("נא לבחור אמצעי תשלום", "warning");
       return;
     }
 
@@ -1516,6 +1521,11 @@ function PaymentsPageInner() {
   const handleUpdatePayment = async () => {
     if (!editingPaymentId || !selectedSupplier || !paymentDate || paymentMethods.every(pm => !pm.amount)) {
       showToast("נא למלא את כל השדות הנדרשים", "warning");
+      return;
+    }
+
+    if (paymentMethods.some(pm => parseFloat(pm.amount.replace(/[^\d.]/g, "")) > 0 && !pm.method)) {
+      showToast("נא לבחור אמצעי תשלום", "warning");
       return;
     }
 
