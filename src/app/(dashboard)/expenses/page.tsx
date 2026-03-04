@@ -3274,9 +3274,9 @@ function ExpensesPageInner() {
       {activeTab === "employees" && dailyLaborEntries.length > 0 && (
         <div className="bg-[#0F1535] rounded-[20px] p-[15px_0px] mt-[10px] flex flex-col gap-[15px] w-full">
           <h2 className="text-[18px] font-bold text-center">מילוי יומי — עלות עובדים</h2>
-          <div className="w-full flex flex-col">
+          <div className="w-full max-h-[500px] overflow-y-scroll">
             {/* Header with sortable columns */}
-            <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center">
+            <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] items-center sticky top-0 z-10">
               {([ ["date", "תאריך"], ["labor_cost", "עובדים שעתיים"], ["labor_hours", "שעות"], ["manager_daily_cost", "עלות מנהל"], ["total", "סה\"כ"] ] as const).map(([col, label]) => (
                 <Button key={col} type="button" onClick={() => handleLaborSort(col)}
                   className="text-[13px] font-medium text-center cursor-pointer hover:text-white/80 transition-colors flex items-center justify-center gap-[3px]">
@@ -3288,7 +3288,7 @@ function ExpensesPageInner() {
               ))}
             </div>
             {/* Rows */}
-            <div className="max-h-[450px] overflow-y-auto flex flex-col gap-[5px]">
+            <div className="flex flex-col gap-[5px]">
               {[...dailyLaborEntries].sort((a, b) => {
                 if (!laborSortCol || !laborSortOrder) return 0;
                 let cmp = 0;
