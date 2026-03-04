@@ -113,10 +113,12 @@ const iconMap: Record<AiSuggestedQuestion["icon"], React.ReactNode> = {
 
 interface AiWelcomeScreenProps {
   isAdmin: boolean;
+  adminViewAsOwner?: boolean;
+  onToggleAdminView?: () => void;
   onSuggestionClick: (text: string) => void;
 }
 
-export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenProps) {
+export function AiWelcomeScreen({ isAdmin, adminViewAsOwner, onToggleAdminView, onSuggestionClick }: AiWelcomeScreenProps) {
   const router = useRouter();
   const suggestions = isAdmin ? adminSuggestions : userSuggestions;
   const [showImage, setShowImage] = useState(false);
@@ -224,17 +226,32 @@ export function AiWelcomeScreen({ isAdmin, onSuggestionClick }: AiWelcomeScreenP
         אפשר לשאול אותי כל שאלה על הנתונים העסקיים שלך ואני אענה עם ניתוחים, טבלאות וגרפים
       </p>
 
-      {/* Admin badge */}
-      {isAdmin && (
-        <div className="flex items-center gap-1.5 bg-[#FFA412]/15 text-[#FFA412] text-[11px] sm:text-[12px] font-medium px-3 py-1 rounded-full mb-4 sm:mb-6">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
-          מצב מנהל — גישה לכל העסקים
+      {/* Admin badge + toggle */}
+      {(isAdmin || onToggleAdminView) && (
+        <div className="flex flex-col items-center gap-2 mb-4 sm:mb-6">
+          <div className="flex items-center gap-1.5 bg-[#FFA412]/15 text-[#FFA412] text-[11px] sm:text-[12px] font-medium px-3 py-1 rounded-full">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            {adminViewAsOwner ? "מצב בעל עסק — תשובות לפי העסק הנבחר" : "מצב מנהל — גישה לכל העסקים"}
+          </div>
+          {onToggleAdminView && (
+            <button
+              type="button"
+              onClick={onToggleAdminView}
+              className="flex items-center gap-1.5 text-white/50 hover:text-white/80 text-[11px] transition-colors"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 014-4h14" />
+                <path d="M7 22l-4-4 4-4" /><path d="M21 13v2a4 4 0 01-4 4H3" />
+              </svg>
+              {adminViewAsOwner ? "עבור למצב מנהל" : "עבור למצב בעל עסק"}
+            </button>
+          )}
         </div>
       )}
 
-      {!isAdmin && <div className="mb-4 sm:mb-6" />}
+      {!isAdmin && !onToggleAdminView && <div className="mb-4 sm:mb-6" />}
 
       {/* Suggestion cards */}
       <div id="onboarding-ai-suggestions" className="w-full max-w-[500px] grid grid-cols-1 min-[400px]:grid-cols-2 gap-2 sm:gap-3">

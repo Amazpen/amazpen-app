@@ -66,7 +66,7 @@ function getThinkingStatus(messages: UIMessage[], status: string): string | null
   return null;
 }
 
-export function useAiChat(businessId: string | undefined, isAdmin = false) {
+export function useAiChat(businessId: string | undefined, isAdmin = false, viewAsOwner = false) {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [lastError, setLastError] = useState<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -92,6 +92,7 @@ export function useAiChat(businessId: string | undefined, isAdmin = false) {
         sessionId: sessionIdRef.current || "",
         pageContext: pageContextRef.current || "",
         ocrContext: ocrContextRef.current || "",
+        viewAsOwner,
       }),
     }),
     onError: (error) => {

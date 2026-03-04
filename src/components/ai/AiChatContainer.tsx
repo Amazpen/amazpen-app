@@ -24,7 +24,9 @@ interface AiChatContainerProps {
 }
 
 export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
-  const { messages, isLoading, thinkingStatus, isLoadingHistory, lastError, sendMessage, clearChat, getChartData, getDisplayText } = useAiChat(businessId, isAdmin);
+  const [adminViewAsOwner, setAdminViewAsOwner] = useState(false);
+  const effectiveIsAdmin = isAdmin && !adminViewAsOwner;
+  const { messages, isLoading, thinkingStatus, isLoadingHistory, lastError, sendMessage, clearChat, getChartData, getDisplayText } = useAiChat(businessId, effectiveIsAdmin, adminViewAsOwner);
   const hasMessages = messages.length > 0;
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -188,7 +190,9 @@ export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
       {/* Main content area */}
       {isLoadingHistory ? (
         <AiWelcomeScreen
-          isAdmin={isAdmin}
+          isAdmin={effectiveIsAdmin}
+          adminViewAsOwner={adminViewAsOwner}
+          onToggleAdminView={isAdmin ? () => setAdminViewAsOwner((v) => !v) : undefined}
           onSuggestionClick={handleSuggestionClick}
         />
       ) : hasMessages ? (
@@ -203,7 +207,9 @@ export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
         />
       ) : (
         <AiWelcomeScreen
-          isAdmin={isAdmin}
+          isAdmin={effectiveIsAdmin}
+          adminViewAsOwner={adminViewAsOwner}
+          onToggleAdminView={isAdmin ? () => setAdminViewAsOwner((v) => !v) : undefined}
           onSuggestionClick={handleSuggestionClick}
         />
       )}

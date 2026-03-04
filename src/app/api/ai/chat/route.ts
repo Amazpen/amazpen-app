@@ -1484,6 +1484,7 @@ export async function POST(request: NextRequest) {
   const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
   const pageContext = typeof body.pageContext === "string" ? body.pageContext : "";
   const ocrContext = typeof body.ocrContext === "string" ? body.ocrContext : "";
+  const viewAsOwner = body.viewAsOwner === true;
 
   // Extract messages from the AI SDK UIMessage format
   const uiMessages: UIMessage[] = Array.isArray(body.messages) ? body.messages : [];
@@ -1531,7 +1532,8 @@ export async function POST(request: NextRequest) {
 
   const userName = profile?.full_name || "";
   let userRole = "";
-  const isAdmin = profile?.is_admin === true;
+  // viewAsOwner allows admin to get responses scoped to the selected business (like an owner)
+  const isAdmin = profile?.is_admin === true && !viewAsOwner;
 
   // For non-admin users without a selected business, auto-detect their first business
   if (!isAdmin && !businessId) {
