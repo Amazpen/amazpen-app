@@ -185,9 +185,14 @@ interface AiWelcomeScreenProps {
 
 export function AiWelcomeScreen({ isAdmin, adminViewAsOwner, onToggleAdminView, onSuggestionClick }: AiWelcomeScreenProps) {
   const router = useRouter();
-  const [suggestions] = useState<AiSuggestedQuestion[]>(() =>
-    pickRandom(isAdmin ? ALL_ADMIN_SUGGESTIONS : ALL_USER_SUGGESTIONS, 6)
-  );
+  // Start with the first 6 items (same on server and client) to avoid hydration mismatch,
+  // then randomize after mount (client-only).
+  const pool = isAdmin ? ALL_ADMIN_SUGGESTIONS : ALL_USER_SUGGESTIONS;
+  const [suggestions, setSuggestions] = useState<AiSuggestedQuestion[]>(pool.slice(0, 6));
+  useEffect(() => {
+    setSuggestions(pickRandom(pool, 6));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [showImage, setShowImage] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const minTimeRef = useRef(false);
