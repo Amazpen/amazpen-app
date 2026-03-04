@@ -62,14 +62,15 @@ export async function savePriceTrackingForLineItems(
 
       if (!supplierItemId) continue;
 
-      // Get current price before updating
+      // Get current price and mute status before updating
       const { data: currentItem } = await supabase
         .from('supplier_items')
-        .select('current_price')
+        .select('current_price, alert_muted')
         .eq('id', supplierItemId)
         .single();
 
       const oldPrice = currentItem?.current_price;
+      const alertMuted = currentItem?.alert_muted ?? false;
 
       // Insert price record
       await supabase.from('supplier_item_prices').insert({
@@ -88,8 +89,8 @@ export async function savePriceTrackingForLineItems(
         updated_at: new Date().toISOString(),
       }).eq('id', supplierItemId);
 
-      // Create price alert if price changed
-      if (oldPrice != null && Math.abs(li.unit_price - oldPrice) > 0.01) {
+      // Create price alert if price changed and alerts not muted for this item
+      if (!alertMuted && oldPrice != null && Math.abs(li.unit_price - oldPrice) > 0.01) {
         const changePct = oldPrice > 0
           ? ((li.unit_price - oldPrice) / oldPrice) * 100
           : 0;

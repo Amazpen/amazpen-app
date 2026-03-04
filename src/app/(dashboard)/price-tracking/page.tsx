@@ -133,6 +133,7 @@ export default function PriceTrackingPage() {
           current_price: si.current_price != null ? Number(si.current_price) : undefined,
           last_price_date: (si.last_price_date as string) || undefined,
           is_active: si.is_active as boolean,
+          alert_muted: (si.alert_muted as boolean) ?? false,
           created_at: si.created_at as string,
           updated_at: si.updated_at as string,
         })));
@@ -177,6 +178,13 @@ export default function PriceTrackingPage() {
     const supabase = createClient();
     await supabase.from('price_alerts').update({ status }).eq('id', alertId);
     setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, status } : a));
+  };
+
+  // Toggle mute alerts for a supplier item
+  const toggleMuteItem = async (itemId: string, currentMuted: boolean) => {
+    const supabase = createClient();
+    await supabase.from('supplier_items').update({ alert_muted: !currentMuted }).eq('id', itemId);
+    setSupplierItems(prev => prev.map(si => si.id === itemId ? { ...si, alert_muted: !currentMuted } : si));
   };
 
   // Stats
@@ -319,29 +327,69 @@ export default function PriceTrackingPage() {
           ) : (
             <div className="flex flex-col gap-1">
               {supplierItems.map((item) => (
-                <Button
+                <div
                   key={item.id}
-                  onClick={() => setSelectedItemId(selectedItemId === item.id ? null : item.id)}
-                  className={`w-full bg-[#0F1535] border rounded-[10px] p-3 flex items-center justify-between transition-colors ${
+                  className={`w-full bg-[#0F1535] border rounded-[10px] p-3 flex items-center gap-2 transition-colors ${
                     selectedItemId === item.id
                       ? 'border-[#29318A] bg-[#29318A]/10'
-                      : 'border-[#4C526B] hover:border-[#29318A]/50'
-                  }`}
+                      : 'border-[#4C526B]'
+                  } ${item.alert_muted ? 'opacity-60' : ''}`}
                 >
-                  <div className="text-right">
-                    <p className="text-[14px] text-white font-medium">{item.item_name}</p>
-                    {item.last_price_date && (
-                      <p className="text-[11px] text-white/40">
-                        עדכון: {new Date(item.last_price_date).toLocaleDateString('he-IL')}
+                  {/* Item info — clickable for history */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedItemId(selectedItemId === item.id ? null : item.id)}
+                    className="flex-1 flex items-center justify-between min-w-0"
+                  >
+                    <div className="text-right min-w-0">
+                      <p className="text-[14px] text-white font-medium truncate">{item.item_name}</p>
+                      <div className="flex items-center gap-2">
+                        {item.alert_muted && (
+                          <span className="text-[10px] text-[#bc76ff]">ללא התראות</span>
+                        )}
+                        {item.last_price_date && (
+                          <p className="text-[11px] text-white/40">
+                            עדכון: {new Date(item.last_price_date).toLocaleDateString('he-IL')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-left flex-shrink-0 ml-2">
+                      <p className="text-[16px] text-white font-bold ltr-num">
+                        &#8362;{item.current_price?.toFixed(2) || '-'}
                       </p>
+                    </div>
+                  </button>
+
+                  {/* Mute toggle */}
+                  <button
+                    type="button"
+                    title={item.alert_muted ? 'הפעל התראות לפריט זה' : 'השתק התראות לפריט זה'}
+                    onClick={(e) => { e.stopPropagation(); toggleMuteItem(item.id, item.alert_muted); }}
+                    className={`flex-shrink-0 w-[32px] h-[32px] rounded-[8px] flex items-center justify-center transition-colors ${
+                      item.alert_muted
+                        ? 'bg-[#bc76ff]/20 text-[#bc76ff]'
+                        : 'bg-white/5 text-white/30 hover:text-white/60 hover:bg-white/10'
+                    }`}
+                  >
+                    {item.alert_muted ? (
+                      /* Bell with slash (muted) */
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        <path d="M18.63 13A17.89 17.89 0 0 1 18 8"/>
+                        <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/>
+                        <path d="M18 8a6 6 0 0 0-9.33-5"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    ) : (
+                      /* Bell (active) */
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                      </svg>
                     )}
-                  </div>
-                  <div className="text-left">
-                    <p className="text-[16px] text-white font-bold ltr-num">
-                      &#8362;{item.current_price?.toFixed(2) || '-'}
-                    </p>
-                  </div>
-                </Button>
+                  </button>
+                </div>
               ))}
             </div>
           )

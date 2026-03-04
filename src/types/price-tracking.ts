@@ -9,6 +9,7 @@ export interface SupplierItem {
   current_price?: number;
   last_price_date?: string;
   is_active: boolean;
+  alert_muted: boolean;
   created_at: string;
   updated_at: string;
   // Joined fields
