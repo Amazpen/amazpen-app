@@ -1194,6 +1194,7 @@ function PaymentsPageInner() {
       if (filesToUpload.length > 0) {
         setIsUploadingReceipt(true);
         const uploadedUrls: string[] = [...existingUrls];
+        let uploadFailed = false;
         for (const entry of filesToUpload) {
           const fileExt = entry.file!.name.split('.').pop();
           const fileName = `receipt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${fileExt}`;
@@ -1203,10 +1204,16 @@ function PaymentsPageInner() {
             uploadedUrls.push(result.publicUrl);
           } else {
             console.error("Receipt upload error:", result.error);
+            uploadFailed = true;
           }
         }
-        receiptUrl = uploadedUrls.length === 1 ? uploadedUrls[0] : uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : null;
         setIsUploadingReceipt(false);
+        if (uploadFailed) {
+          showToast("שגיאה בהעלאת הקובץ — האסמכתא לא נשמרה", "error");
+          setIsSaving(false);
+          return;
+        }
+        receiptUrl = uploadedUrls.length === 1 ? uploadedUrls[0] : uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : null;
       } else if (existingUrls.length > 0) {
         receiptUrl = existingUrls.length === 1 ? existingUrls[0] : JSON.stringify(existingUrls);
       }
@@ -1553,6 +1560,7 @@ function PaymentsPageInner() {
       if (filesToUpload.length > 0) {
         setIsUploadingReceipt(true);
         const uploadedUrls: string[] = [...existingUrls];
+        let uploadFailed = false;
         for (const entry of filesToUpload) {
           const fileExt = entry.file!.name.split('.').pop();
           const fileName = `receipt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${fileExt}`;
@@ -1560,10 +1568,18 @@ function PaymentsPageInner() {
           const result = await uploadFile(entry.file!, filePath, "attachments");
           if (result.success && result.publicUrl) {
             uploadedUrls.push(result.publicUrl);
+          } else {
+            console.error("Receipt upload error:", result.error);
+            uploadFailed = true;
           }
         }
-        receiptUrl = uploadedUrls.length === 1 ? uploadedUrls[0] : uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : null;
         setIsUploadingReceipt(false);
+        if (uploadFailed) {
+          showToast("שגיאה בהעלאת הקובץ — האסמכתא לא נשמרה", "error");
+          setIsSaving(false);
+          return;
+        }
+        receiptUrl = uploadedUrls.length === 1 ? uploadedUrls[0] : uploadedUrls.length > 1 ? JSON.stringify(uploadedUrls) : null;
       } else if (existingUrls.length > 0) {
         receiptUrl = existingUrls.length === 1 ? existingUrls[0] : JSON.stringify(existingUrls);
       }
