@@ -2935,7 +2935,7 @@ function PaymentsPageInner() {
         {/* Table */}
         <div className="w-full overflow-x-auto">
           {/* Header */}
-          <div className="grid grid-cols-[65px_1fr_60px_50px_60px_80px] sm:grid-cols-[75px_1fr_65px_55px_65px_85px] bg-[#29318A] rounded-t-[7px] mb-[4px]">
+          <div className="grid grid-cols-[65px_1fr_60px_50px_60px_80px] sm:grid-cols-[75px_1fr_65px_55px_65px_85px] bg-[#29318A] rounded-t-[7px] mb-[4px] pe-[15px]">
             {([
               ["date", "תאריך", "text-start ps-[16px]"],
               ["supplier", "ספק", "text-center justify-center"],
