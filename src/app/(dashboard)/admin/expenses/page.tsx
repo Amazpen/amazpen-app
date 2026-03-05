@@ -28,6 +28,7 @@ interface CsvExpense {
   child_category: string;
   requires_vat: boolean;
   bubble_payment_ids: string;
+  attachment_url: string;
 }
 
 interface Business {
@@ -227,6 +228,10 @@ export default function AdminExpensesPage() {
             "עסק": "business_name",
             // Bubble payment IDs (for migration linking)
             "תשלומים": "bubble_payment_ids",
+            // Attachment URL
+            "קישור": "attachment_url", "url": "attachment_url", "URL": "attachment_url",
+            "attachment_url": "attachment_url", "קישור לתמונה": "attachment_url",
+            "תמונה": "attachment_url", "כל התמונות": "attachment_url", "images": "attachment_url",
           };
 
           const detectedFields = results.meta.fields || [];
@@ -443,6 +448,9 @@ export default function AdminExpensesPage() {
             // Bubble payment IDs (for migration linking)
             const bubble_payment_ids = getField(row, "bubble_payment_ids");
 
+            // Attachment URL
+            const attachment_url = getField(row, "attachment_url");
+
             expenses.push({
               supplier_name,
               invoice_number,
@@ -462,6 +470,7 @@ export default function AdminExpensesPage() {
               child_category,
               requires_vat,
               bubble_payment_ids,
+              attachment_url,
             });
           });
 
@@ -636,8 +645,38 @@ export default function AdminExpensesPage() {
         clarification_reason: string | null;
         is_consolidated: boolean;
         data_source: string | null;
+        attachment_url: string | null;
       }[] = [];
       let skippedCount = 0;
+
+      // Pre-transfer all external attachment URLs to our Supabase storage
+      const urlCache = new Map<string, string>();
+      const urlsToTransfer = csvExpenses
+        .map(e => e.attachment_url)
+        .filter((u): u is string => !!u && u.startsWith("http"));
+      const uniqueUrls = [...new Set(urlsToTransfer)];
+      if (uniqueUrls.length > 0) {
+        setImportProgress(`מעביר ${uniqueUrls.length} קבצים לאחסון...`);
+        for (let i = 0; i < uniqueUrls.length; i++) {
+          const externalUrl = uniqueUrls[i];
+          setImportProgress(`מעביר קובץ ${i + 1}/${uniqueUrls.length}...`);
+          try {
+            const res = await fetch("/api/upload/transfer-url", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url: externalUrl, bucket: "attachments", folder: "imported/invoices" }),
+            });
+            const data = await res.json();
+            if (data.success && data.publicUrl) {
+              urlCache.set(externalUrl, data.publicUrl);
+            } else {
+              urlCache.set(externalUrl, externalUrl); // fallback: keep original
+            }
+          } catch {
+            urlCache.set(externalUrl, externalUrl); // fallback on network error
+          }
+        }
+      }
 
       for (const expense of csvExpenses) {
         const supplier = findSupplierByName(expense.supplier_name);
@@ -657,6 +696,9 @@ export default function AdminExpensesPage() {
         if (expense.payment_status === "paid") status = "paid";
         else if (expense.payment_status === "clarification") status = "clarification";
 
+        const rawUrl = expense.attachment_url || null;
+        const transferredUrl = rawUrl ? (urlCache.get(rawUrl) ?? rawUrl) : null;
+
         records.push({
           business_id: selectedBusinessId,
           supplier_id: supplier.id,
@@ -673,6 +715,7 @@ export default function AdminExpensesPage() {
           clarification_reason: expense.clarification_reason || null,
           is_consolidated: expense.is_consolidated,
           data_source: expense.bubble_payment_ids ? `bubble:${expense.bubble_payment_ids}` : null,
+          attachment_url: transferredUrl,
         });
       }
 

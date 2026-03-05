@@ -733,6 +733,24 @@ export default function AdminPaymentsPage() {
 
         setImportProgress(`מייבא... ${inserted + 1}/${mergedPayments.length} - ${payment.supplier_name}`);
 
+        // Transfer external receipt URL to our Supabase storage
+        let finalReceiptUrl: string | null = payment.receipt_url || null;
+        if (finalReceiptUrl && finalReceiptUrl.startsWith("http")) {
+          try {
+            const transferRes = await fetch("/api/upload/transfer-url", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url: finalReceiptUrl, bucket: "attachments", folder: "imported/payments" }),
+            });
+            const transferData = await transferRes.json();
+            if (transferData.success && transferData.publicUrl) {
+              finalReceiptUrl = transferData.publicUrl;
+            }
+          } catch {
+            // Keep original URL on error
+          }
+        }
+
         // Insert payment
         const paymentRecord: Record<string, unknown> = {
           business_id: selectedBusinessId,
@@ -741,7 +759,7 @@ export default function AdminPaymentsPage() {
           total_amount: payment.total_amount,
           notes: payment.notes || null,
           created_by: user?.id || null,
-          receipt_url: payment.receipt_url || null,
+          receipt_url: finalReceiptUrl,
         };
         if (payment.invoice_id) {
           paymentRecord.invoice_id = payment.invoice_id;

@@ -21,10 +21,8 @@ interface DailyEntryData {
   labor_cost: number | null;
   labor_hours: number | null;
   discounts: number | null;
-  food_cost: number | null;
-  current_expenses: number | null;
-  avg_private: number | null;
-  avg_business: number | null;
+  waste: number | null;
+  manager_daily_cost: number | null;
 }
 
 interface ApprovalWithEntry extends DailyEntryApproval {
@@ -42,10 +40,8 @@ const CURRENCY_FIELDS = new Set([
   'total_register',
   'labor_cost',
   'discounts',
-  'food_cost',
-  'current_expenses',
-  'avg_private',
-  'avg_business',
+  'waste',
+  'manager_daily_cost',
 ]);
 
 function formatFieldValue(fieldName: string, entryData: DailyEntryData): string {
@@ -85,7 +81,7 @@ export default function ApprovalModal({
       let query = supabase
         .from('daily_entry_approvals')
         .select(
-          `*, daily_entries(entry_date, total_register, labor_cost, labor_hours, discounts, food_cost, current_expenses, avg_private, avg_business)`
+          `*, daily_entries(entry_date, total_register, labor_cost, labor_hours, discounts, waste, manager_daily_cost)`
         )
         .eq('business_id', businessId)
         .eq('status', 'pending');
