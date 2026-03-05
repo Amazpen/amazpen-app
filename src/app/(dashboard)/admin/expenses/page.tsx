@@ -645,6 +645,30 @@ export default function AdminExpensesPage() {
       // Normalize protocol-relative URLs (//cdn...) to https://
       const normalizeUrl = (u: string) => u.startsWith("//") ? `https:${u}` : u;
 
+      // Client-side upload: browser fetches from external URL and uploads directly to Supabase Storage
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+      const EXT_BY_MIME: Record<string, string> = {
+        "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png",
+        "image/gif": "gif", "image/webp": "webp", "image/heic": "heic",
+        "image/heif": "heif", "application/pdf": "pdf",
+      };
+      const transferUrlInBrowser = async (url: string): Promise<string> => {
+        if (supabaseUrl && url.startsWith(supabaseUrl)) return url; // already ours
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) return url;
+          const blob = await resp.blob();
+          const contentType = blob.type || "application/octet-stream";
+          const ext = EXT_BY_MIME[contentType] || url.split(".").pop()?.split("?")[0] || "bin";
+          const storagePath = `imported/invoices/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const { error } = await supabase.storage.from("attachments").upload(storagePath, blob, { contentType, cacheControl: "31536000", upsert: false });
+          if (error) return url;
+          return supabase.storage.from("attachments").getPublicUrl(storagePath).data.publicUrl;
+        } catch {
+          return url; // fallback: keep original
+        }
+      };
+
       // Pre-transfer all external attachment URLs to our Supabase storage
       const urlCache = new Map<string, string>();
       const urlsToTransfer = csvExpenses
@@ -656,21 +680,8 @@ export default function AdminExpensesPage() {
         for (let i = 0; i < uniqueUrls.length; i++) {
           const externalUrl = uniqueUrls[i];
           setImportProgress(`מעביר קובץ ${i + 1}/${uniqueUrls.length}...`);
-          try {
-            const res = await fetch("/api/upload/transfer-url", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ url: externalUrl, bucket: "attachments", folder: "imported/invoices" }),
-            });
-            const data = await res.json();
-            if (data.success && data.publicUrl) {
-              urlCache.set(externalUrl, data.publicUrl);
-            } else {
-              urlCache.set(externalUrl, externalUrl); // fallback: keep original
-            }
-          } catch {
-            urlCache.set(externalUrl, externalUrl); // fallback on network error
-          }
+          const transferred = await transferUrlInBrowser(externalUrl);
+          urlCache.set(externalUrl, transferred);
         }
       }
 

@@ -733,21 +733,33 @@ export default function AdminPaymentsPage() {
 
         setImportProgress(`מייבא... ${inserted + 1}/${mergedPayments.length} - ${payment.supplier_name}`);
 
-        // Transfer external receipt URL to our Supabase storage
-        let finalReceiptUrl: string | null = payment.receipt_url || null;
+        // Transfer external receipt URL — browser fetches and uploads directly to Supabase Storage
+        let finalReceiptUrl: string | null = payment.receipt_url
+          ? (payment.receipt_url.startsWith("//") ? `https:${payment.receipt_url}` : payment.receipt_url)
+          : null;
         if (finalReceiptUrl && finalReceiptUrl.startsWith("http")) {
-          try {
-            const transferRes = await fetch("/api/upload/transfer-url", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ url: finalReceiptUrl, bucket: "attachments", folder: "imported/payments" }),
-            });
-            const transferData = await transferRes.json();
-            if (transferData.success && transferData.publicUrl) {
-              finalReceiptUrl = transferData.publicUrl;
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          if (!supabaseUrl || !finalReceiptUrl.startsWith(supabaseUrl)) {
+            try {
+              const EXT_BY_MIME: Record<string, string> = {
+                "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png",
+                "image/gif": "gif", "image/webp": "webp", "image/heic": "heic",
+                "image/heif": "heif", "application/pdf": "pdf",
+              };
+              const resp = await fetch(finalReceiptUrl);
+              if (resp.ok) {
+                const blob = await resp.blob();
+                const contentType = blob.type || "application/octet-stream";
+                const ext = EXT_BY_MIME[contentType] || finalReceiptUrl.split(".").pop()?.split("?")[0] || "bin";
+                const storagePath = `imported/payments/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+                const { error } = await supabase.storage.from("attachments").upload(storagePath, blob, { contentType, cacheControl: "31536000", upsert: false });
+                if (!error) {
+                  finalReceiptUrl = supabase.storage.from("attachments").getPublicUrl(storagePath).data.publicUrl;
+                }
+              }
+            } catch {
+              // Keep original URL on error
             }
-          } catch {
-            // Keep original URL on error
           }
         }
 
