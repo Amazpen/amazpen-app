@@ -232,6 +232,7 @@ export default function AdminExpensesPage() {
             "קישור": "attachment_url", "url": "attachment_url", "URL": "attachment_url",
             "attachment_url": "attachment_url", "קישור לתמונה": "attachment_url",
             "תמונה": "attachment_url", "כל התמונות": "attachment_url", "images": "attachment_url",
+            "תמונת חשבונית 1": "attachment_url", "תמונת חשבונית": "attachment_url",
           };
 
           const detectedFields = results.meta.fields || [];
@@ -649,10 +650,13 @@ export default function AdminExpensesPage() {
       }[] = [];
       let skippedCount = 0;
 
+      // Normalize protocol-relative URLs (//cdn...) to https://
+      const normalizeUrl = (u: string) => u.startsWith("//") ? `https:${u}` : u;
+
       // Pre-transfer all external attachment URLs to our Supabase storage
       const urlCache = new Map<string, string>();
       const urlsToTransfer = csvExpenses
-        .map(e => e.attachment_url)
+        .map(e => e.attachment_url ? normalizeUrl(e.attachment_url) : "")
         .filter((u): u is string => !!u && u.startsWith("http"));
       const uniqueUrls = [...new Set(urlsToTransfer)];
       if (uniqueUrls.length > 0) {
@@ -696,7 +700,7 @@ export default function AdminExpensesPage() {
         if (expense.payment_status === "paid") status = "paid";
         else if (expense.payment_status === "clarification") status = "clarification";
 
-        const rawUrl = expense.attachment_url || null;
+        const rawUrl = expense.attachment_url ? normalizeUrl(expense.attachment_url) : null;
         const transferredUrl = rawUrl ? (urlCache.get(rawUrl) ?? rawUrl) : null;
 
         records.push({

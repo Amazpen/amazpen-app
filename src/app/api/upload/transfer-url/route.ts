@@ -48,7 +48,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
   }
 
-  const { url, bucket = "attachments", folder = "imported" } = body;
+  let { url, bucket = "attachments", folder = "imported" } = body;
+
+  // Normalize protocol-relative URLs (//cdn...) to https://
+  if (url?.startsWith("//")) url = `https:${url}`;
 
   if (!url || typeof url !== "string" || !url.startsWith("http")) {
     return NextResponse.json({ error: "URL לא תקין" }, { status: 400 });
