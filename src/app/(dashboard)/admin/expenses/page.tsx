@@ -28,7 +28,7 @@ interface CsvExpense {
   child_category: string;
   requires_vat: boolean;
   bubble_payment_ids: string;
-  attachment_url: string;
+  attachment_urls: string[]; // all image URLs from the row
 }
 
 interface Business {
@@ -447,8 +447,11 @@ export default function AdminExpensesPage() {
             // Bubble payment IDs (for migration linking)
             const bubble_payment_ids = getField(row, "bubble_payment_ids");
 
-            // Attachment URL — field may contain multiple URLs separated by " , ", take first only
-            const attachment_url = (getField(row, "attachment_url") || "").split(/\s*,\s*/)[0].trim() || "";
+            // Attachment URLs — field may contain multiple URLs separated by " , "
+            const attachment_urls = (getField(row, "attachment_url") || "")
+              .split(/\s*,\s*/)
+              .map(u => u.trim())
+              .filter(u => !!u);
 
             expenses.push({
               supplier_name,
@@ -469,7 +472,7 @@ export default function AdminExpensesPage() {
               child_category,
               requires_vat,
               bubble_payment_ids,
-              attachment_url,
+              attachment_urls,
             });
           });
 
@@ -638,7 +641,7 @@ export default function AdminExpensesPage() {
         clarification_reason: string | null;
         is_consolidated: boolean;
         data_source: string | null;
-        attachment_url: string | null;
+        attachment_url: string | null; // single URL or JSON array of URLs
       }[] = [];
       let skippedCount = 0;
 
@@ -672,7 +675,7 @@ export default function AdminExpensesPage() {
       // Pre-transfer all external attachment URLs to our Supabase storage
       const urlCache = new Map<string, string>();
       const urlsToTransfer = csvExpenses
-        .map(e => e.attachment_url ? normalizeUrl(e.attachment_url) : "")
+        .flatMap(e => e.attachment_urls.map(u => normalizeUrl(u)))
         .filter((u): u is string => !!u && u.startsWith("http"));
       const uniqueUrls = [...new Set(urlsToTransfer)];
       if (uniqueUrls.length > 0) {
@@ -702,8 +705,13 @@ export default function AdminExpensesPage() {
         if (expense.payment_status === "paid") status = "paid";
         else if (expense.payment_status === "clarification") status = "clarification";
 
-        const rawUrl = expense.attachment_url ? normalizeUrl(expense.attachment_url) : null;
-        const transferredUrl = rawUrl ? (urlCache.get(rawUrl) ?? rawUrl) : null;
+        const transferredUrls = expense.attachment_urls
+          .map(u => normalizeUrl(u))
+          .filter(u => u.startsWith("http"))
+          .map(u => urlCache.get(u) ?? u);
+        const transferredUrl = transferredUrls.length === 0 ? null
+          : transferredUrls.length === 1 ? transferredUrls[0]
+          : JSON.stringify(transferredUrls);
 
         records.push({
           business_id: selectedBusinessId,
