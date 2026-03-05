@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 interface CsvExpense {
   supplier_name: string;
   invoice_number: string;
-  invoice_date: string;
+  invoice_date: string | null;
   due_date: string;
   subtotal: number;
   vat_amount: number;
@@ -279,8 +279,7 @@ export default function AdminExpensesPage() {
             if (dateRaw) {
               invoice_date = parseDate(dateRaw);
               if (!invoice_date) {
-                errors.push(`שורה ${rowIdx + 2}: תאריך לא תקין "${dateRaw}" - דילוג`);
-                return;
+                errors.push(`שורה ${rowIdx + 2}: תאריך לא תקין "${dateRaw}" - יובא ללא תאריך`);
               }
             } else {
               // Try to reconstruct date from year/month/day columns
@@ -290,8 +289,7 @@ export default function AdminExpensesPage() {
               if (year && month && day) {
                 invoice_date = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
               } else {
-                errors.push(`שורה ${rowIdx + 2}: חסר תאריך חשבונית (${supplier_name}) - דילוג`);
-                return;
+                errors.push(`שורה ${rowIdx + 2}: חסר תאריך חשבונית (${supplier_name}) - יובא ללא תאריך`);
               }
             }
 
@@ -634,7 +632,7 @@ export default function AdminExpensesPage() {
         business_id: string;
         supplier_id: string;
         invoice_number: string | null;
-        invoice_date: string;
+        invoice_date: string | null;
         due_date: string | null;
         subtotal: number;
         vat_amount: number;
@@ -707,7 +705,7 @@ export default function AdminExpensesPage() {
           business_id: selectedBusinessId,
           supplier_id: supplier.id,
           invoice_number: expense.invoice_number || null,
-          invoice_date: expense.invoice_date,
+          invoice_date: expense.invoice_date || null,
           due_date: expense.due_date || null,
           subtotal: expense.subtotal,
           vat_amount: expense.vat_amount,
