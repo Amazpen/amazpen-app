@@ -4222,6 +4222,36 @@ function PaymentsPageInner() {
 
         </SheetContent>
       </Sheet>
+
+      {/* Fullscreen Document Viewer - outside Sheet, for when Sheet is closed */}
+      {!showAddPaymentPopup && viewerDocUrl && (
+        <div
+          className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80"
+          onClick={() => { setViewerDocUrl(null); setViewerDocIsPdf(false); }}
+        >
+          <Button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); setViewerDocIsPdf(false); }}
+            className="absolute top-[16px] right-[16px] z-10 w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer"
+          >
+            <X size={24} className="text-white" />
+          </Button>
+          <Button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); window.open(viewerDocUrl, '_blank'); }}
+            className="absolute top-[16px] left-[16px] z-10 flex items-center gap-[6px] px-[12px] py-[8px] rounded-full bg-black/60 hover:bg-black/80 transition-colors text-white text-[13px] cursor-pointer"
+          >
+            פתח בכרטיסייה חדשה
+          </Button>
+          <div className="max-w-[90vw] max-h-[90vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            {(isPdfUrl(viewerDocUrl) || viewerDocIsPdf) ? (
+              <iframe src={viewerDocUrl} className="w-[90vw] h-[90vh] rounded-[12px] border border-white/20" title="תצוגת מסמך" />
+            ) : (
+              <Image src={viewerDocUrl} alt="תצוגת מסמך" className="max-w-[90vw] max-h-[90vh] object-contain rounded-[12px]" width={800} height={600} unoptimized />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
