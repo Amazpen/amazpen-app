@@ -54,7 +54,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/commitments", "/admin/daily-entries", "/admin/historical-data", "/admin/online-users", "/admin/accounting-review", "/admin/day-exceptions", "/admin/bonus-plans"];
+const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/payments", "/admin/commitments", "/admin/daily-entries", "/admin/historical-data", "/admin/online-users", "/admin/accounting-review", "/admin/day-exceptions", "/admin/bonus-plans", "/admin/goals-import", "/admin/supplier-budgets"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -87,6 +87,8 @@ const adminMenuItems = [
   { id: 108, label: "ייבוא התחייבויות", href: "/admin/commitments", key: "admin-commitments" },
   { id: 109, label: "ייבוא מילוי יומי", href: "/admin/daily-entries", key: "admin-daily-entries" },
   { id: 110, label: "ייבוא נתוני עבר", href: "/admin/historical-data", key: "admin-historical-data" },
+  { id: 115, label: "ייבוא יעדים וכוונות", href: "/admin/goals-import", key: "admin-goals-import" },
+  { id: 116, label: "ייבוא תקציבי ספקים", href: "/admin/supplier-budgets", key: "admin-supplier-budgets" },
   { id: 111, label: "בדיקה ורישום בהנה\"ח", href: "/admin/accounting-review", key: "admin-accounting-review" },
   { id: 112, label: "משתמשים מחוברים", href: "/admin/online-users", key: "admin-online-users" },
   { id: 113, label: "חריגות ימי עסקים", href: "/admin/day-exceptions", key: "admin-day-exceptions" },
@@ -117,6 +119,8 @@ const pageTitles: Record<string, string> = {
   "/admin/commitments": "ייבוא התחייבויות קודמות",
   "/admin/daily-entries": "ייבוא מילוי יומי",
   "/admin/historical-data": "ייבוא נתוני עבר",
+  "/admin/goals-import": "ייבוא יעדים וכוונות",
+  "/admin/supplier-budgets": "ייבוא תקציבי ספקים",
   "/admin/accounting-review": "בדיקה ורישום בהנה\"ח",
   "/price-tracking": "מעקב מחירי ספקים",
   "/ai": "עוזר AI",
