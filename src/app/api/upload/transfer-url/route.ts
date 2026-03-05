@@ -77,19 +77,15 @@ export async function POST(request: NextRequest) {
       signal: AbortSignal.timeout(30_000),
     });
     if (!response.ok) {
-      return NextResponse.json(
-        { error: `הורדת הקובץ נכשלה: ${response.status} ${response.statusText}` },
-        { status: 422 }
-      );
+      // Return original URL as fallback — don't error out
+      return NextResponse.json({ success: true, publicUrl: url, skipped: true });
     }
     contentType = response.headers.get("content-type")?.split(";")[0].trim() || "application/octet-stream";
     const arrayBuffer = await response.arrayBuffer();
     fileBuffer = Buffer.from(arrayBuffer);
-  } catch (e) {
-    return NextResponse.json(
-      { error: `שגיאה בהורדת הקובץ: ${e instanceof Error ? e.message : "timeout"}` },
-      { status: 422 }
-    );
+  } catch {
+    // Timeout or network error — return original URL as fallback
+    return NextResponse.json({ success: true, publicUrl: url, skipped: true });
   }
 
   // Build storage path
