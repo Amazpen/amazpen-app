@@ -661,8 +661,12 @@ export default function AdminExpensesPage() {
           const resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
           if (!resp.ok) return url;
           const blob = await resp.blob();
-          const contentType = blob.type || "application/octet-stream";
-          const ext = EXT_BY_MIME[contentType] || url.split(".").pop()?.split("?")[0] || "bin";
+          // Guess content-type from URL extension if blob.type is generic/missing
+          const urlExt = url.split(".").pop()?.split("?")[0]?.toLowerCase() || "";
+          const EXT_TO_MIME: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", pdf: "application/pdf" };
+          const ALLOWED = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"]);
+          let contentType = blob.type && ALLOWED.has(blob.type) ? blob.type : (EXT_TO_MIME[urlExt] || "image/jpeg");
+          const ext = EXT_BY_MIME[contentType] || urlExt || "jpg";
           const storagePath = `imported/invoices/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
           const { error } = await supabase.storage.from("attachments").upload(storagePath, blob, { contentType, cacheControl: "31536000", upsert: false });
           if (error) return url;
