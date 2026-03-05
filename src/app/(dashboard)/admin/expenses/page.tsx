@@ -648,58 +648,6 @@ export default function AdminExpensesPage() {
       // Normalize protocol-relative URLs (//cdn...) to https://
       const normalizeUrl = (u: string) => u.startsWith("//") ? `https:${u}` : u;
 
-      // Client-side upload: browser fetches from external URL and uploads directly to Supabase Storage
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-      const EXT_BY_MIME: Record<string, string> = {
-        "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png",
-        "image/gif": "gif", "image/webp": "webp", "image/heic": "heic",
-        "image/heif": "heif", "application/pdf": "pdf",
-      };
-      const transferUrlInBrowser = async (url: string): Promise<string> => {
-        if (supabaseUrl && url.startsWith(supabaseUrl)) return url;
-        try {
-          const resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
-          if (!resp.ok) return url;
-          const blob = await resp.blob();
-          // Guess content-type from URL extension if blob.type is generic/missing
-          const urlExt = url.split(".").pop()?.split("?")[0]?.toLowerCase() || "";
-          const EXT_TO_MIME: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", pdf: "application/pdf" };
-          const ALLOWED = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"]);
-          let contentType = blob.type && ALLOWED.has(blob.type) ? blob.type : (EXT_TO_MIME[urlExt] || "image/jpeg");
-          const ext = EXT_BY_MIME[contentType] || urlExt || "jpg";
-          const storagePath = `imported/invoices/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-          const { error } = await supabase.storage.from("attachments").upload(storagePath, blob, { contentType, cacheControl: "31536000", upsert: false });
-          if (error) return url;
-          return supabase.storage.from("attachments").getPublicUrl(storagePath).data.publicUrl;
-        } catch {
-          return url;
-        }
-      };
-
-      // Pre-transfer all external attachment URLs — controlled concurrency (3 parallel workers)
-      const urlCache = new Map<string, string>();
-      const urlsToTransfer = csvExpenses
-        .flatMap(e => e.attachment_urls.map(u => normalizeUrl(u)))
-        .filter((u): u is string => !!u && u.startsWith("http"));
-      const uniqueUrls = [...new Set(urlsToTransfer)];
-      if (uniqueUrls.length > 0) {
-        setImportProgress(`מעביר ${uniqueUrls.length} קבצים לאחסון...`);
-        let completedCount = 0;
-        const CONCURRENCY = 3;
-        let urlIndex = 0;
-        const runWorker = async () => {
-          while (urlIndex < uniqueUrls.length) {
-            const idx = urlIndex++;
-            const externalUrl = uniqueUrls[idx];
-            const transferred = await transferUrlInBrowser(externalUrl);
-            urlCache.set(externalUrl, transferred);
-            completedCount++;
-            setImportProgress(`מעביר קבצים ${completedCount}/${uniqueUrls.length}...`);
-          }
-        };
-        await Promise.allSettled(Array.from({ length: CONCURRENCY }, runWorker));
-      }
-
       for (const expense of csvExpenses) {
         const supplier = findSupplierByName(expense.supplier_name);
 
@@ -717,13 +665,13 @@ export default function AdminExpensesPage() {
         if (expense.payment_status === "paid") status = "paid";
         else if (expense.payment_status === "clarification") status = "clarification";
 
-        const transferredUrls = expense.attachment_urls
+        // Save original URLs as-is (normalized) — image migration handled separately
+        const normalizedUrls = expense.attachment_urls
           .map(u => normalizeUrl(u))
-          .filter(u => u.startsWith("http"))
-          .map(u => urlCache.get(u) ?? u);
-        const transferredUrl = transferredUrls.length === 0 ? null
-          : transferredUrls.length === 1 ? transferredUrls[0]
-          : JSON.stringify(transferredUrls);
+          .filter(u => u.startsWith("http"));
+        const transferredUrl = normalizedUrls.length === 0 ? null
+          : normalizedUrls.length === 1 ? normalizedUrls[0]
+          : JSON.stringify(normalizedUrls);
 
         records.push({
           business_id: selectedBusinessId,
