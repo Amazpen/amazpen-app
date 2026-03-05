@@ -599,12 +599,6 @@ export default function AdminExpensesPage() {
       return;
     }
 
-    // Check unmatched suppliers
-    if (unmatchedSuppliers.length > 0) {
-      showToast(`יש ${unmatchedSuppliers.length} ספקים שלא נמצאו בעסק. צור אותם קודם או ייבא אותם.`, "error");
-      return;
-    }
-
     setIsImporting(true);
     setImportProgress("בודק חשבוניות קיימות...");
 
@@ -630,7 +624,7 @@ export default function AdminExpensesPage() {
 
       const records: {
         business_id: string;
-        supplier_id: string;
+        supplier_id: string | null;
         invoice_number: string | null;
         invoice_date: string | null;
         due_date: string | null;
@@ -682,10 +676,9 @@ export default function AdminExpensesPage() {
 
       for (const expense of csvExpenses) {
         const supplier = findSupplierByName(expense.supplier_name);
-        if (!supplier) continue;
 
         // Skip if invoice number already exists for this supplier
-        if (expense.invoice_number) {
+        if (expense.invoice_number && supplier) {
           const key = `${supplier.id}|${expense.invoice_number}`;
           if (existingSet.has(key)) {
             skippedCount++;
@@ -703,7 +696,7 @@ export default function AdminExpensesPage() {
 
         records.push({
           business_id: selectedBusinessId,
-          supplier_id: supplier.id,
+          supplier_id: supplier?.id || null,
           invoice_number: expense.invoice_number || null,
           invoice_date: expense.invoice_date || null,
           due_date: expense.due_date || null,
@@ -1207,7 +1200,7 @@ export default function AdminExpensesPage() {
             type="button"
             variant="default"
             onClick={handleImport}
-            disabled={isImporting || !selectedBusinessId || unmatchedSuppliers.length > 0}
+            disabled={isImporting || !selectedBusinessId}
             className="w-full bg-[#4956D4] hover:bg-[#3a45b5] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[16px] font-bold py-[12px] rounded-[12px] transition-colors flex items-center justify-center gap-2"
           >
             {isImporting ? (
@@ -1215,8 +1208,6 @@ export default function AdminExpensesPage() {
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 {importProgress || "מייבא..."}
               </>
-            ) : unmatchedSuppliers.length > 0 ? (
-              `יש ליצור ${unmatchedSuppliers.length} ספקים חסרים לפני הייבוא`
             ) : (
               `ייבא ${csvExpenses.length} הוצאות`
             )}
