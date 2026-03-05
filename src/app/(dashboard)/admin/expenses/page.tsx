@@ -447,8 +447,8 @@ export default function AdminExpensesPage() {
             // Bubble payment IDs (for migration linking)
             const bubble_payment_ids = getField(row, "bubble_payment_ids");
 
-            // Attachment URL
-            const attachment_url = getField(row, "attachment_url");
+            // Attachment URL — field may contain multiple URLs separated by " , ", take first only
+            const attachment_url = (getField(row, "attachment_url") || "").split(/\s*,\s*/)[0].trim() || "";
 
             expenses.push({
               supplier_name,
