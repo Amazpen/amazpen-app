@@ -656,9 +656,9 @@ export default function AdminExpensesPage() {
         "image/heif": "heif", "application/pdf": "pdf",
       };
       const transferUrlInBrowser = async (url: string): Promise<string> => {
-        if (supabaseUrl && url.startsWith(supabaseUrl)) return url; // already ours
+        if (supabaseUrl && url.startsWith(supabaseUrl)) return url;
         try {
-          const resp = await fetch(url);
+          const resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
           if (!resp.ok) return url;
           const blob = await resp.blob();
           const contentType = blob.type || "application/octet-stream";
@@ -668,11 +668,11 @@ export default function AdminExpensesPage() {
           if (error) return url;
           return supabase.storage.from("attachments").getPublicUrl(storagePath).data.publicUrl;
         } catch {
-          return url; // fallback: keep original
+          return url;
         }
       };
 
-      // Pre-transfer all external attachment URLs to our Supabase storage
+      // Pre-transfer all external attachment URLs — controlled concurrency (3 parallel workers)
       const urlCache = new Map<string, string>();
       const urlsToTransfer = csvExpenses
         .flatMap(e => e.attachment_urls.map(u => normalizeUrl(u)))
@@ -680,12 +680,20 @@ export default function AdminExpensesPage() {
       const uniqueUrls = [...new Set(urlsToTransfer)];
       if (uniqueUrls.length > 0) {
         setImportProgress(`מעביר ${uniqueUrls.length} קבצים לאחסון...`);
-        for (let i = 0; i < uniqueUrls.length; i++) {
-          const externalUrl = uniqueUrls[i];
-          setImportProgress(`מעביר קובץ ${i + 1}/${uniqueUrls.length}...`);
-          const transferred = await transferUrlInBrowser(externalUrl);
-          urlCache.set(externalUrl, transferred);
-        }
+        let completedCount = 0;
+        const CONCURRENCY = 3;
+        let urlIndex = 0;
+        const runWorker = async () => {
+          while (urlIndex < uniqueUrls.length) {
+            const idx = urlIndex++;
+            const externalUrl = uniqueUrls[idx];
+            const transferred = await transferUrlInBrowser(externalUrl);
+            urlCache.set(externalUrl, transferred);
+            completedCount++;
+            setImportProgress(`מעביר קבצים ${completedCount}/${uniqueUrls.length}...`);
+          }
+        };
+        await Promise.allSettled(Array.from({ length: CONCURRENCY }, runWorker));
       }
 
       for (const expense of csvExpenses) {
