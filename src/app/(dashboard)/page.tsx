@@ -2614,9 +2614,14 @@ export default function DashboardPage() {
     selectedBusinesses.some(id => businessCards.some(card => card.id === id));
 
   const toggleCard = (id: string) => {
-    // Set initial load to show skeleton when selecting a new business
     setIsInitialLoad(true);
-    toggleBusiness(id);
+    if (selectedBusinesses.includes(id)) {
+      // Deselect
+      toggleBusiness(id);
+    } else {
+      // Select as primary — put at front so selectedBusinesses[0] = last clicked
+      setSelectedBusinesses(prev => [id, ...prev.filter(b => b !== id)]);
+    }
   };
 
   return (
