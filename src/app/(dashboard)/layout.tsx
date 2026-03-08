@@ -43,7 +43,7 @@ const DashboardContext = createContext<DashboardContextType>({
   isAdmin: false,
   refreshProfile: async () => {},
   onlineUsers: [],
-  globalDateRange: { start: new Date(), end: new Date() },
+  globalDateRange: { start: new Date(0), end: new Date(0) },
   setGlobalDateRange: () => {},
   globalMonth: "",
   setGlobalMonth: () => {},
@@ -219,15 +219,21 @@ export default function DashboardLayout({
     "global:dateRange",
     null
   );
-  const [globalDateRange, setGlobalDateRangeState] = useState<{ start: Date; end: Date }>(() => ({
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    end: new Date(),
-  }));
+  // Use a stable initial date (epoch) to avoid hydration mismatch between server/client timezones
+  const [globalDateRange, setGlobalDateRangeState] = useState<{ start: Date; end: Date }>({
+    start: new Date(0),
+    end: new Date(0),
+  });
   useEffect(() => {
     if (savedGlobalDateRange) {
       setGlobalDateRangeState({
         start: new Date(savedGlobalDateRange.start),
         end: new Date(savedGlobalDateRange.end),
+      });
+    } else {
+      setGlobalDateRangeState({
+        start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+        end: new Date(),
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
