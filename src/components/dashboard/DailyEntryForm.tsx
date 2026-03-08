@@ -122,6 +122,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const [managedProducts, setManagedProducts] = useState<ManagedProduct[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [businessSchedule, setBusinessSchedule] = useState<Record<number, number>>({});
+  const [formSectionOrder, setFormSectionOrder] = useState<string[]>(["income_sources", "labor", "payments", "custom_params", "discounts", "managed_products"]);
 
   // Monthly settings for admin calculated fields
   const [monthlyMarkup, setMonthlyMarkup] = useState<number>(1);
@@ -283,6 +284,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         { data: lastEntry },
         { data: pmTypes },
         { data: schedules },
+        { data: bizSettings },
       ] = await Promise.all([
         supabase
           .from("income_sources")
@@ -324,6 +326,11 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           .from("business_schedule")
           .select("day_of_week, day_factor")
           .eq("business_id", businessId),
+        supabase
+          .from("businesses")
+          .select("form_section_order")
+          .eq("id", businessId)
+          .maybeSingle(),
       ]);
 
       // Cache business config for offline use
@@ -363,6 +370,9 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       setCustomParameters(parameters || []);
       setManagedProducts(products || []);
       setPaymentMethods((pmTypes || []) as PaymentMethod[]);
+      if (bizSettings?.form_section_order && Array.isArray(bizSettings.form_section_order)) {
+        setFormSectionOrder(bizSettings.form_section_order as string[]);
+      }
 
       // Initialize form state for each type
       const initialIncome: Record<string, IncomeData> = {};
@@ -1173,241 +1183,250 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                   />
                 </FormField>
 
-                {/* מקורות הכנסה - דינמי */}
-                {incomeSources.length > 0 && (
-                  <div className="flex flex-col gap-4 mt-2">
-                    <SectionHeader title="מקורות הכנסה" />
-                    {incomeSources.map((source) => (
-                      <div key={source.id} className="flex flex-col gap-3">
-                        <FormField label={`סה"כ ${source.name}`}>
+                {/* Render dynamic sections based on formSectionOrder */}
+                {formSectionOrder.map((sectionKey) => {
+                  switch (sectionKey) {
+                    case "income_sources":
+                      return incomeSources.length > 0 ? (
+                        <div key="income_sources" className="flex flex-col gap-4 mt-2">
+                          <SectionHeader title="מקורות הכנסה" />
+                          {incomeSources.map((source) => (
+                            <div key={source.id} className="flex flex-col gap-3">
+                              <FormField label={`סה"כ ${source.name}`}>
+                                <NumberInput
+                                  placeholder="0"
+                                  value={incomeData[source.id]?.amount || ""}
+                                  onChange={(v) => handleIncomeChange(source.id, "amount", v)}
+                                  className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                                />
+                              </FormField>
+                              <FormField label={`כמות הזמנות ${source.name}`}>
+                                <Input
+                                  type="number"
+                                  inputMode="numeric"
+                                  placeholder="0"
+                                  value={incomeData[source.id]?.orders_count || ""}
+                                  onChange={(e) => handleIncomeChange(source.id, "orders_count", e.target.value)}
+                                  className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                                />
+                              </FormField>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null;
+
+                    case "payments":
+                      return paymentMethods.length > 0 ? (
+                        <div key="payments" className="flex flex-col gap-4 mt-2">
+                          <SectionHeader title="תקבולים" />
+                          {paymentMethods.map((pm) => (
+                            <FormField key={pm.id} label={pm.name}>
+                              <NumberInput
+                                placeholder="0"
+                                value={paymentData[pm.id] || ""}
+                                onChange={(v) => setPaymentData((prev) => ({ ...prev, [pm.id]: v }))}
+                                className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                              />
+                            </FormField>
+                          ))}
+                        </div>
+                      ) : null;
+
+                    case "labor":
+                      return (
+                        <div key="labor" className="flex flex-col gap-4">
+                          <FormField label='סה"כ עלות עובדים יומית'>
+                            <NumberInput
+                              placeholder="0"
+                              value={formData.labor_cost}
+                              onChange={(v) => handleChange("labor_cost", v)}
+                              className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                            />
+                          </FormField>
+
+                          {isAdmin && isEditMode && (() => {
+                            const laborCost = parseFloat(formData.labor_cost) || 0;
+                            const laborWithMarkup = laborCost * monthlyMarkup;
+                            const entryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
+                            const daysInMonth = new Date(entryDate.getFullYear(), entryDate.getMonth() + 1, 0).getDate();
+                            const dayFactor = parseFloat(formData.day_factor) || 1;
+                            const dailyManagerCost = daysInMonth > 0
+                              ? (managerMonthlySalary / daysInMonth) * dayFactor
+                              : 0;
+
+                            return (
+                              <>
+                                <FormField label='סה"כ עלות עובדים יומית כולל העמסה'>
+                                  <Input
+                                    type="text"
+                                    disabled
+                                    value={laborWithMarkup > 0 ? laborWithMarkup.toFixed(2) : "—"}
+                                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold disabled:opacity-100"
+                                  />
+                                </FormField>
+                                <div className="flex flex-col gap-[3px]">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="text-white text-[15px] font-medium text-right">שכר מנהל יומי</Label>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => {
+                                        const loadSettings = async () => {
+                                          const supabase = createClient();
+                                          const ed = new Date(formData.entry_date || new Date());
+                                          const yr = ed.getFullYear();
+                                          const mo = ed.getMonth() + 1;
+                                          const { data: gs } = await supabase.from("goals").select("markup_percentage").eq("business_id", businessId).eq("year", yr).eq("month", mo).is("deleted_at", null).maybeSingle();
+                                          if (gs?.markup_percentage != null) setMonthlyMarkup(Number(gs.markup_percentage));
+                                          else {
+                                            const { data: bz } = await supabase.from("businesses").select("markup_percentage").eq("id", businessId).maybeSingle();
+                                            setMonthlyMarkup(bz ? Number(bz.markup_percentage) : 1);
+                                          }
+                                          const { data: bz2 } = await supabase.from("businesses").select("manager_monthly_salary").eq("id", businessId).maybeSingle();
+                                          setManagerMonthlySalary(bz2 ? Number(bz2.manager_monthly_salary) : 0);
+                                          const firstOfMonth = `${yr}-${String(mo).padStart(2, "0")}-01`;
+                                          const { count } = await supabase.from("daily_entries").select("id", { count: "exact", head: true }).eq("business_id", businessId).gte("entry_date", firstOfMonth).lte("entry_date", formData.entry_date);
+                                          setWorkingDaysUpToDate((count || 0) + (isEditMode ? 0 : 1));
+                                        };
+                                        loadSettings();
+                                      }}
+                                      className="opacity-50 hover:opacity-100 transition-opacity"
+                                    >
+                                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                                    </Button>
+                                  </div>
+                                  <Input
+                                    type="text"
+                                    disabled
+                                    value={dailyManagerCost > 0 ? `₪ ${dailyManagerCost.toFixed(2)}` : "—"}
+                                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold disabled:opacity-100"
+                                  />
+                                </div>
+                              </>
+                            );
+                          })()}
+
+                          <FormField label="כמות שעות עובדים">
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              placeholder="0"
+                              value={formData.labor_hours}
+                              onChange={(e) => handleChange("labor_hours", e.target.value)}
+                              className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                            />
+                          </FormField>
+                        </div>
+                      );
+
+                    case "custom_params":
+                      return customParameters.length > 0 ? (
+                        <div key="custom_params" className="flex flex-col gap-4 mt-2">
+                          <SectionHeader title="פרמטרים נוספים" />
+                          {customParameters.map((param) => (
+                            <FormField key={param.id} label={param.name}>
+                              <NumberInput
+                                placeholder="0"
+                                value={parameterData[param.id] || ""}
+                                onChange={(v) => handleParameterChange(param.id, v)}
+                                className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                              />
+                            </FormField>
+                          ))}
+                        </div>
+                      ) : null;
+
+                    case "discounts":
+                      return (
+                        <FormField key="discounts" label="זיכויים+ביטולים+הנחות ב-₪">
                           <NumberInput
                             placeholder="0"
-                            value={incomeData[source.id]?.amount || ""}
-                            onChange={(v) => handleIncomeChange(source.id, "amount", v)}
+                            value={formData.discounts}
+                            onChange={(v) => handleChange("discounts", v)}
                             className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                           />
                         </FormField>
-                        <FormField label={`כמות הזמנות ${source.name}`}>
-                          <Input
-                            type="number"
-                            inputMode="numeric"
-                            placeholder="0"
-                            value={incomeData[source.id]?.orders_count || ""}
-                            onChange={(e) => handleIncomeChange(source.id, "orders_count", e.target.value)}
-                            className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
-                          />
-                        </FormField>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      );
 
-                {/* תקבולים - לתזרים מזומנים */}
-                {paymentMethods.length > 0 && (
-                  <div className="flex flex-col gap-4 mt-2">
-                    <SectionHeader title="תקבולים" />
-                    {paymentMethods.map((pm) => (
-                      <FormField key={pm.id} label={pm.name}>
-                        <NumberInput
-                          placeholder="0"
-                          value={paymentData[pm.id] || ""}
-                          onChange={(v) => setPaymentData((prev) => ({ ...prev, [pm.id]: v }))}
-                          className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
-                        />
-                      </FormField>
-                    ))}
-                  </div>
-                )}
+                    case "managed_products":
+                      return managedProducts.length > 0 ? (
+                        <div key="managed_products" className="flex flex-col gap-4 mt-2">
+                          <SectionHeader title="מוצרים מנוהלים" />
+                          {managedProducts.map((product) => (
+                            <div
+                              key={product.id}
+                              className="border border-[#4C526B] rounded-[10px] p-4 flex flex-col gap-3"
+                            >
+                              <div className="text-white font-medium text-right">
+                                <span>{product.name}</span>
+                              </div>
 
-                {/* עלויות עובדים */}
-                <FormField label='סה"כ עלות עובדים יומית'>
-                  <NumberInput
-                    placeholder="0"
-                    value={formData.labor_cost}
-                    onChange={(v) => handleChange("labor_cost", v)}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
-                  />
-                </FormField>
+                              <FormField label={`מלאי פתיחה (${product.unit})`}>
+                                <Input
+                                  type="number"
+                                  inputMode="decimal"
+                                  placeholder="0"
+                                  value={productUsage[product.id]?.opening_stock || ""}
+                                  onChange={(e) =>
+                                    handleProductUsageChange(product.id, "opening_stock", e.target.value)
+                                  }
+                                  className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                                />
+                              </FormField>
 
-                {/* Admin-only calculated fields - edit mode only */}
-                {isAdmin && isEditMode && (() => {
-                  // עלות עובדים יומית כולל העמסה = עלות יומית * העמסה
-                  const laborCost = parseFloat(formData.labor_cost) || 0;
-                  const laborWithMarkup = laborCost * monthlyMarkup;
+                              <FormField label={`כמה ${product.unit} ${product.name} קיבלנו היום?`}>
+                                <Input
+                                  type="number"
+                                  inputMode="decimal"
+                                  placeholder="0"
+                                  value={productUsage[product.id]?.received_quantity || ""}
+                                  onChange={(e) =>
+                                    handleProductUsageChange(product.id, "received_quantity", e.target.value)
+                                  }
+                                  className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                                />
+                              </FormField>
 
-                  // שכר מנהל יומי = (שכר חודשי / ימים בחודש) * יום חלקי
-                  const entryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
-                  const daysInMonth = new Date(entryDate.getFullYear(), entryDate.getMonth() + 1, 0).getDate();
-                  const dayFactor = parseFloat(formData.day_factor) || 1;
-                  const dailyManagerCost = daysInMonth > 0
-                    ? (managerMonthlySalary / daysInMonth) * dayFactor
-                    : 0;
+                              <FormField label={`כמה ${product.unit} ${product.name} נשאר?`}>
+                                <Input
+                                  type="number"
+                                  inputMode="decimal"
+                                  placeholder="0"
+                                  value={productUsage[product.id]?.closing_stock || ""}
+                                  onChange={(e) =>
+                                    handleProductUsageChange(product.id, "closing_stock", e.target.value)
+                                  }
+                                  className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                                />
+                              </FormField>
 
-                  return (
-                    <>
-                      <FormField label='סה"כ עלות עובדים יומית כולל העמסה'>
-                        <Input
-                          type="text"
-                          disabled
-                          value={laborWithMarkup > 0 ? laborWithMarkup.toFixed(2) : "—"}
-                          className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold disabled:opacity-100"
-                        />
-                      </FormField>
-                      <div className="flex flex-col gap-[3px]">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-white text-[15px] font-medium text-right">שכר מנהל יומי</Label>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              // Re-fetch markup, manager salary & working days
-                              const loadSettings = async () => {
-                                const supabase = createClient();
-                                const ed = new Date(formData.entry_date || new Date());
-                                const yr = ed.getFullYear();
-                                const mo = ed.getMonth() + 1;
-                                const { data: gs } = await supabase.from("goals").select("markup_percentage").eq("business_id", businessId).eq("year", yr).eq("month", mo).is("deleted_at", null).maybeSingle();
-                                if (gs?.markup_percentage != null) setMonthlyMarkup(Number(gs.markup_percentage));
-                                else {
-                                  const { data: bz } = await supabase.from("businesses").select("markup_percentage").eq("id", businessId).maybeSingle();
-                                  setMonthlyMarkup(bz ? Number(bz.markup_percentage) : 1);
-                                }
-                                const { data: bz2 } = await supabase.from("businesses").select("manager_monthly_salary").eq("id", businessId).maybeSingle();
-                                setManagerMonthlySalary(bz2 ? Number(bz2.manager_monthly_salary) : 0);
-                                const firstOfMonth = `${yr}-${String(mo).padStart(2, "0")}-01`;
-                                const { count } = await supabase.from("daily_entries").select("id", { count: "exact", head: true }).eq("business_id", businessId).gte("entry_date", firstOfMonth).lte("entry_date", formData.entry_date);
-                                setWorkingDaysUpToDate((count || 0) + (isEditMode ? 0 : 1));
-                              };
-                              loadSettings();
-                            }}
-                            className="opacity-50 hover:opacity-100 transition-opacity"
-                          >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                          </Button>
-                        </div>
-                        <Input
-                          type="text"
-                          disabled
-                          value={dailyManagerCost > 0 ? `₪ ${dailyManagerCost.toFixed(2)}` : "—"}
-                          className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold disabled:opacity-100"
-                        />
-                      </div>
-                    </>
-                  );
-                })()}
-
-                <FormField label="כמות שעות עובדים">
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    placeholder="0"
-                    value={formData.labor_hours}
-                    onChange={(e) => handleChange("labor_hours", e.target.value)}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
-                  />
-                </FormField>
-
-                {/* פרמטרים נוספים - דינמי */}
-                {customParameters.length > 0 && (
-                  <div className="flex flex-col gap-4 mt-2">
-                    <SectionHeader title="פרמטרים נוספים" />
-                    {customParameters.map((param) => (
-                      <FormField key={param.id} label={param.name}>
-                        <NumberInput
-                          placeholder="0"
-                          value={parameterData[param.id] || ""}
-                          onChange={(v) => handleParameterChange(param.id, v)}
-                          className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
-                        />
-                      </FormField>
-                    ))}
-                  </div>
-                )}
-
-                <FormField label="זיכויים+ביטולים+הנחות ב-₪">
-                  <NumberInput
-                    placeholder="0"
-                    value={formData.discounts}
-                    onChange={(v) => handleChange("discounts", v)}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
-                  />
-                </FormField>
-
-                {/* מוצרים מנוהלים - דינמי */}
-                {managedProducts.length > 0 && (
-                  <div className="flex flex-col gap-4 mt-2">
-                    <SectionHeader title="מוצרים מנוהלים" />
-                    {managedProducts.map((product) => (
-                      <div
-                        key={product.id}
-                        className="border border-[#4C526B] rounded-[10px] p-4 flex flex-col gap-3"
-                      >
-                        <div className="text-white font-medium text-right">
-                          <span>{product.name}</span>
-                        </div>
-
-                        <FormField label={`מלאי פתיחה (${product.unit})`}>
-                          <Input
-                            type="number"
-                            inputMode="decimal"
-                            placeholder="0"
-                            value={productUsage[product.id]?.opening_stock || ""}
-                            onChange={(e) =>
-                              handleProductUsageChange(product.id, "opening_stock", e.target.value)
-                            }
-                            className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
-                          />
-                        </FormField>
-
-                        <FormField label={`כמה ${product.unit} ${product.name} קיבלנו היום?`}>
-                          <Input
-                            type="number"
-                            inputMode="decimal"
-                            placeholder="0"
-                            value={productUsage[product.id]?.received_quantity || ""}
-                            onChange={(e) =>
-                              handleProductUsageChange(product.id, "received_quantity", e.target.value)
-                            }
-                            className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
-                          />
-                        </FormField>
-
-                        <FormField label={`כמה ${product.unit} ${product.name} נשאר?`}>
-                          <Input
-                            type="number"
-                            inputMode="decimal"
-                            placeholder="0"
-                            value={productUsage[product.id]?.closing_stock || ""}
-                            onChange={(e) =>
-                              handleProductUsageChange(product.id, "closing_stock", e.target.value)
-                            }
-                            className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
-                          />
-                        </FormField>
-
-                        {/* שימוש בפועל - admin + edit mode only */}
-                        {isAdmin && isEditMode && (() => {
-                          const opening = parseFloat(productUsage[product.id]?.opening_stock) || 0;
-                          const received = parseFloat(productUsage[product.id]?.received_quantity) || 0;
-                          const closing = parseFloat(productUsage[product.id]?.closing_stock) || 0;
-                          const actualUsage = opening + received - closing;
-                          return (
-                            <div className="bg-transparent rounded-[7px] flex flex-col gap-[3px]">
-                              <span className="text-white text-[15px] font-medium text-right">שימוש בפועל</span>
-                              <Input
-                                type="text"
-                                disabled
-                                value={actualUsage > 0 ? `${actualUsage.toFixed(2)} ${product.unit}` : "—"}
-                                className="bg-transparent border border-[#4C526B] text-white text-right h-[40px] rounded-[10px] px-[10px] font-semibold disabled:opacity-100"
-                              />
+                              {isAdmin && isEditMode && (() => {
+                                const opening = parseFloat(productUsage[product.id]?.opening_stock) || 0;
+                                const received = parseFloat(productUsage[product.id]?.received_quantity) || 0;
+                                const closing = parseFloat(productUsage[product.id]?.closing_stock) || 0;
+                                const actualUsage = opening + received - closing;
+                                return (
+                                  <div className="bg-transparent rounded-[7px] flex flex-col gap-[3px]">
+                                    <span className="text-white text-[15px] font-medium text-right">שימוש בפועל</span>
+                                    <Input
+                                      type="text"
+                                      disabled
+                                      value={actualUsage > 0 ? `${actualUsage.toFixed(2)} ${product.unit}` : "—"}
+                                      className="bg-transparent border border-[#4C526B] text-white text-right h-[40px] rounded-[10px] px-[10px] font-semibold disabled:opacity-100"
+                                    />
+                                  </div>
+                                );
+                              })()}
                             </div>
-                          );
-                        })()}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                          ))}
+                        </div>
+                      ) : null;
+
+                    default:
+                      return null;
+                  }
+                })}
               </>
             )}
 

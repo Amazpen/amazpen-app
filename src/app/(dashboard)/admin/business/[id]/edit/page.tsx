@@ -111,6 +111,18 @@ export default function EditBusinessPage({ params }: PageProps) {
   const [newPaymentMethodName, setNewPaymentMethodName] = useState("");
   const [editingPaymentMethodId, setEditingPaymentMethodId] = useState<string | null>(null);
 
+  // Form section order
+  const DEFAULT_SECTION_ORDER = ["income_sources", "labor", "payments", "custom_params", "discounts", "managed_products"];
+  const SECTION_LABELS: Record<string, string> = {
+    income_sources: "מקורות הכנסה",
+    labor: "עלות עובדים",
+    payments: "תקבולים",
+    custom_params: "פרמטרים נוספים",
+    discounts: "זיכויים",
+    managed_products: "מוצרים מנוהלים",
+  };
+  const [formSectionOrder, setFormSectionOrder] = useState<string[]>(DEFAULT_SECTION_ORDER);
+
   // Credit Cards
   interface CreditCard {
     id?: string;
@@ -224,6 +236,9 @@ export default function EditBusinessPage({ params }: PageProps) {
       setLogoPreview(business.logo_url || null);
       setManagerSalary(business.manager_monthly_salary || 0);
       setMarkupPercentage(business.markup_percentage ? Math.round((business.markup_percentage - 1) * 100) : 0);
+      if (business.form_section_order && Array.isArray(business.form_section_order)) {
+        setFormSectionOrder(business.form_section_order as string[]);
+      }
       setVatPercentage(business.vat_percentage ? Math.round(business.vat_percentage * 100) : 18);
 
       // Fetch schedule
@@ -643,6 +658,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           manager_monthly_salary: managerSalary,
           markup_percentage: 1 + markupPercentage / 100,
           vat_percentage: vatPercentage / 100,
+          form_section_order: formSectionOrder,
         })
         .eq("id", businessId);
 
@@ -1615,6 +1631,54 @@ export default function EditBusinessPage({ params }: PageProps) {
           <p className="text-[14px] text-[#F64E60]">יש להוסיף לפחות מקור הכנסה אחד</p>
         </div>
       )}
+
+      {/* Section: Form field order */}
+      <div className="bg-[#4956D4]/20 rounded-[15px] p-[8px]">
+        <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">סדר שדות בטופס הזנה</h3>
+        <p className="text-[12px] text-white/50 text-right mb-[10px]">גרור למעלה ולמטה כדי לשנות את הסדר</p>
+
+        <div className="flex flex-col gap-[6px]">
+          {formSectionOrder.map((sectionKey, index) => (
+            <div
+              key={sectionKey}
+              className="flex items-center gap-[8px] bg-[#1a1f3d] border border-[#4C526B] rounded-[10px] px-[12px] py-[10px]"
+            >
+              <div className="flex flex-col gap-[2px]">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={index === 0}
+                  onClick={() => {
+                    const newOrder = [...formSectionOrder];
+                    [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+                    setFormSectionOrder(newOrder);
+                  }}
+                  className="h-[20px] w-[28px] text-white/60 hover:text-white disabled:opacity-20"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={index === formSectionOrder.length - 1}
+                  onClick={() => {
+                    const newOrder = [...formSectionOrder];
+                    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+                    setFormSectionOrder(newOrder);
+                  }}
+                  className="h-[20px] w-[28px] text-white/60 hover:text-white disabled:opacity-20"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                </Button>
+              </div>
+              <span className="text-[14px] text-white font-medium flex-1 text-right">{SECTION_LABELS[sectionKey] || sectionKey}</span>
+              <span className="text-[12px] text-white/30">{index + 1}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 
