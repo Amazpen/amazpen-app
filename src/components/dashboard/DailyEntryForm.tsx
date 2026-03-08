@@ -966,7 +966,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
               <>
                 {/* Pearla-specific form fields */}
                 <FormField label="תאריך האירוע">
-                  <div className={`relative ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} border rounded-[10px] h-[50px]`}>
+                  <div className={`relative ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} border rounded-[10px] h-[50px] overflow-hidden`}>
                     <span className={`absolute inset-0 flex items-center justify-center text-[16px] font-semibold pointer-events-none ${formData.entry_date ? 'text-white' : 'text-white/40'}`}>
                       {formData.entry_date
                         ? new Date(formData.entry_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -977,8 +977,8 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                       title="תאריך האירוע"
                       value={formData.entry_date}
                       onChange={(e) => handleChange("entry_date", e.target.value)}
-                      className="absolute inset-0 w-full h-full cursor-pointer z-20 date-input-transparent"
-                      style={{ fontSize: '16px', color: 'transparent', background: 'transparent', border: 'none', WebkitAppearance: 'none' }}
+                      className="w-full h-full opacity-0 cursor-pointer z-10 relative"
+                      style={{ fontSize: '16px' }}
                     />
                   </div>
                   {dateWarning && (
@@ -1092,7 +1092,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
               <>
                 {/* Original form fields for all other businesses */}
                 <FormField label="תאריך">
-                  <div className={`relative ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} border rounded-[10px] h-[50px]`}>
+                  <div className={`relative ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} border rounded-[10px] h-[50px] overflow-hidden`}>
                     <span className={`absolute inset-0 flex items-center justify-center text-[16px] font-semibold pointer-events-none ${formData.entry_date ? 'text-white' : 'text-white/40'}`}>
                       {formData.entry_date
                         ? new Date(formData.entry_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -1103,8 +1103,8 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                       title="תאריך"
                       value={formData.entry_date}
                       onChange={(e) => handleChange("entry_date", e.target.value)}
-                      className="absolute inset-0 w-full h-full cursor-pointer z-20 date-input-transparent"
-                      style={{ fontSize: '16px', color: 'transparent', background: 'transparent', border: 'none', WebkitAppearance: 'none' }}
+                      className="w-full h-full opacity-0 cursor-pointer z-10 relative"
+                      style={{ fontSize: '16px' }}
                     />
                   </div>
                   {dateWarning && (
