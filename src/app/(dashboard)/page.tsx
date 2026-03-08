@@ -1159,7 +1159,11 @@ export default function DashboardPage() {
         return;
       }
 
-      setIsLoadingSummary(true);
+      // Only show skeleton loaders on initial load (no existing data)
+      // On refetch (realtime/manual), keep showing old data while fetching
+      if (!detailedSummary) {
+        setIsLoadingSummary(true);
+      }
       const supabase = createClient();
       const startDateStr = formatLocalDate(dateRange.start);
       const endDateStr = formatLocalDate(dateRange.end);
@@ -2960,7 +2964,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Data Cards - New Design - Grid on desktop */}
-            <div id="onboarding-data-cards" key={isLoadingSummary ? "loading" : "loaded"} className={`flex flex-col lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-[15px] w-full mt-[15px] ${!isLoadingSummary && !isInitialLoad ? 'animate-fade-in' : ''}`}>
+            <div id="onboarding-data-cards" className={`flex flex-col lg:grid lg:grid-cols-2 xl:grid-cols-3 gap-[15px] w-full mt-[15px] ${!isLoadingSummary && !isInitialLoad ? 'animate-fade-in' : ''}`}>
               {(isInitialLoad || isLoadingSummary) && selectedBusinesses.length > 0 ? (
                 // Skeleton loaders for data cards - shown during loading
                 <>
