@@ -211,6 +211,7 @@ export default function PriceTrackingPage() {
 
   // Stats
   const unreadAlerts = useMemo(() => alerts.filter(a => a.status === 'unread'), [alerts]);
+  const recentAlerts = useMemo(() => alerts.slice(0, 10), [alerts]);
   const trackedItems = useMemo(() => {
     const unique = new Set(alerts.map(a => a.supplier_item_id));
     return unique.size;
@@ -267,82 +268,83 @@ export default function PriceTrackingPage() {
         </div>
       </div>
 
-      {/* ===== SECTION 1: שינויי מחיר שזוהו ===== */}
+      {/* ===== SECTION 1: שינויי מחיר שזוהו (10 אחרונים) ===== */}
       <div className="px-4 py-2">
         <h2 className="text-[16px] font-semibold text-white mb-2">שינויי מחיר שזוהו</h2>
         {isLoading ? (
           <div className="flex justify-center py-8">
             <div className="w-8 h-8 border-4 border-white/20 border-t-white/60 rounded-full animate-spin" />
           </div>
-        ) : unreadAlerts.length === 0 ? (
+        ) : recentAlerts.length === 0 ? (
           <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-6 text-center">
-            <p className="text-white/40 text-[14px]">אין התראות חדשות</p>
+            <p className="text-white/40 text-[14px]">אין שינויי מחיר</p>
           </div>
         ) : (
-          <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-[13px]">
-                <thead>
-                  <tr className="border-b border-[#4C526B] bg-[#0a0d1f]/40">
-                    <th className="text-right py-2 px-3 text-white/50 font-medium">מוצר</th>
-                    <th className="text-right py-2 px-3 text-white/50 font-medium">ספק</th>
-                    <th className="text-center py-2 px-3 text-white/50 font-medium">מחיר חדש</th>
-                    <th className="text-center py-2 px-3 text-white/50 font-medium">מחיר קודם</th>
-                    <th className="text-center py-2 px-3 text-white/50 font-medium">שינוי</th>
-                    <th className="text-center py-2 px-3 text-white/50 font-medium">שווי בש״ח</th>
-                    <th className="py-2 px-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {unreadAlerts.slice(0, 20).map((alert, idx) => {
-                    const qty = lastQuantityMap.get(alert.supplier_item_id);
-                    const valueChange = qty != null ? (alert.new_price - alert.old_price) * qty : null;
-                    return (
-                      <tr
-                        key={alert.id}
-                        className={`border-b border-[#4C526B]/40 ${idx % 2 !== 0 ? 'bg-white/[0.02]' : ''}`}
-                      >
-                        <td className="py-2 px-3 text-white font-medium">{alert.item_name}</td>
-                        <td className="py-2 px-3 text-white/60">{alert.supplier_name}</td>
-                        <td className="py-2 px-3 text-center text-white ltr-num">₪{alert.new_price.toFixed(2)}</td>
-                        <td className="py-2 px-3 text-center text-white/50 ltr-num">₪{alert.old_price.toFixed(2)}</td>
-                        <td className="py-2 px-3 text-center ltr-num">
-                          <span className={`font-semibold ${alert.change_pct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
-                            {alert.change_pct > 0 ? '▲' : '▼'} {Math.abs(alert.change_pct).toFixed(1)}%
-                          </span>
-                        </td>
-                        <td className="py-2 px-3 text-center ltr-num">
-                          {valueChange != null ? (
-                            <span className={`font-medium ${valueChange > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
-                              {valueChange > 0 ? '+' : ''}₪{valueChange.toFixed(2)}
-                            </span>
-                          ) : (
-                            <span className="text-white/30">-</span>
-                          )}
-                        </td>
-                        <td className="py-2 px-2">
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => updateAlertStatus(alert.id, 'read')}
-                              className="text-[11px] text-white/50 hover:text-white bg-[#29318A]/30 hover:bg-[#29318A] px-2 py-1 rounded-[5px] transition-colors whitespace-nowrap"
-                            >
-                              ראיתי
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateAlertStatus(alert.id, 'dismissed')}
-                              className="text-[11px] text-white/30 hover:text-white/60 px-2 py-1 rounded-[5px] transition-colors"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          <div className="w-full flex flex-col">
+            {/* Header */}
+            <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1.2fr_auto] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[13px]">
+              <span className="text-white/80 font-medium text-right px-2">מוצר</span>
+              <span className="text-white/80 font-medium text-right px-2">ספק</span>
+              <span className="text-white/80 font-medium text-center px-2">מחיר קודם</span>
+              <span className="text-white/80 font-medium text-center px-2">מחיר חדש</span>
+              <span className="text-white/80 font-medium text-center px-2">שינוי</span>
+              <span className="text-white/80 font-medium text-center px-2">שווי בש״ח</span>
+              <span className="w-[70px]"></span>
+            </div>
+            {/* Rows */}
+            <div className="max-h-[400px] overflow-y-auto flex flex-col gap-[3px] mt-[3px]">
+              {recentAlerts.map((alert) => {
+                const qty = lastQuantityMap.get(alert.supplier_item_id);
+                const valueChange = qty != null ? (alert.new_price - alert.old_price) * qty : null;
+                const isUnread = alert.status === 'unread';
+                return (
+                  <div
+                    key={alert.id}
+                    className={`grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1.2fr_auto] w-full p-[8px_5px] rounded-[7px] items-center text-[13px] ${
+                      isUnread ? 'bg-[#0F1535]' : 'bg-[#0F1535]/60'
+                    }`}
+                  >
+                    <span className="text-white font-medium truncate px-2">{alert.item_name}</span>
+                    <span className="text-white/60 truncate px-2">{alert.supplier_name}</span>
+                    <span className="text-white/50 text-center ltr-num px-2">₪{alert.old_price.toFixed(2)}</span>
+                    <span className="text-white text-center font-semibold ltr-num px-2">₪{alert.new_price.toFixed(2)}</span>
+                    <span className="text-center ltr-num px-2">
+                      <span className={`font-semibold ${alert.change_pct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                        {alert.change_pct > 0 ? '▲' : '▼'} {Math.abs(alert.change_pct).toFixed(1)}%
+                      </span>
+                    </span>
+                    <span className="text-center ltr-num px-2">
+                      {valueChange != null ? (
+                        <span className={`font-medium ${valueChange > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                          {valueChange > 0 ? '+' : ''}₪{valueChange.toFixed(0)}
+                        </span>
+                      ) : (
+                        <span className="text-white/30">-</span>
+                      )}
+                    </span>
+                    <span className="w-[70px] flex items-center justify-center gap-1">
+                      {isUnread && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => updateAlertStatus(alert.id, 'read')}
+                            className="text-[11px] text-white/50 hover:text-white bg-[#29318A]/30 hover:bg-[#29318A] px-2 py-1 rounded-[5px] transition-colors whitespace-nowrap"
+                          >
+                            ראיתי
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateAlertStatus(alert.id, 'dismissed')}
+                            className="text-[11px] text-white/30 hover:text-white/60 px-1 py-1 rounded-[5px] transition-colors"
+                          >
+                            ✕
+                          </button>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -352,7 +354,7 @@ export default function PriceTrackingPage() {
       <div className="px-4 py-3 mt-2 border-t border-[#4C526B]">
         <h2 className="text-[16px] font-semibold text-white mb-3">חיפוש מחירים לפי ספק</h2>
 
-        {/* Supplier select + item search side by side */}
+        {/* Supplier select */}
         <div className="flex gap-2 mb-3">
           <div className="flex-1">
             <SupplierSearchSelect
@@ -367,8 +369,13 @@ export default function PriceTrackingPage() {
               label="חיפוש ספק"
             />
           </div>
-          {selectedSupplierId && (
-            <div className="flex-1">
+        </div>
+
+        {/* Item search + items list */}
+        {selectedSupplierId && (
+          <>
+            {/* Item search input */}
+            <div className="mb-3">
               <input
                 type="text"
                 value={itemSearchQuery}
@@ -378,180 +385,155 @@ export default function PriceTrackingPage() {
                 dir="rtl"
               />
             </div>
-          )}
-        </div>
 
-        {/* Items list */}
-        {selectedSupplierId && (
-          supplierItems.length === 0 ? (
-            <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-6 text-center">
-              <p className="text-white/40 text-[14px]">אין פריטים מעוקבים לספק זה</p>
-            </div>
-          ) : filteredItems.length === 0 ? (
-            <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-4 text-center">
-              <p className="text-white/40 text-[14px]">לא נמצאו פריטים תואמים</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  className={`w-full bg-[#0F1535] border rounded-[10px] p-3 flex items-center gap-2 transition-colors ${
-                    selectedItemId === item.id
-                      ? 'border-[#29318A] bg-[#29318A]/10'
-                      : 'border-[#4C526B]'
-                  } ${item.alert_muted ? 'opacity-60' : ''}`}
-                >
-                  {/* Item info — clickable for history */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedItemId(selectedItemId === item.id ? null : item.id)}
-                    className="flex-1 flex items-center justify-between min-w-0"
-                  >
-                    <div className="text-right min-w-0">
-                      <p className="text-[14px] text-white font-medium truncate">{item.item_name}</p>
-                      <div className="flex items-center gap-2">
-                        {item.alert_muted && (
-                          <span className="text-[10px] text-[#bc76ff]">ללא התראות</span>
-                        )}
-                        {item.last_price_date && (
-                          <p className="text-[11px] text-white/40">
-                            עדכון: {new Date(item.last_price_date).toLocaleDateString('he-IL')}
+            {supplierItems.length === 0 ? (
+              <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-6 text-center">
+                <p className="text-white/40 text-[14px]">אין פריטים מעוקבים לספק זה</p>
+              </div>
+            ) : filteredItems.length === 0 ? (
+              <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-4 text-center">
+                <p className="text-white/40 text-[14px]">לא נמצאו פריטים תואמים</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {filteredItems.map((item) => (
+                  <div key={item.id} className="flex flex-col gap-0">
+                    <div
+                      className={`w-full bg-[#0F1535] border rounded-[10px] p-3 flex items-center gap-2 transition-colors cursor-pointer ${
+                        selectedItemId === item.id
+                          ? 'border-[#29318A] bg-[#29318A]/10 rounded-b-none'
+                          : 'border-[#4C526B]'
+                      } ${item.alert_muted ? 'opacity-60' : ''}`}
+                    >
+                      {/* Item info — clickable for history */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedItemId(selectedItemId === item.id ? null : item.id)}
+                        className="flex-1 flex items-center justify-between min-w-0"
+                      >
+                        <div className="text-right min-w-0">
+                          <p className="text-[14px] text-white font-medium truncate">{item.item_name}</p>
+                          <div className="flex items-center gap-2">
+                            {item.alert_muted && (
+                              <span className="text-[10px] text-[#bc76ff]">ללא התראות</span>
+                            )}
+                            {item.last_price_date && (
+                              <p className="text-[11px] text-white/40">
+                                עדכון: {new Date(item.last_price_date).toLocaleDateString('he-IL')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-left flex-shrink-0 ml-2">
+                          <p className="text-[16px] text-white font-bold ltr-num">
+                            &#8362;{item.current_price?.toFixed(2) || '-'}
                           </p>
+                        </div>
+                      </button>
+
+                      {/* Mute toggle */}
+                      <button
+                        type="button"
+                        title={item.alert_muted ? 'הפעל התראות לפריט זה' : 'השתק התראות לפריט זה'}
+                        onClick={(e) => { e.stopPropagation(); toggleMuteItem(item.id, item.alert_muted); }}
+                        className={`flex-shrink-0 w-[32px] h-[32px] rounded-[8px] flex items-center justify-center transition-colors ${
+                          item.alert_muted
+                            ? 'bg-[#bc76ff]/20 text-[#bc76ff]'
+                            : 'bg-white/5 text-white/30 hover:text-white/60 hover:bg-white/10'
+                        }`}
+                      >
+                        {item.alert_muted ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                            <path d="M18.63 13A17.89 17.89 0 0 1 18 8"/>
+                            <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/>
+                            <path d="M18 8a6 6 0 0 0-9.33-5"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                          </svg>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                          </svg>
                         )}
+                      </button>
+                    </div>
+
+                    {/* Price history grid — inline under item */}
+                    {selectedItemId === item.id && historyColumns.length > 0 && (
+                      <div className="bg-[#0F1535] border border-t-0 border-[#29318A] rounded-b-[10px] overflow-hidden">
+                        <div className="overflow-x-auto">
+                          {/* Dynamic grid: first col for label, rest for price columns */}
+                          <div className="min-w-fit">
+                            {/* Header row */}
+                            <div
+                              className="grid items-center bg-[#29318A]/30 border-b border-[#4C526B]/40 text-[12px]"
+                              style={{ gridTemplateColumns: `120px repeat(${historyColumns.length}, 1fr)` }}
+                            >
+                              <span className="py-2 px-3 text-white/50 font-medium text-right">שם הפריט</span>
+                              {historyColumns.map((_, idx) => (
+                                <span key={idx} className="py-2 px-3 text-white/50 font-medium text-center whitespace-nowrap">
+                                  {idx === 0 ? 'מחיר אחרון בש״ח' : 'מחיר קודם'}
+                                </span>
+                              ))}
+                            </div>
+                            {/* Prices row */}
+                            <div
+                              className="grid items-center border-b border-[#4C526B]/40 text-[13px]"
+                              style={{ gridTemplateColumns: `120px repeat(${historyColumns.length}, 1fr)` }}
+                            >
+                              <span className="py-2 px-3 text-white font-medium truncate">{selectedItem?.item_name}</span>
+                              {historyColumns.map((ph) => (
+                                <span key={ph.id} className="py-2 px-3 text-center text-white font-semibold ltr-num">
+                                  {ph.price.toFixed(2)}
+                                </span>
+                              ))}
+                            </div>
+                            {/* Change % row */}
+                            <div
+                              className="grid items-center border-b border-[#4C526B]/40 text-[12px]"
+                              style={{ gridTemplateColumns: `120px repeat(${historyColumns.length}, 1fr)` }}
+                            >
+                              <span className="py-2 px-3"></span>
+                              {historyColumns.map((ph, idx) => {
+                                const prevPrice = idx < historyColumns.length - 1 ? historyColumns[idx + 1].price : null;
+                                const change = prevPrice != null ? ((ph.price - prevPrice) / prevPrice) * 100 : null;
+                                return (
+                                  <span key={ph.id} className="py-2 px-3 text-center ltr-num">
+                                    {change != null ? (
+                                      <span className={`font-medium ${change > 0 ? 'text-[#F64E60]' : change < 0 ? 'text-[#3CD856]' : 'text-white/40'}`}>
+                                        {change > 0 ? '+' : ''}{change.toFixed(2)}%
+                                      </span>
+                                    ) : (
+                                      <span className="text-white/30">-</span>
+                                    )}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                            {/* Dates row */}
+                            <div
+                              className="grid items-center text-[12px]"
+                              style={{ gridTemplateColumns: `120px repeat(${historyColumns.length}, 1fr)` }}
+                            >
+                              <span className="py-2 px-3"></span>
+                              {historyColumns.map((ph) => (
+                                <span key={ph.id} className="py-2 px-3 text-center text-white/50 ltr-num">
+                                  {new Date(ph.document_date).toLocaleDateString('he-IL')}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-left flex-shrink-0 ml-2">
-                      <p className="text-[16px] text-white font-bold ltr-num">
-                        &#8362;{item.current_price?.toFixed(2) || '-'}
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Mute toggle */}
-                  <button
-                    type="button"
-                    title={item.alert_muted ? 'הפעל התראות לפריט זה' : 'השתק התראות לפריט זה'}
-                    onClick={(e) => { e.stopPropagation(); toggleMuteItem(item.id, item.alert_muted); }}
-                    className={`flex-shrink-0 w-[32px] h-[32px] rounded-[8px] flex items-center justify-center transition-colors ${
-                      item.alert_muted
-                        ? 'bg-[#bc76ff]/20 text-[#bc76ff]'
-                        : 'bg-white/5 text-white/30 hover:text-white/60 hover:bg-white/10'
-                    }`}
-                  >
-                    {item.alert_muted ? (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                        <path d="M18.63 13A17.89 17.89 0 0 1 18 8"/>
-                        <path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/>
-                        <path d="M18 8a6 6 0 0 0-9.33-5"/>
-                        <line x1="1" y1="1" x2="23" y2="23"/>
-                      </svg>
-                    ) : (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                      </svg>
                     )}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )
-        )}
-
-        {/* Price history — horizontal table (like screenshot) */}
-        {selectedItemId && selectedItem && historyColumns.length > 0 && (
-          <div className="mt-3 bg-[#0F1535] border border-[#4C526B] rounded-[10px] overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="text-[13px] w-full">
-                <thead>
-                  <tr className="border-b border-[#4C526B] bg-[#0a0d1f]/40">
-                    {/* Item name header */}
-                    <th className="text-right py-2 px-3 text-white/50 font-medium whitespace-nowrap min-w-[120px]">
-                      שם הפריט
-                    </th>
-                    {/* Column headers: מחיר אחרון, מחיר קודם, מחיר קודם... */}
-                    {historyColumns.map((_, idx) => (
-                      <th key={idx} className="text-center py-2 px-3 text-white/50 font-medium whitespace-nowrap min-w-[90px]">
-                        {idx === 0 ? 'מחיר אחרון בש״ח' : 'מחיר קודם'}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Row 1: item name + prices */}
-                  <tr className="border-b border-[#4C526B]/40">
-                    <td className="py-2 px-3 text-white font-medium whitespace-nowrap">{selectedItem.item_name}</td>
-                    {historyColumns.map((ph) => (
-                      <td key={ph.id} className="py-2 px-3 text-center text-white font-semibold ltr-num whitespace-nowrap">
-                        {ph.price.toFixed(2)}
-                      </td>
-                    ))}
-                  </tr>
-                  {/* Row 2: change % */}
-                  <tr className="border-b border-[#4C526B]/40">
-                    <td className="py-2 px-3 text-white/40 text-[12px]"></td>
-                    {historyColumns.map((ph, idx) => {
-                      const prevPrice = idx < historyColumns.length - 1 ? historyColumns[idx + 1].price : null;
-                      const change = prevPrice != null ? ((ph.price - prevPrice) / prevPrice) * 100 : null;
-                      return (
-                        <td key={ph.id} className="py-2 px-3 text-center ltr-num whitespace-nowrap">
-                          {change != null ? (
-                            <span className={`font-medium text-[12px] ${change > 0 ? 'text-[#F64E60]' : change < 0 ? 'text-[#3CD856]' : 'text-white/40'}`}>
-                              {change > 0 ? '+' : ''}{change.toFixed(2)}%
-                            </span>
-                          ) : (
-                            <span className="text-white/30">-</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                  {/* Row 3: dates */}
-                  <tr>
-                    <td className="py-2 px-3 text-white/40 text-[12px]"></td>
-                    {historyColumns.map((ph) => (
-                      <td key={ph.id} className="py-2 px-3 text-center text-white/50 text-[12px] ltr-num whitespace-nowrap">
-                        {new Date(ph.document_date).toLocaleDateString('he-IL')}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
-
-      {/* Dismissed/Read alerts — compact table */}
-      {alerts.filter(a => a.status !== 'unread').length > 0 && (
-        <div className="px-4 py-3 mt-2 border-t border-[#4C526B]">
-          <h2 className="text-[14px] font-semibold text-white/50 mb-2">התראות קודמות</h2>
-          <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] overflow-hidden opacity-60">
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12px]">
-                <tbody>
-                  {alerts.filter(a => a.status !== 'unread').slice(0, 10).map((alert, idx) => (
-                    <tr key={alert.id} className={`border-b border-[#4C526B]/30 ${idx % 2 !== 0 ? 'bg-white/[0.02]' : ''}`}>
-                      <td className="py-2 px-3 text-white/60 truncate max-w-[120px]">{alert.item_name}</td>
-                      <td className="py-2 px-3 text-white/40 truncate max-w-[100px]">{alert.supplier_name}</td>
-                      <td className="py-2 px-3 text-center text-white/50 ltr-num whitespace-nowrap">
-                        ₪{alert.old_price.toFixed(2)} → ₪{alert.new_price.toFixed(2)}
-                      </td>
-                      <td className="py-2 px-3 text-center ltr-num">
-                        <span className={alert.change_pct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}>
-                          {alert.change_pct > 0 ? '▲' : '▼'} {Math.abs(alert.change_pct).toFixed(1)}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
