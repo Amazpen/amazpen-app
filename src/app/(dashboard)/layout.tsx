@@ -198,8 +198,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showBusinessRequiredPopup, setShowBusinessRequiredPopup] = useState(false);
-  const [selectedBusinesses, setSelectedBusinesses] = useState<string[]>([]);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [selectedBusinesses, setSelectedBusinesses] = usePersistedState<string[]>("selectedBusinesses", []);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
@@ -494,52 +493,6 @@ export default function DashboardLayout({
     prevUnreadCount.current = unreadCount;
   }, [unreadCount]);
 
-  // Restore selectedBusinesses from localStorage on mount, then mark hydrated
-  useEffect(() => {
-    const saved = localStorage.getItem("selectedBusinesses");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Validate saved IDs against user's actual businesses
-          const supabase = createClient();
-          supabase.auth.getUser().then(async ({ data: { user } }) => {
-            if (!user) {
-              setIsHydrated(true);
-              return;
-            }
-            const { data: memberships } = await supabase
-              .from("business_members")
-              .select("business_id")
-              .eq("user_id", user.id)
-              .is("deleted_at", null);
-            if (memberships) {
-              const validIds = memberships.map(m => m.business_id);
-              const filtered = parsed.filter((id: string) => validIds.includes(id));
-              if (filtered.length > 0) {
-                setSelectedBusinesses(filtered);
-              } else {
-                localStorage.removeItem("selectedBusinesses");
-              }
-            }
-            setIsHydrated(true);
-          }).catch(() => {
-            setIsHydrated(true);
-          });
-          return; // Don't set hydrated yet — wait for async validation
-        }
-      } catch {
-        localStorage.removeItem("selectedBusinesses");
-      }
-    }
-    setIsHydrated(true);
-  }, []);
-
-  // Save selectedBusinesses to localStorage when changed (after hydration)
-  useEffect(() => {
-    if (!isHydrated) return;
-    localStorage.setItem("selectedBusinesses", JSON.stringify(selectedBusinesses));
-  }, [selectedBusinesses, isHydrated]);
 
   const toggleBusiness = (id: string) => {
     setSelectedBusinesses(prev =>
