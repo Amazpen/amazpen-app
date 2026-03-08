@@ -313,7 +313,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           .eq("is_active", true)
           .order("display_order"),
         supabase
-          .from("business_schedules")
+          .from("business_schedule")
           .select("day_of_week, day_factor")
           .eq("business_id", businessId),
       ]);
