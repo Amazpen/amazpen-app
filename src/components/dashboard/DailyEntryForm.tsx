@@ -977,8 +977,8 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                       title="תאריך האירוע"
                       value={formData.entry_date}
                       onChange={(e) => handleChange("entry_date", e.target.value)}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                      style={{ fontSize: '16px' }}
+                      className="absolute inset-0 w-full h-full cursor-pointer z-20 date-input-transparent"
+                      style={{ fontSize: '16px', color: 'transparent', background: 'transparent', border: 'none', WebkitAppearance: 'none' }}
                     />
                   </div>
                   {dateWarning && (
@@ -1103,8 +1103,8 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                       title="תאריך"
                       value={formData.entry_date}
                       onChange={(e) => handleChange("entry_date", e.target.value)}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                      style={{ fontSize: '16px' }}
+                      className="absolute inset-0 w-full h-full cursor-pointer z-20 date-input-transparent"
+                      style={{ fontSize: '16px', color: 'transparent', background: 'transparent', border: 'none', WebkitAppearance: 'none' }}
                     />
                   </div>
                   {dateWarning && (
