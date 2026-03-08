@@ -966,7 +966,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
               <>
                 {/* Pearla-specific form fields */}
                 <FormField label="תאריך האירוע">
-                  <div className={`relative ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} border rounded-[10px] h-[50px] overflow-hidden`}>
+                  <div className={`relative ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} border rounded-[10px] h-[50px]`}>
                     <span className={`absolute inset-0 flex items-center justify-center text-[16px] font-semibold pointer-events-none ${formData.entry_date ? 'text-white' : 'text-white/40'}`}>
                       {formData.entry_date
                         ? new Date(formData.entry_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -1092,7 +1092,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
               <>
                 {/* Original form fields for all other businesses */}
                 <FormField label="תאריך">
-                  <div className={`relative ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} border rounded-[10px] h-[50px] overflow-hidden`}>
+                  <div className={`relative ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} border rounded-[10px] h-[50px]`}>
                     <span className={`absolute inset-0 flex items-center justify-center text-[16px] font-semibold pointer-events-none ${formData.entry_date ? 'text-white' : 'text-white/40'}`}>
                       {formData.entry_date
                         ? new Date(formData.entry_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
