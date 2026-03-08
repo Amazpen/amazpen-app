@@ -494,7 +494,7 @@ export default function DashboardLayout({
     prevUnreadCount.current = unreadCount;
   }, [unreadCount]);
 
-  // Restore selectedBusinesses from localStorage on mount
+  // Restore selectedBusinesses from localStorage on mount, then mark hydrated
   useEffect(() => {
     const saved = localStorage.getItem("selectedBusinesses");
     if (saved) {
@@ -504,7 +504,10 @@ export default function DashboardLayout({
           // Validate saved IDs against user's actual businesses
           const supabase = createClient();
           supabase.auth.getUser().then(async ({ data: { user } }) => {
-            if (!user) return;
+            if (!user) {
+              setIsHydrated(true);
+              return;
+            }
             const { data: memberships } = await supabase
               .from("business_members")
               .select("business_id")
@@ -519,7 +522,11 @@ export default function DashboardLayout({
                 localStorage.removeItem("selectedBusinesses");
               }
             }
+            setIsHydrated(true);
+          }).catch(() => {
+            setIsHydrated(true);
           });
+          return; // Don't set hydrated yet — wait for async validation
         }
       } catch {
         localStorage.removeItem("selectedBusinesses");
@@ -531,11 +538,7 @@ export default function DashboardLayout({
   // Save selectedBusinesses to localStorage when changed (after hydration)
   useEffect(() => {
     if (!isHydrated) return;
-    if (selectedBusinesses.length > 0) {
-      localStorage.setItem("selectedBusinesses", JSON.stringify(selectedBusinesses));
-    } else {
-      localStorage.removeItem("selectedBusinesses");
-    }
+    localStorage.setItem("selectedBusinesses", JSON.stringify(selectedBusinesses));
   }, [selectedBusinesses, isHydrated]);
 
   const toggleBusiness = (id: string) => {
