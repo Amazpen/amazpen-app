@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, X, CalendarIcon } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -978,9 +978,8 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     <PopoverTrigger asChild>
                       <button
                         type="button"
-                        className={`flex items-center justify-center gap-2 w-full h-[50px] rounded-[10px] border ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} bg-transparent text-[16px] font-semibold cursor-pointer transition-colors hover:border-white/50 ${formData.entry_date ? 'text-white' : 'text-white/40'}`}
+                        className={`flex items-center justify-center w-full h-[50px] rounded-[10px] border ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} bg-transparent text-[16px] font-semibold cursor-pointer transition-colors hover:border-white/50 ${formData.entry_date ? 'text-white' : 'text-white/40'}`}
                       >
-                        <CalendarIcon className="w-4 h-4 text-[#7B91B0]" />
                         {formData.entry_date
                           ? new Date(formData.entry_date + "T00:00:00").toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
                           : 'יום/חודש/שנה'}
@@ -1118,9 +1117,8 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     <PopoverTrigger asChild>
                       <button
                         type="button"
-                        className={`flex items-center justify-center gap-2 w-full h-[50px] rounded-[10px] border ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} bg-transparent text-[16px] font-semibold cursor-pointer transition-colors hover:border-white/50 ${formData.entry_date ? 'text-white' : 'text-white/40'}`}
+                        className={`flex items-center justify-center w-full h-[50px] rounded-[10px] border ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} bg-transparent text-[16px] font-semibold cursor-pointer transition-colors hover:border-white/50 ${formData.entry_date ? 'text-white' : 'text-white/40'}`}
                       >
-                        <CalendarIcon className="w-4 h-4 text-[#7B91B0]" />
                         {formData.entry_date
                           ? new Date(formData.entry_date + "T00:00:00").toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
                           : 'יום/חודש/שנה'}
