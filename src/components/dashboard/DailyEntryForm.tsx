@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2, X } from "lucide-react";
+import { Loader2, X, CalendarIcon } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -14,6 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
 import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format } from "date-fns";
+import { he } from "date-fns/locale";
 import { useDashboard } from "@/app/(dashboard)/layout";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -966,21 +974,35 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
               <>
                 {/* Pearla-specific form fields */}
                 <FormField label="תאריך האירוע">
-                  <div className={`relative ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} border rounded-[10px] h-[50px] overflow-hidden`}>
-                    <span className={`absolute inset-0 flex items-center justify-center text-[16px] font-semibold pointer-events-none ${formData.entry_date ? 'text-white' : 'text-white/40'}`}>
-                      {formData.entry_date
-                        ? new Date(formData.entry_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                        : 'יום/חודש/שנה'}
-                    </span>
-                    <input
-                      type="date"
-                      title="תאריך האירוע"
-                      value={formData.entry_date}
-                      onChange={(e) => handleChange("entry_date", e.target.value)}
-                      className="w-full h-full opacity-0 cursor-pointer z-10 relative"
-                      style={{ fontSize: '16px' }}
-                    />
-                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className={`flex items-center justify-center gap-2 w-full h-[50px] rounded-[10px] border ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} bg-transparent text-[16px] font-semibold cursor-pointer transition-colors hover:border-white/50 ${formData.entry_date ? 'text-white' : 'text-white/40'}`}
+                      >
+                        <CalendarIcon className="w-4 h-4 text-[#7B91B0]" />
+                        {formData.entry_date
+                          ? new Date(formData.entry_date + "T00:00:00").toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                          : 'יום/חודש/שנה'}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-[#0f1535] border-[#4C526B]" align="center">
+                      <Calendar
+                        mode="single"
+                        selected={formData.entry_date ? new Date(formData.entry_date + "T00:00:00") : undefined}
+                        onSelect={(date) => {
+                          if (date) {
+                            const yyyy = date.getFullYear();
+                            const mm = String(date.getMonth() + 1).padStart(2, '0');
+                            const dd = String(date.getDate()).padStart(2, '0');
+                            handleChange("entry_date", `${yyyy}-${mm}-${dd}`);
+                          }
+                        }}
+                        defaultMonth={formData.entry_date ? new Date(formData.entry_date + "T00:00:00") : undefined}
+                        locale={he}
+                      />
+                    </PopoverContent>
+                  </Popover>
                   {dateWarning && (
                     <span className="text-[12px] text-[#FFA500] text-right mt-[3px]">{dateWarning}</span>
                   )}
@@ -1092,21 +1114,35 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
               <>
                 {/* Original form fields for all other businesses */}
                 <FormField label="תאריך">
-                  <div className={`relative ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} border rounded-[10px] h-[50px] overflow-hidden`}>
-                    <span className={`absolute inset-0 flex items-center justify-center text-[16px] font-semibold pointer-events-none ${formData.entry_date ? 'text-white' : 'text-white/40'}`}>
-                      {formData.entry_date
-                        ? new Date(formData.entry_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                        : 'יום/חודש/שנה'}
-                    </span>
-                    <input
-                      type="date"
-                      title="תאריך"
-                      value={formData.entry_date}
-                      onChange={(e) => handleChange("entry_date", e.target.value)}
-                      className="w-full h-full opacity-0 cursor-pointer z-10 relative"
-                      style={{ fontSize: '16px' }}
-                    />
-                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className={`flex items-center justify-center gap-2 w-full h-[50px] rounded-[10px] border ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} bg-transparent text-[16px] font-semibold cursor-pointer transition-colors hover:border-white/50 ${formData.entry_date ? 'text-white' : 'text-white/40'}`}
+                      >
+                        <CalendarIcon className="w-4 h-4 text-[#7B91B0]" />
+                        {formData.entry_date
+                          ? new Date(formData.entry_date + "T00:00:00").toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                          : 'יום/חודש/שנה'}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-[#0f1535] border-[#4C526B]" align="center">
+                      <Calendar
+                        mode="single"
+                        selected={formData.entry_date ? new Date(formData.entry_date + "T00:00:00") : undefined}
+                        onSelect={(date) => {
+                          if (date) {
+                            const yyyy = date.getFullYear();
+                            const mm = String(date.getMonth() + 1).padStart(2, '0');
+                            const dd = String(date.getDate()).padStart(2, '0');
+                            handleChange("entry_date", `${yyyy}-${mm}-${dd}`);
+                          }
+                        }}
+                        defaultMonth={formData.entry_date ? new Date(formData.entry_date + "T00:00:00") : undefined}
+                        locale={he}
+                      />
+                    </PopoverContent>
+                  </Popover>
                   {dateWarning && (
                     <span className="text-[12px] text-[#FFA500] text-right mt-[3px]">{dateWarning}</span>
                   )}
