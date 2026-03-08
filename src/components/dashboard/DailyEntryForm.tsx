@@ -113,6 +113,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const [customParameters, setCustomParameters] = useState<CustomParameter[]>([]);
   const [managedProducts, setManagedProducts] = useState<ManagedProduct[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [businessSchedule, setBusinessSchedule] = useState<Record<number, number>>({});
 
   // Monthly settings for admin calculated fields
   const [monthlyMarkup, setMonthlyMarkup] = useState<number>(1);
@@ -273,6 +274,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         { data: products },
         { data: lastEntry },
         { data: pmTypes },
+        { data: schedules },
       ] = await Promise.all([
         supabase
           .from("income_sources")
@@ -310,6 +312,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           .eq("business_id", businessId)
           .eq("is_active", true)
           .order("display_order"),
+        supabase
+          .from("business_schedules")
+          .select("day_of_week, day_factor")
+          .eq("business_id", businessId),
       ]);
 
       // Cache business config for offline use
@@ -337,6 +343,13 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           });
         }
       }
+
+      // Build schedule map: day_of_week -> day_factor
+      const scheduleMap: Record<number, number> = {};
+      (schedules || []).forEach((s: { day_of_week: number; day_factor: number }) => {
+        scheduleMap[s.day_of_week] = s.day_factor;
+      });
+      setBusinessSchedule(scheduleMap);
 
       setIncomeSources(sources || []);
       setCustomParameters(parameters || []);
@@ -379,11 +392,20 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       setTimeout(() => {
         restoreDraft();
         // After draft restore, check the actual date in the form (may differ from today)
-        // We read formData via a setState callback to get the latest value after restoreDraft
+        // and set day_factor from business schedule
         if (!editingEntry) {
           setFormData(prev => {
             const dateToCheck = prev.entry_date || new Date().toISOString().split("T")[0];
             checkDateAndUpdateStock(dateToCheck);
+            // Auto-set day_factor from schedule
+            if (dateToCheck && Object.keys(scheduleMap).length > 0) {
+              const date = new Date(dateToCheck + "T00:00:00");
+              const dayOfWeek = date.getDay();
+              const factor = scheduleMap[dayOfWeek];
+              if (factor !== undefined) {
+                return { ...prev, day_factor: factor.toString() };
+              }
+            }
             return prev;
           });
         }
@@ -522,8 +544,27 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
     }
   };
 
+  // Get day_factor from business schedule for a given date
+  const getDayFactorForDate = useCallback((dateStr: string): string | null => {
+    if (!dateStr || Object.keys(businessSchedule).length === 0) return null;
+    const date = new Date(dateStr + "T00:00:00");
+    const dayOfWeek = date.getDay(); // 0=Sunday, 6=Saturday
+    const factor = businessSchedule[dayOfWeek];
+    return factor !== undefined ? factor.toString() : null;
+  }, [businessSchedule]);
+
   const handleChange = (field: keyof BaseFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const updated = { ...prev, [field]: value };
+      // When date changes, auto-set day_factor from business schedule
+      if (field === "entry_date" && value) {
+        const scheduleFactor = getDayFactorForDate(value);
+        if (scheduleFactor !== null) {
+          updated.day_factor = scheduleFactor;
+        }
+      }
+      return updated;
+    });
     setError(null);
     // When date changes, check for existing entry and update opening stock
     if (field === "entry_date" && value) {
