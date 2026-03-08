@@ -494,11 +494,49 @@ export default function DashboardLayout({
     prevUnreadCount.current = unreadCount;
   }, [unreadCount]);
 
-  // Mark as hydrated on mount (localStorage persistence disabled to avoid stale selection bugs)
+  // Restore selectedBusinesses from localStorage on mount
   useEffect(() => {
-    localStorage.removeItem("selectedBusinesses");
+    const saved = localStorage.getItem("selectedBusinesses");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Validate saved IDs against user's actual businesses
+          const supabase = createClient();
+          supabase.auth.getUser().then(async ({ data: { user } }) => {
+            if (!user) return;
+            const { data: memberships } = await supabase
+              .from("business_members")
+              .select("business_id")
+              .eq("user_id", user.id)
+              .is("deleted_at", null);
+            if (memberships) {
+              const validIds = memberships.map(m => m.business_id);
+              const filtered = parsed.filter((id: string) => validIds.includes(id));
+              if (filtered.length > 0) {
+                setSelectedBusinesses(filtered);
+              } else {
+                localStorage.removeItem("selectedBusinesses");
+              }
+            }
+          });
+        }
+      } catch {
+        localStorage.removeItem("selectedBusinesses");
+      }
+    }
     setIsHydrated(true);
   }, []);
+
+  // Save selectedBusinesses to localStorage when changed (after hydration)
+  useEffect(() => {
+    if (!isHydrated) return;
+    if (selectedBusinesses.length > 0) {
+      localStorage.setItem("selectedBusinesses", JSON.stringify(selectedBusinesses));
+    } else {
+      localStorage.removeItem("selectedBusinesses");
+    }
+  }, [selectedBusinesses, isHydrated]);
 
   const toggleBusiness = (id: string) => {
     setSelectedBusinesses(prev =>
