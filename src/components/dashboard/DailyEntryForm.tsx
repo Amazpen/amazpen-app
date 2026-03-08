@@ -696,12 +696,13 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         throw new Error("יש להתחבר למערכת");
       }
 
-      // Calculate manager daily cost with markup for saving
+      // Calculate manager daily cost for saving (simple daily rate × day_factor, no markup)
       const saveLaborCost = parseFloat(formData.labor_cost) || 0;
       const saveEntryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
       const saveDaysInMonth = new Date(saveEntryDate.getFullYear(), saveEntryDate.getMonth() + 1, 0).getDate();
+      const saveDayFactor = parseFloat(formData.day_factor) || 1;
       const saveManagerDailyCost = saveDaysInMonth > 0
-        ? (managerMonthlySalary / saveDaysInMonth) * workingDaysUpToDate * monthlyMarkup
+        ? (managerMonthlySalary / saveDaysInMonth) * saveDayFactor
         : 0;
 
       let dailyEntryId: string;
@@ -1234,11 +1235,12 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                   const laborCost = parseFloat(formData.labor_cost) || 0;
                   const laborWithMarkup = laborCost * monthlyMarkup;
 
-                  // שכר מנהל כולל העמסה = (שכר חודשי / ימים בחודש) * ימי עבודה עד התאריך * העמסה
+                  // שכר מנהל יומי = (שכר חודשי / ימים בחודש) * יום חלקי
                   const entryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
                   const daysInMonth = new Date(entryDate.getFullYear(), entryDate.getMonth() + 1, 0).getDate();
-                  const dailyManagerWithMarkup = daysInMonth > 0
-                    ? (managerMonthlySalary / daysInMonth) * workingDaysUpToDate * monthlyMarkup
+                  const dayFactor = parseFloat(formData.day_factor) || 1;
+                  const dailyManagerCost = daysInMonth > 0
+                    ? (managerMonthlySalary / daysInMonth) * dayFactor
                     : 0;
 
                   return (
@@ -1253,7 +1255,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                       </FormField>
                       <div className="flex flex-col gap-[3px]">
                         <div className="flex items-center justify-between">
-                          <Label className="text-white text-[15px] font-medium text-right">שכר מנהל יומי כולל העמסה</Label>
+                          <Label className="text-white text-[15px] font-medium text-right">שכר מנהל יומי</Label>
                           <Button
                             type="button"
                             variant="ghost"
@@ -1287,7 +1289,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                         <Input
                           type="text"
                           disabled
-                          value={dailyManagerWithMarkup > 0 ? `₪ ${dailyManagerWithMarkup.toFixed(2)}` : "—"}
+                          value={dailyManagerCost > 0 ? `₪ ${dailyManagerCost.toFixed(2)}` : "—"}
                           className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold disabled:opacity-100"
                         />
                       </div>

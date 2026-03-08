@@ -609,7 +609,8 @@ export default function DashboardPage() {
         curDateSch.setDate(curDateSch.getDate() + 1);
       }
 
-      const managerDailyCost = expectedWorkDaysInMonth > 0 ? totalManagerSalary / expectedWorkDaysInMonth : 0;
+      const calendarDaysInMonth = new Date(targetYearForSchedule, targetMonthForSchedule + 1, 0).getDate();
+      const managerDailyCost = calendarDaysInMonth > 0 ? totalManagerSalary / calendarDaysInMonth : 0;
       const todayActualWorkDays = todayEntries.reduce((sum: number, e: Record<string, unknown>) => sum + (Number(e.day_factor) || 0), 0);
       const todayLaborCost = (todayRawLaborCost + (managerDailyCost * todayActualWorkDays)) * totalMarkup;
 
@@ -1379,7 +1380,8 @@ export default function DashboardPage() {
       }
 
       // Calculate final labor cost
-      const managerDailyCost = expectedWorkDaysInMonth > 0 ? totalManagerSalary / expectedWorkDaysInMonth : 0;
+      const calendarDaysInMonthSummary = new Date(targetYearForSchedule, targetMonthForSchedule + 1, 0).getDate();
+      const managerDailyCost = calendarDaysInMonthSummary > 0 ? totalManagerSalary / calendarDaysInMonthSummary : 0;
       const actualWorkDays = (entries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
 
       // Labor cost in ILS: (labor_cost + manager_daily_cost × actual_days) × markup
