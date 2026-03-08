@@ -494,28 +494,11 @@ export default function DashboardLayout({
     prevUnreadCount.current = unreadCount;
   }, [unreadCount]);
 
-  // Load from localStorage on mount
+  // Mark as hydrated on mount (localStorage persistence disabled to avoid stale selection bugs)
   useEffect(() => {
-    const saved = localStorage.getItem("selectedBusinesses");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setSelectedBusinesses(parsed);
-        }
-      } catch {
-        // Invalid JSON, ignore
-      }
-    }
+    localStorage.removeItem("selectedBusinesses");
     setIsHydrated(true);
   }, []);
-
-  // Save to localStorage when selectedBusinesses changes
-  useEffect(() => {
-    if (isHydrated) {
-      localStorage.setItem("selectedBusinesses", JSON.stringify(selectedBusinesses));
-    }
-  }, [selectedBusinesses, isHydrated]);
 
   const toggleBusiness = (id: string) => {
     setSelectedBusinesses(prev =>
