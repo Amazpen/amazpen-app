@@ -561,6 +561,7 @@ export default function CustomersPage() {
       const biz = allBusinesses.find(b => b.id === selectedBusinesses[0]);
       setFormBusinessId(selectedBusinesses[0]);
       setFormBusinessName(biz?.name || "");
+      setFBusinessName(biz?.name || "");
     } else {
       setFormBusinessId(null);
       setFormBusinessName("");
@@ -1505,59 +1506,6 @@ export default function CustomersPage() {
               </div>
             </div>
 
-            {/* ── Labor Cost Section ── */}
-            <div className="flex flex-col gap-[10px] mt-[10px] border border-purple-500/30 rounded-[10px] p-[12px] bg-purple-900/10">
-              <h3 className="text-[15px] font-bold text-purple-300 text-right">עלות עבודה</h3>
-
-              {/* סוג עלות */}
-              <div className="flex flex-col gap-[5px]">
-                <label className="text-[14px] font-medium text-white/80 text-right">סוג עלות</label>
-                <Select value={fLaborType || "__none__"} onValueChange={(val) => setFLaborType(val === "__none__" ? "" : val)}>
-                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
-                    <SelectValue placeholder="בחר סוג" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">בחר סוג</SelectItem>
-                    <SelectItem value="global">גלובלי</SelectItem>
-                    <SelectItem value="hourly">שעתי</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* משכורת חודשית - global */}
-              {fLaborType === "global" && (
-                <div className="flex flex-col gap-[5px]">
-                  <label className="text-[14px] font-medium text-white/80 text-right">משכורת חודשית (₪)</label>
-                  <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                    <Input
-                      type="tel"
-                      title="משכורת חודשית"
-                      value={fLaborMonthlySalary}
-                      onChange={(e) => setFLaborMonthlySalary(e.target.value)}
-                      placeholder="0"
-                      className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* תעריף שעתי - hourly */}
-              {fLaborType === "hourly" && (
-                <div className="flex flex-col gap-[5px]">
-                  <label className="text-[14px] font-medium text-white/80 text-right">תעריף לשעה (₪)</label>
-                  <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                    <Input
-                      type="tel"
-                      title="תעריף שעתי"
-                      value={fLaborHourlyRate}
-                      onChange={(e) => setFLaborHourlyRate(e.target.value)}
-                      placeholder="0"
-                      className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Active/Inactive toggle - edit mode only */}
             {isEditMode && (
@@ -1923,36 +1871,6 @@ export default function CustomersPage() {
                 </div>
               )}
 
-              {/* ── Labor Info ──────────────── */}
-              {selectedItem.customer?.labor_type && (
-                <div className="bg-purple-900/10 border border-purple-500/30 rounded-[10px] p-[15px] mb-[15px]">
-                  <h3 className="text-[15px] font-bold text-purple-300 mb-[10px]">עלות עבודה</h3>
-                  <div className="grid grid-cols-2 gap-[10px]">
-                    <div className="flex flex-col items-center text-center">
-                      <span className="text-[12px] text-white/60">סוג</span>
-                      <span className="text-[14px] text-white font-medium">
-                        {selectedItem.customer.labor_type === 'global' ? 'גלובלי' : 'שעתי'}
-                      </span>
-                    </div>
-                    {selectedItem.customer.labor_type === 'global' && selectedItem.customer.labor_monthly_salary != null && (
-                      <div className="flex flex-col items-center text-center">
-                        <span className="text-[12px] text-white/60">משכורת חודשית</span>
-                        <span className="text-[14px] text-purple-300 font-bold">
-                          ₪{selectedItem.customer.labor_monthly_salary.toLocaleString("he-IL")}
-                        </span>
-                      </div>
-                    )}
-                    {selectedItem.customer.labor_type === 'hourly' && selectedItem.customer.labor_hourly_rate != null && (
-                      <div className="flex flex-col items-center text-center">
-                        <span className="text-[12px] text-white/60">תעריף לשעה</span>
-                        <span className="text-[14px] text-purple-300 font-bold">
-                          ₪{selectedItem.customer.labor_hourly_rate.toLocaleString("he-IL")}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* ── Services Section ──────────────── */}
               {selectedItem.customer && (

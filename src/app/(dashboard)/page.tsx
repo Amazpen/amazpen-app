@@ -614,11 +614,12 @@ export default function DashboardPage() {
       const todayActualWorkDays = todayEntries.reduce((sum: number, e: Record<string, unknown>) => sum + (Number(e.day_factor) || 0), 0);
       const todayLaborCost = (todayRawLaborCost + (managerDailyCost * todayActualWorkDays)) * totalMarkup;
 
-      // VAT calculation
-      const avgVatPercentage = businessData.reduce((sum, b) => {
+      // VAT calculation — normalize: if stored as multiplier (>1), convert to fraction
+      const rawAvgVatPct = businessData.reduce((sum, b) => {
         const bGoal = goalsData.find((g: Record<string, unknown>) => g.business_id === b.id);
         return sum + (bGoal?.vat_percentage != null ? Number(bGoal.vat_percentage) : (Number(b.vat_percentage) || 0));
       }, 0) / Math.max(businessData.length, 1);
+      const avgVatPercentage = rawAvgVatPct > 1 ? rawAvgVatPct - 1 : rawAvgVatPct;
       const vatDivisor = avgVatPercentage > 0 ? 1 + avgVatPercentage : 1;
       const todayIncomeBeforeVat = todayTotalIncome / vatDivisor;
 
@@ -1388,10 +1389,12 @@ export default function DashboardPage() {
       const laborCost = (rawLaborCost + (managerDailyCost * actualWorkDays)) * totalMarkup;
 
       // Get average VAT percentage - use monthly goal values with business defaults as fallback
-      const avgVatPercentage = (businessData || []).reduce((sum, b) => {
+      // Normalize: if stored as multiplier (>1), convert to fraction
+      const rawAvgVatPct = (businessData || []).reduce((sum, b) => {
         const bGoal = (goalsData || []).find((g: Record<string, unknown>) => g.business_id === b.id);
         return sum + (bGoal?.vat_percentage != null ? Number(bGoal.vat_percentage) : (Number(b.vat_percentage) || 0));
       }, 0) / Math.max((businessData || []).length, 1);
+      const avgVatPercentage = rawAvgVatPct > 1 ? rawAvgVatPct - 1 : rawAvgVatPct;
       // VAT divisor: 1 + vat, e.g., 1.18 for 18% VAT
       const vatDivisor = avgVatPercentage > 0 ? 1 + avgVatPercentage : 1;
       // Income before VAT
