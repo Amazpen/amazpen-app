@@ -1423,8 +1423,8 @@ export default function DashboardPage() {
 
       const incPrevYearStart = new Date(dateRange.start);
       incPrevYearStart.setFullYear(incPrevYearStart.getFullYear() - 1);
-      const incPrevYearEnd = new Date(dateRange.end);
-      incPrevYearEnd.setFullYear(incPrevYearEnd.getFullYear() - 1);
+      // Use full calendar month for prev year (not partial dateRange.end)
+      const incPrevYearEnd = new Date(incPrevYearStart.getFullYear(), incPrevYearStart.getMonth() + 1, 0);
       const incPrevYearStartStr = formatLocalDate(incPrevYearStart);
       const incPrevYearEndStr = formatLocalDate(incPrevYearEnd);
 
@@ -1738,8 +1738,8 @@ export default function DashboardPage() {
 
       const prevYearStart = new Date(dateRange.start);
       prevYearStart.setFullYear(prevYearStart.getFullYear() - 1);
-      const prevYearEnd = new Date(dateRange.end);
-      prevYearEnd.setFullYear(prevYearEnd.getFullYear() - 1);
+      // Use full calendar month for prev year (not partial dateRange.end)
+      const prevYearEnd = new Date(prevYearStart.getFullYear(), prevYearStart.getMonth() + 1, 0);
       const prevYearStartStr = formatLocalDate(prevYearStart);
       const prevYearEndStr = formatLocalDate(prevYearEnd);
 
@@ -1853,13 +1853,14 @@ export default function DashboardPage() {
       const laborCostPrevMonthChange = prevMonthLaborCostPct > 0 ? laborCostPct - prevMonthLaborCostPct : 0;
 
       // Calculate previous year metrics
+      // Use monthlyPace (forecast) for fair comparison against prev year full month
       // Use daily_entries first; fall back to monthly_summaries (historical data) if no entries exist
       let prevYearIncome = (prevYearEntries || []).reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
       if (prevYearIncome === 0 && (prevYearMonthlySummaries || []).length > 0) {
         prevYearIncome = (prevYearMonthlySummaries || []).reduce((sum, s) => sum + (Number(s.total_income) || 0), 0);
       }
-      const prevYearChange = prevYearIncome > 0 ? totalIncome - prevYearIncome : 0;
-      const prevYearChangePct = prevYearIncome > 0 ? ((totalIncome / prevYearIncome) - 1) * 100 : 0;
+      const prevYearChange = prevYearIncome > 0 ? monthlyPace - prevYearIncome : 0;
+      const prevYearChangePct = prevYearIncome > 0 ? ((monthlyPace / prevYearIncome) - 1) * 100 : 0;
 
       const prevYearRawLaborCost = (prevYearEntries || []).reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
       const prevYearActualWorkDays = (prevYearEntries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);

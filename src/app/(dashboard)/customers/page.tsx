@@ -219,6 +219,9 @@ export default function CustomersPage() {
   const [fLaborMonthlySalary, setFLaborMonthlySalary] = useState("");
   const [fLaborHourlyRate, setFLaborHourlyRate] = useState("");
 
+  // Form validation errors
+  const [formErrors, setFormErrors] = useState<Set<string>>(new Set());
+
   // Survey state
   const [customerSurvey, setCustomerSurvey] = useState<{id: string; token: string; is_completed: boolean; created_at: string} | null>(null);
   const [surveyResponses, setSurveyResponses] = useState<{question_key: string; answer_value: string}[]>([]);
@@ -500,6 +503,7 @@ export default function CustomersPage() {
     setFLaborType("");
     setFLaborMonthlySalary("");
     setFLaborHourlyRate("");
+    setFormErrors(new Set());
   };
 
   const handleCloseForm = () => {
@@ -556,8 +560,8 @@ export default function CustomersPage() {
   const handleAddStandaloneCustomer = () => {
     resetForm();
     resetCleared();
-    if (!isAdmin && selectedBusinesses.length > 0) {
-      // Regular user: link to their selected business
+    if (selectedBusinesses.length > 0) {
+      // Link to selected business (both admin and regular users)
       const biz = allBusinesses.find(b => b.id === selectedBusinesses[0]);
       setFormBusinessId(selectedBusinesses[0]);
       setFormBusinessName(biz?.name || "");
@@ -577,10 +581,18 @@ export default function CustomersPage() {
   };
 
   const handleSaveCustomer = async () => {
-    if (!fContactName.trim() || !fBusinessName.trim()) {
-      showToast("שם הלקוח ושם העסק הם שדות חובה", "error");
+    const errors = new Set<string>();
+    if (!fContactName.trim()) errors.add("contactName");
+    if (!fBusinessName.trim()) errors.add("businessName");
+    if (errors.size > 0) {
+      setFormErrors(errors);
+      showToast("יש למלא את השדות המסומנים באדום", "error");
+      // Scroll to first error
+      const firstErrorEl = document.querySelector('[data-field-error="true"]');
+      if (firstErrorEl) firstErrorEl.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
+    setFormErrors(new Set());
 
     setIsSubmitting(true);
     const supabase = createClient();
@@ -1201,14 +1213,17 @@ export default function CustomersPage() {
 
           <div className="flex flex-col gap-[10px] px-[5px]" dir="rtl">
             {/* שם הלקוח */}
-            <div className="flex flex-col gap-[5px]">
-              <label className="text-[15px] font-medium text-white text-right">שם הלקוח</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+            <div className="flex flex-col gap-[5px]" data-field-error={formErrors.has("contactName") || undefined}>
+              <label className={`text-[15px] font-medium text-right ${formErrors.has("contactName") ? "text-[#F64E60]" : "text-white"}`}>שם הלקוח *</label>
+              <div className={`border rounded-[10px] h-[50px] transition-colors ${formErrors.has("contactName") ? "border-[#F64E60] ring-1 ring-[#F64E60]/50" : "border-[#4C526B]"}`}>
                 <Input
                   type="text"
                   title="שם הלקוח"
                   value={fContactName}
-                  onChange={(e) => setFContactName(e.target.value)}
+                  onChange={(e) => {
+                    setFContactName(e.target.value);
+                    if (formErrors.has("contactName")) setFormErrors(prev => { const n = new Set(prev); n.delete("contactName"); return n; });
+                  }}
                   placeholder="לדוגמה: דוד סרור"
                   className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
                 />
@@ -1216,9 +1231,9 @@ export default function CustomersPage() {
             </div>
 
             {/* שם העסק */}
-            <div className="flex flex-col gap-[5px]">
-              <label className="text-[15px] font-medium text-white text-right">שם העסק</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+            <div className="flex flex-col gap-[5px]" data-field-error={formErrors.has("businessName") || undefined}>
+              <label className={`text-[15px] font-medium text-right ${formErrors.has("businessName") ? "text-[#F64E60]" : "text-white"}`}>שם העסק *</label>
+              <div className={`border rounded-[10px] h-[50px] transition-colors ${formErrors.has("businessName") ? "border-[#F64E60] ring-1 ring-[#F64E60]/50" : "border-[#4C526B]"}`}>
                 {formBusinessId ? (
                   <div className="w-full h-full flex items-center justify-center text-white text-[14px] px-[10px] opacity-70">
                     {formBusinessName}
@@ -1228,7 +1243,10 @@ export default function CustomersPage() {
                     type="text"
                     title="שם העסק"
                     value={fBusinessName}
-                    onChange={(e) => setFBusinessName(e.target.value)}
+                    onChange={(e) => {
+                      setFBusinessName(e.target.value);
+                      if (formErrors.has("businessName")) setFormErrors(prev => { const n = new Set(prev); n.delete("businessName"); return n; });
+                    }}
                     placeholder='לדוגמה: פרגו נ"צ'
                     className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
                   />
