@@ -586,7 +586,10 @@ export default function CustomersPage() {
     if (!fBusinessName.trim()) errors.add("businessName");
     if (errors.size > 0) {
       setFormErrors(errors);
-      showToast("יש למלא את השדות המסומנים באדום", "error");
+      const missing: string[] = [];
+      if (errors.has("contactName")) missing.push("שם הלקוח");
+      if (errors.has("businessName")) missing.push("שם העסק");
+      showToast(`חובה למלא: ${missing.join(", ")}`, "error");
       // Scroll to first error
       const firstErrorEl = document.querySelector('[data-field-error="true"]');
       if (firstErrorEl) firstErrorEl.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -680,8 +683,8 @@ export default function CustomersPage() {
           .insert({ id: savedCustomerId, ...customerData });
 
         if (error) {
-          showToast("שגיאה בשמירת לקוח", "error");
-          console.error(error);
+          showToast(`שגיאה בשמירת לקוח: ${error.message}`, "error");
+          console.error("Customer insert error:", error, "Data:", customerData);
           setIsSubmitting(false);
           return;
         }
@@ -1557,7 +1560,7 @@ export default function CustomersPage() {
                 variant="default"
                 type="button"
                 onClick={handleSaveCustomer}
-                disabled={isSubmitting || !fContactName.trim() || !fBusinessName.trim()}
+                disabled={isSubmitting}
                 className="flex-1 bg-[#6B21A8] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-[#7C3AED] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-[8px]"
               >
                 {isSubmitting ? (
