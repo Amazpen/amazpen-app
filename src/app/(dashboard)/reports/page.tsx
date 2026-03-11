@@ -378,6 +378,8 @@ export default function ReportsPage() {
         const actualWorkDays = (dailyEntries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
 
         const totalLaborCost = (rawLaborCost + (managerDailyCost * actualWorkDays)) * avgMarkup;
+        const laborOnlyCost = rawLaborCost * avgMarkup;
+        const managerOnlyCost = managerDailyCost * actualWorkDays * avgMarkup;
         void rawManagerCost;
 
         // VAT divisor from business (vat_percentage stored as decimal, e.g. 0.18 for 18%)
@@ -537,16 +539,9 @@ export default function ReportsPage() {
               let actual = categoryActuals.get(child.id) || 0;
               let target = categoryBudgets.get(child.id) || 0;
 
-              // For labor cost category: inject totalLaborCost into the matching subcategory
+              // Skip injecting totalLaborCost into children — virtual subcategories handle this
               if (isLaborCostCategory && !laborCostAssigned) {
-                const isLaborChild = child.name === "עלות עובדים" || child.name === "עלויות עובדים";
-                const isLastChild = childIndex === children.length - 1;
-                if (isLaborChild || isLastChild) {
-                  actual += totalLaborCost;
-                  const lTargetPct = Number(goal?.labor_cost_target_pct || 0);
-                  target += (lTargetPct / 100) * totalRevenue;
-                  laborCostAssigned = true;
-                }
+                laborCostAssigned = true; // Mark as handled — virtual subs will be added after
               }
 
               // Build suppliers list for this subcategory
@@ -627,8 +622,50 @@ export default function ReportsPage() {
             }).filter(sub => sub.actualRaw > 0 || sub.targetRaw > 0);
           }
 
+          // Inject virtual subcategories for labor cost: "עלות עובדים" and "שכר מנהל"
+          if (laborCostNames.has(parent.name) && (laborOnlyCost > 0 || managerOnlyCost > 0)) {
+            // Remove any existing labor subcategory that was injected with totalLaborCost
+            // and replace with separate rows for employees and manager
+            const virtualSubs: SubcategoryDisplay[] = [];
+            if (laborOnlyCost > 0) {
+              virtualSubs.push({
+                id: "__labor_employees__",
+                name: "עלות עובדים",
+                target: "—",
+                actual: formatCurrency(laborOnlyCost),
+                difference: "—",
+                remaining: "—",
+                remainingRaw: 0,
+                diffRaw: 0,
+                actualRaw: laborOnlyCost,
+                targetRaw: 0,
+                suppliers: [],
+              });
+            }
+            if (managerOnlyCost > 0) {
+              virtualSubs.push({
+                id: "__labor_manager__",
+                name: "שכר מנהל כולל העמסה",
+                target: "—",
+                actual: formatCurrency(managerOnlyCost),
+                difference: "—",
+                remaining: "—",
+                remainingRaw: 0,
+                diffRaw: 0,
+                actualRaw: managerOnlyCost,
+                targetRaw: 0,
+                suppliers: [],
+              });
+            }
+            // Keep non-labor subcategories (e.g. employee-type suppliers) and add virtual ones
+            subcategoriesData = [
+              ...virtualSubs,
+              ...subcategoriesData.filter(s => s.id !== "__labor_employees__" && s.id !== "__labor_manager__"),
+            ];
+          }
+
           // Sum up for parent
-          const isLaborCost = parent.name === "עלות עובדים";
+          const isLaborCost = laborCostNames.has(parent.name);
           const childrenActual = children.reduce((sum, c) => sum + (categoryActuals.get(c.id) || 0), 0) || categoryActuals.get(parent.id) || 0;
           const childrenBudget = children.reduce((sum, c) => sum + (categoryBudgets.get(c.id) || 0), 0) || categoryBudgets.get(parent.id) || 0;
           // For labor cost: actual from daily entries with markup, target from labor_cost_target_pct
