@@ -1290,7 +1290,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                             }
                             if (displayWorkDays === 0) displayWorkDays = 26;
                             const dailyManagerCost = displayWorkDays > 0
-                              ? (managerMonthlySalary / displayWorkDays) * dayFactor
+                              ? (managerMonthlySalary / displayWorkDays) * dayFactor * monthlyMarkup
                               : 0;
 
                             return (
@@ -1305,7 +1305,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                                 </FormField>
                                 <div className="flex flex-col gap-[3px]">
                                   <div className="flex items-center justify-between">
-                                    <Label className="text-white text-[15px] font-medium text-right">שכר מנהל יומי</Label>
+                                    <Label className="text-white text-[15px] font-medium text-right">שכר מנהל יומי כולל העמסה</Label>
                                     <Button
                                       type="button"
                                       variant="ghost"
