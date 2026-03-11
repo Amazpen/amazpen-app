@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
         if (profile?.email) {
           try {
             const emailHtml = buildEmailHtml(plan, status, profile.full_name || "");
-            const emailRes = await fetch("https://n8n.brainboxai.io/webhook/bonus-push-email", {
+            const emailRes = await fetch("https://n8n-lv4j.onrender.com/webhook/daily-push-email", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
