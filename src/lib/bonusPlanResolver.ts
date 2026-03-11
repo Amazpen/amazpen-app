@@ -116,15 +116,22 @@ function evaluateTier(
   >,
   value: number
 ): 1 | 2 | 3 | null {
+  // Helper: check if value falls within a range, handling swapped min/max
+  function inRange(val: number, a: number, b: number): boolean {
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    return val >= lo && val <= hi;
+  }
+
   // Check if any tier uses range mode
   const hasRanges = plan.tier1_threshold_max != null || plan.tier2_threshold_max != null || plan.tier3_threshold_max != null;
 
   if (hasRanges) {
-    // Range mode: value must fall within [threshold, threshold_max]
-    if (plan.tier3_threshold != null && plan.tier3_threshold_max != null && value >= plan.tier3_threshold && value <= plan.tier3_threshold_max) return 3;
-    if (plan.tier2_threshold != null && plan.tier2_threshold_max != null && value >= plan.tier2_threshold && value <= plan.tier2_threshold_max) return 2;
-    if (plan.tier1_threshold != null && plan.tier1_threshold_max != null && value >= plan.tier1_threshold && value <= plan.tier1_threshold_max) return 1;
-    // Fallback: if only min is set (no max), use original logic
+    // Range mode: value must fall within [threshold, threshold_max] (auto-normalizes swapped values)
+    if (plan.tier3_threshold != null && plan.tier3_threshold_max != null && inRange(value, plan.tier3_threshold, plan.tier3_threshold_max)) return 3;
+    if (plan.tier2_threshold != null && plan.tier2_threshold_max != null && inRange(value, plan.tier2_threshold, plan.tier2_threshold_max)) return 2;
+    if (plan.tier1_threshold != null && plan.tier1_threshold_max != null && inRange(value, plan.tier1_threshold, plan.tier1_threshold_max)) return 1;
+    // Fallback: if only min is set (no max), use single-threshold logic
     if (plan.is_lower_better) {
       if (plan.tier3_threshold != null && plan.tier3_threshold_max == null && value <= plan.tier3_threshold) return 3;
       if (plan.tier2_threshold != null && plan.tier2_threshold_max == null && value <= plan.tier2_threshold) return 2;
