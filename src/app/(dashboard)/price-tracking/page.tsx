@@ -225,8 +225,8 @@ export default function PriceTrackingPage() {
   }, [supplierItems, itemSearchQuery]);
 
   const selectedItem = supplierItems.find(si => si.id === selectedItemId);
-  // Up to 5 price history columns (most recent first)
-  const historyColumns = priceHistory.slice(0, 5);
+  // Up to 10 price history columns (most recent first) (#43)
+  const historyColumns = priceHistory.slice(0, 10);
 
   if (isCheckingAuth) {
     return (
@@ -460,49 +460,61 @@ export default function PriceTrackingPage() {
                     </div>
 
                     {/* Price history grid — inline under item */}
+                    {/* Price history grid — up to 10 prices (#43) */}
                     {selectedItemId === item.id && historyColumns.length > 0 && (
                       <div className="bg-[#0F1535] border border-t-0 border-[#29318A] rounded-b-[10px] overflow-hidden">
                         <div className="overflow-x-auto">
-                          {/* Dynamic grid: first col for label, rest for price columns */}
-                          <div className="min-w-fit">
+                          <div className="min-w-fit" style={{ minWidth: `${120 + historyColumns.length * 80}px` }}>
                             {/* Header row */}
                             <div
-                              className="grid items-center bg-[#29318A]/30 border-b border-[#4C526B]/40 text-[12px]"
-                              style={{ gridTemplateColumns: `120px repeat(${historyColumns.length}, 1fr)` }}
+                              className="grid items-center bg-[#29318A]/30 border-b border-[#4C526B]/40 text-[11px]"
+                              style={{ gridTemplateColumns: `100px repeat(${historyColumns.length}, 80px)` }}
                             >
-                              <span className="py-2 px-3 text-white/50 font-medium text-right">שם הפריט</span>
-                              {historyColumns.map((_, idx) => (
-                                <span key={idx} className="py-2 px-3 text-white/50 font-medium text-center whitespace-nowrap">
-                                  {idx === 0 ? 'מחיר אחרון בש״ח' : 'מחיר קודם'}
+                              <span className="py-2 px-2 text-white/50 font-medium text-right">שם הפריט</span>
+                              {historyColumns.map((ph) => (
+                                <span key={ph.id} className="py-2 px-1 text-white/50 font-medium text-center whitespace-nowrap ltr-num">
+                                  {new Date(ph.document_date).toLocaleDateString('he-IL')}
                                 </span>
                               ))}
                             </div>
                             {/* Prices row */}
                             <div
                               className="grid items-center border-b border-[#4C526B]/40 text-[13px]"
-                              style={{ gridTemplateColumns: `120px repeat(${historyColumns.length}, 1fr)` }}
+                              style={{ gridTemplateColumns: `100px repeat(${historyColumns.length}, 80px)` }}
                             >
-                              <span className="py-2 px-3 text-white font-medium truncate">{selectedItem?.item_name}</span>
+                              <span className="py-2 px-2 text-white/40 text-[11px]">מחיר</span>
                               {historyColumns.map((ph) => (
-                                <span key={ph.id} className="py-2 px-3 text-center text-white font-semibold ltr-num">
+                                <span key={ph.id} className="py-2 px-1 text-center text-white font-semibold ltr-num">
                                   {ph.price.toFixed(2)}
+                                </span>
+                              ))}
+                            </div>
+                            {/* Quantity row */}
+                            <div
+                              className="grid items-center border-b border-[#4C526B]/40 text-[12px]"
+                              style={{ gridTemplateColumns: `100px repeat(${historyColumns.length}, 80px)` }}
+                            >
+                              <span className="py-1 px-2 text-white/40 text-[11px]">כמות</span>
+                              {historyColumns.map((ph) => (
+                                <span key={ph.id} className="py-1 px-1 text-center text-white/60 ltr-num">
+                                  {ph.quantity ?? '-'}
                                 </span>
                               ))}
                             </div>
                             {/* Change % row */}
                             <div
-                              className="grid items-center border-b border-[#4C526B]/40 text-[12px]"
-                              style={{ gridTemplateColumns: `120px repeat(${historyColumns.length}, 1fr)` }}
+                              className="grid items-center text-[11px]"
+                              style={{ gridTemplateColumns: `100px repeat(${historyColumns.length}, 80px)` }}
                             >
-                              <span className="py-2 px-3"></span>
+                              <span className="py-1 px-2 text-white/40">שינוי</span>
                               {historyColumns.map((ph, idx) => {
                                 const prevPrice = idx < historyColumns.length - 1 ? historyColumns[idx + 1].price : null;
                                 const change = prevPrice != null ? ((ph.price - prevPrice) / prevPrice) * 100 : null;
                                 return (
-                                  <span key={ph.id} className="py-2 px-3 text-center ltr-num">
+                                  <span key={ph.id} className="py-1 px-1 text-center ltr-num">
                                     {change != null ? (
                                       <span className={`font-medium ${change > 0 ? 'text-[#F64E60]' : change < 0 ? 'text-[#3CD856]' : 'text-white/40'}`}>
-                                        {change > 0 ? '+' : ''}{change.toFixed(2)}%
+                                        {change > 0 ? '+' : ''}{change.toFixed(1)}%
                                       </span>
                                     ) : (
                                       <span className="text-white/30">-</span>
@@ -510,18 +522,6 @@ export default function PriceTrackingPage() {
                                   </span>
                                 );
                               })}
-                            </div>
-                            {/* Dates row */}
-                            <div
-                              className="grid items-center text-[12px]"
-                              style={{ gridTemplateColumns: `120px repeat(${historyColumns.length}, 1fr)` }}
-                            >
-                              <span className="py-2 px-3"></span>
-                              {historyColumns.map((ph) => (
-                                <span key={ph.id} className="py-2 px-3 text-center text-white/50 ltr-num">
-                                  {new Date(ph.document_date).toLocaleDateString('he-IL')}
-                                </span>
-                              ))}
                             </div>
                           </div>
                         </div>

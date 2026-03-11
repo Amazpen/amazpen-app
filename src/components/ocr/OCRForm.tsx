@@ -1438,12 +1438,12 @@ export default function OCRForm({
             </div>
           )}
 
-          {/* Items table */}
+          {/* Items table — editable quantity & price (#40) */}
           <div className="w-full text-[13px]" dir="rtl">
             {/* Header */}
             <div className="flex items-center border-b border-[#4C526B] text-white/60 py-[6px] px-[4px]">
               <span className="flex-1 text-right">פריט</span>
-              <span className="w-[50px] text-center shrink-0">כמות</span>
+              <span className="w-[60px] text-center shrink-0">כמות</span>
               <span className="w-[80px] text-center shrink-0">מחיר</span>
               <span className="w-[80px] text-center shrink-0">סה&quot;כ</span>
               <span className="w-[28px] shrink-0" />
@@ -1452,17 +1452,48 @@ export default function OCRForm({
             {lineItems.map((li, idx) => (
               <div key={`line-${li.description}-${idx}`} className="flex items-center border-b border-[#4C526B]/50 py-[6px] px-[4px]">
                 <span className="flex-1 min-w-0 text-right text-white overflow-hidden text-ellipsis whitespace-nowrap pr-[4px]" title={li.description || '-'}>{li.description || '-'}</span>
-                <span className="w-[50px] text-center text-white/70 ltr-num shrink-0">{li.quantity || '-'}</span>
-                <span className="w-[80px] text-center ltr-num leading-tight shrink-0">
-                  <span className="text-white">&#8362;{li.unit_price?.toFixed(2) || '0'}</span>
-                  {priceCheckDone && li.price_change_pct != null && li.price_change_pct !== 0 && (
-                    <span className={`block text-[9px] ${(li.price_change_pct || 0) > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
-                      {li.price_change_pct > 0 ? '▲' : '▼'}{Math.abs(li.price_change_pct).toFixed(1)}%
-                    </span>
-                  )}
-                  {priceCheckDone && li.is_new_item && (
-                    <span className="block text-[9px] text-[#00D4FF]">חדש</span>
-                  )}
+                <span className="w-[60px] shrink-0 px-[2px]">
+                  <input
+                    type="number"
+                    value={li.quantity ?? ''}
+                    onChange={(e) => {
+                      const qty = e.target.value === '' ? undefined : Number(e.target.value);
+                      setLineItems(prev => prev.map((item, i) => i !== idx ? item : {
+                        ...item,
+                        quantity: qty,
+                        total: qty != null && item.unit_price != null ? qty * item.unit_price : item.total,
+                      }));
+                    }}
+                    className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[13px] h-[28px] px-[4px] outline-none focus:border-[#29318A]"
+                    dir="ltr"
+                  />
+                </span>
+                <span className="w-[80px] shrink-0 px-[2px]">
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={li.unit_price ?? ''}
+                      onChange={(e) => {
+                        const price = e.target.value === '' ? undefined : Number(e.target.value);
+                        setLineItems(prev => prev.map((item, i) => i !== idx ? item : {
+                          ...item,
+                          unit_price: price,
+                          total: price != null && item.quantity != null ? item.quantity * price : item.total,
+                        }));
+                      }}
+                      className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[13px] h-[28px] px-[4px] outline-none focus:border-[#29318A]"
+                      dir="ltr"
+                    />
+                    {priceCheckDone && li.price_change_pct != null && li.price_change_pct !== 0 && (
+                      <span className={`block text-[9px] text-center ${(li.price_change_pct || 0) > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                        {li.price_change_pct > 0 ? '▲' : '▼'}{Math.abs(li.price_change_pct).toFixed(1)}%
+                      </span>
+                    )}
+                    {priceCheckDone && li.is_new_item && (
+                      <span className="block text-[9px] text-center text-[#00D4FF]">חדש</span>
+                    )}
+                  </div>
                 </span>
                 <span className="w-[80px] text-center text-white/70 ltr-num shrink-0">&#8362;{li.total?.toFixed(2) || '0'}</span>
                 <span className="w-[28px] text-center shrink-0">
