@@ -5,7 +5,7 @@ const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY;
 const VISION_API_URL = `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`;
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/avif"];
 
 export async function POST(request: NextRequest) {
   if (!GOOGLE_VISION_API_KEY) {

@@ -2,7 +2,7 @@ const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY;
 const VISION_API_URL = `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`;
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/avif"];
 
 /** OCR an image file using Google Cloud Vision API */
 export async function ocrImage(file: File): Promise<string> {

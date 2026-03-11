@@ -8,7 +8,7 @@ import { BarVisualizer } from "@/components/ui/bar-visualizer";
 
 const MAX_FILES = 10;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"];
+const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/avif", "application/pdf"];
 
 /** Send a file to the OCR API and return extracted text.
  *  For PDFs: first tries server-side text extraction.
