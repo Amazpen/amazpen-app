@@ -414,6 +414,14 @@ export default function EditBusinessPage({ params }: PageProps) {
     setIncomeSources(incomeSources.filter((_, i) => i !== index));
   };
 
+  const handleMoveIncomeSource = (index: number, direction: "up" | "down") => {
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= incomeSources.length) return;
+    const updated = [...incomeSources];
+    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+    setIncomeSources(updated);
+  };
+
   const handleAddCustomParameter = () => {
     if (newCustomParameter.trim() && !customParameters.some(p => p.name === newCustomParameter.trim())) {
       setCustomParameters([...customParameters, { name: newCustomParameter.trim() }]);
@@ -692,13 +700,22 @@ export default function EditBusinessPage({ params }: PageProps) {
           .eq("business_id", businessId);
       }
 
-      const newIncomeSources = incomeSources.filter(s => !s.id);
+      // Update display_order for existing income sources based on current array order (#38)
+      for (let i = 0; i < incomeSources.length; i++) {
+        if (incomeSources[i].id) {
+          await supabase.from("income_sources").update({ display_order: i }).eq("id", incomeSources[i].id!);
+        }
+      }
+
+      const newIncomeSources = incomeSources
+        .map((s, i) => ({ ...s, _order: i }))
+        .filter(s => !s.id);
       if (newIncomeSources.length > 0) {
         await supabase.from("income_sources").insert(
-          newIncomeSources.map((s, i) => ({
+          newIncomeSources.map((s) => ({
             business_id: businessId,
             name: s.name,
-            display_order: incomeSources.length + i,
+            display_order: s._order,
             is_active: true,
           }))
         );
@@ -1263,22 +1280,45 @@ export default function EditBusinessPage({ params }: PageProps) {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-[8px]">
+        <div className="flex flex-col gap-[4px]">
           {incomeSources.map((source, index) => (
-            <div key={source.id || index} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
+            <div key={source.id || index} className="flex items-center gap-[6px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[10px] py-[5px]">
               <Button
                 variant="ghost"
                 size="icon-sm"
                 type="button"
                 onClick={() => handleRemoveIncomeSource(index)}
                 aria-label={`הסר ${source.name}`}
-                className="text-[#F64E60] hover:text-[#ff6b7a]"
+                className="text-[#F64E60] hover:text-[#ff6b7a] p-0 h-auto"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
               </Button>
-              <span className="text-[14px] text-white">{source.name}</span>
+              <div className="flex flex-col gap-0">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  type="button"
+                  onClick={() => handleMoveIncomeSource(index, "up")}
+                  disabled={index === 0}
+                  className="text-white/50 hover:text-white p-0 h-[14px] w-[18px] disabled:opacity-20"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M18 15l-6-6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  type="button"
+                  onClick={() => handleMoveIncomeSource(index, "down")}
+                  disabled={index === incomeSources.length - 1}
+                  className="text-white/50 hover:text-white p-0 h-[14px] w-[18px] disabled:opacity-20"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </Button>
+              </div>
+              <span className="text-[13px] text-white/40 font-mono w-[18px] text-center">{index + 1}</span>
+              <span className="text-[14px] text-white flex-1 text-right">{source.name}</span>
             </div>
           ))}
         </div>

@@ -181,7 +181,7 @@ export default function CashFlowPage() {
         const lookbackStr = formatLocalDate(lookbackDate);
 
         // 2. Parallel queries
-        const [pmResult, paymentBreakdownResult, splitsResult, overridesResult] = await Promise.all([
+        const [pmResult, paymentBreakdownResult, splitsResult, overridesResult, retainersResult] = await Promise.all([
           supabase
             .from("payment_method_types")
             .select("*")
@@ -207,11 +207,49 @@ export default function CashFlowPage() {
             .eq("business_id", businessId)
             .gte("settlement_date", openingDate)
             .lte("settlement_date", endDateStr),
+          // Fetch active retainers for income forecast (#36)
+          supabase
+            .from("customers")
+            .select("id, business_name, retainer_amount, retainer_day_of_month, retainer_type, retainer_start_date, retainer_end_date, retainer_status, is_foreign")
+            .eq("business_id", businessId)
+            .eq("retainer_status", "active")
+            .is("deleted_at", null),
         ]);
 
         const paymentMethods = (pmResult.data || []) as PaymentMethodType[];
         const pmNameMap: Record<string, string> = {};
         paymentMethods.forEach((t) => { pmNameMap[t.id] = t.name; });
+
+        // Build retainer forecast map (#36)
+        const retainers = retainersResult.data || [];
+        // Fetch business VAT rate for retainer calculation
+        const { data: bizData } = await supabase.from("businesses").select("vat_percentage").eq("id", businessId).maybeSingle();
+        const bizVatRate = Number(bizData?.vat_percentage) || 0.18;
+        const retainerByDate = new Map<string, Array<{ name: string; amount: number }>>();
+        for (const ret of retainers as Array<Record<string, unknown>>) {
+          const dayOfMonth = Number(ret.retainer_day_of_month) || 1;
+          const amount = Number(ret.retainer_amount) || 0;
+          if (amount <= 0) continue;
+          const isForeign = ret.is_foreign as boolean;
+          const netAmount = isForeign ? amount : amount * (1 + bizVatRate);
+          const startDate = ret.retainer_start_date ? String(ret.retainer_start_date).substring(0, 10) : null;
+          const endRetDate = ret.retainer_end_date ? String(ret.retainer_end_date).substring(0, 10) : null;
+          const name = `ריטיינר — ${ret.business_name || "לקוח"}`;
+
+          // Generate entries for each month in range
+          const rangeStart = new Date(openingDate + "T00:00:00");
+          const rangeEnd = new Date(endDateStr + "T00:00:00");
+          for (let m = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1); m <= rangeEnd; m.setMonth(m.getMonth() + 1)) {
+            const day = Math.min(dayOfMonth, new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate());
+            const dateStr = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            if (dateStr < openingDate || dateStr > endDateStr) continue;
+            if (startDate && dateStr < startDate) continue;
+            if (endRetDate && dateStr > endRetDate) continue;
+            const existing = retainerByDate.get(dateStr) || [];
+            existing.push({ name, amount: netAmount });
+            retainerByDate.set(dateStr, existing);
+          }
+        }
 
         const paymentEntries = (paymentBreakdownResult.data || []).map((row: Record<string, unknown>) => {
           const dailyEntry = row.daily_entries as Record<string, unknown>;
@@ -270,6 +308,20 @@ export default function CashFlowPage() {
             }
             return item;
           });
+
+          // Add retainer forecast income (#36)
+          const retainerItems = retainerByDate.get(dateStr) || [];
+          for (const ri of retainerItems) {
+            incomeItems = [...incomeItems, {
+              settlement_date: dateStr,
+              payment_method_id: "retainer",
+              payment_method_name: ri.name,
+              original_entry_date: dateStr,
+              gross_amount: ri.amount,
+              fee_amount: 0,
+              net_amount: ri.amount,
+            }];
+          }
 
           // Expenses
           const expenseItems = expensesByDate.get(dateStr) || [];

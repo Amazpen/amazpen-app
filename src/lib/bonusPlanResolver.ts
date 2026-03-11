@@ -28,10 +28,13 @@ export async function resolveBonusPlanStatus(
     | "data_source"
     | "is_lower_better"
     | "tier1_threshold"
+    | "tier1_threshold_max"
     | "tier1_amount"
     | "tier2_threshold"
+    | "tier2_threshold_max"
     | "tier2_amount"
     | "tier3_threshold"
+    | "tier3_threshold_max"
     | "tier3_amount"
   >,
   year: number,
@@ -97,6 +100,7 @@ export async function resolveBonusPlanStatus(
 
 /**
  * Evaluates which tier the current value qualifies for.
+ * Supports both single threshold and range (min-max) modes (#37).
  * Checks tier3 first (highest bonus), then tier2, then tier1.
  */
 function evaluateTier(
@@ -104,21 +108,43 @@ function evaluateTier(
     BonusPlan,
     | "is_lower_better"
     | "tier1_threshold"
+    | "tier1_threshold_max"
     | "tier2_threshold"
+    | "tier2_threshold_max"
     | "tier3_threshold"
+    | "tier3_threshold_max"
   >,
   value: number
 ): 1 | 2 | 3 | null {
-  if (plan.is_lower_better) {
-    // Lower is better (cost %): value must be ≤ threshold
-    if (plan.tier3_threshold != null && value <= plan.tier3_threshold) return 3;
-    if (plan.tier2_threshold != null && value <= plan.tier2_threshold) return 2;
-    if (plan.tier1_threshold != null && value <= plan.tier1_threshold) return 1;
+  // Check if any tier uses range mode
+  const hasRanges = plan.tier1_threshold_max != null || plan.tier2_threshold_max != null || plan.tier3_threshold_max != null;
+
+  if (hasRanges) {
+    // Range mode: value must fall within [threshold, threshold_max]
+    if (plan.tier3_threshold != null && plan.tier3_threshold_max != null && value >= plan.tier3_threshold && value <= plan.tier3_threshold_max) return 3;
+    if (plan.tier2_threshold != null && plan.tier2_threshold_max != null && value >= plan.tier2_threshold && value <= plan.tier2_threshold_max) return 2;
+    if (plan.tier1_threshold != null && plan.tier1_threshold_max != null && value >= plan.tier1_threshold && value <= plan.tier1_threshold_max) return 1;
+    // Fallback: if only min is set (no max), use original logic
+    if (plan.is_lower_better) {
+      if (plan.tier3_threshold != null && plan.tier3_threshold_max == null && value <= plan.tier3_threshold) return 3;
+      if (plan.tier2_threshold != null && plan.tier2_threshold_max == null && value <= plan.tier2_threshold) return 2;
+      if (plan.tier1_threshold != null && plan.tier1_threshold_max == null && value <= plan.tier1_threshold) return 1;
+    } else {
+      if (plan.tier3_threshold != null && plan.tier3_threshold_max == null && value >= plan.tier3_threshold) return 3;
+      if (plan.tier2_threshold != null && plan.tier2_threshold_max == null && value >= plan.tier2_threshold) return 2;
+      if (plan.tier1_threshold != null && plan.tier1_threshold_max == null && value >= plan.tier1_threshold) return 1;
+    }
   } else {
-    // Higher is better (revenue): value must be ≥ threshold
-    if (plan.tier3_threshold != null && value >= plan.tier3_threshold) return 3;
-    if (plan.tier2_threshold != null && value >= plan.tier2_threshold) return 2;
-    if (plan.tier1_threshold != null && value >= plan.tier1_threshold) return 1;
+    // Original single-threshold mode
+    if (plan.is_lower_better) {
+      if (plan.tier3_threshold != null && value <= plan.tier3_threshold) return 3;
+      if (plan.tier2_threshold != null && value <= plan.tier2_threshold) return 2;
+      if (plan.tier1_threshold != null && value <= plan.tier1_threshold) return 1;
+    } else {
+      if (plan.tier3_threshold != null && value >= plan.tier3_threshold) return 3;
+      if (plan.tier2_threshold != null && value >= plan.tier2_threshold) return 2;
+      if (plan.tier1_threshold != null && value >= plan.tier1_threshold) return 1;
+    }
   }
   return null;
 }

@@ -9,12 +9,15 @@ export interface BonusPlan {
   custom_source_label: string | null;
   tier1_label: string;
   tier1_threshold: number | null;
+  tier1_threshold_max: number | null;
   tier1_amount: number;
   tier2_label: string;
   tier2_threshold: number | null;
+  tier2_threshold_max: number | null;
   tier2_amount: number;
   tier3_label: string;
   tier3_threshold: number | null;
+  tier3_threshold_max: number | null;
   tier3_amount: number;
   push_enabled: boolean;
   push_hour: number;

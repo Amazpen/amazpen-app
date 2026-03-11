@@ -93,12 +93,15 @@ export default function BonusPlansPage() {
   const [formCustomLabel, setFormCustomLabel] = useState("");
   const [formTier1Label, setFormTier1Label] = useState("עמידה ביעד");
   const [formTier1Threshold, setFormTier1Threshold] = useState("");
+  const [formTier1ThresholdMax, setFormTier1ThresholdMax] = useState("");
   const [formTier1Amount, setFormTier1Amount] = useState("");
   const [formTier2Label, setFormTier2Label] = useState("שיפור קטן");
   const [formTier2Threshold, setFormTier2Threshold] = useState("");
+  const [formTier2ThresholdMax, setFormTier2ThresholdMax] = useState("");
   const [formTier2Amount, setFormTier2Amount] = useState("");
   const [formTier3Label, setFormTier3Label] = useState("שיפור משמעותי");
   const [formTier3Threshold, setFormTier3Threshold] = useState("");
+  const [formTier3ThresholdMax, setFormTier3ThresholdMax] = useState("");
   const [formTier3Amount, setFormTier3Amount] = useState("");
   const [formPushEnabled, setFormPushEnabled] = useState(true);
   const [formPushHour, setFormPushHour] = useState("8");
@@ -236,12 +239,15 @@ export default function BonusPlansPage() {
     setFormCustomLabel("");
     setFormTier1Label("עמידה ביעד");
     setFormTier1Threshold("");
+    setFormTier1ThresholdMax("");
     setFormTier1Amount("");
     setFormTier2Label("שיפור קטן");
     setFormTier2Threshold("");
+    setFormTier2ThresholdMax("");
     setFormTier2Amount("");
     setFormTier3Label("שיפור משמעותי");
     setFormTier3Threshold("");
+    setFormTier3ThresholdMax("");
     setFormTier3Amount("");
     setFormPushEnabled(true);
     setFormPushHour("8");
@@ -259,12 +265,15 @@ export default function BonusPlansPage() {
     setFormCustomLabel(plan.custom_source_label || "");
     setFormTier1Label(plan.tier1_label);
     setFormTier1Threshold(plan.tier1_threshold?.toString() || "");
+    setFormTier1ThresholdMax(plan.tier1_threshold_max?.toString() || "");
     setFormTier1Amount(plan.tier1_amount.toString());
     setFormTier2Label(plan.tier2_label);
     setFormTier2Threshold(plan.tier2_threshold?.toString() || "");
+    setFormTier2ThresholdMax(plan.tier2_threshold_max?.toString() || "");
     setFormTier2Amount(plan.tier2_amount.toString());
     setFormTier3Label(plan.tier3_label);
     setFormTier3Threshold(plan.tier3_threshold?.toString() || "");
+    setFormTier3ThresholdMax(plan.tier3_threshold_max?.toString() || "");
     setFormTier3Amount(plan.tier3_amount.toString());
     setFormPushEnabled(plan.push_enabled);
     setFormPushHour(plan.push_hour.toString());
@@ -310,12 +319,15 @@ export default function BonusPlansPage() {
       custom_source_label: formDataSource === "custom" ? formCustomLabel || null : null,
       tier1_label: formTier1Label,
       tier1_threshold: formTier1Threshold ? parseFloat(formTier1Threshold) : null,
+      tier1_threshold_max: formTier1ThresholdMax ? parseFloat(formTier1ThresholdMax) : null,
       tier1_amount: tier1Amt,
       tier2_label: formTier2Label,
       tier2_threshold: formTier2Threshold ? parseFloat(formTier2Threshold) : null,
+      tier2_threshold_max: formTier2ThresholdMax ? parseFloat(formTier2ThresholdMax) : null,
       tier2_amount: tier2Amt,
       tier3_label: formTier3Label,
       tier3_threshold: formTier3Threshold ? parseFloat(formTier3Threshold) : null,
+      tier3_threshold_max: formTier3ThresholdMax ? parseFloat(formTier3ThresholdMax) : null,
       tier3_amount: tier3Amt,
       push_enabled: formPushEnabled,
       push_hour: parseInt(formPushHour),
@@ -345,9 +357,9 @@ export default function BonusPlansPage() {
   }, [
     selectedBusinessId, formEmployeeId, formAreaName, formDataSource,
     formMeasurementType, formIsLowerBetter, formCustomLabel,
-    formTier1Label, formTier1Threshold, formTier1Amount,
-    formTier2Label, formTier2Threshold, formTier2Amount,
-    formTier3Label, formTier3Threshold, formTier3Amount,
+    formTier1Label, formTier1Threshold, formTier1ThresholdMax, formTier1Amount,
+    formTier2Label, formTier2Threshold, formTier2ThresholdMax, formTier2Amount,
+    formTier3Label, formTier3Threshold, formTier3ThresholdMax, formTier3Amount,
     formPushEnabled, formPushHour, formNotes,
     editingPlanId, resetForm, fetchPlans,
   ]);
@@ -360,7 +372,7 @@ export default function BonusPlansPage() {
         async () => {
           const { error } = await supabase
             .from("bonus_plans")
-            .update({ deleted_at: new Date().toISOString() })
+            .update({ deleted_at: new Date().toISOString(), is_active: false })
             .eq("id", plan.id);
 
           if (error) {
@@ -561,90 +573,36 @@ export default function BonusPlansPage() {
                   </>
                 )}
 
-                {/* Tiers */}
+                {/* Tiers (#37 — range support) */}
                 <div>
                   <label className="text-white/70 text-sm mb-2 block">רמות בונוס</label>
+                  <div className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-1 mb-1 px-1">
+                    <span className="text-[11px] text-white/40 text-center">שם</span>
+                    <span className="text-[11px] text-white/40 text-center">מ-</span>
+                    <span className="text-[11px] text-white/40 text-center">עד</span>
+                    <span className="text-[11px] text-white/40 text-center">בונוס ₪</span>
+                  </div>
                   <div className="flex flex-col gap-3">
                     {/* Tier 1 */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        value={formTier1Label}
-                        onChange={(e) => setFormTier1Label(e.target.value)}
-                        placeholder="שם רמה"
-                        className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-right text-sm placeholder:text-white/30"
-                      />
-                      <input
-                        type="number"
-                        value={formTier1Threshold}
-                        onChange={(e) => setFormTier1Threshold(e.target.value)}
-                        placeholder={formMeasurementType === "percentage" ? "סף %" : "סף ₪"}
-                        step="0.1"
-                        className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30"
-                        inputMode="decimal"
-                      />
-                      <input
-                        type="number"
-                        value={formTier1Amount}
-                        onChange={(e) => setFormTier1Amount(e.target.value)}
-                        placeholder="בונוס ₪"
-                        className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30"
-                        inputMode="numeric"
-                      />
+                    <div className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-2">
+                      <input type="text" value={formTier1Label} onChange={(e) => setFormTier1Label(e.target.value)} placeholder="שם רמה" className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-right text-sm placeholder:text-white/30" />
+                      <input type="number" value={formTier1Threshold} onChange={(e) => setFormTier1Threshold(e.target.value)} placeholder={formMeasurementType === "percentage" ? "מ- %" : "מ- ₪"} step="0.1" className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30" inputMode="decimal" />
+                      <input type="number" value={formTier1ThresholdMax} onChange={(e) => setFormTier1ThresholdMax(e.target.value)} placeholder={formMeasurementType === "percentage" ? "עד %" : "עד ₪"} step="0.1" className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30" inputMode="decimal" />
+                      <input type="number" value={formTier1Amount} onChange={(e) => setFormTier1Amount(e.target.value)} placeholder="בונוס ₪" className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30" inputMode="numeric" />
                     </div>
                     {/* Tier 2 */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        value={formTier2Label}
-                        onChange={(e) => setFormTier2Label(e.target.value)}
-                        placeholder="שם רמה"
-                        className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-right text-sm placeholder:text-white/30"
-                      />
-                      <input
-                        type="number"
-                        value={formTier2Threshold}
-                        onChange={(e) => setFormTier2Threshold(e.target.value)}
-                        placeholder={formMeasurementType === "percentage" ? "סף %" : "סף ₪"}
-                        step="0.1"
-                        className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30"
-                        inputMode="decimal"
-                      />
-                      <input
-                        type="number"
-                        value={formTier2Amount}
-                        onChange={(e) => setFormTier2Amount(e.target.value)}
-                        placeholder="בונוס ₪"
-                        className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30"
-                        inputMode="numeric"
-                      />
+                    <div className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-2">
+                      <input type="text" value={formTier2Label} onChange={(e) => setFormTier2Label(e.target.value)} placeholder="שם רמה" className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-right text-sm placeholder:text-white/30" />
+                      <input type="number" value={formTier2Threshold} onChange={(e) => setFormTier2Threshold(e.target.value)} placeholder={formMeasurementType === "percentage" ? "מ- %" : "מ- ₪"} step="0.1" className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30" inputMode="decimal" />
+                      <input type="number" value={formTier2ThresholdMax} onChange={(e) => setFormTier2ThresholdMax(e.target.value)} placeholder={formMeasurementType === "percentage" ? "עד %" : "עד ₪"} step="0.1" className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30" inputMode="decimal" />
+                      <input type="number" value={formTier2Amount} onChange={(e) => setFormTier2Amount(e.target.value)} placeholder="בונוס ₪" className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30" inputMode="numeric" />
                     </div>
                     {/* Tier 3 */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        value={formTier3Label}
-                        onChange={(e) => setFormTier3Label(e.target.value)}
-                        placeholder="שם רמה"
-                        className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-right text-sm placeholder:text-white/30"
-                      />
-                      <input
-                        type="number"
-                        value={formTier3Threshold}
-                        onChange={(e) => setFormTier3Threshold(e.target.value)}
-                        placeholder={formMeasurementType === "percentage" ? "סף %" : "סף ₪"}
-                        step="0.1"
-                        className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30"
-                        inputMode="decimal"
-                      />
-                      <input
-                        type="number"
-                        value={formTier3Amount}
-                        onChange={(e) => setFormTier3Amount(e.target.value)}
-                        placeholder="בונוס ₪"
-                        className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30"
-                        inputMode="numeric"
-                      />
+                    <div className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-2">
+                      <input type="text" value={formTier3Label} onChange={(e) => setFormTier3Label(e.target.value)} placeholder="שם רמה" className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-right text-sm placeholder:text-white/30" />
+                      <input type="number" value={formTier3Threshold} onChange={(e) => setFormTier3Threshold(e.target.value)} placeholder={formMeasurementType === "percentage" ? "מ- %" : "מ- ₪"} step="0.1" className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30" inputMode="decimal" />
+                      <input type="number" value={formTier3ThresholdMax} onChange={(e) => setFormTier3ThresholdMax(e.target.value)} placeholder={formMeasurementType === "percentage" ? "עד %" : "עד ₪"} step="0.1" className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30" inputMode="decimal" />
+                      <input type="number" value={formTier3Amount} onChange={(e) => setFormTier3Amount(e.target.value)} placeholder="בונוס ₪" className="h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center text-sm placeholder:text-white/30" inputMode="numeric" />
                     </div>
                   </div>
                 </div>
@@ -787,9 +745,9 @@ export default function BonusPlansPage() {
                       {/* Tiers */}
                       <div className="grid grid-cols-3 gap-2 mb-3">
                         {[
-                          { label: plan.tier1_label, threshold: plan.tier1_threshold, amount: plan.tier1_amount, tier: 1 as const },
-                          { label: plan.tier2_label, threshold: plan.tier2_threshold, amount: plan.tier2_amount, tier: 2 as const },
-                          { label: plan.tier3_label, threshold: plan.tier3_threshold, amount: plan.tier3_amount, tier: 3 as const },
+                          { label: plan.tier1_label, threshold: plan.tier1_threshold, thresholdMax: plan.tier1_threshold_max, amount: plan.tier1_amount, tier: 1 as const },
+                          { label: plan.tier2_label, threshold: plan.tier2_threshold, thresholdMax: plan.tier2_threshold_max, amount: plan.tier2_amount, tier: 2 as const },
+                          { label: plan.tier3_label, threshold: plan.tier3_threshold, thresholdMax: plan.tier3_threshold_max, amount: plan.tier3_amount, tier: 3 as const },
                         ].map((t) => (
                           <div
                             key={t.tier}
@@ -802,8 +760,10 @@ export default function BonusPlansPage() {
                             <div className="text-[11px] mb-0.5">{t.label}</div>
                             {t.threshold != null && (
                               <div className="text-[10px] opacity-70">
-                                {plan.is_lower_better ? "≤" : "≥"}{" "}
-                                {formatValue(t.threshold, plan.measurement_type)}
+                                {t.thresholdMax != null
+                                  ? `${formatValue(t.threshold, plan.measurement_type)} – ${formatValue(t.thresholdMax, plan.measurement_type)}`
+                                  : `${plan.is_lower_better ? "≤" : "≥"} ${formatValue(t.threshold, plan.measurement_type)}`
+                                }
                               </div>
                             )}
                             <div className="font-semibold text-sm mt-0.5">{formatCurrency(t.amount)}</div>

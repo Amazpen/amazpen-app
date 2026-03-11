@@ -53,6 +53,7 @@ interface Customer {
   is_foreign: boolean;
   payment_method: string | null;
   business_type: string | null;
+  business_type_other: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -182,6 +183,7 @@ export default function CustomersPage() {
   const [fIsForeign, setFIsForeign] = useState(false);
   const [fCustomerPaymentMethod, setFCustomerPaymentMethod] = useState("");
   const [fCustomerBusinessType, setFCustomerBusinessType] = useState("");
+  const [fCustomerBusinessTypeOther, setFCustomerBusinessTypeOther] = useState("");
   const [agreementFile, setAgreementFile] = useState<File | null>(null);
   const [fRetainerAmount, setFRetainerAmount] = useState("");
   const [fRetainerType, setFRetainerType] = useState<string>("");
@@ -236,6 +238,10 @@ export default function CustomersPage() {
 
   // Available businesses for "add standalone" form
   const [allBusinesses, setAllBusinesses] = useState<Business[]>([]);
+
+  // Income sources for retainer linking (#35)
+  const [incomeSources, setIncomeSources] = useState<Array<{ id: string; name: string; business_id: string }>>([]);
+  const [fLinkedIncomeSourceId, setFLinkedIncomeSourceId] = useState("");
 
   // Dynamic VAT multiplier based on selected business (0 for foreign customers)
   const vatMultiplier = useMemo(() => {
@@ -332,6 +338,19 @@ export default function CustomersPage() {
 
         setDisplayItems(items);
         setStandaloneCustomers([]);
+      }
+
+      // Fetch income sources for retainer linking (#35)
+      const bizIds = selectedBusinesses;
+      if (bizIds.length > 0) {
+        const { data: sources } = await supabase
+          .from("income_sources")
+          .select("id, name, business_id")
+          .in("business_id", bizIds)
+          .eq("is_active", true)
+          .is("deleted_at", null)
+          .order("name");
+        setIncomeSources(sources || []);
       }
 
       setIsLoading(false);
@@ -492,6 +511,8 @@ export default function CustomersPage() {
     setFIsForeign(false);
     setFCustomerPaymentMethod("");
     setFCustomerBusinessType("");
+    setFCustomerBusinessTypeOther("");
+    setFLinkedIncomeSourceId("");
     setAgreementFile(null);
     setFormBusinessId(null);
     setFormBusinessName("");
@@ -532,6 +553,8 @@ export default function CustomersPage() {
       setFIsForeign(item.customer.is_foreign || false);
       setFCustomerPaymentMethod(item.customer.payment_method || "");
       setFCustomerBusinessType(item.customer.business_type || "");
+      setFCustomerBusinessTypeOther(item.customer.business_type_other || "");
+      setFLinkedIncomeSourceId(item.customer.linked_income_source_id || "");
       setFRetainerAmount(item.customer.retainer_amount != null ? String(item.customer.retainer_amount) : "");
       setFRetainerType(item.customer.retainer_type || "");
       setFRetainerMonths(item.customer.retainer_months != null ? String(item.customer.retainer_months) : "");
@@ -645,6 +668,7 @@ export default function CustomersPage() {
         is_foreign: fIsForeign,
         payment_method: fCustomerPaymentMethod || null,
         business_type: fCustomerBusinessType || null,
+        business_type_other: fCustomerBusinessType === "other" ? (fCustomerBusinessTypeOther.trim() || null) : null,
         retainer_amount: retainerAmount,
         retainer_type: retainerType,
         retainer_months: retainerMonths,
@@ -692,27 +716,35 @@ export default function CustomersPage() {
         clearDraft();
       }
 
-      // Create linked income_source if retainer amount > 0 and no existing link
-      if (retainerAmount && retainerAmount > 0 && !existingLinkedSourceId && formBusinessId && savedCustomerId) {
-        const incomeSourceId = generateUUID();
-        const { error: incomeError } = await supabase
-          .from("income_sources")
-          .insert({
-            id: incomeSourceId,
-            business_id: formBusinessId,
-            name: `ריטיינר — ${fBusinessName.trim()}`,
-            type: "retainer",
-            is_active: true,
-          });
-
-        if (!incomeError) {
-          // Link the income source to the customer
+      // Link or create income_source for retainer (#35)
+      if (retainerAmount && retainerAmount > 0 && formBusinessId && savedCustomerId) {
+        if (fLinkedIncomeSourceId) {
+          // User chose an existing income source — link it directly
           await supabase
             .from("customers")
-            .update({ linked_income_source_id: incomeSourceId })
+            .update({ linked_income_source_id: fLinkedIncomeSourceId })
             .eq("id", savedCustomerId);
-        } else {
-          console.error("Error creating income source:", incomeError);
+        } else if (!existingLinkedSourceId) {
+          // Auto-create a new income source
+          const incomeSourceId = generateUUID();
+          const { error: incomeError } = await supabase
+            .from("income_sources")
+            .insert({
+              id: incomeSourceId,
+              business_id: formBusinessId,
+              name: `ריטיינר — ${fBusinessName.trim()}`,
+              type: "retainer",
+              is_active: true,
+            });
+
+          if (!incomeError) {
+            await supabase
+              .from("customers")
+              .update({ linked_income_source_id: incomeSourceId })
+              .eq("id", savedCustomerId);
+          } else {
+            console.error("Error creating income source:", incomeError);
+          }
         }
       }
 
@@ -988,8 +1020,31 @@ export default function CustomersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Header */}
+      {/* Header with financial summary (#31) */}
       <div className="flex flex-col gap-[7px] p-[5px]">
+        {/* Financial Summary */}
+        {(() => {
+          const allCustomers = [
+            ...displayItems.filter(d => d.customer).map(d => d.customer!),
+            ...standaloneCustomers,
+          ];
+          const activeRetainerTotal = allCustomers
+            .filter(c => c.retainer_status === "active" && c.retainer_amount && c.retainer_amount > 0)
+            .reduce((sum, c) => sum + (c.retainer_amount || 0), 0);
+          const activeCount = allCustomers.filter(c => c.is_active).length;
+          return activeRetainerTotal > 0 ? (
+            <div className="bg-[#6B21A8]/30 rounded-[10px] p-[12px] flex flex-row-reverse items-center justify-between gap-[10px]">
+              <div className="flex flex-col items-end">
+                <span className="text-[12px] text-white/60">הכנסה חודשית מריטיינרים</span>
+                <span className="text-[20px] font-bold text-white ltr-num">₪{activeRetainerTotal.toLocaleString("he-IL")}</span>
+              </div>
+              <div className="flex flex-col items-end">
+                <span className="text-[12px] text-white/60">לקוחות פעילים</span>
+                <span className="text-[18px] font-bold text-white">{activeCount}</span>
+              </div>
+            </div>
+          ) : null;
+        })()}
         {/* Add Standalone Customer Button */}
         <Button
           variant="default"
@@ -1217,7 +1272,7 @@ export default function CustomersPage() {
           <div className="flex flex-col gap-[10px] px-[5px]" dir="rtl">
             {/* שם הלקוח */}
             <div className="flex flex-col gap-[5px]" data-field-error={formErrors.has("contactName") || undefined}>
-              <label className={`text-[15px] font-medium text-right ${formErrors.has("contactName") ? "text-[#F64E60]" : "text-white"}`}>שם הלקוח *</label>
+              <label className={`text-[15px] font-medium text-right ${formErrors.has("contactName") ? "text-[#F64E60]" : "text-white"}`}>שם לקוח / נותן שירות *</label>
               <div className={`border rounded-[10px] h-[50px] transition-colors ${formErrors.has("contactName") ? "border-[#F64E60] ring-1 ring-[#F64E60]/50" : "border-[#4C526B]"}`}>
                 <Input
                   type="text"
@@ -1323,21 +1378,6 @@ export default function CustomersPage() {
               </div>
             </div>
 
-            {/* תנאי תשלום */}
-            <div className="flex flex-col gap-[5px]">
-              <label className="text-[15px] font-medium text-white text-right">תנאי תשלום</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                <Input
-                  type="text"
-                  title="תנאי תשלום"
-                  value={fPaymentTerms}
-                  onChange={(e) => setFPaymentTerms(e.target.value)}
-                  placeholder="לדוגמה: ריטיינר חודשי"
-                  className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
-                />
-              </div>
-            </div>
-
             {/* סוג עסק */}
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">סוג עסק</label>
@@ -1352,6 +1392,18 @@ export default function CustomersPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {fCustomerBusinessType === "other" && (
+                <div className="border border-[#4C526B] rounded-[10px] h-[50px] mt-[5px]">
+                  <Input
+                    type="text"
+                    title="פרט סוג עסק"
+                    value={fCustomerBusinessTypeOther}
+                    onChange={(e) => setFCustomerBusinessTypeOther(e.target.value)}
+                    placeholder="פרט סוג עסק..."
+                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+                  />
+                </div>
+              )}
             </div>
 
             {/* אמצעי תשלום */}
@@ -1525,6 +1577,27 @@ export default function CustomersPage() {
                   />
                 </div>
               </div>
+
+              {/* מקור הכנסה מקושר (#35) */}
+              {(() => {
+                const bizSources = incomeSources.filter(s => s.business_id === formBusinessId);
+                return bizSources.length > 0 ? (
+                  <div className="flex flex-col gap-[5px]">
+                    <label className="text-[14px] font-medium text-white/80 text-right">מקור הכנסה מקושר</label>
+                    <Select value={fLinkedIncomeSourceId || "__none__"} onValueChange={(val) => setFLinkedIncomeSourceId(val === "__none__" ? "" : val)}>
+                      <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                        <SelectValue placeholder="ייצור אוטומטי" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">ייצור אוטומטי</SelectItem>
+                        {bizSources.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null;
+              })()}
             </div>
 
 
@@ -1661,7 +1734,7 @@ export default function CustomersPage() {
                     {/* Row 1 */}
                     <div className="grid grid-cols-2 gap-[10px] mb-[15px]">
                       <div className="flex flex-col items-center text-center">
-                        <span className="text-[12px] text-white/60">שם הלקוח</span>
+                        <span className="text-[12px] text-white/60">שם לקוח / נותן שירות</span>
                         <span className="text-[14px] text-white font-medium">{selectedItem.customer.contact_name}</span>
                       </div>
                       <div className="flex flex-col items-center text-center">
@@ -1703,7 +1776,9 @@ export default function CustomersPage() {
                         <div className="flex flex-col items-center text-center">
                           <span className="text-[12px] text-white/60">סוג עסק</span>
                           <span className="text-[14px] text-white font-medium">
-                            {customerBusinessTypes.find(bt => bt.id === selectedItem.customer!.business_type)?.label || selectedItem.customer.business_type}
+                            {selectedItem.customer.business_type === "other" && selectedItem.customer.business_type_other
+                              ? selectedItem.customer.business_type_other
+                              : (customerBusinessTypes.find(bt => bt.id === selectedItem.customer!.business_type)?.label || selectedItem.customer.business_type)}
                           </span>
                         </div>
                       )}
