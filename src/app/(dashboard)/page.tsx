@@ -1381,8 +1381,9 @@ export default function DashboardPage() {
       }
 
       // Calculate final labor cost
-      const calendarDaysInMonthSummary = new Date(targetYearForSchedule, targetMonthForSchedule + 1, 0).getDate();
-      const managerDailyCost = calendarDaysInMonthSummary > 0 ? totalManagerSalary / calendarDaysInMonthSummary : 0;
+      // Use schedule-based work days (not calendar days) for accurate manager daily cost
+      const effectiveWorkDays = expectedWorkDaysInMonth > 0 ? expectedWorkDaysInMonth : 26; // Fallback to 26
+      const managerDailyCost = effectiveWorkDays > 0 ? totalManagerSalary / effectiveWorkDays : 0;
       const actualWorkDays = (entries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
 
       // Labor cost in ILS: (labor_cost + manager_daily_cost × actual_days) × markup

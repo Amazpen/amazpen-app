@@ -191,7 +191,7 @@ export default function ReportsPage() {
           .select("invoice_date, subtotal")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
-          .in("invoice_type", ["current", "goods"])
+          .in("invoice_type", ["current", "goods", "employees"])
           .gte("invoice_date", firstStart)
           .lte("invoice_date", lastEnd),
       ]);
@@ -279,7 +279,7 @@ export default function ReportsPage() {
             .select("subtotal, supplier_id, supplier:suppliers(name, expense_category_id, expense_type)")
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
-            .in("invoice_type", ["current", "goods"])
+            .in("invoice_type", ["current", "goods", "employees"])
             .gte("invoice_date", startDate)
             .lte("invoice_date", endDate),
           supabase

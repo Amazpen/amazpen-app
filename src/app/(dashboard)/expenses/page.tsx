@@ -813,6 +813,19 @@ function ExpensesPageInner() {
       const supabase = createClient();
 
       try {
+        // Auto-generate recurring/fixed expense invoices for the selected month
+        const targetYear = dateRange.start.getFullYear();
+        const targetMonth = dateRange.start.getMonth() + 1;
+        await Promise.all(
+          selectedBusinesses.map((bizId) =>
+            fetch("/api/recurring-expenses/generate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ business_id: bizId, year: targetYear, month: targetMonth }),
+            }).catch(() => {/* ignore errors — invoices will be fetched regardless */})
+          )
+        );
+
         // Fetch suppliers for the selected businesses
         const { data: suppliersData } = await supabase
           .from("suppliers")
@@ -873,9 +886,6 @@ function ExpensesPageInner() {
         }
 
         // Also fetch date-filtered invoices for the chart/summary
-        const targetYear = dateRange.start.getFullYear();
-        const targetMonth = dateRange.start.getMonth() + 1;
-
         const [
           { data: invoicesData },
           { data: categoriesData },

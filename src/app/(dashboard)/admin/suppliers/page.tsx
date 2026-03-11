@@ -498,6 +498,22 @@ export default function AdminSuppliersPage() {
         }
       }
 
+      // Generate recurring expense invoices for imported fixed-expense suppliers
+      const hasFixedExpense = insertedSuppliers?.some(s => s.is_fixed_expense && !s.has_previous_obligations);
+      if (hasFixedExpense) {
+        setImportProgress("יוצר חשבוניות הוצאות קבועות...");
+        const now = new Date();
+        await fetch("/api/recurring-expenses/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            business_id: selectedBusinessId,
+            year: now.getFullYear(),
+            month: now.getMonth() + 1,
+          }),
+        }).catch(() => {/* non-critical */});
+      }
+
       const msg = skippedCount > 0
         ? `יובאו ${newSuppliers.length} ספקים בהצלחה (${skippedCount} דולגו כי כבר קיימים)`
         : `יובאו ${newSuppliers.length} ספקים בהצלחה`;

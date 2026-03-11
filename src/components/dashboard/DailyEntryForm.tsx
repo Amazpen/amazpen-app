@@ -680,11 +680,27 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
     try {
       // Offline mode: save to IndexedDB instead of Supabase
       if (!navigator.onLine) {
+        // Pre-calculate manager_daily_cost for offline entry
+        const offlineEntryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
+        const offlineDayFactor = parseFloat(formData.day_factor) || 1;
+        let offlineWorkDays = 0;
+        const offYear = offlineEntryDate.getFullYear();
+        const offMonth = offlineEntryDate.getMonth();
+        const offLastDay = new Date(offYear, offMonth + 1, 0).getDate();
+        for (let d = 1; d <= offLastDay; d++) {
+          const dow = new Date(offYear, offMonth, d).getDay();
+          offlineWorkDays += businessSchedule[dow] || 0;
+        }
+        if (offlineWorkDays === 0) offlineWorkDays = 26;
+        const offlineManagerDailyCost = offlineWorkDays > 0
+          ? (managerMonthlySalary / offlineWorkDays) * offlineDayFactor
+          : 0;
+
         await savePendingEntry({
           id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
           businessId,
           timestamp: Date.now(),
-          formData: { ...formData },
+          formData: { ...formData, manager_daily_cost: String(offlineManagerDailyCost) },
           incomeData: { ...incomeData },
           parameterData: { ...parameterData },
           productUsage: { ...productUsage },
@@ -706,13 +722,24 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         throw new Error("יש להתחבר למערכת");
       }
 
-      // Calculate manager daily cost for saving (simple daily rate × day_factor, no markup)
+      // Calculate manager daily cost for saving (daily rate from schedule × day_factor, no markup)
       const saveLaborCost = parseFloat(formData.labor_cost) || 0;
       const saveEntryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
-      const saveDaysInMonth = new Date(saveEntryDate.getFullYear(), saveEntryDate.getMonth() + 1, 0).getDate();
       const saveDayFactor = parseFloat(formData.day_factor) || 1;
-      const saveManagerDailyCost = saveDaysInMonth > 0
-        ? (managerMonthlySalary / saveDaysInMonth) * saveDayFactor
+
+      // Calculate expected work days from business schedule (sum of day_factors across all calendar days)
+      let saveWorkDaysInMonth = 0;
+      const saveYear = saveEntryDate.getFullYear();
+      const saveMonth = saveEntryDate.getMonth();
+      const saveLastDay = new Date(saveYear, saveMonth + 1, 0).getDate();
+      for (let d = 1; d <= saveLastDay; d++) {
+        const dow = new Date(saveYear, saveMonth, d).getDay();
+        saveWorkDaysInMonth += businessSchedule[dow] || 0;
+      }
+      if (saveWorkDaysInMonth === 0) saveWorkDaysInMonth = 26; // Fallback
+
+      const saveManagerDailyCost = saveWorkDaysInMonth > 0
+        ? (managerMonthlySalary / saveWorkDaysInMonth) * saveDayFactor
         : 0;
 
       let dailyEntryId: string;
@@ -1248,10 +1275,18 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                             const laborCost = parseFloat(formData.labor_cost) || 0;
                             const laborWithMarkup = laborCost * monthlyMarkup;
                             const entryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
-                            const daysInMonth = new Date(entryDate.getFullYear(), entryDate.getMonth() + 1, 0).getDate();
                             const dayFactor = parseFloat(formData.day_factor) || 1;
-                            const dailyManagerCost = daysInMonth > 0
-                              ? (managerMonthlySalary / daysInMonth) * dayFactor
+                            // Calculate work days from schedule
+                            let displayWorkDays = 0;
+                            const dYear = entryDate.getFullYear();
+                            const dMonth = entryDate.getMonth();
+                            const dLastDay = new Date(dYear, dMonth + 1, 0).getDate();
+                            for (let dd = 1; dd <= dLastDay; dd++) {
+                              displayWorkDays += businessSchedule[new Date(dYear, dMonth, dd).getDay()] || 0;
+                            }
+                            if (displayWorkDays === 0) displayWorkDays = 26;
+                            const dailyManagerCost = displayWorkDays > 0
+                              ? (managerMonthlySalary / displayWorkDays) * dayFactor
                               : 0;
 
                             return (

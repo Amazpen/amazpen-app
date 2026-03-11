@@ -725,6 +725,18 @@ export default function SuppliersPage() {
         partial: "partial",
       };
 
+      // Auto-assign parent category if not manually selected
+      let resolvedParentCategoryUpdate = parentCategory || null;
+      if (!resolvedParentCategoryUpdate && parentCategories.length > 0) {
+        const bizId = selectedBusinesses[0];
+        const bizParents = parentCategories.filter(p => p.business_id === bizId);
+        if (expenseType === "goods") {
+          resolvedParentCategoryUpdate = bizParents.find(p => p.name === "עלות מכר")?.id || null;
+        } else if (expenseType === "employees") {
+          resolvedParentCategoryUpdate = bizParents.find(p => p.name === "עלויות עובדים" || p.name === "עלות עובדים")?.id || null;
+        }
+      }
+
       // Update supplier record
       const { error: updateError } = await supabase
         .from("suppliers")
@@ -732,7 +744,7 @@ export default function SuppliersPage() {
           name: supplierName.trim(),
           expense_type: expenseType === "current" ? "current_expenses" : expenseType === "goods" ? "goods_purchases" : "employee_costs",
           expense_category_id: category || null,
-          parent_category_id: parentCategory || null,
+          parent_category_id: resolvedParentCategoryUpdate,
           payment_terms_days: paymentTerms ? parseInt(paymentTerms) : 30,
           vat_type: vatTypeMap[vatRequired],
           requires_vat: vatRequired !== "no",
@@ -755,6 +767,9 @@ export default function SuppliersPage() {
 
       showToast("הספק עודכן בהצלחה!", "success");
       handleCloseAddSupplierModal();
+      // Close supplier detail sheet so it reopens with fresh data
+      setShowSupplierDetailPopup(false);
+      setSelectedSupplier(null);
       setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error("Error updating supplier:", error);
@@ -899,6 +914,18 @@ export default function SuppliersPage() {
         partial: "partial",
       };
 
+      // 3. Auto-assign parent category if not manually selected
+      let resolvedParentCategory = parentCategory || null;
+      if (!resolvedParentCategory && parentCategories.length > 0) {
+        const bizId = selectedBusinesses[0];
+        const bizParents = parentCategories.filter(p => p.business_id === bizId);
+        if (expenseType === "goods") {
+          resolvedParentCategory = bizParents.find(p => p.name === "עלות מכר")?.id || null;
+        } else if (expenseType === "employees") {
+          resolvedParentCategory = bizParents.find(p => p.name === "עלויות עובדים" || p.name === "עלות עובדים")?.id || null;
+        }
+      }
+
       // 3. Create supplier record
       const { data: newSupplier, error: supplierError } = await supabase
         .from("suppliers")
@@ -907,7 +934,7 @@ export default function SuppliersPage() {
           name: supplierName.trim(),
           expense_type: expenseType === "current" ? "current_expenses" : expenseType === "goods" ? "goods_purchases" : "employee_costs",
           expense_category_id: category || null,
-          parent_category_id: parentCategory || null,
+          parent_category_id: resolvedParentCategory,
           payment_terms_days: paymentTerms ? parseInt(paymentTerms) : 30,
           vat_type: vatTypeMap[vatRequired],
           requires_vat: vatRequired !== "no",

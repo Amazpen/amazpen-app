@@ -671,19 +671,33 @@ function PaymentsPageInner() {
         const startDate = `${dateRange.start.getFullYear()}-${String(dateRange.start.getMonth() + 1).padStart(2, '0')}-${String(dateRange.start.getDate()).padStart(2, '0')}`;
         const endDate = `${dateRange.end.getFullYear()}-${String(dateRange.end.getMonth() + 1).padStart(2, '0')}-${String(dateRange.end.getDate()).padStart(2, '0')}`;
 
-        const { data: splitsData } = await supabase
-          .from("payment_splits")
-          .select(`
-            id, due_date, amount, payment_method,
-            payment:payments!inner(id, business_id, deleted_at, total_amount,
-              supplier:suppliers(id, name))
-          `)
-          .gte("due_date", startDate)
-          .lte("due_date", endDate)
-          .is("payment.deleted_at", null)
-          .in("payment.business_id", selectedBusinesses)
-          .order("due_date", { ascending: false })
-          .limit(500);
+        const [{ data: splitsData }, { data: dailyEntriesData }] = await Promise.all([
+          supabase
+            .from("payment_splits")
+            .select(`
+              id, due_date, amount, payment_method,
+              payment:payments!inner(id, business_id, deleted_at, total_amount,
+                supplier:suppliers(id, name))
+            `)
+            .gte("due_date", startDate)
+            .lte("due_date", endDate)
+            .is("payment.deleted_at", null)
+            .in("payment.business_id", selectedBusinesses)
+            .order("due_date", { ascending: false })
+            .limit(500),
+          supabase
+            .from("daily_entries")
+            .select("total_register")
+            .in("business_id", selectedBusinesses)
+            .gte("entry_date", startDate)
+            .lte("entry_date", endDate)
+            .is("deleted_at", null),
+        ]);
+
+        // Calculate total revenue (including VAT) for percentage calculation
+        const totalRevenueWithVat = (dailyEntriesData || []).reduce(
+          (sum, e) => sum + (Number(e.total_register) || 0), 0
+        );
 
         if (splitsData) {
           // Calculate payment method summary + supplier breakdown per method
@@ -711,7 +725,7 @@ function PaymentsPageInner() {
               id: method,
               name: paymentMethodNames[method] || method,
               amount,
-              percentage: grandTotal > 0 ? (amount / grandTotal) * 100 : 0,
+              percentage: totalRevenueWithVat > 0 ? (amount / totalRevenueWithVat) * 100 : 0,
               color: paymentMethodColors[method]?.color || "#6b7280",
               colorClass: paymentMethodColors[method]?.colorClass || "bg-[#6b7280]",
             }))
@@ -1170,6 +1184,19 @@ function PaymentsPageInner() {
           showToast(`סכום התשלומים (${installmentsTotal.toFixed(2)}) לא תואם לסכום לתשלום (${pmTotal.toFixed(2)})`, "warning");
           return;
         }
+      }
+    }
+
+    // Block partial payments - if invoices selected, total must match within ₪5
+    if (selectedInvoiceIds.size > 0) {
+      const paymentTotal = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0), 0);
+      const invoicesTotal = openInvoices
+        .filter(inv => selectedInvoiceIds.has(inv.id))
+        .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+      const diff = Math.abs(invoicesTotal - paymentTotal);
+      if (diff > 5) {
+        showToast(`לא ניתן לבצע תשלום חלקי — הפרש של ₪${diff.toFixed(2)} בין סכום התשלום לסכום החשבוניות`, "error");
+        return;
       }
     }
 
@@ -4076,13 +4103,20 @@ function PaymentsPageInner() {
                     .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
                   const diff = Math.abs(invoicesTotal - paymentTotal);
                   if (diff > 0.01) {
+                    const isBlocked = diff > 5;
+                    const colorClass = isBlocked ? "bg-red-500/10 border-red-500/40" : "bg-yellow-500/10 border-yellow-500/40";
+                    const textClass = isBlocked ? "text-red-400" : "text-yellow-400";
+                    const strokeColor = isBlocked ? "#EF4444" : "#EAB308";
                     return (
-                      <div className="flex items-center gap-[8px] bg-yellow-500/10 border border-yellow-500/40 rounded-[10px] p-[10px]">
+                      <div className={`flex items-center gap-[8px] ${colorClass} border rounded-[10px] p-[10px]`}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
-                          <path d="M12 9v4m0 4h.01M10.29 3.86l-8.8 15.36A2 2 0 003.24 22h17.53a2 2 0 001.75-2.78l-8.8-15.36a2 2 0 00-3.44 0z" stroke="#EAB308" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M12 9v4m0 4h.01M10.29 3.86l-8.8 15.36A2 2 0 003.24 22h17.53a2 2 0 001.75-2.78l-8.8-15.36a2 2 0 00-3.44 0z" stroke={strokeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                        <span className="text-[14px] text-yellow-400">
-                          סכום התשלום (₪{paymentTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) {paymentTotal > invoicesTotal ? "גבוה" : "נמוך"} מסכום החשבוניות שנבחרו (₪{invoicesTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) — הפרש: ₪{diff.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <span className={`text-[14px] ${textClass}`}>
+                          {isBlocked
+                            ? `לא ניתן לבצע תשלום חלקי — הפרש של ₪${diff.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} בין סכום התשלום לסכום החשבוניות`
+                            : `סכום התשלום (₪${paymentTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) ${paymentTotal > invoicesTotal ? "גבוה" : "נמוך"} מסכום החשבוניות שנבחרו (₪${invoicesTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) — הפרש: ₪${diff.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          }
                         </span>
                       </div>
                     );
