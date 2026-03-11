@@ -671,7 +671,7 @@ export default function ReportsPage() {
           // For labor cost: actual from daily entries with markup, target from labor_cost_target_pct
           const laborCostTargetPct = Number(goal?.labor_cost_target_pct || 0);
           const laborCostTarget = (laborCostTargetPct / 100) * revenueTargetBeforeVat;
-          const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : isLaborCost ? totalLaborCost + childrenActual : childrenActual;
+          const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : isLaborCost ? totalLaborCost : childrenActual;
           const parentTarget = isGoodsCost ? foodCostTarget : isLaborCost ? laborCostTarget + childrenBudget : childrenBudget;
           const parentDiff = parentTarget - parentActual;
           const parentRemaining = parentTarget > 0 ? ((parentTarget - parentActual) / parentTarget) * 100 : 0;
