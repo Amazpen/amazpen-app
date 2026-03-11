@@ -580,13 +580,17 @@ export default function GoalsPage() {
         // Build avg ticket KPI items
         const avgTicketItems: GoalItem[] = (incomeSourcesData || []).map(source => {
           const agg = incomeAgg[source.id];
-          const actualAvg = agg && agg.totalOrders > 0 ? agg.totalAmount / agg.totalOrders : 0;
+          const hasOrders = agg && agg.totalOrders > 0;
+          const actualAvg = hasOrders ? agg.totalAmount / agg.totalOrders : 0;
+          const totalAmount = agg ? agg.totalAmount : 0;
           const targetAvg = incomeGoalMap.get(source.id) || 0;
+          // If source has amount but no orders (e.g. coupons), show total instead of average
+          const isSumType = totalAmount > 0 && !hasOrders;
           return {
             id: `avg-ticket-${source.id}`,
-            name: `ממוצע ${source.name} (₪)`,
+            name: isSumType ? `${source.name} (₪)` : `ממוצע ${source.name} (₪)`,
             target: targetAvg,
-            actual: Math.round(actualAvg * 10) / 10,
+            actual: isSumType ? totalAmount : Math.round(actualAvg * 10) / 10,
             unit: "₪",
             editable: true,
             isExpense: false,
