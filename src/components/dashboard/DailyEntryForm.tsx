@@ -328,10 +328,14 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           .eq("business_id", businessId),
         supabase
           .from("businesses")
-          .select("form_section_order")
+          .select("form_section_order, manager_monthly_salary, markup_percentage")
           .eq("id", businessId)
           .maybeSingle(),
       ]);
+
+      // Always set manager salary + markup from business (fixes stale state when switching businesses)
+      setManagerMonthlySalary(bizSettings ? Number(bizSettings.manager_monthly_salary) || 0 : 0);
+      setMonthlyMarkup(bizSettings ? Number(bizSettings.markup_percentage) || 1 : 1);
 
       // Cache business config for offline use
       try {
