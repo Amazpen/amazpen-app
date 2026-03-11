@@ -670,7 +670,7 @@ export default function ReportsPage() {
           const childrenBudget = children.reduce((sum, c) => sum + (categoryBudgets.get(c.id) || 0), 0) || categoryBudgets.get(parent.id) || 0;
           // For labor cost: actual from daily entries with markup, target from labor_cost_target_pct
           const laborCostTargetPct = Number(goal?.labor_cost_target_pct || 0);
-          const laborCostTarget = (laborCostTargetPct / 100) * totalRevenue;
+          const laborCostTarget = (laborCostTargetPct / 100) * revenueTargetBeforeVat;
           const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : isLaborCost ? totalLaborCost + childrenActual : childrenActual;
           const parentTarget = isGoodsCost ? foodCostTarget : isLaborCost ? laborCostTarget + childrenBudget : childrenBudget;
           const parentDiff = parentTarget - parentActual;
@@ -715,7 +715,7 @@ export default function ReportsPage() {
         for (const childId of laborChildIds) {
           laborSupplierBudgets += categoryBudgets.get(childId) || 0;
         }
-        const allExpensesTarget = foodCostTarget + expensesTarget + (laborCostTargetPctSummary / 100) * totalRevenue + laborSupplierBudgets;
+        const allExpensesTarget = foodCostTarget + expensesTarget + (laborCostTargetPctSummary / 100) * revenueTargetBeforeVat + laborSupplierBudgets;
         // Operating profit = revenue - all expenses
         const operatingProfit = totalRevenue - allExpensesActual;
         const operatingProfitPct = totalRevenue > 0 ? (operatingProfit / totalRevenue) * 100 : 0;
