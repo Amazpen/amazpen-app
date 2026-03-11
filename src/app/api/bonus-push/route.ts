@@ -49,6 +49,43 @@ function buildPushMessage(
   return `${plan.area_name}: ${current}${goalStr} — עוד מאמץ קטן! פתח את דדי לעצות`;
 }
 
+function buildEmailHtml(
+  plan: Pick<BonusPlan, "area_name" | "measurement_type" | "data_source">,
+  status: BonusPlanStatus,
+  employeeName: string
+): string {
+  const message = buildPushMessage(plan, status);
+  const isQualified = !!status.qualifiedTier;
+  const accentColor = isQualified ? "#17DB4E" : "#FFA412";
+
+  return `
+    <div dir="rtl" style="font-family: Assistant, Arial, sans-serif; max-width: 500px; margin: 0 auto; background: #0F1535; border-radius: 12px; padding: 24px; color: white;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; font-size: 20px; color: ${accentColor};">🎯 עדכון בונוס — ${plan.area_name}</h2>
+      </div>
+      <p style="font-size: 16px; line-height: 1.6; margin: 16px 0;">שלום ${employeeName},</p>
+      <div style="background: #1A1F4E; border-radius: 8px; padding: 16px; margin: 16px 0; border-right: 4px solid ${accentColor};">
+        <p style="font-size: 16px; margin: 0; line-height: 1.6;">${message}</p>
+      </div>
+      ${status.currentValue !== null && status.goalValue !== null ? `
+      <div style="display: flex; justify-content: space-around; text-align: center; margin: 20px 0;">
+        <div>
+          <div style="font-size: 12px; color: rgba(255,255,255,0.6);">בפועל</div>
+          <div style="font-size: 22px; font-weight: bold; color: ${accentColor};">${formatValue(status.currentValue, plan.measurement_type)}</div>
+        </div>
+        <div>
+          <div style="font-size: 12px; color: rgba(255,255,255,0.6);">יעד</div>
+          <div style="font-size: 22px; font-weight: bold;">${formatValue(status.goalValue, plan.measurement_type)}</div>
+        </div>
+      </div>` : ""}
+      <div style="text-align: center; margin-top: 24px;">
+        <a href="https://app.amazpenbiz.co.il/ai" style="display: inline-block; background: #2C3595; color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 16px; font-weight: bold;">💬 פתח את דדי לעצות</a>
+      </div>
+      <p style="font-size: 11px; color: rgba(255,255,255,0.4); text-align: center; margin-top: 24px;">המצפן — מערכת ניהול עסקית</p>
+    </div>
+  `;
+}
+
 export async function POST(request: NextRequest) {
   // Auth check
   const secret =
@@ -105,6 +142,8 @@ export async function POST(request: NextRequest) {
 
     let sent = 0;
     let failed = 0;
+    let emailsSent = 0;
+    let notificationsCreated = 0;
 
     for (const plan of plans as BonusPlan[]) {
       try {
@@ -113,37 +152,76 @@ export async function POST(request: NextRequest) {
 
         // Build message
         const message = buildPushMessage(plan, status);
+        const title = `עדכון בונוס — ${plan.area_name}`;
 
-        // Fetch subscriptions for this employee
+        // Get employee info for email
+        const { data: profile } = await supabaseAdmin
+          .from("profiles")
+          .select("email, full_name")
+          .eq("id", plan.employee_user_id)
+          .maybeSingle();
+
+        // === 1. Send web push notification ===
         const { data: subscriptions } = await supabaseAdmin
           .from("push_subscriptions")
           .select("endpoint, p256dh, auth")
           .eq("user_id", plan.employee_user_id);
 
-        if (!subscriptions || subscriptions.length === 0) continue;
+        if (subscriptions && subscriptions.length > 0) {
+          const payload = JSON.stringify({ title, message, url: "/ai" });
 
-        const payload = JSON.stringify({
-          title: `עדכון בונוס — ${plan.area_name}`,
-          message,
-          url: "/ai",
-        });
-
-        for (const sub of subscriptions) {
-          try {
-            await webpush.sendNotification(
-              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-              payload
-            );
-            sent++;
-          } catch (err: unknown) {
-            const pushErr = err as { statusCode?: number };
-            if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
-              await supabaseAdmin
-                .from("push_subscriptions")
-                .delete()
-                .eq("endpoint", sub.endpoint);
+          for (const sub of subscriptions) {
+            try {
+              await webpush.sendNotification(
+                { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                payload
+              );
+              sent++;
+            } catch (err: unknown) {
+              const pushErr = err as { statusCode?: number };
+              if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
+                await supabaseAdmin
+                  .from("push_subscriptions")
+                  .delete()
+                  .eq("endpoint", sub.endpoint);
+              }
+              failed++;
             }
-            failed++;
+          }
+        }
+
+        // === 2. Create in-app notification ===
+        const { error: notifError } = await supabaseAdmin
+          .from("notifications")
+          .insert({
+            user_id: plan.employee_user_id,
+            business_id: plan.business_id,
+            title,
+            message,
+            type: "bonus",
+            is_read: false,
+            link: "/ai",
+          });
+
+        if (!notifError) notificationsCreated++;
+
+        // === 3. Send email via n8n ===
+        if (profile?.email) {
+          try {
+            const emailHtml = buildEmailHtml(plan, status, profile.full_name || "");
+            const emailRes = await fetch("https://n8n.brainboxai.io/webhook/bonus-push-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                to: profile.email,
+                subject: title,
+                html: emailHtml,
+              }),
+            });
+            if (emailRes.ok) emailsSent++;
+            else console.error(`[BonusPush] Email failed for ${profile.email}: ${emailRes.status}`);
+          } catch (emailErr) {
+            console.error(`[BonusPush] Email error for ${profile.email}:`, emailErr);
           }
         }
       } catch (err) {
@@ -152,8 +230,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`[BonusPush] Processed ${plans.length} plans, sent=${sent}, failed=${failed}`);
-    return NextResponse.json({ processed: plans.length, sent, failed });
+    console.log(`[BonusPush] Processed ${plans.length} plans, push_sent=${sent}, emails=${emailsSent}, notifications=${notificationsCreated}, failed=${failed}`);
+    return NextResponse.json({ processed: plans.length, sent, emailsSent, notificationsCreated, failed });
   } catch (err) {
     console.error("[BonusPush] Unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
