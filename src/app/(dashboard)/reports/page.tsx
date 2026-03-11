@@ -622,23 +622,31 @@ export default function ReportsPage() {
             }).filter(sub => sub.actualRaw > 0 || sub.targetRaw > 0);
           }
 
+          // Sum up for parent
+          const isLaborCost = laborCostNames.has(parent.name);
+          const childrenActual = children.reduce((sum, c) => sum + (categoryActuals.get(c.id) || 0), 0) || categoryActuals.get(parent.id) || 0;
+          const childrenBudget = children.reduce((sum, c) => sum + (categoryBudgets.get(c.id) || 0), 0) || categoryBudgets.get(parent.id) || 0;
+          // For labor cost: actual from daily entries with markup, target from labor_cost_target_pct
+          const laborCostTargetPct = Number(goal?.labor_cost_target_pct || 0);
+          const laborCostTarget = (laborCostTargetPct / 100) * revenueTargetBeforeVat;
+
           // Inject virtual subcategories for labor cost: "עלות עובדים" and "שכר מנהל"
-          if (laborCostNames.has(parent.name) && (laborOnlyCost > 0 || managerOnlyCost > 0)) {
-            // Remove any existing labor subcategory that was injected with totalLaborCost
-            // and replace with separate rows for employees and manager
+          if (isLaborCost && (laborOnlyCost > 0 || managerOnlyCost > 0)) {
+            const laborDiff = laborCostTarget - laborOnlyCost;
+            const laborRemaining = laborCostTarget > 0 ? ((laborCostTarget - laborOnlyCost) / laborCostTarget) * 100 : 0;
             const virtualSubs: SubcategoryDisplay[] = [];
-            if (laborOnlyCost > 0) {
+            if (laborOnlyCost > 0 || laborCostTarget > 0) {
               virtualSubs.push({
                 id: "__labor_employees__",
                 name: "עלות עובדים",
-                target: "—",
+                target: formatCurrency(laborCostTarget),
                 actual: formatCurrency(laborOnlyCost),
-                difference: "—",
-                remaining: "—",
-                remainingRaw: 0,
-                diffRaw: 0,
+                difference: formatDifference(laborDiff),
+                remaining: formatPercentage(laborRemaining),
+                remainingRaw: laborRemaining,
+                diffRaw: laborDiff,
                 actualRaw: laborOnlyCost,
-                targetRaw: 0,
+                targetRaw: laborCostTarget,
                 suppliers: [],
               });
             }
@@ -663,14 +671,6 @@ export default function ReportsPage() {
               ...subcategoriesData.filter(s => s.id !== "__labor_employees__" && s.id !== "__labor_manager__"),
             ];
           }
-
-          // Sum up for parent
-          const isLaborCost = laborCostNames.has(parent.name);
-          const childrenActual = children.reduce((sum, c) => sum + (categoryActuals.get(c.id) || 0), 0) || categoryActuals.get(parent.id) || 0;
-          const childrenBudget = children.reduce((sum, c) => sum + (categoryBudgets.get(c.id) || 0), 0) || categoryBudgets.get(parent.id) || 0;
-          // For labor cost: actual from daily entries with markup, target from labor_cost_target_pct
-          const laborCostTargetPct = Number(goal?.labor_cost_target_pct || 0);
-          const laborCostTarget = (laborCostTargetPct / 100) * revenueTargetBeforeVat;
           const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : isLaborCost ? totalLaborCost : childrenActual;
           const parentTarget = isGoodsCost ? foodCostTarget : isLaborCost ? laborCostTarget : childrenBudget;
           const parentDiff = parentTarget - parentActual;
