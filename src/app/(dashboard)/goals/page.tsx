@@ -234,7 +234,7 @@ export default function GoalsPage() {
           // 4. Suppliers with category mapping
           supabase
             .from("suppliers")
-            .select("id, name, expense_category_id, expense_type, is_fixed_expense, vat_type")
+            .select("id, name, expense_category_id, expense_type, is_fixed_expense, vat_type, monthly_expense_amount")
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
             .eq("is_active", true),
@@ -278,6 +278,12 @@ export default function GoalsPage() {
         const supplierBudgetMap = new Map<string, number>();
         (supplierBudgetsData || []).forEach(b => {
           supplierBudgetMap.set(b.supplier_id, Number(b.budget_amount) || 0);
+        });
+        // For fixed expense suppliers with no budget entry, use monthly_expense_amount as target
+        (suppliersData || []).forEach(s => {
+          if (s.is_fixed_expense && !supplierBudgetMap.has(s.id) && Number(s.monthly_expense_amount) > 0) {
+            supplierBudgetMap.set(s.id, Number(s.monthly_expense_amount));
+          }
         });
 
         // Build per-supplier actual amounts split by invoice type
