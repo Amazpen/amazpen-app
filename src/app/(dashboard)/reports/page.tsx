@@ -672,7 +672,7 @@ export default function ReportsPage() {
           const laborCostTargetPct = Number(goal?.labor_cost_target_pct || 0);
           const laborCostTarget = (laborCostTargetPct / 100) * totalRevenue;
           const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : isLaborCost ? totalLaborCost + childrenActual : childrenActual;
-          const parentTarget = isGoodsCost ? foodCostTarget : isLaborCost ? laborCostTarget : childrenBudget;
+          const parentTarget = isGoodsCost ? foodCostTarget : isLaborCost ? laborCostTarget + childrenBudget : childrenBudget;
           const parentDiff = parentTarget - parentActual;
           const parentRemaining = parentTarget > 0 ? ((parentTarget - parentActual) / parentTarget) * 100 : 0;
 
@@ -704,9 +704,18 @@ export default function ReportsPage() {
         // Calculate summary
         // Total expenses = goods + current invoices + labor cost (from daily entries with markup)
         const allExpensesActual = totalGoodsExpenses + totalCurrentExpenses + totalLaborCost;
-        // Total expenses target = food cost target + current expenses target + labor cost target
+        // Total expenses target = food cost target + current expenses target + labor cost target (incl supplier budgets)
         const laborCostTargetPctSummary = Number(goal?.labor_cost_target_pct || 0);
-        const allExpensesTarget = foodCostTarget + expensesTarget + (laborCostTargetPctSummary / 100) * totalRevenue;
+        // Sum supplier budgets in labor cost categories
+        let laborSupplierBudgets = 0;
+        for (const parentId of laborParentIds) {
+          laborSupplierBudgets += categoryBudgets.get(parentId) || 0;
+        }
+        const laborChildIds = childCategories.filter(c => laborParentIds.has(c.parent_id!)).map(c => c.id);
+        for (const childId of laborChildIds) {
+          laborSupplierBudgets += categoryBudgets.get(childId) || 0;
+        }
+        const allExpensesTarget = foodCostTarget + expensesTarget + (laborCostTargetPctSummary / 100) * totalRevenue + laborSupplierBudgets;
         // Operating profit = revenue - all expenses
         const operatingProfit = totalRevenue - allExpensesActual;
         const operatingProfitPct = totalRevenue > 0 ? (operatingProfit / totalRevenue) * 100 : 0;
