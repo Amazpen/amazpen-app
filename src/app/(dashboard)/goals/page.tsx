@@ -101,6 +101,10 @@ function getStatusColor(percentage: number, isExpense: boolean = true, actual: n
 
 // Format currency - show full number with comma separators
 function formatCurrency(amount: number): string {
+  // Show 1 decimal place if the number has a fractional part, otherwise whole number
+  if (amount % 1 !== 0 && Math.abs(amount) < 10000) {
+    return `₪${(Math.round(amount * 10) / 10).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`;
+  }
   return `₪${Math.round(amount).toLocaleString("en-US")}`;
 }
 
@@ -582,7 +586,7 @@ export default function GoalsPage() {
             id: `avg-ticket-${source.id}`,
             name: `ממוצע ${source.name} (₪)`,
             target: targetAvg,
-            actual: Math.round(actualAvg),
+            actual: Math.round(actualAvg * 10) / 10,
             unit: "₪",
             editable: true,
             isExpense: false,
@@ -650,9 +654,9 @@ export default function GoalsPage() {
             id: "current-expenses",
             name: "הוצאות שוטפות (₪)",
             target:
-              // Sum supplier budgets for fixed monthly expense suppliers only (not previous obligations)
+              // Sum supplier budgets for all current_expenses suppliers
               (suppliersData || [])
-                .filter(s => s.expense_type === "current_expenses" && s.is_fixed_expense)
+                .filter(s => s.expense_type === "current_expenses")
                 .reduce((sum, s) => sum + (supplierBudgetMap.get(s.id) || 0), 0),
             actual: totalCurrentExpenses,
             unit: "₪",
