@@ -29,6 +29,7 @@ interface SupplierDisplay {
   diffRaw: number;
   actualRaw: number;
   targetRaw: number;
+  hasUnapproved?: boolean;
 }
 
 // Expense category data for display
@@ -43,6 +44,7 @@ interface SubcategoryDisplay {
   diffRaw: number;
   actualRaw: number;
   targetRaw: number;
+  hasUnapproved?: boolean;
   suppliers: SupplierDisplay[];
 }
 
@@ -66,6 +68,7 @@ interface ReportSummary {
   revenueTarget: number;
   totalExpenses: number;
   expensesTarget: number;
+  totalCredits: number;
   operatingProfit: number;
   operatingProfitPct: number;
   netProfit: number;
@@ -140,6 +143,7 @@ export default function ReportsPage() {
     revenueTarget: 0,
     totalExpenses: 0,
     expensesTarget: 0,
+    totalCredits: 0,
     operatingProfit: 0,
     operatingProfitPct: 0,
     netProfit: 0,
@@ -276,7 +280,7 @@ export default function ReportsPage() {
             .is("deleted_at", null),
           supabase
             .from("invoices")
-            .select("subtotal, supplier_id, supplier:suppliers(name, expense_category_id, expense_type)")
+            .select("subtotal, supplier_id, status, supplier:suppliers(name, expense_category_id, expense_type)")
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
             .in("invoice_type", ["current", "goods", "employees"])
@@ -386,10 +390,13 @@ export default function ReportsPage() {
         const supplierActuals = new Map<string, number>();
         const supplierNames = new Map<string, string>();
         const supplierExpenseTypes = new Map<string, string>();
+        // Track suppliers with unapproved invoices (#22 - show in purple)
+        const suppliersWithUnapproved = new Set<string>();
         // Track which category each supplier belongs to (for 3-level drill-down)
         const supplierCategoryMap = new Map<string, string>();
         let totalGoodsExpenses = 0;
         let totalCurrentExpenses = 0;
+        let totalCredits = 0; // Track credits/cancellations (#30)
         if (invoicesData) {
           for (const inv of invoicesData) {
             const supplier = inv.supplier as unknown as { name: string | null; expense_category_id: string | null; expense_type: string | null } | null;
@@ -397,6 +404,10 @@ export default function ReportsPage() {
             const expType = supplier?.expense_type;
             const supplierId = (inv as unknown as { supplier_id: string | null }).supplier_id;
             const amount = Number(inv.subtotal);
+            // Track credits separately (#30)
+            if (amount < 0) {
+              totalCredits += amount; // negative value
+            }
             if (catId) {
               const current = categoryActuals.get(catId) || 0;
               categoryActuals.set(catId, current + amount);
@@ -406,6 +417,11 @@ export default function ReportsPage() {
               if (supplier?.name) supplierNames.set(supplierId, supplier.name);
               if (catId) supplierCategoryMap.set(supplierId, catId);
               if (expType) supplierExpenseTypes.set(supplierId, expType);
+              // Track unapproved invoices (#22)
+              const invStatus = (inv as unknown as { status: string | null }).status;
+              if (invStatus && invStatus !== "approved") {
+                suppliersWithUnapproved.add(supplierId);
+              }
             }
             if (expType === "goods_purchases") {
               totalGoodsExpenses += amount;
@@ -496,6 +512,7 @@ export default function ReportsPage() {
                 diffRaw: diff,
                 actualRaw: actual,
                 targetRaw: target,
+                hasUnapproved: suppliersWithUnapproved.has(supplierId),
                 suppliers: [],
               };
             }).filter(s => parseFloat(s.actual.replace(/[₪K,]/g, "")) > 0 || parseFloat(s.target.replace(/[₪K,]/g, "")) > 0)
@@ -551,6 +568,7 @@ export default function ReportsPage() {
                       diffRaw: sDiff,
                       actualRaw: sActual,
                       targetRaw: sTarget,
+                      hasUnapproved: suppliersWithUnapproved.has(supplierId),
                     });
                   }
                 }
@@ -580,6 +598,7 @@ export default function ReportsPage() {
                       diffRaw: sDiff,
                       actualRaw: sActual,
                       targetRaw: sTarget,
+                      hasUnapproved: suppliersWithUnapproved.has(supplierId),
                     });
                     actual += sActual;
                     target += sTarget;
@@ -660,6 +679,7 @@ export default function ReportsPage() {
           revenueTarget: Number(goal?.revenue_target || 0) / vatDivisor,
           totalExpenses: allExpensesActual,
           expensesTarget: allExpensesTarget,
+          totalCredits,
           operatingProfit,
           operatingProfitPct,
           netProfit: operatingProfit,
@@ -942,7 +962,7 @@ export default function ReportsPage() {
                             </span>
                           </div>
                           <div className="flex flex-row-reverse items-center justify-end gap-[3px] shrink-0 w-[90px] sm:w-[140px]">
-                            <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4] break-words">{sub.name}</span>
+                            <span className={`text-[11px] sm:text-[13px] font-medium text-right leading-[1.4] break-words ${sub.hasUnapproved ? 'text-purple-400' : 'text-white/80'}`}>{sub.name}</span>
                             <svg
                               width="12"
                               height="12"
@@ -981,7 +1001,7 @@ export default function ReportsPage() {
                             </span>
                           </div>
                           <div className="flex flex-row-reverse items-center justify-end gap-[3px] shrink-0 w-[90px] sm:w-[140px]">
-                            <span className="text-[11px] sm:text-[13px] font-medium text-right text-white/80 leading-[1.4] break-words">{sub.name}</span>
+                            <span className={`text-[11px] sm:text-[13px] font-medium text-right leading-[1.4] break-words ${sub.hasUnapproved ? 'text-purple-400' : 'text-white/80'}`}>{sub.name}</span>
                             <div className="w-[12px] h-[12px] flex-shrink-0" />
                           </div>
                         </div>
@@ -1016,8 +1036,7 @@ export default function ReportsPage() {
                                 </span>
                               </div>
                               <div className="flex flex-col items-end shrink-0 w-[90px] sm:w-[140px] gap-[1px]">
-                                <span className="text-[8px] sm:text-[10px] font-normal text-right text-white/40 leading-[1.3] break-words">{category.name} / {sub.name}</span>
-                                <span className="text-[10px] sm:text-[12px] font-normal text-right text-white leading-[1.4] break-words">{supplier.name}</span>
+                                <span className={`text-[10px] sm:text-[12px] font-normal text-right leading-[1.4] break-words ${supplier.hasUnapproved ? 'text-purple-400' : 'text-white'}`}>{supplier.name}</span>
                               </div>
                             </div>
                           ))}
@@ -1030,6 +1049,21 @@ export default function ReportsPage() {
             </div>
           ))}
         </div>
+
+        {/* Credits/Cancellations Row (#30) */}
+        {summary.totalCredits < 0 && (
+          <div className="flex flex-row-reverse items-center justify-between bg-[#1B1F4B] rounded-[10px] p-[7px] mt-[5px] min-h-[45px] gap-[5px]">
+            <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
+              <span className="flex-1 min-w-0"></span>
+              <span className="flex-1 min-w-0"></span>
+              <span className="text-[11px] sm:text-[14px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] text-[#17DB4E]">
+                {formatCurrency(Math.abs(summary.totalCredits))}
+              </span>
+              <span className="flex-1 min-w-0"></span>
+            </div>
+            <span className="text-[12px] sm:text-[15px] font-medium text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px] text-[#17DB4E]">זיכויים וביטולים</span>
+          </div>
+        )}
 
         {/* Total Expenses Row */}
         <div className="flex flex-row-reverse items-center justify-between bg-[#2C3595] rounded-[10px] p-[7px] mt-[10px] min-h-[60px] gap-[5px]">

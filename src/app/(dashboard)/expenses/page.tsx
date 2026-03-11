@@ -489,6 +489,7 @@ function ExpensesPageInner() {
       date: string;
       dateForInput: string;
       amount: number;
+      checkNumber?: string;
     }>;
   }
   const [popupPaymentMethods, setPopupPaymentMethods] = useState<PaymentMethodEntry[]>([
@@ -776,6 +777,18 @@ function ExpensesPageInner() {
             }
           }
         }
+      }
+      return { ...p, customInstallments: updatedInstallments };
+    }));
+  };
+
+  // Handle check number change per installment (#21)
+  const handlePopupInstallmentCheckNumberChange = (paymentMethodId: number, installmentIndex: number, value: string) => {
+    setPopupPaymentMethods(prev => prev.map(p => {
+      if (p.id !== paymentMethodId) return p;
+      const updatedInstallments = [...p.customInstallments];
+      if (updatedInstallments[installmentIndex]) {
+        updatedInstallments[installmentIndex] = { ...updatedInstallments[installmentIndex], checkNumber: value };
       }
       return { ...p, customInstallments: updatedInstallments };
     }));
@@ -1657,7 +1670,7 @@ function ExpensesPageInner() {
                         installments_count: installmentsCount,
                         installment_number: inst.number,
                         reference_number: paymentReference || null,
-                        check_number: pm.method === "check" ? (pm.checkNumber || null) : null,
+                        check_number: pm.method === "check" ? (inst.checkNumber || pm.checkNumber || null) : null,
                         credit_card_id: creditCardId,
                         due_date: inst.dateForInput || null,
                       });
@@ -2212,7 +2225,7 @@ function ExpensesPageInner() {
                     installments_count: installmentsCount,
                     installment_number: inst.number,
                     reference_number: paymentReference || null,
-                    check_number: pm.method === "check" ? (pm.checkNumber || null) : null,
+                    check_number: pm.method === "check" ? (inst.checkNumber || pm.checkNumber || null) : null,
                     credit_card_id: creditCardId,
                     due_date: inst.dateForInput || null,
                   });
@@ -3354,6 +3367,108 @@ function ExpensesPageInner() {
 
             {/* Form */}
             <div className="flex flex-col gap-[15px] px-[5px]">
+              {/* Image Upload - Multiple (top of form for OCR) */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[16px] font-medium text-white text-right">תמונות/מסמכים</label>
+                {newAttachmentPreviews.length > 0 && (
+                  <div className="flex flex-wrap gap-[8px] mb-[5px]">
+                    {newAttachmentPreviews.map((preview, idx) => {
+                      return (
+                      <div key={`new-preview-${preview}`} className="flex flex-col items-center gap-[4px]">
+                        <div className="relative border border-[#4C526B] rounded-[8px] overflow-hidden w-[100px] h-[100px]">
+                          <Image src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} width={100} height={100} unoptimized />
+                        </div>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setNewAttachmentFiles(prev => prev.filter((_, i) => i !== idx));
+                            setNewAttachmentPreviews(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="text-[#F64E60] hover:text-[#ff3547] transition-colors"
+                          title="הסר קובץ"
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            <line x1="10" y1="11" x2="10" y2="17"/>
+                            <line x1="14" y1="11" x2="14" y2="17"/>
+                          </svg>
+                        </Button>
+                      </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[50px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
+                  <div className="flex items-center gap-[10px]">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <span className="text-[14px] text-white/50">{newAttachmentPreviews.length > 0 ? "הוסף תמונה/מסמך נוסף" : "לחץ להעלאת תמונה/מסמך"}</span>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    multiple
+                    onChange={async (e) => {
+                      const files = e.target.files;
+                      if (files && files.length > 0) {
+                        const arr = Array.from(files);
+                        // Deduplicate by file name+size (#24)
+                        const dedupedArr = arr.filter(f => !newAttachmentFiles.some(existing => existing.name === f.name && existing.size === f.size));
+                        if (dedupedArr.length === 0) { e.target.value = ""; return; }
+                        setNewAttachmentFiles(prev => [...prev, ...dedupedArr]);
+                        const previews = await Promise.all(dedupedArr.map(async (f) => {
+                          if (f.type === "application/pdf") {
+                            try {
+                              const imgFile = await convertPdfToImage(f);
+                              return URL.createObjectURL(imgFile);
+                            } catch {
+                              return URL.createObjectURL(f);
+                            }
+                          }
+                          return URL.createObjectURL(f);
+                        }));
+                        setNewAttachmentPreviews(prev => [...prev, ...previews]);
+
+                        if (!ocrApplied && dedupedArr.length > 0) {
+                          const firstFile = dedupedArr[0];
+                          if (firstFile.type === "application/pdf") {
+                            try {
+                              const imgFile = await convertPdfToImage(firstFile);
+                              processOcr(imgFile);
+                            } catch {
+                              processOcr(firstFile);
+                            }
+                          } else {
+                            processOcr(firstFile);
+                          }
+                        }
+                      }
+                      e.target.value = "";
+                    }}
+                    className="hidden"
+                  />
+                </label>
+                {isUploadingAttachment && (
+                  <span className="text-[12px] text-white/50 text-center">מעלה קבצים...</span>
+                )}
+                {isOcrProcessing && (
+                  <div className="flex items-center gap-[8px] justify-center py-[8px]">
+                    <svg className="animate-spin h-4 w-4 text-[#29318A]" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span className="text-[13px] text-white/70">מזהה נתונים מהמסמך...</span>
+                  </div>
+                )}
+                {ocrApplied && !isOcrProcessing && (
+                  <span className="text-[12px] text-green-400 text-center">נתונים זוהו ומולאו בטופס - ניתן לערוך לפני שמירה</span>
+                )}
+              </div>
+
               {/* Date Field */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">תאריך</label>
@@ -3703,109 +3818,6 @@ function ExpensesPageInner() {
                 </div>
               )}
 
-              {/* Image Upload - Multiple */}
-              <div className="flex flex-col gap-[5px]">
-                <label className="text-[16px] font-medium text-white text-right">תמונות/מסמכים</label>
-                {newAttachmentPreviews.length > 0 && (
-                  <div className="flex flex-wrap gap-[8px] mb-[5px]">
-                    {newAttachmentPreviews.map((preview, idx) => {
-                      return (
-                      <div key={`new-preview-${preview}`} className="flex flex-col items-center gap-[4px]">
-                        <div className="relative border border-[#4C526B] rounded-[8px] overflow-hidden w-[100px] h-[100px]">
-                          <Image src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} width={100} height={100} unoptimized />
-                        </div>
-                        <Button
-                          type="button"
-                          onClick={() => {
-                            setNewAttachmentFiles(prev => prev.filter((_, i) => i !== idx));
-                            setNewAttachmentPreviews(prev => prev.filter((_, i) => i !== idx));
-                          }}
-                          className="text-[#F64E60] hover:text-[#ff3547] transition-colors"
-                          title="הסר קובץ"
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6"/>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                            <line x1="10" y1="11" x2="10" y2="17"/>
-                            <line x1="14" y1="11" x2="14" y2="17"/>
-                          </svg>
-                        </Button>
-                      </div>
-                      );
-                    })}
-                  </div>
-                )}
-                <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[50px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
-                  <div className="flex items-center gap-[10px]">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="17 8 12 3 7 8"/>
-                      <line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                    <span className="text-[14px] text-white/50">{newAttachmentPreviews.length > 0 ? "הוסף תמונה/מסמך נוסף" : "לחץ להעלאת תמונה/מסמך"}</span>
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    multiple
-                    onChange={async (e) => {
-                      const files = e.target.files;
-                      if (files && files.length > 0) {
-                        const arr = Array.from(files);
-                        setNewAttachmentFiles(prev => [...prev, ...arr]);
-                        // Generate previews - for PDFs render first page as image
-                        const previews = await Promise.all(arr.map(async (f) => {
-                          if (f.type === "application/pdf") {
-                            try {
-                              const imgFile = await convertPdfToImage(f);
-                              return URL.createObjectURL(imgFile);
-                            } catch {
-                              return URL.createObjectURL(f);
-                            }
-                          }
-                          return URL.createObjectURL(f);
-                        }));
-                        setNewAttachmentPreviews(prev => [...prev, ...previews]);
-
-                        // Auto-trigger OCR on the first uploaded file
-                        if (!ocrApplied && arr.length > 0) {
-                          const firstFile = arr[0];
-                          // For PDFs: try converting to image first (works for scanned PDFs),
-                          // fallback to raw PDF (works for digital PDFs with embedded text)
-                          if (firstFile.type === "application/pdf") {
-                            try {
-                              const imgFile = await convertPdfToImage(firstFile);
-                              processOcr(imgFile);
-                            } catch {
-                              processOcr(firstFile);
-                            }
-                          } else {
-                            processOcr(firstFile);
-                          }
-                        }
-                      }
-                      e.target.value = "";
-                    }}
-                    className="hidden"
-                  />
-                </label>
-                {isUploadingAttachment && (
-                  <span className="text-[12px] text-white/50 text-center">מעלה קבצים...</span>
-                )}
-                {isOcrProcessing && (
-                  <div className="flex items-center gap-[8px] justify-center py-[8px]">
-                    <svg className="animate-spin h-4 w-4 text-[#29318A]" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    <span className="text-[13px] text-white/70">מזהה נתונים מהמסמך...</span>
-                  </div>
-                )}
-                {ocrApplied && !isOcrProcessing && (
-                  <span className="text-[12px] text-green-400 text-center">נתונים זוהו ומולאו בטופס - ניתן לערוך לפני שמירה</span>
-                )}
-              </div>
-
               {/* Notes */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">הערות למסמך</label>
@@ -4033,6 +4045,7 @@ function ExpensesPageInner() {
                                   <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
                                     <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
                                     <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
+                                    {pm.method === "check" && <span className="text-[14px] font-medium text-white/70 flex-1 text-center">מס׳ צ׳ק</span>}
                                     <span className="text-[14px] font-medium text-white/70 flex-1 text-center">סכום</span>
                                   </div>
                                   <div className="flex flex-col gap-[8px] max-h-[200px] overflow-y-auto">
@@ -4051,6 +4064,19 @@ function ExpensesPageInner() {
                                             className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] opacity-0 cursor-pointer"
                                           />
                                         </div>
+                                        {pm.method === "check" && (
+                                          <div className="flex-1">
+                                            <Input
+                                              type="text"
+                                              inputMode="numeric"
+                                              title={`מספר צ׳ק תשלום ${item.number}`}
+                                              value={item.checkNumber || ""}
+                                              onChange={(e) => handlePopupInstallmentCheckNumberChange(pm.id, index, e.target.value)}
+                                              placeholder="מס׳ צ׳ק"
+                                              className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                            />
+                                          </div>
+                                        )}
                                         <div className="flex-1 relative">
                                           <Input
                                             type="text"
@@ -4073,6 +4099,7 @@ function ExpensesPageInner() {
                                       <div className="flex items-center gap-[8px] border-t border-[#4C526B] pt-[8px] mt-[8px]">
                                         <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה&quot;כ</span>
                                         <span className="flex-1"></span>
+                                        {pm.method === "check" && <span className="flex-1"></span>}
                                         <span className={`text-[14px] font-bold ltr-num flex-1 text-center ${isMismatch ? 'text-red-400' : 'text-white'}`}>
                                           ₪{installmentsTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </span>
@@ -4749,6 +4776,7 @@ function ExpensesPageInner() {
                           <div className="flex items-center border-b border-[#4C526B] pb-[8px] mb-[8px]">
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
+                            {pm.method === "check" && <span className="text-[14px] font-medium text-white/70 flex-1 text-center">מס׳ צ׳ק</span>}
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">סכום</span>
                           </div>
                           <div className="flex flex-col gap-[8px] max-h-[200px] overflow-y-auto">
@@ -4767,6 +4795,19 @@ function ExpensesPageInner() {
                                     className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] opacity-0 cursor-pointer"
                                   />
                                 </div>
+                                {pm.method === "check" && (
+                                  <div className="flex-1">
+                                    <Input
+                                      type="text"
+                                      inputMode="numeric"
+                                      title={`מספר צ׳ק תשלום ${item.number}`}
+                                      value={item.checkNumber || ""}
+                                      onChange={(e) => handlePopupInstallmentCheckNumberChange(pm.id, index, e.target.value)}
+                                      placeholder="מס׳ צ׳ק"
+                                      className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                    />
+                                  </div>
+                                )}
                                 <div className="flex-1 relative">
                                   <Input
                                     type="text"
@@ -4789,6 +4830,7 @@ function ExpensesPageInner() {
                               <div className="flex items-center border-t border-[#4C526B] pt-[8px] mt-[8px]">
                                 <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה&quot;כ</span>
                                 <span className="flex-1"></span>
+                                {pm.method === "check" && <span className="flex-1"></span>}
                                 <span className={`text-[14px] font-bold ltr-num flex-1 text-center ${isMismatch ? 'text-red-400' : 'text-white'}`}>
                                   ₪{installmentsTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>

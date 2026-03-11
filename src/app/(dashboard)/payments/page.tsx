@@ -375,7 +375,7 @@ function PaymentsPageInner() {
 
   // Add payment form state
   const [paymentDate, setPaymentDate] = useState(() => toLocalDateStr(new Date()));
-  const [expenseType, setExpenseType] = useState<"expenses" | "purchases" | "employees">("expenses");
+  const [expenseType, setExpenseType] = useState<"all" | "expenses" | "purchases" | "employees">("all");
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
@@ -451,7 +451,7 @@ function PaymentsPageInner() {
         const draft = restorePaymentDraft();
         if (draft) {
           if (draft.paymentDate) setPaymentDate(draft.paymentDate as string);
-          if (draft.expenseType) setExpenseType(draft.expenseType as "expenses" | "purchases" | "employees");
+          if (draft.expenseType) setExpenseType(draft.expenseType as "all" | "expenses" | "purchases" | "employees");
           if (draft.selectedSupplier) setSelectedSupplier(draft.selectedSupplier as string);
           if (draft.reference) setReference(draft.reference as string);
           if (draft.notes !== undefined) setNotes(draft.notes as string);
@@ -481,6 +481,7 @@ function PaymentsPageInner() {
   // Supplier filtering by expense type (ensure selected supplier is always included when editing)
   const expenseTypeMap = { expenses: "current_expenses", purchases: "goods_purchases", employees: "employee_costs" } as const;
   const filteredSuppliers = (() => {
+    if (expenseType === "all") return suppliers;
     const filtered = suppliers.filter(s => s.expense_type === expenseTypeMap[expenseType]);
     if (selectedSupplier && !filtered.some(s => s.id === selectedSupplier)) {
       const missing = suppliers.find(s => s.id === selectedSupplier);
@@ -1366,6 +1367,10 @@ function PaymentsPageInner() {
     const supplierData = suppliers.find(s => s.id === payment.supplierId);
     const correctExpenseType: "expenses" | "purchases" | "employees" = supplierData?.expense_type === "goods_purchases" ? "purchases" : supplierData?.expense_type === "employee_costs" ? "employees" : "expenses";
     setExpenseType(correctExpenseType);
+    // Store linked invoice IDs before setting supplier — the supplier-change useEffect should preserve them (#26)
+    if (payment.linkedInvoiceId) {
+      editLinkedInvoiceIds.current = new Set([payment.linkedInvoiceId]);
+    }
     setSelectedSupplier(payment.supplierId);
     // Skip the paymentDate useEffect so it doesn't regenerate installments over the edit data
     skipPaymentDateEffect.current = true;
@@ -1453,6 +1458,35 @@ function PaymentsPageInner() {
     setEditingPaymentId(payment.id);
     setShowAddPaymentPopup(true);
   };
+
+  // Handle deep-link from supplier card (?supplier=supplierId) — open form with pre-selected supplier (#17)
+  useEffect(() => {
+    if (typeof window === "undefined" || selectedBusinesses.length === 0 || suppliers.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const supplierId = params.get("supplier");
+    if (!supplierId) return;
+
+    // Clear the query param immediately
+    window.history.replaceState({}, "", "/payments");
+
+    // Find the supplier to determine expense type
+    const supplier = suppliers.find(s => s.id === supplierId);
+    if (!supplier) return;
+
+    resetForm();
+    setSelectedSupplier(supplierId);
+    // Set expense type based on supplier type
+    const typeMap: Record<string, "purchases" | "expenses" | "employees"> = {
+      "סחורה": "purchases",
+      "הוצאות": "expenses",
+      "עובדים": "employees",
+    };
+    if (supplier.expense_type && typeMap[supplier.expense_type]) {
+      setExpenseType(typeMap[supplier.expense_type]);
+    }
+    setShowAddPaymentPopup(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBusinesses, suppliers]);
 
   // Handle deep-link edit from supplier card (?edit=paymentId)
   useEffect(() => {
@@ -2166,6 +2200,8 @@ function PaymentsPageInner() {
   // Update installments when payment date changes - only for payment methods that haven't been customized
   // Track whether we should skip the next paymentDate effect (e.g. when opening edit mode)
   const skipPaymentDateEffect = useRef(false);
+  // When editing a payment, skip clearing selectedInvoiceIds in the supplier-change useEffect (#26)
+  const editLinkedInvoiceIds = useRef<Set<string> | null>(null);
 
   useEffect(() => {
     if (skipPaymentDateEffect.current) {
@@ -2189,6 +2225,10 @@ function PaymentsPageInner() {
 
   // Fetch open invoices when supplier changes
   useEffect(() => {
+    // Check if we're in edit mode with linked invoices (#26)
+    const linkedIds = editLinkedInvoiceIds.current;
+    editLinkedInvoiceIds.current = null; // Consume the ref
+
     const fetchOpenInvoices = async () => {
       if (!selectedSupplier) {
         setOpenInvoices([]);
@@ -2215,9 +2255,30 @@ function PaymentsPageInner() {
           console.error("Error fetching open invoices:", error);
           setOpenInvoices([]);
         } else {
-          setOpenInvoices(data || []);
-          if (data && data.length > 0) {
-            const firstKey = getMonthYearKey(data[0].invoice_date);
+          let allInvoices = data || [];
+
+          // If editing, also fetch the currently linked invoice (may be "paid") and merge it (#26)
+          if (linkedIds && linkedIds.size > 0) {
+            const linkedIdsArr = Array.from(linkedIds);
+            const alreadyInList = linkedIdsArr.every(id => allInvoices.some(inv => inv.id === id));
+            if (!alreadyInList) {
+              const { data: linkedData } = await supabase
+                .from("invoices")
+                .select("id, invoice_number, invoice_date, total_amount, status, attachment_url, notes")
+                .in("id", linkedIdsArr)
+                .is("deleted_at", null);
+              if (linkedData && linkedData.length > 0) {
+                // Merge linked invoices at the top
+                const existingIds = new Set(allInvoices.map(inv => inv.id));
+                const newLinked = linkedData.filter(inv => !existingIds.has(inv.id));
+                allInvoices = [...newLinked, ...allInvoices];
+              }
+            }
+          }
+
+          setOpenInvoices(allInvoices);
+          if (allInvoices.length > 0) {
+            const firstKey = getMonthYearKey(allInvoices[0].invoice_date);
             setExpandedMonths(new Set([firstKey]));
           }
         }
@@ -2230,8 +2291,15 @@ function PaymentsPageInner() {
     };
 
     fetchOpenInvoices();
-    setSelectedInvoiceIds(new Set());
-    setShowOpenInvoices(false);
+
+    // When editing, preserve selectedInvoiceIds and auto-show invoices section (#26)
+    if (linkedIds && linkedIds.size > 0) {
+      setSelectedInvoiceIds(linkedIds);
+      setShowOpenInvoices(true);
+    } else {
+      setSelectedInvoiceIds(new Set());
+      setShowOpenInvoices(false);
+    }
   }, [selectedSupplier, selectedBusinesses]);
 
   const resetForm = () => {
@@ -3130,7 +3198,8 @@ function PaymentsPageInner() {
                             </svg>
                           </Button>
                         )}
-                        {payment.receiptUrl && (
+                        {/* Receipt image — skip if same as linked invoice attachment (#24) */}
+                        {payment.receiptUrl && !(payment.linkedInvoice?.attachmentUrl && payment.receiptUrl === payment.linkedInvoice.attachmentUrl) && (
                           <Button
                             type="button"
                             onClick={() => setViewerDocUrl(payment.receiptUrl!)}
@@ -3144,7 +3213,7 @@ function PaymentsPageInner() {
                             </svg>
                           </Button>
                         )}
-                        {payment.receiptUrl && (
+                        {payment.receiptUrl && !(payment.linkedInvoice?.attachmentUrl && payment.receiptUrl === payment.linkedInvoice.attachmentUrl) && (
                           <Button
                             type="button"
                             className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
@@ -3181,18 +3250,7 @@ function PaymentsPageInner() {
 
                     {/* Details row */}
                     <div className="flex items-center justify-between px-[7px] flex-wrap gap-y-[8px]">
-                      {payment.createdBy && (
-                        <div className="flex flex-col items-center min-w-[60px]">
-                          <span className="text-[13px] text-[#979797]">תאריך הזנה</span>
-                          <span className="text-[13px] ltr-num">{payment.createdAt || "-"}</span>
-                        </div>
-                      )}
-                      {payment.createdBy && (
-                        <div className="flex flex-col items-center min-w-[60px]">
-                          <span className="text-[13px] text-[#979797]">הוזן ע&quot;י</span>
-                          <span className="text-[13px]">{payment.createdBy}</span>
-                        </div>
-                      )}
+                      {/* תאריך הזנה + הוזן ע"י — hidden per UX request (#28) */}
                       <div className="flex flex-col items-center min-w-[60px]">
                         <span className="text-[13px] text-[#979797]">סכום לפני מע&quot;מ</span>
                         <span className="text-[13px] ltr-num">₪{payment.subtotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -3464,6 +3522,22 @@ function PaymentsPageInner() {
                 <div dir="rtl" className="flex items-start gap-[20px]">
                   <Button
                     type="button"
+                    onClick={() => { setExpenseType("all"); setSelectedSupplier(""); }}
+                    className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
+                  >
+                    <span className={`text-[16px] font-semibold ${expenseType === "all" ? "text-white" : "text-[#979797]"}`}>
+                      הכל
+                    </span>
+                    <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={expenseType === "all" ? "text-white" : "text-[#979797]"}>
+                      {expenseType === "all" ? (
+                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                      ) : (
+                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                  </Button>
+                  <Button
+                    type="button"
                     onClick={() => { setExpenseType("purchases"); setSelectedSupplier(""); }}
                     className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
                   >
@@ -3528,7 +3602,7 @@ function PaymentsPageInner() {
                     onClick={() => setShowOpenInvoices(!showOpenInvoices)}
                     className="bg-[#29318A] text-white text-[18px] font-bold py-[12px] px-[24px] rounded-[7px] transition-colors hover:bg-[#3D44A0] flex items-center justify-center gap-[8px]"
                   >
-                    <span>חשבוניות פתוחות ({openInvoices.length})</span>
+                    <span>{editingPaymentId ? "חשבוניות" : "חשבוניות פתוחות"} ({openInvoices.length})</span>
                     <svg
                       width="16"
                       height="16"
@@ -3622,6 +3696,7 @@ function PaymentsPageInner() {
                                         </span>
                                         <span className="text-[13px] text-white text-center ltr-num">
                                           ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          {inv.status === "paid" && <span className="text-[10px] text-green-400 mr-[3px]">(שולם)</span>}
                                         </span>
                                         {/* Thumbnail */}
                                         <div className="flex items-center justify-center" onClick={(e) => { e.stopPropagation(); if (attachmentUrls.length > 0) setViewerDocUrl(attachmentUrls[0]); }}>
@@ -3982,26 +4057,49 @@ function PaymentsPageInner() {
                 ))}
               </div>
 
-              {/* Reference */}
+              {/* Reference + Receipt Upload — single row */}
               <div className="flex flex-col gap-[3px]">
                 <div className="flex items-start">
                   <span className="text-[16px] font-medium text-white">אסמכתא</span>
                 </div>
-                <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                  <Input
-                    type="text"
-                    value={reference}
-                    onChange={(e) => setReference(e.target.value)}
-                    placeholder="מספר אסמכתא..."
-                    className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
-                  />
-                </div>
-              </div>
-
-              {/* Receipt Upload — multiple files with thumbnails */}
-              <div className="flex flex-col gap-[3px]">
-                <div className="flex items-start">
-                  <span className="text-[16px] font-medium text-white">אסמכתא לקבלת תשלום</span>
+                <div className="flex gap-[8px] items-center">
+                  <div className="flex-1 border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                    <Input
+                      type="text"
+                      value={reference}
+                      onChange={(e) => setReference(e.target.value)}
+                      placeholder="מספר אסמכתא..."
+                      className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
+                    />
+                  </div>
+                  <label className="shrink-0 border border-[#4C526B] border-dashed rounded-[10px] w-[50px] h-[50px] flex items-center justify-center cursor-pointer hover:bg-white/5 transition-colors" onPointerDown={(e) => e.stopPropagation()}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      multiple
+                      onChange={async (e) => {
+                        const files = e.target.files;
+                        if (files && files.length > 0) {
+                          const arr = Array.from(files);
+                          // Deduplicate by file name+size (#24)
+                          const dedupedArr = arr.filter(f => !receiptFiles.some(existing => existing.file?.name === f.name && existing.file?.size === f.size));
+                          if (dedupedArr.length === 0) { e.target.value = ""; return; }
+                          const newEntries = dedupedArr.map(file => ({ file, preview: URL.createObjectURL(file) }));
+                          setReceiptFiles(prev => [...prev, ...newEntries]);
+                          if (!ocrApplied && arr.length > 0) {
+                            processReceiptOcr(arr[0]);
+                          }
+                        }
+                        e.target.value = "";
+                      }}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
                 {/* Existing files list */}
                 {receiptFiles.length > 0 && (
@@ -4029,36 +4127,6 @@ function PaymentsPageInner() {
                     })}
                   </div>
                 )}
-                {/* Add more files button */}
-                <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[50px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors" onPointerDown={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-[10px]">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="17 8 12 3 7 8"/>
-                      <line x1="12" y1="3" x2="12" y2="15"/>
-                    </svg>
-                    <span className="text-[14px] text-white/50">{receiptFiles.length > 0 ? "הוסף מסמך נוסף" : "לחץ להעלאת תמונה/מסמך"}</span>
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    multiple
-                    onChange={async (e) => {
-                      const files = e.target.files;
-                      if (files && files.length > 0) {
-                        const arr = Array.from(files);
-                        const newEntries = arr.map(file => ({ file, preview: URL.createObjectURL(file) }));
-                        setReceiptFiles(prev => [...prev, ...newEntries]);
-                        // Auto-trigger OCR on first file if not yet applied
-                        if (!ocrApplied && arr.length > 0) {
-                          processReceiptOcr(arr[0]);
-                        }
-                      }
-                      e.target.value = "";
-                    }}
-                    className="hidden"
-                  />
-                </label>
                 {isUploadingReceipt && (
                   <span className="text-[12px] text-white/50 text-center">מעלה קבצים...</span>
                 )}

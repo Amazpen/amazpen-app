@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -101,6 +102,10 @@ function parseAttachmentUrls(raw: string | null): string[] {
   return [raw];
 }
 
+function isPdfUrl(url: string): boolean {
+  return /\.pdf(\?|$)/i.test(url);
+}
+
 export default function SuppliersPage() {
   const { selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
@@ -157,6 +162,7 @@ export default function SuppliersPage() {
   // Supplier detail popup state
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierWithBalance | null>(null);
   const [showSupplierDetailPopup, setShowSupplierDetailPopup] = useState(false);
+  const [viewerDocUrl, setViewerDocUrl] = useState<string | null>(null);
   const [supplierDetailData, setSupplierDetailData] = useState<{
     totalPurchases: number;
     totalPaid: number;
@@ -1651,7 +1657,8 @@ export default function SuppliersPage() {
                     title={hasPreviousObligations ? "שם התחייבות" : "שם הספק"}
                     value={supplierName}
                     onChange={(e) => setSupplierName(e.target.value)}
-                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
+                    readOnly={isEditingSupplier}
+                    className={`w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] ${isEditingSupplier ? "opacity-60 cursor-not-allowed" : ""}`}
                   />
                 </div>
               </div>
@@ -2237,11 +2244,20 @@ export default function SuppliersPage() {
                 </Button>
                 <Button
                   type="button"
-                  onClick={handleCloseAddSupplierModal}
+                  onClick={() => {
+                    if (isEditingSupplier && editingSupplierData) {
+                      // Return to supplier detail card instead of closing everything
+                      handleCloseAddSupplierModal();
+                      setSelectedSupplier(editingSupplierData);
+                      setShowSupplierDetailPopup(true);
+                    } else {
+                      handleCloseAddSupplierModal();
+                    }
+                  }}
                   disabled={isSubmitting}
                   className="flex-1 bg-transparent border border-[#4C526B] text-white text-[18px] font-semibold h-[50px] rounded-[10px] transition-colors hover:bg-white/10 disabled:opacity-50"
                 >
-                  ביטול
+                  {isEditingSupplier ? "חזרה" : "ביטול"}
                 </Button>
               </div>
             </div>
@@ -2284,8 +2300,8 @@ export default function SuppliersPage() {
                     </svg>
                   </Button>
                 )}
-                {/* Send karteset email button */}
-                {selectedSupplier?.email && selectedSupplier?.request_karteset && (
+                {/* Send karteset email button — always available when supplier has email (#16) */}
+                {selectedSupplier?.email && (
                   <Button
                     type="button"
                     title="שלח בקשת כרטסת"
@@ -2296,6 +2312,22 @@ export default function SuppliersPage() {
                     <Send className={`w-[18px] h-[18px] ${isSendingKarteset ? "animate-pulse" : ""}`} />
                   </Button>
                 )}
+                {/* Pay button — navigate to payments page with supplier pre-selected (#17) */}
+                <Button
+                  type="button"
+                  title="לתשלום"
+                  onClick={() => {
+                    if (selectedSupplier) {
+                      router.push(`/payments?supplier=${selectedSupplier.id}`);
+                    }
+                  }}
+                  className="w-[24px] h-[24px] flex items-center justify-center text-white/70 hover:text-white"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                    <line x1="1" y1="10" x2="23" y2="10"/>
+                  </svg>
+                </Button>
                 {/* Edit button */}
                 <Button
                   type="button"
@@ -2686,7 +2718,7 @@ export default function SuppliersPage() {
                                       <Button
                                         type="button"
                                         title="צפייה בתמונה"
-                                        onClick={() => window.open(invoice.attachmentUrls[0], '_blank')}
+                                        onClick={() => setViewerDocUrl(invoice.attachmentUrls[0])}
                                         className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
                                       >
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
@@ -2721,7 +2753,7 @@ export default function SuppliersPage() {
                                       <Button
                                         key={`attachment-${url}`}
                                         type="button"
-                                        onClick={() => window.open(url, '_blank')}
+                                        onClick={() => setViewerDocUrl(url)}
                                         className="border border-white/20 rounded-[8px] overflow-hidden w-[70px] h-[70px] hover:border-white/50 transition-colors"
                                       >
                                         {url.endsWith(".pdf") ? (
@@ -3701,6 +3733,57 @@ export default function SuppliersPage() {
           })()}
         </SheetContent>
       </Sheet>
+
+      {/* Image/Document Viewer Modal */}
+      {viewerDocUrl && typeof window !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80"
+          onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); }}
+            className="absolute top-[16px] right-[16px] z-10 w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer"
+          >
+            <X size={24} className="text-white" />
+          </Button>
+          <Button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); window.open(viewerDocUrl, '_blank'); }}
+            className="absolute top-[16px] left-[16px] z-10 flex items-center gap-[6px] px-[12px] py-[8px] rounded-full bg-black/60 hover:bg-black/80 transition-colors text-white text-[13px] cursor-pointer"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            פתח בכרטיסייה חדשה
+          </Button>
+          <div
+            className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isPdfUrl(viewerDocUrl) ? (
+              <iframe
+                src={viewerDocUrl}
+                className="w-[90vw] h-[90vh] rounded-[12px] border border-white/20"
+                title="תצוגת מסמך"
+              />
+            ) : (
+              <Image
+                src={viewerDocUrl}
+                alt="תצוגת מסמך"
+                className="max-w-[90vw] max-h-[90vh] object-contain rounded-[12px]"
+                width={800}
+                height={600}
+                unoptimized
+              />
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
