@@ -25,7 +25,12 @@ function calculateVat(subtotal: number, vatType: string): number {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body", created: 0 }, { status: 400 });
+    }
     const { business_id, year, month } = body;
 
     if (!business_id || !year || !month) {
@@ -36,6 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("recurring-expenses: Missing env vars", { supabaseUrl: !!supabaseUrl, supabaseServiceKey: !!supabaseServiceKey });
       return NextResponse.json({ error: "Missing Supabase configuration", created: 0 }, { status: 500 });
     }
 
@@ -49,14 +55,12 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (bizError) {
+      console.error("recurring-expenses: bizError", bizError.message, { business_id });
       return NextResponse.json({ error: bizError.message, created: 0 }, { status: 500 });
     }
 
     if (!businessData || businessData.status !== "active") {
-      return NextResponse.json(
-        { error: "Business is inactive or not found", created: 0 },
-        { status: 400 }
-      );
+      return NextResponse.json({ message: "Business is inactive or not found", created: 0 });
     }
 
     // 1. Get all active fixed-expense suppliers for this business (excluding previous obligations)
@@ -70,7 +74,8 @@ export async function POST(request: NextRequest) {
       .is("deleted_at", null);
 
     if (suppliersError) {
-      return NextResponse.json({ error: suppliersError.message }, { status: 500 });
+      console.error("recurring-expenses: suppliersError", suppliersError.message, { business_id });
+      return NextResponse.json({ message: "Error fetching suppliers", created: 0 });
     }
 
     // Filter only suppliers that have a monthly amount set
@@ -159,7 +164,8 @@ export async function POST(request: NextRequest) {
       .select("id, supplier_id");
 
     if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+      console.error("recurring-expenses: insertError", insertError.message, { business_id, invoicesToCreate: invoicesToCreate.length });
+      return NextResponse.json({ message: insertError.message, created: 0 });
     }
 
     return NextResponse.json({
@@ -168,10 +174,10 @@ export async function POST(request: NextRequest) {
       invoices: createdInvoices,
     });
   } catch (error) {
-    console.error("Error generating recurring expenses:", error instanceof Error ? error.message : error);
+    console.error("recurring-expenses: unexpected error", error instanceof Error ? error.message : error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
+      { message: error instanceof Error ? error.message : "Internal server error", created: 0 },
+      { status: 200 }
     );
   }
 }
