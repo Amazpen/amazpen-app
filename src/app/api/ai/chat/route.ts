@@ -63,6 +63,8 @@ function getPageContextHint(page: string): string {
     "/settings": "הגדרות — הגדרות משתמש ועסק",
     "/ocr": "קליטת מסמכים OCR — סריקת חשבוניות",
     "/price-tracking": "מעקב מחירי ספקים — השוואת מחירים לאורך זמן",
+    "/admin/bonus-plans": "דף תכניות בונוס — הגדרת תכניות בונוס לעובדים ומעקב סטטוס",
+    "/bonus": "דף בונוס — העובד צופה בתכניות הבונוס שלו ובסטטוס העדכני",
   };
   return map[page] || "";
 }
@@ -503,6 +505,16 @@ ${isAdmin ? `
 **תשלום עם פיצול אמצעי תשלום:**
 - אם המשתמש מציין יותר מאמצעי תשלום אחד (למשל: "₪100 מזומן + ₪200 אשראי") — השתמש בשדה payment_methods (מערך)
 - כל אלמנט במערך: { method, amount, check_number?, reference_number?, due_date? }
+
+### getBonusPlans ⭐ (בונוסים!)
+השתמש בכלי זה **לכל שאלה על בונוסים, תגמולים, או תכניות תמריצים**.
+- מחזיר את כל תכניות הבונוס הפעילות עם **סטטוס עדכני בזמן אמת**: ערך KPI נוכחי, רמה שהושגה, סכום בונוס.
+- **חובה לקרוא לכלי זה** כשעובד עם בונוסים פותח שיחה או שואל "איך אני?" / "מה הסטטוס שלי?" / "כמה בונוס מגיע לי?".
+- אדמין יכול לראות תכניות בונוס של כל העובדים (ללא employeeUserId).
+- עובד/מנהל — העבר את ה-user ID שלו ב-employeeUserId.
+- הצג את התוצאה בצורה ויזואלית וברורה עם אימוג'ים מתאימים:
+  🎯 עומד ביעד | 💪 קרוב ליעד | ⚠️ רחוק מהיעד
+- תמיד תן **טיפים מעשיים** לשיפור, מותאמים לתחום הבונוס
 - אמצעים חוקיים: cash, check, bank_transfer, credit_card, bit, paybox, other
 - due_date: תאריך חיוב בנק (לאשראי: בדרך כלל החודש הבא, לצ'ק: תאריך הצ'ק, למזומן: תאריך התשלום)
 </tools-usage>
@@ -1697,6 +1709,163 @@ function buildTools(
         };
       },
     }),
+
+    getBonusPlans: tool({
+      description: "Get all active bonus plans for a specific employee or all employees in a business, including real-time status (current KPI value, qualified tier, bonus amount). Use when user asks about bonuses, bonus plans, their bonus status, or how to improve their bonus. Also use proactively when greeting an employee who has bonus plans.",
+      inputSchema: z.object({
+        businessId: z.string().describe("The business UUID"),
+        employeeUserId: z.string().optional().describe("Specific employee user ID. If omitted, returns all active plans for the business."),
+        year: z.number().optional().describe("Year for status calculation (defaults to current year)"),
+        month: z.number().optional().describe("Month 1-12 for status calculation (defaults to current month)"),
+      }),
+      execute: async ({ businessId: bizId, employeeUserId, year, month }) => {
+        const now = new Date();
+        const targetYear = year || now.getFullYear();
+        const targetMonth = month || (now.getMonth() + 1);
+        console.log(`[AI Tool] getBonusPlans: biz=${bizId}, employee=${employeeUserId || "all"}, ${targetYear}/${targetMonth}`);
+
+        try {
+          // Fetch bonus plans
+          let query = adminSupabase
+            .from("bonus_plans")
+            .select("*, profiles:employee_user_id(full_name)")
+            .eq("business_id", bizId)
+            .eq("is_active", true)
+            .is("deleted_at", null);
+
+          if (employeeUserId) {
+            query = query.eq("employee_user_id", employeeUserId);
+          }
+
+          const { data: plans, error } = await query;
+          if (error) return { error: error.message };
+          if (!plans || plans.length === 0) {
+            return { plans: [], note: "אין תכניות בונוס פעילות" };
+          }
+
+          // Data source labels for display
+          const sourceLabels: Record<string, string> = {
+            labor_cost_pct: "עלות עובדים (%)",
+            food_cost_pct: "עלות מכר (%)",
+            revenue: "הכנסות (צפי חודשי)",
+            current_expenses: "הוצאות שוטפות",
+            goods_expenses: "רכישות סחורה",
+            custom: "מותאם אישית",
+          };
+
+          // Data source map for resolving current values
+          const dataSourceMap: Record<string, { metricsCol: string; goalCol: string }> = {
+            labor_cost_pct: { metricsCol: "labor_cost_pct", goalCol: "labor_cost_target_pct" },
+            food_cost_pct: { metricsCol: "food_cost_pct", goalCol: "food_cost_target_pct" },
+            revenue: { metricsCol: "monthly_pace", goalCol: "revenue_target" },
+            current_expenses: { metricsCol: "current_expenses_amount", goalCol: "current_expenses_target" },
+            goods_expenses: { metricsCol: "food_cost_amount", goalCol: "goods_expenses_target" },
+          };
+
+          // Fetch metrics and goals for status calculation
+          const { data: metrics } = await adminSupabase
+            .from("business_monthly_metrics")
+            .select("*")
+            .eq("business_id", bizId)
+            .eq("year", targetYear)
+            .eq("month", targetMonth)
+            .maybeSingle();
+
+          const { data: goals } = await adminSupabase
+            .from("goals")
+            .select("*")
+            .eq("business_id", bizId)
+            .eq("year", targetYear)
+            .eq("month", targetMonth)
+            .is("deleted_at", null)
+            .maybeSingle();
+
+          // Calculate status for each plan
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const enrichedPlans = plans.map((plan: any) => {
+            const mapping = dataSourceMap[plan.data_source];
+            let currentValue: number | null = null;
+            let goalValue: number | null = null;
+            let qualifiedTier: number | null = null;
+            let bonusAmount = 0;
+
+            if (mapping && metrics) {
+              const metricsRecord = metrics as Record<string, unknown>;
+              const goalsRecord = goals as Record<string, unknown> | null;
+              currentValue = metricsRecord[mapping.metricsCol] != null ? Number(metricsRecord[mapping.metricsCol]) : null;
+              goalValue = goalsRecord?.[mapping.goalCol] != null ? Number(goalsRecord[mapping.goalCol]) : null;
+
+              if (currentValue !== null) {
+                // Evaluate tier (same logic as bonusPlanResolver)
+                const tiers = [
+                  { tier: 3 as const, threshold: plan.tier3_threshold, max: plan.tier3_threshold_max, amount: plan.tier3_amount },
+                  { tier: 2 as const, threshold: plan.tier2_threshold, max: plan.tier2_threshold_max, amount: plan.tier2_amount },
+                  { tier: 1 as const, threshold: plan.tier1_threshold, max: plan.tier1_threshold_max, amount: plan.tier1_amount },
+                ];
+                const hasRanges = tiers.some(t => t.max != null);
+
+                for (const t of tiers) {
+                  if (t.threshold == null) continue;
+                  if (hasRanges && t.max != null) {
+                    const lo = Math.min(t.threshold, t.max);
+                    const hi = Math.max(t.threshold, t.max);
+                    if (currentValue >= lo && currentValue <= hi) {
+                      qualifiedTier = t.tier;
+                      bonusAmount = t.amount;
+                      break;
+                    }
+                  } else if (!hasRanges) {
+                    if (plan.is_lower_better ? currentValue <= t.threshold : currentValue >= t.threshold) {
+                      qualifiedTier = t.tier;
+                      bonusAmount = t.amount;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+
+            const unit = plan.measurement_type === "percentage" ? "%" : "₪";
+            const employeeName = (plan.profiles as { full_name?: string } | null)?.full_name || "לא ידוע";
+
+            return {
+              id: plan.id,
+              employeeName,
+              employeeUserId: plan.employee_user_id,
+              areaName: plan.area_name,
+              dataSource: plan.data_source,
+              dataSourceLabel: plan.custom_source_label || sourceLabels[plan.data_source] || plan.data_source,
+              measurementType: plan.measurement_type,
+              unit,
+              isLowerBetter: plan.is_lower_better,
+              tiers: {
+                tier1: { label: plan.tier1_label, threshold: plan.tier1_threshold, thresholdMax: plan.tier1_threshold_max, amount: plan.tier1_amount },
+                tier2: { label: plan.tier2_label, threshold: plan.tier2_threshold, thresholdMax: plan.tier2_threshold_max, amount: plan.tier2_amount },
+                tier3: { label: plan.tier3_label, threshold: plan.tier3_threshold, thresholdMax: plan.tier3_threshold_max, amount: plan.tier3_amount },
+              },
+              status: {
+                currentValue,
+                goalValue,
+                qualifiedTier,
+                bonusAmount,
+                period: `${targetYear}/${String(targetMonth).padStart(2, "0")}`,
+              },
+              notes: plan.notes,
+            };
+          });
+
+          return {
+            plans: enrichedPlans,
+            totalPlans: enrichedPlans.length,
+            totalPotentialBonus: enrichedPlans.reduce((sum: number, p: { tiers: { tier3: { amount: number } } }) => sum + p.tiers.tier3.amount, 0),
+            currentTotalBonus: enrichedPlans.reduce((sum: number, p: { status: { bonusAmount: number } }) => sum + p.status.bonusAmount, 0),
+          };
+        } catch (e) {
+          console.error("[AI Tool] getBonusPlans error:", e);
+          return { error: e instanceof Error ? e.message : "Failed to fetch bonus plans" };
+        }
+      },
+    }),
   };
 }
 
@@ -1860,14 +2029,19 @@ export async function POST(request: NextRequest) {
    רמות: ${p.tier1_label}=${p.tier1_threshold != null ? p.tier1_threshold + unit : ""}→₪${p.tier1_amount} | ${p.tier2_label}=${p.tier2_threshold != null ? p.tier2_threshold + unit : ""}→₪${p.tier2_amount} | ${p.tier3_label}=${p.tier3_threshold != null ? p.tier3_threshold + unit : ""}→₪${p.tier3_amount}`;
       });
       bonusPlanContext = `<bonus-plans>
-לעובד זה יש תכניות בונוס פעילות:
+לעובד זה (user_id: ${user.id}) יש תכניות בונוס פעילות:
 ${planLines.join("\n")}
 
-הוראות חשובות:
-- כשהעובד פותח שיחה או שואל על הביצועים/בונוס שלו, **חובה לפתוח פרואקטיבית בסטטוס הבונוס**.
-- השתמש ב-getMonthlySummary כדי לקבל נתונים עדכניים על התחום שלו.
-- תן טיפים מעשיים ומעודדים לשיפור בתחום האחריות.
-- אם העובד מצליח — עודד אותו. אם לא עומד ביעד — תן עצות קונקרטיות מה לשפר.
+הוראות חשובות — בונוסים:
+- כשהעובד פותח שיחה או שואל על הביצועים/בונוס שלו, **חובה לקרוא ל-getBonusPlans** כדי לקבל סטטוס עדכני בזמן אמת.
+- **אל תסתמך רק על הcontext למעלה** — הוא מכיל את ההגדרות אבל לא את הסטטוס העדכני. חובה להשתמש בכלי getBonusPlans.
+- הצג את הסטטוס בצורה ברורה ומעודדת:
+  - אם העובד עומד ביעד → "🎯 מצוין! אתה ברמה X ומגיע לך בונוס של ₪Y"
+  - אם לא עומד עדיין → "💪 אתה ב-X%, צריך להגיע ל-Y% כדי לזכות בבונוס. הנה מה שאפשר לעשות..."
+  - תמיד תן טיפים מעשיים ומותאמים לתחום (עלות עובדים → ניהול משמרות, עלות מכר → מו"מ ספקים/צמצום פחת, הכנסות → אפסלינג)
+- אם יש כמה תכניות — הצג סיכום כללי ואז פירוט לכל תכנית.
+- השתמש בשפה מעודדת ומוטיבציונית — המטרה לגרום לעובד לרצות להשתפר.
+- כשנשאל "כמה בונוס מגיע לי?" → תמיד קרא ל-getBonusPlans ותן תשובה מדויקת עם פירוט לכל תכנית.
 </bonus-plans>`;
     }
   }
