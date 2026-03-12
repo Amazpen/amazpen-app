@@ -1,12 +1,17 @@
-const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY;
-const VISION_API_URL = `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`;
+// Read API key dynamically (not at module load time) to ensure env vars are available
+function getVisionApiKey(): string {
+  return process.env.GOOGLE_VISION_API_KEY || "";
+}
+function getVisionApiUrl(): string {
+  return `https://vision.googleapis.com/v1/images:annotate?key=${getVisionApiKey()}`;
+}
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/avif"];
 
 /** OCR an image file using Google Cloud Vision API */
 export async function ocrImage(file: File): Promise<string> {
-  if (!GOOGLE_VISION_API_KEY) {
+  if (!getVisionApiKey()) {
     throw new Error("GOOGLE_VISION_API_KEY is not configured");
   }
 
@@ -19,19 +24,80 @@ export async function ocrImage(file: File): Promise<string> {
 }
 
 /**
- * Extract text from a digital PDF using pdfjs-dist.
- * Note: scanned PDFs are handled client-side (converted to image before upload).
+ * Extract text from a PDF.
+ * First tries digital text extraction (pdfjs-dist).
+ * If too little text found (scanned PDF), sends PDF as base64 to OpenAI Vision for OCR.
  */
 export async function extractPdfText(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
+
+  // Try digital text extraction first
   try {
     const text = await extractDigitalPdfText(arrayBuffer);
     console.log(`[OCR] Digital PDF text length: ${text.length}`);
-    return text;
+    if (text.length >= 20) {
+      return text;
+    }
+    console.log("[OCR] Too little digital text — treating as scanned PDF");
   } catch (err) {
     console.error("[OCR] Digital PDF extraction failed:", err);
+  }
+
+  // Fallback: use OpenAI Vision to OCR the scanned PDF
+  try {
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    console.log(`[OCR] Sending scanned PDF to OpenAI Vision, base64 length: ${base64.length}`);
+    return await ocrWithOpenAIVision(base64, "application/pdf");
+  } catch (err) {
+    console.error("[OCR] OpenAI Vision OCR failed:", err);
     return "";
   }
+}
+
+/** OCR a scanned document using OpenAI GPT-4 Vision */
+async function ocrWithOpenAIVision(base64: string, mimeType: string): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "חלץ את כל הטקסט מהמסמך המצורף. החזר רק את הטקסט הגולמי, בלי הסברים או הערות.",
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${mimeType};base64,${base64}`,
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 4096,
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error("[OCR] OpenAI Vision error:", res.status, errBody);
+    throw new Error(`OpenAI Vision failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  const text = data.choices?.[0]?.message?.content?.trim() || "";
+  console.log(`[OCR] OpenAI Vision extracted text length: ${text.length}`);
+  return text;
 }
 
 /** Extract embedded text from a digital PDF using pdfjs-dist in Node.js (no worker needed) */
@@ -65,7 +131,7 @@ async function extractDigitalPdfText(arrayBuffer: ArrayBuffer): Promise<string> 
 
 /** Call Google Vision DOCUMENT_TEXT_DETECTION on a base64-encoded file */
 async function callVisionOCR(base64: string): Promise<string> {
-  if (!GOOGLE_VISION_API_KEY) {
+  if (!getVisionApiKey()) {
     throw new Error("GOOGLE_VISION_API_KEY is not configured");
   }
 
@@ -79,7 +145,7 @@ async function callVisionOCR(base64: string): Promise<string> {
     ],
   };
 
-  const res = await fetch(VISION_API_URL, {
+  const res = await fetch(getVisionApiUrl(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

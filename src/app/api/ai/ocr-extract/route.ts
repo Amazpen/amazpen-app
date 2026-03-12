@@ -28,12 +28,13 @@ interface SupplierInfo {
 }
 
 export async function POST(request: NextRequest) {
-  if (!process.env.GOOGLE_VISION_API_KEY) {
-    return Response.json({ error: "שירות OCR לא מוגדר" }, { status: 503 });
-  }
-
   if (!process.env.OPENAI_API_KEY) {
     return Response.json({ error: "שירות AI לא מוגדר" }, { status: 503 });
+  }
+
+  // Google Vision is needed for image OCR; for scanned PDFs we fall back to OpenAI Vision
+  if (!process.env.GOOGLE_VISION_API_KEY && !process.env.OPENAI_API_KEY) {
+    return Response.json({ error: "שירות OCR לא מוגדר" }, { status: 503 });
   }
 
   // Authenticate user
