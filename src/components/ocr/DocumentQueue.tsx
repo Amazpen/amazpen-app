@@ -136,16 +136,26 @@ export default function DocumentQueue({
         </div>
 
         {/* Documents vertical scroll */}
-        <div className="flex-1 min-h-0 relative">
-          {/* Documents list */}
+        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
           <div
             ref={scrollContainerRef}
             onScroll={checkScrollPosition}
-            className="absolute inset-0 flex flex-col gap-2 p-2 overflow-y-auto scrollbar-hide"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              padding: '6px',
+            }}
           >
             {filteredDocuments.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center py-6 text-white/50 text-center text-[12px]">
-                <span>אין מסמכים</span>
+              <div style={{ padding: '24px 0', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>
+                אין מסמכים
               </div>
             ) : (
               filteredDocuments.map((doc) => (
@@ -158,7 +168,6 @@ export default function DocumentQueue({
               ))
             )}
           </div>
-
         </div>
       </div>
     );
@@ -430,122 +439,42 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
   );
 }
 
-// Vertical card for sidebar - stacked layout (image on top, info below)
+// Vertical card for sidebar - simple text row
 function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardProps) {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
-
-  // Format date
-  const formatDate = (dateStr: string) => {
-    try {
-      return new Date(dateStr).toLocaleDateString('he-IL', {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit',
-      });
-    } catch {
-      return '-';
-    }
-  };
-
-  // Document type label
+  const supplierName = document.ocr_data?.supplier_name || 'ספק לא ידוע';
   const docTypeLabel = document.document_type
     ? getDocumentTypeLabel(document.document_type)
-    : 'לא זוהה';
-
-  // Supplier name from OCR data
-  const supplierName = document.ocr_data?.supplier_name;
-
-  // Total amount from OCR data
+    : '';
   const totalAmount = document.ocr_data?.total_amount;
 
-  const isPdf = isPdfDocument(document);
-
   return (
-    <button
-      type="button"
-      title="בחר מסמך"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`block w-full rounded-[10px] overflow-hidden transition-all cursor-pointer p-0 border-0 bg-transparent text-right ${
-        isSelected
-          ? 'ring-2 ring-[#29318A] shadow-lg shadow-[#29318A]/20'
-          : 'hover:ring-1 hover:ring-[#4C526B] hover:shadow-md'
-      }`}
+      onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
+      style={{
+        width: '100%',
+        padding: '8px 10px',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        backgroundColor: isSelected ? '#29318A' : '#1a1f3d',
+        borderRight: isSelected ? '3px solid #818cf8' : '3px solid transparent',
+        direction: 'rtl',
+      }}
     >
-      {/* Image thumbnail - full width on top */}
-      <div className="relative w-full h-[70px] bg-[#0a0d1f]">
-        {isPdf ? (
-          <PdfThumbnail url={document.image_url} />
-        ) : !imageError ? (
-          <>
-            <Image
-              src={document.image_url}
-              alt="תמונת מסמך"
-              className={`w-full h-full object-cover transition-opacity ${
-                imageLoaded ? 'opacity-100' : 'opacity-0'
-              }`}
-              fill
-              sizes="220px"
-              unoptimized
-              onLoad={() => setImageLoaded(true)}
-              onError={() => setImageError(true)}
-            />
-            {!imageLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-white/40">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
-          </div>
-        )}
-
-        {/* Status badge */}
-        <div
-          className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[9px] font-medium ocr-status-${document.status}`}
-        >
-          {getStatusLabel(document.status)}
-        </div>
-
-        {/* Source icon */}
-        <div className="absolute bottom-1.5 left-1.5 text-[13px]">
-          {getSourceIcon(document.source)}
-        </div>
+      <div style={{ color: '#fff', fontSize: '13px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {supplierName}
       </div>
-
-      {/* Info section below image */}
-      <div className="bg-[#0F1535] px-2.5 py-2 flex flex-col gap-1">
-        {/* Doc type + date */}
-        <div className="flex items-center justify-between">
-          <span className="text-[13px] text-white font-semibold truncate">
-            {docTypeLabel}
-          </span>
-          <span className="text-[11px] text-white/40 flex-shrink-0 mr-1">
-            {formatDate(document.created_at)}
-          </span>
-        </div>
-
-        {/* Supplier name */}
-        {supplierName && (
-          <p className="text-[12px] text-[#818cf8] font-medium truncate">
-            {supplierName}
-          </p>
-        )}
-
-        {/* Amount */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+        <span style={{ color: '#818cf8', fontSize: '11px' }}>{docTypeLabel}</span>
         {totalAmount != null && totalAmount > 0 && (
-          <p className="text-[13px] text-emerald-400 font-bold" dir="ltr" style={{ textAlign: 'right' }}>
-            &#8362;{totalAmount.toLocaleString('he-IL', { maximumFractionDigits: 0 })}
-          </p>
+          <span style={{ color: '#34d399', fontSize: '12px', fontWeight: 700, direction: 'ltr' }}>
+            ₪{totalAmount.toLocaleString('he-IL', { maximumFractionDigits: 0 })}
+          </span>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
