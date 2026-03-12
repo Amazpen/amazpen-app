@@ -459,19 +459,10 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
   );
 }
 
-// Vertical card for sidebar - compact with details
+// Vertical card for sidebar - stacked layout (image on top, info below)
 function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
-
-  // Determine sender info based on source
-  const getSenderDisplay = () => {
-    if (document.source === 'email') {
-      return document.source_sender_name || '-';
-    }
-    // WhatsApp / Telegram - show phone
-    return document.source_sender_phone || document.source_sender_name || '-';
-  };
 
   // Format date
   const formatDate = (dateStr: string) => {
@@ -486,10 +477,18 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
     }
   };
 
-  // Document type label with "unknown" fallback
+  // Document type label
   const docTypeLabel = document.document_type
     ? getDocumentTypeLabel(document.document_type)
     : 'לא זוהה';
+
+  // Supplier name from OCR data
+  const supplierName = document.ocr_data?.supplier_name;
+
+  // Total amount from OCR data
+  const totalAmount = document.ocr_data?.total_amount;
+
+  const isPdf = isPdfDocument(document);
 
   return (
     <Button
@@ -503,10 +502,10 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
           : 'hover:ring-1 hover:ring-[#4C526B] hover:shadow-md'
       }`}
     >
-      <div className="flex flex-row-reverse bg-[#0F1535]">
-        {/* Small image thumbnail - right side */}
-        <div className="relative w-[56px] h-[80px] flex-shrink-0 bg-[#0a0d1f]">
-          {isPdfDocument(document) ? (
+      <div className="flex flex-col bg-[#0F1535]">
+        {/* Image thumbnail - full width on top */}
+        <div className="relative w-full h-[70px] bg-[#0a0d1f]">
+          {isPdf ? (
             <PdfThumbnail url={document.image_url} />
           ) : !imageError ? (
             <>
@@ -517,20 +516,20 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
                   imageLoaded ? 'opacity-100' : 'opacity-0'
                 }`}
                 fill
-                sizes="56px"
+                sizes="220px"
                 unoptimized
                 onLoad={() => setImageLoaded(true)}
                 onError={() => setImageError(true)}
               />
               {!imageLoaded && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
                 </div>
               )}
             </>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-white/40">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                 <circle cx="8.5" cy="8.5" r="1.5" />
                 <polyline points="21 15 16 10 5 21" />
@@ -538,38 +537,44 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
             </div>
           )}
 
-          {/* Status badge on image */}
+          {/* Status badge */}
           <div
-            className={`absolute top-1 right-0.5 px-1 py-0.5 rounded text-[8px] font-medium ocr-status-${document.status}`}
+            className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[9px] font-medium ocr-status-${document.status}`}
           >
             {getStatusLabel(document.status)}
           </div>
+
+          {/* Source icon */}
+          <div className="absolute bottom-1.5 left-1.5 text-[13px]">
+            {getSourceIcon(document.source)}
+          </div>
         </div>
 
-        {/* Details - left side */}
-        <div className="flex-1 p-1.5 flex flex-col justify-between min-w-0 text-right">
-          {/* Source */}
-          <div className="flex flex-row-reverse items-center justify-end gap-1">
-            <span className="text-[12px] flex-shrink-0">{getSourceIcon(document.source)}</span>
-            <span className="text-[10px] text-white/70 font-medium truncate">
-              {getSourceLabel(document.source)}
+        {/* Info section below image */}
+        <div className="px-2 py-1.5 flex flex-col gap-0.5 text-right">
+          {/* Doc type + date */}
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] text-white font-semibold truncate">
+              {docTypeLabel}
+            </span>
+            <span className="text-[11px] text-white/40 flex-shrink-0">
+              {formatDate(document.created_at)}
             </span>
           </div>
 
-          {/* Sender */}
-          <p className="text-[10px] text-white/50 truncate" dir="ltr" style={{ textAlign: 'right' }}>
-            {getSenderDisplay()}
-          </p>
+          {/* Supplier name or fallback */}
+          {supplierName && (
+            <p className="text-[11px] text-[#818cf8] font-medium truncate">
+              {supplierName}
+            </p>
+          )}
 
-          {/* Date */}
-          <p className="text-[10px] text-white/50">
-            {formatDate(document.created_at)}
-          </p>
-
-          {/* Document type */}
-          <p className="text-[10px] text-white font-medium truncate">
-            {docTypeLabel}
-          </p>
+          {/* Amount */}
+          {totalAmount != null && totalAmount > 0 && (
+            <p className="text-[12px] text-emerald-400 font-bold" dir="ltr" style={{ textAlign: 'right' }}>
+              &#8362;{totalAmount.toLocaleString('he-IL', { maximumFractionDigits: 0 })}
+            </p>
+          )}
         </div>
       </div>
     </Button>
