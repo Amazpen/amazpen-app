@@ -136,27 +136,12 @@ export default function DocumentQueue({
         </div>
 
         {/* Documents vertical scroll */}
-        <div className="flex-1 relative overflow-hidden">
-          {/* Scroll up button */}
-          {canScrollUp && (
-            <Button
-              type="button"
-              variant="ghost"
-              title="גלול למעלה"
-              onClick={() => scroll('up')}
-              className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-[#0F1535] to-transparent z-10 flex items-start justify-center pt-1"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                <polyline points="18 15 12 9 6 15" />
-              </svg>
-            </Button>
-          )}
-
+        <div className="flex-1 min-h-0 relative">
           {/* Documents list */}
           <div
             ref={scrollContainerRef}
             onScroll={checkScrollPosition}
-            className="h-full flex flex-col gap-2 p-2 overflow-y-auto scrollbar-hide"
+            className="absolute inset-0 flex flex-col gap-2 p-2 overflow-y-auto scrollbar-hide"
           >
             {filteredDocuments.length === 0 ? (
               <div className="flex-1 flex items-center justify-center py-6 text-white/50 text-center text-[12px]">
@@ -174,20 +159,6 @@ export default function DocumentQueue({
             )}
           </div>
 
-          {/* Scroll down button */}
-          {canScrollDown && (
-            <Button
-              type="button"
-              variant="ghost"
-              title="גלול למטה"
-              onClick={() => scroll('down')}
-              className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[#0F1535] to-transparent z-10 flex items-end justify-center pb-1"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </Button>
-          )}
         </div>
       </div>
     );

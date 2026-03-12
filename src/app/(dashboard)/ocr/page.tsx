@@ -802,7 +802,7 @@ export default function OCRPage() {
       {/* Main content area - 3 columns on desktop (RTL: DOM order = visual right-to-left) */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Document Queue - Right side (desktop) */}
-        <div id="onboarding-ocr-queue" className="hidden lg:block lg:w-[240px] overflow-hidden lg:border-l border-[#4C526B]">
+        <div id="onboarding-ocr-queue" className="hidden lg:flex lg:flex-col lg:w-[240px] min-h-0 lg:border-l border-[#4C526B]">
           <DocumentQueue
             documents={documents}
             currentDocumentId={currentDocument?.id || null}
