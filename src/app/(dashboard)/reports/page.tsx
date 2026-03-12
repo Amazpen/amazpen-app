@@ -723,8 +723,8 @@ export default function ReportsPage() {
           netProfitPct: operatingProfitPct,
         });
 
-        // Cash flow forecast: target = revenue target - expenses target, actual = total splits due this month
-        const forecastTarget = Number(goal?.revenue_target || 0) - expensesTarget;
+        // Cash flow forecast: target = revenue (before VAT) - ALL expenses target (labor + food + current)
+        const forecastTarget = revenueTargetBeforeVat - allExpensesTarget;
         setCashFlowForecast({ target: forecastTarget, actual: totalForecastActual });
 
       } catch (error) {
