@@ -386,15 +386,18 @@ function PaymentsPageInner() {
 
   // OCR state for receipt
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
+  const [ocrProcessingStep, setOcrProcessingStep] = useState("");
   const [ocrApplied, setOcrApplied] = useState(false);
 
   // OCR: extract data from receipt and populate form fields
   const processReceiptOcr = useCallback(async (file: File) => {
     setIsOcrProcessing(true);
+    setOcrProcessingStep("מעלה את הקובץ...");
     try {
       const fd = new FormData();
       // For scanned PDFs — convert to image first
       if (file.type === "application/pdf") {
+        setOcrProcessingStep("ממיר PDF לתמונה...");
         try {
           const imgFile = await convertPdfToImage(file);
           fd.append("file", imgFile);
@@ -405,13 +408,20 @@ function PaymentsPageInner() {
         fd.append("file", file);
       }
 
-      const res = await fetch("/api/ai/ocr-extract", { method: "POST", body: fd });
+      setOcrProcessingStep("סורק טקסט מהמסמך...");
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+      const res = await fetch("/api/ai/ocr-extract", { method: "POST", body: fd, signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         console.error("[OCR] Payment receipt error:", err.detail || err.error);
         throw new Error(err.error || "OCR failed");
       }
 
+      setOcrProcessingStep("מחלץ נתונים...");
       const data = await res.json();
       if (data.document_date) setPaymentDate(data.document_date);
       if (data.document_number) setReference(data.document_number);
@@ -419,10 +429,16 @@ function PaymentsPageInner() {
 
       setOcrApplied(true);
       showToast("נתונים זוהו מהקבלה בהצלחה", "success");
-    } catch {
-      showToast("לא הצלחנו לזהות נתונים מהקבלה", "error");
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        showToast("הזיהוי נכשל — חרג מזמן המתנה (60 שניות)", "error");
+      } else {
+        const msg = err instanceof Error ? err.message : "שגיאה לא ידועה";
+        showToast(`לא הצלחנו לזהות נתונים: ${msg}`, "error");
+      }
     } finally {
       setIsOcrProcessing(false);
+      setOcrProcessingStep("");
     }
   }, [showToast]);
 
@@ -4136,7 +4152,7 @@ function PaymentsPageInner() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
-                    <span className="text-[13px] text-white/70">מזהה נתונים מהקבלה...</span>
+                    <span className="text-[13px] text-white/70">{ocrProcessingStep || "מזהה נתונים מהקבלה..."}</span>
                   </div>
                 )}
                 {ocrApplied && !isOcrProcessing && (
