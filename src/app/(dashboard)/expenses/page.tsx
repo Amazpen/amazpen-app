@@ -890,7 +890,8 @@ function ExpensesPageInner() {
             .from("delivery_notes")
             .select(`
               *,
-              supplier:suppliers(id, name, expense_category_id, is_fixed_expense)
+              supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
+              creator:profiles!delivery_notes_created_by_fkey(full_name)
             `)
             .in("business_id", selectedBusinesses)
             .order("delivery_date", { ascending: false })
@@ -910,7 +911,7 @@ function ExpensesPageInner() {
           amountWithVat: Number(dn.total_amount),
           amountBeforeVat: Number(dn.subtotal),
           status: dn.is_verified ? "אומת" : "ת. משלוח",
-          enteredBy: "",
+          enteredBy: dn.creator?.full_name || "מערכת",
           entryDate: formatDateString(dn.created_at),
           notes: dn.notes || "",
           attachmentUrl: dn.attachment_url || null,
@@ -1648,6 +1649,7 @@ function ExpensesPageInner() {
             total_amount: totalWithVat,
             notes: notes || null,
             is_verified: false,
+            created_by: user?.id || null,
           })
           .select()
           .single();
