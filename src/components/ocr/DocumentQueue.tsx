@@ -491,93 +491,90 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
   const isPdf = isPdfDocument(document);
 
   return (
-    <Button
+    <button
       type="button"
-      variant="ghost"
       title="בחר מסמך"
       onClick={onClick}
-      className={`w-full rounded-[10px] overflow-hidden transition-all cursor-pointer h-auto p-0 ${
+      className={`block w-full rounded-[10px] overflow-hidden transition-all cursor-pointer p-0 border-0 bg-transparent text-right ${
         isSelected
           ? 'ring-2 ring-[#29318A] shadow-lg shadow-[#29318A]/20'
           : 'hover:ring-1 hover:ring-[#4C526B] hover:shadow-md'
       }`}
     >
-      <div className="flex flex-col bg-[#0F1535]">
-        {/* Image thumbnail - full width on top */}
-        <div className="relative w-full h-[70px] bg-[#0a0d1f]">
-          {isPdf ? (
-            <PdfThumbnail url={document.image_url} />
-          ) : !imageError ? (
-            <>
-              <Image
-                src={document.image_url}
-                alt="תמונת מסמך"
-                className={`w-full h-full object-cover transition-opacity ${
-                  imageLoaded ? 'opacity-100' : 'opacity-0'
-                }`}
-                fill
-                sizes="220px"
-                unoptimized
-                onLoad={() => setImageLoaded(true)}
-                onError={() => setImageError(true)}
-              />
-              {!imageLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-white/40">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-            </div>
-          )}
-
-          {/* Status badge */}
-          <div
-            className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[9px] font-medium ocr-status-${document.status}`}
-          >
-            {getStatusLabel(document.status)}
+      {/* Image thumbnail - full width on top */}
+      <div className="relative w-full h-[70px] bg-[#0a0d1f]">
+        {isPdf ? (
+          <PdfThumbnail url={document.image_url} />
+        ) : !imageError ? (
+          <>
+            <Image
+              src={document.image_url}
+              alt="תמונת מסמך"
+              className={`w-full h-full object-cover transition-opacity ${
+                imageLoaded ? 'opacity-100' : 'opacity-0'
+              }`}
+              fill
+              sizes="220px"
+              unoptimized
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageError(true)}
+            />
+            {!imageLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-white/40">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
           </div>
+        )}
 
-          {/* Source icon */}
-          <div className="absolute bottom-1.5 left-1.5 text-[13px]">
-            {getSourceIcon(document.source)}
-          </div>
+        {/* Status badge */}
+        <div
+          className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[9px] font-medium ocr-status-${document.status}`}
+        >
+          {getStatusLabel(document.status)}
         </div>
 
-        {/* Info section below image */}
-        <div className="px-2 py-1.5 flex flex-col gap-0.5 text-right">
-          {/* Doc type + date */}
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-white font-semibold truncate">
-              {docTypeLabel}
-            </span>
-            <span className="text-[11px] text-white/40 flex-shrink-0">
-              {formatDate(document.created_at)}
-            </span>
-          </div>
-
-          {/* Supplier name or fallback */}
-          {supplierName && (
-            <p className="text-[11px] text-[#818cf8] font-medium truncate">
-              {supplierName}
-            </p>
-          )}
-
-          {/* Amount */}
-          {totalAmount != null && totalAmount > 0 && (
-            <p className="text-[12px] text-emerald-400 font-bold" dir="ltr" style={{ textAlign: 'right' }}>
-              &#8362;{totalAmount.toLocaleString('he-IL', { maximumFractionDigits: 0 })}
-            </p>
-          )}
+        {/* Source icon */}
+        <div className="absolute bottom-1.5 left-1.5 text-[13px]">
+          {getSourceIcon(document.source)}
         </div>
       </div>
-    </Button>
+
+      {/* Info section below image */}
+      <div className="bg-[#0F1535] px-2.5 py-2 flex flex-col gap-1">
+        {/* Doc type + date */}
+        <div className="flex items-center justify-between">
+          <span className="text-[13px] text-white font-semibold truncate">
+            {docTypeLabel}
+          </span>
+          <span className="text-[11px] text-white/40 flex-shrink-0 mr-1">
+            {formatDate(document.created_at)}
+          </span>
+        </div>
+
+        {/* Supplier name */}
+        {supplierName && (
+          <p className="text-[12px] text-[#818cf8] font-medium truncate">
+            {supplierName}
+          </p>
+        )}
+
+        {/* Amount */}
+        {totalAmount != null && totalAmount > 0 && (
+          <p className="text-[13px] text-emerald-400 font-bold" dir="ltr" style={{ textAlign: 'right' }}>
+            &#8362;{totalAmount.toLocaleString('he-IL', { maximumFractionDigits: 0 })}
+          </p>
+        )}
+      </div>
+    </button>
   );
 }
 
