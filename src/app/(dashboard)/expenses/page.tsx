@@ -306,6 +306,11 @@ function ExpensesPageInner() {
   const [showClarificationMenu, setShowClarificationMenu] = useState(false);
   const [linkToCoordinator, setLinkToCoordinator] = useState(false);
 
+  // Fixed expense linking - when supplier is_fixed_expense, show open invoices to link
+  const [fixedOpenInvoices, setFixedOpenInvoices] = useState<{ id: string; invoice_date: string; subtotal: number; total_amount: number; month: string }[]>([]);
+  const [linkToFixedInvoiceId, setLinkToFixedInvoiceId] = useState<string | null>(null); // null = create new
+  const [showFixedInvoices, setShowFixedInvoices] = useState(false);
+
   // Line items for price tracking (goods expenses only)
   const [expenseLineItems, setExpenseLineItems] = useState<OCRLineItem[]>([]);
   const [showLineItems, setShowLineItems] = useState(false);
@@ -1385,9 +1390,12 @@ function ExpensesPageInner() {
   };
 
   // Handle supplier selection - auto-set VAT based on supplier's vat_type
-  const handleSupplierChange = useCallback((supplierId: string) => {
+  const handleSupplierChange = useCallback(async (supplierId: string) => {
     setSelectedSupplier(supplierId);
     setLinkToCoordinator(false);
+    setFixedOpenInvoices([]);
+    setLinkToFixedInvoiceId(null);
+    setShowFixedInvoices(false);
     if (!supplierId) return;
     const supplier = suppliers.find(s => s.id === supplierId);
     if (!supplier) return;
@@ -1399,7 +1407,36 @@ function ExpensesPageInner() {
       setVatAmount("");
     }
     // For "partial" vat_type, keep current state - user enters manually
-  }, [suppliers]);
+
+    // For fixed expense suppliers - fetch pending invoices to allow linking
+    if (supplier.is_fixed_expense && selectedBusinesses.length > 0) {
+      const supabase = createClient();
+      const { data: openInvs } = await supabase
+        .from("invoices")
+        .select("id, invoice_date, subtotal, total_amount")
+        .eq("business_id", selectedBusinesses[0])
+        .eq("supplier_id", supplierId)
+        .eq("status", "pending")
+        .is("deleted_at", null)
+        .order("invoice_date", { ascending: false });
+
+      if (openInvs && openInvs.length > 0) {
+        const mapped = openInvs.map(inv => {
+          const d = new Date(inv.invoice_date);
+          const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+          return {
+            id: inv.id,
+            invoice_date: inv.invoice_date,
+            subtotal: Number(inv.subtotal),
+            total_amount: Number(inv.total_amount),
+            month: `חודש ${monthNames[d.getMonth()]}, ${d.getFullYear()}`,
+          };
+        });
+        setFixedOpenInvoices(mapped);
+        setShowFixedInvoices(true);
+      }
+    }
+  }, [suppliers, selectedBusinesses]);
 
   // Reset line items when expense type changes away from goods
   useEffect(() => {
@@ -1568,6 +1605,120 @@ function ExpensesPageInner() {
         if (deliveryNoteError) throw deliveryNoteError;
 
         showToast("תעודת המשלוח נשמרה בהצלחה", "success");
+      } else if (linkToFixedInvoiceId) {
+        // Link to existing fixed expense invoice — update it with real data
+        const { data: updatedInvoice, error: updateError } = await supabase
+          .from("invoices")
+          .update({
+            invoice_number: invoiceNumber || null,
+            invoice_date: expenseDate,
+            reference_date: referenceDate || null,
+            subtotal: parseFloat(amountBeforeVat),
+            vat_amount: calculatedVat,
+            total_amount: totalWithVat,
+            status: isPaidInFull ? "paid" : needsClarification ? "clarification" : "pending",
+            notes: notes || null,
+            created_by: user?.id || null,
+            clarification_reason: needsClarification ? clarificationReason : null,
+          })
+          .eq("id", linkToFixedInvoiceId)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+
+        // Use updatedInvoice as newInvoice for downstream logic (attachments, payments)
+        const newInvoice = updatedInvoice;
+
+        // Upload attachments if any
+        if (newInvoice && newAttachmentFiles.length > 0) {
+          setIsUploadingAttachment(true);
+          const uploadedUrls: string[] = [];
+          for (const file of newAttachmentFiles) {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${newInvoice.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${fileExt}`;
+            const filePath = `invoices/${fileName}`;
+            const result = await uploadFile(file, filePath, "attachments");
+            if (result.success && result.publicUrl) {
+              uploadedUrls.push(result.publicUrl);
+            }
+          }
+          setIsUploadingAttachment(false);
+          if (uploadedUrls.length > 0) {
+            const attachmentValue = uploadedUrls.length === 1 ? uploadedUrls[0] : JSON.stringify(uploadedUrls);
+            await supabase.from("invoices").update({ attachment_url: attachmentValue }).eq("id", newInvoice.id);
+          }
+        }
+
+        // If paid in full, create payment record
+        if (isPaidInFull && newInvoice) {
+          const paymentTotal = popupPaymentMethods.reduce((sum, pm) => {
+            return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
+          }, 0);
+
+          let newExpReceiptUrl: string | null = null;
+          if (paymentReceiptFile) {
+            setIsUploadingPaymentReceipt(true);
+            const fileExt = paymentReceiptFile.name.split('.').pop();
+            const fileName = `receipt-${Date.now()}.${fileExt}`;
+            const filePath = `payments/${fileName}`;
+            const result = await uploadFile(paymentReceiptFile, filePath, "attachments");
+            if (result.success) {
+              newExpReceiptUrl = result.publicUrl || null;
+            }
+            setIsUploadingPaymentReceipt(false);
+          }
+
+          const { data: newPayment, error: paymentError } = await supabase
+            .from("payments")
+            .insert({
+              business_id: selectedBusinesses[0],
+              supplier_id: selectedSupplier,
+              payment_date: paymentDate || expenseDate,
+              total_amount: paymentTotal || totalWithVat,
+              invoice_id: newInvoice.id,
+              notes: paymentNotes || null,
+              created_by: user?.id || null,
+              receipt_url: newExpReceiptUrl,
+            })
+            .select()
+            .single();
+
+          if (!paymentError && newPayment) {
+            for (const pm of popupPaymentMethods) {
+              const pmAmount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+              if (pmAmount > 0 && pm.method) {
+                const installmentsCount = parseInt(pm.installments) || 1;
+                if (pm.customInstallments.length > 0) {
+                  for (const inst of pm.customInstallments) {
+                    await supabase.from("payment_splits").insert({
+                      payment_id: newPayment.id,
+                      payment_method: pm.method,
+                      amount: inst.amount,
+                      installments_count: installmentsCount,
+                      installment_number: inst.number,
+                      reference_number: paymentReference || null,
+                      check_number: pm.method === "check" ? (inst.checkNumber || pm.checkNumber || null) : null,
+                      due_date: inst.dateForInput || null,
+                    });
+                  }
+                } else {
+                  await supabase.from("payment_splits").insert({
+                    payment_id: newPayment.id,
+                    payment_method: pm.method,
+                    amount: pmAmount,
+                    installments_count: installmentsCount,
+                    due_date: paymentDate || expenseDate || null,
+                    reference_number: paymentReference || null,
+                    check_number: pm.method === "check" ? pm.checkNumber || null : null,
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        showToast("החשבונית עודכנה בהצלחה", "success");
       } else {
         // Regular supplier - create invoice as usual
         const { data: newInvoice, error: invoiceError } = await supabase
@@ -1745,6 +1896,9 @@ function ExpensesPageInner() {
     setNeedsClarification(false);
     setClarificationReason("");
     setLinkToCoordinator(false);
+    setFixedOpenInvoices([]);
+    setLinkToFixedInvoiceId(null);
+    setShowFixedInvoices(false);
     setPaymentMethod("");
     setPaymentDate("");
     setPaymentInstallments(1);
@@ -3607,6 +3761,64 @@ function ExpensesPageInner() {
                 );
               })()}
 
+              {/* Fixed Expense - Link to existing invoice or create new */}
+              {fixedOpenInvoices.length > 0 && (() => {
+                const supplierInfo = suppliers.find(s => s.id === selectedSupplier);
+                if (!supplierInfo?.is_fixed_expense) return null;
+                return (
+                  <div className="flex flex-col gap-[8px]">
+                    <div
+                      className="flex items-center gap-[5px] cursor-pointer"
+                      dir="rtl"
+                      onClick={() => setShowFixedInvoices(!showFixedInvoices)}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`text-white/70 transition-transform ${showFixedInvoices ? "rotate-180" : ""}`}>
+                        <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span className="text-[14px] font-medium text-[#bc76ff]">
+                        הוצאה חודשית קבועה — {fixedOpenInvoices.length} חשבוניות פתוחות
+                      </span>
+                    </div>
+                    {showFixedInvoices && (
+                      <div className="flex flex-col gap-[6px] pr-[10px]">
+                        <Button
+                          type="button"
+                          onClick={() => setLinkToFixedInvoiceId(null)}
+                          className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
+                            linkToFixedInvoiceId === null
+                              ? "bg-[#4F46E5] text-white border border-white/30"
+                              : "bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80"
+                          }`}
+                        >
+                          פתח חשבונית חדשה
+                        </Button>
+                        {fixedOpenInvoices.map(inv => (
+                          <Button
+                            key={inv.id}
+                            type="button"
+                            onClick={() => {
+                              setLinkToFixedInvoiceId(inv.id);
+                              setAmountBeforeVat(String(inv.subtotal));
+                              if (supplierInfo.vat_type === "none") {
+                                setPartialVat(true);
+                                setVatAmount("0");
+                              }
+                            }}
+                            className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
+                              linkToFixedInvoiceId === inv.id
+                                ? "bg-[#4F46E5] text-white border border-white/30"
+                                : "bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80"
+                            }`}
+                          >
+                            {inv.month} — ₪{inv.total_amount.toLocaleString("he-IL")}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Invoice Number */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-normal text-white text-right">מספר חשבונית / תעודת משלוח</label>
@@ -4366,6 +4578,64 @@ function ExpensesPageInner() {
                 value={selectedSupplier}
                 onChange={handleSupplierChange}
               />
+
+              {/* Fixed Expense - Link to existing invoice (mobile) */}
+              {fixedOpenInvoices.length > 0 && (() => {
+                const supplierInfo = suppliers.find(s => s.id === selectedSupplier);
+                if (!supplierInfo?.is_fixed_expense) return null;
+                return (
+                  <div className="flex flex-col gap-[8px]">
+                    <div
+                      className="flex items-center gap-[5px] cursor-pointer"
+                      dir="rtl"
+                      onClick={() => setShowFixedInvoices(!showFixedInvoices)}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`text-white/70 transition-transform ${showFixedInvoices ? "rotate-180" : ""}`}>
+                        <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span className="text-[14px] font-medium text-[#bc76ff]">
+                        הוצאה חודשית קבועה — {fixedOpenInvoices.length} חשבוניות פתוחות
+                      </span>
+                    </div>
+                    {showFixedInvoices && (
+                      <div className="flex flex-col gap-[6px] pr-[10px]">
+                        <Button
+                          type="button"
+                          onClick={() => setLinkToFixedInvoiceId(null)}
+                          className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
+                            linkToFixedInvoiceId === null
+                              ? "bg-[#4F46E5] text-white border border-white/30"
+                              : "bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80"
+                          }`}
+                        >
+                          פתח חשבונית חדשה
+                        </Button>
+                        {fixedOpenInvoices.map(inv => (
+                          <Button
+                            key={inv.id}
+                            type="button"
+                            onClick={() => {
+                              setLinkToFixedInvoiceId(inv.id);
+                              setAmountBeforeVat(String(inv.subtotal));
+                              if (supplierInfo.vat_type === "none") {
+                                setPartialVat(true);
+                                setVatAmount("0");
+                              }
+                            }}
+                            className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
+                              linkToFixedInvoiceId === inv.id
+                                ? "bg-[#4F46E5] text-white border border-white/30"
+                                : "bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80"
+                            }`}
+                          >
+                            {inv.month} — ₪{inv.total_amount.toLocaleString("he-IL")}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Invoice Number */}
               <div className="flex flex-col gap-[5px]">
