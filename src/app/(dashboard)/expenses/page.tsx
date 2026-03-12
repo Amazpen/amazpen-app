@@ -126,6 +126,8 @@ interface InvoiceDisplay {
   approval_status: string | null;
   referenceDate: string | null;
   linkedPayments: { id: string; paymentId: string; amount: number; method: string; date: string; checkNumber: string; installmentNumber: number | null; installmentsCount: number | null; referenceNumber: string }[];
+  documentType: "invoice" | "delivery_note";
+  invoiceType?: string;
 }
 
 const paymentMethodNames: Record<string, string> = {
@@ -870,29 +872,66 @@ function ExpensesPageInner() {
         const startDate = formatLocalDate(dateRange.start);
         const endDate = formatLocalDate(dateRange.end);
 
-        // Fetch first page of invoices (no date filter) for the list
-        const { data: invoicesListData } = await supabase
-          .from("invoices")
-          .select(`
-            *,
-            supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
-            creator:profiles!invoices_created_by_fkey(full_name),
-            payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
-          `)
-          .in("business_id", selectedBusinesses)
-          .is("deleted_at", null)
-          .eq("invoice_type", activeTab === "expenses" ? "current" : activeTab === "employees" ? "employees" : "goods")
-          .order("invoice_date", { ascending: false })
-          .range(0, INVOICES_PAGE_SIZE - 1);
+        // Fetch all invoices (all types) + delivery notes for the combined list
+        const [{ data: invoicesListData }, { data: deliveryNotesData }] = await Promise.all([
+          supabase
+            .from("invoices")
+            .select(`
+              *,
+              supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
+              creator:profiles!invoices_created_by_fkey(full_name),
+              payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
+            `)
+            .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
+            .order("invoice_date", { ascending: false })
+            .range(0, INVOICES_PAGE_SIZE - 1),
+          supabase
+            .from("delivery_notes")
+            .select(`
+              *,
+              supplier:suppliers(id, name, expense_category_id, is_fixed_expense)
+            `)
+            .in("business_id", selectedBusinesses)
+            .order("delivery_date", { ascending: false })
+            .range(0, INVOICES_PAGE_SIZE - 1),
+        ]);
 
         if (stale) return;
 
-        if (invoicesListData) {
-          const displayInvoices = transformInvoicesData(invoicesListData);
-          setRecentInvoices(displayInvoices);
-          setInvoicesOffset(displayInvoices.length);
-          setHasMoreInvoices(displayInvoices.length >= INVOICES_PAGE_SIZE);
-        }
+        // Transform delivery notes to match InvoiceDisplay format
+        const transformedDeliveryNotes: InvoiceDisplay[] = (deliveryNotesData || []).map((dn: any) => ({
+          id: dn.id,
+          date: formatDateString(dn.delivery_date),
+          rawDate: dn.delivery_date ? toLocalDateStr(new Date(dn.delivery_date)) : "",
+          supplier: dn.supplier?.name || "לא ידוע",
+          reference: dn.delivery_note_number || "",
+          amount: Number(dn.total_amount),
+          amountWithVat: Number(dn.total_amount),
+          amountBeforeVat: Number(dn.subtotal),
+          status: dn.is_verified ? "אומת" : "ת. משלוח",
+          enteredBy: "",
+          entryDate: formatDateString(dn.created_at),
+          notes: dn.notes || "",
+          attachmentUrl: dn.attachment_url || null,
+          attachmentUrls: parseAttachmentUrls(dn.attachment_url),
+          clarificationReason: null,
+          isFixed: dn.supplier?.is_fixed_expense || false,
+          approval_status: null,
+          referenceDate: null,
+          linkedPayments: [],
+          documentType: "delivery_note" as const,
+        }));
+
+        // Merge and sort by date descending
+        const allInvoices = transformInvoicesData(invoicesListData || []);
+        const merged = [...allInvoices, ...transformedDeliveryNotes]
+          .sort((a, b) => (b.rawDate || "").localeCompare(a.rawDate || ""))
+          .slice(0, INVOICES_PAGE_SIZE);
+
+        setRecentInvoices(merged);
+        setInvoicesOffset(merged.length);
+        setHasMoreInvoices(merged.length >= INVOICES_PAGE_SIZE);
 
         // Also fetch date-filtered invoices for the chart/summary
         const [
@@ -1144,6 +1183,8 @@ function ExpensesPageInner() {
         approval_status: inv.approval_status || null,
         referenceDate: inv.reference_date ? formatDateString(inv.reference_date) : null,
         linkedPayments,
+        documentType: inv._documentType || "invoice",
+        invoiceType: inv.invoice_type || undefined,
       };
     });
   };
@@ -1164,7 +1205,6 @@ function ExpensesPageInner() {
         `)
         .in("business_id", selectedBusinesses)
         .is("deleted_at", null)
-        .eq("invoice_type", activeTab === "expenses" ? "current" : activeTab === "employees" ? "employees" : "goods")
         .order("invoice_date", { ascending: false })
         .range(invoicesOffset, invoicesOffset + INVOICES_PAGE_SIZE - 1);
 
@@ -2538,6 +2578,8 @@ function ExpensesPageInner() {
           approval_status: inv.approval_status || null,
           referenceDate: inv.reference_date ? formatDateString(inv.reference_date) : null,
           linkedPayments: [],
+          documentType: "invoice",
+          invoiceType: inv.invoice_type || undefined,
         }));
         setBreakdownSupplierInvoices(displayInvoices);
         const totalWithVat = displayInvoices.reduce((sum, inv) => sum + inv.amountWithVat, 0);
@@ -3160,7 +3202,11 @@ function ExpensesPageInner() {
                   </Button>
                   {/* Status - Clickable with dropdown */}
                   <div className="flex justify-center min-w-0" data-status-menu>
-                    {invoice.approval_status === 'pending_review' ? (
+                    {invoice.documentType === 'delivery_note' ? (
+                      <span className="text-[12px] font-bold px-[14px] py-[5px] rounded-full bg-[#00bcd4] whitespace-nowrap min-w-[70px] text-center">
+                        ת. משלוח
+                      </span>
+                    ) : invoice.approval_status === 'pending_review' ? (
                       <button
                         className="text-[12px] font-bold px-[14px] py-[5px] rounded-full bg-white/20 text-white/60 hover:bg-green-500 hover:text-white transition-colors whitespace-nowrap min-w-[70px] text-center"
                         onClick={(e) => {
