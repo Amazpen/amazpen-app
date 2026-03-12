@@ -847,7 +847,7 @@ function ExpensesPageInner() {
         // Fetch suppliers for the selected businesses
         const { data: suppliersData } = await supabase
           .from("suppliers")
-          .select("id, name, expense_category_id, waiting_for_coordinator, vat_type")
+          .select("id, name, expense_category_id, waiting_for_coordinator, vat_type, is_fixed_expense")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .eq("is_active", true)
