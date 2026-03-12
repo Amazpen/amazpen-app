@@ -35,18 +35,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json({ error: "Missing Supabase configuration", created: 0 }, { status: 500 });
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Check if business is active
-    const { data: businessData } = await supabase
+    const { data: businessData, error: bizError } = await supabase
       .from("businesses")
       .select("status")
       .eq("id", business_id)
-      .single();
+      .maybeSingle();
 
-    if (businessData?.status !== "active") {
+    if (bizError) {
+      return NextResponse.json({ error: bizError.message, created: 0 }, { status: 500 });
+    }
+
+    if (!businessData || businessData.status !== "active") {
       return NextResponse.json(
-        { error: "Business is inactive", created: 0 },
+        { error: "Business is inactive or not found", created: 0 },
         { status: 400 }
       );
     }
@@ -160,9 +168,9 @@ export async function POST(request: NextRequest) {
       invoices: createdInvoices,
     });
   } catch (error) {
-    console.error("Error generating recurring expenses:", error);
+    console.error("Error generating recurring expenses:", error instanceof Error ? error.message : error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     );
   }
