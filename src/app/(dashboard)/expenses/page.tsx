@@ -1596,7 +1596,7 @@ function ExpensesPageInner() {
       if (linkToCoordinator) {
         // For coordinator suppliers, save ONLY as delivery note (תעודת משלוח)
         // No invoice is created - will be created later when closing the coordinator
-        const { error: deliveryNoteError } = await supabase
+        const { data: newDeliveryNote, error: deliveryNoteError } = await supabase
           .from("delivery_notes")
           .insert({
             business_id: selectedBusinesses[0],
@@ -1608,9 +1608,42 @@ function ExpensesPageInner() {
             total_amount: totalWithVat,
             notes: notes || null,
             is_verified: false,
-          });
+          })
+          .select()
+          .single();
 
         if (deliveryNoteError) throw deliveryNoteError;
+
+        // Upload attachments for delivery note
+        if (newDeliveryNote && newAttachmentFiles.length > 0) {
+          setIsUploadingAttachment(true);
+          const uploadedUrls: string[] = [];
+          for (const file of newAttachmentFiles) {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${newDeliveryNote.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${fileExt}`;
+            const filePath = `delivery-notes/${fileName}`;
+            const result = await uploadFile(file, filePath, "attachments");
+            if (result.success && result.publicUrl) {
+              uploadedUrls.push(result.publicUrl);
+            }
+          }
+          setIsUploadingAttachment(false);
+          if (uploadedUrls.length > 0) {
+            const attachmentValue = uploadedUrls.length === 1 ? uploadedUrls[0] : JSON.stringify(uploadedUrls);
+            await supabase.from("delivery_notes").update({ attachment_url: attachmentValue }).eq("id", newDeliveryNote.id);
+          }
+        }
+
+        // Price tracking: save line item prices for delivery notes too
+        if (expenseType === 'goods' && newDeliveryNote && expenseLineItems.length > 0 && selectedSupplier) {
+          await savePriceTrackingForLineItems(supabase, {
+            businessId: selectedBusinesses[0],
+            supplierId: selectedSupplier,
+            invoiceId: newDeliveryNote.id,
+            documentDate: expenseDate,
+            lineItems: expenseLineItems,
+          });
+        }
 
         showToast("תעודת המשלוח נשמרה בהצלחה", "success");
       } else if (linkToFixedInvoiceId) {
