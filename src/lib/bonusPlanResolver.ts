@@ -14,6 +14,10 @@ const DATA_SOURCE_MAP: Record<
   revenue: { metricsCol: "monthly_pace", goalCol: "revenue_target" },
   current_expenses: { metricsCol: "current_expenses_amount", goalCol: "current_expenses_target" },
   goods_expenses: { metricsCol: "food_cost_amount", goalCol: "goods_expenses_target" },
+  managed_product_1: { metricsCol: "managed_product_1_pct", goalCol: "managed_product_1_target_pct" },
+  managed_product_2: { metricsCol: "managed_product_2_pct", goalCol: "managed_product_2_target_pct" },
+  managed_product_3: { metricsCol: "managed_product_3_pct", goalCol: "managed_product_3_target_pct" },
+  profitability: { metricsCol: "profit_target", goalCol: "profit_target" },
 };
 
 /**
@@ -43,6 +47,16 @@ export async function resolveBonusPlanStatus(
   // Custom data sources can't be auto-resolved
   if (plan.data_source === "custom") {
     return { currentValue: null, goalValue: null, qualifiedTier: null, bonusAmount: 0 };
+  }
+
+  // Average ticket sources need special handling (income_sources + daily_income_breakdown)
+  if (plan.data_source.startsWith("avg_ticket_")) {
+    return resolveAvgTicketStatus(supabase, plan, year, month);
+  }
+
+  // Profitability needs special calculation from P&L data
+  if (plan.data_source === "profitability") {
+    return resolveProfitabilityStatus(supabase, plan, year, month);
   }
 
   const mapping = DATA_SOURCE_MAP[plan.data_source];
@@ -96,6 +110,126 @@ export async function resolveBonusPlanStatus(
           : 0;
 
   return { currentValue, goalValue, qualifiedTier, bonusAmount };
+}
+
+/**
+ * Resolves average ticket for a specific income source (1st, 2nd, or 3rd by display_order).
+ */
+async function resolveAvgTicketStatus(
+  supabase: SupabaseClient,
+  plan: Pick<
+    BonusPlan,
+    | "business_id"
+    | "data_source"
+    | "is_lower_better"
+    | "tier1_threshold" | "tier1_threshold_max" | "tier1_amount"
+    | "tier2_threshold" | "tier2_threshold_max" | "tier2_amount"
+    | "tier3_threshold" | "tier3_threshold_max" | "tier3_amount"
+  >,
+  year: number,
+  month: number
+): Promise<BonusPlanStatus> {
+  const sourceIndex = parseInt(plan.data_source.replace("avg_ticket_", "")) - 1; // 0-based
+
+  // Get income sources ordered by display_order
+  const { data: sources } = await supabase
+    .from("income_sources")
+    .select("id")
+    .eq("business_id", plan.business_id)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .order("display_order")
+    .range(sourceIndex, sourceIndex);
+
+  if (!sources || sources.length === 0) {
+    return { currentValue: null, goalValue: null, qualifiedTier: null, bonusAmount: 0 };
+  }
+
+  const sourceId = sources[0].id;
+  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const nextMonth = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`;
+
+  // Get avg ticket from daily_income_breakdown
+  const { data: avgData } = await supabase.rpc("exec_sql", {
+    query: `SELECT
+      CASE WHEN COALESCE(SUM(dib.orders_count), 0) > 0
+        THEN SUM(dib.amount) / SUM(dib.orders_count) ELSE 0 END as avg_ticket
+    FROM public.daily_income_breakdown dib
+    JOIN public.daily_entries de ON de.id = dib.daily_entry_id
+    WHERE dib.income_source_id = '${sourceId}'
+      AND de.business_id = '${plan.business_id}'
+      AND de.entry_date >= '${monthStart}' AND de.entry_date < '${nextMonth}'
+      AND de.deleted_at IS NULL`
+  }).maybeSingle();
+
+  // Get goal (avg_ticket_target from income_source_goals)
+  const { data: goalData } = await supabase
+    .from("income_source_goals")
+    .select("avg_ticket_target")
+    .eq("income_source_id", sourceId)
+    .maybeSingle();
+
+  const avgRecord = avgData as Record<string, unknown> | null;
+  const goalRecord = goalData as Record<string, unknown> | null;
+  const currentValue = avgRecord?.avg_ticket != null ? Number(avgRecord.avg_ticket) : null;
+  const goalValue = goalRecord?.avg_ticket_target != null ? Number(goalRecord.avg_ticket_target) : null;
+
+  if (currentValue === null) {
+    return { currentValue: null, goalValue, qualifiedTier: null, bonusAmount: 0 };
+  }
+
+  const qualifiedTier = evaluateTier(plan, currentValue);
+  const bonusAmount = qualifiedTier === 3 ? plan.tier3_amount : qualifiedTier === 2 ? plan.tier2_amount : qualifiedTier === 1 ? plan.tier1_amount : 0;
+  return { currentValue, goalValue, qualifiedTier, bonusAmount };
+}
+
+/**
+ * Resolves profitability from P&L calculation:
+ * profit = income_before_vat - labor_cost - food_cost - current_expenses
+ */
+async function resolveProfitabilityStatus(
+  supabase: SupabaseClient,
+  plan: Pick<
+    BonusPlan,
+    | "business_id"
+    | "data_source"
+    | "is_lower_better"
+    | "tier1_threshold" | "tier1_threshold_max" | "tier1_amount"
+    | "tier2_threshold" | "tier2_threshold_max" | "tier2_amount"
+    | "tier3_threshold" | "tier3_threshold_max" | "tier3_amount"
+  >,
+  year: number,
+  month: number
+): Promise<BonusPlanStatus> {
+  const { data: metrics } = await supabase
+    .from("business_monthly_metrics")
+    .select("income_before_vat, labor_cost_amount, food_cost_amount, current_expenses_amount")
+    .eq("business_id", plan.business_id)
+    .eq("year", year)
+    .eq("month", month)
+    .maybeSingle();
+
+  if (!metrics || metrics.income_before_vat == null) {
+    return { currentValue: null, goalValue: null, qualifiedTier: null, bonusAmount: 0 };
+  }
+
+  const profit = Number(metrics.income_before_vat) - Number(metrics.labor_cost_amount || 0) - Number(metrics.food_cost_amount || 0) - Number(metrics.current_expenses_amount || 0);
+
+  // Goal from goals table
+  const { data: goal } = await supabase
+    .from("goals")
+    .select("profit_target")
+    .eq("business_id", plan.business_id)
+    .eq("year", year)
+    .eq("month", month)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  const goalValue = goal?.profit_target != null ? Number(goal.profit_target) : null;
+
+  const qualifiedTier = evaluateTier(plan, profit);
+  const bonusAmount = qualifiedTier === 3 ? plan.tier3_amount : qualifiedTier === 2 ? plan.tier2_amount : qualifiedTier === 1 ? plan.tier1_amount : 0;
+  return { currentValue: profit, goalValue, qualifiedTier, bonusAmount };
 }
 
 /**

@@ -1747,9 +1747,16 @@ function buildTools(
           const sourceLabels: Record<string, string> = {
             labor_cost_pct: "עלות עובדים (%)",
             food_cost_pct: "עלות מכר (%)",
-            revenue: "הכנסות (צפי חודשי)",
+            revenue: "סה״כ מכירות (צפי חודשי)",
             current_expenses: "הוצאות שוטפות",
             goods_expenses: "רכישות סחורה",
+            avg_ticket_1: "ממוצע להזמנה — מקור 1",
+            avg_ticket_2: "ממוצע להזמנה — מקור 2",
+            avg_ticket_3: "ממוצע להזמנה — מקור 3",
+            managed_product_1: "מוצר מנוהל 1",
+            managed_product_2: "מוצר מנוהל 2",
+            managed_product_3: "מוצר מנוהל 3",
+            profitability: "רווחיות (דוח רו״ה)",
             custom: "מותאם אישית",
           };
 
@@ -1760,6 +1767,9 @@ function buildTools(
             revenue: { metricsCol: "monthly_pace", goalCol: "revenue_target" },
             current_expenses: { metricsCol: "current_expenses_amount", goalCol: "current_expenses_target" },
             goods_expenses: { metricsCol: "food_cost_amount", goalCol: "goods_expenses_target" },
+            managed_product_1: { metricsCol: "managed_product_1_pct", goalCol: "managed_product_1_target_pct" },
+            managed_product_2: { metricsCol: "managed_product_2_pct", goalCol: "managed_product_2_target_pct" },
+            managed_product_3: { metricsCol: "managed_product_3_pct", goalCol: "managed_product_3_target_pct" },
           };
 
           // Fetch metrics and goals for status calculation
@@ -1851,6 +1861,7 @@ function buildTools(
                 period: `${targetYear}/${String(targetMonth).padStart(2, "0")}`,
               },
               notes: plan.notes,
+              tips: plan.tips,
             };
           });
 
@@ -2042,6 +2053,7 @@ ${planLines.join("\n")}
 - אם יש כמה תכניות — הצג סיכום כללי ואז פירוט לכל תכנית.
 - השתמש בשפה מעודדת ומוטיבציונית — המטרה לגרום לעובד לרצות להשתפר.
 - כשנשאל "כמה בונוס מגיע לי?" → תמיד קרא ל-getBonusPlans ותן תשובה מדויקת עם פירוט לכל תכנית.
+- אם לתכנית יש שדה tips (טיפים) — **חובה** לשלב אותם בתשובה. הטיפים הם הנחיות ספציפיות מהמנהל שעוזרות לעובד לעמוד ביעד.
 </bonus-plans>`;
     }
   }

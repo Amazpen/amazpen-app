@@ -16,8 +16,9 @@ function getSupabaseAdmin() {
   );
 }
 
-function formatValue(value: number, type: "percentage" | "currency"): string {
+function formatValue(value: number, type: "percentage" | "currency" | "quantity"): string {
   if (type === "percentage") return `${value.toFixed(1)}%`;
+  if (type === "quantity") return value.toLocaleString("he-IL");
   return new Intl.NumberFormat("he-IL", {
     style: "currency",
     currency: "ILS",
@@ -26,11 +27,12 @@ function formatValue(value: number, type: "percentage" | "currency"): string {
 }
 
 function buildPushMessage(
-  plan: Pick<BonusPlan, "area_name" | "measurement_type" | "data_source">,
+  plan: Pick<BonusPlan, "area_name" | "measurement_type" | "data_source" | "tips">,
   status: BonusPlanStatus
 ): string {
   if (plan.data_source === "custom" || status.currentValue === null) {
-    return `תחום: ${plan.area_name} — בדוק את המצב שלך ופתח את דדי לעצות`;
+    const tipSuffix = plan.tips ? `\n💡 טיפ: ${plan.tips.split("\n")[0]}` : "";
+    return `תחום: ${plan.area_name} — בדוק את המצב שלך ופתח את דדי לעצות${tipSuffix}`;
   }
 
   const current = formatValue(status.currentValue, plan.measurement_type);
@@ -46,11 +48,13 @@ function buildPushMessage(
     return `${plan.area_name}: ${current}${goalStr} — מעולה! בדרך לבונוס ${bonus}`;
   }
 
-  return `${plan.area_name}: ${current}${goalStr} — עוד מאמץ קטן! פתח את דדי לעצות`;
+  // Not qualified — include a tip if available
+  const tipSuffix = plan.tips ? `\n💡 ${plan.tips.split("\n")[0]}` : " פתח את דדי לעצות";
+  return `${plan.area_name}: ${current}${goalStr} — עוד מאמץ קטן!${tipSuffix}`;
 }
 
 function buildEmailHtml(
-  plan: Pick<BonusPlan, "area_name" | "measurement_type" | "data_source">,
+  plan: Pick<BonusPlan, "area_name" | "measurement_type" | "data_source" | "tips">,
   status: BonusPlanStatus,
   employeeName: string
 ): string {
