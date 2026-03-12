@@ -59,6 +59,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Copy entrypoint script
+COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
+
 # Switch to non-root user
 USER nextjs
 
@@ -70,4 +74,5 @@ ENV HOSTNAME="0.0.0.0"
 ENV PORT=3001
 
 # Start the application
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "server.js"]
