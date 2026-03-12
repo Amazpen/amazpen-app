@@ -831,6 +831,9 @@ function ExpensesPageInner() {
       const supabase = createClient();
 
       try {
+        const targetYear = dateRange.start.getFullYear();
+        const targetMonth = dateRange.start.getMonth() + 1;
+
         // Fetch suppliers for the selected businesses
         const { data: suppliersData } = await supabase
           .from("suppliers")
