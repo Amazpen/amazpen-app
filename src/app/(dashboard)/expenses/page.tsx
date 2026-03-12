@@ -1639,7 +1639,7 @@ function ExpensesPageInner() {
           await savePriceTrackingForLineItems(supabase, {
             businessId: selectedBusinesses[0],
             supplierId: selectedSupplier,
-            invoiceId: newDeliveryNote.id,
+            invoiceId: null, // delivery note — no invoice FK
             documentDate: expenseDate,
             lineItems: expenseLineItems,
           });
