@@ -846,6 +846,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           coupon_settlement_date: pm.coupon_settlement_date,
           coupon_range_start: pm.coupon_range_start,
           coupon_range_end: pm.coupon_range_end,
+          settlement_periods: pm.settlement_periods || null,
         }).eq("id", pm.id);
       }
 
@@ -1364,6 +1365,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 monthly: "חודשי",
                 bimonthly: "דו-חודשי",
                 custom: "קופון",
+                custom_periods: "תקופות",
               } as Record<string, string>)[pm.settlement_type || "daily"] || "יומי";
               const fee = Number(pm.commission_rate) || 0;
 
@@ -1421,6 +1423,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             coupon_settlement_date: pm.coupon_settlement_date,
             coupon_range_start: pm.coupon_range_start,
             coupon_range_end: pm.coupon_range_end,
+            settlement_periods: pm.settlement_periods || null,
             created_at: pm.created_at || "",
             updated_at: pm.updated_at || "",
           };

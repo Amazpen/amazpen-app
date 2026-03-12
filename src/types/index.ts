@@ -68,7 +68,16 @@ export interface NavItem {
 export type InputType = "single" | "with_count";
 
 // Settlement type for income sources
-export type SettlementType = "daily" | "weekly" | "monthly" | "bimonthly" | "same_day" | "custom";
+export type SettlementType = "daily" | "weekly" | "monthly" | "bimonthly" | "same_day" | "custom" | "custom_periods";
+
+// Settlement period for multi-period settlement types (e.g., Wolt, 10bis)
+export interface SettlementPeriod {
+  range_start: number;      // Day of month the period starts (1-31)
+  range_end: number;        // Day of month the period ends (1-31)
+  settlement_date: number;  // Day of month the money arrives
+  commission_rate: number;  // Commission rate (percentage or fixed amount)
+  commission_type: "percentage" | "fixed"; // How to interpret commission_rate
+}
 
 // Income Sources (מקורות הכנסה)
 export interface IncomeSource {
@@ -137,6 +146,7 @@ export interface PaymentMethodType {
   coupon_settlement_date?: number;
   coupon_range_start?: number;
   coupon_range_end?: number;
+  settlement_periods?: SettlementPeriod[] | null;
   created_at: string;
   updated_at: string;
 }
