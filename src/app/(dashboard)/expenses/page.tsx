@@ -1021,7 +1021,8 @@ function ExpensesPageInner() {
               const supplierName = inv.supplier.name;
               const subtotal = Number(inv.subtotal);
               const categoryId = inv.supplier.expense_category_id;
-              const isFixed = inv.supplier.is_fixed_expense || false;
+              // isFixed = supplier is fixed expense AND this invoice is still pending (not yet closed)
+              const isFixed = (inv.supplier.is_fixed_expense || false) && inv.status === "pending";
 
               // Add to supplier totals (for chart/purchases tab)
               if (supplierTotals.has(supplierId)) {
@@ -1040,6 +1041,8 @@ function ExpensesPageInner() {
                 if (category.suppliers.has(supplierId)) {
                   const supplier = category.suppliers.get(supplierId)!;
                   supplier.total += subtotal;
+                  // If any invoice for this supplier is still pending, keep it as fixed
+                  if (isFixed) supplier.isFixed = true;
                 } else {
                   category.suppliers.set(supplierId, { name: supplierName, total: subtotal, isFixed });
                 }
@@ -1054,6 +1057,7 @@ function ExpensesPageInner() {
                 if (uncategorized.suppliers.has(supplierId)) {
                   const supplier = uncategorized.suppliers.get(supplierId)!;
                   supplier.total += subtotal;
+                  if (isFixed) supplier.isFixed = true;
                 } else {
                   uncategorized.suppliers.set(supplierId, { name: supplierName, total: subtotal, isFixed });
                 }
