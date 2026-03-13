@@ -1021,8 +1021,10 @@ function ExpensesPageInner() {
               const supplierName = inv.supplier.name;
               const subtotal = Number(inv.subtotal);
               const categoryId = inv.supplier.expense_category_id;
-              // isFixed = supplier is fixed expense AND this invoice is still pending (not yet closed)
-              const isFixed = (inv.supplier.is_fixed_expense || false) && inv.status === "pending";
+              // isFixed = supplier is fixed expense AND invoice has no attachment or no reference (same logic as bottom list's isFixedPending)
+              const hasAttachment = inv.attachment_url && String(inv.attachment_url).trim() !== "";
+              const hasReference = inv.reference && String(inv.reference).trim() !== "";
+              const isFixed = (inv.supplier.is_fixed_expense || false) && (!hasAttachment || !hasReference);
 
               // Add to supplier totals (for chart/purchases tab)
               if (supplierTotals.has(supplierId)) {
