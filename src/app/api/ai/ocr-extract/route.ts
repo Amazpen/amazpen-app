@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    return Response.json({ error: "הקובץ גדול מדי (מקסימום 10MB)" }, { status: 400 });
+    return Response.json({ error: "הקובץ גדול מדי (מקסימום 50MB)" }, { status: 400 });
   }
 
   const isImage = ACCEPTED_IMAGE_TYPES.includes(file.type);

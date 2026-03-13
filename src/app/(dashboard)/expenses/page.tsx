@@ -3677,17 +3677,8 @@ function ExpensesPageInner() {
                         setNewAttachmentPreviews(prev => [...prev, ...previews]);
 
                         if (!ocrApplied && dedupedArr.length > 0) {
-                          const firstFile = dedupedArr[0];
-                          if (firstFile.type === "application/pdf") {
-                            try {
-                              const imgFile = await convertPdfToImage(firstFile);
-                              processOcr(imgFile);
-                            } catch {
-                              processOcr(firstFile);
-                            }
-                          } else {
-                            processOcr(firstFile);
-                          }
+                          // Send original file to OCR — API handles both images and PDFs
+                          processOcr(dedupedArr[0]);
                         }
                       }
                       e.target.value = "";
