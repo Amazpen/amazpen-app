@@ -2358,6 +2358,34 @@ function PaymentsPageInner() {
     resetForm();
   };
 
+  // Auto-open payment form from supplier page link (e.g. /payments?supplierId=xxx&amount=123&paymentDate=2026-04-30)
+  const prefillHandled = useRef(false);
+  useEffect(() => {
+    if (prefillHandled.current || suppliers.length === 0) return;
+    const supplierId = searchParams.get("supplierId");
+    if (!supplierId) return;
+    // Only handle once
+    prefillHandled.current = true;
+    const amount = searchParams.get("amount");
+    const date = searchParams.get("paymentDate");
+
+    // Find supplier to determine its expense type
+    const supplier = suppliers.find(s => s.id === supplierId);
+    if (supplier) {
+      setSelectedSupplier(supplierId);
+      if (supplier.expense_type === "goods") setExpenseType("purchases");
+      else if (supplier.expense_type === "current") setExpenseType("expenses");
+      else if (supplier.expense_type === "employees") setExpenseType("employees");
+    }
+    if (date) setPaymentDate(date);
+    if (amount) {
+      setPaymentMethods([{ id: 1, method: "", amount, installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }]);
+    }
+    setShowAddPaymentPopup(true);
+    // Clean URL params without reload
+    router.replace("/payments", { scroll: false });
+  }, [suppliers, searchParams, router]);
+
   // Show message if no business selected
   if (selectedBusinesses.length === 0) {
     return (

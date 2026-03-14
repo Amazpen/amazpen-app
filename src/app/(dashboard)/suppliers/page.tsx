@@ -2559,7 +2559,20 @@ export default function SuppliersPage() {
                 type="button"
                 onClick={() => {
                   setShowSupplierDetailPopup(false);
-                  router.push("/payments");
+                  const params = new URLSearchParams();
+                  if (selectedSupplier) params.set("supplierId", selectedSupplier.id);
+                  const amount = supplierDetailData?.monthlyData.amountToPay || 0;
+                  if (amount > 0) params.set("amount", amount.toString());
+                  const expectedDate = supplierDetailData?.monthlyData.expectedPaymentDate;
+                  if (expectedDate) {
+                    // Convert DD.MM.YY to YYYY-MM-DD
+                    const parts = expectedDate.split(".");
+                    if (parts.length === 3) {
+                      const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+                      params.set("paymentDate", `${year}-${parts[1]}-${parts[0]}`);
+                    }
+                  }
+                  router.push(`/payments?${params.toString()}`);
                 }}
                 className="w-full mt-[15px] bg-[#29318A] text-white text-[16px] font-semibold py-[12px] rounded-[10px] hover:bg-[#3D44A0] transition-colors"
               >
