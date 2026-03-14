@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 
 // Business from businesses table
 interface Business {
@@ -1345,22 +1346,15 @@ export default function CustomersPage() {
             {/* תאריך תחילת עבודה */}
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">תאריך תחילת עבודה</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                <Input
-                  type="date"
-                  title="תאריך תחילת עבודה"
-                  value={fWorkStartDate}
-                  onChange={(e) => {
-                    const newDate = e.target.value;
-                    setFWorkStartDate(newDate);
-                    // Auto-sync retainer start date if it matches old work_start_date or is empty
-                    if (!fRetainerStartDate || fRetainerStartDate === fWorkStartDate) {
-                      setFRetainerStartDate(newDate);
-                    }
-                  }}
-                  className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
-                />
-              </div>
+              <DatePickerField
+                value={fWorkStartDate}
+                onChange={(val) => {
+                  setFWorkStartDate(val);
+                  if (!fRetainerStartDate || fRetainerStartDate === fWorkStartDate) {
+                    setFRetainerStartDate(val);
+                  }
+                }}
+              />
             </div>
 
             {/* דמי הקמה */}
@@ -1567,15 +1561,10 @@ export default function CustomersPage() {
               {/* תאריך תחילת ריטיינר */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white/80 text-right">תאריך תחילת ריטיינר</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-                  <Input
-                    type="date"
-                    title="תאריך תחילת ריטיינר"
-                    value={fRetainerStartDate}
-                    onChange={(e) => setFRetainerStartDate(e.target.value)}
-                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
-                  />
-                </div>
+              <DatePickerField
+                value={fRetainerStartDate}
+                onChange={(val) => setFRetainerStartDate(val)}
+              />
               </div>
 
               {/* מקור הכנסה מקושר (#35) */}
@@ -2064,15 +2053,11 @@ export default function CustomersPage() {
                       </div>
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">תאריך</label>
-                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
-                          <Input
-                            type="date"
-                            title="תאריך שירות"
-                            value={newServiceDate}
-                            onChange={(e) => setNewServiceDate(e.target.value)}
-                            className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px]"
-                          />
-                        </div>
+                        <DatePickerField
+                          value={newServiceDate}
+                          onChange={(val) => setNewServiceDate(val)}
+                          className="h-[40px] rounded-[7px] text-[13px]"
+                        />
                       </div>
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">הערות</label>
@@ -2466,15 +2451,11 @@ export default function CustomersPage() {
                     <div className="flex flex-col gap-[8px] mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">תאריך</label>
-                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
-                          <Input
-                            type="date"
-                            title="תאריך תשלום"
-                            value={newPaymentDate}
-                            onChange={(e) => setNewPaymentDate(e.target.value)}
-                            className="w-full h-full bg-transparent text-white text-[13px] text-center rounded-[7px] border-none outline-none px-[8px]"
-                          />
-                        </div>
+                        <DatePickerField
+                          value={newPaymentDate}
+                          onChange={(val) => setNewPaymentDate(val)}
+                          className="h-[40px] rounded-[7px] text-[13px]"
+                        />
                       </div>
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">סכום (₪)</label>

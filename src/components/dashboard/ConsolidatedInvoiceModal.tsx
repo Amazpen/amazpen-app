@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { generateUUID } from "@/lib/utils";
 import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -531,18 +532,10 @@ export function ConsolidatedInvoiceModal({
           {/* Date Field */}
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">תאריך מרכזת</label>
-            <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-              <span className={`text-[16px] font-semibold pointer-events-none ${invoiceDate ? "text-white" : "text-white/40"}`}>
-                {formatDateDisplay(invoiceDate)}
-              </span>
-              <Input
-                type="date"
-                title="תאריך מרכזת"
-                value={invoiceDate}
-                onChange={(e) => setInvoiceDate(e.target.value)}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              />
-            </div>
+            <DatePickerField
+              value={invoiceDate}
+              onChange={(val) => setInvoiceDate(val)}
+            />
           </div>
 
           {/* Invoice Number */}
@@ -604,12 +597,10 @@ export function ConsolidatedInvoiceModal({
                   </div>
                   <div className="flex flex-col gap-[3px]">
                     <label className="text-[12px] text-white/60 text-right">תאריך</label>
-                    <Input
-                      type="date"
-                      title="תאריך תעודה"
+                    <DatePickerField
                       value={newDeliveryNote.delivery_date}
-                      onChange={(e) => setNewDeliveryNote(prev => ({ ...prev, delivery_date: e.target.value }))}
-                      className="h-[40px] bg-[#0F1535] border border-[#4C526B] rounded-[8px] text-white text-[14px] text-center px-[8px]"
+                      onChange={(val) => setNewDeliveryNote(prev => ({ ...prev, delivery_date: val }))}
+                      className="h-[40px] rounded-[8px] text-[14px]"
                     />
                   </div>
                 </div>

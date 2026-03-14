@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Button } from "@/components/ui/button";
@@ -747,11 +748,10 @@ export default function CashFlowPage() {
             </div>
             <div className="flex flex-col gap-[6px]">
               <label className="text-[13px] text-white/60 text-right">תאריך</label>
-              <Input
-                type="date"
+              <DatePickerField
                 value={balanceDateInput}
-                onChange={(e) => setBalanceDateInput(e.target.value)}
-                className="bg-[#232B6A] border-white/10 text-white text-center h-[40px]"
+                onChange={(val) => setBalanceDateInput(val)}
+                className="h-[40px] text-[14px]"
               />
             </div>
             <div className="flex gap-[10px] mt-[6px]">

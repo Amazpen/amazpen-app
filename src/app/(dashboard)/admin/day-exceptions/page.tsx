@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 import { Loader2, Trash2 } from "lucide-react";
 
 // ===== Types =====
@@ -266,11 +267,9 @@ export default function DayExceptionsPage() {
                 <label className="text-white/70 text-sm mb-1.5 block">
                   בחירת תאריך חריגה
                 </label>
-                <input
-                  type="date"
+                <DatePickerField
                   value={newDate}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  className="h-[50px] w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center"
+                  onChange={(val) => setNewDate(val)}
                 />
               </div>
 

@@ -12,6 +12,7 @@ import { useDashboard } from "@/app/(dashboard)/layout";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 
 interface DailyEntry {
   id: string;
@@ -1036,20 +1037,10 @@ export function DailyEntriesModal({
                 {/* תאריך */}
                 <div className="flex flex-col gap-[3px]">
                   <Label className="text-white text-[15px] font-medium text-right">תאריך</Label>
-                  <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-                    <span className={`text-[16px] font-semibold pointer-events-none ${editFormData.entry_date ? 'text-white' : 'text-white/40'}`}>
-                      {editFormData.entry_date
-                        ? new Date(editFormData.entry_date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                        : 'יום/חודש/שנה'}
-                    </span>
-                    <Input
-                      type="date"
-                      title="תאריך"
-                      value={editFormData.entry_date}
-                      onChange={(e) => setEditFormData({ ...editFormData, entry_date: e.target.value })}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    />
-                  </div>
+                  <DatePickerField
+                    value={editFormData.entry_date}
+                    onChange={(val) => setEditFormData({ ...editFormData, entry_date: val })}
+                  />
                 </div>
 
                 {/* סה"כ קופה */}

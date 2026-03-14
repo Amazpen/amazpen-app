@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 
 // Category type from database
 interface ExpenseCategory {
@@ -1816,15 +1817,11 @@ export default function SuppliersPage() {
                   {/* First Charge Date */}
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white/80 text-right">תאריך חיוב ראשון</label>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-                      <Input
-                        title="תאריך חיוב ראשון"
-                        type="date"
-                        value={obligationFirstChargeDate}
-                        onChange={(e) => setObligationFirstChargeDate(e.target.value)}
-                        className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
-                      />
-                    </div>
+                    <DatePickerField
+                      value={obligationFirstChargeDate}
+                      onChange={(val) => setObligationFirstChargeDate(val)}
+                      className="h-[45px]"
+                    />
                   </div>
 
                   {/* Number of Payments */}
@@ -3567,28 +3564,20 @@ export default function SuppliersPage() {
 
             <div className="flex flex-col gap-[5px]">
               <label className="text-[14px] font-medium text-white/80 text-right">תאריך התחלה</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-                <Input
-                  title="תאריך התחלה"
-                  type="date"
-                  value={commitmentStartDate}
-                  onChange={(e) => setCommitmentStartDate(e.target.value)}
-                  className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
-                />
-              </div>
+              <DatePickerField
+                value={commitmentStartDate}
+                onChange={(val) => setCommitmentStartDate(val)}
+                className="h-[45px]"
+              />
             </div>
 
             <div className="flex flex-col gap-[5px]">
               <label className="text-[14px] font-medium text-white/80 text-right">תאריך סיום</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
-                <Input
-                  title="תאריך סיום"
-                  type="date"
-                  value={commitmentEndDate}
-                  onChange={(e) => setCommitmentEndDate(e.target.value)}
-                  className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
-                />
-              </div>
+              <DatePickerField
+                value={commitmentEndDate}
+                onChange={(val) => setCommitmentEndDate(val)}
+                className="h-[45px]"
+              />
             </div>
 
             <Button

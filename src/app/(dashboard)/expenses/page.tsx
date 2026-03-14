@@ -25,6 +25,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import type { OCRLineItem, OCRExtractedData } from '@/types/ocr';
 import { savePriceTrackingForLineItems } from '@/lib/priceTracking';
@@ -3712,47 +3713,27 @@ function ExpensesPageInner() {
               {/* Date Field */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">תאריך</label>
-                <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-                  <span className={`text-[16px] font-semibold pointer-events-none ${expenseDate ? 'text-white' : 'text-white/40'}`}>
-                    {expenseDate
-                      ? new Date(expenseDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                      : 'יום/חודש/שנה'}
-                  </span>
-                  <Input
-                    type="date"
-                    title="תאריך הוצאה"
-                    value={expenseDate}
-                    onChange={(e) => {
-                      setExpenseDate(e.target.value);
-                      if (!referenceDateManuallySet.current) {
-                        setReferenceDate(e.target.value);
-                      }
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  />
-                </div>
+                <DatePickerField
+                  value={expenseDate}
+                  onChange={(val) => {
+                    setExpenseDate(val);
+                    if (!referenceDateManuallySet.current) {
+                      setReferenceDate(val);
+                    }
+                  }}
+                />
               </div>
 
               {/* Reference Date Field */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">תאריך אסמכתא</label>
-                <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-                  <span className={`text-[16px] font-semibold pointer-events-none ${referenceDate ? 'text-white' : 'text-white/40'}`}>
-                    {referenceDate
-                      ? new Date(referenceDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                      : 'יום/חודש/שנה'}
-                  </span>
-                  <Input
-                    type="date"
-                    title="תאריך אסמכתא"
-                    value={referenceDate}
-                    onChange={(e) => {
-                      setReferenceDate(e.target.value);
-                      referenceDateManuallySet.current = true;
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  />
-                </div>
+                <DatePickerField
+                  value={referenceDate}
+                  onChange={(val) => {
+                    setReferenceDate(val);
+                    referenceDateManuallySet.current = true;
+                  }}
+                />
               </div>
 
               {/* Expense Type */}
@@ -4178,34 +4159,24 @@ function ExpensesPageInner() {
                       {/* Payment Date */}
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
-                        <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-                          <span className={`text-[16px] font-semibold pointer-events-none ${paymentDate ? 'text-white' : 'text-white/40'}`}>
-                            {paymentDate
-                              ? new Date(paymentDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })
-                              : 'יום/חודש/שנה'}
-                          </span>
-                          <Input
-                            type="date"
-                            title="תאריך תשלום"
-                            value={paymentDate}
-                            onChange={(e) => {
-                              setPaymentDate(e.target.value);
-                              setPopupPaymentMethods(prev => prev.map(p => {
-                                const numInstallments = parseInt(p.installments) || 1;
-                                const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
-                                if (numInstallments >= 1 && totalAmount > 0) {
-                                  const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
-                                  if (card) {
-                                    return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, e.target.value, card.billing_day) };
-                                  }
-                                  return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, e.target.value) };
+                        <DatePickerField
+                          value={paymentDate}
+                          onChange={(val) => {
+                            setPaymentDate(val);
+                            setPopupPaymentMethods(prev => prev.map(p => {
+                              const numInstallments = parseInt(p.installments) || 1;
+                              const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+                              if (numInstallments >= 1 && totalAmount > 0) {
+                                const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
+                                if (card) {
+                                  return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, val, card.billing_day) };
                                 }
-                                return { ...p, customInstallments: [] };
-                              }));
-                            }}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                          />
-                        </div>
+                                return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, val) };
+                              }
+                              return { ...p, customInstallments: [] };
+                            }));
+                          }}
+                        />
                       </div>
 
                       {/* Payment Methods Section */}
@@ -4352,16 +4323,11 @@ function ExpensesPageInner() {
                                     {pm.customInstallments.map((item, index) => (
                                       <div key={`${pm.id}-${item.number}`} className="flex items-center gap-[8px]">
                                         <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
-                                        <div className="flex-1 relative">
-                                          <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num">
-                                            {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
-                                          </span>
-                                          <Input
-                                            type="date"
-                                            title={`תאריך תשלום ${item.number}`}
+                                        <div className="flex-1">
+                                          <DatePickerField
                                             value={item.dateForInput}
-                                            onChange={(e) => handlePopupInstallmentDateChange(pm.id, index, e.target.value)}
-                                            className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] opacity-0 cursor-pointer"
+                                            onChange={(val) => handlePopupInstallmentDateChange(pm.id, index, val)}
+                                            className="h-[36px] rounded-[7px] text-[14px]"
                                           />
                                         </div>
                                         {pm.method === "check" && (
@@ -4617,47 +4583,27 @@ function ExpensesPageInner() {
               {/* Date Field */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">תאריך</label>
-                <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-                  <span className={`text-[16px] font-semibold pointer-events-none ${expenseDate ? 'text-white' : 'text-white/40'}`}>
-                    {expenseDate
-                      ? new Date(expenseDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                      : 'יום/חודש/שנה'}
-                  </span>
-                  <Input
-                    type="date"
-                    title="תאריך הוצאה"
-                    value={expenseDate}
-                    onChange={(e) => {
-                      setExpenseDate(e.target.value);
-                      if (!referenceDateManuallySet.current) {
-                        setReferenceDate(e.target.value);
-                      }
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  />
-                </div>
+                <DatePickerField
+                  value={expenseDate}
+                  onChange={(val) => {
+                    setExpenseDate(val);
+                    if (!referenceDateManuallySet.current) {
+                      setReferenceDate(val);
+                    }
+                  }}
+                />
               </div>
 
               {/* Reference Date Field */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">תאריך אסמכתא</label>
-                <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-                  <span className={`text-[16px] font-semibold pointer-events-none ${referenceDate ? 'text-white' : 'text-white/40'}`}>
-                    {referenceDate
-                      ? new Date(referenceDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                      : 'יום/חודש/שנה'}
-                  </span>
-                  <Input
-                    type="date"
-                    title="תאריך אסמכתא"
-                    value={referenceDate}
-                    onChange={(e) => {
-                      setReferenceDate(e.target.value);
-                      referenceDateManuallySet.current = true;
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  />
-                </div>
+                <DatePickerField
+                  value={referenceDate}
+                  onChange={(val) => {
+                    setReferenceDate(val);
+                    referenceDateManuallySet.current = true;
+                  }}
+                />
               </div>
 
               {/* Supplier Select */}
@@ -4964,35 +4910,25 @@ function ExpensesPageInner() {
               {/* Payment Date */}
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
-                <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-                  <span className={`text-[16px] font-semibold pointer-events-none ${paymentDate ? 'text-white' : 'text-white/40'}`}>
-                    {paymentDate
-                      ? new Date(paymentDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })
-                      : 'יום/חודש/שנה'}
-                  </span>
-                  <Input
-                    type="date"
-                    title="תאריך תשלום"
-                    value={paymentDate}
-                    onChange={(e) => {
-                      setPaymentDate(e.target.value);
-                      // Recalculate all installment dates based on new date
-                      setPopupPaymentMethods(prev => prev.map(p => {
-                        const numInstallments = parseInt(p.installments) || 1;
-                        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
-                        if (numInstallments > 1 && totalAmount > 0) {
-                          const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
-                          if (card) {
-                            return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, e.target.value, card.billing_day) };
-                          }
-                          return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, e.target.value) };
+                <DatePickerField
+                  value={paymentDate}
+                  onChange={(val) => {
+                    setPaymentDate(val);
+                    // Recalculate all installment dates based on new date
+                    setPopupPaymentMethods(prev => prev.map(p => {
+                      const numInstallments = parseInt(p.installments) || 1;
+                      const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+                      if (numInstallments > 1 && totalAmount > 0) {
+                        const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
+                        if (card) {
+                          return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, val, card.billing_day) };
                         }
-                        return { ...p, customInstallments: [] };
-                      }));
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  />
-                </div>
+                        return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, val) };
+                      }
+                      return { ...p, customInstallments: [] };
+                    }));
+                  }}
+                />
               </div>
 
               {/* Payment Methods Section */}
@@ -5143,16 +5079,11 @@ function ExpensesPageInner() {
                             {pm.customInstallments.map((item, index) => (
                               <div key={`${pm.id}-${item.number}`} className="flex items-center gap-[8px]">
                                 <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
-                                <div className="flex-1 relative">
-                                  <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num">
-                                    {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
-                                  </span>
-                                  <Input
-                                    type="date"
-                                    title={`תאריך תשלום ${item.number}`}
+                                <div className="flex-1">
+                                  <DatePickerField
                                     value={item.dateForInput}
-                                    onChange={(e) => handlePopupInstallmentDateChange(pm.id, index, e.target.value)}
-                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] opacity-0 cursor-pointer"
+                                    onChange={(val) => handlePopupInstallmentDateChange(pm.id, index, val)}
+                                    className="h-[36px] rounded-[7px] text-[14px]"
                                   />
                                 </div>
                                 {pm.method === "check" && (

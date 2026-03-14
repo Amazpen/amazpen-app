@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 
 // Format date as YYYY-MM-DD using local timezone (avoids UTC shift from toISOString)
 const toLocalDateStr = (date: Date) =>
@@ -3514,20 +3515,10 @@ function PaymentsPageInner() {
                 <div className="flex items-start">
                   <span className="text-[16px] font-medium text-white">תאריך קבלה</span>
                 </div>
-                <label className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center cursor-pointer">
-                  <span className={`text-[16px] font-semibold pointer-events-none ${paymentDate ? 'text-white' : 'text-white/40'}`}>
-                    {paymentDate
-                      ? (() => { const [y,m,d] = paymentDate.split("-"); return `${d}/${m}/${y}`; })()
-                      : 'יום/חודש/שנה'}
-                  </span>
-                  <Input
-                    type="date"
-                    title="תאריך קבלה"
-                    value={paymentDate}
-                    onChange={(e) => setPaymentDate(e.target.value)}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  />
-                </label>
+                <DatePickerField
+                  value={paymentDate}
+                  onChange={(val) => setPaymentDate(val)}
+                />
               </div>
 
               {/* Expense Type */}
@@ -3992,12 +3983,10 @@ function PaymentsPageInner() {
                                   <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
                                 )}
                                 <div className="flex-1">
-                                  <Input
-                                    type="date"
-                                    title={`תאריך תשלום ${item.number}`}
+                                  <DatePickerField
                                     value={item.dateForInput}
-                                    onChange={(e) => handleInstallmentDateChange(pm.id, index, e.target.value)}
-                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num cursor-pointer [color-scheme:dark]"
+                                    onChange={(val) => handleInstallmentDateChange(pm.id, index, val)}
+                                    className="h-[36px] rounded-[7px] text-[14px]"
                                   />
                                 </div>
                                 {pm.method === "check" && (

@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 
 interface Supplier {
   id: string;
@@ -1181,16 +1182,11 @@ export default function OCRForm({
                   {pm.customInstallments.map((item, index) => (
                     <div key={item.number} className="flex items-center gap-[8px]">
                       <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
-                      <div className="flex-1 relative">
-                        <span className="absolute inset-0 flex items-center justify-center text-[14px] text-white pointer-events-none ltr-num">
-                          {item.dateForInput ? new Date(item.dateForInput).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }) : ''}
-                        </span>
-                        <Input
-                          type="date"
-                          title={`תאריך תשלום ${item.number}`}
+                      <div className="flex-1">
+                        <DatePickerField
                           value={item.dateForInput}
-                          onChange={(e) => handleInstallmentDateChange(setter, pm.id, index, e.target.value)}
-                          className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] opacity-0 cursor-pointer"
+                          onChange={(val) => handleInstallmentDateChange(setter, pm.id, index, val)}
+                          className="h-[36px] rounded-[7px] text-[14px]"
                         />
                       </div>
                       <div className="flex-1 relative">
@@ -1276,20 +1272,10 @@ export default function OCRForm({
       {/* Date Field */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">תאריך</label>
-        <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-          <span className={`text-[16px] font-semibold pointer-events-none ${documentDate ? 'text-white' : 'text-white/40'}`}>
-            {documentDate
-              ? new Date(documentDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
-              : 'יום/חודש/שנה'}
-          </span>
-          <Input
-            type="date"
-            title="תאריך מסמך"
-            value={documentDate}
-            onChange={(e) => setDocumentDate(e.target.value)}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-          />
-        </div>
+        <DatePickerField
+          value={documentDate}
+          onChange={(val) => setDocumentDate(val)}
+        />
       </div>
 
       {/* Supplier Select */}
@@ -1574,30 +1560,20 @@ export default function OCRForm({
               {/* Payment Date */}
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
-                <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-                  <span className={`text-[16px] font-semibold pointer-events-none ${inlinePaymentDate ? 'text-white' : 'text-white/40'}`}>
-                    {inlinePaymentDate
-                      ? new Date(inlinePaymentDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })
-                      : 'יום/חודש/שנה'}
-                  </span>
-                  <Input
-                    type="date"
-                    title="תאריך תשלום"
-                    value={inlinePaymentDate}
-                    onChange={(e) => {
-                      setInlinePaymentDate(e.target.value);
-                      setInlinePaymentMethods(prev => prev.map(p => {
-                        const numInstallments = parseInt(p.installments) || 1;
-                        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
-                        if (numInstallments >= 1 && totalAmount > 0) {
-                          return { ...p, customInstallments: generateInstallments(numInstallments, totalAmount, e.target.value) };
-                        }
-                        return { ...p, customInstallments: [] };
-                      }));
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  />
-                </div>
+                <DatePickerField
+                  value={inlinePaymentDate}
+                  onChange={(val) => {
+                    setInlinePaymentDate(val);
+                    setInlinePaymentMethods(prev => prev.map(p => {
+                      const numInstallments = parseInt(p.installments) || 1;
+                      const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
+                      if (numInstallments >= 1 && totalAmount > 0) {
+                        return { ...p, customInstallments: generateInstallments(numInstallments, totalAmount, val) };
+                      }
+                      return { ...p, customInstallments: [] };
+                    }));
+                  }}
+                />
               </div>
 
               {/* Payment Methods */}
@@ -1656,14 +1632,13 @@ export default function OCRForm({
         {/* תאריך */}
         <div className="flex flex-col gap-[3px]">
           <label className="text-white text-[15px] font-medium text-right">תאריך</label>
-          <Input
-            type="date"
+          <DatePickerField
             value={dailyEntryDate}
-            onChange={(e) => {
-              setDailyEntryDate(e.target.value);
-              checkDailyEntryDate(e.target.value);
+            onChange={(val) => {
+              setDailyEntryDate(val);
+              checkDailyEntryDate(val);
             }}
-            className={`w-full h-[50px] bg-transparent text-white text-right rounded-[10px] px-[10px] [color-scheme:dark] border ${dailyDateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'}`}
+            buttonClassName={dailyDateWarning ? 'border-[#FFA500]' : undefined}
           />
           {dailyDateWarning && <span className="text-[12px] text-[#FFA500] text-right mt-[3px]">{dailyDateWarning}</span>}
         </div>
@@ -1922,20 +1897,10 @@ export default function OCRForm({
       {/* Payment Date */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[16px] font-medium text-white text-right">תאריך קבלה</label>
-        <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-          <span className={`text-[16px] font-semibold pointer-events-none ${paymentTabDate ? 'text-white' : 'text-white/40'}`}>
-            {paymentTabDate
-              ? new Date(paymentTabDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
-              : 'יום/חודש/שנה'}
-          </span>
-          <Input
-            type="date"
-            title="תאריך קבלה"
-            value={paymentTabDate}
-            onChange={(e) => setPaymentTabDate(e.target.value)}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-          />
-        </div>
+        <DatePickerField
+          value={paymentTabDate}
+          onChange={(val) => setPaymentTabDate(val)}
+        />
       </div>
 
       {/* Expense Type */}
@@ -2045,20 +2010,10 @@ export default function OCRForm({
       {/* Date Field */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">תאריך מרכזת</label>
-        <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] flex items-center justify-center">
-          <span className={`text-[16px] font-semibold pointer-events-none ${summaryDate ? 'text-white' : 'text-white/40'}`}>
-            {summaryDate
-              ? new Date(summaryDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
-              : 'יום/חודש/שנה'}
-          </span>
-          <Input
-            type="date"
-            title="תאריך מרכזת"
-            value={summaryDate}
-            onChange={(e) => setSummaryDate(e.target.value)}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-          />
-        </div>
+        <DatePickerField
+          value={summaryDate}
+          onChange={(val) => setSummaryDate(val)}
+        />
       </div>
 
       {/* Invoice Number */}
@@ -2120,12 +2075,10 @@ export default function OCRForm({
               </div>
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[12px] text-white/60 text-right">תאריך</label>
-                <Input
-                  type="date"
-                  title="תאריך תעודה"
+                <DatePickerField
                   value={newDeliveryNote.delivery_date}
-                  onChange={(e) => setNewDeliveryNote(prev => ({ ...prev, delivery_date: e.target.value }))}
-                  className="h-[40px] bg-[#0F1535] border border-[#4C526B] rounded-[8px] text-white text-[14px] text-center px-[8px]"
+                  onChange={(val) => setNewDeliveryNote(prev => ({ ...prev, delivery_date: val }))}
+                  className="h-[40px] rounded-[8px] text-[14px]"
                 />
               </div>
             </div>
