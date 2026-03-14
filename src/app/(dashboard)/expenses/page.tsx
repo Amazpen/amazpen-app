@@ -2930,8 +2930,8 @@ function ExpensesPageInner() {
         )}
       </div>
 
-      {/* Recent Invoices Section - חשבוניות אחרונות שהוזנו (hidden when no invoices) */}
-      {recentInvoices.length > 0 && (
+      {/* Recent Invoices Section - חשבוניות אחרונות שהוזנו (hidden for employees tab and when no invoices) */}
+      {recentInvoices.length > 0 && activeTab !== "employees" && (
       <div id="onboarding-expenses-filters" className="bg-[#0F1535] rounded-[20px] p-[15px_0px] mt-[10px] flex flex-col gap-[15px] w-full">
         {/* Header Row - RTL: פילטר בימין, כותרת באמצע, הורדה בשמאל */}
         <div className="flex items-center justify-between">
