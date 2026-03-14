@@ -27,6 +27,12 @@ export async function savePriceTrackingForLineItems(
     const itemName = li.description.trim();
     if (!itemName) continue;
 
+    // Calculate effective unit price after discount
+    // If there's a per-item discount, the effective price = (qty * unit_price - discount) / qty
+    const effectiveUnitPrice = (li.discount_amount && li.quantity)
+      ? (li.quantity * li.unit_price - li.discount_amount) / li.quantity
+      : li.unit_price;
+
     try {
       // Find or create supplier_item
       let supplierItemId = li.matched_supplier_item_id || null;
@@ -51,7 +57,7 @@ export async function savePriceTrackingForLineItems(
               business_id: businessId,
               supplier_id: supplierId,
               item_name: itemName,
-              current_price: li.unit_price,
+              current_price: effectiveUnitPrice,
               last_price_date: documentDate,
             })
             .select('id')
@@ -72,10 +78,10 @@ export async function savePriceTrackingForLineItems(
       const oldPrice = currentItem?.current_price;
       const alertMuted = currentItem?.alert_muted ?? false;
 
-      // Insert price record
+      // Insert price record (effective price after discount)
       await supabase.from('supplier_item_prices').insert({
         supplier_item_id: supplierItemId,
-        price: li.unit_price,
+        price: effectiveUnitPrice,
         quantity: li.quantity || null,
         invoice_id: invoiceId || null,
         ocr_document_id: ocrDocumentId || null,
@@ -84,15 +90,15 @@ export async function savePriceTrackingForLineItems(
 
       // Update current price on supplier_item
       await supabase.from('supplier_items').update({
-        current_price: li.unit_price,
+        current_price: effectiveUnitPrice,
         last_price_date: documentDate,
         updated_at: new Date().toISOString(),
       }).eq('id', supplierItemId);
 
       // Create price alert if price changed and alerts not muted for this item
-      if (!alertMuted && oldPrice != null && Math.abs(li.unit_price - oldPrice) > 0.01) {
+      if (!alertMuted && oldPrice != null && Math.abs(effectiveUnitPrice - oldPrice) > 0.01) {
         const changePct = oldPrice > 0
-          ? ((li.unit_price - oldPrice) / oldPrice) * 100
+          ? ((effectiveUnitPrice - oldPrice) / oldPrice) * 100
           : 0;
         await supabase.from('price_alerts').insert({
           business_id: businessId,
@@ -100,7 +106,7 @@ export async function savePriceTrackingForLineItems(
           supplier_id: supplierId,
           ocr_document_id: ocrDocumentId || null,
           old_price: oldPrice,
-          new_price: li.unit_price,
+          new_price: effectiveUnitPrice,
           change_pct: Math.round(changePct * 100) / 100,
           document_date: documentDate,
         });

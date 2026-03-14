@@ -120,6 +120,8 @@ export default function OCRForm({
   const [supplierId, setSupplierId] = useState('');
   const [documentDate, setDocumentDate] = useState('');
   const [documentNumber, setDocumentNumber] = useState('');
+  const [discountAmount, setDiscountAmount] = useState('');
+  const [discountPercentage, setDiscountPercentage] = useState('');
   const [amountBeforeVat, setAmountBeforeVat] = useState('');
   const [vatAmount, setVatAmount] = useState('');
   const [partialVat, setPartialVat] = useState(false);
@@ -663,7 +665,7 @@ export default function OCRForm({
   const saveDraftData = useCallback(() => {
     saveDraft({
       documentType, expenseType, supplierId, documentDate, documentNumber,
-      amountBeforeVat, vatAmount, partialVat, notes, isPaid,
+      discountAmount, discountPercentage, amountBeforeVat, vatAmount, partialVat, notes, isPaid,
       inlinePaymentMethod, inlinePaymentDate, inlinePaymentReference, inlinePaymentNotes,
       inlinePaymentMethods,
       paymentTabDate, paymentTabExpenseType, paymentTabSupplierId, paymentTabReference, paymentTabNotes,
@@ -672,7 +674,7 @@ export default function OCRForm({
       summaryDeliveryNotes,
     });
   }, [saveDraft, documentType, expenseType, supplierId, documentDate, documentNumber,
-    amountBeforeVat, vatAmount, partialVat, notes, isPaid,
+    discountAmount, discountPercentage, amountBeforeVat, vatAmount, partialVat, notes, isPaid,
     inlinePaymentMethod, inlinePaymentDate, inlinePaymentReference, inlinePaymentNotes,
     inlinePaymentMethods,
     paymentTabDate, paymentTabExpenseType, paymentTabSupplierId, paymentTabReference, paymentTabNotes,
@@ -709,6 +711,12 @@ export default function OCRForm({
 
       if (data.document_number) {
         setDocumentNumber(data.document_number);
+      }
+      if (data.discount_amount !== undefined && data.discount_amount !== null) {
+        setDiscountAmount(data.discount_amount.toString());
+      }
+      if (data.discount_percentage !== undefined && data.discount_percentage !== null) {
+        setDiscountPercentage(data.discount_percentage.toString());
       }
       if (data.subtotal !== undefined) {
         setAmountBeforeVat(data.subtotal.toString());
@@ -818,6 +826,8 @@ export default function OCRForm({
           if (draft.supplierId !== undefined) setSupplierId(draft.supplierId as string);
           if (draft.documentDate) setDocumentDate(draft.documentDate as string);
           if (draft.documentNumber !== undefined) setDocumentNumber(draft.documentNumber as string);
+          if (draft.discountAmount !== undefined) setDiscountAmount(draft.discountAmount as string);
+          if (draft.discountPercentage !== undefined) setDiscountPercentage(draft.discountPercentage as string);
           if (draft.amountBeforeVat !== undefined) setAmountBeforeVat(draft.amountBeforeVat as string);
           if (draft.vatAmount !== undefined) setVatAmount(draft.vatAmount as string);
           if (draft.partialVat !== undefined) setPartialVat(draft.partialVat as boolean);
@@ -1015,6 +1025,8 @@ export default function OCRForm({
         supplier_id: supplierId,
         document_date: documentDate,
         document_number: documentNumber,
+        discount_amount: discountAmount,
+        discount_percentage: discountPercentage,
         amount_before_vat: amountBeforeVat,
         vat_amount: partialVat ? vatAmount : calculatedVat.toFixed(2),
         total_amount: totalWithVat.toFixed(2),
@@ -1350,9 +1362,41 @@ export default function OCRForm({
         </div>
       </div>
 
+      {/* Discount */}
+      <div className="flex items-center gap-[10px]">
+        <div className="flex flex-col gap-[5px] flex-1">
+          <label className="text-[15px] font-medium text-white text-right">הנחה (₪)</label>
+          <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+            <Input
+              type="text"
+              inputMode="decimal"
+              title="סכום הנחה"
+              value={discountAmount}
+              onChange={(e) => setDiscountAmount(e.target.value)}
+              placeholder="0.00"
+              className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+            />
+          </div>
+        </div>
+        <div className="flex flex-col gap-[5px] w-[100px]">
+          <label className="text-[15px] font-medium text-white text-right">הנחה (%)</label>
+          <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+            <Input
+              type="text"
+              inputMode="decimal"
+              title="אחוז הנחה"
+              value={discountPercentage}
+              onChange={(e) => setDiscountPercentage(e.target.value)}
+              placeholder="0"
+              className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Amount Before VAT */}
       <div className="flex flex-col gap-[5px]">
-        <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ</label>
+        <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ (אחרי הנחה)</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
           <Input
             type="text"
@@ -1457,8 +1501,9 @@ export default function OCRForm({
             <div className="flex items-center border-b border-[#4C526B] text-white/60 py-[6px] px-[4px]">
               <span className="flex-1 text-right">פריט</span>
               <span className="w-[60px] text-center shrink-0">כמות</span>
-              <span className="w-[80px] text-center shrink-0">מחיר</span>
-              <span className="w-[80px] text-center shrink-0">סה&quot;כ</span>
+              <span className="w-[70px] text-center shrink-0">מחיר</span>
+              <span className="w-[60px] text-center shrink-0">הנחה</span>
+              <span className="w-[70px] text-center shrink-0">סה&quot;כ</span>
               <span className="w-[28px] shrink-0" />
             </div>
             {/* Rows */}
@@ -1474,14 +1519,16 @@ export default function OCRForm({
                       setLineItems(prev => prev.map((item, i) => i !== idx ? item : {
                         ...item,
                         quantity: qty,
-                        total: qty != null && item.unit_price != null ? qty * item.unit_price : item.total,
+                        total: qty != null && item.unit_price != null
+                          ? (qty * item.unit_price) - (item.discount_amount || 0)
+                          : item.total,
                       }));
                     }}
                     className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[13px] h-[28px] px-[4px] outline-none focus:border-[#29318A]"
                     dir="ltr"
                   />
                 </span>
-                <span className="w-[80px] shrink-0 px-[2px]">
+                <span className="w-[70px] shrink-0 px-[2px]">
                   <div className="relative">
                     <input
                       type="number"
@@ -1492,7 +1539,9 @@ export default function OCRForm({
                         setLineItems(prev => prev.map((item, i) => i !== idx ? item : {
                           ...item,
                           unit_price: price,
-                          total: price != null && item.quantity != null ? item.quantity * price : item.total,
+                          total: price != null && item.quantity != null
+                            ? (item.quantity * price) - (item.discount_amount || 0)
+                            : item.total,
                         }));
                       }}
                       className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[13px] h-[28px] px-[4px] outline-none focus:border-[#29318A]"
@@ -1508,7 +1557,26 @@ export default function OCRForm({
                     )}
                   </div>
                 </span>
-                <span className="w-[80px] text-center text-white/70 ltr-num shrink-0">&#8362;{li.total?.toFixed(2) || '0'}</span>
+                <span className="w-[60px] shrink-0 px-[2px]">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={li.discount_amount ?? ''}
+                    onChange={(e) => {
+                      const disc = e.target.value === '' ? undefined : Number(e.target.value);
+                      setLineItems(prev => prev.map((item, i) => i !== idx ? item : {
+                        ...item,
+                        discount_amount: disc,
+                        total: item.quantity != null && item.unit_price != null
+                          ? (item.quantity * item.unit_price) - (disc || 0)
+                          : item.total,
+                      }));
+                    }}
+                    className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[13px] h-[28px] px-[4px] outline-none focus:border-[#29318A]"
+                    dir="ltr"
+                  />
+                </span>
+                <span className="w-[70px] text-center text-white/70 ltr-num shrink-0">&#8362;{li.total?.toFixed(2) || '0'}</span>
                 <span className="w-[28px] text-center shrink-0">
                   <Button
                     type="button"

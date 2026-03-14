@@ -13,6 +13,7 @@ export interface OCRLineItem {
   description?: string;
   quantity?: number;
   unit_price?: number;
+  discount_amount?: number;
   total?: number;
   // Price tracking fields (populated client-side)
   matched_supplier_item_id?: string;
@@ -26,6 +27,8 @@ export interface OCRExtractedData {
   supplier_tax_id?: string;
   document_number?: string;
   document_date?: string;
+  discount_amount?: number;
+  discount_percentage?: number;
   subtotal?: number;
   vat_amount?: number;
   total_amount?: number;
@@ -89,6 +92,8 @@ export interface OCRFormData {
   supplier_id: string;
   document_date: string;
   document_number: string;
+  discount_amount?: string;
+  discount_percentage?: string;
   amount_before_vat: string;
   vat_amount: string;
   total_amount: string;
