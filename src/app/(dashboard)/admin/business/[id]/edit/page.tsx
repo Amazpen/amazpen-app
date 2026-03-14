@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PaymentMethodSettlementEditor } from "@/components/dashboard/PaymentMethodSettlementEditor";
+import { SortableObjectList } from "@/components/ui/sortable-list";
 import type { IncomeSource, SettlementType, PaymentMethodType } from "@/types";
 
 // Format number with commas (e.g., 1000 -> 1,000)
@@ -103,7 +104,7 @@ export default function EditBusinessPage({ params }: PageProps) {
   const [newIncomeSource, setNewIncomeSource] = useState("");
 
 
-  const [customParameters, setCustomParameters] = useState<{ id?: string; name: string }[]>([]);
+  const [customParameters, setCustomParameters] = useState<{ id: string; name: string }[]>([]);
   const [newCustomParameter, setNewCustomParameter] = useState("");
 
   // Payment Methods (for cashflow settlement)
@@ -125,7 +126,7 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   // Credit Cards
   interface CreditCard {
-    id?: string;
+    id: string;
     cardName: string;
     billingDay: number;
   }
@@ -135,7 +136,7 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   // Managed Products
   interface ManagedProduct {
-    id?: string;
+    id: string;
     name: string;
     unit: string;
     unitCost: number;
@@ -405,7 +406,7 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   const handleAddIncomeSource = () => {
     if (newIncomeSource.trim() && !incomeSources.some(s => s.name === newIncomeSource.trim())) {
-      setIncomeSources([...incomeSources, { name: newIncomeSource.trim() }]);
+      setIncomeSources([...incomeSources, { id: generateUUID(), name: newIncomeSource.trim() }]);
       setNewIncomeSource("");
     }
   };
@@ -414,17 +415,9 @@ export default function EditBusinessPage({ params }: PageProps) {
     setIncomeSources(incomeSources.filter((_, i) => i !== index));
   };
 
-  const handleMoveIncomeSource = (index: number, direction: "up" | "down") => {
-    const newIndex = direction === "up" ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= incomeSources.length) return;
-    const updated = [...incomeSources];
-    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
-    setIncomeSources(updated);
-  };
-
   const handleAddCustomParameter = () => {
     if (newCustomParameter.trim() && !customParameters.some(p => p.name === newCustomParameter.trim())) {
-      setCustomParameters([...customParameters, { name: newCustomParameter.trim() }]);
+      setCustomParameters([...customParameters, { id: generateUUID(), name: newCustomParameter.trim() }]);
       setNewCustomParameter("");
     }
   };
@@ -435,7 +428,7 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   const handleAddCreditCard = () => {
     if (newCardName.trim() && newBillingDay >= 1 && newBillingDay <= 31) {
-      setCreditCards([...creditCards, { cardName: newCardName.trim(), billingDay: newBillingDay }]);
+      setCreditCards([...creditCards, { id: generateUUID(), cardName: newCardName.trim(), billingDay: newBillingDay }]);
       setNewCardName("");
       setNewBillingDay(10);
     }
@@ -448,6 +441,7 @@ export default function EditBusinessPage({ params }: PageProps) {
   const handleAddManagedProduct = () => {
     if (newProductName.trim() && newProductUnit.trim() && newProductCost >= 0) {
       setManagedProducts([...managedProducts, {
+        id: generateUUID(),
         name: newProductName.trim(),
         unit: newProductUnit.trim(),
         unitCost: newProductCost
@@ -464,7 +458,7 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   const handleAddPaymentMethod = () => {
     if (newPaymentMethodName.trim() && !paymentMethods.some(pm => pm.name === newPaymentMethodName.trim())) {
-      setPaymentMethods([...paymentMethods, { name: newPaymentMethodName.trim(), settlement_type: "daily" as SettlementType, settlement_delay_days: 1, commission_rate: 0 }]);
+      setPaymentMethods([...paymentMethods, { id: generateUUID(), name: newPaymentMethodName.trim(), settlement_type: "daily" as SettlementType, settlement_delay_days: 1, commission_rate: 0 }]);
       setNewPaymentMethodName("");
     }
   };
@@ -1281,9 +1275,12 @@ export default function EditBusinessPage({ params }: PageProps) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-[4px]">
-          {incomeSources.map((source, index) => (
-            <div key={source.id || index} className="flex items-center gap-[6px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[10px] py-[5px]">
+        <SortableObjectList
+          items={incomeSources as (Partial<IncomeSource> & { id: string })[]}
+          onReorder={(reordered) => setIncomeSources(reordered)}
+          className="flex flex-col gap-[4px]"
+          renderItem={(source, index) => (
+            <div className="flex items-center gap-[6px] flex-1 bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[10px] py-[5px]">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -1296,33 +1293,11 @@ export default function EditBusinessPage({ params }: PageProps) {
                   <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
               </Button>
-              <div className="flex flex-col gap-0">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  type="button"
-                  onClick={() => handleMoveIncomeSource(index, "up")}
-                  disabled={index === 0}
-                  className="text-white/50 hover:text-white p-0 h-[14px] w-[18px] disabled:opacity-20"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M18 15l-6-6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  type="button"
-                  onClick={() => handleMoveIncomeSource(index, "down")}
-                  disabled={index === incomeSources.length - 1}
-                  className="text-white/50 hover:text-white p-0 h-[14px] w-[18px] disabled:opacity-20"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </Button>
-              </div>
               <span className="text-[13px] text-white/40 font-mono w-[18px] text-center">{index + 1}</span>
               <span className="text-[14px] text-white flex-1 text-right">{source.name}</span>
             </div>
-          ))}
-        </div>
+          )}
+        />
       </div>
 
       {/* Section: Payment Methods (names + settlement config) */}
@@ -1355,47 +1330,48 @@ export default function EditBusinessPage({ params }: PageProps) {
         </div>
 
         {/* Payment method list with settlement badges */}
-        {paymentMethods.length > 0 && (
-          <div className="flex flex-wrap gap-[8px] mb-[10px]">
-            {paymentMethods.map((pm, index) => {
-              const typeLabel = ({
-                same_day: "באותו יום",
-                daily: "יומי",
-                weekly: "שבועי",
-                monthly: "חודשי",
-                bimonthly: "דו-חודשי",
-                custom: "קופון",
-                custom_periods: "תקופות",
-              } as Record<string, string>)[pm.settlement_type || "daily"] || "יומי";
-              const fee = Number(pm.commission_rate) || 0;
+        <SortableObjectList
+          items={paymentMethods as (Partial<PaymentMethodType> & { id: string })[]}
+          onReorder={(reordered) => setPaymentMethods(reordered)}
+          className="flex flex-wrap gap-[8px] mb-[10px]"
+          renderItem={(pm, index) => {
+            const typeLabel = ({
+              same_day: "באותו יום",
+              daily: "יומי",
+              weekly: "שבועי",
+              monthly: "חודשי",
+              bimonthly: "דו-חודשי",
+              custom: "קופון",
+              custom_periods: "תקופות",
+            } as Record<string, string>)[pm.settlement_type || "daily"] || "יומי";
+            const fee = Number(pm.commission_rate) || 0;
 
-              return (
-                <div key={pm.id || `new-${index}`} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handleRemovePaymentMethod(index); }}
-                    aria-label={`הסר ${pm.name}`}
-                    className="text-[#F64E60] hover:text-[#ff6b7a]"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingPaymentMethodId(pm.id || `new-${index}`)}
-                    className="flex items-center gap-[6px] hover:opacity-80 transition-opacity"
-                  >
-                    <span className="text-[14px] text-white">{pm.name}</span>
-                    <span className="text-[11px] text-white/40">({typeLabel}{fee ? ` · ${fee}%` : ""})</span>
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
+            return (
+              <div className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleRemovePaymentMethod(index); }}
+                  aria-label={`הסר ${pm.name}`}
+                  className="text-[#F64E60] hover:text-[#ff6b7a]"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setEditingPaymentMethodId(pm.id || `new-${index}`)}
+                  className="flex items-center gap-[6px] hover:opacity-80 transition-opacity"
+                >
+                  <span className="text-[14px] text-white">{pm.name}</span>
+                  <span className="text-[11px] text-white/40">({typeLabel}{fee ? ` · ${fee}%` : ""})</span>
+                </button>
+              </div>
+            );
+          }}
+        />
 
         {paymentMethods.length > 0 && (
           <p className="text-[12px] text-white/50 text-right">לחץ על תקבול כדי להגדיר מתי הכסף נכנס לבנק</p>
@@ -1473,9 +1449,12 @@ export default function EditBusinessPage({ params }: PageProps) {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-[8px]">
-          {customParameters.map((param, index) => (
-            <div key={param.id || index} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
+        <SortableObjectList
+          items={customParameters}
+          onReorder={setCustomParameters}
+          className="flex flex-wrap gap-[8px]"
+          renderItem={(param, index) => (
+            <div className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -1490,11 +1469,11 @@ export default function EditBusinessPage({ params }: PageProps) {
               </Button>
               <span className="text-[14px] text-white">{param.name}</span>
             </div>
-          ))}
-          {customParameters.length === 0 && (
-            <span className="text-[12px] text-white/30">אין פרמטרים</span>
           )}
-        </div>
+        />
+        {customParameters.length === 0 && (
+          <span className="text-[12px] text-white/30">אין פרמטרים</span>
+        )}
       </div>
 
       {/* Section 4: Credit Cards */}
@@ -1537,9 +1516,12 @@ export default function EditBusinessPage({ params }: PageProps) {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-[8px]">
-          {creditCards.map((card, index) => (
-            <div key={card.id || index} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
+        <SortableObjectList
+          items={creditCards}
+          onReorder={setCreditCards}
+          className="flex flex-wrap gap-[8px]"
+          renderItem={(card, index) => (
+            <div className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -1555,11 +1537,11 @@ export default function EditBusinessPage({ params }: PageProps) {
               <span className="text-[14px] text-white">{card.cardName}</span>
               <span className="text-[12px] text-white/60 bg-[#4956D4]/30 px-[6px] py-[2px] rounded">יום {card.billingDay}</span>
             </div>
-          ))}
-          {creditCards.length === 0 && (
-            <span className="text-[12px] text-white/30">אין כרטיסי אשראי</span>
           )}
-        </div>
+        />
+        {creditCards.length === 0 && (
+          <span className="text-[12px] text-white/30">אין כרטיסי אשראי</span>
+        )}
       </div>
 
       {/* Section 5: Managed Products */}
@@ -1616,9 +1598,13 @@ export default function EditBusinessPage({ params }: PageProps) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-[8px]">
-          {managedProducts.map((product, index) => (
-            <div key={product.id || index} className="flex items-center justify-between bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[8px]">
+        <SortableObjectList
+          items={managedProducts}
+          onReorder={setManagedProducts}
+          direction="vertical"
+          className="flex flex-col gap-[8px]"
+          renderItem={(product, index) => (
+            <div className="flex items-center justify-between flex-1 bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[8px]">
               <div className="flex items-center gap-[8px]">
                 <Button
                   variant="ghost"
@@ -1662,11 +1648,11 @@ export default function EditBusinessPage({ params }: PageProps) {
                 </div>
               </div>
             </div>
-          ))}
-          {managedProducts.length === 0 && (
-            <span className="text-[12px] text-white/30">אין מוצרים מנוהלים</span>
           )}
-        </div>
+        />
+        {managedProducts.length === 0 && (
+          <span className="text-[12px] text-white/30">אין מוצרים מנוהלים</span>
+        )}
       </div>
 
       {incomeSources.length === 0 && (

@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SortableList, SortableObjectList } from "@/components/ui/sortable-list";
 
 // Format number with commas (e.g., 1000 -> 1,000)
 const formatNumberWithCommas = (num: number): string => {
@@ -132,6 +133,7 @@ function NewBusinessPage() {
 
   // Credit Cards
   interface CreditCard {
+    id: string;
     cardName: string;
     billingDay: number;
   }
@@ -141,6 +143,7 @@ function NewBusinessPage() {
 
   // Managed Products
   interface ManagedProduct {
+    id: string;
     name: string;
     unit: string;
     unitCost: number;
@@ -233,8 +236,8 @@ function NewBusinessPage() {
       if (draft.incomeSources) setIncomeSources(draft.incomeSources as string[]);
       if (draft.receiptTypes) setReceiptTypes(draft.receiptTypes as string[]);
       if (draft.customParameters) setCustomParameters(draft.customParameters as string[]);
-      if (draft.creditCards) setCreditCards(draft.creditCards as CreditCard[]);
-      if (draft.managedProducts) setManagedProducts(draft.managedProducts as ManagedProduct[]);
+      if (draft.creditCards) setCreditCards((draft.creditCards as CreditCard[]).map(c => ({ ...c, id: c.id || generateUUID() })));
+      if (draft.managedProducts) setManagedProducts((draft.managedProducts as ManagedProduct[]).map(p => ({ ...p, id: p.id || generateUUID() })));
       if (draft.teamMembers) setTeamMembers(draft.teamMembers as TeamMember[]);
     }
     // Pre-fill from query params (e.g., when creating business from customer data)
@@ -461,7 +464,7 @@ function NewBusinessPage() {
 
   const handleAddCreditCard = () => {
     if (newCardName.trim() && newBillingDay >= 1 && newBillingDay <= 31) {
-      setCreditCards([...creditCards, { cardName: newCardName.trim(), billingDay: newBillingDay }]);
+      setCreditCards([...creditCards, { id: generateUUID(), cardName: newCardName.trim(), billingDay: newBillingDay }]);
       setNewCardName("");
       setNewBillingDay(10);
     }
@@ -474,6 +477,7 @@ function NewBusinessPage() {
   const handleAddManagedProduct = () => {
     if (newProductName.trim() && newProductUnit.trim() && newProductCost >= 0) {
       setManagedProducts([...managedProducts, {
+        id: generateUUID(),
         name: newProductName.trim(),
         unit: newProductUnit.trim(),
         unitCost: newProductCost
@@ -1267,9 +1271,12 @@ function NewBusinessPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-[8px]">
-          {incomeSources.map((source) => (
-            <div key={source} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
+        <SortableList
+          items={incomeSources}
+          onReorder={setIncomeSources}
+          className="flex flex-wrap gap-[8px]"
+          renderItem={(source) => (
+            <div className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -1284,8 +1291,8 @@ function NewBusinessPage() {
               </Button>
               <span className="text-[14px] text-white">{source}</span>
             </div>
-          ))}
-        </div>
+          )}
+        />
       </div>
 
       {/* Section 2: Receipt Types */}
@@ -1316,9 +1323,12 @@ function NewBusinessPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-[8px]">
-          {receiptTypes.map((type) => (
-            <div key={type} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
+        <SortableList
+          items={receiptTypes}
+          onReorder={setReceiptTypes}
+          className="flex flex-wrap gap-[8px]"
+          renderItem={(type) => (
+            <div className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -1333,11 +1343,11 @@ function NewBusinessPage() {
               </Button>
               <span className="text-[14px] text-white">{type}</span>
             </div>
-          ))}
-          {receiptTypes.length === 0 && (
-            <span className="text-[12px] text-white/30">אין תקבולים</span>
           )}
-        </div>
+        />
+        {receiptTypes.length === 0 && (
+          <span className="text-[12px] text-white/30">אין תקבולים</span>
+        )}
       </div>
 
       {/* Section 3: Custom Parameters */}
@@ -1368,9 +1378,12 @@ function NewBusinessPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-[8px]">
-          {customParameters.map((param) => (
-            <div key={param} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
+        <SortableList
+          items={customParameters}
+          onReorder={setCustomParameters}
+          className="flex flex-wrap gap-[8px]"
+          renderItem={(param) => (
+            <div className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -1385,11 +1398,11 @@ function NewBusinessPage() {
               </Button>
               <span className="text-[14px] text-white">{param}</span>
             </div>
-          ))}
-          {customParameters.length === 0 && (
-            <span className="text-[12px] text-white/30">אין פרמטרים</span>
           )}
-        </div>
+        />
+        {customParameters.length === 0 && (
+          <span className="text-[12px] text-white/30">אין פרמטרים</span>
+        )}
       </div>
 
       {/* Section 4: Credit Cards */}
@@ -1432,9 +1445,12 @@ function NewBusinessPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-[8px]">
-          {creditCards.map((card, index) => (
-            <div key={`card-${card.cardName}-${card.billingDay}`} className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
+        <SortableObjectList
+          items={creditCards}
+          onReorder={setCreditCards}
+          className="flex flex-wrap gap-[8px]"
+          renderItem={(card, index) => (
+            <div className="flex items-center gap-[8px] bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[6px]">
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -1450,11 +1466,11 @@ function NewBusinessPage() {
               <span className="text-[14px] text-white">{card.cardName}</span>
               <span className="text-[12px] text-white/60 bg-[#4956D4]/30 px-[6px] py-[2px] rounded">יום {card.billingDay}</span>
             </div>
-          ))}
-          {creditCards.length === 0 && (
-            <span className="text-[12px] text-white/30">אין כרטיסי אשראי</span>
           )}
-        </div>
+        />
+        {creditCards.length === 0 && (
+          <span className="text-[12px] text-white/30">אין כרטיסי אשראי</span>
+        )}
       </div>
 
       {/* Section 5: Managed Products */}
@@ -1511,9 +1527,13 @@ function NewBusinessPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-[8px]">
-          {managedProducts.map((product, index) => (
-            <div key={`product-${product.name}`} className="flex items-center justify-between bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[8px]">
+        <SortableObjectList
+          items={managedProducts}
+          onReorder={setManagedProducts}
+          direction="vertical"
+          className="flex flex-col gap-[8px]"
+          renderItem={(product, index) => (
+            <div className="flex items-center justify-between flex-1 bg-[#4956D4]/20 border border-[#4956D4]/50 rounded-[8px] px-[12px] py-[8px]">
               <div className="flex items-center gap-[8px]">
                 <Button
                   variant="ghost"
@@ -1534,11 +1554,11 @@ function NewBusinessPage() {
                 <span className="text-[12px] text-white/80 bg-[#4956D4]/40 px-[6px] py-[2px] rounded">₪{product.unitCost}</span>
               </div>
             </div>
-          ))}
-          {managedProducts.length === 0 && (
-            <span className="text-[12px] text-white/30">אין מוצרים מנוהלים</span>
           )}
-        </div>
+        />
+        {managedProducts.length === 0 && (
+          <span className="text-[12px] text-white/30">אין מוצרים מנוהלים</span>
+        )}
       </div>
 
       {incomeSources.length === 0 && (
