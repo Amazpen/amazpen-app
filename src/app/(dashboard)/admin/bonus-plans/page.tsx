@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Loader2, Trash2, Pencil, Plus, X, Trophy } from "lucide-react";
+import { Loader2, Trash2, Pencil, Plus, X, Trophy, ChevronRight, ChevronLeft } from "lucide-react";
 
 // ===== Types =====
 
@@ -74,6 +74,10 @@ export default function BonusPlansPage() {
 
   // Employees for selected business
   const [employees, setEmployees] = useState<Employee[]>([]);
+
+  // Month/Year selector
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
 
   // Plans
   const [plans, setPlans] = useState<BonusPlan[]>([]);
@@ -204,24 +208,21 @@ export default function BonusPlansPage() {
     const plansList = (data || []) as BonusPlan[];
     setPlans(plansList);
 
-    // Resolve statuses for all plans
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
+    // Resolve statuses for all plans using selected month/year
     const statuses: Record<string, BonusPlanStatus> = {};
 
     for (const plan of plansList) {
-      statuses[plan.id] = await resolveBonusPlanStatus(supabase, plan, year, month);
+      statuses[plan.id] = await resolveBonusPlanStatus(supabase, plan, selectedYear, selectedMonth);
     }
     setPlanStatuses(statuses);
     setIsLoadingPlans(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBusinessId]);
+  }, [selectedBusinessId, selectedYear, selectedMonth]);
 
   useEffect(() => {
     if (hasAccess) fetchPlans();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBusinessId, hasAccess]);
+  }, [selectedBusinessId, hasAccess, selectedYear, selectedMonth]);
 
   // Reset form when business changes
   useEffect(() => {
@@ -466,6 +467,52 @@ export default function BonusPlansPage() {
         )}
       </div>
 
+      {/* Month/Year selector */}
+      {selectedBusinessId && (
+        <div className="flex items-center justify-center gap-3 mb-4 sm:mb-6">
+          <button
+            onClick={() => {
+              if (selectedMonth === 12) { setSelectedMonth(1); setSelectedYear(y => y + 1); }
+              else setSelectedMonth(m => m + 1);
+            }}
+            className="p-1.5 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-2">
+            <Select dir="rtl" value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
+              <SelectTrigger className="w-[100px] bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[36px] px-[10px] text-[13px] text-white text-center">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"].map((name, i) => (
+                  <SelectItem key={i + 1} value={(i + 1).toString()}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select dir="rtl" value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+              <SelectTrigger className="w-[80px] bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[36px] px-[10px] text-[13px] text-white text-center">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((y) => (
+                  <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <button
+            onClick={() => {
+              if (selectedMonth === 1) { setSelectedMonth(12); setSelectedYear(y => y - 1); }
+              else setSelectedMonth(m => m - 1);
+            }}
+            className="p-1.5 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
       {/* No business selected */}
       {!selectedBusinessId ? (
         <div className="text-center py-16 text-white/40 text-lg">
@@ -532,51 +579,53 @@ export default function BonusPlansPage() {
                   </Select>
                 </div>
 
-                {/* Custom source label */}
+                {/* Custom source label — only for custom data source */}
                 {formDataSource === "custom" && (
-                  <>
+                  <div>
+                    <label className="text-white/70 text-sm mb-1.5 block">הסבר מה נמדד</label>
+                    <input
+                      type="text"
+                      value={formCustomLabel}
+                      onChange={(e) => setFormCustomLabel(e.target.value)}
+                      placeholder="למשל: מספר אפסיילים יומי"
+                      className="h-[42px] sm:h-[50px] w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-right placeholder:text-white/30"
+                    />
+                  </div>
+                )}
+
+                {/* Measurement type & direction — available for ALL data sources */}
+                {formDataSource && (
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-white/70 text-sm mb-1.5 block">הסבר מה נמדד</label>
-                      <input
-                        type="text"
-                        value={formCustomLabel}
-                        onChange={(e) => setFormCustomLabel(e.target.value)}
-                        placeholder="למשל: מספר אפסיילים יומי"
-                        className="h-[42px] sm:h-[50px] w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-right placeholder:text-white/30"
-                      />
+                      <label className="text-white/70 text-sm mb-1.5 block">סוג מדידה</label>
+                      <Select dir="rtl" value={formMeasurementType} onValueChange={(v) => setFormMeasurementType(v as "percentage" | "currency" | "quantity")}>
+                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percentage">אחוז (%)</SelectItem>
+                          <SelectItem value="currency">סכום (₪)</SelectItem>
+                          <SelectItem value="quantity">כמות (מספר)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-white/70 text-sm mb-1.5 block">סוג מדידה</label>
-                        <Select dir="rtl" value={formMeasurementType} onValueChange={(v) => setFormMeasurementType(v as "percentage" | "currency" | "quantity")}>
-                          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="percentage">אחוז (%)</SelectItem>
-                            <SelectItem value="currency">סכום (₪)</SelectItem>
-                            <SelectItem value="quantity">כמות (מספר)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="text-white/70 text-sm mb-1.5 block">כיוון</label>
-                        <Select
-                          dir="rtl"
-                          value={formIsLowerBetter ? "lower" : "higher"}
-                          onValueChange={(v) => setFormIsLowerBetter(v === "lower")}
-                        >
-                          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="lower">נמוך = טוב (עלות)</SelectItem>
-                            <SelectItem value="higher">גבוה = טוב (הכנסה)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div>
+                      <label className="text-white/70 text-sm mb-1.5 block">כיוון</label>
+                      <Select
+                        dir="rtl"
+                        value={formIsLowerBetter ? "lower" : "higher"}
+                        onValueChange={(v) => setFormIsLowerBetter(v === "lower")}
+                      >
+                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="lower">נמוך = טוב (עלות)</SelectItem>
+                          <SelectItem value="higher">גבוה = טוב (הכנסה)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  </>
+                  </div>
                 )}
 
                 {/* Tiers (#37 — range support) */}
@@ -768,8 +817,15 @@ export default function BonusPlansPage() {
                         {plan.is_lower_better ? "נמוך = טוב" : "גבוה = טוב"}
                       </div>
 
-                      {/* Tiers */}
-                      <div className="grid grid-cols-3 gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+                      {/* Tiers — table layout */}
+                      <div className="rounded-lg border border-white/10 overflow-hidden mb-2 sm:mb-3">
+                        {/* Table header */}
+                        <div className="grid grid-cols-[1fr_1fr_1fr] bg-[#29318A]/40 text-[10px] sm:text-[11px] text-white/50">
+                          <div className="p-1.5 sm:p-2 text-center border-l border-white/10">רמה</div>
+                          <div className="p-1.5 sm:p-2 text-center border-l border-white/10">טווח</div>
+                          <div className="p-1.5 sm:p-2 text-center">בונוס ₪</div>
+                        </div>
+                        {/* Table rows */}
                         {[
                           { label: plan.tier1_label, threshold: plan.tier1_threshold, thresholdMax: plan.tier1_threshold_max, amount: plan.tier1_amount, tier: 1 as const },
                           { label: plan.tier2_label, threshold: plan.tier2_threshold, thresholdMax: plan.tier2_threshold_max, amount: plan.tier2_amount, tier: 2 as const },
@@ -777,22 +833,22 @@ export default function BonusPlansPage() {
                         ].map((t) => (
                           <div
                             key={t.tier}
-                            className={`border rounded-lg p-1.5 sm:p-2 text-center ${
+                            className={`grid grid-cols-[1fr_1fr_1fr] text-[12px] sm:text-[13px] border-t border-white/10 ${
                               status?.qualifiedTier === t.tier
                                 ? tierBadgeColor(t.tier)
-                                : "border-white/10 text-white/50"
+                                : "text-white/70"
                             }`}
                           >
-                            <div className="text-[10px] sm:text-[11px] mb-0.5 truncate">{t.label}</div>
-                            {t.threshold != null && (
-                              <div className="text-[9px] sm:text-[10px] opacity-70">
-                                {t.thresholdMax != null
+                            <div className="p-1.5 sm:p-2 text-center border-l border-white/10 truncate font-medium">{t.label}</div>
+                            <div className="p-1.5 sm:p-2 text-center border-l border-white/10 ltr-num opacity-80">
+                              {t.threshold != null
+                                ? t.thresholdMax != null
                                   ? `${formatValue(t.threshold, plan.measurement_type)} – ${formatValue(t.thresholdMax, plan.measurement_type)}`
                                   : `${plan.is_lower_better ? "≤" : "≥"} ${formatValue(t.threshold, plan.measurement_type)}`
-                                }
-                              </div>
-                            )}
-                            <div className="font-semibold text-[13px] sm:text-sm mt-0.5">{formatCurrency(t.amount)}</div>
+                                : "—"
+                              }
+                            </div>
+                            <div className="p-1.5 sm:p-2 text-center font-semibold">{formatCurrency(t.amount)}</div>
                           </div>
                         ))}
                       </div>
@@ -819,7 +875,7 @@ export default function BonusPlansPage() {
                                 )}
                               </>
                             ) : (
-                              <span className="opacity-70">אין נתונים לחודש הנוכחי</span>
+                              <span className="opacity-70">אין נתונים לחודש {selectedMonth}/{selectedYear}</span>
                             )}
                           </div>
                         </div>

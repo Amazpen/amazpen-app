@@ -209,7 +209,55 @@ export async function POST(request: NextRequest) {
 
         if (!notifError) notificationsCreated++;
 
-        // === 3. Send email via n8n ===
+        // === 3. Notify business managers/owners ===
+        const { data: managers } = await supabaseAdmin
+          .from("business_members")
+          .select("user_id")
+          .eq("business_id", plan.business_id)
+          .in("role", ["owner", "manager"])
+          .is("deleted_at", null)
+          .neq("user_id", plan.employee_user_id);
+
+        if (managers && managers.length > 0) {
+          const managerTitle = `עדכון בונוס — ${profile?.full_name || ""} — ${plan.area_name}`;
+          for (const mgr of managers) {
+            // In-app notification for manager
+            await supabaseAdmin.from("notifications").insert({
+              user_id: mgr.user_id,
+              business_id: plan.business_id,
+              title: managerTitle,
+              message,
+              type: "bonus",
+              is_read: false,
+              link: "/admin/bonus-plans",
+            });
+
+            // Web push for manager
+            const { data: mgrSubs } = await supabaseAdmin
+              .from("push_subscriptions")
+              .select("endpoint, p256dh, auth")
+              .eq("user_id", mgr.user_id);
+
+            if (mgrSubs && mgrSubs.length > 0) {
+              const mgrPayload = JSON.stringify({ title: managerTitle, message, url: "/admin/bonus-plans" });
+              for (const sub of mgrSubs) {
+                try {
+                  await webpush.sendNotification(
+                    { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                    mgrPayload
+                  );
+                } catch (err: unknown) {
+                  const pushErr = err as { statusCode?: number };
+                  if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
+                    await supabaseAdmin.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // === 4. Send email via n8n ===
         if (profile?.email) {
           try {
             const emailHtml = buildEmailHtml(plan, status, profile.full_name || "");
