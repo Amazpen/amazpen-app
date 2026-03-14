@@ -78,6 +78,7 @@ export interface OCRPaymentMethodEntry {
     date: string;
     dateForInput: string;
     amount: number;
+    checkNumber?: string;
   }>;
 }
 

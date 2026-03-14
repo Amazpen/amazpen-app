@@ -586,6 +586,17 @@ export default function OCRForm({
     }));
   };
 
+  const handleInstallmentCheckNumberChange = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, paymentMethodId: number, installmentIndex: number, value: string) => {
+    setter(prev => prev.map(p => {
+      if (p.id !== paymentMethodId) return p;
+      const updatedInstallments = [...p.customInstallments];
+      if (updatedInstallments[installmentIndex]) {
+        updatedInstallments[installmentIndex] = { ...updatedInstallments[installmentIndex], checkNumber: value };
+      }
+      return { ...p, customInstallments: updatedInstallments };
+    }));
+  };
+
   const handleInstallmentAmountChange = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, paymentMethodId: number, installmentIndex: number, newAmount: string) => {
     const amount = parseFloat(newAmount.replace(/[^\d.]/g, '')) || 0;
     setter(prev => prev.map(p => {
@@ -1082,20 +1093,6 @@ export default function OCRForm({
             </SelectContent>
           </Select>
 
-          {/* Check Number - only shown when payment method is check */}
-          {pm.method === 'check' && (
-            <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-              <Input
-                type="text"
-                inputMode="numeric"
-                value={pm.checkNumber}
-                onChange={(e) => updatePaymentMethodField(setter, methods, pm.id, 'checkNumber', e.target.value, dateStr)}
-                placeholder="מספר צ׳ק"
-                className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px] ltr-num"
-              />
-            </div>
-          )}
-
           {/* Credit Card Selection - only show when method is credit_card */}
           {pm.method === 'credit_card' && businessCreditCards.length > 0 && (
             <Select
@@ -1191,6 +1188,7 @@ export default function OCRForm({
                 <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
                   <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
                   <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
+                  {pm.method === 'check' && <span className="text-[14px] font-medium text-white/70 flex-1 text-center">מס׳ צ׳ק</span>}
                   <span className="text-[14px] font-medium text-white/70 flex-1 text-center">סכום</span>
                 </div>
                 <div className="flex flex-col gap-[8px] max-h-[200px] overflow-y-auto">
@@ -1204,6 +1202,19 @@ export default function OCRForm({
                           className="h-[36px] rounded-[7px] text-[14px]"
                         />
                       </div>
+                      {pm.method === 'check' && (
+                        <div className="flex-1">
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            title={`מספר צ׳ק תשלום ${item.number}`}
+                            value={item.checkNumber || ''}
+                            onChange={(e) => handleInstallmentCheckNumberChange(setter, pm.id, index, e.target.value)}
+                            placeholder="מס׳ צ׳ק"
+                            className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                          />
+                        </div>
+                      )}
                       <div className="flex-1 relative">
                         <Input
                           type="text"
@@ -1226,6 +1237,7 @@ export default function OCRForm({
                     <div className="flex items-center gap-[8px] border-t border-[#4C526B] pt-[8px] mt-[8px]">
                       <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה&quot;כ</span>
                       <span className="flex-1"></span>
+                      {pm.method === 'check' && <span className="flex-1"></span>}
                       <span className={`text-[14px] font-bold ltr-num flex-1 text-center ${isMismatch ? 'text-red-400' : 'text-white'}`}>
                         ₪{installmentsTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>

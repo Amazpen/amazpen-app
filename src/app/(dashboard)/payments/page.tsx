@@ -2060,6 +2060,20 @@ function PaymentsPageInner() {
         updated.creditCardId = "";
       }
 
+      // Auto-generate 1 installment row when check is selected (to show check number field)
+      if (field === "method" && value === "check") {
+        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+        const startDate = getEffectiveStartDate();
+        const date = startDate ? new Date(startDate) : new Date();
+        updated.customInstallments = [{
+          number: 1,
+          date: date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
+          dateForInput: toLocalDateStr(date),
+          amount: totalAmount,
+          checkNumber: "",
+        }];
+      }
+
       // Regenerate installments when installments count changes
       if (field === "installments") {
         const numInstallments = parseInt(value) || 1;
@@ -4034,19 +4048,6 @@ function PaymentsPageInner() {
                         </div>
                       )}
 
-                      {/* Check Number - shown after date for single installment check */}
-                      {pm.method === "check" && (parseInt(pm.installments) || 1) <= 1 && (
-                        <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] mt-[10px]">
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            value={pm.checkNumber}
-                            onChange={(e) => updatePaymentMethodField(pm.id, "checkNumber", e.target.value)}
-                            placeholder="מספר צ׳ק"
-                            className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px] ltr-num"
-                          />
-                        </div>
-                      )}
                     </div>
                   </div>
                   {pmIndex === 0 && (

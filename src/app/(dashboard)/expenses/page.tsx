@@ -662,6 +662,20 @@ function ExpensesPageInner() {
         updated.creditCardId = "";
       }
 
+      // Auto-generate 1 installment row when check is selected (to show check number field)
+      if (field === "method" && value === "check") {
+        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+        const startDate = getPopupEffectiveStartDate();
+        const date = startDate ? new Date(startDate) : new Date();
+        updated.customInstallments = [{
+          number: 1,
+          date: date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
+          dateForInput: toLocalDateStr(date),
+          amount: totalAmount,
+          checkNumber: "",
+        }];
+      }
+
       // Update installments when installments count changes - preserve existing dates
       if (field === "installments") {
         const numInstallments = parseInt(value) || 1;
@@ -4219,21 +4233,6 @@ function ExpensesPageInner() {
                               </SelectContent>
                             </Select>
 
-                            {/* Check Number - only show when method is check */}
-                            {pm.method === "check" && (
-                              <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                                <Input
-                                  type="text"
-                                  inputMode="numeric"
-                                  title="מספר צ'ק"
-                                  value={pm.checkNumber}
-                                  onChange={(e) => updatePopupPaymentMethodField(pm.id, "checkNumber", e.target.value)}
-                                  placeholder="מספר צ'ק..."
-                                  className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px]"
-                                />
-                              </div>
-                            )}
-
                             {/* Credit Card Selection - only show when method is credit_card */}
                             {pm.method === "credit_card" && businessCreditCards.length > 0 && (
                               <Select value={pm.creditCardId || "__none__"} onValueChange={(cardId) => {
@@ -4972,21 +4971,6 @@ function ExpensesPageInner() {
                         ))}
                       </SelectContent>
                     </Select>
-
-                    {/* Check Number - only show when method is check */}
-                    {pm.method === "check" && (
-                      <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-                        <Input
-                          type="text"
-                          inputMode="numeric"
-                          title="מספר צ'ק"
-                          value={pm.checkNumber}
-                          onChange={(e) => updatePopupPaymentMethodField(pm.id, "checkNumber", e.target.value)}
-                          placeholder="מספר צ'ק..."
-                          className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px]"
-                        />
-                      </div>
-                    )}
 
                     {/* Credit Card Selection - only show when method is credit_card */}
                     {pm.method === "credit_card" && businessCreditCards.length > 0 && (
