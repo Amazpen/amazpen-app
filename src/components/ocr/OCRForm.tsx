@@ -90,6 +90,7 @@ interface PaymentMethodEntry {
     date: string;
     dateForInput: string;
     amount: number;
+    checkNumber?: string;
   }>;
 }
 
@@ -512,6 +513,20 @@ export default function OCRForm({
       // Clear creditCardId when switching away from credit_card method
       if (field === 'method' && value !== 'credit_card') {
         updated.creditCardId = '';
+      }
+
+      // Auto-generate 1 installment row when check is selected (to show check number field)
+      if (field === 'method' && value === 'check') {
+        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
+        const startDate = getEffectiveStartDate(methods, dateStr);
+        const date = startDate ? new Date(startDate) : new Date();
+        updated.customInstallments = [{
+          number: 1,
+          date: date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+          dateForInput: date.toISOString().split('T')[0],
+          amount: totalAmount,
+          checkNumber: '',
+        }];
       }
 
       // Regenerate installments when installments count changes
