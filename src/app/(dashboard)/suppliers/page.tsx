@@ -431,7 +431,8 @@ export default function SuppliersPage() {
           remainingPayment = supplier.obligation_total_amount - totalPaid;
         } else {
           // Regular suppliers: use invoice balance (total_invoiced - total_paid)
-          remainingPayment = balance?.balance || 0;
+          // Clamp to 0 — negative balance means overpaid, not an open debt
+          remainingPayment = Math.max(balance?.balance || 0, 0);
         }
 
         // For suppliers with monthly_expense_amount, add current month expected expense
