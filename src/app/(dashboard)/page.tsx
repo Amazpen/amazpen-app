@@ -1509,23 +1509,25 @@ export default function DashboardPage() {
       const { data: incPrevYearBreakdown } = incPrevYearBreakdownResult;
 
       // Aggregate previous month data by income source
-      const incPrevMonthAggregates: Record<string, { totalAmount: number; ordersCount: number }> = {};
+      const incPrevMonthAggregates: Record<string, { totalAmount: number; ordersCount: number; entriesCount: number }> = {};
       (incPrevMonthBreakdown || []).forEach(b => {
         if (!incPrevMonthAggregates[b.income_source_id]) {
-          incPrevMonthAggregates[b.income_source_id] = { totalAmount: 0, ordersCount: 0 };
+          incPrevMonthAggregates[b.income_source_id] = { totalAmount: 0, ordersCount: 0, entriesCount: 0 };
         }
         incPrevMonthAggregates[b.income_source_id].totalAmount += Number(b.amount) || 0;
         incPrevMonthAggregates[b.income_source_id].ordersCount += Number(b.orders_count) || 0;
+        incPrevMonthAggregates[b.income_source_id].entriesCount += 1;
       });
 
       // Aggregate previous year data by income source
-      const incPrevYearAggregates: Record<string, { totalAmount: number; ordersCount: number }> = {};
+      const incPrevYearAggregates: Record<string, { totalAmount: number; ordersCount: number; entriesCount: number }> = {};
       (incPrevYearBreakdown || []).forEach(b => {
         if (!incPrevYearAggregates[b.income_source_id]) {
-          incPrevYearAggregates[b.income_source_id] = { totalAmount: 0, ordersCount: 0 };
+          incPrevYearAggregates[b.income_source_id] = { totalAmount: 0, ordersCount: 0, entriesCount: 0 };
         }
         incPrevYearAggregates[b.income_source_id].totalAmount += Number(b.amount) || 0;
         incPrevYearAggregates[b.income_source_id].ordersCount += Number(b.orders_count) || 0;
+        incPrevYearAggregates[b.income_source_id].entriesCount += 1;
       });
 
       // Calculate private vs business income + build income sources summary
@@ -1535,7 +1537,7 @@ export default function DashboardPage() {
       let businessCount = 0;
 
       // Aggregate by income source
-      const incomeSourceAggregates: Record<string, { totalAmount: number; ordersCount: number }> = {};
+      const incomeSourceAggregates: Record<string, { totalAmount: number; ordersCount: number; entriesCount: number }> = {};
 
       (breakdownData || []).forEach(b => {
         const source = (allIncomeSources || []).find(s => s.id === b.income_source_id);
@@ -1552,32 +1554,49 @@ export default function DashboardPage() {
 
         // Aggregate by source
         if (!incomeSourceAggregates[b.income_source_id]) {
-          incomeSourceAggregates[b.income_source_id] = { totalAmount: 0, ordersCount: 0 };
+          incomeSourceAggregates[b.income_source_id] = { totalAmount: 0, ordersCount: 0, entriesCount: 0 };
         }
         incomeSourceAggregates[b.income_source_id].totalAmount += amount;
         incomeSourceAggregates[b.income_source_id].ordersCount += orders;
+        incomeSourceAggregates[b.income_source_id].entriesCount += 1;
       });
 
       // Build income sources summary from ALL sources (not just those with data)
       const incomeSourcesList: IncomeSourceSummary[] = (allIncomeSources || []).map(source => {
-        const aggregate = incomeSourceAggregates[source.id] || { totalAmount: 0, ordersCount: 0 };
-        const avgAmount = aggregate.ordersCount > 0 ? aggregate.totalAmount / aggregate.ordersCount : 0;
+        const aggregate = incomeSourceAggregates[source.id] || { totalAmount: 0, ordersCount: 0, entriesCount: 0 };
+        // If orders exist, avg = totalAmount / ordersCount (average ticket)
+        // If no orders but entries exist (e.g. coupons), avg = totalAmount / entriesCount (average daily amount)
+        const avgAmount = aggregate.ordersCount > 0
+          ? aggregate.totalAmount / aggregate.ordersCount
+          : aggregate.entriesCount > 0
+            ? aggregate.totalAmount / aggregate.entriesCount
+            : 0;
         const avgTicketTarget = avgTicketTargetMap[source.id] || 0;
         const avgTicketDiff = avgAmount - avgTicketTarget; // הפרש: ממוצע בפועל - יעד
 
         // Previous month average for this income source
-        const prevAggregate = incPrevMonthAggregates[source.id] || { totalAmount: 0, ordersCount: 0 };
-        const prevMonthAvg = prevAggregate.ordersCount > 0 ? prevAggregate.totalAmount / prevAggregate.ordersCount : 0;
+        const prevAggregate = incPrevMonthAggregates[source.id] || { totalAmount: 0, ordersCount: 0, entriesCount: 0 };
+        const prevMonthAvg = prevAggregate.ordersCount > 0
+          ? prevAggregate.totalAmount / prevAggregate.ordersCount
+          : prevAggregate.entriesCount > 0
+            ? prevAggregate.totalAmount / prevAggregate.entriesCount
+            : 0;
         // אם אין נתונים מחודש קודם, הפרש = 0
-        const prevMonthChange = prevAggregate.ordersCount > 0 ? avgAmount - prevMonthAvg : 0;
+        const hasPrevMonthData = prevAggregate.ordersCount > 0 || prevAggregate.entriesCount > 0;
+        const prevMonthChange = hasPrevMonthData ? avgAmount - prevMonthAvg : 0;
 
         // Previous year average for this income source
-        const prevYearAggregate = incPrevYearAggregates[source.id] || { totalAmount: 0, ordersCount: 0 };
-        let prevYearAvg = prevYearAggregate.ordersCount > 0 ? prevYearAggregate.totalAmount / prevYearAggregate.ordersCount : 0;
+        const prevYearAggregate = incPrevYearAggregates[source.id] || { totalAmount: 0, ordersCount: 0, entriesCount: 0 };
+        let prevYearAvg = prevYearAggregate.ordersCount > 0
+          ? prevYearAggregate.totalAmount / prevYearAggregate.ordersCount
+          : prevYearAggregate.entriesCount > 0
+            ? prevYearAggregate.totalAmount / prevYearAggregate.entriesCount
+            : 0;
         // אם אין נתונים משנה שעברה, הפרש = 0
-        let prevYearChange = prevYearAggregate.ordersCount > 0 ? avgAmount - prevYearAvg : 0;
+        const hasPrevYearData = prevYearAggregate.ordersCount > 0 || prevYearAggregate.entriesCount > 0;
+        let prevYearChange = hasPrevYearData ? avgAmount - prevYearAvg : 0;
         // Fallback to monthly_summaries if no live data
-        if (prevYearAggregate.ordersCount === 0 && incPrevYearMonthlySummaries?.[0]) {
+        if (prevYearAggregate.ordersCount === 0 && prevYearAggregate.entriesCount === 0 && incPrevYearMonthlySummaries?.[0]) {
           const sourceIndex = (allIncomeSources || []).findIndex(s => s.id === source.id);
           if (sourceIndex >= 0 && sourceIndex < 4) {
             const historicalAvg = Number((incPrevYearMonthlySummaries[0] as Record<string, unknown>)[`avg_income_${sourceIndex + 1}`]) || 0;
@@ -2200,18 +2219,23 @@ export default function DashboardPage() {
         // Aggregate breakdowns by income source for this month's entries
         const monthEntryIds = new Set(monthEntries.map(e => e.id));
         const monthBreakdowns = relevantBreakdowns.filter(b => monthEntryIds.has(b.daily_entry_id));
-        const monthAggregates: Record<string, { totalAmount: number; ordersCount: number }> = {};
+        const monthAggregates: Record<string, { totalAmount: number; ordersCount: number; entriesCount: number }> = {};
         monthBreakdowns.forEach(b => {
           if (!monthAggregates[b.income_source_id]) {
-            monthAggregates[b.income_source_id] = { totalAmount: 0, ordersCount: 0 };
+            monthAggregates[b.income_source_id] = { totalAmount: 0, ordersCount: 0, entriesCount: 0 };
           }
           monthAggregates[b.income_source_id].totalAmount += Number(b.amount) || 0;
           monthAggregates[b.income_source_id].ordersCount += Number(b.orders_count) || 0;
+          monthAggregates[b.income_source_id].entriesCount += 1;
         });
 
         (allIncomeSources || []).forEach(source => {
           const agg = monthAggregates[source.id];
-          const avg = agg && agg.ordersCount > 0 ? agg.totalAmount / agg.ordersCount : 0;
+          const avg = agg && agg.ordersCount > 0
+            ? agg.totalAmount / agg.ordersCount
+            : agg && agg.entriesCount > 0
+              ? agg.totalAmount / agg.entriesCount
+              : 0;
           dataPoint[source.name] = Math.round(avg * 100) / 100;
         });
         chartData.push(dataPoint);
@@ -2340,17 +2364,22 @@ export default function DashboardPage() {
           // Order avg - breakdown by income source
           const dayDataPoint: { month: string; [key: string]: number | string } = { month: dayNum };
           const dayEntryIds = new Set(dayEntries.map(e => e.id));
-          const dayAggregates: Record<string, { totalAmount: number; ordersCount: number }> = {};
+          const dayAggregates: Record<string, { totalAmount: number; ordersCount: number; entriesCount: number }> = {};
           dayEntryIds.forEach(eid => {
             (breakdownsByEntry[eid] || []).forEach(b => {
-              if (!dayAggregates[b.income_source_id]) dayAggregates[b.income_source_id] = { totalAmount: 0, ordersCount: 0 };
+              if (!dayAggregates[b.income_source_id]) dayAggregates[b.income_source_id] = { totalAmount: 0, ordersCount: 0, entriesCount: 0 };
               dayAggregates[b.income_source_id].totalAmount += Number(b.amount) || 0;
               dayAggregates[b.income_source_id].ordersCount += Number(b.orders_count) || 0;
+              dayAggregates[b.income_source_id].entriesCount += 1;
             });
           });
           (allIncomeSources || []).forEach(source => {
             const agg = dayAggregates[source.id];
-            const avg = agg && agg.ordersCount > 0 ? agg.totalAmount / agg.ordersCount : 0;
+            const avg = agg && agg.ordersCount > 0
+              ? agg.totalAmount / agg.ordersCount
+              : agg && agg.entriesCount > 0
+                ? agg.totalAmount / agg.entriesCount
+                : 0;
             dayDataPoint[source.name] = Math.round(avg * 100) / 100;
           });
           dailyOrderAvgArr.push(dayDataPoint);
