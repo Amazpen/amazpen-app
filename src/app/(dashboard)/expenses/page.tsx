@@ -1021,10 +1021,10 @@ function ExpensesPageInner() {
               const supplierName = inv.supplier.name;
               const subtotal = Number(inv.subtotal);
               const categoryId = inv.supplier.expense_category_id;
-              // isFixed = supplier is fixed expense AND invoice has no attachment or no reference (same logic as bottom list's isFixedPending)
+              // isFixed = supplier is fixed expense AND invoice has no attachment AND no reference (closed = has image OR reference)
               const hasAttachment = inv.attachment_url && String(inv.attachment_url).trim() !== "";
-              const hasReference = inv.invoice_number && String(inv.invoice_number).trim() !== "";
-              const isFixed = (inv.supplier.is_fixed_expense || false) && (!hasAttachment || !hasReference);
+              const hasReference = inv.invoice_number && String(inv.invoice_number).trim() !== "" && inv.invoice_number !== "-";
+              const isFixed = (inv.supplier.is_fixed_expense || false) && (!hasAttachment && !hasReference);
 
               // Add to supplier totals (for chart/purchases tab)
               if (supplierTotals.has(supplierId)) {
@@ -1696,11 +1696,11 @@ function ExpensesPageInner() {
         showToast("תעודת המשלוח נשמרה בהצלחה", "success");
       } else if (linkToFixedInvoiceId) {
         // Link to existing fixed expense invoice — update it with real data
+        // IMPORTANT: Do NOT change invoice_date — preserve original month from auto-generation
         const { data: updatedInvoice, error: updateError } = await supabase
           .from("invoices")
           .update({
             invoice_number: invoiceNumber || null,
-            invoice_date: expenseDate,
             reference_date: referenceDate || null,
             subtotal: parseFloat(amountBeforeVat),
             vat_amount: calculatedVat,
@@ -3022,7 +3022,7 @@ function ExpensesPageInner() {
               }
               const headers = ["תאריך", "ספק", "אסמכתא", "סכום לפני מע״מ", "סכום כולל מע״מ", "סטטוס", "הערות"];
               const rows = filtered.map((inv) => {
-                const status = inv.isFixed && (inv.attachmentUrls.length === 0 || !inv.reference) ? "ה.קבועה" : inv.status;
+                const status = inv.isFixed && (inv.attachmentUrls.length === 0 && !inv.reference) ? "ה.קבועה" : inv.status;
                 return [
                   inv.date,
                   `"${inv.supplier.replace(/"/g, '""')}"`,
@@ -3155,7 +3155,7 @@ function ExpensesPageInner() {
               </div>
             ) : filtered.map((invoice) => {
               // Fixed expense that still needs attachment or reference - show purple
-              const isFixedPending = invoice.isFixed && (invoice.attachmentUrls.length === 0 || !invoice.reference);
+              const isFixedPending = invoice.isFixed && (invoice.attachmentUrls.length === 0 && !invoice.reference);
               return (
               <div
                 key={invoice.id}
@@ -3885,6 +3885,8 @@ function ExpensesPageInner() {
                             onClick={() => {
                               setLinkToFixedInvoiceId(inv.id);
                               setAmountBeforeVat(String(inv.subtotal));
+                              // Auto-set expense date to the original invoice date
+                              setExpenseDate(inv.invoice_date);
                               if (supplierInfo.vat_type === "none") {
                                 setPartialVat(true);
                                 setVatAmount("0");
@@ -4703,6 +4705,8 @@ function ExpensesPageInner() {
                             onClick={() => {
                               setLinkToFixedInvoiceId(inv.id);
                               setAmountBeforeVat(String(inv.subtotal));
+                              // Auto-set expense date to the original invoice date
+                              setExpenseDate(inv.invoice_date);
                               if (supplierInfo.vat_type === "none") {
                                 setPartialVat(true);
                                 setVatAmount("0");
