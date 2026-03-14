@@ -20,6 +20,33 @@ const LazyResponsiveContainer = dynamic(() => import("recharts").then((mod) => (
 
 const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 
+// Batch large .in() queries to avoid URL length limits (503 errors)
+const BATCH_SIZE = 100;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function batchedIn<T>(
+  supabase: ReturnType<typeof createClient>,
+  table: string,
+  selectCols: string,
+  filterCol: string,
+  ids: string[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  extraFilters?: (q: any) => any
+): Promise<T[]> {
+  if (ids.length === 0) return [];
+  const results: T[] = [];
+  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+    const batch = ids.slice(i, i + BATCH_SIZE);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = supabase.from(table).select(selectCols).in(filterCol, batch);
+    if (extraFilters) {
+      query = extraFilters(query);
+    }
+    const { data } = await query;
+    if (data) results.push(...(data as T[]));
+  }
+  return results;
+}
+
 // Format currency as full number with comma separators
 const formatCurrencyFull = (amount: number) => {
   const isNegative = amount < 0;
@@ -313,34 +340,24 @@ export function HistoryModal({
         const entryIds = entries.map(e => e.id);
         const prevEntryIds = prevEntries.map(e => e.id);
 
-        // Fetch breakdowns
-        const [breakdownResult, prevBreakdownResult, goalsResult, _incomeSourceGoalsResult] = await Promise.all([
-          entryIds.length > 0
-            ? supabase
-                .from("daily_income_breakdown")
-                .select("daily_entry_id, income_source_id, amount, orders_count")
-                .in("daily_entry_id", entryIds)
-                .eq("income_source_id", sourceId)
-            : Promise.resolve({ data: [] }),
-          prevEntryIds.length > 0
-            ? supabase
-                .from("daily_income_breakdown")
-                .select("daily_entry_id, income_source_id, amount, orders_count")
-                .in("daily_entry_id", prevEntryIds)
-                .eq("income_source_id", sourceId)
-            : Promise.resolve({ data: [] }),
+        // Fetch breakdowns (batched to avoid URL length limits)
+        const [breakdowns, prevBreakdowns, goalsResult] = await Promise.all([
+          batchedIn<{ daily_entry_id: string; income_source_id: string; amount: number; orders_count: number }>(
+            supabase, "daily_income_breakdown", "daily_entry_id, income_source_id, amount, orders_count",
+            "daily_entry_id", entryIds, (q) => q.eq("income_source_id", sourceId)
+          ),
+          batchedIn<{ daily_entry_id: string; income_source_id: string; amount: number; orders_count: number }>(
+            supabase, "daily_income_breakdown", "daily_entry_id, income_source_id, amount, orders_count",
+            "daily_entry_id", prevEntryIds, (q) => q.eq("income_source_id", sourceId)
+          ),
           supabase
             .from("goals")
             .select("id, year, month")
             .in("business_id", businessIds)
             .eq("year", year)
             .is("deleted_at", null),
-          // Will need to fetch after getting goal IDs
-          Promise.resolve({ data: [] }),
         ]);
 
-        const breakdowns = breakdownResult.data || [];
-        const prevBreakdowns = prevBreakdownResult.data || [];
         const goals = goalsResult.data || [];
 
         // Fetch income source goals
@@ -704,26 +721,17 @@ export function HistoryModal({
         const entryIds = entries.map(e => e.id);
         const prevEntryIds = prevEntries.map(e => e.id);
 
-        // Fetch product usage
-        const [usageResult, prevUsageResult] = await Promise.all([
-          entryIds.length > 0
-            ? supabase
-                .from("daily_product_usage")
-                .select("daily_entry_id, quantity")
-                .in("daily_entry_id", entryIds)
-                .eq("product_id", sourceId)
-            : Promise.resolve({ data: [] }),
-          prevEntryIds.length > 0
-            ? supabase
-                .from("daily_product_usage")
-                .select("daily_entry_id, quantity")
-                .in("daily_entry_id", prevEntryIds)
-                .eq("product_id", sourceId)
-            : Promise.resolve({ data: [] }),
+        // Fetch product usage (batched to avoid URL length limits)
+        const [usage, prevUsage] = await Promise.all([
+          batchedIn<{ daily_entry_id: string; quantity: number }>(
+            supabase, "daily_product_usage", "daily_entry_id, quantity",
+            "daily_entry_id", entryIds, (q) => q.eq("product_id", sourceId)
+          ),
+          batchedIn<{ daily_entry_id: string; quantity: number }>(
+            supabase, "daily_product_usage", "daily_entry_id, quantity",
+            "daily_entry_id", prevEntryIds, (q) => q.eq("product_id", sourceId)
+          ),
         ]);
-
-        const usage = usageResult.data || [];
-        const prevUsage = prevUsageResult.data || [];
 
         // Map entry ID to month
         const entryMonthMap: Record<string, number> = {};
