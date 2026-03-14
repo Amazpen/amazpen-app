@@ -103,6 +103,10 @@ const LazyTooltip = dynamic(
   () => import("recharts").then((mod) => ({ default: mod.Tooltip })),
   { ssr: false }
 );
+const LazyReferenceLine = dynamic(
+  () => import("recharts").then((mod) => ({ default: mod.ReferenceLine })),
+  { ssr: false }
+);
 
 // Chart skeleton loader
 const ChartSkeleton = () => (
@@ -4038,6 +4042,21 @@ export default function DashboardPage() {
                             fill={colors[index % colors.length]}
                             radius={[4, 4, 0, 0]}
                             barSize={16}
+                          />
+                        );
+                      })}
+                      {incomeSourcesSummary.map((source, index) => {
+                        const colors = ['#FFA800', '#C618CA', '#BBF417'];
+                        if (!source.avgTicketTarget || source.avgTicketTarget <= 0) return null;
+                        return (
+                          <LazyReferenceLine
+                            key={`target-${source.id}`}
+                            y={source.avgTicketTarget}
+                            stroke={colors[index % colors.length]}
+                            strokeDasharray="6 3"
+                            strokeWidth={2}
+                            strokeOpacity={0.7}
+                            label={{ value: `יעד ₪${source.avgTicketTarget}`, position: 'right', fill: colors[index % colors.length], fontSize: 10 }}
                           />
                         );
                       })}
