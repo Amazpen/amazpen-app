@@ -4192,13 +4192,23 @@ export default function DashboardPage() {
                     </LazyBarChart>
                   </SafeChartContainer>
                 </div>
-                <div className="flex flex-row-reverse justify-center gap-6 mt-3">
+                <div className="flex flex-row-reverse justify-center gap-8 mt-3">
                   <div className="flex flex-row-reverse items-center gap-2">
-                    <span className="text-white text-[11px]">יעד</span>
+                    <div className="flex flex-col items-end">
+                      <span className="text-white text-[11px]">יעד עלות מכר</span>
+                      <span className="text-[#0095FF] font-bold text-[12px] ltr-num">
+                        ₪{detailedSummary ? Math.round((detailedSummary.foodCostTargetPct / 100) * detailedSummary.incomeBeforeVat).toLocaleString('he-IL') : 0} {detailedSummary ? Math.round(detailedSummary.foodCostTargetPct) : 0}%
+                      </span>
+                    </div>
                     <div className="w-[10px] h-[10px] bg-[#0095FF] rounded-[2px]"></div>
                   </div>
                   <div className="flex flex-row-reverse items-center gap-2">
-                    <span className="text-white text-[11px]">בפועל</span>
+                    <div className="flex flex-col items-end">
+                      <span className="text-white text-[11px]">עלות מכר בפועל</span>
+                      <span className="text-[#00E096] font-bold text-[12px] ltr-num">
+                        ₪{detailedSummary ? detailedSummary.foodCost.toLocaleString('he-IL', { maximumFractionDigits: 0 }) : 0} {detailedSummary ? detailedSummary.foodCostPct.toFixed(1) : 0}%
+                      </span>
+                    </div>
                     <div className="w-[10px] h-[10px] bg-[#00E096] rounded-[2px]"></div>
                   </div>
                 </div>
@@ -4408,13 +4418,34 @@ export default function DashboardPage() {
                     </LazyBarChart>
                   </SafeChartContainer>
                 </div>
-                <div className="flex flex-row-reverse justify-center gap-6 mt-3">
+                <div className="flex flex-row-reverse justify-center gap-8 mt-3">
                   <div className="flex flex-row-reverse items-center gap-2">
-                    <span className="text-white text-[11px]">יעד</span>
+                    <div className="flex flex-col items-end">
+                      <span className="text-white text-[11px]">יעד {managedProductsSummary[0]?.name || 'מוצר מנוהל'}</span>
+                      <span className="text-[#0095FF] font-bold text-[12px] ltr-num">
+                        {(() => {
+                          const product = managedProductsSummary[0];
+                          if (!product || !detailedSummary) return '₪0 0%';
+                          const targetPct = product.targetPct || 0;
+                          const targetAmount = Math.round((targetPct / 100) * detailedSummary.incomeBeforeVat);
+                          return `₪${targetAmount.toLocaleString('he-IL')} ${Math.round(targetPct)}%`;
+                        })()}
+                      </span>
+                    </div>
                     <div className="w-[10px] h-[10px] bg-[#0095FF] rounded-[2px]"></div>
                   </div>
                   <div className="flex flex-row-reverse items-center gap-2">
-                    <span className="text-white text-[11px]">בפועל</span>
+                    <div className="flex flex-col items-end">
+                      <span className="text-white text-[11px]">{managedProductsSummary[0]?.name || 'מוצר מנוהל'} בפועל</span>
+                      <span className="text-[#00E096] font-bold text-[12px] ltr-num">
+                        {(() => {
+                          const product = managedProductsSummary[0];
+                          if (!product || !detailedSummary) return '₪0 0%';
+                          const actualPct = detailedSummary.incomeBeforeVat > 0 ? (product.totalCost / detailedSummary.incomeBeforeVat) * 100 : 0;
+                          return `₪${product.totalCost.toLocaleString('he-IL', { maximumFractionDigits: 0 })} ${actualPct.toFixed(1)}%`;
+                        })()}
+                      </span>
+                    </div>
                     <div className="w-[10px] h-[10px] bg-[#00E096] rounded-[2px]"></div>
                   </div>
                 </div>
