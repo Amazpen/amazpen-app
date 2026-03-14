@@ -90,6 +90,8 @@ interface MonthData {
   valuePct: number | null; // Percentage value (for cost cards)
   targetDiffPct: number;
   yoyChangePct: number;
+  quantity: number | null; // כמות (orders count, product quantity, etc.)
+  momChangePct: number; // שינוי מחודש קודם %
 }
 
 interface HistoryModalProps {
@@ -112,6 +114,7 @@ export function HistoryModal({
   const [year, setYear] = useState(() => new Date().getFullYear());
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
   const [monthlyData, setMonthlyData] = useState<MonthData[]>([]);
+  const isCostCard = ['laborCost', 'foodCost', 'managedProduct', 'currentExpenses'].includes(cardType);
   const [isLoading, setIsLoading] = useState(false);
   const [availableYears, setAvailableYears] = useState<number[]>([new Date().getFullYear()]);
 
@@ -217,11 +220,13 @@ export function HistoryModal({
         const monthlySummaries = monthlySummariesResult.data || [];
         const prevMonthlySummaries = prevMonthlySummariesResult.data || [];
 
-        // Group by month
+        // Group by month (value + day count for quantity)
         const byMonth: Record<number, number> = {};
+        const dayCountByMonth: Record<number, number> = {};
         entries.forEach(e => {
           const m = parseInt(e.entry_date.substring(5, 7));
           byMonth[m] = (byMonth[m] || 0) + (Number(e.total_register) || 0);
+          dayCountByMonth[m] = (dayCountByMonth[m] || 0) + 1;
         });
 
         const prevByMonth: Record<number, number> = {};
@@ -280,6 +285,8 @@ export function HistoryModal({
             valuePct: null,
             targetDiffPct,
             yoyChangePct,
+            quantity: dayCountByMonth[m] || null,
+            momChangePct: 0,
           });
         }
       } else if (cardType === 'incomeSource' && sourceId) {
@@ -397,6 +404,8 @@ export function HistoryModal({
             valuePct: null,
             targetDiffPct,
             yoyChangePct,
+            quantity: data.orders > 0 ? data.orders : null,
+            momChangePct: 0,
           });
         }
       } else if (cardType === 'laborCost') {
@@ -515,6 +524,8 @@ export function HistoryModal({
             valuePct: laborPct,
             targetDiffPct,
             yoyChangePct,
+            quantity: null,
+            momChangePct: 0,
           });
         }
       } else if (cardType === 'foodCost' || cardType === 'currentExpenses') {
@@ -649,6 +660,8 @@ export function HistoryModal({
             valuePct: costPct,
             targetDiffPct,
             yoyChangePct,
+            quantity: null,
+            momChangePct: 0,
           });
         }
       } else if (cardType === 'managedProduct' && sourceId) {
@@ -767,7 +780,30 @@ export function HistoryModal({
             valuePct: costPct,
             targetDiffPct,
             yoyChangePct,
+            quantity: quantity > 0 ? quantity : null,
+            momChangePct: 0,
           });
+        }
+      }
+
+      // Calculate month-over-month change for all card types
+      for (let i = 0; i < results.length; i++) {
+        if (i === 0) {
+          results[i].momChangePct = 0;
+          continue;
+        }
+        const curr = isCostCard ? (results[i].valuePct ?? 0) : results[i].value;
+        const prev = isCostCard ? (results[i - 1].valuePct ?? 0) : results[i - 1].value;
+        if (prev > 0 && curr > 0) {
+          if (isCostCard) {
+            // For cost cards: difference in percentage points
+            results[i].momChangePct = curr - prev;
+          } else {
+            // For revenue cards: percentage change
+            results[i].momChangePct = ((curr / prev) - 1) * 100;
+          }
+        } else {
+          results[i].momChangePct = 0;
         }
       }
 
@@ -783,9 +819,8 @@ export function HistoryModal({
     fetchData();
   }, [fetchData]);
 
-  // Determine column headers based on card type
-  const isCostCard = ['laborCost', 'foodCost', 'managedProduct', 'currentExpenses'].includes(cardType);
-  // valueHeader / valueAmountHeader removed - unused
+  // Check if any month has quantity data
+  const hasQuantityData = monthlyData.some(row => row.quantity !== null && row.quantity > 0);
 
   const getValueColor = (row: MonthData) => {
     if (row.value === 0 && (row.valuePct === null || row.valuePct === 0)) return 'text-white';
@@ -894,8 +929,16 @@ export function HistoryModal({
                         {cardTitle}{"\n"}(%)
                       </TableHead>
                     )}
+                    {hasQuantityData && (
+                      <TableHead className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
+                        כמות
+                      </TableHead>
+                    )}
                     <TableHead className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
                       הפרש מהיעד<br/>%
+                    </TableHead>
+                    <TableHead className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
+                      שינוי מחודש{"\n"}קודם %
                     </TableHead>
                     <TableHead className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
                       שינוי משנה שעברה<br/>%
@@ -925,9 +968,21 @@ export function HistoryModal({
                           </span>
                         </TableCell>
                       )}
+                      {hasQuantityData && (
+                        <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
+                          <span className="text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num text-white">
+                            {row.quantity !== null ? row.quantity.toLocaleString("he-IL") : '0'}
+                          </span>
+                        </TableCell>
+                      )}
                       <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
                         <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getDiffColor(row.targetDiffPct)}`}>
                           {row.value === 0 && (row.valuePct === null || row.valuePct === 0) ? '0%' : formatPercentWithSign(row.targetDiffPct)}
+                        </span>
+                      </TableCell>
+                      <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
+                        <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getDiffColor(row.momChangePct)}`}>
+                          {idx === 0 || (row.value === 0 && (row.valuePct === null || row.valuePct === 0)) ? '-' : formatPercentWithSign(row.momChangePct)}
                         </span>
                       </TableCell>
                       <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t rounded-tl-[10px]' : ''} ${isLast ? 'border-b rounded-bl-[10px]' : ''}`}>
