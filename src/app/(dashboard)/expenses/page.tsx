@@ -1566,7 +1566,7 @@ function ExpensesPageInner() {
     setIsOcrProcessing(true);
     setOcrProcessingStep("מעלה את הקובץ...");
     try {
-      // Convert PDF to image for better OCR results
+      // For PDFs: convert to image since Google Vision images:annotate doesn't accept PDF
       let fileToSend = file;
       if (file.type === "application/pdf") {
         setOcrProcessingStep("ממיר PDF לתמונה...");
