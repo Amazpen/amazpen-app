@@ -9,18 +9,26 @@ function getVisionApiUrl(): string {
 export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/avif"];
 
-/** OCR an image file using Google Cloud Vision API */
+/** OCR an image file using Google Cloud Vision API, with OpenAI Vision fallback */
 export async function ocrImage(file: File): Promise<string> {
-  if (!getVisionApiKey()) {
-    throw new Error("GOOGLE_VISION_API_KEY is not configured");
-  }
-
   console.log(`[OCR] ocrImage called: type=${file.type}, size=${file.size}`);
   const buffer = await file.arrayBuffer();
   const base64 = Buffer.from(buffer).toString("base64");
   console.log(`[OCR] base64 length: ${base64.length}`);
 
-  return callVisionOCR(base64);
+  // Try Google Vision first
+  if (getVisionApiKey()) {
+    try {
+      const text = await callVisionOCR(base64);
+      if (text && text.length >= 5) return text;
+      console.log("[OCR] Google Vision returned too little text, trying OpenAI Vision");
+    } catch (err) {
+      console.error("[OCR] Google Vision failed, falling back to OpenAI Vision:", err);
+    }
+  }
+
+  // Fallback to OpenAI Vision
+  return ocrWithOpenAIVision(base64, file.type || "image/png");
 }
 
 /**
@@ -153,8 +161,8 @@ async function callVisionOCR(base64: string): Promise<string> {
 
   if (!res.ok) {
     const errBody = await res.text();
-    console.error("[OCR] Vision API error:", res.status, errBody);
-    throw new Error("Vision API request failed");
+    console.error("[OCR] Vision API error:", res.status, errBody.substring(0, 500));
+    throw new Error(`Vision API request failed: ${res.status} — ${errBody.substring(0, 200)}`);
   }
 
   const data = await res.json();
