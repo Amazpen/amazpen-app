@@ -741,7 +741,7 @@ export default function BonusPlansPage() {
                   {formPushEnabled && (
                     <div>
                       <label className="text-white/70 text-sm mb-1.5 block">ימי שליחה</label>
-                      <div className="flex flex-row-reverse gap-1.5">
+                      <div className="flex flex-row gap-1.5">
                         {[
                           { day: 0, label: "א׳" },
                           { day: 1, label: "ב׳" },
