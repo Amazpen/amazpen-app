@@ -1077,7 +1077,7 @@ export default function ReportsPage() {
                                   {supplier.target}
                                 </span>
                               </div>
-                              <div className="flex flex-col items-end shrink-0 w-[90px] sm:w-[140px] gap-[1px]">
+                              <div className="flex flex-col items-start shrink-0 w-[90px] sm:w-[140px] gap-[1px]">
                                 <span className={`text-[10px] sm:text-[12px] font-normal text-right leading-[1.4] break-words ${supplier.hasUnapproved ? 'text-purple-400' : 'text-white'}`}>{supplier.name}</span>
                               </div>
                             </div>
