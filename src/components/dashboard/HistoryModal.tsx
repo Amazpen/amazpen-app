@@ -118,6 +118,7 @@ interface MonthData {
   targetDiffPct: number;
   yoyChangePct: number;
   quantity: number | null; // כמות (orders count, product quantity, etc.)
+  quantityPrev: number | null; // כמות שנה שעברה
   momChangePct: number; // שינוי מחודש קודם %
 }
 
@@ -313,6 +314,7 @@ export function HistoryModal({
             targetDiffPct,
             yoyChangePct,
             quantity: dayCountByMonth[m] || null,
+            quantityPrev: null,
             momChangePct: 0,
           });
         }
@@ -422,6 +424,7 @@ export function HistoryModal({
             targetDiffPct,
             yoyChangePct,
             quantity: data.orders > 0 ? data.orders : null,
+            quantityPrev: prevData.orders > 0 ? prevData.orders : null,
             momChangePct: 0,
           });
         }
@@ -542,6 +545,7 @@ export function HistoryModal({
             targetDiffPct,
             yoyChangePct,
             quantity: null,
+            quantityPrev: null,
             momChangePct: 0,
           });
         }
@@ -678,6 +682,7 @@ export function HistoryModal({
             targetDiffPct,
             yoyChangePct,
             quantity: null,
+            quantityPrev: null,
             momChangePct: 0,
           });
         }
@@ -789,6 +794,7 @@ export function HistoryModal({
             targetDiffPct,
             yoyChangePct,
             quantity: quantity > 0 ? quantity : null,
+            quantityPrev: prevQuantity > 0 ? prevQuantity : null,
             momChangePct: 0,
           });
         }
@@ -937,11 +943,6 @@ export function HistoryModal({
                         {cardTitle}{"\n"}(%)
                       </TableHead>
                     )}
-                    {hasQuantityData && (
-                      <TableHead className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
-                        כמות
-                      </TableHead>
-                    )}
                     <TableHead className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
                       הפרש מהיעד<br/>%
                     </TableHead>
@@ -973,13 +974,6 @@ export function HistoryModal({
                         <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
                           <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getValueColor(row)}`}>
                             {row.valuePct !== null ? formatPercent(row.valuePct) : '0%'}
-                          </span>
-                        </TableCell>
-                      )}
-                      {hasQuantityData && (
-                        <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
-                          <span className="text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num text-white">
-                            {row.quantity !== null ? row.quantity.toLocaleString("he-IL") : '0'}
                           </span>
                         </TableCell>
                       )}
@@ -1071,6 +1065,82 @@ export function HistoryModal({
                   </LazyAreaChart>
                 </SafeChartContainer>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quantities Table — below the chart */}
+        {!isLoading && hasQuantityData && (
+          <div className="px-[5px] pb-[25px]">
+            <div className="rounded-[20px] p-[5px_5px_25px] overflow-hidden" style={{ backgroundColor: 'rgb(41, 49, 138)' }}>
+              {/* Title */}
+              <div className="flex flex-col items-center gap-[3px] py-[12px]">
+                <h3 className="text-white text-[20px] font-bold leading-[1.4] text-center">
+                  {cardTitle}
+                </h3>
+                <span className="text-white/70 text-[14px] font-normal leading-[1.4] text-center">
+                  כמויות לאורך השנה <span className="ltr-num">{year}</span>
+                </span>
+              </div>
+
+              <Table className="w-full border-separate" style={{ borderSpacing: '3px 0' }} dir="rtl">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-white text-[14px] lg:text-[16px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom min-w-[55px]">
+                      תאריך/{"\n"}חודש
+                    </TableHead>
+                    <TableHead className="text-white text-[14px] lg:text-[16px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
+                      כמות{"\n"}הזמנות
+                    </TableHead>
+                    <TableHead className="text-white text-[14px] lg:text-[16px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom whitespace-pre-line">
+                      שינוי מחודש{"\n"}שעבר
+                    </TableHead>
+                    <TableHead className="text-white text-[14px] lg:text-[16px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom whitespace-pre-line">
+                      שינוי משנה{"\n"}שעברה
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {monthlyData.map((row, idx) => {
+                    const isFirst = idx === 0;
+                    const isLast = idx === monthlyData.length - 1;
+                    const qty = row.quantity ?? 0;
+                    const prevMonthQty = idx > 0 ? (monthlyData[idx - 1].quantity ?? 0) : 0;
+                    const prevYearQty = row.quantityPrev ?? 0;
+                    const qtyMomChange = idx > 0 && prevMonthQty > 0 && qty > 0
+                      ? ((qty / prevMonthQty) - 1) * 100
+                      : 0;
+                    const qtyYoyChange = prevYearQty > 0 && qty > 0
+                      ? ((qty / prevYearQty) - 1) * 100
+                      : 0;
+
+                    return (
+                      <TableRow key={row.month}>
+                        <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t rounded-tr-[10px]' : ''} ${isLast ? 'border-b rounded-br-[10px]' : ''}`}>
+                          <span className="text-white text-[13px] lg:text-[15px] font-normal leading-[1.4]">
+                            {row.monthName}
+                          </span>
+                        </TableCell>
+                        <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
+                          <span className="text-white text-[13px] lg:text-[15px] font-bold leading-[1.4] ltr-num">
+                            {qty > 0 ? qty.toLocaleString("he-IL") : '-'}
+                          </span>
+                        </TableCell>
+                        <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t' : ''} ${isLast ? 'border-b' : ''}`}>
+                          <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${qtyMomChange > 0 ? 'text-[#17DB4E]' : qtyMomChange < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                            {idx === 0 || qty === 0 ? '-' : formatPercentWithSign(qtyMomChange)}
+                          </span>
+                        </TableCell>
+                        <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t rounded-tl-[10px]' : ''} ${isLast ? 'border-b rounded-bl-[10px]' : ''}`}>
+                          <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${qtyYoyChange > 0 ? 'text-[#17DB4E]' : qtyYoyChange < 0 ? 'text-[#F64E60]' : 'text-white'}`}>
+                            {qty === 0 ? '-' : prevYearQty > 0 ? formatPercentWithSign(qtyYoyChange) : '-'}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}
