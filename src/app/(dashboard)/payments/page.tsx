@@ -3721,7 +3721,7 @@ function PaymentsPageInner() {
                                     <div
                                       className={`grid grid-cols-[24px_1fr_1fr_1fr_40px_50px] gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 items-center cursor-pointer ${
                                         selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""
-                                      }`}
+                                      } ${inv.status === "clarification" ? "border border-[#FFA500]/50 bg-[#FFA500]/5" : ""}`}
                                       onClick={() => toggleInvoiceSelection(inv.id)}
                                     >
                                         {/* Checkbox */}
@@ -3746,6 +3746,7 @@ function PaymentsPageInner() {
                                         <span className="text-[13px] text-white text-center ltr-num">
                                           ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                           {inv.status === "paid" && <span className="text-[10px] text-green-400 mr-[3px]">(שולם)</span>}
+                                          {inv.status === "clarification" && <span className="text-[10px] text-[#FFA500] mr-[3px]">(בבירור)</span>}
                                         </span>
                                         {/* Thumbnail */}
                                         <div className="flex items-center justify-center" onClick={(e) => { e.stopPropagation(); if (attachmentUrls.length > 0) setViewerDocUrl(attachmentUrls[0]); }}>
