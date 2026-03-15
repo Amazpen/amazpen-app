@@ -133,6 +133,20 @@ export async function POST(request: NextRequest) {
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
 
+    // Get Israel day-of-week for push_days filter
+    const israelDate = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Jerusalem" }));
+    const israelDay = israelDate.getDay(); // 0=Sunday..6=Saturday
+
+    // Filter plans: only send on days included in push_days
+    const filteredPlans = plans.filter((p: BonusPlan) => {
+      const pushDays = p.push_days || [0, 1, 2, 3, 4, 5, 6]; // default: all days
+      return pushDays.includes(israelDay);
+    });
+
+    if (filteredPlans.length === 0) {
+      return NextResponse.json({ processed: 0, message: `No plans for day ${israelDay}` });
+    }
+
     // Setup webpush
     const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
     const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY!;
@@ -149,7 +163,7 @@ export async function POST(request: NextRequest) {
     let emailsSent = 0;
     let notificationsCreated = 0;
 
-    for (const plan of plans as BonusPlan[]) {
+    for (const plan of filteredPlans as BonusPlan[]) {
       try {
         // Resolve KPI status
         const status = await resolveBonusPlanStatus(supabaseAdmin, plan, year, month);

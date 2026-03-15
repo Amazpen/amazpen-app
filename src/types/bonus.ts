@@ -21,6 +21,7 @@ export interface BonusPlan {
   tier3_amount: number;
   push_enabled: boolean;
   push_hour: number;
+  push_days: number[]; // 0=Sunday..6=Saturday
   is_active: boolean;
   notes: string | null;
   tips: string | null;

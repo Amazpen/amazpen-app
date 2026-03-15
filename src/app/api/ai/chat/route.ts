@@ -1723,19 +1723,38 @@ function buildTools(
             return { plans: [], note: "אין תכניות בונוס פעילות" };
           }
 
-          // Data source labels for display
+          // Fetch real income source & managed product names for this business
+          const { data: incomeSources } = await adminSupabase
+            .from("income_sources")
+            .select("name")
+            .eq("business_id", bizId)
+            .eq("is_active", true)
+            .is("deleted_at", null)
+            .order("display_order");
+          const incNames = (incomeSources || []).map((s: { name: string }) => s.name);
+
+          const { data: managedProducts } = await adminSupabase
+            .from("managed_products")
+            .select("name")
+            .eq("business_id", bizId)
+            .eq("is_active", true)
+            .is("deleted_at", null)
+            .order("created_at");
+          const mpNames = (managedProducts || []).map((p: { name: string }) => p.name);
+
+          // Data source labels for display (with real names)
           const sourceLabels: Record<string, string> = {
             labor_cost_pct: "עלות עובדים (%)",
             food_cost_pct: "עלות מכר (%)",
             revenue: "סה״כ מכירות (צפי חודשי)",
             current_expenses: "הוצאות שוטפות",
             goods_expenses: "רכישות סחורה",
-            avg_ticket_1: "ממוצע להזמנה — מקור 1",
-            avg_ticket_2: "ממוצע להזמנה — מקור 2",
-            avg_ticket_3: "ממוצע להזמנה — מקור 3",
-            managed_product_1: "מוצר מנוהל 1",
-            managed_product_2: "מוצר מנוהל 2",
-            managed_product_3: "מוצר מנוהל 3",
+            avg_ticket_1: `ממוצע להזמנה — ${incNames[0] || "מקור 1"}`,
+            avg_ticket_2: `ממוצע להזמנה — ${incNames[1] || "מקור 2"}`,
+            avg_ticket_3: `ממוצע להזמנה — ${incNames[2] || "מקור 3"}`,
+            managed_product_1: `מוצר מנוהל — ${mpNames[0] || "1"}`,
+            managed_product_2: `מוצר מנוהל — ${mpNames[1] || "2"}`,
+            managed_product_3: `מוצר מנוהל — ${mpNames[2] || "3"}`,
             profitability: "רווחיות (דוח רו״ה)",
             custom: "מותאם אישית",
           };

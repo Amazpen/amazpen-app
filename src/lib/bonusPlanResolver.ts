@@ -149,18 +149,32 @@ async function resolveAvgTicketStatus(
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const nextMonth = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`;
 
-  // Get avg ticket from daily_income_breakdown
-  const { data: avgData } = await supabase.rpc("exec_sql", {
-    query: `SELECT
-      CASE WHEN COALESCE(SUM(dib.orders_count), 0) > 0
-        THEN SUM(dib.amount) / SUM(dib.orders_count) ELSE 0 END as avg_ticket
-    FROM public.daily_income_breakdown dib
-    JOIN public.daily_entries de ON de.id = dib.daily_entry_id
-    WHERE dib.income_source_id = '${sourceId}'
-      AND de.business_id = '${plan.business_id}'
-      AND de.entry_date >= '${monthStart}' AND de.entry_date < '${nextMonth}'
-      AND de.deleted_at IS NULL`
-  }).maybeSingle();
+  // Get daily entries for this month to find their IDs
+  const { data: entries } = await supabase
+    .from("daily_entries")
+    .select("id")
+    .eq("business_id", plan.business_id)
+    .gte("entry_date", monthStart)
+    .lt("entry_date", nextMonth)
+    .is("deleted_at", null);
+
+  let currentValue: number | null = null;
+
+  if (entries && entries.length > 0) {
+    const entryIds = entries.map((e: { id: string }) => e.id);
+    // Get income breakdown for this source across all daily entries
+    const { data: breakdowns } = await supabase
+      .from("daily_income_breakdown")
+      .select("amount, orders_count")
+      .eq("income_source_id", sourceId)
+      .in("daily_entry_id", entryIds);
+
+    if (breakdowns && breakdowns.length > 0) {
+      const totalAmount = breakdowns.reduce((sum: number, r: { amount: number }) => sum + Number(r.amount || 0), 0);
+      const totalOrders = breakdowns.reduce((sum: number, r: { orders_count: number }) => sum + Number(r.orders_count || 0), 0);
+      currentValue = totalOrders > 0 ? totalAmount / totalOrders : 0;
+    }
+  }
 
   // Get goal (avg_ticket_target from income_source_goals)
   const { data: goalData } = await supabase
@@ -169,10 +183,7 @@ async function resolveAvgTicketStatus(
     .eq("income_source_id", sourceId)
     .maybeSingle();
 
-  const avgRecord = avgData as Record<string, unknown> | null;
-  const goalRecord = goalData as Record<string, unknown> | null;
-  const currentValue = avgRecord?.avg_ticket != null ? Number(avgRecord.avg_ticket) : null;
-  const goalValue = goalRecord?.avg_ticket_target != null ? Number(goalRecord.avg_ticket_target) : null;
+  const goalValue = goalData?.avg_ticket_target != null ? Number(goalData.avg_ticket_target) : null;
 
   if (currentValue === null) {
     return { currentValue: null, goalValue, qualifiedTier: null, bonusAmount: 0 };

@@ -75,6 +75,10 @@ export default function BonusPlansPage() {
   // Employees for selected business
   const [employees, setEmployees] = useState<Employee[]>([]);
 
+  // Dynamic names for data source labels
+  const [incomeSourceNames, setIncomeSourceNames] = useState<string[]>([]);
+  const [managedProductNames, setManagedProductNames] = useState<string[]>([]);
+
   // Month/Year selector
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
@@ -110,6 +114,7 @@ export default function BonusPlansPage() {
   const [formTier3Amount, setFormTier3Amount] = useState("");
   const [formPushEnabled, setFormPushEnabled] = useState(true);
   const [formPushHour, setFormPushHour] = useState("8");
+  const [formPushDays, setFormPushDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [formNotes, setFormNotes] = useState("");
   const [formTips, setFormTips] = useState("");
 
@@ -181,6 +186,28 @@ export default function BonusPlansPage() {
       }
     }
     fetchEmployees();
+
+    // Fetch income sources & managed products for dynamic labels
+    async function fetchDynamicNames() {
+      const { data: sources } = await supabase
+        .from("income_sources")
+        .select("name")
+        .eq("business_id", selectedBusinessId)
+        .eq("is_active", true)
+        .is("deleted_at", null)
+        .order("display_order");
+      setIncomeSourceNames((sources || []).map((s: { name: string }) => s.name));
+
+      const { data: products } = await supabase
+        .from("managed_products")
+        .select("name")
+        .eq("business_id", selectedBusinessId)
+        .eq("is_active", true)
+        .is("deleted_at", null)
+        .order("created_at");
+      setManagedProductNames((products || []).map((p: { name: string }) => p.name));
+    }
+    fetchDynamicNames();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasAccess, selectedBusinessId]);
 
@@ -254,6 +281,7 @@ export default function BonusPlansPage() {
     setFormTier3Amount("");
     setFormPushEnabled(true);
     setFormPushHour("8");
+    setFormPushDays([0, 1, 2, 3, 4, 5, 6]);
     setFormNotes("");
     setFormTips("");
   }, []);
@@ -281,6 +309,7 @@ export default function BonusPlansPage() {
     setFormTier3Amount(plan.tier3_amount.toString());
     setFormPushEnabled(plan.push_enabled);
     setFormPushHour(plan.push_hour.toString());
+    setFormPushDays(plan.push_days || [0, 1, 2, 3, 4, 5, 6]);
     setFormNotes(plan.notes || "");
     setFormTips(plan.tips || "");
     setShowForm(true);
@@ -336,6 +365,7 @@ export default function BonusPlansPage() {
       tier3_amount: tier3Amt,
       push_enabled: formPushEnabled,
       push_hour: parseInt(formPushHour),
+      push_days: formPushDays,
       notes: formNotes.trim() || null,
       tips: formTips.trim() || null,
       updated_at: new Date().toISOString(),
@@ -366,7 +396,7 @@ export default function BonusPlansPage() {
     formTier1Label, formTier1Threshold, formTier1ThresholdMax, formTier1Amount,
     formTier2Label, formTier2Threshold, formTier2ThresholdMax, formTier2Amount,
     formTier3Label, formTier3Threshold, formTier3ThresholdMax, formTier3Amount,
-    formPushEnabled, formPushHour, formNotes, formTips,
+    formPushEnabled, formPushHour, formPushDays, formNotes, formTips,
     editingPlanId, resetForm, fetchPlans,
   ]);
 
@@ -418,9 +448,18 @@ export default function BonusPlansPage() {
     [employees]
   );
 
-  const getDataSourceLabel = useCallback((source: string) => {
+  const getDataSourceLabel = useCallback((source: string, customLabel?: string | null) => {
+    if (source === "custom" && customLabel) return customLabel;
+    // Dynamic labels for income sources
+    if (source === "avg_ticket_1" && incomeSourceNames[0]) return `ממוצע להזמנה — ${incomeSourceNames[0]}`;
+    if (source === "avg_ticket_2" && incomeSourceNames[1]) return `ממוצע להזמנה — ${incomeSourceNames[1]}`;
+    if (source === "avg_ticket_3" && incomeSourceNames[2]) return `ממוצע להזמנה — ${incomeSourceNames[2]}`;
+    // Dynamic labels for managed products
+    if (source === "managed_product_1" && managedProductNames[0]) return `מוצר מנוהל — ${managedProductNames[0]}`;
+    if (source === "managed_product_2" && managedProductNames[1]) return `מוצר מנוהל — ${managedProductNames[1]}`;
+    if (source === "managed_product_3" && managedProductNames[2]) return `מוצר מנוהל — ${managedProductNames[2]}`;
     return DATA_SOURCE_OPTIONS.find((o) => o.value === source)?.label || source;
-  }, []);
+  }, [incomeSourceNames, managedProductNames]);
 
   // ===== Render =====
 
@@ -572,7 +611,7 @@ export default function BonusPlansPage() {
                     <SelectContent>
                       {DATA_SOURCE_OPTIONS.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {getDataSourceLabel(o.value)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -631,77 +670,107 @@ export default function BonusPlansPage() {
                 {/* Tiers (#37 — range support) */}
                 <div>
                   <label className="text-white/70 text-sm mb-2 block">רמות בונוס</label>
-                  {/* Desktop: 4-column grid */}
-                  <div className="hidden sm:grid grid-cols-[1fr_1fr_1fr_1fr] gap-1 mb-1 px-1">
-                    <span className="text-[11px] text-white/40 text-center">שם</span>
-                    <span className="text-[11px] text-white/40 text-center">מ-</span>
-                    <span className="text-[11px] text-white/40 text-center">עד</span>
-                    <span className="text-[11px] text-white/40 text-center">בונוס ₪</span>
-                  </div>
-                  <div className="flex flex-col gap-3">
+                  <div className="rounded-[10px] border border-[#4C526B] overflow-hidden">
+                    {/* Header */}
+                    <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] gap-0 bg-[#29318A]/40 text-[11px] sm:text-[12px] text-white/50">
+                      <div className="p-2 text-center border-l border-white/10">שם רמה</div>
+                      <div className="p-2 text-center border-l border-white/10">מ-</div>
+                      <div className="p-2 text-center border-l border-white/10">עד</div>
+                      <div className="p-2 text-center">בונוס ₪</div>
+                    </div>
                     {/* Tier 1 */}
-                    <div className="flex flex-col sm:grid sm:grid-cols-[1fr_1fr_1fr_1fr] gap-2">
-                      <input type="text" value={formTier1Label} onChange={(e) => setFormTier1Label(e.target.value)} placeholder="שם רמה" className="h-[42px] sm:h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-right text-sm placeholder:text-white/30" />
-                      <div className="grid grid-cols-3 gap-2">
-                        <input type="number" value={formTier1Threshold} onChange={(e) => setFormTier1Threshold(e.target.value)} placeholder={formMeasurementType === "percentage" ? "מ- %" : formMeasurementType === "currency" ? "מ- ₪" : "מ-"} step="0.1" className="h-[42px] sm:h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-2 outline-none text-center text-sm placeholder:text-white/30" inputMode="decimal" />
-                        <input type="number" value={formTier1ThresholdMax} onChange={(e) => setFormTier1ThresholdMax(e.target.value)} placeholder={formMeasurementType === "percentage" ? "עד %" : formMeasurementType === "currency" ? "עד ₪" : "עד"} step="0.1" className="h-[42px] sm:h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-2 outline-none text-center text-sm placeholder:text-white/30" inputMode="decimal" />
-                        <input type="number" value={formTier1Amount} onChange={(e) => setFormTier1Amount(e.target.value)} placeholder="בונוס ₪" className="h-[42px] sm:h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-2 outline-none text-center text-sm placeholder:text-white/30" inputMode="numeric" />
-                      </div>
+                    <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] gap-0 border-t border-[#4C526B]">
+                      <input type="text" value={formTier1Label} onChange={(e) => setFormTier1Label(e.target.value)} placeholder="עמידה ביעד" className="h-[42px] bg-[#0F1535] text-white px-2 outline-none text-right text-[13px] placeholder:text-white/30 border-l border-[#4C526B]" />
+                      <input type="number" value={formTier1Threshold} onChange={(e) => setFormTier1Threshold(e.target.value)} placeholder={formMeasurementType === "percentage" ? "%" : "₪"} step="0.1" className="h-[42px] bg-[#0F1535] text-white px-2 outline-none text-center text-[13px] placeholder:text-white/30 border-l border-[#4C526B]" inputMode="decimal" />
+                      <input type="number" value={formTier1ThresholdMax} onChange={(e) => setFormTier1ThresholdMax(e.target.value)} placeholder={formMeasurementType === "percentage" ? "%" : "₪"} step="0.1" className="h-[42px] bg-[#0F1535] text-white px-2 outline-none text-center text-[13px] placeholder:text-white/30 border-l border-[#4C526B]" inputMode="decimal" />
+                      <input type="number" value={formTier1Amount} onChange={(e) => setFormTier1Amount(e.target.value)} placeholder="₪" className="h-[42px] bg-[#0F1535] text-white px-2 outline-none text-center text-[13px] placeholder:text-white/30" inputMode="numeric" />
                     </div>
                     {/* Tier 2 */}
-                    <div className="flex flex-col sm:grid sm:grid-cols-[1fr_1fr_1fr_1fr] gap-2">
-                      <input type="text" value={formTier2Label} onChange={(e) => setFormTier2Label(e.target.value)} placeholder="שם רמה" className="h-[42px] sm:h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-right text-sm placeholder:text-white/30" />
-                      <div className="grid grid-cols-3 gap-2">
-                        <input type="number" value={formTier2Threshold} onChange={(e) => setFormTier2Threshold(e.target.value)} placeholder={formMeasurementType === "percentage" ? "מ- %" : formMeasurementType === "currency" ? "מ- ₪" : "מ-"} step="0.1" className="h-[42px] sm:h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-2 outline-none text-center text-sm placeholder:text-white/30" inputMode="decimal" />
-                        <input type="number" value={formTier2ThresholdMax} onChange={(e) => setFormTier2ThresholdMax(e.target.value)} placeholder={formMeasurementType === "percentage" ? "עד %" : formMeasurementType === "currency" ? "עד ₪" : "עד"} step="0.1" className="h-[42px] sm:h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-2 outline-none text-center text-sm placeholder:text-white/30" inputMode="decimal" />
-                        <input type="number" value={formTier2Amount} onChange={(e) => setFormTier2Amount(e.target.value)} placeholder="בונוס ₪" className="h-[42px] sm:h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-2 outline-none text-center text-sm placeholder:text-white/30" inputMode="numeric" />
-                      </div>
+                    <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] gap-0 border-t border-[#4C526B]">
+                      <input type="text" value={formTier2Label} onChange={(e) => setFormTier2Label(e.target.value)} placeholder="שיפור קטן" className="h-[42px] bg-[#0F1535] text-white px-2 outline-none text-right text-[13px] placeholder:text-white/30 border-l border-[#4C526B]" />
+                      <input type="number" value={formTier2Threshold} onChange={(e) => setFormTier2Threshold(e.target.value)} placeholder={formMeasurementType === "percentage" ? "%" : "₪"} step="0.1" className="h-[42px] bg-[#0F1535] text-white px-2 outline-none text-center text-[13px] placeholder:text-white/30 border-l border-[#4C526B]" inputMode="decimal" />
+                      <input type="number" value={formTier2ThresholdMax} onChange={(e) => setFormTier2ThresholdMax(e.target.value)} placeholder={formMeasurementType === "percentage" ? "%" : "₪"} step="0.1" className="h-[42px] bg-[#0F1535] text-white px-2 outline-none text-center text-[13px] placeholder:text-white/30 border-l border-[#4C526B]" inputMode="decimal" />
+                      <input type="number" value={formTier2Amount} onChange={(e) => setFormTier2Amount(e.target.value)} placeholder="₪" className="h-[42px] bg-[#0F1535] text-white px-2 outline-none text-center text-[13px] placeholder:text-white/30" inputMode="numeric" />
                     </div>
                     {/* Tier 3 */}
-                    <div className="flex flex-col sm:grid sm:grid-cols-[1fr_1fr_1fr_1fr] gap-2">
-                      <input type="text" value={formTier3Label} onChange={(e) => setFormTier3Label(e.target.value)} placeholder="שם רמה" className="h-[42px] sm:h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-right text-sm placeholder:text-white/30" />
-                      <div className="grid grid-cols-3 gap-2">
-                        <input type="number" value={formTier3Threshold} onChange={(e) => setFormTier3Threshold(e.target.value)} placeholder={formMeasurementType === "percentage" ? "מ- %" : formMeasurementType === "currency" ? "מ- ₪" : "מ-"} step="0.1" className="h-[42px] sm:h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-2 outline-none text-center text-sm placeholder:text-white/30" inputMode="decimal" />
-                        <input type="number" value={formTier3ThresholdMax} onChange={(e) => setFormTier3ThresholdMax(e.target.value)} placeholder={formMeasurementType === "percentage" ? "עד %" : formMeasurementType === "currency" ? "עד ₪" : "עד"} step="0.1" className="h-[42px] sm:h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-2 outline-none text-center text-sm placeholder:text-white/30" inputMode="decimal" />
-                        <input type="number" value={formTier3Amount} onChange={(e) => setFormTier3Amount(e.target.value)} placeholder="בונוס ₪" className="h-[42px] sm:h-[45px] bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-2 outline-none text-center text-sm placeholder:text-white/30" inputMode="numeric" />
-                      </div>
+                    <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] gap-0 border-t border-[#4C526B]">
+                      <input type="text" value={formTier3Label} onChange={(e) => setFormTier3Label(e.target.value)} placeholder="שיפור משמעותי" className="h-[42px] bg-[#0F1535] text-white px-2 outline-none text-right text-[13px] placeholder:text-white/30 border-l border-[#4C526B]" />
+                      <input type="number" value={formTier3Threshold} onChange={(e) => setFormTier3Threshold(e.target.value)} placeholder={formMeasurementType === "percentage" ? "%" : "₪"} step="0.1" className="h-[42px] bg-[#0F1535] text-white px-2 outline-none text-center text-[13px] placeholder:text-white/30 border-l border-[#4C526B]" inputMode="decimal" />
+                      <input type="number" value={formTier3ThresholdMax} onChange={(e) => setFormTier3ThresholdMax(e.target.value)} placeholder={formMeasurementType === "percentage" ? "%" : "₪"} step="0.1" className="h-[42px] bg-[#0F1535] text-white px-2 outline-none text-center text-[13px] placeholder:text-white/30 border-l border-[#4C526B]" inputMode="decimal" />
+                      <input type="number" value={formTier3Amount} onChange={(e) => setFormTier3Amount(e.target.value)} placeholder="₪" className="h-[42px] bg-[#0F1535] text-white px-2 outline-none text-center text-[13px] placeholder:text-white/30" inputMode="numeric" />
                     </div>
                   </div>
                 </div>
 
                 {/* Push settings */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-white/70 text-sm mb-1.5 block">פוש יומי</label>
-                    <Select
-                      dir="rtl"
-                      value={formPushEnabled ? "on" : "off"}
-                      onValueChange={(v) => setFormPushEnabled(v === "on")}
-                    >
-                      <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="on">מופעל</SelectItem>
-                        <SelectItem value="off">כבוי</SelectItem>
-                      </SelectContent>
-                    </Select>
+                <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-white/70 text-sm mb-1.5 block">פוש יומי</label>
+                      <Select
+                        dir="rtl"
+                        value={formPushEnabled ? "on" : "off"}
+                        onValueChange={(v) => setFormPushEnabled(v === "on")}
+                      >
+                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="on">מופעל</SelectItem>
+                          <SelectItem value="off">כבוי</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-white/70 text-sm mb-1.5 block">שעת שליחה</label>
+                      <Select dir="rtl" value={formPushHour} onValueChange={setFormPushHour}>
+                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <SelectItem key={i} value={i.toString()}>
+                              {i.toString().padStart(2, "0")}:00
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-white/70 text-sm mb-1.5 block">שעת שליחה</label>
-                    <Select dir="rtl" value={formPushHour} onValueChange={setFormPushHour}>
-                      <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 24 }, (_, i) => (
-                          <SelectItem key={i} value={i.toString()}>
-                            {i.toString().padStart(2, "0")}:00
-                          </SelectItem>
+                  {/* Day-of-week selection */}
+                  {formPushEnabled && (
+                    <div>
+                      <label className="text-white/70 text-sm mb-1.5 block">ימי שליחה</label>
+                      <div className="flex flex-row-reverse gap-1.5">
+                        {[
+                          { day: 0, label: "א׳" },
+                          { day: 1, label: "ב׳" },
+                          { day: 2, label: "ג׳" },
+                          { day: 3, label: "ד׳" },
+                          { day: 4, label: "ה׳" },
+                          { day: 5, label: "ו׳" },
+                          { day: 6, label: "ש׳" },
+                        ].map(({ day, label }) => (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => {
+                              setFormPushDays((prev) =>
+                                prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+                              );
+                            }}
+                            className={`w-[36px] h-[36px] rounded-lg text-[13px] font-medium transition-colors ${
+                              formPushDays.includes(day)
+                                ? "bg-[#4A56D4] text-white border border-[#4A56D4]"
+                                : "bg-[#0F1535] text-white/40 border border-[#4C526B] hover:text-white/70"
+                            }`}
+                          >
+                            {label}
+                          </button>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Tips for employee */}
@@ -807,10 +876,7 @@ export default function BonusPlansPage() {
 
                       {/* Data source */}
                       <div className="text-white/40 text-[11px] sm:text-xs mb-2 sm:mb-3">
-                        מקור: {getDataSourceLabel(plan.data_source)}
-                        {plan.data_source === "custom" && plan.custom_source_label && (
-                          <span> — {plan.custom_source_label}</span>
-                        )}
+                        מקור: {getDataSourceLabel(plan.data_source, plan.custom_source_label)}
                         {" · "}
                         {plan.measurement_type === "percentage" ? "%" : plan.measurement_type === "currency" ? "₪" : "כמות"}
                         {" · "}
@@ -884,7 +950,11 @@ export default function BonusPlansPage() {
                       {/* Push info */}
                       {plan.push_enabled && (
                         <div className="text-white/30 text-[11px] mt-2">
-                          פוש יומי בשעה {plan.push_hour.toString().padStart(2, "0")}:00
+                          פוש בשעה {plan.push_hour.toString().padStart(2, "0")}:00
+                          {plan.push_days && plan.push_days.length < 7 && (
+                            <span> · {plan.push_days.sort((a, b) => a - b).map((d) => ["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"][d]).join(" ")}</span>
+                          )}
+                          {(!plan.push_days || plan.push_days.length === 7) && <span> · כל יום</span>}
                         </div>
                       )}
                     </div>
