@@ -317,18 +317,7 @@ export default function ReportsPage() {
         setPriorLiabilitiesItems(activeCommitments.sort((a, b) => Number(b.monthly_amount) - Number(a.monthly_amount)));
 
         // Fetch all payment splits due this month (cash flow forecast actual)
-        const { data: allSplits } = await supabase
-          .from("payment_splits")
-          .select(`
-            amount,
-            payment:payments!inner(id, business_id, deleted_at)
-          `)
-          .gte("due_date", startDate)
-          .lte("due_date", endDate)
-          .is("payment.deleted_at", null)
-          .in("payment.business_id", selectedBusinesses);
-
-        const totalForecastActual = (allSplits || []).reduce((sum, s) => sum + Number(s.amount || 0), 0);
+        // payment_splits query removed — cash flow actual is now calculated from operatingProfit
 
         // Fetch schedule for expected work days calculation
         const { data: scheduleData } = await supabase
@@ -728,9 +717,11 @@ export default function ReportsPage() {
           netProfitPct: operatingProfitPct,
         });
 
-        // Cash flow forecast: target = revenue (before VAT) - ALL expenses target (labor + food + current)
-        const forecastTarget = revenueTargetBeforeVat - allExpensesTarget;
-        setCashFlowForecast({ target: forecastTarget, actual: totalForecastActual });
+        // Cash flow forecast: target = revenue (before VAT) - ALL expenses target (labor + food + current) - prior commitments
+        const forecastTarget = revenueTargetBeforeVat - allExpensesTarget - totalPriorLiabilities;
+        // Actual cash flow: operating profit (revenue - actual expenses) - prior commitments
+        const forecastActual = operatingProfit - totalPriorLiabilities;
+        setCashFlowForecast({ target: forecastTarget, actual: forecastActual });
 
       } catch (error) {
         console.error("Error fetching reports data:", error);
