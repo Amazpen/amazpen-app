@@ -280,7 +280,7 @@ export default function ReportsPage() {
             .is("deleted_at", null),
           supabase
             .from("invoices")
-            .select("subtotal, supplier_id, status, supplier:suppliers(name, expense_category_id, expense_type)")
+            .select("subtotal, supplier_id, status, invoice_number, attachment_url, supplier:suppliers(name, expense_category_id, expense_type, is_fixed_expense)")
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
             .in("invoice_type", ["current", "goods", "employees"])
@@ -392,7 +392,7 @@ export default function ReportsPage() {
         const supplierActuals = new Map<string, number>();
         const supplierNames = new Map<string, string>();
         const supplierExpenseTypes = new Map<string, string>();
-        // Track suppliers with unapproved invoices (#22 - show in purple)
+        // Track suppliers with open fixed expenses (#22 - show in purple)
         const suppliersWithUnapproved = new Set<string>();
         // Track which category each supplier belongs to (for 3-level drill-down)
         const supplierCategoryMap = new Map<string, string>();
@@ -401,7 +401,7 @@ export default function ReportsPage() {
         let totalCredits = 0; // Track credits/cancellations (#30)
         if (invoicesData) {
           for (const inv of invoicesData) {
-            const supplier = inv.supplier as unknown as { name: string | null; expense_category_id: string | null; expense_type: string | null } | null;
+            const supplier = inv.supplier as unknown as { name: string | null; expense_category_id: string | null; expense_type: string | null; is_fixed_expense: boolean | null } | null;
             const catId = supplier?.expense_category_id;
             const expType = supplier?.expense_type;
             const supplierId = (inv as unknown as { supplier_id: string | null }).supplier_id;
@@ -419,9 +419,12 @@ export default function ReportsPage() {
               if (supplier?.name) supplierNames.set(supplierId, supplier.name);
               if (catId) supplierCategoryMap.set(supplierId, catId);
               if (expType) supplierExpenseTypes.set(supplierId, expType);
-              // Track unapproved invoices (#22)
-              const invStatus = (inv as unknown as { status: string | null }).status;
-              if (invStatus && invStatus !== "approved") {
+              // Track open fixed expenses (#22) — same logic as expenses page
+              const invRaw = inv as unknown as { invoice_number: string | null; attachment_url: string | null };
+              const hasAttachment = invRaw.attachment_url && String(invRaw.attachment_url).trim() !== "";
+              const hasReference = invRaw.invoice_number && String(invRaw.invoice_number).trim() !== "" && invRaw.invoice_number !== "-";
+              const isOpenFixed = (supplier?.is_fixed_expense || false) && !hasAttachment && !hasReference;
+              if (isOpenFixed) {
                 suppliersWithUnapproved.add(supplierId);
               }
             }
@@ -457,6 +460,8 @@ export default function ReportsPage() {
                 if (catId) categoryActuals.set(catId, (categoryActuals.get(catId) || 0) + budgetAmount);
                 if (supplier.expense_type === "current_expenses") totalCurrentExpenses += budgetAmount;
                 else if (supplier.expense_type === "goods_purchases") totalGoodsExpenses += budgetAmount;
+                // No invoice at all → still open fixed expense → purple
+                suppliersWithUnapproved.add(supplierId);
               }
             }
           }
