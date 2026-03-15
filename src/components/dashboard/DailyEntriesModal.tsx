@@ -112,6 +112,7 @@ interface DailyEntriesModalProps {
   businessId: string;
   businessName: string;
   dateRange: { start: Date; end: Date };
+  onDataChanged?: () => void;
 }
 
 export function DailyEntriesModal({
@@ -120,6 +121,7 @@ export function DailyEntriesModal({
   businessId,
   businessName,
   dateRange,
+  onDataChanged,
 }: DailyEntriesModalProps) {
   const { showToast } = useToast();
   const { isAdmin } = useDashboard();
@@ -612,6 +614,7 @@ export function DailyEntriesModal({
       clearDraft();
       setEditingEntry(null);
       setRefreshTrigger((prev) => prev + 1);
+      onDataChanged?.();
       showToast("הנתונים עודכנו בהצלחה", "success");
     } catch (err) {
       console.error("Error updating entry:", err);
@@ -977,6 +980,7 @@ export function DailyEntriesModal({
           setExpandedEntryId(null);
           setEntryDetails(null);
         }
+        onDataChanged?.();
         showToast("הרשומה נמחקה בהצלחה", "success");
       } else {
         showToast("שגיאה במחיקת הרשומה", "error");

@@ -4531,6 +4531,7 @@ export default function DashboardPage() {
           businessId={(selectedBusinesses[0] || realBusinessId) as string}
           businessName={businessCards.find(b => b.id === (selectedBusinesses[0] || realBusinessId))?.name || ""}
           dateRange={dateRange}
+          onDataChanged={() => setRefreshTrigger(prev => prev + 1)}
         />
       )}
 
