@@ -1566,8 +1566,19 @@ function ExpensesPageInner() {
     setIsOcrProcessing(true);
     setOcrProcessingStep("מעלה את הקובץ...");
     try {
+      // Convert PDF to image for better OCR results
+      let fileToSend = file;
+      if (file.type === "application/pdf") {
+        setOcrProcessingStep("ממיר PDF לתמונה...");
+        try {
+          fileToSend = await convertPdfToImage(file);
+        } catch (pdfErr) {
+          console.warn("[OCR] PDF to image conversion failed, sending as-is:", pdfErr);
+        }
+      }
+
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", fileToSend);
       fd.append("suppliers", JSON.stringify(suppliers.map((s) => ({ id: s.id, name: s.name }))));
 
       setOcrProcessingStep("סורק טקסט מהמסמך...");
