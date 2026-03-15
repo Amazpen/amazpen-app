@@ -153,6 +153,9 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
     setFormData(prev => prev.entry_date === "" ? { ...prev, entry_date: getToday() } : prev);
   }, []);
 
+  // Date picker popover open state
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
+
   // Pearla-specific form state
   const [pearlaData, setPearlaData] = useState({
     portions_count: "",
@@ -1016,7 +1019,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
               <>
                 {/* Pearla-specific form fields */}
                 <FormField label="תאריך האירוע">
-                  <Popover>
+                  <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
                     <PopoverTrigger asChild>
                       <button
                         type="button"
@@ -1037,6 +1040,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                             const mm = String(date.getMonth() + 1).padStart(2, '0');
                             const dd = String(date.getDate()).padStart(2, '0');
                             handleChange("entry_date", `${yyyy}-${mm}-${dd}`);
+                            setDatePopoverOpen(false);
                           }
                         }}
                         defaultMonth={formData.entry_date ? new Date(formData.entry_date + "T00:00:00") : undefined}
@@ -1155,7 +1159,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
               <>
                 {/* Original form fields for all other businesses */}
                 <FormField label="תאריך">
-                  <Popover>
+                  <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
                     <PopoverTrigger asChild>
                       <button
                         type="button"
@@ -1176,6 +1180,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                             const mm = String(date.getMonth() + 1).padStart(2, '0');
                             const dd = String(date.getDate()).padStart(2, '0');
                             handleChange("entry_date", `${yyyy}-${mm}-${dd}`);
+                            setDatePopoverOpen(false);
                           }
                         }}
                         defaultMonth={formData.entry_date ? new Date(formData.entry_date + "T00:00:00") : undefined}
