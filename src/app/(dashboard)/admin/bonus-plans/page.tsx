@@ -461,6 +461,21 @@ export default function BonusPlansPage() {
     return DATA_SOURCE_OPTIONS.find((o) => o.value === source)?.label || source;
   }, [incomeSourceNames, managedProductNames]);
 
+  // Filter data source options based on what actually exists in the selected business
+  const filteredDataSourceOptions = DATA_SOURCE_OPTIONS.filter((o) => {
+    // Always show these
+    if (["revenue", "labor_cost_pct", "food_cost_pct", "current_expenses", "goods_expenses", "profitability", "custom"].includes(o.value)) return true;
+    // Income sources: only show if the business has that many
+    if (o.value === "avg_ticket_1") return incomeSourceNames.length >= 1;
+    if (o.value === "avg_ticket_2") return incomeSourceNames.length >= 2;
+    if (o.value === "avg_ticket_3") return incomeSourceNames.length >= 3;
+    // Managed products: only show if the business has that many
+    if (o.value === "managed_product_1") return managedProductNames.length >= 1;
+    if (o.value === "managed_product_2") return managedProductNames.length >= 2;
+    if (o.value === "managed_product_3") return managedProductNames.length >= 3;
+    return true;
+  });
+
   // ===== Render =====
 
   if (isLoading) {
@@ -609,7 +624,7 @@ export default function BonusPlansPage() {
                       <SelectValue placeholder="בחר מקור נתונים..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {DATA_SOURCE_OPTIONS.map((o) => (
+                      {filteredDataSourceOptions.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
                           {getDataSourceLabel(o.value)}
                         </SelectItem>
