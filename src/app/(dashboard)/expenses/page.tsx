@@ -2323,6 +2323,16 @@ function ExpensesPageInner() {
         updateData.clarification_reason = null;
       }
 
+      // If moving away from "paid", soft-delete linked payments
+      const invoice = recentInvoices.find(inv => inv.id === statusConfirm.invoiceId);
+      if (invoice?.status === 'שולם' && statusConfirm.newStatus !== 'paid') {
+        await supabase
+          .from("payments")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("invoice_id", statusConfirm.invoiceId)
+          .is("deleted_at", null);
+      }
+
       const { error } = await supabase
         .from("invoices")
         .update(updateData)
@@ -2353,6 +2363,16 @@ function ExpensesPageInner() {
     const supabase = createClient();
 
     try {
+      // If moving away from "paid", soft-delete linked payments
+      const invoice = recentInvoices.find(inv => inv.id === clarificationInvoiceId);
+      if (invoice?.status === 'שולם') {
+        await supabase
+          .from("payments")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("invoice_id", clarificationInvoiceId)
+          .is("deleted_at", null);
+      }
+
       const updateData: Record<string, unknown> = {
         status: "clarification",
         clarification_reason: statusClarificationReason,
