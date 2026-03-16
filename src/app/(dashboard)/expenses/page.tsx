@@ -1978,6 +1978,19 @@ function ExpensesPageInner() {
         }
 
         showToast("ההוצאה נשמרה בהצלחה", "success");
+
+        // Check budget excess and send alert (fire-and-forget)
+        if (newInvoice && selectedSupplier) {
+          fetch("/api/budget-alert", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              business_id: selectedBusinesses[0],
+              supplier_id: selectedSupplier,
+              invoice_subtotal: parseFloat(amountBeforeVat),
+            }),
+          }).catch((err) => console.warn("[Budget Alert] Failed:", err));
+        }
       }
 
       // Refresh data
