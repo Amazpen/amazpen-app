@@ -2039,10 +2039,10 @@ function buildTools(
             };
           }
 
-          // Fetch business name
+          // Fetch business name and tax_id
           const { data: business } = await adminSupabase
             .from("businesses")
-            .select("name")
+            .select("name, tax_id")
             .eq("id", bizId)
             .maybeSingle();
 
@@ -2077,6 +2077,7 @@ function buildTools(
               supplierEmail: supplier.email,
               supplierName: supplier.name,
               businessName: business?.name || "העסק",
+              businessTaxId: business?.tax_id || "",
               ownerEmail,
               monthName,
               year: selectedYear,

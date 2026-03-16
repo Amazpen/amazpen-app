@@ -32,10 +32,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Supplier not found or has no email' }, { status: 404 })
   }
 
-  // Fetch business name
+  // Fetch business name and tax_id
   const { data: business } = await supabase
     .from('businesses')
-    .select('id, name')
+    .select('id, name, tax_id')
     .eq('id', businessId)
     .maybeSingle()
 
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
       supplierEmail: supplier.email,
       supplierName: supplier.name,
       businessName: business?.name || 'העסק',
+      businessTaxId: business?.tax_id || '',
       ownerEmail,
       monthName,
       year: selectedYear,
