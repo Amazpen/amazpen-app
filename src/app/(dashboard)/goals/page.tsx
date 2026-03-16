@@ -552,10 +552,11 @@ export default function GoalsPage() {
           : Promise.resolve({ data: [] as { income_source_id: string; amount: number; orders_count: number }[] }),
           supabase
             .from("managed_products")
-            .select("id, name, unit, unit_cost, target_pct")
+            .select("id, name, unit, unit_cost, target_pct, display_order")
             .in("business_id", selectedBusinesses)
             .eq("is_active", true)
             .is("deleted_at", null)
+            .order("display_order")
             .order("name"),
           entryIds.length > 0 ? supabase
             .from("daily_product_usage")

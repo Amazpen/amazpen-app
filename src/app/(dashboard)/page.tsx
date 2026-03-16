@@ -509,7 +509,7 @@ export default function DashboardPage() {
         goalsData.length > 0
           ? supabase.from("income_source_goals").select("income_source_id, avg_ticket_target").in("goal_id", goalsData.map(g => g.id))
           : Promise.resolve({ data: [] }),
-        supabase.from("managed_products").select("id, name, unit, unit_cost, target_pct").in("business_id", selectedBusinesses).eq("is_active", true).is("deleted_at", null),
+        supabase.from("managed_products").select("id, name, unit, unit_cost, target_pct, display_order").in("business_id", selectedBusinesses).eq("is_active", true).is("deleted_at", null).order("display_order"),
         supabase.from("business_schedule").select("business_id, day_of_week, day_factor").in("business_id", selectedBusinesses),
       ]);
 
@@ -1231,10 +1231,11 @@ export default function DashboardPage() {
         // 6. Get ALL managed products for selected businesses
         supabase
           .from("managed_products")
-          .select("id, name, unit, unit_cost, target_pct")
+          .select("id, name, unit, unit_cost, target_pct, display_order")
           .in("business_id", selectedBusinesses)
           .eq("is_active", true)
-          .is("deleted_at", null),
+          .is("deleted_at", null)
+          .order("display_order"),
 
         // 7. Get suppliers with expense_type = 'goods_purchases'
         supabase

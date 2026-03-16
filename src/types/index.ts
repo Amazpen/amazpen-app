@@ -203,6 +203,7 @@ export interface ManagedProduct {
   created_at: string;
   updated_at: string;
   deleted_at?: string;
+  display_order?: number;
 }
 
 // Daily Entry (רישום יומי)

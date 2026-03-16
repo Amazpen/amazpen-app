@@ -292,11 +292,11 @@ export function DailyEntriesModal({
         .order("display_order"),
       supabase
         .from("managed_products")
-        .select("id, name, unit, unit_cost")
+        .select("id, name, unit, unit_cost, display_order")
         .eq("business_id", businessId)
         .eq("is_active", true)
         .is("deleted_at", null)
-        .order("name"),
+        .order("display_order"),
     ]);
 
     setIncomeSources(sources || []);

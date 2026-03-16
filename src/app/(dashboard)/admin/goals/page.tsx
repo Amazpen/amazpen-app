@@ -245,10 +245,11 @@ export default function AdminGoalsPage() {
       // Load managed products for this business
       const { data: productsData } = await supabase
         .from("managed_products")
-        .select("id, name, unit, unit_cost, target_pct")
+        .select("id, name, unit, unit_cost, target_pct, display_order")
         .eq("business_id", selectedBusinessId)
         .eq("is_active", true)
         .is("deleted_at", null)
+        .order("display_order")
         .order("name");
 
       setManagedProducts((productsData || []).map(p => ({

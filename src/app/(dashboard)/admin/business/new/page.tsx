@@ -778,12 +778,13 @@ function NewBusinessPage() {
 
       // 8. Create managed products
       if (managedProducts.length > 0) {
-        const productRecords = managedProducts.map((product) => ({
+        const productRecords = managedProducts.map((product, idx) => ({
           business_id: business.id,
           name: product.name,
           unit: product.unit,
           unit_cost: product.unitCost,
           is_active: true,
+          display_order: idx,
         }));
 
         const { error: productError } = await supabase

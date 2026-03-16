@@ -309,9 +309,10 @@ export default function InsightsPage() {
         // Managed products
         supabase
           .from("managed_products")
-          .select("id, name, unit, unit_cost, target_pct")
+          .select("id, name, unit, unit_cost, target_pct, display_order")
           .in("business_id", businessIds)
-          .is("deleted_at", null),
+          .is("deleted_at", null)
+          .order("display_order"),
         // Prior commitments
         supabase
           .from("prior_commitments")

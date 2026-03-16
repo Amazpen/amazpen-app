@@ -305,11 +305,11 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           .order("display_order"),
         supabase
           .from("managed_products")
-          .select("id, name, unit, unit_cost, current_stock")
+          .select("id, name, unit, unit_cost, current_stock, display_order")
           .eq("business_id", businessId)
           .eq("is_active", true)
           .is("deleted_at", null)
-          .order("name"),
+          .order("display_order"),
         // Get the most recent daily entry to fetch closing stock values
         supabase
           .from("daily_entries")

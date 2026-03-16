@@ -305,9 +305,10 @@ export default function EditBusinessPage({ params }: PageProps) {
       // Fetch managed products
       const { data: productData } = await supabase
         .from("managed_products")
-        .select("id, name, unit, unit_cost")
+        .select("id, name, unit, unit_cost, display_order")
         .eq("business_id", businessId)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .order("display_order");
 
       if (productData) {
         setManagedProducts(productData.map(p => ({ id: p.id, name: p.name, unit: p.unit, unitCost: p.unit_cost })));
@@ -787,24 +788,28 @@ export default function EditBusinessPage({ params }: PageProps) {
           .eq("business_id", businessId);
       }
 
-      // Update existing products (unit + unit_cost)
+      // Update existing products (unit + unit_cost + display_order)
       const existingProducts = managedProducts.filter(p => p.id);
-      for (const p of existingProducts) {
+      for (let i = 0; i < existingProducts.length; i++) {
+        const p = existingProducts[i];
+        const displayOrder = managedProducts.indexOf(p);
         await supabase
           .from("managed_products")
-          .update({ unit: p.unit, unit_cost: p.unitCost, updated_at: new Date().toISOString() })
+          .update({ unit: p.unit, unit_cost: p.unitCost, display_order: displayOrder, updated_at: new Date().toISOString() })
           .eq("id", p.id);
       }
 
       const newProducts = managedProducts.filter(p => !p.id);
       if (newProducts.length > 0) {
+        const existingCount = managedProducts.filter(p => p.id).length;
         await supabase.from("managed_products").insert(
-          newProducts.map(p => ({
+          newProducts.map((p, idx) => ({
             business_id: businessId,
             name: p.name,
             unit: p.unit,
             unit_cost: p.unitCost,
             is_active: true,
+            display_order: existingCount + idx,
           }))
         );
       }

@@ -305,7 +305,7 @@ export default function OCRForm({
         supabase.from('income_sources').select('id, name').eq('business_id', selectedBusinessId).eq('is_active', true).is('deleted_at', null).order('display_order'),
         supabase.from('receipt_types').select('id, name').eq('business_id', selectedBusinessId).eq('is_active', true).is('deleted_at', null).order('display_order'),
         supabase.from('custom_parameters').select('id, name').eq('business_id', selectedBusinessId).eq('is_active', true).is('deleted_at', null).order('display_order'),
-        supabase.from('managed_products').select('id, name, unit, unit_cost, current_stock').eq('business_id', selectedBusinessId).eq('is_active', true).is('deleted_at', null).order('name'),
+        supabase.from('managed_products').select('id, name, unit, unit_cost, current_stock, display_order').eq('business_id', selectedBusinessId).eq('is_active', true).is('deleted_at', null).order('display_order'),
         supabase.from('daily_entries').select('id, entry_date').eq('business_id', selectedBusinessId).lte('entry_date', yesterdayStr).order('entry_date', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('business_credit_cards').select('id, card_name, billing_day').eq('business_id', selectedBusinessId).eq('is_active', true).order('card_name'),
       ]);
