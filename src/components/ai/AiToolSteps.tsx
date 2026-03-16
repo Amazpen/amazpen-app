@@ -119,6 +119,18 @@ const toolDisplayMap: Record<string, {
     color: "text-yellow-400",
     bgColor: "bg-yellow-400/15",
   },
+  getBonusPlans: {
+    label: "בדיקת תכניות בונוס",
+    icon: IconTarget,
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-400/15",
+  },
+  sendKartesetEmail: {
+    label: "שליחת מייל כרטסת לספק",
+    icon: IconLightbulb,
+    color: "text-pink-400",
+    bgColor: "bg-pink-400/15",
+  },
 };
 
 const defaultToolDisplay = {
