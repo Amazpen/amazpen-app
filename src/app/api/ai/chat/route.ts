@@ -585,7 +585,9 @@ ${getRoleInstructions(userRole)}
 עם שורת סה"כ. הצע: "סה"כ לתשלום לספק [שם]: ₪[סכום]. רוצה שאכין תשלום?"
 
 **שלב 2 — אם הלקוח אומר שהספק דורש יותר:**
-הצע: "אני ממליץ לבקש מהספק כרטסת (פירוט חשבוניות ותשלומים). רוצה שאכין השוואה בין מה שרשום אצלנו לבין מה שהספק טוען?"
+הצע: "אני ממליץ לבקש מהספק כרטסת (פירוט חשבוניות ותשלומים). **רוצה שאשלח לספק מייל בבקשה לכרטסת?**"
+- אם הלקוח אישר → השתמש ב-sendKartesetEmail עם ה-supplierId וה-businessId. הכלי ישלח מייל אוטומטי לספק.
+- אם לספק אין מייל מוגדר → הודע: "לספק [שם] לא מוגדר מייל. הוסף מייל בהגדרות הספק ואז אוכל לשלוח."
 
 **שלב 3 — השוואת כרטסת:**
 כשהלקוח מספק את נתוני הספק, הצג טבלת השוואה:
@@ -595,6 +597,14 @@ ${getRoleInstructions(userRole)}
 **שלב 4 — אישור ועדכון:**
 "לאחר שאישרת, רוצה שאעדכן את התשלום בתזרים המזומנים?"
 השתמש ב-proposeAction ליצירת התשלום.
+
+### שליחת מייל כרטסת לספק
+**כששואלים "שלח מייל לספק" / "בקש כרטסת" / המשתמש אישר שליחת מייל:**
+1. **חובה** — קבל אישור מפורש מהמשתמש לפני שליחה! אל תשלח מייל בלי שהמשתמש אמר "כן" / "שלח".
+2. חפש את ה-supplierId באמצעות queryDatabase: SELECT id, name, email FROM public.suppliers WHERE business_id='BID' AND name ILIKE '%שם%' AND deleted_at IS NULL
+3. אם לספק אין מייל → הודע שצריך להוסיף מייל בהגדרות הספק.
+4. אם יש מייל → השתמש ב-sendKartesetEmail. הצג: "✅ המייל נשלח בהצלחה לספק [שם] לכתובת [מייל]"
+5. **אסור** להציג את שם הכלי sendKartesetEmail למשתמש! אמור: "שלחתי מייל לספק".
 ${isAdmin ? `
 #### אדמין — כללי SQL מיוחדים:
 - כשאדמין שואל שאלה כללית ("כמה הוצאות?") — **שלוף לכל העסקים** עם GROUP BY b.name וציין את שם העסק בכל שורה.
@@ -1030,7 +1040,7 @@ GROUP BY s.name, inv.total_invoiced, inv.clarification_amount, pay.total_paid, i
 - אסור לתת מחירים של חברת המצפן
 - אסור להבטיח תוצאות ספציפיות
 - אסור להציג UUID — תמיד שם עסק
-- **אסור להציג שמות כלים פנימיים למשתמש!** לעולם אל תכתוב getMonthlySummary, getBonusPlans, queryDatabase, getGoals, getBusinessSchedule, proposeAction, calculate. דבר בעברית טבעית: "בדקתי את הנתונים", "שלפתי את המידע", "הנה מה שמצאתי".
+- **אסור להציג שמות כלים פנימיים למשתמש!** לעולם אל תכתוב getMonthlySummary, getBonusPlans, queryDatabase, getGoals, getBusinessSchedule, proposeAction, calculate, sendKartesetEmail. דבר בעברית טבעית: "בדקתי את הנתונים", "שלפתי את המידע", "שלחתי מייל לספק".
 
 ## ⚠️ פורמטי תשובה — חובה מוחלטת
 
@@ -1995,6 +2005,101 @@ function buildTools(
         } catch (e) {
           console.error("[AI Tool] getBonusPlans error:", e);
           return { error: e instanceof Error ? e.message : "Failed to fetch bonus plans" };
+        }
+      },
+    }),
+
+    sendKartesetEmail: tool({
+      description: "Send a karteset (statement of account) request email to a supplier. Use ONLY after the user explicitly confirms they want to send the email. The email asks the supplier to send their karteset (account statement) for reconciliation. Requires the supplier to have an email address configured.",
+      inputSchema: z.object({
+        supplierId: z.string().describe("The supplier UUID"),
+        businessId: z.string().describe("The business UUID"),
+        month: z.number().optional().describe("Month number 0-11 (0=January). Defaults to current month."),
+        year: z.number().optional().describe("Year (e.g., 2026). Defaults to current year."),
+      }),
+      execute: async ({ supplierId, businessId: bizId, month, year }) => {
+        console.log(`[AI Tool] sendKartesetEmail: supplier=${supplierId}, biz=${bizId}`);
+        try {
+          // First check if supplier has email
+          const { data: supplier } = await adminSupabase
+            .from("suppliers")
+            .select("id, name, email")
+            .eq("id", supplierId)
+            .maybeSingle();
+
+          if (!supplier) {
+            return { error: "הספק לא נמצא", success: false };
+          }
+          if (!supplier.email) {
+            return {
+              error: `לספק "${supplier.name}" לא מוגדר מייל. יש להגדיר מייל בהגדרות הספק לפני שליחה.`,
+              success: false,
+              supplierName: supplier.name,
+              needsEmail: true,
+            };
+          }
+
+          // Fetch business name
+          const { data: business } = await adminSupabase
+            .from("businesses")
+            .select("name")
+            .eq("id", bizId)
+            .maybeSingle();
+
+          // Fetch owner email
+          const { data: member } = await adminSupabase
+            .from("business_members")
+            .select("user_id")
+            .eq("business_id", bizId)
+            .eq("role", "owner")
+            .is("deleted_at", null)
+            .maybeSingle();
+
+          let ownerEmail = "";
+          if (member?.user_id) {
+            const { data: { user: ownerUser } } = await adminSupabase.auth.admin.getUserById(member.user_id);
+            ownerEmail = ownerUser?.email || "";
+          }
+
+          // Calculate Hebrew month name
+          const hebrewMonths = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+          const now = new Date();
+          const selectedMonth = month ?? now.getMonth();
+          const selectedYear = year ?? now.getFullYear();
+          const monthName = hebrewMonths[selectedMonth];
+
+          // Call n8n webhook directly
+          const N8N_KARTESET_URL = "https://n8n-lv4j.onrender.com/webhook/send-karteset-email";
+          const response = await fetch(N8N_KARTESET_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              supplierEmail: supplier.email,
+              supplierName: supplier.name,
+              businessName: business?.name || "העסק",
+              ownerEmail,
+              monthName,
+              year: selectedYear,
+            }),
+          });
+
+          if (!response.ok) {
+            return {
+              error: "שליחת המייל נכשלה — בדוק את חיבור ה-n8n",
+              success: false,
+              supplierName: supplier.name,
+            };
+          }
+
+          return {
+            success: true,
+            supplierName: supplier.name,
+            supplierEmail: supplier.email,
+            message: `המייל נשלח בהצלחה לספק "${supplier.name}" לכתובת ${supplier.email}`,
+          };
+        } catch (e) {
+          console.error("[AI Tool] sendKartesetEmail error:", e);
+          return { error: e instanceof Error ? e.message : "שגיאה בשליחת המייל", success: false };
         }
       },
     }),
