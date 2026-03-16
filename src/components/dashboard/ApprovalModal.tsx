@@ -180,16 +180,16 @@ export default function ApprovalModal({
       setPendingInvoices(invoices);
 
       // Process payments
-      const payments: PendingPayment[] = ((paymentsRes.data ?? []) as Array<{
+      const payments: PendingPayment[] = ((paymentsRes.data ?? []) as unknown as Array<{
         id: string;
         payment_date: string;
         total_amount: number;
-        suppliers: { name: string } | null;
+        suppliers: { name: string } | { name: string }[] | null;
       }>).map((pay) => ({
         id: pay.id,
         payment_date: pay.payment_date,
         total_amount: pay.total_amount,
-        supplier_name: pay.suppliers?.name || 'ספק לא ידוע',
+        supplier_name: Array.isArray(pay.suppliers) ? (pay.suppliers[0]?.name || 'ספק לא ידוע') : (pay.suppliers?.name || 'ספק לא ידוע'),
         selected: true,
       }));
       setPendingPayments(payments);
