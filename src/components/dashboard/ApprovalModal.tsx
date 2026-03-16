@@ -163,18 +163,18 @@ export default function ApprovalModal({
       setGroups(sorted);
 
       // Process invoices
-      const invoices: PendingInvoice[] = ((invoicesRes.data ?? []) as Array<{
+      const invoices: PendingInvoice[] = ((invoicesRes.data ?? []) as unknown as Array<{
         id: string;
         invoice_number: string | null;
         invoice_date: string;
         total_amount: number;
-        suppliers: { name: string } | null;
+        suppliers: { name: string } | { name: string }[] | null;
       }>).map((inv) => ({
         id: inv.id,
         invoice_number: inv.invoice_number,
         invoice_date: inv.invoice_date,
         total_amount: inv.total_amount,
-        supplier_name: inv.suppliers?.name || 'ספק לא ידוע',
+        supplier_name: Array.isArray(inv.suppliers) ? (inv.suppliers[0]?.name || 'ספק לא ידוע') : (inv.suppliers?.name || 'ספק לא ידוע'),
         selected: true,
       }));
       setPendingInvoices(invoices);
