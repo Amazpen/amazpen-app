@@ -1686,10 +1686,17 @@ function ExpensesPageInner() {
           .select()
           .single();
 
-        if (deliveryNoteError) throw deliveryNoteError;
+        if (deliveryNoteError) {
+          console.error("[Save Expense] Delivery note insert error:", deliveryNoteError);
+          throw deliveryNoteError;
+        }
+        if (!newDeliveryNote) {
+          console.error("[Save Expense] Delivery note insert returned null without error");
+          throw new Error("לא התקבל מזהה תעודת משלוח מהשרת");
+        }
 
         // Upload attachments for delivery note
-        if (newDeliveryNote && newAttachmentFiles.length > 0) {
+        if (newAttachmentFiles.length > 0) {
           setIsUploadingAttachment(true);
           const uploadedUrls: string[] = [];
           for (const file of newAttachmentFiles) {
@@ -1704,7 +1711,8 @@ function ExpensesPageInner() {
           setIsUploadingAttachment(false);
           if (uploadedUrls.length > 0) {
             const attachmentValue = uploadedUrls.length === 1 ? uploadedUrls[0] : JSON.stringify(uploadedUrls);
-            await supabase.from("delivery_notes").update({ attachment_url: attachmentValue }).eq("id", newDeliveryNote.id);
+            const { error: attachErr } = await supabase.from("delivery_notes").update({ attachment_url: attachmentValue }).eq("id", newDeliveryNote.id);
+            if (attachErr) console.error("[Save Expense] Attachment update error:", attachErr);
           }
         }
 
@@ -1761,7 +1769,8 @@ function ExpensesPageInner() {
           setIsUploadingAttachment(false);
           if (uploadedUrls.length > 0) {
             const attachmentValue = uploadedUrls.length === 1 ? uploadedUrls[0] : JSON.stringify(uploadedUrls);
-            await supabase.from("invoices").update({ attachment_url: attachmentValue }).eq("id", newInvoice.id);
+            const { error: attachErr } = await supabase.from("invoices").update({ attachment_url: attachmentValue }).eq("id", newInvoice.id);
+            if (attachErr) console.error("[Save Expense] Fixed invoice attachment update error:", attachErr);
           }
         }
 
@@ -1857,10 +1866,17 @@ function ExpensesPageInner() {
           .select()
           .single();
 
-        if (invoiceError) throw invoiceError;
+        if (invoiceError) {
+          console.error("[Save Expense] Invoice insert error:", invoiceError);
+          throw invoiceError;
+        }
+        if (!newInvoice) {
+          console.error("[Save Expense] Invoice insert returned null without error");
+          throw new Error("לא התקבל מזהה חשבונית מהשרת");
+        }
 
         // Upload attachments if any
-        if (newInvoice && newAttachmentFiles.length > 0) {
+        if (newAttachmentFiles.length > 0) {
           setIsUploadingAttachment(true);
           const uploadedUrls: string[] = [];
           for (const file of newAttachmentFiles) {
@@ -1875,7 +1891,8 @@ function ExpensesPageInner() {
           setIsUploadingAttachment(false);
           if (uploadedUrls.length > 0) {
             const attachmentValue = uploadedUrls.length === 1 ? uploadedUrls[0] : JSON.stringify(uploadedUrls);
-            await supabase.from("invoices").update({ attachment_url: attachmentValue }).eq("id", newInvoice.id);
+            const { error: attachErr } = await supabase.from("invoices").update({ attachment_url: attachmentValue }).eq("id", newInvoice.id);
+            if (attachErr) console.error("[Save Expense] Invoice attachment update error:", attachErr);
           }
         }
 
@@ -1998,9 +2015,10 @@ function ExpensesPageInner() {
       handleClosePopup();
       // Trigger re-fetch
       setRefreshTrigger(t => t + 1);
-    } catch (error) {
-      console.error("Error saving expense:", error);
-      showToast("שגיאה בשמירת ההוצאה", "error");
+    } catch (error: unknown) {
+      console.error("[Save Expense] Full error:", error);
+      const errMsg = error instanceof Error ? error.message : typeof error === 'object' && error !== null && 'message' in error ? String((error as { message: string }).message) : "שגיאה לא ידועה";
+      showToast(`שגיאה בשמירת ההוצאה: ${errMsg}`, "error");
     } finally {
       setIsSaving(false);
     }
