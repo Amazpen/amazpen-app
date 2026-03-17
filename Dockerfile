@@ -7,10 +7,13 @@ FROM node:20-alpine AS deps
 WORKDIR /app
 
 # Install dependencies needed for node-gyp and sharp (image processing)
-RUN apk add --no-cache libc6-compat vips-dev build-base
+RUN apk add --no-cache libc6-compat vips-dev build-base python3
 
 # Copy package files
 COPY package.json package-lock.json* bun.lock* ./
+
+# Install node-addon-api needed by sharp when building from source
+RUN npm install --no-save node-addon-api
 
 # Install dependencies using npm (more compatible with Docker)
 RUN npm ci --legacy-peer-deps
