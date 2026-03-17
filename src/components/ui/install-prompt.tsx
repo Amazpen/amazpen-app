@@ -76,16 +76,18 @@ export function InstallPrompt() {
   }, []);
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
+    const w = window as typeof window & { __pwaInstallPrompt?: BeforeInstallPromptEvent };
+    const prompt = deferredPrompt || w.__pwaInstallPrompt || null;
+    if (prompt) {
+      await prompt.prompt();
+      const { outcome } = await prompt.userChoice;
       if (outcome === "accepted") {
         setVisible(false);
         localStorage.setItem(DISMISSED_KEY, "1");
       }
+      w.__pwaInstallPrompt = undefined;
       setDeferredPrompt(null);
     } else {
-      // No native prompt available - show manual instructions
       setShowManualGuide(true);
     }
   };
