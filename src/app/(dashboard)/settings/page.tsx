@@ -774,65 +774,71 @@ function InstallAppSection() {
     );
   }
 
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      // Native install prompt available
+      await handleInstall();
+    } else if (isIos) {
+      setShowIosGuide(!showIosGuide);
+    } else {
+      // Try to trigger install via other means
+      // For browsers that support getInstalledRelatedApps
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const related = await (navigator as any).getInstalledRelatedApps?.();
+        if (related?.length > 0) {
+          setIsInstalled(true);
+          return;
+        }
+      } catch { /* ignore */ }
+      // Show the iOS-like guide as fallback
+      setShowIosGuide(!showIosGuide);
+    }
+  };
+
   return (
     <div>
       <h3 className="text-white text-[16px] font-bold mb-[4px]">התקנת האפליקציה</h3>
       <p className="text-white/50 text-[13px] mb-[12px]">התקינו את המצפן כאפליקציה על המכשיר לגישה מהירה ונוחה</p>
 
-      {/* Android / Desktop Chrome — native install prompt */}
-      {deferredPrompt && (
-        <Button
-          type="button"
-          onClick={handleInstall}
-          className="w-full h-[48px] bg-[#29318A] text-white text-[15px] font-bold rounded-[10px] transition-all duration-200 hover:bg-[#3D44A0] active:scale-[0.98] flex items-center justify-center gap-[10px]"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          <span>התקן על המכשיר</span>
-        </Button>
-      )}
+      <Button
+        type="button"
+        onClick={handleInstallClick}
+        className="w-full h-[48px] bg-[#29318A] text-white text-[15px] font-bold rounded-[10px] transition-all duration-200 hover:bg-[#3D44A0] active:scale-[0.98] flex items-center justify-center gap-[10px]"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        <span>התקן את המצפן על המכשיר</span>
+      </Button>
 
-      {/* iOS — show guide */}
-      {isIos && !deferredPrompt && (
-        <>
-          <Button
-            type="button"
-            onClick={() => setShowIosGuide(!showIosGuide)}
-            className="w-full h-[48px] bg-[#29318A] text-white text-[15px] font-bold rounded-[10px] transition-all duration-200 hover:bg-[#3D44A0] active:scale-[0.98] flex items-center justify-center gap-[10px]"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            <span>איך להתקין באייפון</span>
-          </Button>
-          {showIosGuide && (
-            <div className="mt-[10px] bg-[#29318A]/20 rounded-[10px] border border-white/10 p-[15px] flex flex-col gap-[12px]" dir="rtl">
-              <div className="flex items-start gap-[10px]">
-                <span className="text-[#FFA412] text-[16px] font-bold flex-shrink-0 w-[24px] text-center">1</span>
-                <span className="text-white/80 text-[14px]">לחצו על כפתור השיתוף <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mx-1 -mt-0.5"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> בתחתית הדפדפן</span>
-              </div>
-              <div className="flex items-start gap-[10px]">
-                <span className="text-[#FFA412] text-[16px] font-bold flex-shrink-0 w-[24px] text-center">2</span>
-                <span className="text-white/80 text-[14px]">גללו למטה ובחרו <strong className="text-white">&quot;הוסף למסך הבית&quot;</strong></span>
-              </div>
-              <div className="flex items-start gap-[10px]">
-                <span className="text-[#FFA412] text-[16px] font-bold flex-shrink-0 w-[24px] text-center">3</span>
-                <span className="text-white/80 text-[14px]">לחצו <strong className="text-white">&quot;הוסף&quot;</strong> — האפליקציה תופיע במסך הבית</span>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Desktop / other browsers — no native prompt */}
-      {!deferredPrompt && !isIos && (
-        <div className="bg-[#29318A]/20 rounded-[10px] border border-white/10 p-[15px]" dir="rtl">
-          <p className="text-white/70 text-[14px]">לחצו על סמל ההתקנה <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mx-1 -mt-0.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> בשורת הכתובת של הדפדפן כדי להתקין את האפליקציה</p>
+      {/* iOS guide — shown when button clicked on iOS */}
+      {showIosGuide && (
+        <div className="mt-[10px] bg-[#29318A]/20 rounded-[10px] border border-white/10 p-[15px] flex flex-col gap-[12px]" dir="rtl">
+          <div className="flex items-start gap-[10px]">
+            <span className="text-[#FFA412] text-[16px] font-bold flex-shrink-0 w-[24px] text-center">1</span>
+            <span className="text-white/80 text-[14px]">
+              {isIos
+                ? <>לחצו על כפתור השיתוף <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mx-1 -mt-0.5"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> בתחתית הדפדפן</>
+                : <>לחצו על תפריט הדפדפן (⋮) בפינה העליונה</>
+              }
+            </span>
+          </div>
+          <div className="flex items-start gap-[10px]">
+            <span className="text-[#FFA412] text-[16px] font-bold flex-shrink-0 w-[24px] text-center">2</span>
+            <span className="text-white/80 text-[14px]">
+              {isIos
+                ? <>גללו למטה ובחרו <strong className="text-white">&quot;הוסף למסך הבית&quot;</strong></>
+                : <>בחרו <strong className="text-white">&quot;התקן אפליקציה&quot;</strong> או <strong className="text-white">&quot;הוסף למסך הבית&quot;</strong></>
+              }
+            </span>
+          </div>
+          <div className="flex items-start gap-[10px]">
+            <span className="text-[#FFA412] text-[16px] font-bold flex-shrink-0 w-[24px] text-center">3</span>
+            <span className="text-white/80 text-[14px]">לחצו <strong className="text-white">&quot;הוסף&quot;</strong> — האפליקציה תופיע במסך הבית</span>
+          </div>
         </div>
       )}
     </div>
