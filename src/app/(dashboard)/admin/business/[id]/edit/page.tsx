@@ -829,11 +829,14 @@ export default function EditBusinessPage({ params }: PageProps) {
           .eq("business_id", businessId);
       }
 
-      // Update existing payment methods (settlement rules)
+      // Update existing payment methods (settlement rules + display_order)
       const existingPms = paymentMethods.filter(pm => pm.id);
-      for (const pm of existingPms) {
+      for (let i = 0; i < existingPms.length; i++) {
+        const pm = existingPms[i];
+        const orderIndex = paymentMethods.indexOf(pm);
         await supabase.from("payment_method_types").update({
           name: pm.name,
+          display_order: orderIndex,
           settlement_type: pm.settlement_type || "daily",
           settlement_delay_days: pm.settlement_delay_days ?? 1,
           settlement_day_of_week: pm.settlement_day_of_week,
@@ -852,10 +855,10 @@ export default function EditBusinessPage({ params }: PageProps) {
       const newPms = paymentMethods.filter(pm => !pm.id);
       if (newPms.length > 0) {
         await supabase.from("payment_method_types").insert(
-          newPms.map((pm, i) => ({
+          newPms.map((pm) => ({
             business_id: businessId,
             name: pm.name,
-            display_order: paymentMethods.length + i,
+            display_order: paymentMethods.indexOf(pm),
             is_active: true,
             settlement_type: pm.settlement_type || "daily",
             settlement_delay_days: pm.settlement_delay_days ?? 1,
