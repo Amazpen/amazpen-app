@@ -23,13 +23,25 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png",
+        url: "/favicon.png",
+        sizes: "32x32",
+        type: "image/png",
+      },
+      {
+        url: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/icon-512.png",
+        sizes: "512x512",
         type: "image/png",
       },
     ],
     apple: [
       {
-        url: "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png",
+        url: "/apple-touch-icon.png",
+        sizes: "180x180",
         type: "image/png",
       },
     ],
