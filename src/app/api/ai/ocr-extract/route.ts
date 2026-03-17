@@ -62,11 +62,16 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "הקובץ גדול מדי (מקסימום 50MB)" }, { status: 400 });
   }
 
-  const isImage = ACCEPTED_IMAGE_TYPES.includes(file.type);
-  const isPdf = file.type === "application/pdf";
+  // Detect file type by MIME type and also by file extension (some devices send wrong MIME)
+  const fileName = file.name?.toLowerCase() || "";
+  const isImage = ACCEPTED_IMAGE_TYPES.includes(file.type) ||
+    /\.(jpg|jpeg|png|webp|heic|heif|avif)$/i.test(fileName);
+  const isPdf = file.type === "application/pdf" ||
+    file.type === "application/octet-stream" && fileName.endsWith(".pdf") ||
+    fileName.endsWith(".pdf");
 
   if (!isImage && !isPdf) {
-    return Response.json({ error: "סוג קובץ לא נתמך" }, { status: 400 });
+    return Response.json({ error: `סוג קובץ לא נתמך: ${file.type || "לא ידוע"} (${fileName})` }, { status: 400 });
   }
 
   console.log(`[OCR-Extract] File: type=${file.type}, size=${file.size}, isImage=${isImage}, isPdf=${isPdf}`);

@@ -1568,7 +1568,8 @@ function ExpensesPageInner() {
     try {
       // For PDFs: convert to image since Google Vision images:annotate doesn't accept PDF
       let fileToSend = file;
-      if (file.type === "application/pdf") {
+      const isPdf = file.type === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf");
+      if (isPdf) {
         setOcrProcessingStep("ממיר PDF לתמונה...");
         try {
           fileToSend = await convertPdfToImage(file);
@@ -1627,17 +1628,29 @@ function ExpensesPageInner() {
       showToast("נתונים זוהו מהמסמך בהצלחה", "success");
     } catch (err) {
       console.error("OCR extraction error:", err);
-      if (err instanceof DOMException && err.name === "AbortError") {
-        showToast("הזיהוי נכשל — חרג מזמן המתנה (60 שניות)", "error");
-      } else {
-        const msg = err instanceof Error ? err.message : "שגיאה לא ידועה";
-        showToast(`לא הצלחנו לזהות נתונים: ${msg}`, "error");
-      }
+      const msg = err instanceof DOMException && err.name === "AbortError"
+        ? "הזיהוי נכשל — חרג מזמן המתנה (60 שניות)"
+        : `לא הצלחנו לזהות נתונים: ${err instanceof Error ? err.message : "שגיאה לא ידועה"}`;
+      showToast(msg, "error");
+      showToast("ניתן למלא את הפרטים ידנית ולשמור", "info");
+      // Report OCR failure to DB
+      try {
+        const supabaseForLog = createClient();
+        const { data: { user: logUser } } = await supabaseForLog.auth.getUser();
+        await supabaseForLog.from("client_error_logs").insert({
+          user_id: logUser?.id || null,
+          business_id: selectedBusinesses[0] || null,
+          action: "ocr_failed",
+          error_message: msg,
+          error_details: { fileName: file.name, fileType: file.type, fileSize: file.size },
+          page: "expenses",
+        });
+      } catch { /* ignore */ }
     } finally {
       setIsOcrProcessing(false);
       setOcrProcessingStep("");
     }
-  }, [suppliers, showToast]);
+  }, [suppliers, showToast, selectedBusinesses]);
 
   // Handle saving new expense
   const handleSaveExpense = async () => {
@@ -3765,7 +3778,7 @@ function ExpensesPageInner() {
                   </div>
                   <input
                     type="file"
-                    accept="image/*,.pdf"
+                    accept="image/*,.pdf,.heic,.heif"
                     multiple
                     onChange={async (e) => {
                       const files = e.target.files;
@@ -4525,7 +4538,7 @@ function ExpensesPageInner() {
                             </div>
                             <input
                               type="file"
-                              accept="image/*,.pdf"
+                              accept="image/*,.pdf,.heic,.heif"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (file) {
@@ -4837,7 +4850,7 @@ function ExpensesPageInner() {
                   </div>
                   <input
                     type="file"
-                    accept="image/*,.pdf"
+                    accept="image/*,.pdf,.heic,.heif"
                     multiple
                     onChange={handleEditFileChange}
                     className="hidden"
@@ -5266,7 +5279,7 @@ function ExpensesPageInner() {
                     </div>
                     <input
                       type="file"
-                      accept="image/*,.pdf"
+                      accept="image/*,.pdf,.heic,.heif"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
@@ -5599,7 +5612,7 @@ function ExpensesPageInner() {
                       <span className="text-[13px] text-white/50">העלאת תמונה/מסמך</span>
                       <input
                         type="file"
-                        accept="image/*,.pdf"
+                        accept="image/*,.pdf,.heic,.heif"
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
