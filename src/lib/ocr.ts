@@ -70,26 +70,68 @@ export async function extractPdfText(file: File): Promise<string> {
     console.error("[OCR] Digital PDF extraction failed:", err);
   }
 
-  // Fallback: render PDF first page to image, then OCR
+  // Fallback: render each PDF page to image, then OCR all pages
   if (!getVisionApiKey()) {
     throw new Error("GOOGLE_VISION_API_KEY is not configured");
   }
 
   try {
-    // Try to convert PDF to image using sharp (works for single-page image-based PDFs)
-    const pdfBuffer = Buffer.from(arrayBuffer);
-    const jpegBuffer = await sharp(pdfBuffer, { density: 200 })
-      .jpeg({ quality: 90 })
-      .toBuffer();
-    console.log(`[OCR] PDF rendered to JPEG: ${jpegBuffer.length} bytes`);
-    const base64 = jpegBuffer.toString("base64");
-    return callVisionOCR(base64);
-  } catch (sharpErr) {
-    console.warn("[OCR] sharp PDF render failed, sending raw PDF to Vision:", sharpErr);
-    // Last resort: send raw PDF bytes to Vision (may work for some PDF types)
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
-    console.log(`[OCR] Sending raw PDF to Google Vision, base64 length: ${base64.length}`);
-    return callVisionOCR(base64);
+    // Use pdfjs to render each page to canvas → sharp → JPEG → Vision OCR
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    pdfjs.GlobalWorkerOptions.workerSrc = "";
+
+    const pdf = await pdfjs.getDocument({ data: new Uint8Array(arrayBuffer), useWorkerFetch: false, isEvalSupported: false, useSystemFonts: true }).promise;
+    const maxPages = Math.min(pdf.numPages, 10); // Limit to 10 pages
+    console.log(`[OCR] Scanned PDF: ${pdf.numPages} pages, processing ${maxPages}`);
+
+    const allTexts: string[] = [];
+
+    for (let i = 1; i <= maxPages; i++) {
+      try {
+        const page = await pdf.getPage(i);
+        const scale = 2.0; // High res for OCR
+        const viewport = page.getViewport({ scale });
+
+        // Create a canvas-like buffer using sharp
+        // Render page to raw pixel data
+        // pdfjs needs a canvas — use a minimal node-canvas-like approach
+        // We'll use the raw PDF page bytes approach instead:
+        // Extract page as image by rendering the whole PDF at that page with sharp
+        const pdfBuffer = Buffer.from(arrayBuffer);
+        const jpegBuffer = await sharp(pdfBuffer, { density: 200, page: i - 1 })
+          .jpeg({ quality: 90 })
+          .toBuffer();
+        console.log(`[OCR] Page ${i}: rendered to JPEG (${jpegBuffer.length} bytes)`);
+
+        const base64 = jpegBuffer.toString("base64");
+        const pageText = await callVisionOCR(base64);
+        if (pageText) {
+          allTexts.push(pageText);
+        }
+      } catch (pageErr) {
+        console.warn(`[OCR] Failed to process page ${i}:`, pageErr);
+      }
+    }
+
+    await pdf.destroy();
+
+    const fullText = allTexts.join("\n\n");
+    console.log(`[OCR] Scanned PDF total text length: ${fullText.length} from ${allTexts.length} pages`);
+    return fullText;
+  } catch (err) {
+    console.warn("[OCR] Multi-page PDF render failed, trying single-page sharp:", err);
+    // Fallback: try sharp on first page only
+    try {
+      const pdfBuffer = Buffer.from(arrayBuffer);
+      const jpegBuffer = await sharp(pdfBuffer, { density: 200 })
+        .jpeg({ quality: 90 })
+        .toBuffer();
+      console.log(`[OCR] Single-page fallback: ${jpegBuffer.length} bytes`);
+      return callVisionOCR(jpegBuffer.toString("base64"));
+    } catch (sharpErr) {
+      console.warn("[OCR] sharp PDF render failed completely:", sharpErr);
+      throw new Error("לא ניתן לעבד את קובץ ה-PDF");
+    }
   }
 }
 
