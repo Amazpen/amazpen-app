@@ -1373,7 +1373,8 @@ function PaymentsPageInner() {
       // Refresh data
       clearPaymentDraft();
       handleClosePopup();
-      setRefreshTrigger(t => t + 1);
+      // Delay refresh to ensure state updates from popup close are flushed (fixes mobile)
+      setTimeout(() => setRefreshTrigger(t => t + 1), 100);
     } catch (error) {
       console.error("Error saving payment:", error);
       showToast("שגיאה בשמירת התשלום", "error");

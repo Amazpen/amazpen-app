@@ -1492,7 +1492,7 @@ function buildTools(
           const now = new Date();
           const isCurrentMonth =
             year === now.getFullYear() && month === now.getMonth() + 1;
-          const STALE_MS = 30 * 60 * 1000; // 30 minutes
+          const STALE_MS = 3 * 60 * 1000; // 3 minutes — keep data fresh for real-time experience
 
           if (cached && cached.computed_at) {
             const age = now.getTime() - new Date(cached.computed_at).getTime();
