@@ -23,6 +23,9 @@ const nextConfig: NextConfig = {
   // Output standalone for Docker deployment
   output: 'standalone',
 
+  // Include sharp in standalone output for image processing (OCR)
+  serverExternalPackages: ['sharp'],
+
   // Ensure sw.js and manifest.json are never cached by proxies/CDN
   async headers() {
     return [

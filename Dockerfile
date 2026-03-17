@@ -6,8 +6,8 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Install dependencies needed for node-gyp (if any native modules)
-RUN apk add --no-cache libc6-compat
+# Install dependencies needed for node-gyp and sharp (image processing)
+RUN apk add --no-cache libc6-compat vips-dev build-base
 
 # Copy package files
 COPY package.json package-lock.json* bun.lock* ./
@@ -49,6 +49,9 @@ WORKDIR /app
 # Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Install vips runtime for sharp (image processing in OCR)
+RUN apk add --no-cache vips
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs
