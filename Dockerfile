@@ -20,6 +20,9 @@ RUN npm ci --legacy-peer-deps
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Install vips-dev for sharp native module compilation
+RUN apk add --no-cache vips-dev build-base
+
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
