@@ -9,17 +9,20 @@ WORKDIR /app
 # Install dependencies needed for node-gyp and sharp (image processing)
 RUN apk add --no-cache libc6-compat vips-dev build-base python3
 
-# Install node-addon-api and node-gyp globally (required by sharp when building from source)
-RUN npm install -g node-addon-api node-gyp
+# Install node-gyp globally
+RUN npm install -g node-gyp
 
 # Copy package files
 COPY package.json package-lock.json* bun.lock* ./
 
-# Force sharp to use system-installed libvips (Alpine) instead of downloading prebuilt binary
+# Force sharp to use system-installed libvips (Alpine)
 ENV SHARP_FORCE_GLOBAL_LIBVIPS=true
 
-# Install dependencies
-RUN npm install --legacy-peer-deps
+# Install all deps without running scripts, then rebuild sharp manually
+RUN npm install --legacy-peer-deps --ignore-scripts && \
+    npm install --no-save node-addon-api && \
+    cd node_modules/sharp && npm run build && cd ../.. && \
+    npm rebuild
 
 # ============================================
 # Stage 2: Builder
