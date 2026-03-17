@@ -182,7 +182,7 @@ export default function ReportsPage() {
       const firstStart = `${months[0].year}-${String(months[0].month).padStart(2, "0")}-01`;
       const lastEnd = new Date(months[5].year, months[5].month, 0).toISOString().split("T")[0];
 
-      const [{ data: dailyData }, { data: invoicesData }] = await Promise.all([
+      const [{ data: dailyData }, { data: invoicesData }, { data: bizVatData }] = await Promise.all([
         supabase
           .from("daily_entries")
           .select("entry_date, total_register")
@@ -198,7 +198,15 @@ export default function ReportsPage() {
           .in("invoice_type", ["current", "goods", "employees"])
           .gte("invoice_date", firstStart)
           .lte("invoice_date", lastEnd),
+        supabase
+          .from("businesses")
+          .select("vat_percentage")
+          .in("id", selectedBusinesses),
       ]);
+
+      // Calculate VAT divisor to show income without VAT (matching the report)
+      const avgVat = (bizVatData || []).reduce((sum, b) => sum + (Number(b.vat_percentage) || 0), 0) / Math.max((bizVatData || []).length, 1);
+      const vatDivisor = avgVat > 0 ? 1 + avgVat : 1;
 
       const incomeByMonth = new Map<string, number>();
       const expensesByMonth = new Map<string, number>();
@@ -212,7 +220,8 @@ export default function ReportsPage() {
       for (const entry of dailyData || []) {
         const key = entry.entry_date?.substring(0, 7);
         if (key && incomeByMonth.has(key)) {
-          incomeByMonth.set(key, (incomeByMonth.get(key) || 0) + Number(entry.total_register || 0));
+          // Divide by VAT to show income without VAT — matching the P&L report
+          incomeByMonth.set(key, (incomeByMonth.get(key) || 0) + Number(entry.total_register || 0) / vatDivisor);
         }
       }
 
@@ -835,7 +844,7 @@ export default function ReportsPage() {
       {trendsData.length > 0 && trendsData.some(d => d.income > 0 || d.expenses > 0) && (
         <section aria-label="מגמות הכנסות מול הוצאות" className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]">
           <div className="flex items-center justify-between">
-            <span className="text-[18px] font-bold leading-[1.4]">הכנסות מול הוצאות — 6 חודשים</span>
+            <span className="text-[18px] font-bold leading-[1.4]">הכנסות מול הוצאות (ללא מע&quot;מ) — 6 חודשים</span>
             <div className="flex items-center gap-[12px]">
               <div className="flex items-center gap-[4px]">
                 <div className="w-[10px] h-[10px] rounded-[2px] bg-[#17DB4E]" />
@@ -858,7 +867,7 @@ export default function ReportsPage() {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={((value: number) => `₪${value.toLocaleString("he-IL")}`) as any}
               />
-              <LazyBar dataKey="income" name="הכנסות" fill="#17DB4E" radius={[4, 4, 0, 0]} />
+              <LazyBar dataKey="income" name="הכנסות ללא מע״מ" fill="#17DB4E" radius={[4, 4, 0, 0]} />
               <LazyBar dataKey="expenses" name="הוצאות" fill="#F64E60" radius={[4, 4, 0, 0]} />
             </LazyBarChart>
           </LazyResponsiveContainer>
