@@ -572,6 +572,10 @@ function PaymentsPageInner() {
   };
 
   const toggleInvoiceSelection = (invoiceId: string) => {
+    // Block selection of invoices in clarification status
+    const inv = openInvoices.find(i => i.id === invoiceId);
+    if (inv?.status === "clarification") return;
+
     setSelectedInvoiceIds(prev => {
       const newSet = new Set(prev);
       if (newSet.has(invoiceId)) newSet.delete(invoiceId);
@@ -597,7 +601,7 @@ function PaymentsPageInner() {
   };
 
   const toggleAllInvoices = (monthInvoices?: typeof openInvoices) => {
-    const invoicesToToggle = monthInvoices ?? openInvoices;
+    const invoicesToToggle = (monthInvoices ?? openInvoices).filter(inv => inv.status !== "clarification");
     const allIds = invoicesToToggle.map(inv => inv.id);
     const allSelected = allIds.length > 0 && allIds.every(id => selectedInvoiceIds.has(id));
 
@@ -3719,13 +3723,20 @@ function PaymentsPageInner() {
                                   return (
                                   <div key={inv.id} className="flex flex-col">
                                     <div
-                                      className={`grid grid-cols-[24px_1fr_1fr_1fr_40px_50px] gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors hover:bg-white/5 items-center cursor-pointer ${
-                                        selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""
-                                      } ${inv.status === "clarification" ? "border border-[#FFA500]/50 bg-[#FFA500]/5" : ""}`}
+                                      className={`grid grid-cols-[24px_1fr_1fr_1fr_40px_50px] gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors items-center ${
+                                        inv.status === "clarification" ? "border border-[#FFA500]/50 bg-[#FFA500]/5 opacity-60 cursor-not-allowed" : "hover:bg-white/5 cursor-pointer"
+                                      } ${selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""}`}
                                       onClick={() => toggleInvoiceSelection(inv.id)}
                                     >
                                         {/* Checkbox */}
                                         <div className="flex items-center justify-center">
+                                          {inv.status === "clarification" ? (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                              <rect x="3" y="3" width="18" height="18" rx="3" stroke="rgba(255,165,0,0.5)" strokeWidth="1.5" fill="none"/>
+                                              <line x1="7" y1="7" x2="17" y2="17" stroke="rgba(255,165,0,0.5)" strokeWidth="1.5"/>
+                                              <line x1="17" y1="7" x2="7" y2="17" stroke="rgba(255,165,0,0.5)" strokeWidth="1.5"/>
+                                            </svg>
+                                          ) : (
                                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                                             {selectedInvoiceIds.has(inv.id) ? (
                                               <>
@@ -3736,6 +3747,7 @@ function PaymentsPageInner() {
                                               <rect x="3" y="3" width="18" height="18" rx="3" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" fill="none"/>
                                             )}
                                           </svg>
+                                          )}
                                         </div>
                                         <span className="text-[13px] text-white text-center ltr-num">
                                           {new Date(inv.invoice_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}
@@ -3812,10 +3824,22 @@ function PaymentsPageInner() {
                                             </svg>
                                           </Button>
                                         )}
-                                        {(attachmentUrls.length > 1 || inv.notes) && (
+                                        {inv.notes && (
                                           <Button
                                             type="button"
-                                            title="מסמכים והערות"
+                                            title={inv.notes}
+                                            onClick={(e) => { e.stopPropagation(); setExpandedOpenInvoiceId(expandedOpenInvoiceId === inv.id ? null : inv.id); }}
+                                            className="w-[20px] h-[20px] text-yellow-400 opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                                          >
+                                            <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                            </svg>
+                                          </Button>
+                                        )}
+                                        {(attachmentUrls.length > 1 || (inv.notes && attachmentUrls.length > 0)) && (
+                                          <Button
+                                            type="button"
+                                            title="מסמכים נוספים"
                                             onClick={(e) => { e.stopPropagation(); setExpandedOpenInvoiceId(expandedOpenInvoiceId === inv.id ? null : inv.id); }}
                                             className={`w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-all cursor-pointer ${expandedOpenInvoiceId === inv.id ? "rotate-180" : ""}`}
                                           >
