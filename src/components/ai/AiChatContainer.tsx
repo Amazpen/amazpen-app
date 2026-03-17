@@ -18,12 +18,19 @@ interface HistoryResult {
   timestamp: string;
 }
 
+interface BusinessOption {
+  id: string;
+  name: string;
+}
+
 interface AiChatContainerProps {
   isAdmin: boolean;
   businessId: string | undefined;
+  allBusinesses?: BusinessOption[];
+  onBusinessChange?: (id: string | undefined) => void;
 }
 
-export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
+export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusinessChange }: AiChatContainerProps) {
   const [adminViewAsOwner, setAdminViewAsOwner] = useState(false);
   const effectiveIsAdmin = isAdmin && !adminViewAsOwner;
   const { messages, isLoading, thinkingStatus, isLoadingHistory, isLoadingMore, hasMore, lastError, sendMessage, clearChat, loadMore, getChartData, getDisplayText } = useAiChat(businessId, effectiveIsAdmin, adminViewAsOwner);
@@ -99,6 +106,29 @@ export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
 
   return (
     <div className="flex flex-col h-[calc(100vh-70px)] sm:h-[calc(100vh-66px)] h-[calc(100dvh-70px)] sm:h-[calc(100dvh-66px)] overflow-hidden bg-[#0F1535]">
+      {/* Admin business selector */}
+      {isAdmin && allBusinesses && allBusinesses.length > 0 && onBusinessChange && (
+        <div className="flex-shrink-0 bg-[#0F1535] border-b border-white/10 px-3 sm:px-4 py-2" dir="rtl">
+          <div className="flex items-center gap-2 justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/40 flex-shrink-0">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+            <select
+              value={businessId || "__all__"}
+              onChange={(e) => onBusinessChange(e.target.value === "__all__" ? undefined : e.target.value)}
+              className="bg-[#1A1F4E] text-white text-[13px] border border-white/20 rounded-[8px] px-3 py-1.5 outline-none focus:border-white/40 cursor-pointer max-w-[250px]"
+            >
+              <option value="__all__">כל העסקים</option>
+              {allBusinesses.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+            <span className="text-white/30 text-[11px]">בחר עסק לשאילתה</span>
+          </div>
+        </div>
+      )}
+
       {/* Chat header bar */}
       {hasMessages && (
         <div className="flex-shrink-0 sticky top-0 z-10 bg-[#0F1535] flex items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2 border-b border-white/10" dir="rtl">
