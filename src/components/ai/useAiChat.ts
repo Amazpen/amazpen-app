@@ -68,8 +68,11 @@ function getThinkingStatus(messages: UIMessage[], status: string): string | null
 
 export function useAiChat(businessId: string | undefined, isAdmin = false, viewAsOwner = false) {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const messageTimestamps = useRef<Map<string, string>>(new Map());
   const pageContextRef = useRef<string>("");
   // Keep a ref so the body() closure always reads the latest value
   const businessIdRef = useRef<string>(businessId || "");
@@ -128,15 +131,19 @@ export function useAiChat(businessId: string | undefined, isAdmin = false, viewA
         if (data.session && data.messages?.length > 0) {
           sessionIdRef.current = data.session.id;
           const uiMessages: UIMessage[] = data.messages.map(
-            (m: { id: string; role: string; content: string; chartData?: unknown; timestamp: string }) => ({
-              id: m.id,
-              role: m.role as "user" | "assistant",
-              parts: [
-                { type: "text" as const, text: m.content },
-              ],
-            })
+            (m: { id: string; role: string; content: string; chartData?: unknown; timestamp: string }) => {
+              messageTimestamps.current.set(m.id, m.timestamp);
+              return {
+                id: m.id,
+                role: m.role as "user" | "assistant",
+                parts: [
+                  { type: "text" as const, text: m.content },
+                ],
+              };
+            }
           );
           setMessages(uiMessages);
+          setHasMore(data.hasMore ?? false);
         }
       } catch {
         // Failed to load history, start fresh
@@ -147,6 +154,43 @@ export function useAiChat(businessId: string | undefined, isAdmin = false, viewA
     loadHistory();
     return () => { cancelled = true; };
   }, [setMessages]);
+
+  // Load older messages (infinite scroll)
+  const loadMore = useCallback(async () => {
+    if (!sessionIdRef.current || isLoadingMore || !hasMore || messages.length === 0) return;
+    setIsLoadingMore(true);
+    try {
+      const oldestId = messages[0].id;
+      const oldestTimestamp = messageTimestamps.current.get(oldestId);
+      if (!oldestTimestamp) return;
+
+      const res = await fetch(`/api/ai/sessions?before=${encodeURIComponent(oldestTimestamp)}&limit=20`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.messages?.length > 0) {
+        const olderMessages: UIMessage[] = data.messages
+          .filter((m: { id: string }) => !messages.some(existing => existing.id === m.id))
+          .map((m: { id: string; role: string; content: string; timestamp: string }) => {
+            messageTimestamps.current.set(m.id, m.timestamp);
+            return {
+              id: m.id,
+              role: m.role as "user" | "assistant",
+              parts: [{ type: "text" as const, text: m.content }],
+            };
+          });
+        if (olderMessages.length > 0) {
+          setMessages([...olderMessages, ...messages]);
+        }
+        setHasMore(data.hasMore ?? false);
+      } else {
+        setHasMore(false);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [messages, isLoadingMore, hasMore, setMessages]);
 
   // Create a new session if we don't have one
   const ensureSession = useCallback(async (): Promise<string | null> => {
@@ -266,9 +310,12 @@ export function useAiChat(businessId: string | undefined, isAdmin = false, viewA
     isLoading,
     thinkingStatus,
     isLoadingHistory,
+    isLoadingMore,
+    hasMore,
     lastError,
     sendMessage: handleSend,
     clearChat,
+    loadMore,
     getChartData,
     getDisplayText,
   };

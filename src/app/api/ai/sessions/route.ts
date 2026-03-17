@@ -10,9 +10,12 @@ function jsonResponse(data: Record<string, unknown>, status = 200) {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/ai/sessions — Load the user's latest session with last 10 messages
+// GET /api/ai/sessions — Load the user's latest session with messages
+// Query params:
+//   before=<ISO timestamp> — load messages older than this timestamp
+//   limit=<number> — how many messages to load (default 20)
 // ---------------------------------------------------------------------------
-export async function GET() {
+export async function GET(request: NextRequest) {
   const serverSupabase = await createServerClient();
   const {
     data: { user },
@@ -21,6 +24,10 @@ export async function GET() {
   if (!user) {
     return jsonResponse({ error: "לא מחובר" }, 401);
   }
+
+  const { searchParams } = request.nextUrl;
+  const before = searchParams.get("before");
+  const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10) || 20, 50);
 
   // Get the latest session for this user
   const { data: session } = await serverSupabase
@@ -32,19 +39,28 @@ export async function GET() {
     .single();
 
   if (!session) {
-    return jsonResponse({ session: null, messages: [] });
+    return jsonResponse({ session: null, messages: [], hasMore: false });
   }
 
-  // Get last 10 messages for this session
-  const { data: messages } = await serverSupabase
+  // Build query for messages
+  let query = serverSupabase
     .from("ai_chat_messages")
     .select("id, role, content, chart_data, created_at")
     .eq("session_id", session.id)
     .order("created_at", { ascending: false })
-    .limit(10);
+    .limit(limit + 1); // fetch one extra to check if there are more
+
+  if (before) {
+    query = query.lt("created_at", before);
+  }
+
+  const { data: messages } = await query;
+
+  const hasMore = (messages || []).length > limit;
+  const trimmed = (messages || []).slice(0, limit);
 
   // Reverse to get chronological order
-  const orderedMessages = (messages || []).reverse();
+  const orderedMessages = trimmed.reverse();
 
   return jsonResponse({
     session: { id: session.id, title: session.title, businessId: session.business_id },
@@ -55,6 +71,7 @@ export async function GET() {
       chartData: m.chart_data,
       timestamp: m.created_at,
     })),
+    hasMore,
   });
 }
 

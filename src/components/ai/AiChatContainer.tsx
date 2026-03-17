@@ -26,7 +26,7 @@ interface AiChatContainerProps {
 export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
   const [adminViewAsOwner, setAdminViewAsOwner] = useState(false);
   const effectiveIsAdmin = isAdmin && !adminViewAsOwner;
-  const { messages, isLoading, thinkingStatus, isLoadingHistory, lastError, sendMessage, clearChat, getChartData, getDisplayText } = useAiChat(businessId, effectiveIsAdmin, adminViewAsOwner);
+  const { messages, isLoading, thinkingStatus, isLoadingHistory, isLoadingMore, hasMore, lastError, sendMessage, clearChat, loadMore, getChartData, getDisplayText } = useAiChat(businessId, effectiveIsAdmin, adminViewAsOwner);
   const hasMessages = messages.length > 0;
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -204,6 +204,9 @@ export function AiChatContainer({ isAdmin, businessId }: AiChatContainerProps) {
           getChartData={getChartData}
           getDisplayText={getDisplayText}
           searchQuery={debouncedQuery.length >= 2 ? debouncedQuery : undefined}
+          hasMore={hasMore}
+          isLoadingMore={isLoadingMore}
+          onLoadMore={loadMore}
         />
       ) : (
         <AiWelcomeScreen
