@@ -3696,10 +3696,10 @@ function PaymentsPageInner() {
                             {expandedMonths.has(monthKey) && (
                               <div className="flex flex-col">
                                 {/* Column Headers */}
-                                <div className="grid grid-cols-[24px_1fr_1fr_1fr_40px_50px] gap-[3px] px-[3px] py-[3px] border-b border-white/20 items-center">
+                                <div className="grid grid-cols-[24px_1fr_1fr_1fr_50px] gap-[3px] px-[3px] py-[3px] border-b border-white/20 items-center">
                                   <Button type="button" onClick={() => toggleAllInvoices(monthInvoices)} className="flex items-center justify-center">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                      {monthInvoices.length > 0 && monthInvoices.every(inv => selectedInvoiceIds.has(inv.id)) ? (
+                                      {monthInvoices.length > 0 && monthInvoices.filter(inv => inv.status !== "clarification").every(inv => selectedInvoiceIds.has(inv.id)) && monthInvoices.some(inv => inv.status !== "clarification") ? (
                                         <>
                                           <rect x="3" y="3" width="18" height="18" rx="3" fill="#29318A" stroke="white" strokeWidth="1.5"/>
                                           <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -3712,7 +3712,6 @@ function PaymentsPageInner() {
                                   <span className="text-[14px] text-white/70 text-center">תאריך חשבונית</span>
                                   <span className="text-[14px] text-white/70 text-center">אסמכתא</span>
                                   <span className="text-[14px] text-white/70 text-center">סכום כולל מע&quot;מ</span>
-                                  <span className="text-[12px] text-white/70 text-center">תמונה</span>
                                   <span className="text-[14px] text-white/70 text-center">אפשרויות</span>
                                 </div>
 
@@ -3723,7 +3722,7 @@ function PaymentsPageInner() {
                                   return (
                                   <div key={inv.id} className="flex flex-col">
                                     <div
-                                      className={`grid grid-cols-[24px_1fr_1fr_1fr_40px_50px] gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors items-center ${
+                                      className={`grid grid-cols-[24px_1fr_1fr_1fr_50px] gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors items-center ${
                                         inv.status === "clarification" ? "border border-[#FFA500]/50 bg-[#FFA500]/5 opacity-60 cursor-not-allowed" : "hover:bg-white/5 cursor-pointer"
                                       } ${selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""}`}
                                       onClick={() => toggleInvoiceSelection(inv.id)}
@@ -3760,24 +3759,6 @@ function PaymentsPageInner() {
                                           {inv.status === "paid" && <span className="text-[10px] text-green-400 mr-[3px]">(שולם)</span>}
                                           {inv.status === "clarification" && <span className="text-[10px] text-[#FFA500] mr-[3px]">(בבירור)</span>}
                                         </span>
-                                        {/* Thumbnail */}
-                                        <div className="flex items-center justify-center" onClick={(e) => { e.stopPropagation(); if (attachmentUrls.length > 0) setViewerDocUrl(attachmentUrls[0]); }}>
-                                          {attachmentUrls.length > 0 ? (
-                                            isPdfUrl(attachmentUrls[0]) ? (
-                                              <div className="w-[34px] h-[34px] rounded-[4px] overflow-hidden border border-white/20 cursor-pointer">
-                                                <PdfThumbnail url={attachmentUrls[0]} className="w-full h-full" />
-                                              </div>
-                                            ) : (
-                                              <div className="w-[34px] h-[34px] rounded-[4px] overflow-hidden border border-white/20 cursor-pointer">
-                                                <Image src={attachmentUrls[0]} alt="מסמך" className="w-full h-full object-cover" width={34} height={34} unoptimized />
-                                              </div>
-                                            )
-                                          ) : (
-                                            <div className="w-[34px] h-[34px] rounded-[4px] border border-white/10 flex items-center justify-center">
-                                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                                            </div>
-                                          )}
-                                        </div>
                                       <div className="flex items-center justify-center gap-[5px]" onClick={(e) => e.stopPropagation()}>
                                         {attachmentUrls.length > 0 && (
                                           <Button
