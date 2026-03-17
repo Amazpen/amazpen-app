@@ -151,6 +151,7 @@ export default function SuppliersPage() {
   const [commitmentTotalInstallments, setCommitmentTotalInstallments] = useState("");
   const [commitmentStartDate, setCommitmentStartDate] = useState("");
   const [commitmentEndDate, setCommitmentEndDate] = useState("");
+  const [commitmentTerms, setCommitmentTerms] = useState("");
   const [isSubmittingCommitment, setIsSubmittingCommitment] = useState(false);
 
   // Categories from database
@@ -1443,6 +1444,7 @@ export default function SuppliersPage() {
               setCommitmentTotalInstallments("");
               setCommitmentStartDate("");
               setCommitmentEndDate("");
+              setCommitmentTerms("");
               setIsAddCommitmentOpen(true);
               return;
             }
@@ -3569,7 +3571,20 @@ export default function SuppliersPage() {
                   title="מספר תשלומים"
                   type="tel"
                   value={commitmentTotalInstallments}
-                  onChange={(e) => setCommitmentTotalInstallments(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCommitmentTotalInstallments(val);
+                    // Auto-calculate end date
+                    const installments = parseInt(val);
+                    if (installments > 0 && commitmentStartDate) {
+                      const start = new Date(commitmentStartDate);
+                      start.setMonth(start.getMonth() + installments);
+                      const y = start.getFullYear();
+                      const m = String(start.getMonth() + 1).padStart(2, "0");
+                      const d = String(start.getDate()).padStart(2, "0");
+                      setCommitmentEndDate(`${y}-${m}-${d}`);
+                    }
+                  }}
                   placeholder="לדוגמה: 12"
                   className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
                 />
@@ -3580,7 +3595,19 @@ export default function SuppliersPage() {
               <label className="text-[14px] font-medium text-white/80 text-right">תאריך התחלה</label>
               <DatePickerField
                 value={commitmentStartDate}
-                onChange={(val) => setCommitmentStartDate(val)}
+                onChange={(val) => {
+                  setCommitmentStartDate(val);
+                  // Auto-calculate end date
+                  const installments = parseInt(commitmentTotalInstallments);
+                  if (installments > 0 && val) {
+                    const start = new Date(val);
+                    start.setMonth(start.getMonth() + installments);
+                    const y = start.getFullYear();
+                    const m = String(start.getMonth() + 1).padStart(2, "0");
+                    const d = String(start.getDate()).padStart(2, "0");
+                    setCommitmentEndDate(`${y}-${m}-${d}`);
+                  }
+                }}
                 className="h-[45px]"
               />
             </div>
@@ -3592,6 +3619,19 @@ export default function SuppliersPage() {
                 onChange={(val) => setCommitmentEndDate(val)}
                 className="h-[45px]"
               />
+            </div>
+
+            <div className="flex flex-col gap-[5px]">
+              <label className="text-[14px] font-medium text-white/80 text-right">תנאי הלוואה</label>
+              <div className="border border-[#4C526B] rounded-[10px] min-h-[70px]">
+                <textarea
+                  title="תנאי הלוואה"
+                  value={commitmentTerms}
+                  onChange={(e) => setCommitmentTerms(e.target.value)}
+                  placeholder="ריבית, בנק, מס' הלוואה, תנאים מיוחדים..."
+                  className="w-full h-full min-h-[70px] bg-transparent text-white text-[14px] text-right rounded-[10px] border-none outline-none px-[10px] py-[8px] placeholder:text-white/30 resize-none"
+                />
+              </div>
             </div>
 
             <Button
@@ -3612,6 +3652,7 @@ export default function SuppliersPage() {
                   total_installments: parseInt(commitmentTotalInstallments) || 1,
                   start_date: commitmentStartDate,
                   end_date: commitmentEndDate,
+                  terms: commitmentTerms || null,
                   created_by: user?.user?.id || null,
                 });
                 setIsSubmittingCommitment(false);
