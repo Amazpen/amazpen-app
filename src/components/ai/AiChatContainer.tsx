@@ -106,25 +106,40 @@ export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusiness
 
   return (
     <div className="flex flex-col h-[calc(100vh-70px)] sm:h-[calc(100vh-66px)] h-[calc(100dvh-70px)] sm:h-[calc(100dvh-66px)] overflow-hidden bg-[#0F1535]">
-      {/* Admin business selector */}
+      {/* Admin business selector - chips style */}
       {isAdmin && allBusinesses && allBusinesses.length > 0 && onBusinessChange && (
-        <div className="flex-shrink-0 bg-[#0F1535] border-b border-white/10 px-3 sm:px-4 py-2" dir="rtl">
-          <div className="flex items-center gap-2 justify-center">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/40 flex-shrink-0">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-            <select
-              value={businessId || "__all__"}
-              onChange={(e) => onBusinessChange(e.target.value === "__all__" ? undefined : e.target.value)}
-              className="bg-[#1A1F4E] text-white text-[13px] border border-white/20 rounded-[8px] px-3 py-1.5 outline-none focus:border-white/40 cursor-pointer max-w-[250px]"
+        <div className="flex-shrink-0 bg-[#0F1535]/80 backdrop-blur-sm border-b border-white/5 px-3 sm:px-4 py-2" dir="rtl">
+          <div className="flex items-center gap-[6px] overflow-x-auto scrollbar-none pb-0.5">
+            <button
+              type="button"
+              onClick={() => onBusinessChange(undefined)}
+              className={`flex-shrink-0 flex items-center gap-[5px] px-[10px] py-[5px] rounded-full text-[11px] sm:text-[12px] font-medium transition-all cursor-pointer ${
+                !businessId
+                  ? "bg-[#29318A] text-white shadow-md shadow-indigo-500/20"
+                  : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70"
+              }`}
             >
-              <option value="__all__">כל העסקים</option>
-              {allBusinesses.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-            <span className="text-white/30 text-[11px]">בחר עסק לשאילתה</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M2 12h20" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+              הכל
+            </button>
+            {allBusinesses.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => onBusinessChange(b.id)}
+                className={`flex-shrink-0 px-[10px] py-[5px] rounded-full text-[11px] sm:text-[12px] font-medium transition-all cursor-pointer ${
+                  businessId === b.id
+                    ? "bg-[#29318A] text-white shadow-md shadow-indigo-500/20"
+                    : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70"
+                }`}
+              >
+                {b.name}
+              </button>
+            ))}
           </div>
         </div>
       )}
