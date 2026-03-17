@@ -891,10 +891,9 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
+        // Don't clear selectedBusinesses on transient auth failures
+        // (session refresh, network hiccup). Only stop loading.
         setIsLoading(false);
-        if (selectedBusinesses.length > 0) {
-          setSelectedBusinesses([]);
-        }
         return;
       }
 
