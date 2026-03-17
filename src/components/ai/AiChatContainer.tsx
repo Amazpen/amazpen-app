@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { Trash2, Search, X } from "lucide-react";
+import { Trash2, Search, X, ChevronDown, Building2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAiChat } from "./useAiChat";
 import { AiWelcomeScreen } from "./AiWelcomeScreen";
@@ -35,6 +35,22 @@ export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusiness
   const effectiveIsAdmin = isAdmin && !adminViewAsOwner;
   const { messages, isLoading, thinkingStatus, isLoadingHistory, isLoadingMore, hasMore, lastError, sendMessage, clearChat, loadMore, getChartData, getDisplayText } = useAiChat(businessId, effectiveIsAdmin, adminViewAsOwner);
   const hasMessages = messages.length > 0;
+  const [isBusinessPickerOpen, setIsBusinessPickerOpen] = useState(false);
+  const businessPickerRef = useRef<HTMLDivElement>(null);
+
+  // Close picker on click outside
+  useEffect(() => {
+    if (!isBusinessPickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (businessPickerRef.current && !businessPickerRef.current.contains(e.target as Node)) {
+        setIsBusinessPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isBusinessPickerOpen]);
+
+  const selectedBusinessName = allBusinesses?.find(b => b.id === businessId)?.name || "כל העסקים";
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -106,50 +122,12 @@ export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusiness
 
   return (
     <div className="flex flex-col h-[calc(100vh-70px)] sm:h-[calc(100vh-66px)] h-[calc(100dvh-70px)] sm:h-[calc(100dvh-66px)] overflow-hidden bg-[#0F1535]">
-      {/* Admin business selector - chips style */}
-      {isAdmin && allBusinesses && allBusinesses.length > 0 && onBusinessChange && (
-        <div className="flex-shrink-0 bg-[#0F1535]/80 backdrop-blur-sm border-b border-white/5 px-3 sm:px-4 py-2" dir="rtl">
-          <div className="flex items-center gap-[6px] overflow-x-auto scrollbar-none pb-0.5">
-            <button
-              type="button"
-              onClick={() => onBusinessChange(undefined)}
-              className={`flex-shrink-0 flex items-center gap-[5px] px-[10px] py-[5px] rounded-full text-[11px] sm:text-[12px] font-medium transition-all cursor-pointer ${
-                !businessId
-                  ? "bg-[#29318A] text-white shadow-md shadow-indigo-500/20"
-                  : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70"
-              }`}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M2 12h20" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
-              הכל
-            </button>
-            {allBusinesses.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                onClick={() => onBusinessChange(b.id)}
-                className={`flex-shrink-0 px-[10px] py-[5px] rounded-full text-[11px] sm:text-[12px] font-medium transition-all cursor-pointer ${
-                  businessId === b.id
-                    ? "bg-[#29318A] text-white shadow-md shadow-indigo-500/20"
-                    : "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/70"
-                }`}
-              >
-                {b.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Chat header bar */}
-      {hasMessages && (
+      {(hasMessages || (isAdmin && allBusinesses && allBusinesses.length > 0)) && (
         <div className="flex-shrink-0 sticky top-0 z-10 bg-[#0F1535] flex items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2 border-b border-white/10" dir="rtl">
-          {/* Search area */}
+          {/* Right side: search */}
           <div className="flex items-center gap-2">
-            {isSearchOpen ? (
+            {!hasMessages ? null : isSearchOpen ? (
               <div className="flex items-center gap-1.5 bg-white/10 rounded-full px-2.5 py-1 animate-in slide-in-from-left-2 duration-200">
                 <Search className="w-3.5 h-3.5 text-white/50 flex-shrink-0" />
                 <input
@@ -188,15 +166,66 @@ export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusiness
             )}
           </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={clearChat}
-            className="flex items-center gap-1.5 text-white hover:text-white/70 text-[12px] transition-colors flex-shrink-0"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            נקה שיחה
-          </Button>
+          {/* Admin business picker - compact popover */}
+          {isAdmin && allBusinesses && allBusinesses.length > 0 && onBusinessChange && (
+            <div className="relative" ref={businessPickerRef}>
+              <button
+                type="button"
+                onClick={() => setIsBusinessPickerOpen(v => !v)}
+                className="flex items-center gap-[5px] px-[8px] py-[4px] rounded-[8px] bg-white/5 hover:bg-white/10 transition-all cursor-pointer border border-white/10"
+              >
+                <Building2 className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+                <span className="text-[11px] sm:text-[12px] text-white/80 font-medium max-w-[120px] sm:max-w-[160px] truncate">
+                  {selectedBusinessName}
+                </span>
+                <ChevronDown className={`w-3 h-3 text-white/40 transition-transform ${isBusinessPickerOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {isBusinessPickerOpen && (
+                <div className="absolute top-full mt-1 left-0 right-0 min-w-[200px] max-w-[280px] bg-[#1A1F4E] border border-white/15 rounded-[10px] shadow-xl shadow-black/40 z-50 overflow-hidden" dir="rtl">
+                  <div className="max-h-[240px] overflow-y-auto scrollbar-thin">
+                    {/* All businesses option */}
+                    <button
+                      type="button"
+                      onClick={() => { onBusinessChange(undefined); setIsBusinessPickerOpen(false); }}
+                      className={`w-full flex items-center justify-between gap-2 px-[12px] py-[10px] text-[13px] transition-colors cursor-pointer ${
+                        !businessId ? "bg-[#29318A]/40 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+                      }`}
+                    >
+                      <span className="font-medium">כל העסקים</span>
+                      {!businessId && <Check className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />}
+                    </button>
+                    <div className="h-px bg-white/10 mx-2" />
+                    {allBusinesses.map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => { onBusinessChange(b.id); setIsBusinessPickerOpen(false); }}
+                        className={`w-full flex items-center justify-between gap-2 px-[12px] py-[10px] text-[13px] transition-colors cursor-pointer ${
+                          businessId === b.id ? "bg-[#29318A]/40 text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+                        }`}
+                      >
+                        <span className="font-medium truncate">{b.name}</span>
+                        {businessId === b.id && <Check className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {hasMessages && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={clearChat}
+              className="flex items-center gap-1.5 text-white hover:text-white/70 text-[12px] transition-colors flex-shrink-0"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              נקה שיחה
+            </Button>
+          )}
         </div>
       )}
 
