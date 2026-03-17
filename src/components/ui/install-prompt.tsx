@@ -23,29 +23,50 @@ export function InstallPrompt() {
     // Don't show if user previously dismissed
     if (localStorage.getItem(DISMISSED_KEY)) return;
 
-    // Show the bubble after a short delay regardless of beforeinstallprompt
-    const timer = setTimeout(() => {
-      setVisible(true);
-    }, 2000);
+    const w = window as typeof window & { __pwaInstallPrompt?: BeforeInstallPromptEvent };
 
-    const handler = (e: Event) => {
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    const initPrompt = (e: BeforeInstallPromptEvent) => {
+      setDeferredPrompt(e);
       setVisible(true);
     };
+
+    // Check if already captured by the early script
+    if (w.__pwaInstallPrompt) {
+      initPrompt(w.__pwaInstallPrompt);
+    } else {
+      // Listen for future event (or our custom dispatch)
+      const handler = (e: Event) => initPrompt(e as BeforeInstallPromptEvent);
+      const readyHandler = () => {
+        if (w.__pwaInstallPrompt) initPrompt(w.__pwaInstallPrompt);
+      };
+      window.addEventListener("beforeinstallprompt", handler);
+      window.addEventListener("pwaInstallReady", readyHandler);
+
+      // Show bubble after delay even without the event (manual guide fallback)
+      const timer = setTimeout(() => setVisible(true), 3000);
+
+      const onInstalled = () => {
+        setVisible(false);
+        setShowManualGuide(false);
+        localStorage.setItem(DISMISSED_KEY, "1");
+      };
+      window.addEventListener("appinstalled", onInstalled);
+
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener("beforeinstallprompt", handler);
+        window.removeEventListener("pwaInstallReady", readyHandler);
+        window.removeEventListener("appinstalled", onInstalled);
+      };
+    }
 
     const onInstalled = () => {
       setVisible(false);
       setShowManualGuide(false);
       localStorage.setItem(DISMISSED_KEY, "1");
     };
-
-    window.addEventListener("beforeinstallprompt", handler);
     window.addEventListener("appinstalled", onInstalled);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("beforeinstallprompt", handler);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
+    return () => window.removeEventListener("appinstalled", onInstalled);
   }, []);
 
   const isIOS = useCallback(() => {
