@@ -1,3 +1,5 @@
+import sharp from "sharp";
+
 // Read API key dynamically (not at module load time) to ensure env vars are available
 function getVisionApiKey(): string {
   return process.env.GOOGLE_VISION_API_KEY || "";
@@ -7,7 +9,29 @@ function getVisionApiUrl(): string {
 }
 
 export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/avif"];
+export const ACCEPTED_IMAGE_TYPES = [
+  "image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp",
+  "image/tiff", "image/heic", "image/heif", "image/avif",
+  "image/x-icon", "image/vnd.microsoft.icon",
+];
+
+/**
+ * Normalize any image to a clean JPEG buffer that Google Vision can process.
+ * Handles HEIC, AVIF, corrupt PNGs, wrong MIME types, etc.
+ */
+async function normalizeImageToJpeg(buffer: Buffer): Promise<Buffer> {
+  try {
+    const result = await sharp(buffer)
+      .rotate() // auto-rotate based on EXIF
+      .jpeg({ quality: 90 })
+      .toBuffer();
+    console.log(`[OCR] Normalized image: ${buffer.length} bytes → ${result.length} bytes JPEG`);
+    return result;
+  } catch (err) {
+    console.warn("[OCR] sharp normalization failed, using original buffer:", err);
+    return buffer;
+  }
+}
 
 /** OCR an image file using Google Cloud Vision API */
 export async function ocrImage(file: File): Promise<string> {
@@ -15,9 +39,12 @@ export async function ocrImage(file: File): Promise<string> {
     throw new Error("GOOGLE_VISION_API_KEY is not configured");
   }
 
-  console.log(`[OCR] ocrImage called: type=${file.type}, size=${file.size}`);
-  const buffer = await file.arrayBuffer();
-  const base64 = Buffer.from(buffer).toString("base64");
+  console.log(`[OCR] ocrImage called: type=${file.type}, size=${file.size}, name=${file.name}`);
+  const rawBuffer = Buffer.from(await file.arrayBuffer());
+
+  // Normalize to JPEG — handles HEIC, AVIF, corrupt PNGs, wrong MIME types
+  const jpegBuffer = await normalizeImageToJpeg(rawBuffer);
+  const base64 = jpegBuffer.toString("base64");
   console.log(`[OCR] base64 length: ${base64.length}`);
 
   return callVisionOCR(base64);
@@ -26,7 +53,7 @@ export async function ocrImage(file: File): Promise<string> {
 /**
  * Extract text from a PDF.
  * Binary PDF → digital text extraction (pdfjs-dist) → text sent to OpenAI for structured extraction.
- * Scanned PDF (no digital text) → Google Vision OCR on the PDF image.
+ * Scanned PDF (no digital text) → render to image with sharp/pdfjs, then Google Vision OCR.
  */
 export async function extractPdfText(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
@@ -43,14 +70,27 @@ export async function extractPdfText(file: File): Promise<string> {
     console.error("[OCR] Digital PDF extraction failed:", err);
   }
 
-  // Fallback: use Google Vision to OCR the scanned PDF
+  // Fallback: render PDF first page to image, then OCR
   if (!getVisionApiKey()) {
     throw new Error("GOOGLE_VISION_API_KEY is not configured");
   }
 
-  const base64 = Buffer.from(arrayBuffer).toString("base64");
-  console.log(`[OCR] Sending scanned PDF to Google Vision, base64 length: ${base64.length}`);
-  return callVisionOCR(base64);
+  try {
+    // Try to convert PDF to image using sharp (works for single-page image-based PDFs)
+    const pdfBuffer = Buffer.from(arrayBuffer);
+    const jpegBuffer = await sharp(pdfBuffer, { density: 200 })
+      .jpeg({ quality: 90 })
+      .toBuffer();
+    console.log(`[OCR] PDF rendered to JPEG: ${jpegBuffer.length} bytes`);
+    const base64 = jpegBuffer.toString("base64");
+    return callVisionOCR(base64);
+  } catch (sharpErr) {
+    console.warn("[OCR] sharp PDF render failed, sending raw PDF to Vision:", sharpErr);
+    // Last resort: send raw PDF bytes to Vision (may work for some PDF types)
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    console.log(`[OCR] Sending raw PDF to Google Vision, base64 length: ${base64.length}`);
+    return callVisionOCR(base64);
+  }
 }
 
 /** Extract embedded text from a digital PDF using pdfjs-dist in Node.js (no worker needed) */
@@ -115,6 +155,7 @@ async function callVisionOCR(base64: string): Promise<string> {
   console.log("[OCR] Vision response keys:", Object.keys(response || {}));
   if (response?.error) {
     console.error("[OCR] Vision API returned error:", JSON.stringify(response.error));
+    throw new Error(`Vision API error: ${response.error.message || "Unknown error"}`);
   }
   const annotation = response?.fullTextAnnotation;
   console.log("[OCR] Text length:", annotation?.text?.length ?? 0);

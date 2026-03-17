@@ -3778,7 +3778,7 @@ function ExpensesPageInner() {
                   </div>
                   <input
                     type="file"
-                    accept="image/*,.pdf,.heic,.heif"
+                    accept="image/*,.pdf,.heic,.heif,.avif,.bmp,.tiff,.tif"
                     multiple
                     onChange={async (e) => {
                       const files = e.target.files;
@@ -4538,7 +4538,7 @@ function ExpensesPageInner() {
                             </div>
                             <input
                               type="file"
-                              accept="image/*,.pdf,.heic,.heif"
+                              accept="image/*,.pdf,.heic,.heif,.avif,.bmp,.tiff,.tif"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (file) {
@@ -4850,7 +4850,7 @@ function ExpensesPageInner() {
                   </div>
                   <input
                     type="file"
-                    accept="image/*,.pdf,.heic,.heif"
+                    accept="image/*,.pdf,.heic,.heif,.avif,.bmp,.tiff,.tif"
                     multiple
                     onChange={handleEditFileChange}
                     className="hidden"
@@ -5279,7 +5279,7 @@ function ExpensesPageInner() {
                     </div>
                     <input
                       type="file"
-                      accept="image/*,.pdf,.heic,.heif"
+                      accept="image/*,.pdf,.heic,.heif,.avif,.bmp,.tiff,.tif"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
@@ -5612,7 +5612,7 @@ function ExpensesPageInner() {
                       <span className="text-[13px] text-white/50">העלאת תמונה/מסמך</span>
                       <input
                         type="file"
-                        accept="image/*,.pdf,.heic,.heif"
+                        accept="image/*,.pdf,.heic,.heif,.avif,.bmp,.tiff,.tif"
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];

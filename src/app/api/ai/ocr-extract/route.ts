@@ -64,12 +64,15 @@ export async function POST(request: NextRequest) {
 
   // Detect file type by MIME type and also by file extension (some devices send wrong MIME)
   const fileName = file.name?.toLowerCase() || "";
+  const imageExtensions = /\.(jpg|jpeg|png|webp|heic|heif|avif|gif|bmp|tiff|tif|ico)$/i;
   const isImage = ACCEPTED_IMAGE_TYPES.includes(file.type) ||
-    /\.(jpg|jpeg|png|webp|heic|heif|avif)$/i.test(fileName);
+    file.type.startsWith("image/") ||
+    imageExtensions.test(fileName);
   const isPdf = file.type === "application/pdf" ||
-    file.type === "application/octet-stream" && fileName.endsWith(".pdf") ||
+    (file.type === "application/octet-stream" && fileName.endsWith(".pdf")) ||
     fileName.endsWith(".pdf");
 
+  // Accept any image type — sharp will normalize it before sending to Vision
   if (!isImage && !isPdf) {
     return Response.json({ error: `סוג קובץ לא נתמך: ${file.type || "לא ידוע"} (${fileName})` }, { status: 400 });
   }
