@@ -744,9 +744,8 @@ function InstallAppSection() {
       setDeferredPrompt(w.__pwaInstallPrompt);
     }
 
-    // Listen for future events
+    // Listen for future events (preventDefault already called in layout script)
     const handler = (e: Event) => {
-      e.preventDefault();
       setDeferredPrompt(e);
     };
     const readyHandler = () => {
@@ -766,6 +765,7 @@ function InstallAppSection() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const prompt = (deferredPrompt || w.__pwaInstallPrompt) as any;
     if (!prompt) return;
+    prompt.preventDefault();
     prompt.prompt();
     const result = await prompt.userChoice;
     if (result.outcome === "accepted") {

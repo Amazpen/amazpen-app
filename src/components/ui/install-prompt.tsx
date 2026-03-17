@@ -79,6 +79,7 @@ export function InstallPrompt() {
     const w = window as typeof window & { __pwaInstallPrompt?: BeforeInstallPromptEvent };
     const prompt = deferredPrompt || w.__pwaInstallPrompt || null;
     if (prompt) {
+      prompt.preventDefault();
       await prompt.prompt();
       const { outcome } = await prompt.userChoice;
       if (outcome === "accepted") {
