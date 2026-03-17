@@ -94,20 +94,32 @@ export function useRealtimeSubscription({
       );
     }
 
-    // Subscribe to the channel with error handling
+    // Subscribe to the channel with error handling and auto-retry
     try {
       channel.subscribe((status) => {
         if (status === "SUBSCRIBED") {
           // Successfully connected to realtime
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          // Realtime not available
-          setRealtimeAvailable(false);
-          // Realtime warning noted
+          // Retry after delay instead of permanently disabling
+          console.warn(`[Realtime] Channel ${status}, retrying in 5s...`);
+          setTimeout(() => {
+            if (channelRef.current) {
+              supabase.removeChannel(channelRef.current);
+              channelRef.current = null;
+            }
+            // Force re-subscribe by toggling state
+            setRealtimeAvailable(false);
+            setTimeout(() => setRealtimeAvailable(true), 100);
+          }, 5000);
         }
       });
     } catch {
-      // WebSocket connection failed - disable realtime
-      setRealtimeAvailable(false);
+      // WebSocket connection failed - retry after delay
+      console.warn("[Realtime] WebSocket failed, retrying in 5s...");
+      setTimeout(() => {
+        setRealtimeAvailable(false);
+        setTimeout(() => setRealtimeAvailable(true), 100);
+      }, 5000);
     }
 
     channelRef.current = channel;

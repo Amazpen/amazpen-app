@@ -2025,15 +2025,19 @@ function ExpensesPageInner() {
 
       // Switch to the correct tab so the new expense is visible
       const targetTab = expenseType === "current" ? "expenses" : expenseType === "goods" ? "purchases" : "employees";
-      if (activeTab !== targetTab) {
-        setActiveTab(targetTab as "expenses" | "purchases" | "employees");
-      }
 
-      // Refresh data
+      // Close popup and clear form first
       clearExpenseDraft();
       handleClosePopup();
-      // Trigger re-fetch
-      setRefreshTrigger(t => t + 1);
+
+      // Use setTimeout to ensure state updates from handleClosePopup are flushed
+      // before triggering the re-fetch. This fixes mobile not refreshing after save.
+      setTimeout(() => {
+        if (activeTab !== targetTab) {
+          setActiveTab(targetTab as "expenses" | "purchases" | "employees");
+        }
+        setRefreshTrigger(t => t + 1);
+      }, 100);
     } catch (error: unknown) {
       console.error("[Save Expense] Full error:", error);
       const errMsg = error instanceof Error ? error.message : typeof error === 'object' && error !== null && 'message' in error ? String((error as { message: string }).message) : "שגיאה לא ידועה";
