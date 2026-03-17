@@ -6,22 +6,22 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Install vips for sharp
-RUN apk add --no-cache libc6-compat vips-dev build-base python3
+# Install vips for sharp runtime
+RUN apk add --no-cache libc6-compat vips
 
 # Copy package files
 COPY package.json package-lock.json* bun.lock* ./
 
-# Install sharp for Linux/musl explicitly, then install rest
+# Install all deps (ignore scripts), then install sharp prebuilt binary for Alpine (musl)
 RUN npm install --legacy-peer-deps --ignore-scripts && \
-    npm rebuild sharp --platform=linux --libc=musl
+    npm install --no-save --ignore-scripts @img/sharp-linux-x64-musl
 
 # ============================================
 # Stage 2: Builder
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-RUN apk add --no-cache vips-dev
+RUN apk add --no-cache vips
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
