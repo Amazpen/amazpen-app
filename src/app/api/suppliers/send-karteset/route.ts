@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
   const selectedYear = typeof year === 'number' ? year : now.getFullYear()
   const monthName = hebrewMonths[selectedMonth]
 
-  // Call n8n webhook
+  // Call n8n webhook — filter empty ownerEmail to prevent invalid CC
   const n8nResponse = await fetch(N8N_WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       supplierName: supplier.name,
       businessName: business?.name || 'העסק',
       businessTaxId: business?.tax_id || '',
-      ownerEmail,
+      ownerEmail: ownerEmail || 'david@amazpen.co.il',
       monthName,
       year: selectedYear,
     }),
