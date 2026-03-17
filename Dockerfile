@@ -3,34 +3,31 @@
 # ============================================
 
 # Stage 1: Dependencies
-FROM node:20-alpine AS deps
+FROM node:20-slim AS deps
 WORKDIR /app
 
-# Install dependencies needed for node-gyp and sharp (image processing)
-RUN apk add --no-cache libc6-compat vips-dev build-base python3
-
-# Install node-gyp globally
-RUN npm install -g node-gyp
+# Install dependencies needed for sharp (image processing)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libvips-dev \
+    build-essential \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package.json package-lock.json* bun.lock* ./
 
-# Force sharp to use system-installed libvips (Alpine)
-ENV SHARP_FORCE_GLOBAL_LIBVIPS=true
-
-# Install all deps without running scripts, then rebuild sharp manually
-RUN npm install --legacy-peer-deps --ignore-scripts && \
-    npm install --no-save node-addon-api && \
-    cd node_modules/sharp && npm run build && cd ../.. && \
-    npm rebuild
+# Install dependencies
+RUN npm ci --legacy-peer-deps
 
 # ============================================
 # Stage 2: Builder
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 WORKDIR /app
 
-# Install vips-dev for sharp native module compilation
-RUN apk add --no-cache vips-dev build-base
+# Install vips for sharp
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libvips-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -55,7 +52,7 @@ RUN npm run build
 
 # ============================================
 # Stage 3: Runner (Production)
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
 
 # Set production environment
@@ -63,7 +60,9 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Install vips runtime for sharp (image processing in OCR)
-RUN apk add --no-cache vips
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libvips \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs
