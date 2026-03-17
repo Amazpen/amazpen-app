@@ -2019,6 +2019,29 @@ function ExpensesPageInner() {
       console.error("[Save Expense] Full error:", error);
       const errMsg = error instanceof Error ? error.message : typeof error === 'object' && error !== null && 'message' in error ? String((error as { message: string }).message) : "שגיאה לא ידועה";
       showToast(`שגיאה בשמירת ההוצאה: ${errMsg}`, "error");
+      // Report error to DB for remote debugging
+      try {
+        const supabaseForLog = createClient();
+        const { data: { user: logUser } } = await supabaseForLog.auth.getUser();
+        await supabaseForLog.from("client_error_logs").insert({
+          user_id: logUser?.id || null,
+          business_id: selectedBusinesses[0] || null,
+          action: "save_expense",
+          error_message: errMsg,
+          error_details: {
+            supplier: selectedSupplier,
+            expenseType,
+            amount: amountBeforeVat,
+            date: expenseDate,
+            hasFiles: newAttachmentFiles.length > 0,
+            isPaidInFull,
+            linkToCoordinator,
+            linkToFixedInvoiceId,
+            rawError: String(error),
+          },
+          page: "expenses",
+        });
+      } catch { /* ignore logging errors */ }
     } finally {
       setIsSaving(false);
     }
