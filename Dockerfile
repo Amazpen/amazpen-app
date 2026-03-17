@@ -12,9 +12,8 @@ RUN apk add --no-cache libc6-compat vips
 # Copy package files
 COPY package.json package-lock.json* bun.lock* ./
 
-# Install all deps (ignore scripts), then install sharp prebuilt binary for Alpine (musl)
-RUN npm install --legacy-peer-deps --ignore-scripts && \
-    npm install --no-save --ignore-scripts @img/sharp-linux-x64-musl
+# Install all deps, with sharp prebuilt binary for Alpine (musl libc)
+RUN npm install --legacy-peer-deps --cpu=x64 --os=linux --libc=musl
 
 # ============================================
 # Stage 2: Builder
