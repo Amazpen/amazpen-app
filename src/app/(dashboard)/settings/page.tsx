@@ -738,25 +738,40 @@ function InstallAppSection() {
     const isIosDevice = /iPad|iPhone|iPod/.test(ua) || (ua.includes("Mac") && "ontouchend" in document);
     setIsIos(isIosDevice);
 
-    // Listen for install prompt (Android/Desktop Chrome)
+    // Check if already captured by early script in layout
+    const w = window as typeof window & { __pwaInstallPrompt?: Event };
+    if (w.__pwaInstallPrompt) {
+      setDeferredPrompt(w.__pwaInstallPrompt);
+    }
+
+    // Listen for future events
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
+    const readyHandler = () => {
+      if (w.__pwaInstallPrompt) setDeferredPrompt(w.__pwaInstallPrompt);
+    };
     window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("pwaInstallReady", readyHandler);
 
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      window.removeEventListener("pwaInstallReady", readyHandler);
+    };
   }, []);
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return;
+    const w = window as typeof window & { __pwaInstallPrompt?: Event };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const prompt = deferredPrompt as any;
+    const prompt = (deferredPrompt || w.__pwaInstallPrompt) as any;
+    if (!prompt) return;
     prompt.prompt();
     const result = await prompt.userChoice;
     if (result.outcome === "accepted") {
       setIsInstalled(true);
     }
+    w.__pwaInstallPrompt = undefined;
     setDeferredPrompt(null);
   };
 
