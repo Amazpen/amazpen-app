@@ -2010,6 +2010,12 @@ function ExpensesPageInner() {
         }
       }
 
+      // Switch to the correct tab so the new expense is visible
+      const targetTab = expenseType === "current" ? "expenses" : expenseType === "goods" ? "purchases" : "employees";
+      if (activeTab !== targetTab) {
+        setActiveTab(targetTab as "expenses" | "purchases" | "employees");
+      }
+
       // Refresh data
       clearExpenseDraft();
       handleClosePopup();
