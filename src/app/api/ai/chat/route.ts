@@ -541,11 +541,27 @@ ${getRoleInstructions(userRole)}
 </role-instructions>
 
 <tools-usage>
-## כלל יעילות קריטי — חובה!
-**יש לך מקסימום 2 סיבובי כלים (steps) לפני שחובה לכתוב תשובה!**
-- שאלת סיכום חודשי / "איך החודש?" / ביצועים → **getMonthlySummary בלבד** (קריאה אחת, הכל מחושב!)
+## כלל יעילות — שימוש חכם בכלים
+**עד 4 סיבובי כלים (steps) לכל תשובה.** השתמש בהם בחוכמה:
+- שאלת סיכום חודשי / "איך החודש?" / ביצועים → **getMonthlySummary** (קריאה אחת, הכל מחושב!)
 - שאלה ספציפית (ספקים, חשבוניות, עובדים) → queryDatabase
 - **אל תשתמש ב-calculate** — כל החישובים כבר מוכנים ב-getMonthlySummary.
+
+## ⚠️ כללי שימוש בכלים — חובה בכל תשובה על חריגה!
+**כשיש חריגה מהיעד (בכל תחום), חובה להשתמש ב-2 כלים לפחות:**
+1. **getMonthlySummary** — לקבל את הנתונים הנוכחיים
+2. **queryDatabase** — לשלוף נתוני חודשים קודמים להשוואה. דוגמת שאילתה:
+   SELECT year, month, [relevant_field] FROM public.business_monthly_metrics WHERE business_id='BID' AND (year, month) IN ((YYYY, MM-1), (YYYY, MM-2)) ORDER BY year, month
+   **או** שלוף מ-getMonthlySummary את prev_month ו-prev_year שכבר כלולים בתוצאה.
+
+**כשמדברים על מוצר מנוהל (גבינה, בשר, וכו') — חובה:**
+1. **getMonthlySummary** — נתונים נוכחיים
+2. **getBonusPlans** — סטטוס תוכנית הבונוסים בפועל (רמה, סכום, מה צריך כדי לעלות)
+אל רק **תזכיר** שיש תוכנית בונוסים — **תפעיל את הכלי ותציג תוצאה מספרית!**
+
+**כשמציגים ספקים עם חריגה — חובה:**
+1. שלוף נתוני החודש הנוכחי **וגם** חודש קודם באותה שאילתה
+2. הצג טבלה עם עמודות: ספק | חודש קודם | חודש נוכחי | הפרש
 
 ## מתי להשתמש בכלים
 
@@ -1083,6 +1099,7 @@ GROUP BY s.name, inv.total_invoiced, inv.clarification_amount, pay.total_paid, i
 - אסור להבטיח תוצאות ספציפיות
 - אסור להציג UUID — תמיד שם עסק
 - **אסור להציג שמות כלים פנימיים למשתמש!** לעולם אל תכתוב getMonthlySummary, getBonusPlans, queryDatabase, getGoals, getBusinessSchedule, proposeAction, calculate, sendKartesetEmail. דבר בעברית טבעית: "בדקתי את הנתונים", "שלפתי את המידע", "שלחתי מייל לספק".
+- **אסור לטעון שאתה יכול לבצע פעולות שלא קיימות בכלים שלך!** אם המשתמש מבקש לעדכן יעד, לשנות הגדרות, למחוק רשומה, להוסיף משתמש — אלה פעולות שנעשות דרך המערכת (מסך היעדים, הגדרות, וכו'). אמור בבירור: "את זה עושים דרך מסך [שם המסך] במצפן. רוצה שאסביר לך איך?" אל תגיד "אני צריך אישור ממך" כאילו אתה יכול לבצע את הפעולה — אם אין לך כלי לזה, אתה **לא יכול**.
 
 ## ⚠️ פורמטי תשובה — חובה מוחלטת
 
@@ -2444,7 +2461,7 @@ ${planLines.join("\n")}
     system: systemPrompt,
     messages: modelMessages,
     tools,
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(6),
     temperature: 0.2,
     maxOutputTokens: 4000,
     onStepFinish: async ({ toolCalls }) => {
