@@ -886,6 +886,8 @@ export default function DashboardPage() {
   // Fetch businesses (cards) - runs on mount and when dateRange changes
   useEffect(() => {
     if (!dateRange) return; // Wait for dateRange to be initialized
+    // Skip if dateRange is still at epoch (initial hydration value before real date loads)
+    if (dateRange.start.getTime() === 0 || dateRange.end.getTime() === 0) return;
     const fetchBusinesses = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -1155,6 +1157,7 @@ export default function DashboardPage() {
   // Fetch detailed summary when businesses are selected
   useEffect(() => {
     if (!dateRange) return; // Wait for dateRange to be initialized
+    if (dateRange.start.getTime() === 0 || dateRange.end.getTime() === 0) return; // Skip epoch
     const fetchDetailedSummary = async () => {
       if (selectedBusinesses.length === 0) {
         setDetailedSummary(null);
