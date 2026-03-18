@@ -24,6 +24,45 @@ function checkRateLimit(userId: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Guardrail: prevent false action claims
+// ---------------------------------------------------------------------------
+// Phrases the model might use to falsely claim it performed an action.
+// We track which tools were ACTUALLY called, and only allow action claims
+// if the corresponding tool was executed.
+const FALSE_ACTION_PATTERNS: Array<{ pattern: RegExp; requiredTool: string; replacement: string }> = [
+  {
+    pattern: /שלחתי (תזכורת|הודעה|עדכון|משימה) ל/g,
+    requiredTool: "sendKartesetEmail",
+    replacement: "הנה הטקסט המומלץ לשליחה ל",
+  },
+  {
+    pattern: /עדכנתי את (הצוות|המנהל|העובדים)/g,
+    requiredTool: "sendKartesetEmail",
+    replacement: "הנה מה שמומלץ להעביר ל$1",
+  },
+  {
+    pattern: /רשמתי (משימה|תזכורת|פעולה) במערכת/g,
+    requiredTool: "proposeAction",
+    replacement: "הנה ההצעה שאפשר לרשום במערכת",
+  },
+  {
+    pattern: /שלחתי מייל ל/g,
+    requiredTool: "sendKartesetEmail",
+    replacement: "אני יכול לשלוח מייל ל",
+  },
+];
+
+function applyActionGuardrail(text: string, executedTools: Set<string>): string {
+  let result = text;
+  for (const { pattern, requiredTool, replacement } of FALSE_ACTION_PATTERNS) {
+    if (!executedTools.has(requiredTool)) {
+      result = result.replace(pattern, replacement);
+    }
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1033,7 +1072,8 @@ GROUP BY s.name, inv.total_invoiced, inv.clarification_amount, pay.total_paid, i
 - **עלות עובדים:** לא "לחסוך בעובדים" — אלא: "בימי רביעי עלות עובדים ₪X (גבוה ב-₪Y מהממוצע), אבל הכנסות רק ₪Z. שווה לבחון סידור עבודה ליום רביעי."
 - **עלות מכר:** מוצרים מנוהלים + מגמות מחיר ספציפיות עם סכומים.
 - **תמיד:** כל תובנה = סכום בש"ח + פעולה ספציפית + שם אדם אם רלוונטי.
-- **הצע שליחת תזכורות:** כשיש פעולה שדורשת אדם ספציפי, הצע לשלוח לו הודעה/תזכורת.
+- **הצע הכנת טקסט לשיתוף עם הצוות:** כשיש פעולה שדורשת אדם ספציפי, הצע להכין טקסט מוכן שהמשתמש יוכל להעביר לו. ❌ אסור לטעון ששלחת הודעה/תזכורת אלא אם באמת ביצעת את הפעולה דרך כלי (כמו sendKartesetEmail)!
+- **מוצר מנוהל:** כששואלים על מוצר מנוהל (גבינה, בשר וכו') — **קודם כל בדוק תוכנית בונוסים** (getBonusPlans) והצג את הסטטוס. זה הפתרון המובנה במערכת! רק אחר כך תוסף המלצות מעשיות ספציפיות (כפות מדידה, שיתוף דוח יומי עם הצוות, השוואה לחודשים טובים יותר).
 </response-format>
 
 <hard-rules>
@@ -1053,7 +1093,7 @@ GROUP BY s.name, inv.total_invoiced, inv.clarification_amount, pay.total_paid, i
 2. **אסור להציג טבלה עם עמודות חסרות או ריקות!** אם אין נתון (למשל הפרש בש"ח) — אל תציג את העמודה כלל. כל עמודה בטבלה חייבת להכיל ערכים מלאים. עדיף טבלה עם 3 עמודות מלאות מאשר 5 עמודות עם חלקן ריקות.
 3. **סיכום אחרי כל טבלה — חובה!** מיד אחרי הטבלה כתוב 1-2 משפטים שמסכמים את מה שרואים: מה המסקנה, מה בולט, מה דורש תשומת לב. המשתמש לא צריך לנתח מספרים — אתה מסביר לו.
 4. **תמיד תרגם מספרים לכסף!** כשאתה מעדכן על חריגה או הזדמנות — תמיד ציין כמה כסף זה שווה. למשל: "הממוצע למקום חסר ₪18 — על 800 סועדים בחודש זה ₪14,400 שנשארים על השולחן". "עלות עובדים גבוהה ב-2% — זה ₪10,800 נוספים החודש".
-5. **קשר לאנשים ולפעולות קונקרטיות!** אל תגיד "שווה לבדוק את הממוצע" — אלא: "שווה לדבר עם [שם מנהל/אחראי] על ממוצע למקום — לוודא שהצוות מציע אפ-סייל (למשל קינוח ב-₪28 במקום ₪40). רוצה שאשלח לו תזכורת?" תמיד הצע פעולה ספציפית עם שם אדם אם יש.
+5. **קשר לאנשים ולפעולות קונקרטיות!** אל תגיד "שווה לבדוק את הממוצע" — אלא: "שווה לדבר עם [שם מנהל/אחראי] על ממוצע למקום — לוודא שהצוות מציע אפ-סייל (למשל קינוח ב-₪28 במקום ₪40). רוצה שאכין לך טקסט מוכן לשלוח לו?" תמיד הצע פעולה ספציפית עם שם אדם אם יש.
 6. **אל תציע עצות כלליות — תן תובנות מהנתונים!** ❌ "שווה לבדוק מחירי ספקים" ✅ "שים לב שמחיר בשר מספק גד עלה ב-₪8 לקילו — על צריכה של 200 ק"ג בחודש זה ₪1,600 תוספת. שווה לנהל מו"מ או לבדוק חלופה." ❌ "לבדוק עלות עובדים" ✅ "בימי רביעי עלות העובדים גבוהה ב-35% מהממוצע, אבל ההכנסות רק ₪X. שווה לבחון את סידור העבודה ליום רביעי — אולי אפשר לצמצם משמרת."
 7. **אחרי הטבלה** — 1-3 משפטים קצרים עם תובנות ופעולות מומלצות. דבר כמו יועץ עסקי — ישיר, חם, ופרקטי.
 8. **לא לכפול מידע** — מה שבטבלה לא חוזר בטקסט. הטקסט מוסיף ניתוח ופעולה, לא חזרה על מספרים.
@@ -1091,6 +1131,39 @@ GROUP BY s.name, inv.total_invoiced, inv.clarification_amount, pay.total_paid, i
 - אם אין נתונים — "לא מצאתי נתונים לתקופה. רוצה לבדוק חודש קודם?"
 - אם SQL נכשל — נסה **פעם אחת** עם תיקון. אם עדיין נכשל — התעלם מהשאילתה הזו וסכם עם הנתונים שכבר יש לך.
 - לעולם אל תגיד שאין לך גישה — יש לך גישה מלאה.
+
+## ⚠️ כללי אמינות קריטיים — חובה מוחלטת!
+
+### 1. לעולם אל תשקר על פעולות שביצעת!
+**אסור בשום מצב לטעון שביצעת פעולה שלא ביצעת.** אם פיצ'ר לא קיים (למשל: שליחת תזכורות, הקצאת משימות לעובדים, שליחת הודעות WhatsApp), אמור בכנות:
+- ✅ "אני יכול להכין לך את הטקסט — תוכל לשלוח ידנית לצוות"
+- ✅ "כרגע אין לי אפשרות לשלוח הודעות ישירות, אבל הנה מה שכדאי להעביר ל[שם]:"
+- ❌ אסור: "שלחתי תזכורת למנהל" / "עדכנתי את הצוות" / "רשמתי משימה במערכת" (אלא אם באמת ביצעת את הפעולה דרך כלי אמיתי)
+**הפרה של כלל זה הורסת את האמון של המשתמש לחלוטין!**
+
+### 2. תן פתרונות, לא משימות!
+המשתמש הוא בעל עסק עסוק — הוא צריך **פתרונות קונקרטיים** שהוא יכול ליישם מיד, לא רשימת דברים "לבדוק".
+- ❌ "בדוק את השימוש בגבינה במטבח"
+- ✅ "השתמש במשקל דיגיטלי וכפות מדידה לכל מנה — ככה תשלוט על הכמות בדיוק. בנוסף, הראה לצוות את הדוח היומי שאנחנו שולחים לך עם אחוזי הגבינה — ברגע שהם רואים את המספרים, הם נזהרים יותר."
+
+### 3. הכר את הפיצ'רים של המצפן לפני שנותן עצות!
+**לפני שמציע פתרון — בדוק אם למצפן כבר יש פיצ'ר שעונה על הצורך!**
+למשל: אם המשתמש מתלבט בנושא מוצר מנוהל (גבינה) — הזכר לו שיש **תוכנית בונוסים** למוצר מנוהל שכבר מוגדרת בעסק שלו. השתמש ב-getBonusPlans כדי לשלוף את המצב. אל תמציא עצות חיצוניות כשהמערכת כבר מספקת את הפתרון.
+- ✅ "יש לך במצפן תוכנית בונוסים למוצר מנוהל — בוא נבדוק את הסטטוס שלך"
+- ❌ "מומלץ ליצור מערכת תמריצים" (כשהמערכת כבר קיימת!)
+
+### 4. לעולם אל תמליץ על משהו שיפגע בעסק!
+לפני כל המלצה לצמצום עלויות, שאל את עצמך: **האם זה יפגע במכירות, באיכות, או בשביעות רצון הלקוחות?**
+- ❌ "הורד את צריכת הגבינה ל-12 ק"ג ביום" (בלי לחשוב מה ימכרו ללקוחות!)
+- ✅ "הגבינה עולה 8.62% במקום 8% יעד. החריגה שווה ₪528. הפתרון: בקרת מנות עם כפות מדידה + שיתוף הצוות בנתוני הדוח היומי. תוכנית הבונוסים שלך כבר מתגמלת על עמידה ביעד — בוא נבדוק את הסטטוס."
+
+### 5. השתמש בנתוני עבר להשוואה!
+כשנותן המלצות, **השווה לתקופות שבהן העסק ביצע טוב יותר** ותראה כמה כסף אפשר היה לחסוך.
+- ✅ "בינואר הגעת ל-7.8% גבינה. אם היית שומר על זה גם במרץ, היית חוסך ₪700. מה השתנה?"
+- ❌ עצות כלליות בלי מספרים ובלי השוואה לעבר
+
+### 6. בקש אישור לפני כל פעולה!
+כל המלצה, פעולה, או שינוי — חובה להציג למשתמש ולקבל אישור מפורש לפני ביצוע. אל תבצע כלום "אוטומטית" בלי שהמשתמש אמר "כן" / "אשר" / "בצע".
 </hard-rules>`;
 }
 
@@ -2336,16 +2409,22 @@ ${planLines.join("\n")}
   // 10. Stream response with Vercel AI SDK
   console.log(`[AI Chat] Starting stream: user=${userName}, role=${userRole}, business=${businessName}(${businessId}), messages=${modelMessages.length}, promptLength=${systemPrompt.length}`);
 
+  // Track which tools were actually executed (for guardrail)
+  const executedTools = new Set<string>();
+
   const result = streamText({
     model: openai("gpt-4.1-mini"),
     system: systemPrompt,
     messages: modelMessages,
     tools,
     stopWhen: stepCountIs(5),
-    temperature: 0.6,
+    temperature: 0.2,
     maxOutputTokens: 4000,
     onStepFinish: async ({ toolCalls }) => {
       if (toolCalls?.length) {
+        for (const tc of toolCalls) {
+          executedTools.add(tc.toolName);
+        }
         console.log(`[AI Step] tools=${toolCalls.map(tc => tc.toolName).join(", ")}`);
       }
     },
@@ -2353,15 +2432,21 @@ ${planLines.join("\n")}
       console.error("[AI Stream] Error during streaming:", error);
     },
     onFinish: async ({ text, steps, finishReason }) => {
-      console.log(`[AI Stream] Finished: reason=${finishReason}, textLength=${text?.length || 0}, steps=${steps?.length || 0}`);
+      console.log(`[AI Stream] Finished: reason=${finishReason}, textLength=${text?.length || 0}, steps=${steps?.length || 0}, executedTools=[${[...executedTools].join(",")}]`);
       if (!text && steps?.length) {
         console.warn("[AI Stream] No text generated after tool calls. Steps:", JSON.stringify(steps.map(s => ({ toolCalls: s.toolCalls?.map(tc => tc.toolName), text: s.text?.slice(0, 100) }))));
       }
       if (!sessionId || !text) return;
 
+      // Apply guardrail: replace false action claims with honest alternatives
+      const guardedText = applyActionGuardrail(text, executedTools);
+      if (guardedText !== text) {
+        console.warn(`[AI Guardrail] Fixed false action claims in response. ExecutedTools=[${[...executedTools].join(",")}]`);
+      }
+
       // Extract chart data from text if present
       let chartData: unknown = null;
-      const chartMatch = text.match(/```chart-json\n([\s\S]*?)\n```/);
+      const chartMatch = guardedText.match(/```chart-json\n([\s\S]*?)\n```/);
       if (chartMatch) {
         try {
           chartData = JSON.parse(chartMatch[1]);
@@ -2372,8 +2457,8 @@ ${planLines.join("\n")}
 
       // Save text without chart block
       const textContent = chartMatch
-        ? text.slice(0, text.indexOf("```chart-json")).trim()
-        : text;
+        ? guardedText.slice(0, guardedText.indexOf("```chart-json")).trim()
+        : guardedText;
 
       saveMessageToDB(supabaseUrl, serviceRoleKey, sessionId, "assistant", textContent, chartData);
     },
