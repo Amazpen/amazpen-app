@@ -155,6 +155,22 @@ export async function POST(request: NextRequest) {
 
     if (actionType === "payment") {
       const d = validated as z.infer<typeof paymentSchema>;
+
+      // Duplicate check — same supplier, date, amount
+      const { data: existingPayment } = await supabase
+        .from("payments")
+        .select("id")
+        .eq("business_id", d.businessId)
+        .eq("supplier_id", d.supplier_id)
+        .eq("payment_date", d.payment_date)
+        .eq("total_amount", d.total_amount)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (existingPayment) {
+        return json({ error: "כבר קיים תשלום זהה (אותו ספק, תאריך וסכום)" }, 409);
+      }
+
       const { data: payment, error: payErr } = await supabase
         .from("payments")
         .insert({
@@ -178,7 +194,7 @@ export async function POST(request: NextRequest) {
             amount: m.amount,
             check_number: m.check_number || null,
             reference_number: m.reference_number || null,
-            due_date: m.due_date || null,
+            due_date: m.due_date || d.payment_date,
           }))
         : [{
             payment_id: payment.id,
@@ -186,7 +202,7 @@ export async function POST(request: NextRequest) {
             amount: d.total_amount,
             check_number: d.check_number || null,
             reference_number: d.reference_number || null,
-            due_date: null,
+            due_date: d.payment_date,
           }];
 
       const { error: splitErr } = await supabase.from("payment_splits").insert(splits);
