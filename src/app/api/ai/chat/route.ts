@@ -1887,6 +1887,7 @@ function buildTools(
           check_number: z.string().optional(),
           reference_number: z.string().optional(),
           notes: z.string().optional(),
+          invoice_ids: z.array(z.string()).optional().describe("Invoice UUIDs to link to this payment. Server auto-links if omitted."),
         }).optional(),
         dailyEntryData: z.object({
           entry_date: z.string().optional().describe("Entry date in YYYY-MM-DD format"),

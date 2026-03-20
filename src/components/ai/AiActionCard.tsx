@@ -86,6 +86,7 @@ export function AiActionCard({ action }: AiActionCardProps) {
                 check_number: pd.check_number,
                 reference_number: pd.reference_number,
               }),
+          ...(pd.invoice_ids && pd.invoice_ids.length > 0 ? { invoice_ids: pd.invoice_ids } : {}),
         });
       } else if (action.actionType === "daily_entry" && action.dailyEntryData) {
         Object.assign(payload, {

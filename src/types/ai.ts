@@ -50,6 +50,7 @@ export interface AiPaymentData {
   check_number?: string;
   reference_number?: string;
   notes?: string;
+  invoice_ids?: string[];
 }
 
 export interface AiDailyEntryData {

@@ -34,6 +34,7 @@ const paymentSchema = z.object({
   check_number: z.string().optional(),
   reference_number: z.string().optional(),
   notes: z.string().optional(),
+  invoice_ids: z.array(z.string().uuid()).optional().describe("Invoice IDs to link to this payment"),
 }).refine(
   d => d.payment_method != null || (d.payment_methods != null && d.payment_methods.length > 0),
   { message: "Either payment_method or payment_methods must be provided" }
@@ -171,6 +172,46 @@ export async function POST(request: NextRequest) {
         return json({ error: "כבר קיים תשלום זהה (אותו ספק, תאריך וסכום)" }, 409);
       }
 
+      // Resolve invoice_id: use provided IDs, or auto-find pending invoices for this supplier
+      let invoiceId: string | null = null;
+      const linkedInvoiceIds: string[] = [];
+
+      if (d.invoice_ids && d.invoice_ids.length > 0) {
+        invoiceId = d.invoice_ids[0];
+        linkedInvoiceIds.push(...d.invoice_ids);
+      } else {
+        // Auto-find pending invoices for this supplier that match the payment amount
+        const { data: pendingInvoices } = await supabase
+          .from("invoices")
+          .select("id, total_amount")
+          .eq("business_id", d.businessId)
+          .eq("supplier_id", d.supplier_id)
+          .eq("status", "pending")
+          .is("deleted_at", null)
+          .order("invoice_date", { ascending: true });
+
+        if (pendingInvoices && pendingInvoices.length > 0) {
+          // Try exact match first
+          const exactMatch = pendingInvoices.find(inv => Number(inv.total_amount) === d.total_amount);
+          if (exactMatch) {
+            invoiceId = exactMatch.id;
+            linkedInvoiceIds.push(exactMatch.id);
+          } else {
+            // Link all pending invoices whose sum <= payment amount
+            let remaining = d.total_amount;
+            for (const inv of pendingInvoices) {
+              const amt = Number(inv.total_amount);
+              if (amt <= remaining + 0.01) {
+                linkedInvoiceIds.push(inv.id);
+                remaining -= amt;
+                if (!invoiceId) invoiceId = inv.id;
+                if (remaining <= 0.01) break;
+              }
+            }
+          }
+        }
+      }
+
       const { data: payment, error: payErr } = await supabase
         .from("payments")
         .insert({
@@ -178,6 +219,7 @@ export async function POST(request: NextRequest) {
           supplier_id: d.supplier_id,
           payment_date: d.payment_date,
           total_amount: d.total_amount,
+          invoice_id: invoiceId,
           notes: d.notes || null,
           created_by: user.id,
         })
@@ -185,6 +227,14 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (payErr) throw payErr;
+
+      // Mark linked invoices as paid
+      if (linkedInvoiceIds.length > 0) {
+        await supabase
+          .from("invoices")
+          .update({ status: "paid" })
+          .in("id", linkedInvoiceIds);
+      }
 
       // Build splits — support both single method and array
       const splits = d.payment_methods && d.payment_methods.length > 0
@@ -208,7 +258,11 @@ export async function POST(request: NextRequest) {
       const { error: splitErr } = await supabase.from("payment_splits").insert(splits);
       if (splitErr) throw splitErr;
 
-      return json({ success: true, message: "תשלום נוצר בהצלחה", recordId: payment.id, actionType: "payment" });
+      const linkedCount = linkedInvoiceIds.length;
+      const msg = linkedCount > 0
+        ? `תשלום נוצר בהצלחה וקושר ל-${linkedCount} חשבוניות`
+        : "תשלום נוצר בהצלחה";
+      return json({ success: true, message: msg, recordId: payment.id, actionType: "payment", linkedInvoices: linkedCount });
     }
 
     // daily_entry
