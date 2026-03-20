@@ -3284,8 +3284,10 @@ function ExpensesPageInner() {
                 key={invoice.id}
                 data-invoice-id={invoice.id}
                 className={`rounded-[7px] p-[7px_3px] border transition-colors ${
-                  invoice.approval_status === 'pending_review' ? 'bg-white/5 border-white/20 opacity-60'
-                  : expandedInvoiceId === invoice.id ? 'bg-white/5 border-white' : invoice.status === 'בבירור' ? 'border-[#FFA500]' : 'border-transparent'
+                  expandedInvoiceId === invoice.id ? 'bg-white/5 border-white'
+                  : invoice.status === 'בבירור' ? 'border-[#FFA500]'
+                  : invoice.approval_status === 'pending_review' ? 'border-[#bc76ff]/50'
+                  : 'border-transparent'
                 }`}
               >
                 {/* Main Row */}
