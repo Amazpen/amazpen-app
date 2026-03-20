@@ -243,7 +243,7 @@ export async function POST(request: NextRequest) {
             payment_method: m.method,
             amount: m.amount,
             check_number: m.check_number || null,
-            reference_number: m.reference_number || null,
+            reference_number: m.reference_number ? String(m.reference_number) : null,
             due_date: m.due_date || d.payment_date,
           }))
         : [{
@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
             payment_method: d.payment_method!,
             amount: d.total_amount,
             check_number: d.check_number || null,
-            reference_number: d.reference_number || null,
+            reference_number: d.reference_number ? String(d.reference_number) : null,
             due_date: d.payment_date,
           }];
 

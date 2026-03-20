@@ -829,7 +829,7 @@ function PaymentsPageInner() {
         vatAmount,
         notes: p.notes || null,
         receiptUrl: p.receipt_url || null,
-        reference: firstSplit?.reference_number || null,
+        reference: firstSplit?.reference_number ? String(firstSplit.reference_number) : null,
         checkNumber: firstSplit?.check_number || null,
         createdBy: p.creator?.full_name || null,
         createdAt: p.created_at ? formatDateString(p.created_at.split("T")[0]) : null,
