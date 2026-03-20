@@ -230,6 +230,7 @@ interface IncomeSourceSummary {
   incomeType: string; // 'private' | 'business'
   totalAmount: number;
   ordersCount: number;
+  entriesCount: number; // מספר ימים עם נתונים (חשוב לקופונים שאין להם orders)
   avgAmount: number;
   avgTicketTarget: number; // יעד ממוצע הזמנה
   avgTicketDiff: number; // הפרש: ממוצע בפועל - יעד
@@ -643,6 +644,8 @@ export default function DashboardPage() {
 
       // Today's income breakdown by source type
       let todayPrivateIncome = 0, todayPrivateCount = 0, todayBusinessIncome = 0, todayBusinessCount = 0;
+      // Per-source today aggregates for executive summary
+      const todayPerSource: Record<string, { amount: number; ordersCount: number; entriesCount: number }> = {};
       todayBreakdowns.forEach((b: { income_source_id: string; amount: number; orders_count: number }) => {
         const source = allIncomeSources.find((src: { id: string; income_type: string }) => src.id === b.income_source_id);
         const amount = Number(b.amount) || 0;
@@ -654,6 +657,13 @@ export default function DashboardPage() {
           todayPrivateIncome += amount;
           todayPrivateCount += orders;
         }
+        // Track per-source
+        if (!todayPerSource[b.income_source_id]) {
+          todayPerSource[b.income_source_id] = { amount: 0, ordersCount: 0, entriesCount: 0 };
+        }
+        todayPerSource[b.income_source_id].amount += amount;
+        todayPerSource[b.income_source_id].ordersCount += orders;
+        todayPerSource[b.income_source_id].entriesCount += 1;
       });
 
       const todayTotalOrders = todayPrivateCount + todayBusinessCount;
@@ -676,14 +686,6 @@ export default function DashboardPage() {
       const todayPrivateDiff = privateAvgTarget ? todayPrivateAvg - privateAvgTarget : 0;
       const todayBusinessDiff = businessAvgTarget ? todayBusinessAvg - businessAvgTarget : 0;
 
-      // Monthly cumulative data (from detailedSummary - already computed for the date range)
-      const cumPrivateSource = incomeSourcesSummary.find(src => src.incomeType === 'private');
-      const cumBusinessSource = incomeSourcesSummary.find(src => src.incomeType === 'business');
-      const cumPrivateAvg = cumPrivateSource?.avgAmount || 0;
-      const cumBusinessAvg = cumBusinessSource?.avgAmount || 0;
-      const cumPrivateDiff = privateAvgTarget ? cumPrivateAvg - privateAvgTarget : 0;
-      const cumBusinessDiff = businessAvgTarget ? cumBusinessAvg - businessAvgTarget : 0;
-      const revTargetDiffPct = s.targetDiffPct || 0;
 
       // Inline styles for email compatibility (Gmail strips CSS classes)
       const cellStyle = 'color:#fff;font-size:12px;height:24px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);padding:2px 4px;direction:ltr;';
@@ -733,10 +735,20 @@ export default function DashboardPage() {
       });
 
       // === Daily Summary Table (TODAY's data only) ===
+      // Build dynamic income source rows for today
+      const todayIncomeSourceRows: string[][] = incomeSourcesSummary.map(src => {
+        const todayData = todayPerSource[src.id] || { amount: 0, ordersCount: 0, entriesCount: 0 };
+        const todayAmount = todayData.amount;
+        const isCouponLike = todayData.ordersCount === 0 && todayData.entriesCount > 0;
+        const todayCount = isCouponLike ? todayData.entriesCount : todayData.ordersCount;
+        const todayAvg = todayCount > 0 ? todayAmount / todayCount : 0;
+        const target = avgTicketTargetMap[src.id] || 0;
+        const todayDiff = target ? todayAvg - target : 0;
+        return [src.name, `₪${Math.round(todayAmount).toLocaleString('he-IL')}`, `${todayCount}`, `<span style="color:${diffColor(todayDiff)}">${todayDiff < 0 ? '-' : ''}₪${Math.abs(todayDiff).toFixed(1)}</span>`];
+      });
       const dailyRows: string[][] = [
         ['סה"כ קופה כולל מע"מ', `₪${Math.round(todayTotalIncome).toLocaleString('he-IL')}`, '', `<span style="color:${diffColor(s.targetDiffAmount)}">${s.targetDiffAmount < 0 ? '-' : ''}₪${Math.abs(Math.round(s.targetDiffAmount)).toLocaleString('he-IL')}</span>`],
-        ['במקום', `₪${Math.round(todayPrivateIncome).toLocaleString('he-IL')}`, `${todayPrivateCount}`, `<span style="color:${diffColor(todayPrivateDiff)}">${todayPrivateDiff < 0 ? '-' : ''}₪${Math.abs(todayPrivateDiff).toFixed(1)}</span>`],
-        ['במשלוח', `₪${Math.round(todayBusinessIncome).toLocaleString('he-IL')}`, `${todayBusinessCount}`, `<span style="color:${diffColor(todayBusinessDiff)}">${todayBusinessDiff < 0 ? '-' : ''}₪${Math.abs(todayBusinessDiff).toFixed(1)}</span>`],
+        ...todayIncomeSourceRows,
         ['ע. עובדים (%)', `${todayLaborCostPct.toFixed(2)}%`, `${todayTotalOrders}`, `<span style="color:${diffColor(todayLaborCostDiffPct, true)}">${todayLaborCostDiffPct > 0 ? '' : '-'}${Math.abs(todayLaborCostDiffPct).toFixed(2)}%</span>`],
         ...todayMpData.map(p => [
           `${p.name} (%)`, `${p.pct.toFixed(2)}%`, `${p.qty}`,
@@ -748,10 +760,13 @@ export default function DashboardPage() {
       const dailyHtml = buildTable(`הסיכום היומי ליום ${dayName}, ${dateStr}`, ['', 'סה"כ יומי', 'כמות', 'הפרש מהיעד'], dailyRows);
 
       // === Goals/Targets Table ===
+      const goalsIncomeSourceRows: string[][] = incomeSourcesSummary.map(src => {
+        const target = avgTicketTargetMap[src.id] || 0;
+        return [src.name, target > 0 ? `₪${Math.round(target).toLocaleString('he-IL')}` : '-'];
+      });
       const goalsRows: string[][] = [
         ['סה"כ קופה כולל מע"מ', `₪${Math.round(s.revenueTarget).toLocaleString('he-IL')}`],
-        ['במקום', `₪${Math.round(privateAvgTarget).toLocaleString('he-IL')}`],
-        ['במשלוח', `₪${Math.round(businessAvgTarget).toLocaleString('he-IL')}`],
+        ...goalsIncomeSourceRows,
         ['ע. עובדים (%)', `${Math.round(s.laborCostTargetPct)}%`],
         ...cumMpData.map(p => [`עלות ${p.name} (%)`, p.targetPct ? `${p.targetPct}%` : '-']),
         ['עלות מכר', `${Math.round(s.foodCostTargetPct)}%`],
@@ -760,10 +775,22 @@ export default function DashboardPage() {
       const goalsHtml = buildTable('פרמטר / יעד', ['פרמטר', 'יעד'], goalsRows);
 
       // === Monthly Cumulative Table (from detailedSummary - full date range) ===
+      // Build dynamic income source rows for cumulative
+      const cumulativeIncomeSourceRows: string[][] = incomeSourcesSummary.map(src => {
+        const target = avgTicketTargetMap[src.id] || 0;
+        const cumAvg = src.avgAmount || 0;
+        const cumDiff = target ? cumAvg - target : 0;
+        // For coupon-like sources (no orders), show total instead of average
+        const isCouponLike = src.ordersCount === 0 && src.entriesCount > 0;
+        const displayValue = isCouponLike ? `₪${Math.round(src.totalAmount).toLocaleString('he-IL')}` : `₪${cumAvg.toFixed(2)}`;
+        const diffDisplay = isCouponLike
+          ? '-'
+          : `<span style="color:${diffColor(cumDiff)}">${cumDiff < 0 ? '-' : ''}₪${Math.abs(cumDiff).toFixed(1)}</span>`;
+        return [src.name, displayValue, diffDisplay];
+      });
       const cumulativeRows: string[][] = [
         ['סה"כ קופה', `₪${Math.round(s.totalIncome).toLocaleString('he-IL')}`, `<span style="color:${diffColor(s.targetDiffAmount)}">${s.targetDiffAmount < 0 ? '-' : ''}₪${Math.abs(Math.round(s.targetDiffAmount)).toLocaleString('he-IL')}</span>`],
-        ['במקום', `₪${cumPrivateAvg.toFixed(2)}`, `<span style="color:${diffColor(cumPrivateDiff)}">${cumPrivateDiff < 0 ? '-' : ''}₪${Math.abs(cumPrivateDiff).toFixed(1)}</span>`],
-        ['במשלוח', `₪${cumBusinessAvg.toFixed(2)}`, `<span style="color:${diffColor(cumBusinessDiff)}">${cumBusinessDiff < 0 ? '-' : ''}₪${Math.abs(cumBusinessDiff).toFixed(1)}</span>`],
+        ...cumulativeIncomeSourceRows,
         ['ע. עובדים', `${s.laborCostPct.toFixed(2)}%`, `<span style="color:${diffColor(s.laborCostDiffPct, true)}">${s.laborCostDiffPct > 0 ? '' : '-'}${Math.abs(s.laborCostDiffPct).toFixed(1)}%</span>`],
         ...cumMpData.map(p => [
           p.name, `${p.pct.toFixed(2)}%`,
@@ -1616,6 +1643,7 @@ export default function DashboardPage() {
           incomeType: source.income_type,
           totalAmount: aggregate.totalAmount,
           ordersCount: aggregate.ordersCount,
+          entriesCount: aggregate.entriesCount,
           avgAmount,
           avgTicketTarget,
           avgTicketDiff,
@@ -3395,17 +3423,24 @@ export default function DashboardPage() {
                 }
 
                 // Default layout for all other businesses/sources
+                // For sources without orders (e.g. coupons), use entriesCount as the effective quantity
+                const hasData = source.ordersCount > 0 || source.entriesCount > 0;
+                const effectiveCount = source.ordersCount > 0 ? source.ordersCount : source.entriesCount;
+                const isCouponLike = source.ordersCount === 0 && source.entriesCount > 0;
+                const countLabel = isCouponLike ? "מספר ימים" : "כמות הזמנות";
+                const avgLabel = isCouponLike ? `ממוצע יומי` : "ממוצע הזמנה";
+
                 return (
                   <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('incomeSource', source.name, source.id)}>
                     <div className="flex flex-row-reverse justify-between items-center w-full">
                       <div className="flex flex-row-reverse items-start gap-[10px] ml-[9px]">
                         <div className="flex flex-col items-center">
-                          <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>
+                          <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${!hasData ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>
                             {formatCurrencyDecimals(source.avgAmount)}
                           </span>
-                          <span className={`text-[14px] font-normal text-center leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>({formatCurrencyDecimals(source.ordersCount === 0 ? 0 : Math.abs(source.avgTicketDiff))})</span>
+                          <span className={`text-[14px] font-normal text-center leading-[1.4] ltr-num ${!hasData ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>({formatCurrencyDecimals(!hasData ? 0 : Math.abs(source.avgTicketDiff))})</span>
                         </div>
-                        <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>
+                        <span className={`text-[20px] font-bold leading-[1.4] ltr-num ${!hasData ? 'text-white' : source.avgTicketDiff < 0 ? 'text-red-500' : source.avgTicketDiff > 0 ? 'text-green-500' : 'text-white'}`}>
                           {formatCurrencyFull(source.totalAmount)}
                         </span>
                       </div>
@@ -3419,21 +3454,21 @@ export default function DashboardPage() {
                     <div className="flex flex-row-reverse justify-between items-start gap-[10px] mt-[5px]">
                       <div className="flex flex-col ml-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{source.ordersCount.toLocaleString("he-IL")}</span>
-                          <span className="text-[14px] font-medium text-white leading-[1.4]">כמות הזמנות</span>
+                          <span className="text-[16px] font-semibold text-white leading-[1.4] ltr-num">{effectiveCount.toLocaleString("he-IL")}</span>
+                          <span className="text-[14px] font-medium text-white leading-[1.4]">{countLabel}</span>
                         </div>
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.targetDiffAmount < 0 ? 'text-red-500' : source.targetDiffAmount > 0 ? 'text-green-500' : 'text-white'}`}>{formatCurrencyFull(source.ordersCount === 0 ? 0 : source.targetDiffAmount)}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${!hasData ? 'text-white' : source.targetDiffAmount < 0 ? 'text-red-500' : source.targetDiffAmount > 0 ? 'text-green-500' : 'text-white'}`}>{formatCurrencyFull(!hasData ? 0 : source.targetDiffAmount)}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">הפרש מהיעד</span>
                         </div>
                       </div>
                       <div className="flex flex-col mr-[10px]">
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.prevMonthChange < 0 ? 'text-red-500' : source.prevMonthChange > 0 ? 'text-green-500' : 'text-white'}`}>{formatCurrencyDecimals(source.ordersCount === 0 ? 0 : source.prevMonthChange)}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${!hasData ? 'text-white' : source.prevMonthChange < 0 ? 'text-red-500' : source.prevMonthChange > 0 ? 'text-green-500' : 'text-white'}`}>{formatCurrencyDecimals(!hasData ? 0 : source.prevMonthChange)}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי מחודש קודם</span>
                         </div>
                         <div className="flex flex-row-reverse justify-between items-center gap-[5px]">
-                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${source.ordersCount === 0 ? 'text-white' : source.prevYearChange < 0 ? 'text-red-500' : source.prevYearChange > 0 ? 'text-green-500' : 'text-white'}`}>{formatCurrencyDecimals(source.ordersCount === 0 ? 0 : source.prevYearChange)}</span>
+                          <span className={`text-[16px] font-semibold leading-[1.4] ltr-num ${!hasData ? 'text-white' : source.prevYearChange < 0 ? 'text-red-500' : source.prevYearChange > 0 ? 'text-green-500' : 'text-white'}`}>{formatCurrencyDecimals(!hasData ? 0 : source.prevYearChange)}</span>
                           <span className="text-[14px] font-medium text-white leading-[1.4]">שינוי משנה שעברה</span>
                         </div>
                       </div>

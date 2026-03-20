@@ -50,7 +50,7 @@ interface IncomeSource {
   name: string;
 }
 
-interface ReceiptType {
+interface PaymentMethodType {
   id: string;
   name: string;
 }
@@ -162,7 +162,7 @@ export function DailyEntriesModal({
 
   // Dynamic data for edit form
   const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
-  const [receiptTypes, setReceiptTypes] = useState<ReceiptType[]>([]);
+  const [receiptTypes, setReceiptTypes] = useState<PaymentMethodType[]>([]);
   const [customParameters, setCustomParameters] = useState<CustomParameter[]>([]);
   const [managedProducts, setManagedProducts] = useState<ManagedProduct[]>([]);
 
@@ -277,11 +277,10 @@ export function DailyEntriesModal({
         .is("deleted_at", null)
         .order("display_order"),
       supabase
-        .from("receipt_types")
+        .from("payment_method_types")
         .select("id, name")
         .eq("business_id", businessId)
         .eq("is_active", true)
-        .is("deleted_at", null)
         .order("display_order"),
       supabase
         .from("custom_parameters")
@@ -355,16 +354,16 @@ export function DailyEntriesModal({
       setIncomeData((prev) => ({ ...prev, ...existingIncome }));
     }
 
-    // Load receipts
+    // Load payment breakdown
     const { data: receiptsData } = await supabase
-      .from("daily_receipts")
-      .select("receipt_type_id, amount")
+      .from("daily_payment_breakdown")
+      .select("payment_method_id, amount")
       .eq("daily_entry_id", entryId);
 
     if (receiptsData) {
       const existingReceipts: Record<string, string> = {};
       receiptsData.forEach((r) => {
-        existingReceipts[r.receipt_type_id] = r.amount?.toString() || "";
+        existingReceipts[r.payment_method_id] = r.amount?.toString() || "";
       });
       setReceiptData((prev) => ({ ...prev, ...existingReceipts }));
     }
@@ -493,12 +492,12 @@ export function DailyEntriesModal({
       const supabase = createClient();
       const dailyEntryId = editingEntry.id;
 
-      // Calculate manager daily cost for saving
+      // Calculate manager daily cost for saving (daily rate from schedule × day_factor, no markup)
       const saveLaborCost = parseFloat(editFormData.labor_cost) || 0;
-      const saveEntryDate = editFormData.entry_date ? new Date(editFormData.entry_date) : new Date();
-      const saveDaysInMonth = new Date(saveEntryDate.getFullYear(), saveEntryDate.getMonth() + 1, 0).getDate();
-      const saveManagerDailyCost = saveDaysInMonth > 0
-        ? (managerMonthlySalary / saveDaysInMonth) * workingDaysUpToDate * monthlyMarkup
+      const saveDayFactor = parseFloat(editFormData.day_factor) || 1;
+      const saveWorkDaysInMonth = goalsData?.workDaysInMonth || 26;
+      const saveManagerDailyCost = saveWorkDaysInMonth > 0
+        ? (managerMonthlySalary / saveWorkDaysInMonth) * saveDayFactor
         : 0;
 
       // Update main daily entry
@@ -526,7 +525,7 @@ export function DailyEntriesModal({
       // Delete existing related data before re-inserting
       await Promise.all([
         supabase.from("daily_income_breakdown").delete().eq("daily_entry_id", dailyEntryId),
-        supabase.from("daily_receipts").delete().eq("daily_entry_id", dailyEntryId),
+        supabase.from("daily_payment_breakdown").delete().eq("daily_entry_id", dailyEntryId),
         supabase.from("daily_parameters").delete().eq("daily_entry_id", dailyEntryId),
         supabase.from("daily_product_usage").delete().eq("daily_entry_id", dailyEntryId),
       ]);
@@ -548,14 +547,14 @@ export function DailyEntriesModal({
         }
       }
 
-      // Save receipts (amount only)
+      // Save payment breakdown (amount only)
       for (const receipt of receiptTypes) {
         const amount = parseFloat(receiptData[receipt.id]) || 0;
 
         if (amount > 0) {
-          const { error } = await supabase.from("daily_receipts").insert({
+          const { error } = await supabase.from("daily_payment_breakdown").insert({
             daily_entry_id: dailyEntryId,
-            receipt_type_id: receipt.id,
+            payment_method_id: receipt.id,
             amount,
           });
           if (error) throw error;
@@ -1171,10 +1170,10 @@ export function DailyEntriesModal({
                   const laborCost = parseFloat(editFormData.labor_cost) || 0;
                   const laborWithMarkup = laborCost * monthlyMarkup;
 
-                  const entryDate = editFormData.entry_date ? new Date(editFormData.entry_date) : new Date();
-                  const daysInMonth = new Date(entryDate.getFullYear(), entryDate.getMonth() + 1, 0).getDate();
-                  const dailyManagerWithMarkup = daysInMonth > 0
-                    ? (managerMonthlySalary / daysInMonth) * workingDaysUpToDate * monthlyMarkup
+                  const displayDayFactor = parseFloat(editFormData.day_factor) || 1;
+                  const displayWorkDaysInMonth = goalsData?.workDaysInMonth || 26;
+                  const dailyManagerWithMarkup = displayWorkDaysInMonth > 0
+                    ? (managerMonthlySalary / displayWorkDaysInMonth) * displayDayFactor
                     : 0;
 
                   return (
