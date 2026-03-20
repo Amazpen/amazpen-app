@@ -1036,10 +1036,8 @@ function ExpensesPageInner() {
               const supplierName = inv.supplier.name;
               const subtotal = Number(inv.subtotal);
               const categoryId = inv.supplier.expense_category_id;
-              // isFixed = supplier is fixed expense AND invoice has no attachment AND no reference (closed = has image OR reference)
-              const hasAttachment = inv.attachment_url && String(inv.attachment_url).trim() !== "";
-              const hasReference = inv.invoice_number && String(inv.invoice_number).trim() !== "" && inv.invoice_number !== "-";
-              const isFixed = (inv.supplier.is_fixed_expense || false) && (!hasAttachment && !hasReference);
+              // isFixed = supplier is marked as fixed expense
+              const isFixed = inv.supplier.is_fixed_expense || false;
 
               // Add to supplier totals (for chart/purchases tab)
               if (supplierTotals.has(supplierId)) {
@@ -3277,8 +3275,8 @@ function ExpensesPageInner() {
                 <span className="text-[16px] text-white/50">{filterBy ? 'לא נמצאו תוצאות' : 'אין חשבוניות להצגה'}</span>
               </div>
             ) : filtered.map((invoice) => {
-              // Fixed expense that still needs attachment or reference - show purple
-              const isFixedPending = invoice.isFixed && (invoice.attachmentUrls.length === 0 && !invoice.reference);
+              // Fixed expense supplier - always show purple status
+              const isFixedPending = invoice.isFixed;
               return (
               <div
                 key={invoice.id}
