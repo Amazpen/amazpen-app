@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, X, AlertTriangle, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,12 +47,34 @@ interface AiActionCardProps {
 }
 
 export function AiActionCard({ action }: AiActionCardProps) {
+  const router = useRouter();
   const [status, setStatus] = useState<"pending" | "confirming" | "success" | "error" | "rejected">("pending");
   const [resultMessage, setResultMessage] = useState<string | null>(null);
 
   const needsSupplierCreation = action.supplierLookup?.needsCreation === true;
 
   const handleConfirm = useCallback(async () => {
+    // For payments — redirect to payment form with pre-fill params instead of direct creation
+    if (action.actionType === "payment" && action.paymentData) {
+      const pd = action.paymentData;
+      const params = new URLSearchParams();
+      params.set("mode", "ai");
+      if (pd.supplier_id) params.set("supplier_id", pd.supplier_id);
+      if (pd.total_amount != null) params.set("amount", String(pd.total_amount));
+      if (pd.payment_method) params.set("payment_method", pd.payment_method);
+      if (pd.payment_methods && pd.payment_methods.length > 0 && !pd.payment_method) {
+        // Use first method as primary when only split methods provided
+        params.set("payment_method", pd.payment_methods[0].method);
+      }
+      if (pd.notes) params.set("notes", pd.notes);
+      if (pd.payment_date) params.set("payment_date", pd.payment_date);
+
+      setStatus("success");
+      setResultMessage("מעביר לטופס תשלום...");
+      router.push(`/payments?${params.toString()}`);
+      return;
+    }
+
     setStatus("confirming");
     try {
       // Build the payload based on action type
@@ -70,23 +93,6 @@ export function AiActionCard({ action }: AiActionCardProps) {
           total_amount: action.expenseData.total_amount,
           invoice_type: action.expenseData.invoice_type,
           notes: action.expenseData.notes,
-        });
-      } else if (action.actionType === "payment" && action.paymentData) {
-        const pd = action.paymentData;
-        Object.assign(payload, {
-          supplier_id: pd.supplier_id,
-          payment_date: pd.payment_date,
-          total_amount: pd.total_amount,
-          notes: pd.notes,
-          // Prefer payment_methods array over single method
-          ...(pd.payment_methods && pd.payment_methods.length > 0
-            ? { payment_methods: pd.payment_methods }
-            : {
-                payment_method: pd.payment_method,
-                check_number: pd.check_number,
-                reference_number: pd.reference_number,
-              }),
-          ...(pd.invoice_ids && pd.invoice_ids.length > 0 ? { invoice_ids: pd.invoice_ids } : {}),
         });
       } else if (action.actionType === "daily_entry" && action.dailyEntryData) {
         Object.assign(payload, {
@@ -119,7 +125,7 @@ export function AiActionCard({ action }: AiActionCardProps) {
       setStatus("error");
       setResultMessage("שגיאה בתקשורת עם השרת");
     }
-  }, [action]);
+  }, [action, router]);
 
   const handleReject = useCallback(() => {
     setStatus("rejected");

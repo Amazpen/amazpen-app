@@ -2360,32 +2360,65 @@ function PaymentsPageInner() {
     setEditingPaymentId(null);
     setOriginalPaymentSnapshot(null);
     setUpdateConfirmation(null);
+    setIsAiPrefill(false);
     resetForm();
   };
 
-  // Auto-open payment form from supplier page link (e.g. /payments?supplierId=xxx&amount=123&paymentDate=2026-04-30)
+  // AI prefill banner state
+  const [isAiPrefill, setIsAiPrefill] = useState(false);
+
+  // Auto-open payment form from supplier page link or AI agent redirect
+  // Supports: /payments?supplierId=xxx&amount=123&paymentDate=2026-04-30
+  // And AI:   /payments?mode=ai&supplier_id=xxx&amount=123&payment_method=cash&notes=...&payment_date=2026-04-30
   const prefillHandled = useRef(false);
   useEffect(() => {
     if (prefillHandled.current || suppliers.length === 0) return;
-    const supplierId = searchParams.get("supplierId");
-    if (!supplierId) return;
+
+    const mode = searchParams.get("mode");
+    const isAiMode = mode === "ai";
+
+    // AI prefill params (snake_case)
+    const aiSupplierId = searchParams.get("supplier_id");
+    const aiAmount = searchParams.get("amount");
+    const aiPaymentMethod = searchParams.get("payment_method");
+    const aiNotes = searchParams.get("notes");
+    const aiPaymentDate = searchParams.get("payment_date");
+
+    // Legacy supplier page params (camelCase)
+    const legacySupplierId = searchParams.get("supplierId");
+    const legacyAmount = searchParams.get("amount");
+    const legacyDate = searchParams.get("paymentDate");
+
+    const supplierId = aiSupplierId || legacySupplierId;
+    if (!supplierId && !isAiMode) return;
+
     // Only handle once
     prefillHandled.current = true;
-    const amount = searchParams.get("amount");
-    const date = searchParams.get("paymentDate");
+
+    if (isAiMode) setIsAiPrefill(true);
 
     // Find supplier to determine its expense type
-    const supplier = suppliers.find(s => s.id === supplierId);
-    if (supplier) {
-      setSelectedSupplier(supplierId);
-      if (supplier.expense_type === "goods") setExpenseType("purchases");
-      else if (supplier.expense_type === "current") setExpenseType("expenses");
-      else if (supplier.expense_type === "employees") setExpenseType("employees");
+    if (supplierId) {
+      const supplier = suppliers.find(s => s.id === supplierId);
+      if (supplier) {
+        setSelectedSupplier(supplierId);
+        if (supplier.expense_type === "goods") setExpenseType("purchases");
+        else if (supplier.expense_type === "current") setExpenseType("expenses");
+        else if (supplier.expense_type === "employees") setExpenseType("employees");
+      }
     }
-    if (date) setPaymentDate(date);
-    if (amount) {
-      setPaymentMethods([{ id: 1, method: "", amount, installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }]);
+
+    const dateVal = aiPaymentDate || legacyDate;
+    if (dateVal) setPaymentDate(dateVal);
+
+    const amountVal = aiAmount || legacyAmount;
+    if (amountVal) {
+      const methodVal = aiPaymentMethod || "";
+      setPaymentMethods([{ id: 1, method: methodVal, amount: amountVal, installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }]);
     }
+
+    if (aiNotes) setNotes(aiNotes);
+
     setShowAddPaymentPopup(true);
     // Clean URL params without reload
     router.replace("/payments", { scroll: false });
@@ -3554,6 +3587,13 @@ function PaymentsPageInner() {
               <div className="w-[24px]" />
             </div>
           </SheetHeader>
+
+            {/* AI prefill banner */}
+            {isAiPrefill && (
+              <div className="mx-4 mt-3 mb-1 p-2.5 bg-blue-500/10 border border-blue-500/30 rounded-lg text-center">
+                <span className="text-[13px] text-blue-200 font-medium">מילוי אוטומטי מדדי — בדוק ואשר</span>
+              </div>
+            )}
 
             {/* Form */}
             <div className="flex flex-col gap-[5px] px-4 pb-[80px]">
