@@ -339,7 +339,7 @@ export default function OCRPage() {
                         reference_number: formData.payment_reference || null,
                         check_number: pm.checkNumber || null,
                         credit_card_id: creditCardId,
-                        due_date: inst.dateForInput || null,
+                        due_date: inst.dateForInput || formData.payment_date || formData.document_date || null,
                       });
                     }
                   } else {
@@ -430,7 +430,7 @@ export default function OCRPage() {
                       reference_number: formData.payment_reference || null,
                       check_number: pm.checkNumber || null,
                       credit_card_id: creditCardId,
-                      due_date: inst.dateForInput || null,
+                      due_date: inst.dateForInput || formData.document_date || null,
                     });
                   }
                 } else {

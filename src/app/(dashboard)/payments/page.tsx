@@ -1313,7 +1313,7 @@ function PaymentsPageInner() {
                     reference_number: reference || null,
                     check_number: (pm.method === "check" && inst.checkNumber) ? inst.checkNumber : (pm.checkNumber || null),
                     credit_card_id: creditCardId,
-                    due_date: inst.dateForInput || null,
+                    due_date: inst.dateForInput || paymentDate || null,
                   });
               }
             } else {
@@ -1722,7 +1722,7 @@ function PaymentsPageInner() {
                   reference_number: reference || null,
                   check_number: (pm.method === "check" && inst.checkNumber) ? inst.checkNumber : (pm.checkNumber || null),
                   credit_card_id: creditCardId,
-                  due_date: inst.dateForInput || null,
+                  due_date: inst.dateForInput || paymentDate || null,
                 });
             }
           } else {

@@ -1836,7 +1836,7 @@ function ExpensesPageInner() {
                       installment_number: inst.number,
                       reference_number: paymentReference || null,
                       check_number: pm.method === "check" ? (inst.checkNumber || pm.checkNumber || null) : null,
-                      due_date: inst.dateForInput || null,
+                      due_date: inst.dateForInput || paymentDate || expenseDate || null,
                     });
                   }
                 } else {
@@ -1968,7 +1968,7 @@ function ExpensesPageInner() {
                         reference_number: paymentReference || null,
                         check_number: pm.method === "check" ? (inst.checkNumber || pm.checkNumber || null) : null,
                         credit_card_id: creditCardId,
-                        due_date: inst.dateForInput || null,
+                        due_date: inst.dateForInput || paymentDate || expenseDate || null,
                       });
                   }
                 } else {
@@ -2593,7 +2593,7 @@ function ExpensesPageInner() {
                     reference_number: paymentReference || null,
                     check_number: pm.method === "check" ? (inst.checkNumber || pm.checkNumber || null) : null,
                     credit_card_id: creditCardId,
-                    due_date: inst.dateForInput || null,
+                    due_date: inst.dateForInput || paymentDate || null,
                   });
               }
             } else {
