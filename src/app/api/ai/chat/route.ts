@@ -429,14 +429,23 @@ queryDatabase: payment_splits עם due_date בשבוע הנוכחי. ענה **ב
 
 ### 5. "מי ההוצאות הכי כבדות שלי" / "מה ההוצאות הגדולות?"
 
-queryDatabase: invoices + suppliers לחודש נוכחי + חודש קודם, ORDER BY total DESC. ענה **בדיוק** בפורמט:
+queryDatabase: invoices + suppliers + expense_categories לחודש נוכחי + חודש קודם, ORDER BY category, total DESC. **חובה לקבץ לפי קטגוריה!** ענה **בדיוק** בפורמט:
 
 **ההוצאות המשמעותיות — [שם העסק]**
 
-| ספק / קטגוריה | סוג | חודש קודם | החודש | הפרש | הפרש בש"ח |
-|---------------|-----|----------|-------|-------|-----------|
+**[שם קטגוריה 1]**
+
+| ספק | סוג | חודש קודם | החודש | הפרש | הפרש בש"ח |
+|-----|-----|----------|-------|-------|-----------|
 | [שם] | עלות מכר/שוטפת | [₪] | [₪] | [±%] | [±₪] |
 | [שם] | עלות מכר/שוטפת | [₪] | [₪] | [±%] | [±₪] |
+
+**[שם קטגוריה 2]**
+
+| ספק | סוג | חודש קודם | החודש | הפרש | הפרש בש"ח |
+|-----|-----|----------|-------|-------|-----------|
+| [שם] | עלות מכר/שוטפת | [₪] | [₪] | [±%] | [±₪] |
+
 | **סה"כ** | | [₪] | [₪] | [±%] | [±₪] |
 
 (סמן ב-⚠️ ספקים עם עלייה משמעותית מחודש קודם)
@@ -742,8 +751,23 @@ ${isAdmin ? `
 - businesses.business_type: 'restaurant' | 'manufacturing' | 'services'
 - income_sources.income_type: 'private' (NULL = business/עסקי)
 
+### כלל קיבוץ לפי קטגוריה — חובה!
+**כשמציג רשימת ספקים או הוצאות, תמיד קבץ לפי קטגוריה (expense_categories) עם כותרת לכל קטגוריה.**
+תמיד JOIN עם expense_categories כשמציג רשימת ספקים — גם אם המשתמש לא ביקש במפורש.
+
 ### JOIN patterns שכיחים
--- הוצאות לפי ספק וסוג:
+-- הוצאות לפי ספק מקובצות לפי קטגוריה (חובה!):
+SELECT ec.name AS category, s.name AS supplier_name, s.expense_type,
+  COALESCE(SUM(i.subtotal), 0) AS subtotal, COALESCE(SUM(i.total_amount), 0) AS total
+FROM public.suppliers s
+LEFT JOIN public.expense_categories ec ON s.expense_category_id = ec.id
+LEFT JOIN public.invoices i ON i.supplier_id = s.id AND i.deleted_at IS NULL
+  AND i.invoice_date >= '2026-02-01' AND i.invoice_date < '2026-03-01'
+WHERE s.business_id = 'BID' AND s.deleted_at IS NULL
+GROUP BY ec.name, s.name, s.expense_type
+ORDER BY ec.name, total DESC;
+
+-- הוצאות לפי ספק (בלי קטגוריה — השתמש רק כשנשאל על ספק ספציפי):
 SELECT s.name AS supplier_name, s.expense_type,
   SUM(i.subtotal) AS subtotal, SUM(i.vat_amount) AS vat, SUM(i.total_amount) AS total
 FROM public.invoices i
@@ -760,7 +784,7 @@ JOIN public.payments p ON ps.payment_id = p.id
 WHERE p.business_id = 'BID' AND p.deleted_at IS NULL
   AND ps.due_date BETWEEN '2026-02-01' AND '2026-02-28';
 
--- יתרת ספק (חשבוניות פחות תשלומים) — חובה להשתמש בsubqueries כדי למנוע כפילויות!
+-- ⚠️ יתרת ספק — חובה מוחלטת! כשמחשב יתרת ספק, חייב להשתמש בתת-שאילתות (subqueries) עם GROUP BY כדי למנוע כפילויות. אסור להשתמש ב-LEFT JOIN ישיר על invoices ו-payments באותה שאילתה — זה יוצר מכפלות ותוצאות שגויות!
 SELECT s.name AS supplier_name,
   COALESCE(inv.total_invoiced, 0) AS total_invoiced,
   COALESCE(inv.clarification_amount, 0) AS clarification_amount,
@@ -2425,7 +2449,56 @@ ${planLines.join("\n")}
     }
   }
 
-  // 8. Convert UIMessages to model messages
+  // 8. Load conversation history from DB if frontend sent only the latest message
+  if (sessionId && uiMessages.length <= 1) {
+    try {
+      const historySb = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+      const { data: dbMessages } = await historySb
+        .from("ai_chat_messages")
+        .select("role, content, created_at")
+        .eq("session_id", sessionId)
+        .order("created_at", { ascending: true });
+
+      if (dbMessages && dbMessages.length > 0) {
+        // Convert DB messages to UIMessage format and prepend before the current message
+        const historyUIMessages: UIMessage[] = dbMessages
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m, idx) => ({
+            id: `db-${idx}`,
+            role: m.role as "user" | "assistant",
+            parts: [{ type: "text" as const, text: m.content || "" }],
+            createdAt: new Date(m.created_at),
+          }));
+
+        if (historyUIMessages.length > 0) {
+          // Keep the last message from frontend (current user message), prepend history
+          const currentMessage = uiMessages[uiMessages.length - 1];
+          // Avoid duplicating the last user message if it's already in DB history
+          const lastHistoryMsg = historyUIMessages[historyUIMessages.length - 1];
+          const currentText = currentMessage?.parts
+            ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
+            .map((p) => p.text)
+            .join("") || "";
+
+          if (lastHistoryMsg?.role === "user" && lastHistoryMsg.parts?.[0]?.type === "text" && (lastHistoryMsg.parts[0] as { type: "text"; text: string }).text === currentText) {
+            // DB already has this message, use full history as-is
+            uiMessages.splice(0, uiMessages.length, ...historyUIMessages);
+          } else {
+            // Prepend history before current message
+            uiMessages.splice(0, uiMessages.length, ...historyUIMessages, currentMessage);
+          }
+          console.log(`[AI Chat] Loaded ${historyUIMessages.length} messages from DB for session ${sessionId}`);
+        }
+      }
+    } catch (err) {
+      console.error("[AI Chat] Failed to load conversation history:", err);
+      // Continue with the messages we have — don't fail the request
+    }
+  }
+
+  // Convert UIMessages to model messages
   const modelMessages = await convertToModelMessages(uiMessages);
 
   // 9. Save user message to DB (save only the display text, not OCR)
