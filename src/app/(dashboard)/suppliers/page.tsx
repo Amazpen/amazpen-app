@@ -204,7 +204,13 @@ export default function SuppliersPage() {
     date: string;
     method: string;
     amount: number;
+    totalAmount: number;
+    subtotal: number;
     reference: string;
+    notes: string | null;
+    receiptUrl: string | null;
+    linkedInvoice: { id: string; invoiceNumber: string | null; date: string; totalAmount: number; attachmentUrl: string | null } | null;
+    rawSplits: Array<{ id: string; payment_method: string; amount: number; installments_count: number | null; installment_number: number | null; due_date: string | null; check_number: string | null; reference_number: string | null }>;
   }>>([]);
 
   // Obligation detail popup state
@@ -1068,15 +1074,26 @@ export default function SuppliersPage() {
 
     const monthlyPurchases = monthlyInvoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
 
-    const { data: monthlyPayments } = await supabase
-      .from("payments")
-      .select("total_amount")
+    // Get payments linked to invoices in this month (by invoice_date, not payment_date)
+    // First get invoice IDs for this month
+    const { data: monthlyInvoiceIds } = await supabase
+      .from("invoices")
+      .select("id")
       .eq("supplier_id", supplier.id)
       .is("deleted_at", null)
-      .gte("payment_date", monthStart.toISOString().split("T")[0])
-      .lte("payment_date", monthEnd.toISOString().split("T")[0]);
+      .gte("invoice_date", monthStart.toISOString().split("T")[0])
+      .lte("invoice_date", monthEnd.toISOString().split("T")[0]);
 
-    const monthlyPaid = monthlyPayments?.reduce((sum, pay) => sum + Number(pay.total_amount), 0) || 0;
+    let monthlyPaid = 0;
+    if (monthlyInvoiceIds && monthlyInvoiceIds.length > 0) {
+      const invoiceIds = monthlyInvoiceIds.map(inv => inv.id);
+      const { data: linkedPayments } = await supabase
+        .from("payments")
+        .select("total_amount")
+        .in("invoice_id", invoiceIds)
+        .is("deleted_at", null);
+      monthlyPaid = linkedPayments?.reduce((sum, pay) => sum + Number(pay.total_amount), 0) || 0;
+    }
 
     let expectedPaymentDate: string | null = null;
     if (supplier.payment_terms_days) {
@@ -1244,14 +1261,19 @@ export default function SuppliersPage() {
         })));
       }
 
-      // Fetch payments list for this supplier
+      // Fetch payments list for this supplier (with full details for expanded view)
       const { data: paymentsList } = await supabase
         .from("payments")
         .select(`
           id,
           payment_date,
           total_amount,
-          payment_splits(payment_method, reference_number)
+          subtotal,
+          notes,
+          receipt_url,
+          invoice_id,
+          invoice:invoices(id, invoice_number, invoice_date, subtotal, total_amount, attachment_url),
+          payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)
         `)
         .eq("supplier_id", supplier.id)
         .is("deleted_at", null)
@@ -1273,12 +1295,37 @@ export default function SuppliersPage() {
 
         setSupplierPayments(paymentsList.map(pay => {
           const firstSplit = pay.payment_splits?.[0];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const inv = pay.invoice as any;
+          const total = Number(pay.total_amount);
+          const subtotal = inv?.subtotal ? Number(inv.subtotal) : Math.round(total / 1.17 * 100) / 100;
           return {
             id: pay.id,
             date: new Date(pay.payment_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
             method: paymentMethodNames[firstSplit?.payment_method || "other"] || "אחר",
             amount: Number(pay.total_amount),
+            totalAmount: total,
+            subtotal,
             reference: firstSplit?.reference_number || "-",
+            notes: pay.notes || null,
+            receiptUrl: pay.receipt_url || null,
+            linkedInvoice: inv ? {
+              id: inv.id,
+              invoiceNumber: inv.invoice_number,
+              date: new Date(inv.invoice_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
+              totalAmount: Number(inv.total_amount),
+              attachmentUrl: inv.attachment_url,
+            } : null,
+            rawSplits: (pay.payment_splits || []).map((s: { id: string; payment_method: string; amount: number; installments_count: number | null; installment_number: number | null; due_date: string | null; check_number: string | null; reference_number: string | null }) => ({
+              id: s.id,
+              payment_method: s.payment_method,
+              amount: Number(s.amount),
+              installments_count: s.installments_count,
+              installment_number: s.installment_number,
+              due_date: s.due_date,
+              check_number: s.check_number,
+              reference_number: s.reference_number,
+            })),
           };
         }));
       }
@@ -2941,6 +2988,7 @@ export default function SuppliersPage() {
                           {expandedSupplierPaymentId === payment.id && (
                             <div className="flex flex-col gap-[10px] p-[5px] mt-[10px]">
                               <div className="border border-white/50 rounded-[7px] p-[3px] flex flex-col gap-[15px]">
+                                {/* Header with title and action icons */}
                                 <div className="flex items-center justify-between border-b border-white/35 pb-[10px]">
                                   <span className="text-[16px] font-medium text-white ml-[7px]">פרטים נוספים</span>
                                   <div className="flex items-center gap-[6px]">
@@ -2956,25 +3004,130 @@ export default function SuppliersPage() {
                                         <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                                       </svg>
                                     </Button>
+                                    {/* Receipt image */}
+                                    {payment.receiptUrl && (
+                                      <Button
+                                        type="button"
+                                        title="צפייה בקבלה"
+                                        onClick={() => setViewerDocUrl(payment.receiptUrl!)}
+                                        className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors cursor-pointer"
+                                      >
+                                        <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                          <circle cx="8.5" cy="8.5" r="1.5"/>
+                                          <polyline points="21 15 16 10 5 21"/>
+                                        </svg>
+                                      </Button>
+                                    )}
+                                    {/* Download receipt */}
+                                    {payment.receiptUrl && (
+                                      <a
+                                        href={payment.receiptUrl}
+                                        download
+                                        title="הורדה"
+                                        className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
+                                      >
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                          <polyline points="7 10 12 15 17 10"/>
+                                          <line x1="12" y1="15" x2="12" y2="3"/>
+                                        </svg>
+                                      </a>
+                                    )}
                                   </div>
                                 </div>
-                                {/* Details Grid */}
-                                <div className="flex flex-row-reverse items-center justify-between px-[7px]">
-                                  <div className="flex flex-col items-center">
-                                    <span className="text-[14px] text-[#979797]">סכום</span>
-                                    <span className="text-[14px] text-white ltr-num">₪{payment.amount.toLocaleString()}</span>
+
+                                {/* Amounts row */}
+                                <div className="flex items-center justify-between px-[7px] flex-wrap gap-y-[8px]">
+                                  <div className="flex flex-col items-center min-w-[60px]">
+                                    <span className="text-[13px] text-[#979797]">סכום לפני מע&quot;מ</span>
+                                    <span className="text-[13px] text-white ltr-num">₪{payment.subtotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                   </div>
-                                  <div className="flex flex-col items-center">
-                                    <span className="text-[14px] text-[#979797]">אמצעי תשלום</span>
-                                    <span className="text-[14px] text-white">{payment.method}</span>
+                                  <div className="flex flex-col items-center min-w-[60px]">
+                                    <span className="text-[13px] text-[#979797]">סכום כולל מע&quot;מ</span>
+                                    <span className="text-[13px] text-white ltr-num">₪{payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                   </div>
-                                  {payment.reference && (
-                                    <div className="flex flex-col items-center">
-                                      <span className="text-[14px] text-[#979797]">אסמכתא</span>
-                                      <span className="text-[14px] text-white ltr-num">{payment.reference}</span>
-                                    </div>
-                                  )}
                                 </div>
+
+                                {/* Payment Methods Breakdown */}
+                                {payment.rawSplits.length > 0 && (
+                                  <div className="flex flex-col gap-[5px] px-[7px]" dir="rtl">
+                                    <span className="text-[13px] text-[#979797] font-medium">אמצעי תשלום</span>
+                                    {(() => {
+                                      const paymentMethodNamesMap: Record<string, string> = {
+                                        "bank_transfer": "העברה בנקאית",
+                                        "cash": "מזומן",
+                                        "check": "צ'ק",
+                                        "bit": "ביט",
+                                        "paybox": "פייבוקס",
+                                        "credit_card": "כרטיס אשראי",
+                                        "other": "אחר",
+                                        "credit_companies": "חברות הקפה",
+                                        "standing_order": "הוראת קבע",
+                                      };
+                                      // Group splits by payment method
+                                      const methodGroups = new Map<string, { method: string; totalAmount: number; splits: typeof payment.rawSplits }>();
+                                      for (const split of payment.rawSplits) {
+                                        const key = split.payment_method;
+                                        if (!methodGroups.has(key)) {
+                                          methodGroups.set(key, { method: key, totalAmount: 0, splits: [] });
+                                        }
+                                        const group = methodGroups.get(key)!;
+                                        group.totalAmount += split.amount;
+                                        group.splits.push(split);
+                                      }
+                                      return Array.from(methodGroups.values()).map((group, idx) => (
+                                        <div key={idx} className="flex items-center justify-between bg-white/5 rounded-[5px] px-[8px] py-[5px]">
+                                          <div className="flex items-center gap-[8px]">
+                                            <span className="text-[13px] font-medium">{paymentMethodNamesMap[group.method] || "אחר"}</span>
+                                            {group.splits.length > 1 && (
+                                              <span className="text-[11px] text-white/50">({group.splits.length} תשלומים)</span>
+                                            )}
+                                            {group.splits[0]?.check_number && (
+                                              <span className="text-[11px] text-white/50">צ׳ק {group.splits[0].check_number}</span>
+                                            )}
+                                          </div>
+                                          <span className="text-[13px] font-medium ltr-num">₪{group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                      ));
+                                    })()}
+                                  </div>
+                                )}
+
+                                {/* Reference & Notes */}
+                                {(payment.reference !== "-" || payment.notes) && (
+                                  <div className="flex flex-col gap-[5px] px-[7px]">
+                                    {payment.reference && payment.reference !== "-" && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[13px] text-[#979797]">אסמכתא</span>
+                                        <span className="text-[13px] ltr-num">{payment.reference}</span>
+                                      </div>
+                                    )}
+                                    {payment.notes && (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[13px] text-[#979797]">הערות</span>
+                                        <span className="text-[13px] text-right max-w-[60%]">{payment.notes}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Linked Invoice */}
+                                {payment.linkedInvoice && (
+                                  <div className="flex flex-col gap-[5px] px-[7px] pb-[5px]">
+                                    <Button
+                                      type="button"
+                                      onClick={() => {
+                                        // Switch to invoices tab and expand the linked invoice
+                                        setDetailActiveTab("invoices");
+                                        setExpandedSupplierInvoiceId(payment.linkedInvoice!.id);
+                                      }}
+                                      className="bg-[#29318A] text-white text-[13px] font-medium py-[5px] px-[14px] rounded-[7px] self-start cursor-pointer hover:bg-[#3D44A0] transition-colors"
+                                    >
+                                      חשבונית מקושרת: {payment.linkedInvoice.invoiceNumber || payment.linkedInvoice.date} — ₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
