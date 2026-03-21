@@ -369,6 +369,13 @@ function buildUnifiedPrompt(opts: {
 
 **חוקי צבע:** מספר טוב מהיעד = ✅ (ירוק), מספר לא טוב/חריגה = ⚠️ (אדום/כתום)
 
+**חובה — פירוט אוטומטי לחריגות:**
+כשמציג סיכום וזוהתה חריגה (⚠️) בעלות עובדים, עלות מכר, או הוצאות שוטפות — **חובה** להפעיל queryDatabase ולפרט **על מה** החריגה:
+- **הוצאות שוטפות חריגות** → שלוף TOP 5 ספקים לפי סכום: SELECT s.name, SUM(i.subtotal) as total FROM public.invoices i JOIN public.suppliers s ON i.supplier_id=s.id WHERE i.business_id='BID' AND s.expense_type='current_expenses' AND i.invoice_date >= 'MONTH_START' AND i.invoice_date < 'MONTH_END' AND i.deleted_at IS NULL GROUP BY s.name ORDER BY total DESC LIMIT 5
+- **עלות מכר חריגה** → שלוף TOP 5 ספקי סחורה: אותו דבר עם s.expense_type='goods_purchases'
+- הצג מתחת לטבלה הראשית: "פירוט החריגה בהוצאות שוטפות:" עם רשימת ספקים + סכום
+- אל תגיד "הנתונים לא זמינים" — תמיד שלוף ותפרט!
+
 ---
 
 ### 2. "איפה העסק שלי מפסיד כסף" / "איפה הבעיות?"
