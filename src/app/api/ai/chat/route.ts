@@ -358,8 +358,10 @@ function buildUnifiedPrompt(opts: {
 
 | | יעד | בפועל |
 |---|------|--------|
-| רווח בש"ח | [target_profit ₪] | [actual_profit ₪] |
-| רווח ב-% | [target_profit_pct%] | [actual_profit_pct%] |
+| רווח בש"ח | [profit.target ₪] | [profit.actual ₪] |
+| רווח ב-% | [profit.targetPct%] | [profit.actualPct%] |
+
+**חובה:** נתוני רווחיות נמצאים בשדה profit בתוצאת getMonthlySummary: profit.actual, profit.actualPct, profit.target, profit.targetPct. אם הם null — חשב ידנית: רווח = incomeBeforeVat - laborCostTotal - foodCost - currentExpenses.
 
 שורות שמסומנות ב-⚠️ אלו דליפות שזיהינו ושחשוב לתת להן תשומת לב.
 
@@ -1521,6 +1523,18 @@ async function computeMonthlySummary(
       foodDiffPct: foodDiffPct !== null ? Math.round(foodDiffPct * 100) / 100 : null,
     },
     params: { vatPct, markup, managerSalary },
+    profit: {
+      actual: Math.round(incomeBeforeVat - laborCostTotal - foodCost - currentExpenses),
+      actualPct: incomeBeforeVat > 0
+        ? Math.round(((incomeBeforeVat - laborCostTotal - foodCost - currentExpenses) / incomeBeforeVat) * 10000) / 100
+        : 0,
+      target: revenueTarget > 0
+        ? Math.round(revenueTarget - (laborTarget / 100) * revenueTarget - (foodTarget / 100) * revenueTarget - currentExpensesTargetAmount)
+        : null,
+      targetPct: revenueTarget > 0
+        ? Math.round(((revenueTarget - (laborTarget / 100) * revenueTarget - (foodTarget / 100) * revenueTarget - currentExpensesTargetAmount) / revenueTarget) * 10000) / 100
+        : null,
+    },
   };
 }
 
@@ -1585,6 +1599,10 @@ function storeMetricsInBackground(
     manager_daily_cost: null,
     total_labor_hours: summary.actuals.totalLaborHours,
     total_discounts: summary.actuals.totalDiscounts,
+    profit_actual: summary.profit.actual,
+    profit_actual_pct: summary.profit.actualPct,
+    profit_target: summary.profit.target,
+    profit_target_pct: summary.profit.targetPct,
     computed_at: new Date().toISOString(),
   };
 
