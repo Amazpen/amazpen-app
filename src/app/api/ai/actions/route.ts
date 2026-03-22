@@ -131,12 +131,21 @@ export async function POST(request: NextRequest) {
         invoiceType = sup?.expense_type === "goods_purchases" ? "goods" : "current";
       }
 
+      // Fix dates with year < 2000 (e.g. AI extracting 1925 from DD/MM/YY format)
+      let fixedInvoiceDate = d.invoice_date;
+      const parsedYear = new Date(fixedInvoiceDate).getFullYear();
+      if (parsedYear > 0 && parsedYear < 2000) {
+        const dt = new Date(fixedInvoiceDate);
+        dt.setFullYear(dt.getFullYear() + 100);
+        fixedInvoiceDate = dt.toISOString().split('T')[0];
+      }
+
       const { data: invoice, error } = await supabase
         .from("invoices")
         .insert({
           business_id: d.businessId,
           supplier_id: d.supplier_id,
-          invoice_date: d.invoice_date,
+          invoice_date: fixedInvoiceDate,
           invoice_number: d.invoice_number || null,
           subtotal: d.subtotal,
           vat_amount: d.vat_amount,
@@ -197,15 +206,15 @@ export async function POST(request: NextRequest) {
             invoiceId = exactMatch.id;
             linkedInvoiceIds.push(exactMatch.id);
           } else {
-            // Link all pending invoices whose sum <= payment amount
+            // Link all pending invoices whose sum <= payment amount (₪1 tolerance per invoice for rounding)
             let remaining = d.total_amount;
             for (const inv of pendingInvoices) {
               const amt = Number(inv.total_amount);
-              if (amt <= remaining + 0.01) {
+              if (amt <= remaining + 1) {
                 linkedInvoiceIds.push(inv.id);
                 remaining -= amt;
                 if (!invoiceId) invoiceId = inv.id;
-                if (remaining <= 0.01) break;
+                if (remaining >= -1 && remaining <= 1) break;
               }
             }
           }

@@ -1340,25 +1340,18 @@ function PaymentsPageInner() {
         }
       }
 
-      // Update selected invoices - mark as paid only those that fit within the paid amount
+      // Update selected invoices - mark as paid
+      // Tolerance of ₪5 to handle rounding differences (invoice amounts like 1542.0004 vs user-entered 1542)
       if (selectedInvoiceIds.size > 0) {
         const selectedInvoices = openInvoices
-          .filter(inv => selectedInvoiceIds.has(inv.id))
-          .sort((a, b) => Number(a.total_amount) - Number(b.total_amount));
+          .filter(inv => selectedInvoiceIds.has(inv.id));
 
-        let remainingAmount = totalAmount;
-        const paidInvoiceIds: string[] = [];
+        const invoicesTotal = selectedInvoices.reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+        const diff = Math.abs(invoicesTotal - totalAmount);
 
-        for (const inv of selectedInvoices) {
-          const invAmount = Number(inv.total_amount);
-          if (invAmount <= remainingAmount) {
-            paidInvoiceIds.push(inv.id);
-            remainingAmount -= invAmount;
-          }
-        }
-
-        // Mark fully covered invoices as paid
-        if (paidInvoiceIds.length > 0) {
+        // If payment covers all selected invoices (within ₪5 tolerance), mark them all as paid
+        if (diff <= 5) {
+          const paidInvoiceIds = selectedInvoices.map(inv => inv.id);
           const { error: invoiceUpdateError } = await supabase
             .from("invoices")
             .update({ status: "paid" })
@@ -1366,6 +1359,30 @@ function PaymentsPageInner() {
 
           if (invoiceUpdateError) {
             console.error("Error updating invoice statuses:", invoiceUpdateError);
+          }
+        } else {
+          // Fallback: mark invoices one by one from smallest to largest
+          const sorted = [...selectedInvoices].sort((a, b) => Number(a.total_amount) - Number(b.total_amount));
+          let remainingAmount = totalAmount;
+          const paidInvoiceIds: string[] = [];
+
+          for (const inv of sorted) {
+            const invAmount = Number(inv.total_amount);
+            if (invAmount <= remainingAmount + 1) {
+              paidInvoiceIds.push(inv.id);
+              remainingAmount -= invAmount;
+            }
+          }
+
+          if (paidInvoiceIds.length > 0) {
+            const { error: invoiceUpdateError } = await supabase
+              .from("invoices")
+              .update({ status: "paid" })
+              .in("id", paidInvoiceIds);
+
+            if (invoiceUpdateError) {
+              console.error("Error updating invoice statuses:", invoiceUpdateError);
+            }
           }
         }
       }
@@ -1755,25 +1772,37 @@ function PaymentsPageInner() {
           .eq("id", oldPayment.linkedInvoiceId);
       }
 
-      // Mark newly selected invoices as paid
+      // Mark newly selected invoices as paid (with ₪5 tolerance for rounding)
       if (selectedInvoiceIds.size > 0) {
         const selectedInvoices = openInvoices
-          .filter(inv => selectedInvoiceIds.has(inv.id))
-          .sort((a, b) => Number(a.total_amount) - Number(b.total_amount));
-        let remainingAmount = totalAmount;
-        const paidInvoiceIds: string[] = [];
-        for (const inv of selectedInvoices) {
-          const invAmount = Number(inv.total_amount);
-          if (invAmount <= remainingAmount) {
-            paidInvoiceIds.push(inv.id);
-            remainingAmount -= invAmount;
-          }
-        }
-        if (paidInvoiceIds.length > 0) {
+          .filter(inv => selectedInvoiceIds.has(inv.id));
+
+        const invoicesTotal = selectedInvoices.reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+        const diff = Math.abs(invoicesTotal - totalAmount);
+
+        if (diff <= 5) {
+          const paidInvoiceIds = selectedInvoices.map(inv => inv.id);
           await supabase
             .from("invoices")
             .update({ status: "paid" })
             .in("id", paidInvoiceIds);
+        } else {
+          const sorted = [...selectedInvoices].sort((a, b) => Number(a.total_amount) - Number(b.total_amount));
+          let remainingAmount = totalAmount;
+          const paidInvoiceIds: string[] = [];
+          for (const inv of sorted) {
+            const invAmount = Number(inv.total_amount);
+            if (invAmount <= remainingAmount + 1) {
+              paidInvoiceIds.push(inv.id);
+              remainingAmount -= invAmount;
+            }
+          }
+          if (paidInvoiceIds.length > 0) {
+            await supabase
+              .from("invoices")
+              .update({ status: "paid" })
+              .in("id", paidInvoiceIds);
+          }
         }
       }
 
@@ -2383,6 +2412,8 @@ function PaymentsPageInner() {
     const aiPaymentMethod = searchParams.get("payment_method");
     const aiNotes = searchParams.get("notes");
     const aiPaymentDate = searchParams.get("payment_date");
+    const aiCheckNumber = searchParams.get("check_number");
+    const aiInvoiceIds = searchParams.get("invoice_ids");
 
     // Legacy supplier page params (camelCase)
     const legacySupplierId = searchParams.get("supplierId");
@@ -2414,10 +2445,18 @@ function PaymentsPageInner() {
     const amountVal = aiAmount || legacyAmount;
     if (amountVal) {
       const methodVal = aiPaymentMethod || "";
-      setPaymentMethods([{ id: 1, method: methodVal, amount: amountVal, installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }]);
+      setPaymentMethods([{ id: 1, method: methodVal, amount: amountVal, installments: "1", checkNumber: aiCheckNumber || "", creditCardId: "", customInstallments: [] }]);
     }
 
     if (aiNotes) setNotes(aiNotes);
+
+    // Auto-select invoices if AI provided invoice_ids
+    if (aiInvoiceIds) {
+      const ids = aiInvoiceIds.split(",").filter(Boolean);
+      if (ids.length > 0) {
+        setSelectedInvoiceIds(new Set(ids));
+      }
+    }
 
     setShowAddPaymentPopup(true);
     // Clean URL params without reload

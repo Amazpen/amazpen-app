@@ -68,6 +68,10 @@ export function AiActionCard({ action }: AiActionCardProps) {
       }
       if (pd.notes) params.set("notes", pd.notes);
       if (pd.payment_date) params.set("payment_date", pd.payment_date);
+      if (pd.check_number) params.set("check_number", pd.check_number);
+      if (pd.invoice_ids && pd.invoice_ids.length > 0) {
+        params.set("invoice_ids", pd.invoice_ids.join(","));
+      }
 
       setStatus("success");
       setResultMessage("מעביר לטופס תשלום...");

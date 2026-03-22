@@ -39,13 +39,24 @@ export async function POST(request: NextRequest) {
 
     const supabase = getServiceClient();
 
+    // Fix dates with year < 2000 (e.g. 1925 from DD/MM/YY parsing where 25 → 1925)
+    let fixedInvoiceDate = invoice_date;
+    if (fixedInvoiceDate) {
+      const parsedYear = new Date(fixedInvoiceDate).getFullYear();
+      if (parsedYear > 0 && parsedYear < 2000) {
+        const d = new Date(fixedInvoiceDate);
+        d.setFullYear(d.getFullYear() + 100);
+        fixedInvoiceDate = d.toISOString().split('T')[0];
+      }
+    }
+
     // Create invoice with pending_review status
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
       .insert({
         business_id,
         supplier_id,
-        invoice_date,
+        invoice_date: fixedInvoiceDate,
         total_amount,
         invoice_number: invoice_number || null,
         due_date: due_date || null,
