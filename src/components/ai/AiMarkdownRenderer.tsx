@@ -251,16 +251,13 @@ function buildComponents(searchQuery?: string): Components {
       const hasBad = text.includes("⚠️");
       const isColored = hasGood || hasBad;
 
-      let cellClass = "px-1 sm:px-2 py-1.5 sm:py-2 text-center break-words";
-      if (isNumeric) {
-        cellClass += " ltr-num font-medium tabular-nums";
-      }
+      let cellClass = "px-1 sm:px-2 py-1.5 sm:py-2 text-center";
+      if (isNumeric) cellClass += " font-medium tabular-nums";
       if (hasGood) cellClass += " text-[#17DB4E]";
       else if (hasBad) cellClass += " text-[#F64E60]";
       else cellClass += " text-white/80";
 
-      // When cell is colored, use inheritColor so number spans don't override with text-white
-      return <td className={cellClass}>{highlightNumbers(children, searchQuery, isColored)}</td>;
+      return <td className={cellClass}>{children}</td>;
     },
     hr: () => <hr className="border-white/10 my-3" />,
   };
