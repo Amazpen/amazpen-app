@@ -31,8 +31,9 @@ function highlightSearch(text: string, query: string | undefined, keyPrefix: str
   );
 }
 
-/** Highlight numbers and amounts in children text nodes, then search matches */
-function highlightNumbers(children: React.ReactNode, searchQuery?: string): React.ReactNode {
+/** Highlight numbers and amounts in children text nodes, then search matches.
+ *  If inheritColor is true, numbers inherit the parent's text color (used in colored table cells). */
+function highlightNumbers(children: React.ReactNode, searchQuery?: string, inheritColor?: boolean): React.ReactNode {
   return React.Children.map(children, (child, ci) => {
     if (typeof child !== "string") return child;
 
@@ -42,7 +43,7 @@ function highlightNumbers(children: React.ReactNode, searchQuery?: string): Reac
     return parts.map((part, i) => {
       if (NUMBER_PATTERN.test(part)) {
         return (
-          <span key={i} className="text-white font-semibold" dir="ltr" style={{ unicodeBidi: "embed" }}>
+          <span key={i} className={inheritColor ? "font-semibold" : "text-white font-semibold"} dir="ltr" style={{ unicodeBidi: "embed" }}>
             {highlightSearch(part, searchQuery, `n${ci}-${i}`)}
           </span>
         );
@@ -167,25 +168,26 @@ function buildComponents(searchQuery?: string): Components {
       <tbody className="[&>tr:nth-child(even)]:bg-white/[0.03]">{children}</tbody>
     ),
     tr: ({ children }) => {
-      // Color-code rows based on content: ✅ = green, ⚠️ = red/orange, סה"כ = bold
-      const text = React.Children.toArray(children).map(c => {
-        if (React.isValidElement(c)) {
-          const props = c.props as Record<string, unknown>;
-          if (props.children) {
-            return React.Children.toArray(props.children as React.ReactNode).map(gc => typeof gc === "string" ? gc : "").join("");
-          }
+      // Only color rows that have explicit ✅ or ⚠️ indicators from the AI
+      // Don't try to guess from +/- signs — the AI marks good/bad explicitly
+      const extractText = (node: React.ReactNode): string => {
+        if (typeof node === "string") return node;
+        if (React.isValidElement(node)) {
+          const props = node.props as Record<string, unknown>;
+          if (props.children) return React.Children.toArray(props.children as React.ReactNode).map(extractText).join("");
         }
-        return typeof c === "string" ? c : "";
-      }).join("");
+        return "";
+      };
+      const text = React.Children.toArray(children).map(extractText).join("");
 
-      const isTotal = text.includes("סה\"כ") || text.includes("סה״כ") || text.includes("**סה");
-      const isGood = text.includes("✅") || text.includes("-₪") || text.includes("-%");
-      const isBad = text.includes("⚠️") || text.includes("+₪") && (text.includes("עלות") || text.includes("הוצאות"));
+      const isTotal = /סה[""״]כ/.test(text);
+      const hasGood = text.includes("✅");
+      const hasBad = text.includes("⚠️");
 
       let rowClass = "border-b border-white/10 last:border-0";
-      if (isTotal) rowClass += " bg-[#29318A]/30 font-bold";
-      else if (isBad) rowClass += " bg-[#F64E60]/[0.07]";
-      else if (isGood) rowClass += " bg-[#17DB4E]/[0.05]";
+      if (isTotal && !hasGood && !hasBad) rowClass += " bg-[#29318A]/30 font-bold";
+      else if (hasBad) rowClass += " bg-[#F64E60]/[0.07]";
+      else if (hasGood) rowClass += " bg-[#17DB4E]/[0.05]";
 
       return <tr className={rowClass}>{children}</tr>;
     },
@@ -195,19 +197,32 @@ function buildComponents(searchQuery?: string): Components {
       </th>
     ),
     td: ({ children }) => {
-      // Detect if cell contains numbers/currency for LTR alignment
-      const text = React.Children.toArray(children).map(c => typeof c === "string" ? c : "").join("");
-      const isNumeric = /^[₪\d,+\-%.±\s]+$/.test(text.trim()) || /₪/.test(text);
-      const hasGoodIndicator = text.includes("✅") || (text.startsWith("-") && /[₪%]/.test(text));
-      const hasBadIndicator = text.includes("⚠️") || (text.startsWith("+") && /[₪%]/.test(text) && !text.includes("הכנסות"));
+      // Extract full text including from nested elements
+      const extractCellText = (node: React.ReactNode): string => {
+        if (typeof node === "string") return node;
+        if (React.isValidElement(node)) {
+          const props = node.props as Record<string, unknown>;
+          if (props.children) return React.Children.toArray(props.children as React.ReactNode).map(extractCellText).join("");
+        }
+        return "";
+      };
+      const text = extractCellText(children);
+      const trimmed = text.trim();
+      const isNumeric = /₪/.test(trimmed) || /^\d/.test(trimmed) || /^[+\-±]/.test(trimmed);
+
+      // Only color cells that have explicit ✅/⚠️ markers from the AI
+      const hasGood = text.includes("✅");
+      const hasBad = text.includes("⚠️");
+      const isColored = hasGood || hasBad;
 
       let cellClass = "text-right px-2 sm:px-3 py-1.5 sm:py-2";
       if (isNumeric) cellClass += " ltr-num font-medium tabular-nums";
-      if (hasGoodIndicator) cellClass += " text-[#17DB4E]";
-      else if (hasBadIndicator) cellClass += " text-[#F64E60]";
+      if (hasGood) cellClass += " text-[#17DB4E]";
+      else if (hasBad) cellClass += " text-[#F64E60]";
       else cellClass += " text-white/80";
 
-      return <td className={cellClass}>{hl(children)}</td>;
+      // When cell is colored, use inheritColor so number spans don't override with text-white
+      return <td className={cellClass}>{highlightNumbers(children, searchQuery, isColored)}</td>;
     },
     hr: () => <hr className="border-white/10 my-3" />,
   };
