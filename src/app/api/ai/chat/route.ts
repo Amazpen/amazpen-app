@@ -52,12 +52,24 @@ const FALSE_ACTION_PATTERNS: Array<{ pattern: RegExp; requiredTool: string; repl
   },
 ];
 
+// Terminology corrections — fix common LLM word confusions in Hebrew business context
+const TERMINOLOGY_FIXES: Array<{ pattern: RegExp; replacement: string }> = [
+  { pattern: /משלוח מהיר/g, replacement: "תשלום מהיר" },
+  { pattern: /משלוח לספק/g, replacement: "תשלום לספק" },
+  { pattern: /לבצע משלוח/g, replacement: "לבצע תשלום" },
+  { pattern: /ביצעתי משלוח/g, replacement: "ביצעתי תשלום" },
+];
+
 function applyActionGuardrail(text: string, executedTools: Set<string>): string {
   let result = text;
   for (const { pattern, requiredTool, replacement } of FALSE_ACTION_PATTERNS) {
     if (!executedTools.has(requiredTool)) {
       result = result.replace(pattern, replacement);
     }
+  }
+  // Apply terminology fixes
+  for (const { pattern, replacement } of TERMINOLOGY_FIXES) {
+    result = result.replace(pattern, replacement);
   }
   return result;
 }
@@ -650,14 +662,29 @@ ${getRoleInstructions(userRole)}
    - **רווח תפעולי** (סכום + %)
    - השוואה ליעד
 
+### פירוט ספק לפי חודשים — חובה!
+**כששואלים "מה הסטטוס עם ספק X" / "תראה לי חשבוניות של ספק" / "פירוט ספק":**
+1. שלוף חשבוניות לספק ב-6 החודשים האחרונים עם GROUP BY חודש
+2. **הצג טבלת סיכום חודשי:**
+
+| חודש | רכישות (כולל מע"מ) | רכישות (לפני מע"מ) | שולם | ⏸ בבירור | יתרה |
+|------|-------------------|-------------------|------|----------|------|
+| מרץ 2026 | ₪X | ₪Y | ₪Z | ₪W | ₪V |
+| פברואר 2026 | ... | ... | ... | ... | ... |
+| **סה"כ** | **₪X** | **₪Y** | **₪Z** | **₪W** | **₪V** |
+
+3. **חובה להציג עמודת "בבירור"** — חשבוניות בסטטוס clarification
+4. **חובה שורת סה"כ** בסוף הטבלה
+5. אם יש חשבוניות בבירור — הוסף: "⚠️ יש X חשבוניות בבירור בסך ₪Y שלא נכללות בחוב הפתוח"
+
 ### נוהל תשלומים — workflow מובנה
 **כששואלים "כמה לשלם לספק X" / "מה צריך לשלם" / "תשלומים לספק":**
 הפעל את הנוהל הבא בסדר:
 
 **שלב 1 — סכום ופירוט:**
 שלוף חשבוניות pending (לא clarification!) לספק, והצג:
-| חשבונית | תאריך | סכום | סטטוס |
-עם שורת סה"כ. הצע: "סה"כ לתשלום לספק [שם]: ₪[סכום]. רוצה שאכין תשלום?"
+| חשבונית | תאריך | סכום לפני מע"מ | סכום כולל מע"מ | סטטוס |
+עם שורת סה"כ. **סכום לתשלום = תמיד כולל מע"מ!** הצע: "סה"כ לתשלום לספק [שם]: ₪[סכום כולל מע"מ]. רוצה שאכין תשלום?"
 
 **שלב 2 — אם הלקוח אומר שהספק דורש יותר:**
 הצע: "אני ממליץ לבקש מהספק כרטסת (פירוט חשבוניות ותשלומים). **רוצה שאשלח לספק מייל בבקשה לכרטסת?**"
