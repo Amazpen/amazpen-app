@@ -2225,6 +2225,33 @@ function ExpensesPageInner() {
 
       if (error) throw error;
 
+      // Sync linked payments: if invoice amount changed, update linked payment status
+      const newTotalAmount = parseFloat(amountBeforeVat) * (1 + (calculatedVatEdit / parseFloat(amountBeforeVat) || 0));
+      const oldTotalAmount = editingInvoice.amountWithVat;
+      if (Math.abs(newTotalAmount - oldTotalAmount) > 0.01) {
+        // Find payments linked to this invoice
+        const { data: linkedPayments } = await supabase
+          .from("payments")
+          .select("id, total_amount")
+          .eq("invoice_id", editingInvoice.id)
+          .is("deleted_at", null);
+
+        if (linkedPayments && linkedPayments.length > 0) {
+          for (const payment of linkedPayments) {
+            const paymentAmount = Number(payment.total_amount);
+            const diff = Math.abs(paymentAmount - (updateData.total_amount as number));
+            // If payment no longer matches invoice amount, revert invoice to pending
+            if (diff > 5) {
+              await supabase
+                .from("invoices")
+                .update({ status: "pending" })
+                .eq("id", editingInvoice.id);
+              showToast(`⚠️ סכום החשבונית השתנה — הסטטוס חזר ל"ממתין" כי התשלום המקושר (₪${paymentAmount.toLocaleString()}) כבר לא תואם`, "warning");
+            }
+          }
+        }
+      }
+
       const autoStatusMsg = editingInvoice.isFixed && attachmentUrl && invoiceNumber
         ? ' – הסטטוס עודכן אוטומטית ל"ממתין"'
         : "";

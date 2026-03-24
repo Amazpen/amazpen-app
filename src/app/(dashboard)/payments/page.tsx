@@ -1806,6 +1806,18 @@ function PaymentsPageInner() {
         }
       }
 
+      // Warn if payment amount changed and no longer matches linked invoices
+      if (oldPayment && selectedInvoiceIds.size > 0) {
+        const oldAmount = oldPayment.totalAmount;
+        if (Math.abs(totalAmount - oldAmount) > 0.01) {
+          const selectedInvoices = openInvoices.filter(inv => selectedInvoiceIds.has(inv.id));
+          const invoicesTotal = selectedInvoices.reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+          if (Math.abs(invoicesTotal - totalAmount) > 5) {
+            showToast(`⚠️ סכום התשלום (₪${totalAmount.toLocaleString()}) לא תואם לסכום החשבוניות (₪${invoicesTotal.toLocaleString()}) — החשבוניות חזרו לסטטוס "ממתין"`, "warning");
+          }
+        }
+      }
+
       showToast("התשלום עודכן בהצלחה", "success");
       handleClosePopup();
       setRefreshTrigger(t => t + 1);
