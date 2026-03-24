@@ -120,6 +120,34 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+/** Strip markdown tables from text when dashboard auto-renders the data */
+function stripMarkdownTables(text: string): string {
+  // Remove markdown table blocks (lines starting with |)
+  const lines = text.split("\n");
+  const filtered: string[] = [];
+  let inTable = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("|")) {
+      inTable = true;
+      continue; // skip table lines
+    }
+    if (inTable && trimmed === "") {
+      inTable = false;
+      continue; // skip blank line after table
+    }
+    inTable = false;
+    // Also skip redundant section headers that the auto-table already shows
+    if (/^#{1,3}\s*(סקירת ביצועי|סיכום מצטבר|מוצר מנוהל|משפכי הכנסות|בונוסים)/.test(trimmed)) continue;
+    // Skip bullet lists that repeat auto-table data
+    if (/^[-•]\s*(דג סלומון|שוארמה|פחית|מוצרלה|במקום|במשלוח):\s/.test(trimmed)) continue;
+    if (/^[-•]\s*(דג סלומון|שוארמה|פחית|מוצרלה|במקום|במשלוח)\s/.test(trimmed)) continue;
+    filtered.push(line);
+  }
+  // Clean up multiple consecutive blank lines
+  return filtered.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 /** Transform getMonthlySummary tool output into AiDataTable sections — approved format */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildDashboardFromToolOutput(message: UIMessage): { sections: AiDataSection[]; businessName?: string; period?: string } | null {
@@ -365,7 +393,7 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
                 <span className="text-white/60 text-[13px]">{thinkingStatus}</span>
               </div>
             ) : displayText ? (
-              <AiMarkdownRenderer content={displayText} searchQuery={searchQuery} />
+              <AiMarkdownRenderer content={dashboardData ? stripMarkdownTables(displayText) : displayText} searchQuery={searchQuery} />
             ) : !isStreaming && !proposedAction && !chartData ? (
               <span className="text-white/50 text-[13px]">{errorText ? `שגיאה: ${errorText}` : "לא הצלחתי לייצר תשובה. נסה לשאול שוב."}</span>
             ) : null}
