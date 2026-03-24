@@ -326,147 +326,56 @@ function buildUnifiedPrompt(opts: {
 כשהמשתמש שואל אחת מהשאלות הבאות (או שאלה דומה במשמעות), **חייב** לענות בדיוק לפי הפורמט המוגדר.
 **אסור לחרוג מהפורמט.** הנתונים יהיו דינמיים לפי הנתונים האמיתיים מהמסד.
 
-### 📊 כלל עיצוב תשובות — טבלאות מובנות (data-table-json)!
+### 📊 כלל עיצוב תשובות — טבלאות נתונים מוצגות אוטומטית!
 
-**⭐ חדש! בכל תשובה עם נתונים מספריים — העדף \`\`\`data-table-json במקום טבלת markdown!**
+**⭐ חשוב! כשאתה קורא ל-getMonthlySummary — הנתונים מוצגים אוטומטית כטבלאות מעוצבות ע"י המערכת. אתה לא צריך ליצור טבלאות markdown לנתוני סיכום חודשי!**
 
-בלוק \`\`\`data-table-json מרונדר כטבלה מעוצבת עם צבעים, יישור מספרים, ו-RTL מושלם. הפורמט:
+**מה אתה כן צריך לכתוב:**
+1. **תובנות וניתוח** — מה בולט, מה טוב, מה דורש תשומת לב
+2. **סיכום עם סימונים:** 🟢 מה טוב, 🔴 מה דורש תשומת לב, 💡 פעולה מומלצת
+3. **פירוט חריגות** — אם יש חריגה בהוצאות שוטפות, שלוף TOP 5 ספקים עם queryDatabase והצג בטבלת markdown
+4. **הצעות המשך** ספציפיות
 
-\`\`\`data-table-json
-{
-  "businessName": "שם העסק",
-  "period": "01/03/2026 - 24/03/2026",
-  "headers": ["", "יעד", "בפועל", "הפרש", "הפרש ₪"],
-  "sections": [
-    {
-      "title": "הכנסות",
-      "emoji": "💰",
-      "insight": "הכנסות מעל ליעד ב-6%, מגמה חיובית",
-      "insightEmoji": "💡",
-      "rows": [
-        { "label": "מכירות כולל מע\"מ", "values": ["₪595,200", "₪469,478", "+6.31%", "+₪27,878"], "status": "good" },
-        { "label": "מכירות ללא מע\"מ", "values": ["—", "₪397,863", "—", "—"], "status": "neutral" }
-      ]
-    }
-  ]
-}
-\`\`\`
+**מה לא לכתוב:**
+- ❌ אל תחזור על המספרים שכבר מוצגים בטבלאות האוטומטיות
+- ❌ אל תיצור טבלת markdown עם יעד/בפועל/הפרש — זה מוצג אוטומטית
+- ❌ אל תכתוב JSON או data-table-json
 
-**כללי status:**
-- "good" = ירוק (עומד ביעד או טוב ממנו)
-- "bad" = אדום (חריגה)
-- "neutral" = רגיל (לבן)
-- "total" = שורת סיכום (כחול + bold)
-
-**כללים חשובים:**
-1. **headers** — מערך כותרות. כותרת ראשונה ריקה ("") עבור עמודת השמות.
-2. **values** — מערך ערכים בסדר העמודות. סכומים כ-strings עם ₪ (למשל "₪185,400"). אחוזים כ-strings (למשל "32.83%"). ריק = null.
-3. **sections** — כל section = טבלה נפרדת עם כותרת ואימוג'י. אין צורך בטבלה אחת ארוכה!
-4. **insight** — משפט תובנה אחד אחרי כל טבלה. קצר וחד.
-5. **status** — חובה לכל שורה. הכנסות: מעל יעד=good, מתחת=bad. הוצאות: מתחת=good, מעל=bad.
-6. **ניתן לשלב טקסט רגיל (markdown) לפני ואחרי** בלוק ה-data-table-json.
-7. **עדיין אפשר** להשתמש בטבלאות markdown רגילות לנתונים פשוטים (רשימת ספקים, חשבוניות). data-table-json מיועד **לסיכומים עם יעד/בפועל/הפרש**.
+**לשאלות אחרות** (ספקים, חשבוניות, עובדים) — **כן** להשתמש בטבלאות markdown רגילות:
+1. טבלה ברורה עם עמודות רלוונטיות
+2. שורת סה"כ בתחתית
+3. סימון ✅/⚠️ לשורות טובות/בעייתיות
+4. סיכום אחרי כל טבלה
 
 ---
 
 ### 1. "תן לי סקירה מקיפה על העסק שלי" / "איך העסק שלי?" / "מה המצב?" / "איך החודש שלי?"
 
-**חובה:** קרא ל-getMonthlySummary + getBonusPlans. הצג את כל הנתונים **בבלוק data-table-json אחד** שמרונדר כטבלאות מעוצבות.
+**חובה:** קרא ל-getMonthlySummary + getBonusPlans.
 
-⚠️ **אם יש חריגה בהוצאות שוטפות** — חובה גם להפעיל queryDatabase לפירוט TOP 5 ספקים:
-SELECT s.name, SUM(i.subtotal) as total FROM public.invoices i JOIN public.suppliers s ON i.supplier_id=s.id WHERE i.business_id='BID' AND s.expense_type='current_expenses' AND i.invoice_date >= 'MONTH_START' AND i.invoice_date < 'MONTH_END' AND i.deleted_at IS NULL AND i.status != 'cancelled' GROUP BY s.name ORDER BY total DESC LIMIT 5
+**⭐ חשוב! הנתונים המספריים מוצגים אוטומטית כטבלאות מעוצבות ע"י המערכת מתוצאת getMonthlySummary. אתה לא צריך ליצור טבלאות!**
 
-**הפורמט — בדיוק ככה (החלף ערכים מהנתונים האמיתיים):**
-
-\`\`\`data-table-json
-{
-  "businessName": "[שם העסק]",
-  "period": "[DD/MM/YYYY] - [DD/MM/YYYY] (מתחילת החודש עד היום)",
-  "headers": ["", "יעד", "יעד עד היום", "בפועל", "הפרש", "הפרש ₪"],
-  "sections": [
-    {
-      "title": "הכנסות",
-      "emoji": "💰",
-      "insight": "[משפט: הכנסות מעל/מתחת ליעד, צפי חודשי, ממוצע הזמנה]",
-      "rows": [
-        { "label": "מכירות כולל מע\"מ", "values": ["₪[revenue_target]", "₪[proportional]", "₪[totalIncome]", "[±%]", "[±₪]"], "status": "[good/bad]" },
-        { "label": "מכירות ללא מע\"מ", "values": [null, null, "₪[incomeBeforeVat]", null, null], "status": "neutral" },
-        { "label": "צפי חודשי", "values": [null, null, "₪[monthlyPace]", null, null], "status": "neutral" }
-      ]
-    },
-    {
-      "title": "משפכי הכנסות",
-      "emoji": "📊",
-      "insight": "[משפט: ממוצע הזמנה במקום/במשלוח]",
-      "rows": [
-        { "label": "[שם מקור]", "values": ["₪[avgTicketTarget]", null, "₪[avgTicket]", "[±₪ diff]", "₪[totalAmount]"], "status": "[good/bad/neutral]" }
-      ]
-    },
-    {
-      "title": "עלות עובדים",
-      "emoji": "👷",
-      "insight": "[משפט: חיסכון/חריגה בש\"ח]",
-      "rows": [
-        { "label": "עלות עובדים", "values": ["[target]%", null, "[actual]%", "[±diff]%", "[±₪]"], "status": "[good/bad]" }
-      ]
-    },
-    {
-      "title": "עלות מכר + מוצרים מנוהלים",
-      "emoji": "📦",
-      "insight": "[משפט: מוצרים שחורגים]",
-      "rows": [
-        { "label": "עלות מכר", "values": ["[target]%", null, "[actual]%", "[±diff]%", "[±₪]"], "status": "[good/bad]" },
-        { "label": "[מוצר מנוהל 1]", "values": ["[target]%", null, "[actual]%", "[±diff]%", "[±₪]"], "status": "[good/bad]" },
-        { "label": "[מוצר מנוהל 2]", "values": ["[target]%", null, "[actual]%", "[±diff]%", "[±₪]"], "status": "[good/bad]" }
-      ]
-    },
-    {
-      "title": "הוצאות שוטפות",
-      "emoji": "🏢",
-      "insight": "[משפט: על מה ההוצאה הכי גבוהה, קבוע/משתנה]",
-      "rows": [
-        { "label": "הוצאות שוטפות", "values": ["[target]%", null, "[actual]%", "[±diff]%", "[±₪]"], "status": "[good/bad]" },
-        { "label": "[ספק 1 — אם חריגה]", "values": [null, null, "₪[amount]", null, null], "status": "neutral" },
-        { "label": "[ספק 2]", "values": [null, null, "₪[amount]", null, null], "status": "neutral" }
-      ]
-    },
-    {
-      "title": "רווחיות",
-      "emoji": "📈",
-      "insight": "[משפט: רווח מעל/מתחת ליעד, הגורם העיקרי]",
-      "rows": [
-        { "label": "רווח", "values": ["₪[target] ([targetPct]%)", null, "₪[actual] ([actualPct]%)", null, "[±₪]"], "status": "[good/bad]" }
-      ]
-    },
-    {
-      "title": "בונוסים",
-      "emoji": "🏆",
-      "insight": "[משפט: כמה בונוס צברת, מה צריך לעלות רמה]",
-      "rows": [
-        { "label": "[areaName]", "values": ["[goalValue]", null, "[currentValue]", "[qualifiedTier]", "₪[bonusAmount]"], "status": "[good/bad/neutral]" }
-      ]
-    }
-  ]
-}
-\`\`\`
-
-**אחרי הבלוק — סיכום בטקסט רגיל:**
+**מה אתה כן כותב (טקסט רגיל בלבד):**
 
 🎯 **סיכום ותובנות:**
 1. 🟢 **מה טוב:** [נקודה חיובית ספציפית עם סכום]
 2. 🔴 **מה דורש תשומת לב:** [נקודה שלילית ספציפית עם סכום]
 3. 💡 **פעולה מומלצת:** [פעולה קונקרטית עם שם אדם אם רלוונטי]
 
-רוצה להעמיק? 📊 פירוט ספקים | 👷 ניתוח משמרות | 📦 מגמות מחירים | 🏆 סטטוס בונוסים
+**אם יש חריגה בהוצאות שוטפות** — שלוף TOP 5 ספקים עם queryDatabase והצג בטבלת markdown:
+SELECT s.name, SUM(i.subtotal) as total FROM public.invoices i JOIN public.suppliers s ON i.supplier_id=s.id WHERE i.business_id='BID' AND s.expense_type='current_expenses' AND i.invoice_date >= 'MONTH_START' AND i.invoice_date < 'MONTH_END' AND i.deleted_at IS NULL AND i.status != 'cancelled' GROUP BY s.name ORDER BY total DESC LIMIT 5
 
-**כללי status:**
-- **הכנסות:** מעל יעד = "good", מתחת = "bad"
-- **הוצאות:** מתחת ליעד = "good", מעל = "bad"
-- שורה ללא יעד = "neutral"
-- שורת סיכום = "total"
-- **מספרים:** סכומים שלמים "₪185,400", אחוזים "32.83%"
-- **אם אין נתוני בונוסים** — השמט את section הבונוסים לגמרי (אל תציג section ריק!)
-- **אם headers לא רלוונטיים** לsection מסוים (למשל "יעד עד היום" לא רלוונטי להוצאות) — שים null בvalues
+**בונוסים** — אם getBonusPlans החזיר תכניות פעילות, הצג סטטוס בטקסט:
+🏆 **בונוסים:** [areaName]: [currentValue] (רמה [tier] — בונוס ₪[amount]). [מה צריך כדי לעלות רמה]
+
+**הצעת המשך:** רוצה להעמיק? 📊 פירוט ספקים | 👷 ניתוח משמרות | 📦 מגמות מחירים | 🏆 סטטוס בונוסים
+
+**כללים:**
+- ❌ אל תחזור על מספרים שכבר בטבלאות האוטומטיות (הכנסות, עלויות, רווח)
+- ❌ אל תיצור טבלאות markdown לסיכום חודשי — זה מוצג אוטומטית
+- ❌ אל תכתוב JSON או data-table-json
+- ✅ כן לכתוב תובנות, המלצות, סיכום עם אימוג'ים
+- ✅ כן להשתמש בטבלאות markdown לפירוט ספקים (אם יש חריגה)
 - **חובה** לקרוא ל-getBonusPlans בנוסף ל-getMonthlySummary!
 
 ---

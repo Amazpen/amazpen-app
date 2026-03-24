@@ -10,6 +10,7 @@ import type { AiChartData, AiProposedAction } from "@/types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
 import { AiActionCard } from "./AiActionCard";
 import { AiToolSteps, getToolSteps, MicroMatrix } from "./AiToolSteps";
+import { AiDataTable, type AiDataSection } from "./AiDataTable";
 
 const LazyBarChart = dynamic(
   () => import("recharts").then((mod) => ({ default: mod.BarChart })),
@@ -119,6 +120,103 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+/** Transform getMonthlySummary tool output into AiDataTable sections */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildDashboardFromToolOutput(message: UIMessage): { sections: AiDataSection[]; headers: string[]; businessName?: string; period?: string } | null {
+  if (message.role !== "assistant") return null;
+
+  for (const part of message.parts) {
+    if (part.type === "tool-getMonthlySummary") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toolPart = part as any;
+      if (toolPart.state !== "output-available" || !toolPart.output) continue;
+      const d = toolPart.output;
+      if (!d.actuals) continue;
+
+      const fmt = (n: number | null | undefined) => n != null ? `₪${Math.round(n).toLocaleString("he-IL")}` : null;
+      const fmtPct = (n: number | null | undefined) => n != null ? `${(Math.round(n * 100) / 100).toFixed(2)}%` : null;
+      const diffStatus = (val: number | null, isExpense: boolean): "good" | "bad" | "neutral" => {
+        if (val == null) return "neutral";
+        return isExpense ? (val <= 0 ? "good" : "bad") : (val >= 0 ? "good" : "bad");
+      };
+
+      const sections: AiDataSection[] = [];
+
+      // Income section
+      const incomeStatus = diffStatus(d.targets?.targetDiffPct, false);
+      sections.push({
+        title: "הכנסות", emoji: "💰",
+        rows: [
+          { label: "מכירות כולל מע\"מ", values: [fmt(d.targets?.revenueTarget), fmt(d.targets?.revenueTargetProportional), fmt(d.actuals?.totalIncome), fmtPct(d.targets?.targetDiffPct), fmt(d.targets?.targetDiffAmount)], status: incomeStatus },
+          { label: "מכירות ללא מע\"מ", values: [null, null, fmt(d.actuals?.incomeBeforeVat), null, null], status: "neutral" },
+          { label: "צפי חודשי", values: [null, null, fmt(d.actuals?.monthlyPace), null, null], status: "neutral" },
+        ],
+      });
+
+      // Income breakdown
+      if (d.incomeBreakdown && d.incomeBreakdown.length > 0) {
+        sections.push({
+          title: "משפכי הכנסות", emoji: "📊",
+          rows: d.incomeBreakdown.map((src: { name: string; totalAmount: number; avgTicket: number; avgTicketTarget: number | null; avgTicketDiff: number | null }) => ({
+            label: src.name,
+            values: [src.avgTicketTarget != null ? `₪${Math.round(src.avgTicketTarget)}` : null, null, `₪${Math.round(src.avgTicket)}`, src.avgTicketDiff != null ? `${src.avgTicketDiff > 0 ? "+" : ""}₪${Math.round(src.avgTicketDiff)}` : null, fmt(src.totalAmount)],
+            status: "neutral" as const,
+          })),
+        });
+      }
+
+      // Labor cost
+      sections.push({
+        title: "עלות עובדים", emoji: "👷",
+        rows: [
+          { label: "עלות עובדים", values: [fmtPct(d.targets?.laborTargetPct), null, fmtPct(d.costs?.laborCostPct), fmtPct(d.targets?.laborDiffPct), d.targets?.laborDiffPct != null ? fmt(Math.round((d.targets.laborDiffPct / 100) * (d.actuals?.incomeBeforeVat || 0))) : null], status: diffStatus(d.targets?.laborDiffPct, true) },
+        ],
+      });
+
+      // Food cost + managed products
+      const foodRows: AiDataSection["rows"] = [
+        { label: "עלות מכר", values: [fmtPct(d.targets?.foodTargetPct), null, fmtPct(d.costs?.foodCostPct), fmtPct(d.targets?.foodDiffPct), d.targets?.foodDiffPct != null ? fmt(Math.round((d.targets.foodDiffPct / 100) * (d.actuals?.incomeBeforeVat || 0))) : null], status: diffStatus(d.targets?.foodDiffPct, true) },
+      ];
+      if (d.managedProducts) {
+        for (const mp of d.managedProducts) {
+          foodRows.push({
+            label: mp.name, values: [fmtPct(mp.targetPct), null, fmtPct(mp.pct), fmtPct(mp.diffPct), mp.diffPct != null ? fmt(Math.round((mp.diffPct / 100) * (d.actuals?.incomeBeforeVat || 0))) : null],
+            status: diffStatus(mp.diffPct, true),
+          });
+        }
+      }
+      sections.push({ title: "עלות מכר + מוצרים מנוהלים", emoji: "📦", rows: foodRows });
+
+      // Current expenses
+      sections.push({
+        title: "הוצאות שוטפות", emoji: "🏢",
+        rows: [
+          { label: "הוצאות שוטפות", values: [fmtPct(d.costs?.currentExpensesTargetPct || null), null, fmtPct(d.costs?.currentExpensesPct), fmtPct(d.costs?.currentExpensesDiffPct), d.costs?.currentExpensesDiffPct != null ? fmt(Math.round((d.costs.currentExpensesDiffPct / 100) * (d.actuals?.incomeBeforeVat || 0))) : null], status: diffStatus(d.costs?.currentExpensesDiffPct, true) },
+        ],
+      });
+
+      // Profitability
+      if (d.profit) {
+        const profitStatus = d.profit.target != null && d.profit.actual != null ? (d.profit.actual >= d.profit.target ? "good" : "bad") : "neutral";
+        sections.push({
+          title: "רווחיות", emoji: "📈",
+          rows: [
+            { label: "רווח", values: [d.profit.target != null ? `${fmt(d.profit.target)} (${fmtPct(d.profit.targetPct)})` : null, null, `${fmt(d.profit.actual)} (${fmtPct(d.profit.actualPct)})`, null, d.profit.target != null ? fmt(d.profit.actual - d.profit.target) : null], status: profitStatus as "good" | "bad" | "neutral" },
+          ],
+        });
+      }
+
+      return {
+        sections,
+        headers: ["", "יעד", "יעד עד היום", "בפועל", "הפרש", "הפרש ₪"],
+        businessName: d.businessName || undefined,
+        period: d.period || undefined,
+      };
+    }
+  }
+  return null;
+}
+
 /** Extract proposeAction tool result from message parts */
 function getProposedAction(message: UIMessage): AiProposedAction | null {
   if (message.role !== "assistant") return null;
@@ -176,6 +274,7 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
   const chartData = isUser ? undefined : getChartData(message);
   const proposedAction = isUser ? null : getProposedAction(message);
   const toolSteps = isUser ? [] : getToolSteps(message);
+  const dashboardData = isUser ? null : buildDashboardFromToolOutput(message);
 
   if (isUser) {
     return (
@@ -201,10 +300,24 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
             {toolSteps.length > 0 && (
               <AiToolSteps steps={toolSteps} isStreaming={isStreaming} />
             )}
-            {toolSteps.length > 0 && displayText && (
+            {toolSteps.length > 0 && (displayText || dashboardData) && (
               <div className="h-px bg-white/[0.06] -mx-3 sm:-mx-4 mb-2.5" />
             )}
-            {!displayText && thinkingStatus && toolSteps.length === 0 ? (
+            {/* Dashboard data from getMonthlySummary tool — rendered as structured tables */}
+            {dashboardData && (
+              <div className="mb-2.5">
+                <AiDataTable
+                  sections={dashboardData.sections}
+                  headers={dashboardData.headers}
+                  businessName={dashboardData.businessName}
+                  period={dashboardData.period}
+                />
+              </div>
+            )}
+            {dashboardData && displayText && (
+              <div className="h-px bg-white/[0.06] -mx-3 sm:-mx-4 mb-2.5" />
+            )}
+            {!displayText && thinkingStatus && toolSteps.length === 0 && !dashboardData ? (
               <div className="flex gap-2.5 items-center h-[20px]">
                 <MicroMatrix size={16} variant="thinking" />
                 <span className="text-white/60 text-[13px]">{thinkingStatus}</span>
