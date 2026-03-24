@@ -169,7 +169,6 @@ function buildComponents(searchQuery?: string): Components {
     ),
     tr: ({ children }) => {
       // Only color rows that have explicit ✅ or ⚠️ indicators from the AI
-      // Don't try to guess from +/- signs — the AI marks good/bad explicitly
       const extractText = (node: React.ReactNode): string => {
         if (typeof node === "string") return node;
         if (React.isValidElement(node)) {
@@ -185,9 +184,23 @@ function buildComponents(searchQuery?: string): Components {
       const hasBad = text.includes("⚠️");
 
       let rowClass = "border-b border-white/10 last:border-0";
+      // Add data attribute so child td cells can inherit the row color
+      let rowColor: "good" | "bad" | undefined;
       if (isTotal && !hasGood && !hasBad) rowClass += " bg-[#29318A]/30 font-bold";
-      else if (hasBad) rowClass += " bg-[#F64E60]/[0.07]";
-      else if (hasGood) rowClass += " bg-[#17DB4E]/[0.05]";
+      else if (hasBad) { rowClass += " bg-[#F64E60]/[0.07]"; rowColor = "bad"; }
+      else if (hasGood) { rowClass += " bg-[#17DB4E]/[0.05]"; rowColor = "good"; }
+
+      // If row is colored, clone children to pass the color hint
+      if (rowColor) {
+        const coloredChildren = React.Children.map(children, child => {
+          if (React.isValidElement(child) && (child as React.ReactElement).type === "td") {
+            // Can't easily pass props to markdown-generated td, so we use CSS class on tr
+            return child;
+          }
+          return child;
+        });
+        return <tr className={`${rowClass} ${rowColor === "good" ? "[&>td]:text-[#17DB4E] [&>td>span]:!text-[#17DB4E]" : "[&>td]:text-[#F64E60] [&>td>span]:!text-[#F64E60]"}`}>{coloredChildren}</tr>;
+      }
 
       return <tr className={rowClass}>{children}</tr>;
     },
