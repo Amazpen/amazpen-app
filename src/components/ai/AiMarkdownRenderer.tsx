@@ -155,8 +155,8 @@ function buildComponents(searchQuery?: string): Components {
     },
     pre: ({ children }) => <>{children}</>,
     table: ({ children }) => (
-      <div className="overflow-x-auto my-2 rounded-[8px] border border-white/10 -mx-1 sm:mx-0">
-        <table className="w-full text-[11px] sm:text-[13px] border-collapse table-fixed" dir="rtl">
+      <div className="overflow-x-auto my-2 rounded-[8px] border border-white/10 -mx-1 sm:mx-0 scrollbar-thin">
+        <table className="min-w-full text-[11px] sm:text-[13px] border-collapse" dir="rtl" style={{ minWidth: "420px" }}>
           {children}
         </table>
       </div>
