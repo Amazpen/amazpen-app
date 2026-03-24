@@ -180,6 +180,12 @@ export default function SuppliersPage() {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [monthlyBreakdown, setMonthlyBreakdown] = useState<Array<{
+    month: string;
+    purchases: number;
+    paid: number;
+    amountToPay: number;
+  }>>([]);
   const [detailActiveTab, setDetailActiveTab] = useState<"invoices" | "payments" | "documents">("invoices");
   const [supplierInvoices, setSupplierInvoices] = useState<Array<{
     id: string;
@@ -653,6 +659,40 @@ export default function SuppliersPage() {
     } finally {
       setIsSendingKarteset(false);
     }
+  };
+
+  // Handle invoice status change from supplier detail
+  const handleInvoiceStatusChange = async (invoiceId: string, currentStatus: string) => {
+    // Cycle: ממתין → שולם → בבירור → ממתין
+    const statusMap: Record<string, string> = {
+      "ממתין": "paid",
+      "שולם": "clarification",
+      "בבירור": "pending",
+    };
+    const displayMap: Record<string, string> = {
+      "paid": "שולם",
+      "clarification": "בבירור",
+      "pending": "ממתין",
+    };
+    const newDbStatus = statusMap[currentStatus] || "pending";
+    const newDisplayStatus = displayMap[newDbStatus] || "ממתין";
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("invoices")
+      .update({ status: newDbStatus })
+      .eq("id", invoiceId);
+
+    if (error) {
+      showToast("שגיאה בעדכון סטטוס", "error");
+      return;
+    }
+
+    // Update local state
+    setSupplierInvoices(prev => prev.map(inv =>
+      inv.id === invoiceId ? { ...inv, status: newDisplayStatus } : inv
+    ));
+    showToast(`סטטוס עודכן ל-${newDisplayStatus}`, "success");
   };
 
   // Handle delete supplier (soft delete) - only if no invoices or payments exist
@@ -1168,6 +1208,22 @@ export default function SuppliersPage() {
 
       // Fetch monthly data for current month
       const monthlyData = await fetchMonthlyData(supplier, new Date(now.getFullYear(), now.getMonth(), 1));
+
+      // Fetch last 6 months breakdown
+      const breakdownMonths: Array<{ month: string; purchases: number; paid: number; amountToPay: number }> = [];
+      for (let i = 0; i < 6; i++) {
+        const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const mData = await fetchMonthlyData(supplier, mDate);
+        if (mData.monthlyPurchases > 0 || mData.monthlyPaid > 0) {
+          breakdownMonths.push({
+            month: mDate.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
+            purchases: mData.monthlyPurchases,
+            paid: mData.monthlyPaid,
+            amountToPay: mData.amountToPay,
+          });
+        }
+      }
+      setMonthlyBreakdown(breakdownMonths);
 
       // For suppliers with previous obligations (loans), calculate loan balance
       let displayTotalPurchases = totalPurchases;
@@ -2539,6 +2595,42 @@ export default function SuppliersPage() {
               </div>
             </div>
 
+            {/* Monthly Breakdown Summary */}
+            {monthlyBreakdown.length > 0 && (
+              <div className="bg-[#29318A]/30 rounded-[10px] p-[15px] mb-[10px]">
+                <span className="text-[14px] font-medium text-white mb-[10px] block">סיכום לפי חודשים</span>
+                <div className="flex flex-col gap-[3px]">
+                  {/* Header */}
+                  <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] text-[11px] text-white/60 font-medium">
+                    <span className="text-right">חודש</span>
+                    <span className="text-center">רכישות</span>
+                    <span className="text-center">שולם</span>
+                    <span className="text-center">יתרה</span>
+                  </div>
+                  {/* Rows */}
+                  {monthlyBreakdown.map((m) => (
+                    <div key={m.month} className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] bg-white/5 rounded-[5px] text-[12px]">
+                      <span className="text-right font-medium">{m.month}</span>
+                      <span className="text-center ltr-num">₪{m.purchases.toLocaleString()}</span>
+                      <span className="text-center ltr-num">₪{m.paid.toLocaleString()}</span>
+                      <span className={`text-center ltr-num font-medium ${m.amountToPay > 0 ? "text-[#F64E60]" : m.amountToPay < 0 ? "text-[#0BB783]" : ""}`}>
+                        ₪{m.amountToPay.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                  {/* Total row */}
+                  <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] border-t border-white/20 mt-[3px] text-[12px] font-bold">
+                    <span className="text-right">סה&quot;כ</span>
+                    <span className="text-center ltr-num">₪{monthlyBreakdown.reduce((s, m) => s + m.purchases, 0).toLocaleString()}</span>
+                    <span className="text-center ltr-num">₪{monthlyBreakdown.reduce((s, m) => s + m.paid, 0).toLocaleString()}</span>
+                    <span className={`text-center ltr-num ${monthlyBreakdown.reduce((s, m) => s + m.amountToPay, 0) > 0 ? "text-[#F64E60]" : "text-[#0BB783]"}`}>
+                      ₪{monthlyBreakdown.reduce((s, m) => s + m.amountToPay, 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Monthly Details Section */}
             <div className="bg-[#29318A]/30 rounded-[10px] p-[15px]">
               {/* Month selector */}
@@ -2721,15 +2813,15 @@ export default function SuppliersPage() {
                             <span className="text-[11px] text-center ltr-num font-medium">
                               ₪{invoice.amountWithVat.toLocaleString()}
                             </span>
-                            {/* Status */}
-                            <div className="flex justify-center">
-                              <span className={`text-[11px] font-bold px-[10px] py-[4px] rounded-full ${
+                            {/* Status — clickable to change */}
+                            <div className="flex justify-center" onClick={(e) => { e.stopPropagation(); handleInvoiceStatusChange(invoice.id, invoice.status); }}>
+                              <span className={`text-[11px] font-bold px-[10px] py-[4px] rounded-full cursor-pointer hover:opacity-80 transition-opacity ${
                                 invoice.status === "שולם"
                                   ? "bg-[#00E096]"
                                   : invoice.status === "בבירור"
                                   ? "bg-[#FFA500]"
                                   : "bg-[#29318A]"
-                              }`}>
+                              }`} title="לחץ לשנות סטטוס">
                                 {invoice.status}
                               </span>
                             </div>

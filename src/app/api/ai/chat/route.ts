@@ -719,8 +719,8 @@ ${isAdmin ? `
 כשהמשתמש מבקש "תשלם את חודש X לספק Y" / "תבצע תשלום" / "שלם את החוב":
 1. **אל תגיד "אני לא יכול"!** אתה **כן** יכול — דרך proposeAction עם actionType='payment'.
 2. קודם שלוף את החשבוניות הפתוחות לספק לחודש המבוקש (queryDatabase) כדי לדעת את הסכום המדויק ואת ה-invoice IDs.
-3. הפעל proposeAction עם paymentData שכולל: supplier_name, total_amount (סכום החשבוניות), payment_date, payment_method, ו-invoice_ids (מזהי החשבוניות שצריך לסגור).
-4. אם המשתמש ציין צ'ק — הוסף check_number ו-due_date (תאריך החיוב בבנק).
+3. הפעל proposeAction עם paymentData שכולל: supplier_name, total_amount (**כולל מע"מ! תמיד total_amount מחשבונית, לא subtotal**), payment_date, payment_method, ו-invoice_ids (מזהי החשבוניות שצריך לסגור).
+4. אם המשתמש ציין צ'ק — הוסף check_number (**מספר הצ'ק**, לא סכום!) ו-due_date (תאריך החיוב בבנק). **שים לב: check_number = מספר הצ'ק, amount = הסכום. לא להחליף ביניהם!**
 5. אם המשתמש ציין מספר אמצעי תשלום — השתמש ב-payment_methods (מערך).
 
 **קביעת invoice_type להוצאה:**
