@@ -228,7 +228,7 @@ function buildComponents(searchQuery?: string): Components {
       return <tr className={rowClass}>{children}</tr>;
     },
     th: ({ children }) => (
-      <th className="text-white font-semibold text-center px-2 sm:px-3 py-2 sm:py-2.5 text-[11px] sm:text-[12px] overflow-hidden text-ellipsis">
+      <th className="text-white font-semibold text-center px-1 sm:px-2 py-1.5 sm:py-2 text-[10px] sm:text-[12px] break-words">
         {children}
       </th>
     ),
@@ -251,9 +251,9 @@ function buildComponents(searchQuery?: string): Components {
       const hasBad = text.includes("⚠️");
       const isColored = hasGood || hasBad;
 
-      let cellClass = "px-2 sm:px-3 py-1.5 sm:py-2 text-center overflow-hidden text-ellipsis";
+      let cellClass = "px-1 sm:px-2 py-1.5 sm:py-2 text-center break-words";
       if (isNumeric) {
-        cellClass += " ltr-num font-medium tabular-nums whitespace-nowrap";
+        cellClass += " ltr-num font-medium tabular-nums";
       }
       if (hasGood) cellClass += " text-[#17DB4E]";
       else if (hasBad) cellClass += " text-[#F64E60]";
