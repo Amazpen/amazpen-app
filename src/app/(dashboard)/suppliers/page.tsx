@@ -2672,11 +2672,12 @@ export default function SuppliersPage() {
               {detailActiveTab === "invoices" && (
                 <div className="w-full flex flex-col gap-[5px]">
                   {/* Table Header */}
-                  <div className="grid grid-cols-[0.8fr_1fr_0.9fr_0.8fr] bg-white/5 rounded-t-[7px] p-[10px_5px] items-center">
-                    <span className="text-[13px] font-medium text-center">תאריך</span>
-                    <span className="text-[13px] font-medium text-center">אסמכתא</span>
-                    <span className="text-[13px] font-medium text-center">סכום</span>
-                    <span className="text-[13px] font-medium text-center">סטטוס</span>
+                  <div className="grid grid-cols-[0.7fr_0.9fr_0.7fr_0.7fr_0.7fr] bg-white/5 rounded-t-[7px] p-[10px_5px] items-center">
+                    <span className="text-[12px] font-medium text-center">תאריך</span>
+                    <span className="text-[12px] font-medium text-center">אסמכתא</span>
+                    <span className="text-[12px] font-medium text-center">לפני מע&quot;מ</span>
+                    <span className="text-[12px] font-medium text-center">כולל מע&quot;מ</span>
+                    <span className="text-[12px] font-medium text-center">סטטוס</span>
                   </div>
 
                   {/* Table Rows */}
@@ -2697,7 +2698,7 @@ export default function SuppliersPage() {
                           <Button
                             type="button"
                             onClick={() => setExpandedSupplierInvoiceId(expandedSupplierInvoiceId === invoice.id ? null : invoice.id)}
-                            className="grid grid-cols-[0.8fr_1fr_0.9fr_0.8fr] w-full p-[5px_5px] items-center cursor-pointer"
+                            className="grid grid-cols-[0.7fr_0.9fr_0.7fr_0.7fr_0.7fr] w-full p-[5px_5px] items-center cursor-pointer"
                           >
                             {/* Date with expand arrow */}
                             <div className="flex items-center justify-center gap-[4px]">
@@ -2708,13 +2709,17 @@ export default function SuppliersPage() {
                               >
                                 <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                               </svg>
-                              <span className="text-[12px] ltr-num">{invoice.date}</span>
+                              <span className="text-[11px] ltr-num">{invoice.date}</span>
                             </div>
                             {/* Reference */}
-                            <span className="text-[12px] text-center ltr-num truncate px-[2px]">{invoice.reference}</span>
-                            {/* Amount */}
-                            <span className="text-[12px] text-center ltr-num font-medium">
-                              ₪{invoice.amount.toLocaleString()}
+                            <span className="text-[11px] text-center ltr-num truncate px-[2px]">{invoice.reference}</span>
+                            {/* Amount Before VAT */}
+                            <span className="text-[11px] text-center ltr-num font-medium">
+                              ₪{invoice.amountBeforeVat.toLocaleString()}
+                            </span>
+                            {/* Amount With VAT */}
+                            <span className="text-[11px] text-center ltr-num font-medium">
+                              ₪{invoice.amountWithVat.toLocaleString()}
                             </span>
                             {/* Status */}
                             <div className="flex justify-center">
@@ -2761,25 +2766,13 @@ export default function SuppliersPage() {
                                 <div className="flex items-center justify-between border-b border-white/35 pb-[10px]">
                                   <span className="text-[16px] font-medium text-white ml-[7px]">פרטים נוספים</span>
                                   <div className="flex items-center gap-[6px]">
-                                    {/* Edit Icon */}
-                                    <Button
-                                      type="button"
-                                      title="עריכת הוצאה"
-                                      onClick={() => router.push(`/expenses?edit=${invoice.id}&returnTo=suppliers`)}
-                                      className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors cursor-pointer"
-                                    >
-                                      <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                                      </svg>
-                                    </Button>
-                                    {/* Image/View Icon - only show if has attachments */}
+                                    {/* Image/View Icon - only show if has attachments (rightmost in RTL) */}
                                     {invoice.attachmentUrls.length > 0 && (
                                       <Button
                                         type="button"
                                         title="צפייה בתמונה"
                                         onClick={() => setViewerDocUrl(invoice.attachmentUrls[0])}
-                                        className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
+                                        className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors cursor-pointer"
                                       >
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
                                           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -2803,6 +2796,18 @@ export default function SuppliersPage() {
                                         </svg>
                                       </a>
                                     )}
+                                    {/* Edit Icon (leftmost in RTL) */}
+                                    <Button
+                                      type="button"
+                                      title="עריכת הוצאה"
+                                      onClick={() => router.push(`/expenses?edit=${invoice.id}&returnTo=suppliers`)}
+                                      className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors cursor-pointer"
+                                    >
+                                      <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                      </svg>
+                                    </Button>
                                   </div>
                                 </div>
 
@@ -3066,28 +3071,44 @@ export default function SuppliersPage() {
                                         "standing_order": "הוראת קבע",
                                       };
                                       // Group splits by payment method
-                                      const methodGroups = new Map<string, { method: string; totalAmount: number; splits: typeof payment.rawSplits }>();
+                                      const methodGroups = new Map<string, { method: string; splits: typeof payment.rawSplits }>();
                                       for (const split of payment.rawSplits) {
                                         const key = split.payment_method;
                                         if (!methodGroups.has(key)) {
-                                          methodGroups.set(key, { method: key, totalAmount: 0, splits: [] });
+                                          methodGroups.set(key, { method: key, splits: [] });
                                         }
-                                        const group = methodGroups.get(key)!;
-                                        group.totalAmount += split.amount;
-                                        group.splits.push(split);
+                                        methodGroups.get(key)!.splits.push(split);
                                       }
                                       return Array.from(methodGroups.values()).map((group, idx) => (
-                                        <div key={idx} className="flex items-center justify-between bg-white/5 rounded-[5px] px-[8px] py-[5px]">
-                                          <div className="flex items-center gap-[8px]">
-                                            <span className="text-[13px] font-medium">{paymentMethodNamesMap[group.method] || "אחר"}</span>
-                                            {group.splits.length > 1 && (
-                                              <span className="text-[11px] text-white/50">({group.splits.length} תשלומים)</span>
-                                            )}
-                                            {group.splits[0]?.check_number && (
-                                              <span className="text-[11px] text-white/50">צ׳ק {group.splits[0].check_number}</span>
-                                            )}
+                                        <div key={idx} className="flex flex-col gap-[3px]">
+                                          <div className="flex items-center justify-between bg-white/5 rounded-[5px] px-[8px] py-[5px]">
+                                            <div className="flex items-center gap-[8px]">
+                                              <span className="text-[13px] font-medium">{paymentMethodNamesMap[group.method] || "אחר"}</span>
+                                              {group.splits.length > 1 && (
+                                                <span className="text-[11px] text-white/50">({group.splits.length} תשלומים)</span>
+                                              )}
+                                            </div>
+                                            <span className="text-[13px] font-medium ltr-num">₪{group.splits[0].amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                           </div>
-                                          <span className="text-[13px] font-medium ltr-num">₪{group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                          {/* Show individual installments when there are multiple */}
+                                          {group.splits.length > 1 && (
+                                            <div className="flex flex-col gap-[2px] pr-[16px]">
+                                              {group.splits.map((split, sIdx) => (
+                                                <div key={split.id || sIdx} className="flex items-center justify-between px-[8px] py-[2px] text-[11px] text-white/60">
+                                                  <span>
+                                                    תשלום {split.installment_number || sIdx + 1}
+                                                    {split.due_date && ` — ${new Date(split.due_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}`}
+                                                    {split.check_number && ` — צ׳ק ${split.check_number}`}
+                                                  </span>
+                                                  <span className="ltr-num">₪{split.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                          {/* Show check number for single splits */}
+                                          {group.splits.length === 1 && group.splits[0]?.check_number && (
+                                            <span className="text-[11px] text-white/50 px-[8px]">צ׳ק {group.splits[0].check_number}</span>
+                                          )}
                                         </div>
                                       ));
                                     })()}

@@ -3229,31 +3229,15 @@ function PaymentsPageInner() {
                 </div>
               );
               return sortedPayments.map((payment) => {
-              const methodGroups: Array<{ method: string; methodName: string; totalAmount: number; splits: typeof payment.rawSplits }> = [];
-              for (const split of payment.rawSplits) {
-                methodGroups.push({
-                  method: split.payment_method,
-                  methodName: paymentMethodNames[split.payment_method] || "אחר",
-                  totalAmount: split.amount,
-                  splits: [split],
-                });
-              }
-              if (methodGroups.length === 0) {
-                methodGroups.push({ method: payment.paymentMethodKey, methodName: payment.paymentMethod, totalAmount: payment.totalAmount, splits: [] });
-              }
-              const totalMethodGroups = methodGroups.length;
-
-              return methodGroups.map((group, groupIdx) => {
-              const rowKey = `${payment.id}:${groupIdx}`;
-              const isExpanded = expandedPaymentId === rowKey;
+              const isExpanded = expandedPaymentId === payment.id;
               return (
               <div
-                key={rowKey}
+                key={payment.id}
                 data-payment-id={payment.id}
                 className={`rounded-[7px] p-[7px_3px] border transition-colors ${isExpanded ? 'bg-white/5 border-white' : 'border-transparent'}`}
               >
                 <div
-                  onClick={() => setExpandedPaymentId(isExpanded ? null : rowKey)}
+                  onClick={() => setExpandedPaymentId(isExpanded ? null : payment.id)}
                   className="grid grid-cols-[0.6fr_1.4fr_0.8fr_0.6fr_0.7fr_0.9fr] w-full p-[5px_5px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] items-center cursor-pointer"
                 >
                   {/* Date */}
@@ -3268,28 +3252,23 @@ function PaymentsPageInner() {
                   <span className="text-[12px] sm:text-[13px] font-medium text-center leading-tight break-words px-[2px]">{payment.supplier}</span>
 
                   {/* Reference Number */}
-                  <span className="text-[12px] sm:text-[13px] font-medium ltr-num text-center truncate px-[2px]" title={group.splits[0]?.reference_number || payment.reference || ""}>
-                    {group.splits[0]?.reference_number || payment.reference || "-"}
+                  <span className="text-[12px] sm:text-[13px] font-medium ltr-num text-center truncate px-[2px]" title={payment.reference || ""}>
+                    {payment.reference || "-"}
                   </span>
 
-                  {/* Payment split index */}
+                  {/* Installments */}
                   <span className="text-[12px] sm:text-[13px] font-medium ltr-num text-center">
-                    {totalMethodGroups > 1 ? `${groupIdx + 1}/${totalMethodGroups}` : payment.installments}
+                    {payment.installments}
                   </span>
 
                   {/* Payment Method */}
-                  <span className="text-[12px] sm:text-[13px] font-medium text-center leading-tight truncate">{group.methodName}</span>
+                  <span className="text-[12px] sm:text-[13px] font-medium text-center leading-tight truncate">{payment.paymentMethod}</span>
 
                   {/* Amount */}
                   <div className="flex flex-col items-center">
                     <span className="text-[12px] sm:text-[13px] font-medium ltr-num">
-                      ₪{group.totalAmount % 1 === 0 ? group.totalAmount.toLocaleString("he-IL") : group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₪{payment.totalAmount % 1 === 0 ? payment.totalAmount.toLocaleString("he-IL") : payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
-                    {totalMethodGroups > 1 && (
-                      <span className="text-[10px] sm:text-[11px] font-medium ltr-num text-white/70">
-                        (₪{payment.totalAmount % 1 === 0 ? payment.totalAmount.toLocaleString("he-IL") : payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -3386,7 +3365,6 @@ function PaymentsPageInner() {
 
                     {/* Details row */}
                     <div className="flex items-center justify-between px-[7px] flex-wrap gap-y-[8px]">
-                      {/* תאריך הזנה + הוזן ע"י — hidden per UX request (#28) */}
                       <div className="flex flex-col items-center min-w-[60px]">
                         <span className="text-[13px] text-[#979797]">סכום לפני מע&quot;מ</span>
                         <span className="text-[13px] ltr-num">₪{payment.subtotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -3397,41 +3375,73 @@ function PaymentsPageInner() {
                       </div>
                     </div>
 
+                    {/* Who performed + entry date */}
+                    <div className="flex items-center justify-between px-[7px] flex-wrap gap-y-[8px]">
+                      {payment.createdBy && (
+                        <div className="flex flex-col items-center min-w-[60px]">
+                          <span className="text-[13px] text-[#979797]">בוצע ע&quot;י</span>
+                          <span className="text-[13px]">{payment.createdBy}</span>
+                        </div>
+                      )}
+                      {payment.createdAt && (
+                        <div className="flex flex-col items-center min-w-[60px]">
+                          <span className="text-[13px] text-[#979797]">תאריך הזנה</span>
+                          <span className="text-[13px] ltr-num">{new Date(payment.createdAt).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}</span>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Payment Methods Breakdown */}
                     {payment.rawSplits.length > 0 && (
                       <div className="flex flex-col gap-[5px] px-[7px]" dir="rtl">
                         <span className="text-[13px] text-[#979797] font-medium">אמצעי תשלום</span>
                         {(() => {
                           // Group splits by payment method
-                          const methodGroups = new Map<string, { method: string; totalAmount: number; splits: typeof payment.rawSplits }>();
+                          const methodGroups = new Map<string, { method: string; splits: typeof payment.rawSplits }>();
                           for (const split of payment.rawSplits) {
                             const key = split.payment_method;
                             if (!methodGroups.has(key)) {
-                              methodGroups.set(key, { method: key, totalAmount: 0, splits: [] });
+                              methodGroups.set(key, { method: key, splits: [] });
                             }
-                            const group = methodGroups.get(key)!;
-                            group.totalAmount += split.amount;
-                            group.splits.push(split);
+                            methodGroups.get(key)!.splits.push(split);
                           }
                           return Array.from(methodGroups.values()).map((group, idx) => (
-                            <div key={idx} className="flex items-center justify-between bg-white/5 rounded-[5px] px-[8px] py-[5px]">
-                              <div className="flex items-center gap-[8px]">
-                                <span className="text-[13px] font-medium">{paymentMethodNames[group.method] || "אחר"}</span>
-                                {group.splits.length > 1 && (
-                                  <span className="text-[11px] text-white/50">({group.splits.length} תשלומים)</span>
-                                )}
-                                {group.splits[0]?.check_number && (
-                                  <span className="text-[11px] text-white/50">צ׳ק {group.splits[0].check_number}</span>
-                                )}
+                            <div key={idx} className="flex flex-col gap-[3px]">
+                              <div className="flex items-center justify-between bg-white/5 rounded-[5px] px-[8px] py-[5px]">
+                                <div className="flex items-center gap-[8px]">
+                                  <span className="text-[13px] font-medium">{paymentMethodNames[group.method] || "אחר"}</span>
+                                  {group.splits.length > 1 && (
+                                    <span className="text-[11px] text-white/50">({group.splits.length} תשלומים)</span>
+                                  )}
+                                </div>
+                                <span className="text-[13px] font-medium ltr-num">₪{group.splits[0].amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
-                              <span className="text-[13px] font-medium ltr-num">₪{group.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                              {/* Show individual installments when there are multiple */}
+                              {group.splits.length > 1 && (
+                                <div className="flex flex-col gap-[2px] pr-[16px]">
+                                  {group.splits.map((split, sIdx) => (
+                                    <div key={split.id || sIdx} className="flex items-center justify-between px-[8px] py-[2px] text-[11px] text-white/60">
+                                      <span>
+                                        תשלום {split.installment_number || sIdx + 1}
+                                        {split.due_date && ` — ${new Date(split.due_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}`}
+                                        {split.check_number && ` — צ׳ק ${split.check_number}`}
+                                      </span>
+                                      <span className="ltr-num">₪{split.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {/* Show check number for single splits */}
+                              {group.splits.length === 1 && group.splits[0]?.check_number && (
+                                <span className="text-[11px] text-white/50 px-[8px]">צ׳ק {group.splits[0].check_number}</span>
+                              )}
                             </div>
                           ));
                         })()}
                       </div>
                     )}
 
-                    {/* Extra info */}
+                    {/* Extra info: reference + notes */}
                     {(payment.reference || payment.notes) && (
                       <div className="flex flex-col gap-[5px] px-[7px]">
                         {payment.reference && (
@@ -3591,7 +3601,6 @@ function PaymentsPageInner() {
               )}
               </div>
               );
-              });
             });
             })()}
             {isLoadingMore && (

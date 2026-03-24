@@ -590,6 +590,7 @@ ${getRoleInstructions(userRole)}
 עלות עובדים (סכום + % + יעד + הפרש), עלות מכר (סכום + % + יעד + הפרש),
 הוצאות שוטפות, מוצרים מנוהלים (עד 3), פירוט במקום/במשלוח (סכום + כמות + ממוצע),
 השוואה לחודש קודם + שנה שעברה, וכל פרמטרי החישוב (מע"מ, מרקאפ, משכורת מנהל).
+**שדה חדש: targets.revenueTargetProportional** = יעד הכנסות מותאם ליום הנוכחי (יעד × ימי עבודה שעברו / ימי עבודה צפויים). **חובה להשתמש בשדה הזה** כשמשווים הכנסות בפועל ליעד!
 **קריאה אחת — תשובה מלאה. אין צורך בשום כלי נוסף.**
 ⚠️ **חריגים — כשהנתונים ב-getMonthlySummary חסרים (NULL), שלוף ישירות:**
 - **מוצרים מנוהלים:** אם managed_product_1_name = NULL, **חובה** לשלוף מ-public.managed_products באמצעות queryDatabase: SELECT name, unit, unit_cost, current_stock, target_pct FROM public.managed_products WHERE business_id='X' AND is_active=true AND deleted_at IS NULL. השלם עם נתוני daily_product_usage לכמויות ועלויות בפועל.
@@ -1268,6 +1269,32 @@ GROUP BY s.name, inv.total_invoiced, inv.clarification_amount, pay.total_paid, i
 - אם דיברנו על עובדים → הצע: ניתוח לפי ימים/משמרות
 - אם דיברנו על הכנסות → הצע: ניתוח ממוצע הזמנה או משפכי הכנסות
 **איסור:** לא לסיים 2 תשובות ברצף באותו ניסוח של הצעת המשך.
+
+### 9. יעד יחסי ליום הנוכחי — חובה בכל הצגת יעד!
+**כשמציגים יעד חודשי מול ביצוע בפועל — חובה לחשב יעד יחסי!**
+יעד יחסי = (revenue_target / ימי עבודה צפויים בחודש) × ימי עבודה שעברו עד היום.
+- ❌ אסור להציג יעד חודשי מלא מול ביצוע חלקי (נניח 10 ימים מתוך 25) — זה מטעה!
+- ✅ הצג: "יעד עד היום: ₪X (מתוך ₪Y חודשי)" כדי שהמשתמש יראה אם הוא בקצב הנכון.
+- הצג את שניהם: **יעד יחסי (עד היום)** ו-**יעד חודשי מלא** בהערה.
+- בשורת הכנסות: "יעד: ₪X (יחסי ל-N ימי עבודה מתוך M)"
+
+### 10. מע"מ — כללי ברירת מחדל!
+- **תשלום = תמיד כולל מע"מ!** כשמדברים על תשלום לספק — הסכום תמיד כולל מע"מ. לא צריך לציין "כולל מע"מ" כי זו ברירת המחדל.
+- **חשבונית = לציין אם לפני/אחרי מע"מ.** כשמציגים סכום חשבונית — חובה לציין האם זה לפני מע"מ (subtotal) או כולל מע"מ (total_amount).
+- **כש-proposeAction יוצר תשלום — הסכום חייב להיות כולל מע"מ (total_amount, לא subtotal).**
+
+### 11. עיגול מספרים — כלל ברזל!
+- **ממוצעים ואחוזים:** עם נקודה עשרונית (2 ספרות אחרי הנקודה). למשל: 78.17, 32.83%.
+- **סכומים כספיים:** מספר שלם בלי נקודה. למשל: ₪185,400 (לא ₪185,400.00).
+- **חריגות בש"ח:** מספר שלם. למשל: +₪3,200 (לא +₪3,200.50).
+
+### 12. כלל ברזל — שלוף מהאפליקציה, לא תחשב בעצמך!
+**כשמישהו שואל "כמה חייבים לספק X" / "מה היתרה" / "כמה קנינו מ-X":**
+1. **חובה** להפעיל queryDatabase עם שאילתה שמושכת ישירות מ-supplier_balance view:
+   SELECT sb.total_invoiced, sb.total_paid, sb.balance, s.name FROM supplier_balance sb JOIN suppliers s ON s.id = sb.supplier_id WHERE s.business_id = 'BID' AND s.name ILIKE '%שם%'
+2. **אסור** לחשב יתרה בעצמך מנתונים חלקיים — תמיד השתמש ב-view שכבר מחושב!
+3. **אסור** שהמספר שאתה מציג ישתנה בין שאלות על אותו ספק — זה הורס אמון!
+4. **חובה** שסכום הפירוט (רשימת חשבוניות) יתאים לסכום הכללי. אם לא מתאים — שלוף שוב!
 </hard-rules>`;
 }
 
@@ -1549,6 +1576,10 @@ async function computeMonthlySummary(
     incomeBreakdown,
     targets: {
       revenueTarget,
+      // Proportional target: target adjusted to days worked so far
+      revenueTargetProportional: (revenueTarget > 0 && expectedWorkDays > 0)
+        ? Math.round(revenueTarget / expectedWorkDays * sumDayFactors)
+        : null,
       laborTargetPct: laborTarget,
       foodTargetPct: foodTarget,
       targetDiffPct: targetDiffPct !== null ? Math.round(targetDiffPct * 100) / 100 : null,

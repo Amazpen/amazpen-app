@@ -232,7 +232,7 @@ export default function DashboardLayout({
     } else {
       setGlobalDateRangeState({
         start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-        end: new Date(),
+        end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
