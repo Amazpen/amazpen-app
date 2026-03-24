@@ -5,9 +5,8 @@ import React from "react";
 export interface AiDataSection {
   title: string;
   emoji?: string;
+  headers: string[];
   rows: AiDataRow[];
-  insight?: string;
-  insightEmoji?: string;
 }
 
 export interface AiDataRow {
@@ -18,7 +17,6 @@ export interface AiDataRow {
 
 interface AiDataTableProps {
   sections: AiDataSection[];
-  headers: string[];
   period?: string;
   businessName?: string;
 }
@@ -30,7 +28,7 @@ function getRowClasses(status?: string) {
     case "bad":
       return "bg-[#F64E60]/[0.08] [&>td]:text-[#F64E60] [&>td>span]:!text-[#F64E60]";
     case "total":
-      return "bg-[#29318A]/40 font-bold [&>td]:text-white";
+      return "bg-[#29318A]/40 font-bold [&>td]:text-white [&>td>span]:!text-white";
     default:
       return "";
   }
@@ -49,15 +47,16 @@ function formatCell(value: string | number | null): string {
 function isNumericCell(value: string | number | null): boolean {
   if (typeof value === "number") return true;
   if (typeof value === "string") {
-    return /^[₪\d,+\-%.±\s—]+$/.test(value.trim()) || /₪/.test(value);
+    const t = value.trim();
+    return t === "—" ? false : (/^[₪\d,+\-%.±\s]+$/.test(t) || /₪/.test(t));
   }
   return false;
 }
 
-export function AiDataTable({ sections, headers, period, businessName }: AiDataTableProps) {
+export function AiDataTable({ sections, period, businessName }: AiDataTableProps) {
   return (
     <div className="flex flex-col gap-3 my-2" dir="rtl">
-      {/* Header */}
+      {/* Title */}
       {businessName && (
         <div className="text-center">
           <h3 className="text-white text-[16px] font-bold">📊 סיכום מצטבר — {businessName}</h3>
@@ -69,18 +68,18 @@ export function AiDataTable({ sections, headers, period, businessName }: AiDataT
       {sections.map((section, sIdx) => (
         <div key={sIdx} className="flex flex-col gap-1">
           {/* Section title */}
-          <div className="flex items-center gap-1.5 mb-1">
-            {section.emoji && <span className="text-[15px]">{section.emoji}</span>}
-            <span className="text-white text-[14px] font-bold">{section.title}</span>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            {section.emoji && <span className="text-[14px]">{section.emoji}</span>}
+            <span className="text-white text-[13px] font-bold">{section.title}</span>
           </div>
 
           {/* Table */}
           <div className="overflow-x-auto rounded-[8px] border border-white/10 scrollbar-thin">
-            <table className="min-w-full text-[11px] sm:text-[12px] border-collapse" style={{ minWidth: "380px" }}>
+            <table className="min-w-full text-[11px] sm:text-[12px] border-collapse">
               <thead className="bg-[#29318A]/60">
                 <tr>
-                  {headers.map((h, hIdx) => (
-                    <th key={hIdx} className="text-white/80 font-semibold text-center px-2 py-2 whitespace-nowrap text-[10px] sm:text-[11px]">
+                  {section.headers.map((h, hIdx) => (
+                    <th key={hIdx} className={`text-white/80 font-semibold px-2 py-1.5 whitespace-nowrap text-[10px] sm:text-[11px] ${hIdx === 0 ? "text-right" : "text-center"}`}>
                       {h}
                     </th>
                   ))}
@@ -92,6 +91,7 @@ export function AiDataTable({ sections, headers, period, businessName }: AiDataT
                     <td className="text-right px-2 py-1.5 whitespace-nowrap font-medium text-[11px] sm:text-[12px]">
                       {row.status === "good" && "✅ "}
                       {row.status === "bad" && "⚠️ "}
+                      {row.status === "total" && ""}
                       {row.label}
                     </td>
                     {row.values.map((val, vIdx) => {
@@ -112,25 +112,17 @@ export function AiDataTable({ sections, headers, period, businessName }: AiDataT
               </tbody>
             </table>
           </div>
-
-          {/* Insight */}
-          {section.insight && (
-            <p className="text-white/70 text-[12px] sm:text-[13px] leading-relaxed mt-0.5 flex items-start gap-1">
-              <span className="flex-shrink-0">{section.insightEmoji || "💡"}</span>
-              <span>{section.insight}</span>
-            </p>
-          )}
         </div>
       ))}
     </div>
   );
 }
 
-/** Parse a ```data-table-json code block into AiDataTable props */
+/** Parse a data-table-json code block into AiDataTable props */
 export function parseDataTableJson(json: string): AiDataTableProps | null {
   try {
     const data = JSON.parse(json);
-    if (data.sections && Array.isArray(data.sections) && data.headers && Array.isArray(data.headers)) {
+    if (data.sections && Array.isArray(data.sections)) {
       return data as AiDataTableProps;
     }
     return null;

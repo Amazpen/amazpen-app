@@ -120,9 +120,9 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-/** Transform getMonthlySummary tool output into AiDataTable sections */
+/** Transform getMonthlySummary tool output into AiDataTable sections — approved format */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildDashboardFromToolOutput(message: UIMessage): { sections: AiDataSection[]; headers: string[]; businessName?: string; period?: string } | null {
+function buildDashboardFromToolOutput(message: UIMessage): { sections: AiDataSection[]; businessName?: string; period?: string } | null {
   if (message.role !== "assistant") return null;
 
   for (const part of message.parts) {
@@ -135,89 +135,125 @@ function buildDashboardFromToolOutput(message: UIMessage): { sections: AiDataSec
 
       const fmt = (n: number | null | undefined) => n != null ? `₪${Math.round(n).toLocaleString("he-IL")}` : null;
       const fmtPct = (n: number | null | undefined) => n != null ? `${(Math.round(n * 100) / 100).toFixed(2)}%` : null;
-      const diffStatus = (val: number | null, isExpense: boolean): "good" | "bad" | "neutral" => {
-        if (val == null) return "neutral";
-        return isExpense ? (val <= 0 ? "good" : "bad") : (val >= 0 ? "good" : "bad");
+      const fmtDiff = (n: number | null | undefined) => {
+        if (n == null) return null;
+        const rounded = Math.round(n);
+        return `${rounded >= 0 ? "+" : ""}₪${rounded.toLocaleString("he-IL")}`;
       };
+      const fmtDiffPct = (n: number | null | undefined) => {
+        if (n == null) return null;
+        const v = Math.round(n * 100) / 100;
+        return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+      };
+      const expStatus = (val: number | null): "good" | "bad" | "neutral" => {
+        if (val == null) return "neutral";
+        return val <= 0 ? "good" : "bad";
+      };
+      const incBeforeVat = d.actuals?.incomeBeforeVat || 0;
 
       const sections: AiDataSection[] = [];
 
-      // Income section
-      const incomeStatus = diffStatus(d.targets?.targetDiffPct, false);
+      // 1. Income — one row, each value in its column
       sections.push({
         title: "הכנסות", emoji: "💰",
-        rows: [
-          { label: "מכירות כולל מע\"מ", values: [fmt(d.targets?.revenueTarget), fmt(d.targets?.revenueTargetProportional), fmt(d.actuals?.totalIncome), fmtPct(d.targets?.targetDiffPct), fmt(d.targets?.targetDiffAmount)], status: incomeStatus },
-          { label: "מכירות ללא מע\"מ", values: [null, null, fmt(d.actuals?.incomeBeforeVat), null, null], status: "neutral" },
-          { label: "צפי חודשי", values: [null, null, fmt(d.actuals?.monthlyPace), null, null], status: "neutral" },
-        ],
+        headers: ["", "יעד חודשי", "יעד עד היום", "בפועל", "צפי חודשי", "הפרש מיעד"],
+        rows: [{
+          label: "מכירות כולל מע\"מ",
+          values: [fmt(d.targets?.revenueTarget), fmt(d.targets?.revenueTargetProportional), fmt(d.actuals?.totalIncome), fmt(d.actuals?.monthlyPace), fmtDiff(d.targets?.targetDiffAmount)],
+          status: d.targets?.targetDiffPct != null ? (d.targets.targetDiffPct >= 0 ? "good" : "bad") : "neutral",
+        }],
       });
 
-      // Income breakdown
+      // 2. Income breakdown
       if (d.incomeBreakdown && d.incomeBreakdown.length > 0) {
         sections.push({
           title: "משפכי הכנסות", emoji: "📊",
+          headers: ["מקור", "יעד ממוצע", "ממוצע בפועל", "הפרש", "סה\"כ"],
           rows: d.incomeBreakdown.map((src: { name: string; totalAmount: number; avgTicket: number; avgTicketTarget: number | null; avgTicketDiff: number | null }) => ({
             label: src.name,
-            values: [src.avgTicketTarget != null ? `₪${Math.round(src.avgTicketTarget)}` : null, null, `₪${Math.round(src.avgTicket)}`, src.avgTicketDiff != null ? `${src.avgTicketDiff > 0 ? "+" : ""}₪${Math.round(src.avgTicketDiff)}` : null, fmt(src.totalAmount)],
-            status: "neutral" as const,
+            values: [
+              src.avgTicketTarget != null ? `₪${Math.round(src.avgTicketTarget)}` : "—",
+              `₪${Math.round(src.avgTicket)}`,
+              src.avgTicketDiff != null ? `${src.avgTicketDiff >= 0 ? "+" : ""}₪${Math.round(src.avgTicketDiff)}` : "—",
+              fmt(src.totalAmount),
+            ],
+            status: src.avgTicketDiff != null ? (src.avgTicketDiff >= 0 ? "good" : "bad") : ("neutral" as const),
           })),
         });
       }
 
-      // Labor cost
-      sections.push({
-        title: "עלות עובדים", emoji: "👷",
-        rows: [
-          { label: "עלות עובדים", values: [fmtPct(d.targets?.laborTargetPct), null, fmtPct(d.costs?.laborCostPct), fmtPct(d.targets?.laborDiffPct), d.targets?.laborDiffPct != null ? fmt(Math.round((d.targets.laborDiffPct / 100) * (d.actuals?.incomeBeforeVat || 0))) : null], status: diffStatus(d.targets?.laborDiffPct, true) },
-        ],
+      // 3. Expenses — all in one table
+      const expRows: AiDataSection["rows"] = [];
+
+      // Labor
+      expRows.push({
+        label: "עלות עובדים",
+        values: [fmtPct(d.targets?.laborTargetPct), fmtPct(d.costs?.laborCostPct), fmtDiffPct(d.targets?.laborDiffPct), d.targets?.laborDiffPct != null ? fmtDiff(Math.round((d.targets.laborDiffPct / 100) * incBeforeVat)) : "—"],
+        status: expStatus(d.targets?.laborDiffPct),
       });
 
-      // Food cost + managed products
-      const foodRows: AiDataSection["rows"] = [
-        { label: "עלות מכר", values: [fmtPct(d.targets?.foodTargetPct), null, fmtPct(d.costs?.foodCostPct), fmtPct(d.targets?.foodDiffPct), d.targets?.foodDiffPct != null ? fmt(Math.round((d.targets.foodDiffPct / 100) * (d.actuals?.incomeBeforeVat || 0))) : null], status: diffStatus(d.targets?.foodDiffPct, true) },
-      ];
+      // Food cost
+      expRows.push({
+        label: "עלות מכר",
+        values: [fmtPct(d.targets?.foodTargetPct), fmtPct(d.costs?.foodCostPct), fmtDiffPct(d.targets?.foodDiffPct), d.targets?.foodDiffPct != null ? fmtDiff(Math.round((d.targets.foodDiffPct / 100) * incBeforeVat)) : "—"],
+        status: expStatus(d.targets?.foodDiffPct),
+      });
+
+      // Managed products
       if (d.managedProducts) {
         for (const mp of d.managedProducts) {
-          foodRows.push({
-            label: mp.name, values: [fmtPct(mp.targetPct), null, fmtPct(mp.pct), fmtPct(mp.diffPct), mp.diffPct != null ? fmt(Math.round((mp.diffPct / 100) * (d.actuals?.incomeBeforeVat || 0))) : null],
-            status: diffStatus(mp.diffPct, true),
+          expRows.push({
+            label: mp.name,
+            values: [fmtPct(mp.targetPct), fmtPct(mp.pct), fmtDiffPct(mp.diffPct), mp.diffPct != null ? fmtDiff(Math.round((mp.diffPct / 100) * incBeforeVat)) : "—"],
+            status: expStatus(mp.diffPct),
           });
         }
       }
-      sections.push({ title: "עלות מכר + מוצרים מנוהלים", emoji: "📦", rows: foodRows });
 
       // Current expenses
-      sections.push({
-        title: "הוצאות שוטפות", emoji: "🏢",
-        rows: [
-          { label: "הוצאות שוטפות", values: [fmtPct(d.costs?.currentExpensesTargetPct || null), null, fmtPct(d.costs?.currentExpensesPct), fmtPct(d.costs?.currentExpensesDiffPct), d.costs?.currentExpensesDiffPct != null ? fmt(Math.round((d.costs.currentExpensesDiffPct / 100) * (d.actuals?.incomeBeforeVat || 0))) : null], status: diffStatus(d.costs?.currentExpensesDiffPct, true) },
-        ],
+      expRows.push({
+        label: "הוצאות שוטפות",
+        values: [fmtPct(d.costs?.currentExpensesTargetPct || null), fmtPct(d.costs?.currentExpensesPct), fmtDiffPct(d.costs?.currentExpensesDiffPct), d.costs?.currentExpensesDiffPct != null ? fmtDiff(Math.round((d.costs.currentExpensesDiffPct / 100) * incBeforeVat)) : "—"],
+        status: expStatus(d.costs?.currentExpensesDiffPct),
       });
 
-      // Profitability
+      sections.push({
+        title: "הוצאות", emoji: "💼",
+        headers: ["", "יעד", "בפועל", "הפרש", "הפרש ₪"],
+        rows: expRows,
+      });
+
+      // 4. Profitability
       if (d.profit) {
         const profitStatus = d.profit.target != null && d.profit.actual != null ? (d.profit.actual >= d.profit.target ? "good" : "bad") : "neutral";
         sections.push({
           title: "רווחיות", emoji: "📈",
-          rows: [
-            { label: "רווח", values: [d.profit.target != null ? `${fmt(d.profit.target)} (${fmtPct(d.profit.targetPct)})` : null, null, `${fmt(d.profit.actual)} (${fmtPct(d.profit.actualPct)})`, null, d.profit.target != null ? fmt(d.profit.actual - d.profit.target) : null], status: profitStatus as "good" | "bad" | "neutral" },
-          ],
+          headers: ["", "יעד", "בפועל", "הפרש"],
+          rows: [{
+            label: "רווח תפעולי",
+            values: [
+              d.profit.target != null ? `${fmt(d.profit.target)} (${fmtPct(d.profit.targetPct)})` : "—",
+              `${fmt(d.profit.actual)} (${fmtPct(d.profit.actualPct)})`,
+              d.profit.target != null ? fmtDiff(d.profit.actual - d.profit.target) : "—",
+            ],
+            status: profitStatus as "good" | "bad" | "neutral",
+          }],
         });
       }
 
+      // Build period string
+      const periodStr = (() => {
+        if (!d.period) return undefined;
+        if (typeof d.period === "string") return d.period;
+        const p = d.period as { year?: number; month?: number };
+        const heMonths = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+        return `${heMonths[(p.month || 1) - 1] || ""} ${p.year || ""}`;
+      })();
+
       return {
         sections,
-        headers: ["", "יעד", "יעד עד היום", "בפועל", "הפרש", "הפרש ₪"],
         businessName: typeof d.businessName === "string" ? d.businessName : undefined,
-        period: (() => {
-          if (!d.period) return undefined;
-          if (typeof d.period === "string") return d.period;
-          // period is object: { year, month, monthStart, daysInMonth }
-          const p = d.period as { year?: number; month?: number; monthStart?: string; daysInMonth?: number };
-          const heMonths = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
-          return `${heMonths[(p.month || 1) - 1] || ""} ${p.year || ""}`;
-        })(),
+        period: periodStr,
       };
     }
   }
@@ -315,7 +351,6 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
               <div className="mb-2.5">
                 <AiDataTable
                   sections={dashboardData.sections}
-                  headers={dashboardData.headers}
                   businessName={dashboardData.businessName}
                   period={dashboardData.period}
                 />
