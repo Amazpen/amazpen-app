@@ -209,8 +209,15 @@ function buildDashboardFromToolOutput(message: UIMessage): { sections: AiDataSec
       return {
         sections,
         headers: ["", "יעד", "יעד עד היום", "בפועל", "הפרש", "הפרש ₪"],
-        businessName: d.businessName || undefined,
-        period: d.period || undefined,
+        businessName: typeof d.businessName === "string" ? d.businessName : undefined,
+        period: (() => {
+          if (!d.period) return undefined;
+          if (typeof d.period === "string") return d.period;
+          // period is object: { year, month, monthStart, daysInMonth }
+          const p = d.period as { year?: number; month?: number; monthStart?: string; daysInMonth?: number };
+          const heMonths = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+          return `${heMonths[(p.month || 1) - 1] || ""} ${p.year || ""}`;
+        })(),
       };
     }
   }
