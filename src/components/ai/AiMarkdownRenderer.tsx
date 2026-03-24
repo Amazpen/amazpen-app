@@ -139,15 +139,28 @@ function buildComponents(searchQuery?: string): Components {
     ),
     code: ({ className, children }) => {
       const isBlock = className?.includes("language-");
-      // Intercept data-table-json blocks → render as AiDataTable component
-      if (className?.includes("language-data-table-json")) {
+      // Intercept data-table-json OR json blocks that contain sections → render as AiDataTable
+      if (className?.includes("language-data-table-json") || className?.includes("language-json")) {
         const jsonStr = typeof children === "string" ? children : React.Children.toArray(children).map(c => typeof c === "string" ? c : "").join("");
-        const tableProps = parseDataTableJson(jsonStr.trim());
-        if (tableProps) {
-          return <AiDataTable {...tableProps} />;
+        const trimmed = jsonStr.trim();
+        // Only try to parse if it looks complete (ends with })
+        if (trimmed.endsWith("}")) {
+          const tableProps = parseDataTableJson(trimmed);
+          if (tableProps) {
+            return <AiDataTable {...tableProps} />;
+          }
+        }
+        // If JSON is still streaming (incomplete) or not a data-table — hide it during stream
+        if (trimmed.includes('"sections"') && !trimmed.endsWith("}")) {
+          return (
+            <div className="flex items-center gap-2 py-3 px-4 my-2 bg-white/[0.03] rounded-[8px] border border-white/10">
+              <div className="w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+              <span className="text-white/50 text-[12px]">מכין תצוגת נתונים...</span>
+            </div>
+          );
         }
       }
-      // Intercept chart-json blocks (existing feature)
+      // Regular code blocks
       if (isBlock) {
         return (
           <div className="bg-[#0F1535] rounded-[8px] p-2 sm:p-3 my-2 overflow-x-auto -mx-1 sm:mx-0">
