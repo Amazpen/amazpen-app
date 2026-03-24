@@ -156,7 +156,7 @@ function buildComponents(searchQuery?: string): Components {
     pre: ({ children }) => <>{children}</>,
     table: ({ children }) => (
       <div className="overflow-x-auto my-2 rounded-[8px] border border-white/10 -mx-1 sm:mx-0">
-        <table className="w-full text-[11px] sm:text-[13px] border-collapse" dir="rtl">
+        <table className="w-full text-[11px] sm:text-[13px] border-collapse table-fixed" dir="rtl">
           {children}
         </table>
       </div>
@@ -205,7 +205,7 @@ function buildComponents(searchQuery?: string): Components {
       return <tr className={rowClass}>{children}</tr>;
     },
     th: ({ children }) => (
-      <th className="text-white font-semibold text-right px-2 sm:px-3 py-2 sm:py-2.5 whitespace-nowrap text-[11px] sm:text-[12px]">
+      <th className="text-white font-semibold text-center px-1.5 sm:px-2 py-2 sm:py-2.5 whitespace-nowrap text-[10px] sm:text-[12px]">
         {children}
       </th>
     ),
@@ -228,8 +228,12 @@ function buildComponents(searchQuery?: string): Components {
       const hasBad = text.includes("⚠️");
       const isColored = hasGood || hasBad;
 
-      let cellClass = "text-right px-2 sm:px-3 py-1.5 sm:py-2";
-      if (isNumeric) cellClass += " ltr-num font-medium tabular-nums";
+      let cellClass = "px-1.5 sm:px-2 py-1.5 sm:py-2 whitespace-nowrap";
+      if (isNumeric) {
+        cellClass += " text-center ltr-num font-medium tabular-nums";
+      } else {
+        cellClass += " text-right";
+      }
       if (hasGood) cellClass += " text-[#17DB4E]";
       else if (hasBad) cellClass += " text-[#F64E60]";
       else cellClass += " text-white/80";
