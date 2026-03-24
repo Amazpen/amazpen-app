@@ -155,28 +155,60 @@ function buildComponents(searchQuery?: string): Components {
     pre: ({ children }) => <>{children}</>,
     table: ({ children }) => (
       <div className="overflow-x-auto my-2 rounded-[8px] border border-white/10 -mx-1 sm:mx-0">
-        <table className="w-full text-[11px] sm:text-[13px]" dir="rtl">
+        <table className="w-full text-[11px] sm:text-[13px] border-collapse" dir="rtl">
           {children}
         </table>
       </div>
     ),
     thead: ({ children }) => (
-      <thead className="bg-[#0F1535]">{children}</thead>
+      <thead className="bg-[#29318A]/60">{children}</thead>
     ),
     tbody: ({ children }) => (
-      <tbody className="[&>tr:nth-child(even)]:bg-white/5">{children}</tbody>
+      <tbody className="[&>tr:nth-child(even)]:bg-white/[0.03]">{children}</tbody>
     ),
-    tr: ({ children }) => (
-      <tr className="border-b border-white/10 last:border-0">{children}</tr>
-    ),
+    tr: ({ children }) => {
+      // Color-code rows based on content: ✅ = green, ⚠️ = red/orange, סה"כ = bold
+      const text = React.Children.toArray(children).map(c => {
+        if (React.isValidElement(c)) {
+          const props = c.props as Record<string, unknown>;
+          if (props.children) {
+            return React.Children.toArray(props.children as React.ReactNode).map(gc => typeof gc === "string" ? gc : "").join("");
+          }
+        }
+        return typeof c === "string" ? c : "";
+      }).join("");
+
+      const isTotal = text.includes("סה\"כ") || text.includes("סה״כ") || text.includes("**סה");
+      const isGood = text.includes("✅") || text.includes("-₪") || text.includes("-%");
+      const isBad = text.includes("⚠️") || text.includes("+₪") && (text.includes("עלות") || text.includes("הוצאות"));
+
+      let rowClass = "border-b border-white/10 last:border-0";
+      if (isTotal) rowClass += " bg-[#29318A]/30 font-bold";
+      else if (isBad) rowClass += " bg-[#F64E60]/[0.07]";
+      else if (isGood) rowClass += " bg-[#17DB4E]/[0.05]";
+
+      return <tr className={rowClass}>{children}</tr>;
+    },
     th: ({ children }) => (
-      <th className="text-white font-semibold text-right px-2 sm:px-3 py-1.5 sm:py-2">
+      <th className="text-white font-semibold text-right px-2 sm:px-3 py-2 sm:py-2.5 whitespace-nowrap text-[11px] sm:text-[12px]">
         {children}
       </th>
     ),
-    td: ({ children }) => (
-      <td className="text-white/80 text-right px-2 sm:px-3 py-1.5 sm:py-2">{hl(children)}</td>
-    ),
+    td: ({ children }) => {
+      // Detect if cell contains numbers/currency for LTR alignment
+      const text = React.Children.toArray(children).map(c => typeof c === "string" ? c : "").join("");
+      const isNumeric = /^[₪\d,+\-%.±\s]+$/.test(text.trim()) || /₪/.test(text);
+      const hasGoodIndicator = text.includes("✅") || (text.startsWith("-") && /[₪%]/.test(text));
+      const hasBadIndicator = text.includes("⚠️") || (text.startsWith("+") && /[₪%]/.test(text) && !text.includes("הכנסות"));
+
+      let cellClass = "text-right px-2 sm:px-3 py-1.5 sm:py-2";
+      if (isNumeric) cellClass += " ltr-num font-medium tabular-nums";
+      if (hasGoodIndicator) cellClass += " text-[#17DB4E]";
+      else if (hasBadIndicator) cellClass += " text-[#F64E60]";
+      else cellClass += " text-white/80";
+
+      return <td className={cellClass}>{hl(children)}</td>;
+    },
     hr: () => <hr className="border-white/10 my-3" />,
   };
 }
