@@ -2336,8 +2336,12 @@ function buildTools(
 
           let ownerEmail = "";
           if (member?.user_id) {
-            const { data: { user: ownerUser } } = await adminSupabase.auth.admin.getUserById(member.user_id);
-            ownerEmail = ownerUser?.email || "";
+            try {
+              const { data: { user: ownerUser } } = await adminSupabase.auth.admin.getUserById(member.user_id);
+              ownerEmail = ownerUser?.email || "";
+            } catch {
+              // Owner user not found — proceed without CC
+            }
           }
 
           // Calculate Hebrew month name
