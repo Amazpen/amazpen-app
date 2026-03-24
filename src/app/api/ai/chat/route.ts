@@ -702,12 +702,12 @@ ${getRoleInstructions(userRole)}
 השתמש ב-proposeAction להצגת כרטיס אישור תשלום. לאחר אישור המשתמש, הוא יופנה לטופס תשלום ממולא מראש לבדיקה ואישור סופי.
 
 ### שליחת מייל כרטסת לספק
-**כששואלים "שלח מייל לספק" / "בקש כרטסת" / המשתמש אישר שליחת מייל:**
+**כששואלים "שלח מייל לספק" / "בקש כרטסת" / "שלח כרטסת" / המשתמש אישר שליחת מייל:**
 1. **חובה** — קבל אישור מפורש מהמשתמש לפני שליחה! אל תשלח מייל בלי שהמשתמש אמר "כן" / "שלח".
-2. חפש את ה-supplierId באמצעות queryDatabase: SELECT id, name, email FROM public.suppliers WHERE business_id='BID' AND name ILIKE '%שם%' AND deleted_at IS NULL
-3. אם לספק אין מייל → הודע שצריך להוסיף מייל בהגדרות הספק.
-4. אם יש מייל → השתמש ב-sendKartesetEmail. הצג: "✅ המייל נשלח בהצלחה לספק [שם] לכתובת [מייל]"
-5. **אסור** להציג את שם הכלי sendKartesetEmail למשתמש! אמור: "שלחתי מייל לספק".
+2. **השתמש ישירות ב-sendKartesetEmail עם supplierName!** אין צורך לחפש UUID קודם — הכלי מחפש את הספק אוטומטית לפי שם. פשוט תעביר: supplierName="שם הספק", businessId="BID".
+3. הכלי יחזיר תוצאה: הצלחה (עם כתובת מייל) או שגיאה (ספק לא נמצא / אין מייל).
+4. **אסור** להציג את שם הכלי sendKartesetEmail למשתמש! אמור: "שלחתי מייל לספק".
+5. **חשוב:** אם השיחה על חודש ספציפי (למשל פברואר) — העבר את ה-month הנכון! 0=ינואר, 1=פברואר, 2=מרץ וכו'.
 ${isAdmin ? `
 #### אדמין — כללי SQL מיוחדים:
 - כשאדמין שואל שאלה כללית ("כמה הוצאות?") — **שלוף לכל העסקים** עם GROUP BY b.name וציין את שם העסק בכל שורה.
@@ -2270,22 +2270,41 @@ function buildTools(
     }),
 
     sendKartesetEmail: tool({
-      description: "Send a karteset (statement of account) request email to a supplier. Use ONLY after the user explicitly confirms they want to send the email. The email asks the supplier to send their karteset (account statement) for reconciliation. Requires the supplier to have an email address configured.",
+      description: "Send a karteset (statement of account) request email to a supplier. Use ONLY after the user explicitly confirms they want to send the email. You can provide EITHER the supplier UUID OR the supplier name — the tool will search for the supplier automatically. No need to query the database first!",
       inputSchema: z.object({
-        supplierId: z.string().describe("The supplier UUID"),
+        supplierId: z.string().optional().describe("The supplier UUID (if known)"),
+        supplierName: z.string().optional().describe("The supplier name to search for (if UUID not known). The tool will find the supplier automatically."),
         businessId: z.string().describe("The business UUID"),
         month: z.number().optional().describe("Month number 0-11 (0=January). Defaults to current month."),
         year: z.number().optional().describe("Year (e.g., 2026). Defaults to current year."),
       }),
-      execute: async ({ supplierId, businessId: bizId, month, year }) => {
-        console.log(`[AI Tool] sendKartesetEmail: supplier=${supplierId}, biz=${bizId}`);
+      execute: async ({ supplierId, supplierName, businessId: bizId, month, year }) => {
+        console.log(`[AI Tool] sendKartesetEmail: supplier=${supplierId || supplierName}, biz=${bizId}`);
         try {
-          // First check if supplier has email
-          const { data: supplier } = await adminSupabase
-            .from("suppliers")
-            .select("id, name, email")
-            .eq("id", supplierId)
-            .maybeSingle();
+          // Find supplier by ID or by name search
+          let supplier: { id: string; name: string; email: string | null } | null = null;
+
+          if (supplierId) {
+            const { data } = await adminSupabase
+              .from("suppliers")
+              .select("id, name, email")
+              .eq("id", supplierId)
+              .maybeSingle();
+            supplier = data;
+          }
+
+          // If not found by ID (or no ID provided), search by name
+          if (!supplier && supplierName) {
+            const { data } = await adminSupabase
+              .from("suppliers")
+              .select("id, name, email")
+              .eq("business_id", bizId)
+              .ilike("name", `%${supplierName}%`)
+              .is("deleted_at", null)
+              .limit(1)
+              .maybeSingle();
+            supplier = data;
+          }
 
           if (!supplier) {
             return { error: "הספק לא נמצא", success: false };
