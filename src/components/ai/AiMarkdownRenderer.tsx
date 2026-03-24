@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
+import { AiDataTable, parseDataTableJson } from "./AiDataTable";
 
 interface AiMarkdownRendererProps {
   content: string;
@@ -138,6 +139,15 @@ function buildComponents(searchQuery?: string): Components {
     ),
     code: ({ className, children }) => {
       const isBlock = className?.includes("language-");
+      // Intercept data-table-json blocks → render as AiDataTable component
+      if (className?.includes("language-data-table-json")) {
+        const jsonStr = typeof children === "string" ? children : React.Children.toArray(children).map(c => typeof c === "string" ? c : "").join("");
+        const tableProps = parseDataTableJson(jsonStr.trim());
+        if (tableProps) {
+          return <AiDataTable {...tableProps} />;
+        }
+      }
+      // Intercept chart-json blocks (existing feature)
       if (isBlock) {
         return (
           <div className="bg-[#0F1535] rounded-[8px] p-2 sm:p-3 my-2 overflow-x-auto -mx-1 sm:mx-0">
