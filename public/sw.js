@@ -1,4 +1,4 @@
-// BUILD_TIME=1774432902029
+// BUILD_TIME=1774435289093
 const CACHE_NAME = 'amazpen-v1';
 const STATIC_ASSETS = [
   '/',
@@ -72,7 +72,7 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// Fetch event - network first, fallback to cache
+// Fetch event - network first, cache only safe static assets
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
@@ -83,34 +83,36 @@ self.addEventListener('fetch', (event) => {
   // Never cache sw.js itself — browser handles SW updates separately
   if (event.request.url.includes('/sw.js')) return;
 
+  // Navigation requests (HTML pages) — ALWAYS go to network, never serve stale HTML
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('/') || new Response('Offline', { status: 503 }))
+    );
+    return;
+  }
+
+  // API requests — never cache
+  if (event.request.url.includes('/api/')) return;
+
+  // Next.js chunks (_next/) — never cache (hashed filenames change per deploy)
+  if (event.request.url.includes('/_next/')) return;
+
+  // Only cache safe static assets (images, icons, manifest)
+  var isSafeStatic = event.request.url.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2?)(\?|$)/)
+    || event.request.url.includes('/manifest.json');
+
   event.respondWith(
     fetch(event.request)
-      .then((response) => {
-        // Clone the response before caching
-        const responseClone = response.clone();
-
-        // Cache successful responses
-        if (response.status === 200) {
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
+      .then(function(response) {
+        if (response.status === 200 && isSafeStatic) {
+          var clone = response.clone();
+          caches.open(CACHE_NAME).then(function(cache) { cache.put(event.request, clone); });
         }
-
         return response;
       })
-      .catch(() => {
-        // Fallback to cache when offline
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-
-          // Return offline page for navigation requests
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
-
-          return new Response('Offline', { status: 503 });
+      .catch(function() {
+        return caches.match(event.request).then(function(cached) {
+          return cached || new Response('Offline', { status: 503 });
         });
       })
   );

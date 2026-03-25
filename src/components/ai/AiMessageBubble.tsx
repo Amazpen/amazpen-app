@@ -152,6 +152,7 @@ function stripMarkdownTables(text: string): string {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildDashboardFromToolOutput(message: UIMessage): { sections: AiDataSection[]; businessName?: string; period?: string } | null {
   if (message.role !== "assistant") return null;
+  if (!message.parts || !Array.isArray(message.parts)) return null;
 
   for (const part of message.parts) {
     if (part.type === "tool-getMonthlySummary") {
@@ -291,6 +292,7 @@ function buildDashboardFromToolOutput(message: UIMessage): { sections: AiDataSec
 /** Extract proposeAction tool result from message parts */
 function getProposedAction(message: UIMessage): AiProposedAction | null {
   if (message.role !== "assistant") return null;
+  if (!message.parts || !Array.isArray(message.parts)) return null;
 
   for (const part of message.parts) {
     // AI SDK v6: tool parts have type "tool-{toolName}" (e.g. "tool-proposeAction")

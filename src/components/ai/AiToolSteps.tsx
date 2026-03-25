@@ -274,6 +274,7 @@ function groupSteps(steps: ToolStep[]): ToolGroup[] {
 /** Extract tool steps from a message's parts */
 export function getToolSteps(message: UIMessage): ToolStep[] {
   if (message.role !== "assistant") return [];
+  if (!message.parts || !Array.isArray(message.parts)) return [];
 
   const steps: ToolStep[] = [];
   const seen = new Set<string>();

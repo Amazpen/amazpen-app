@@ -25,6 +25,7 @@ function getDisplayText(message: UIMessage): string {
 
 /** Extract full text content from a UIMessage's parts */
 function getFullText(message: UIMessage): string {
+  if (!message.parts || !Array.isArray(message.parts)) return "";
   return message.parts
     .filter((p): p is { type: "text"; text: string } => p.type === "text")
     .map((p) => p.text)
