@@ -95,12 +95,26 @@ export function UpdatePrompt() {
     };
   }, [checkSwVersion]);
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
+    // 1. Delete ALL caches so stale JS/HTML is gone
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+
+    // 2. Tell the waiting SW to take over
     if (waitingWorker) {
       waitingWorker.postMessage({ type: "SKIP_WAITING" });
-    } else if (isVersionUpdate) {
-      window.location.reload();
     }
+
+    // 3. Unregister old SW to force a clean re-register on reload
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((r) => r.unregister()));
+    }
+
+    // 4. Hard reload — bypasses browser cache
+    window.location.reload();
   };
 
   const handleDismiss = () => {

@@ -1,4 +1,4 @@
-// BUILD_TIME=1774360072499
+// BUILD_TIME=1774432902029
 const CACHE_NAME = 'amazpen-v1';
 const STATIC_ASSETS = [
   '/',
@@ -16,15 +16,16 @@ self.addEventListener('install', (event) => {
   // Do NOT call skipWaiting() here - wait for user to accept the update
 });
 
-// Activate event - clean old caches
+// Activate event - clear ALL caches on new SW version to prevent stale content
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
+        cacheNames.map((name) => caches.delete(name))
       );
+    }).then(() => {
+      // Re-cache only essential static assets with fresh content
+      return caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS));
     })
   );
   self.clients.claim();
