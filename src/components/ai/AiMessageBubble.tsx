@@ -331,15 +331,16 @@ function HighlightText({ text, query }: { text: string; query?: string }) {
 
 // User avatar — shows profile photo or system logo as fallback
 function UserIcon({ avatarUrl }: { avatarUrl?: string | null }) {
+  const src = avatarUrl && avatarUrl.trim() ? avatarUrl : "/icon-192.png";
   return (
-    <div className="flex-shrink-0 w-[24px] h-[24px] sm:w-[28px] sm:h-[28px] rounded-full overflow-hidden">
-      <Image
-        src={avatarUrl || "/icon-192.png"}
+    <div className="flex-shrink-0 w-[24px] h-[24px] sm:w-[28px] sm:h-[28px] rounded-full overflow-hidden bg-[#29318A]">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
         alt="משתמש"
         width={28}
         height={28}
         className="w-full h-full object-cover"
-        unoptimized
         loading="eager"
       />
     </div>
@@ -363,7 +364,10 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
   const chartData = isUser ? undefined : getChartData(message);
   const proposedAction = isUser ? null : getProposedAction(message);
   const toolSteps = isUser ? [] : getToolSteps(message);
-  const dashboardData = isUser ? null : buildDashboardFromToolOutput(message);
+  let dashboardData: ReturnType<typeof buildDashboardFromToolOutput> = null;
+  if (!isUser) {
+    try { dashboardData = buildDashboardFromToolOutput(message); } catch { /* prevent crash */ }
+  }
 
   if (isUser) {
     return (
