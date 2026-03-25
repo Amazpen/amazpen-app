@@ -204,25 +204,20 @@ export function AiWelcomeScreen({ isAdmin, adminViewAsOwner, onToggleAdminView, 
   const hapticIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hapticStepRef = useRef(0);
 
-  // Matrix-synced haptic: pulsing vibration that mirrors the skeleton animation
+  // Matrix-synced haptic: pulsing vibration — mobile only (no desktop)
   useEffect(() => {
-    if (showImage) return; // stop when image appears
+    if (showImage) return;
 
-    const canVibrate = typeof navigator !== "undefined" && "vibrate" in navigator;
+    const isMobile = typeof window !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const canVibrate = isMobile && typeof navigator !== "undefined" && "vibrate" in navigator;
     if (!canVibrate) return;
 
-    // Pulse pattern synced to mmBreathe 1.4s cycle with spiral delay
-    // Each tick = one "ring" of the matrix expanding outward
     hapticStepRef.current = 0;
     hapticIntervalRef.current = setInterval(() => {
       const step = hapticStepRef.current % 8;
-      // Build up: center → edges, then pause, then repeat
-      // Steps 0-4: expanding rings (intensity grows), 5-7: breathing pause
       if (step <= 4) {
-        const intensity = 5 + step * 4; // 5, 9, 13, 17, 21
-        navigator.vibrate(intensity);
+        try { navigator.vibrate(5 + step * 4); } catch { /* blocked by browser */ }
       }
-      // steps 5-7: silence (breathing pause)
       hapticStepRef.current++;
     }, 180);
 

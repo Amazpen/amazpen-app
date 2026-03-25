@@ -19,9 +19,16 @@ if (process.env.NODE_ENV === "production") {
   }
 }
 
+// Unique deployment ID per build — Next.js uses this to detect version skew
+// and auto-reload clients that have stale JS from a previous deploy
+const DEPLOYMENT_ID = `build-${Date.now()}`;
+
 const nextConfig: NextConfig = {
   // Output standalone for Docker deployment
   output: 'standalone',
+
+  // Version skew protection — auto-reloads clients with stale JS chunks
+  deploymentId: DEPLOYMENT_ID,
 
   // Include sharp in standalone output for image processing (OCR)
   serverExternalPackages: ['sharp'],

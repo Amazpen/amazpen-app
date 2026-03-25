@@ -1,4 +1,4 @@
-// BUILD_TIME=1774435289093
+// BUILD_TIME=1774435648470
 const CACHE_NAME = 'amazpen-v1';
 const STATIC_ASSETS = [
   '/',
@@ -6,14 +6,15 @@ const STATIC_ASSETS = [
   '/icon.svg',
 ];
 
-// Install event - cache static assets
+// Install event - cache static assets and activate immediately
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
     })
   );
-  // Do NOT call skipWaiting() here - wait for user to accept the update
+  // Activate immediately — don't wait for user to click "update"
+  self.skipWaiting();
 });
 
 // Activate event - clear ALL caches on new SW version to prevent stale content
