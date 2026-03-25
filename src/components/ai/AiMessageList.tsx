@@ -16,9 +16,10 @@ interface AiMessageListProps {
   hasMore?: boolean;
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
+  userAvatarUrl?: string | null;
 }
 
-export function AiMessageList({ messages, isLoading, thinkingStatus, lastError, getChartData, getDisplayText, searchQuery, hasMore, isLoadingMore, onLoadMore }: AiMessageListProps) {
+export function AiMessageList({ messages, isLoading, thinkingStatus, lastError, getChartData, getDisplayText, searchQuery, hasMore, isLoadingMore, onLoadMore, userAvatarUrl }: AiMessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
@@ -96,6 +97,7 @@ export function AiMessageList({ messages, isLoading, thinkingStatus, lastError, 
           getChartData={getChartData}
           getDisplayText={getDisplayText}
           searchQuery={searchQuery}
+          userAvatarUrl={userAvatarUrl}
         />
       ))}
       {isLoading && messages.length > 0 && messages[messages.length - 1].role === "user" && (

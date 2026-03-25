@@ -34,6 +34,7 @@ interface DashboardContextType {
   setGlobalMonth: (month: string) => void;
   globalYear: string;
   setGlobalYear: (year: string) => void;
+  userAvatarUrl: string | null;
 }
 
 const DashboardContext = createContext<DashboardContextType>({
@@ -49,6 +50,7 @@ const DashboardContext = createContext<DashboardContextType>({
   setGlobalMonth: () => {},
   globalYear: "",
   setGlobalYear: () => {},
+  userAvatarUrl: null,
 });
 
 export const useDashboard = () => useContext(DashboardContext);
@@ -591,7 +593,7 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
-    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, refreshProfile: fetchUserProfile, onlineUsers, globalDateRange, setGlobalDateRange, globalMonth, setGlobalMonth, globalYear, setGlobalYear }}>
+    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, refreshProfile: fetchUserProfile, onlineUsers, globalDateRange, setGlobalDateRange, globalMonth, setGlobalMonth, globalYear, setGlobalYear, userAvatarUrl: userProfile?.avatar_url || null }}>
       <div className="min-h-screen bg-[#0F1535]">
         {/* Sidebar Overlay - Mobile only */}
         {isMenuOpen && (

@@ -11,7 +11,7 @@ interface BusinessOption {
 }
 
 export default function AiPage() {
-  const { isAdmin, selectedBusinesses } = useDashboard();
+  const { isAdmin, selectedBusinesses, userAvatarUrl } = useDashboard();
   const [allBusinesses, setAllBusinesses] = useState<BusinessOption[]>([]);
   const [aiSelectedBusinessId, setAiSelectedBusinessId] = useState<string | undefined>(selectedBusinesses[0]);
 
@@ -43,6 +43,7 @@ export default function AiPage() {
       businessId={aiSelectedBusinessId}
       allBusinesses={isAdmin ? allBusinesses : undefined}
       onBusinessChange={isAdmin ? setAiSelectedBusinessId : undefined}
+      userAvatarUrl={userAvatarUrl}
     />
   );
 }

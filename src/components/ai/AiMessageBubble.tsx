@@ -329,6 +329,23 @@ function HighlightText({ text, query }: { text: string; query?: string }) {
   );
 }
 
+// User avatar — shows profile photo or system logo as fallback
+function UserIcon({ avatarUrl }: { avatarUrl?: string | null }) {
+  return (
+    <div className="flex-shrink-0 w-[24px] h-[24px] sm:w-[28px] sm:h-[28px] rounded-full overflow-hidden">
+      <Image
+        src={avatarUrl || "/icon-192.png"}
+        alt="משתמש"
+        width={28}
+        height={28}
+        className="w-full h-full object-cover"
+        unoptimized
+        loading="eager"
+      />
+    </div>
+  );
+}
+
 interface AiMessageBubbleProps {
   message: UIMessage;
   thinkingStatus?: string | null;
@@ -337,9 +354,10 @@ interface AiMessageBubbleProps {
   getChartData: (message: UIMessage) => AiChartData | undefined;
   getDisplayText: (message: UIMessage) => string;
   searchQuery?: string;
+  userAvatarUrl?: string | null;
 }
 
-export function AiMessageBubble({ message, thinkingStatus, errorText, isStreaming, getChartData, getDisplayText, searchQuery }: AiMessageBubbleProps) {
+export function AiMessageBubble({ message, thinkingStatus, errorText, isStreaming, getChartData, getDisplayText, searchQuery, userAvatarUrl }: AiMessageBubbleProps) {
   const isUser = message.role === "user";
   const displayText = getDisplayText(message);
   const chartData = isUser ? undefined : getChartData(message);
@@ -350,12 +368,15 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
   if (isUser) {
     return (
       <div className="group flex flex-col items-end gap-1" dir="rtl">
-        <div className="max-w-[88%] sm:max-w-[80%] lg:max-w-[70%] bg-[#6366f1] text-white text-[13px] sm:text-[14px] leading-relaxed px-3 sm:px-4 py-2 sm:py-2.5 rounded-[16px] rounded-tl-[4px] break-words">
-          <div className="whitespace-pre-wrap [overflow-wrap:anywhere]">
-            <HighlightText text={displayText} query={searchQuery} />
+        <div className="flex items-start gap-1.5 sm:gap-2 flex-row-reverse w-full justify-start">
+          <UserIcon avatarUrl={userAvatarUrl} />
+          <div className="max-w-[88%] sm:max-w-[80%] lg:max-w-[70%] bg-[#6366f1] text-white text-[13px] sm:text-[14px] leading-relaxed px-3 sm:px-4 py-2 sm:py-2.5 rounded-[16px] rounded-tr-[4px] break-words">
+            <div className="whitespace-pre-wrap [overflow-wrap:anywhere]">
+              <HighlightText text={displayText} query={searchQuery} />
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-1 px-1">
+        <div className="flex items-center gap-1 px-1 mr-[30px] sm:mr-[36px]">
           <CopyButton text={displayText} />
         </div>
       </div>
