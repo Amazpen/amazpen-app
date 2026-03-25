@@ -111,6 +111,39 @@ export default function RootLayout({
         </div>
         {children}
         <Script
+          id="auto-cache-buster"
+          strategy="beforeInteractive"
+        >{`
+              (function() {
+                var BUILD_VERSION = "${Date.now()}";
+                var KEY = "amazpen_build_version";
+                try {
+                  var stored = localStorage.getItem(KEY);
+                  localStorage.setItem(KEY, BUILD_VERSION);
+                  if (stored && stored !== BUILD_VERSION) {
+                    // Version changed — nuke all caches and unregister SW
+                    if ('caches' in window) {
+                      caches.keys().then(function(keys) {
+                        return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+                      }).then(function() {
+                        if ('serviceWorker' in navigator) {
+                          navigator.serviceWorker.getRegistrations().then(function(regs) {
+                            return Promise.all(regs.map(function(r) { return r.unregister(); }));
+                          }).then(function() {
+                            window.location.reload();
+                          });
+                        } else {
+                          window.location.reload();
+                        }
+                      });
+                    } else {
+                      window.location.reload();
+                    }
+                  }
+                } catch(e) {}
+              })();
+        `}</Script>
+        <Script
           id="pwa-install-capture"
           strategy="beforeInteractive"
         >{`
