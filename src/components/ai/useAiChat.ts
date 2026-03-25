@@ -260,19 +260,23 @@ export function useAiChat(businessId: string | undefined, isAdmin = false, viewA
       .reduce((sum, p) => sum + p.text.length, 0);
   }, [messages, status]);
 
+  // Mobile vibration helper — never vibrate on desktop
+  const canVibrateMobile = typeof window !== "undefined"
+    && ("ontouchstart" in window || navigator.maxTouchPoints > 0)
+    && typeof navigator !== "undefined" && "vibrate" in navigator;
+
   useEffect(() => {
     const prev = prevStatusRef.current;
     prevStatusRef.current = status;
 
-    const canVibrate = typeof navigator !== "undefined" && "vibrate" in navigator;
-    if (!canVibrate) return;
+    if (!canVibrateMobile) return;
 
     // Finished streaming → strong completion vibration
     if (status === "ready" && (prev === "streaming" || prev === "submitted")) {
       if (hapticRafRef.current) cancelAnimationFrame(hapticRafRef.current);
       hapticRafRef.current = null;
       prevTextLenRef.current = 0;
-      navigator.vibrate([40, 30, 70]);
+      try { navigator.vibrate([40, 30, 70]); } catch { /* */ }
       return;
     }
 
@@ -281,12 +285,11 @@ export function useAiChat(businessId: string | undefined, isAdmin = false, viewA
       prevTextLenRef.current = 0;
       return;
     }
-  }, [status]);
+  }, [status, canVibrateMobile]);
 
   // Dynamic vibration based on text flow speed
   useEffect(() => {
-    const canVibrate = typeof navigator !== "undefined" && "vibrate" in navigator;
-    if (!canVibrate || status !== "streaming") return;
+    if (!canVibrateMobile || status !== "streaming") return;
 
     const delta = currentTextLen - prevTextLenRef.current;
     prevTextLenRef.current = currentTextLen;
@@ -300,11 +303,10 @@ export function useAiChat(businessId: string | undefined, isAdmin = false, viewA
     if (timeSinceLast < 80) return;
 
     // Intensity scales with how much text arrived at once
-    // Small chunks (1-5 chars) = light tap, big chunks (20+) = stronger pulse
     const intensity = Math.min(18, 4 + Math.round(delta * 0.6));
-    navigator.vibrate(intensity);
+    try { navigator.vibrate(intensity); } catch { /* */ }
     lastVibrateRef.current = now;
-  }, [currentTextLen, status]);
+  }, [currentTextLen, status, canVibrateMobile]);
 
   return {
     messages,

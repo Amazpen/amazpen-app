@@ -204,11 +204,15 @@ export function AiWelcomeScreen({ isAdmin, adminViewAsOwner, onToggleAdminView, 
   const hapticIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hapticStepRef = useRef(0);
 
+  // Mobile vibration helper — never vibrate on desktop
+  const canVibrateMobile = typeof window !== "undefined"
+    && ("ontouchstart" in window || navigator.maxTouchPoints > 0)
+    && typeof navigator !== "undefined" && "vibrate" in navigator;
+
   // Matrix-synced haptic: pulsing vibration — mobile only
   useEffect(() => {
     if (showImage) return;
-    const isMobile = typeof window !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (!isMobile || typeof navigator === "undefined" || !("vibrate" in navigator)) return;
+    if (!canVibrateMobile) return;
 
     hapticStepRef.current = 0;
     hapticIntervalRef.current = setInterval(() => {
@@ -232,8 +236,7 @@ export function AiWelcomeScreen({ isAdmin, adminViewAsOwner, onToggleAdminView, 
       minTimeRef.current = true;
       if (imageLoaded) {
         setShowImage(true);
-        const canVibrate = typeof navigator !== "undefined" && "vibrate" in navigator;
-        if (canVibrate) navigator.vibrate([20, 40, 50]);
+        if (canVibrateMobile) try { navigator.vibrate([20, 40, 50]); } catch { /* */ }
       }
     }, 2000);
     return () => clearTimeout(timer);
