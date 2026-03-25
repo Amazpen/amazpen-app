@@ -78,7 +78,7 @@ export function AiDataTable({ sections, period, businessName }: AiDataTableProps
             <table className="min-w-full text-[11px] sm:text-[12px] border-collapse">
               <thead className="bg-[#29318A]/60">
                 <tr>
-                  {section.headers.map((h, hIdx) => (
+                  {(section.headers || []).map((h, hIdx) => (
                     <th key={hIdx} className={`text-white/80 font-semibold px-2 py-1.5 whitespace-nowrap text-[10px] sm:text-[11px] ${hIdx === 0 ? "text-right" : "text-center"}`}>
                       {h}
                     </th>
@@ -86,7 +86,7 @@ export function AiDataTable({ sections, period, businessName }: AiDataTableProps
                 </tr>
               </thead>
               <tbody>
-                {section.rows.map((row, rIdx) => (
+                {(section.rows || []).map((row, rIdx) => (
                   <tr key={rIdx} className={`border-b border-white/10 last:border-0 ${getRowClasses(row.status)}`}>
                     <td className="text-right px-2 py-1.5 whitespace-nowrap font-medium text-[11px] sm:text-[12px]">
                       {row.status === "good" && "✅ "}
@@ -94,7 +94,7 @@ export function AiDataTable({ sections, period, businessName }: AiDataTableProps
                       {row.status === "total" && ""}
                       {row.label}
                     </td>
-                    {row.values.map((val, vIdx) => {
+                    {(row.values || []).map((val, vIdx) => {
                       const formatted = formatCell(val);
                       const numeric = isNumericCell(val);
                       return (

@@ -204,19 +204,17 @@ export function AiWelcomeScreen({ isAdmin, adminViewAsOwner, onToggleAdminView, 
   const hapticIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hapticStepRef = useRef(0);
 
-  // Matrix-synced haptic: pulsing vibration — mobile only (no desktop)
+  // Matrix-synced haptic: pulsing vibration — mobile only
   useEffect(() => {
     if (showImage) return;
-
     const isMobile = typeof window !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const canVibrate = isMobile && typeof navigator !== "undefined" && "vibrate" in navigator;
-    if (!canVibrate) return;
+    if (!isMobile || typeof navigator === "undefined" || !("vibrate" in navigator)) return;
 
     hapticStepRef.current = 0;
     hapticIntervalRef.current = setInterval(() => {
       const step = hapticStepRef.current % 8;
       if (step <= 4) {
-        try { navigator.vibrate(5 + step * 4); } catch { /* blocked by browser */ }
+        try { navigator.vibrate(5 + step * 4); } catch { /* */ }
       }
       hapticStepRef.current++;
     }, 180);
