@@ -3398,7 +3398,7 @@ function PaymentsPageInner() {
                       {payment.createdAt && (
                         <div className="flex flex-col items-center min-w-[60px]">
                           <span className="text-[13px] text-[#979797]">תאריך הזנה</span>
-                          <span className="text-[13px] ltr-num">{new Date(payment.createdAt).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })}</span>
+                          <span className="text-[13px] ltr-num">{payment.createdAt}</span>
                         </div>
                       )}
                     </div>
