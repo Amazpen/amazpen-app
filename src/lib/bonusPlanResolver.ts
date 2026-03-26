@@ -176,12 +176,24 @@ async function resolveAvgTicketStatus(
     }
   }
 
-  // Get goal (avg_ticket_target from income_source_goals)
-  const { data: goalData } = await supabase
-    .from("income_source_goals")
-    .select("avg_ticket_target")
-    .eq("income_source_id", sourceId)
+  // Get goal (avg_ticket_target from income_source_goals, filtered by month's goal)
+  const { data: monthGoal } = await supabase
+    .from("goals")
+    .select("id")
+    .eq("business_id", plan.business_id)
+    .eq("year", year)
+    .eq("month", month)
+    .is("deleted_at", null)
     .maybeSingle();
+
+  const { data: goalData } = monthGoal
+    ? await supabase
+        .from("income_source_goals")
+        .select("avg_ticket_target")
+        .eq("income_source_id", sourceId)
+        .eq("goal_id", monthGoal.id)
+        .maybeSingle()
+    : { data: null };
 
   const goalValue = goalData?.avg_ticket_target != null ? Number(goalData.avg_ticket_target) : null;
 
