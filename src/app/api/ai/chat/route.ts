@@ -1649,18 +1649,25 @@ async function computeMonthlySummary(
       foodDiffPct: foodDiffPct !== null ? Math.round(foodDiffPct * 100) / 100 : null,
     },
     params: { vatPct, markup, managerSalary },
-    profit: {
-      actual: Math.round(incomeBeforeVat - laborCostTotal - foodCost - currentExpenses),
-      actualPct: incomeBeforeVat > 0
-        ? Math.round(((incomeBeforeVat - laborCostTotal - foodCost - currentExpenses) / incomeBeforeVat) * 10000) / 100
-        : 0,
-      target: revenueTarget > 0
-        ? Math.round(revenueTarget - (laborTarget / 100) * revenueTarget - (foodTarget / 100) * revenueTarget - currentExpensesTargetAmount)
-        : null,
-      targetPct: revenueTarget > 0
-        ? Math.round(((revenueTarget - (laborTarget / 100) * revenueTarget - (foodTarget / 100) * revenueTarget - currentExpensesTargetAmount) / revenueTarget) * 10000) / 100
-        : null,
-    },
+    profit: (() => {
+      // Profit = incomeBeforeVat - all expenses (matching P&L report exactly)
+      const profitActual = incomeBeforeVat - laborCostTotal - foodCost - currentExpenses;
+      // Target must also be calculated on before-VAT basis (matching P&L report)
+      const revenueTargetBeforeVat = revenueTarget > 0 ? revenueTarget / (1 + vatPct) : 0;
+      const laborTargetAmount = (laborTarget / 100) * revenueTargetBeforeVat;
+      const foodTargetAmount = (foodTarget / 100) * revenueTargetBeforeVat;
+      const profitTarget = revenueTargetBeforeVat > 0
+        ? revenueTargetBeforeVat - laborTargetAmount - foodTargetAmount - currentExpensesTargetAmount
+        : null;
+      return {
+        actual: Math.round(profitActual),
+        actualPct: incomeBeforeVat > 0 ? Math.round((profitActual / incomeBeforeVat) * 10000) / 100 : 0,
+        target: profitTarget !== null ? Math.round(profitTarget) : null,
+        targetPct: profitTarget !== null && revenueTargetBeforeVat > 0
+          ? Math.round((profitTarget / revenueTargetBeforeVat) * 10000) / 100
+          : null,
+      };
+    })(),
   };
 }
 
