@@ -182,10 +182,10 @@ export default function ReportsPage() {
       const firstStart = `${months[0].year}-${String(months[0].month).padStart(2, "0")}-01`;
       const lastEnd = new Date(months[5].year, months[5].month, 0).toISOString().split("T")[0];
 
-      const [{ data: dailyData }, { data: invoicesData }, { data: bizVatData }] = await Promise.all([
+      const [{ data: dailyData }, { data: invoicesData }, { data: bizVatData }, { data: goalsVatData }] = await Promise.all([
         supabase
           .from("daily_entries")
-          .select("entry_date, total_register")
+          .select("entry_date, total_register, labor_cost, manager_daily_cost, day_factor")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .gte("entry_date", firstStart)
@@ -195,18 +195,31 @@ export default function ReportsPage() {
           .select("invoice_date, subtotal")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
-          .in("invoice_type", ["current", "goods", "employees"])
+          .in("invoice_type", ["current", "goods"])
           .gte("invoice_date", firstStart)
           .lte("invoice_date", lastEnd),
         supabase
           .from("businesses")
-          .select("vat_percentage")
+          .select("id, vat_percentage, markup_percentage")
           .in("id", selectedBusinesses),
+        supabase
+          .from("goals")
+          .select("business_id, vat_percentage, markup_percentage")
+          .in("business_id", selectedBusinesses),
       ]);
 
-      // Calculate VAT divisor to show income without VAT (matching the report)
-      const avgVat = (bizVatData || []).reduce((sum, b) => sum + (Number(b.vat_percentage) || 0), 0) / Math.max((bizVatData || []).length, 1);
+      // Calculate VAT divisor and markup (matching the report)
+      const avgVat = (bizVatData || []).reduce((sum, b) => {
+        const bGoal = (goalsVatData || []).find(g => g.business_id === b.id);
+        return sum + (bGoal?.vat_percentage != null ? Number(bGoal.vat_percentage) : (Number(b.vat_percentage) || 0));
+      }, 0) / Math.max((bizVatData || []).length, 1);
       const vatDivisor = avgVat > 0 ? 1 + avgVat : 1;
+
+      const avgMarkup = (bizVatData || []).reduce((sum, b) => {
+        const bGoal = (goalsVatData || []).find(g => g.business_id === b.id);
+        return sum + (bGoal?.markup_percentage != null ? Number(bGoal.markup_percentage) : (Number(b.markup_percentage) || 1));
+      }, 0) / Math.max((bizVatData || []).length, 1);
+      const markupMultiplier = avgMarkup > 0 ? avgMarkup : 1;
 
       const incomeByMonth = new Map<string, number>();
       const expensesByMonth = new Map<string, number>();
@@ -217,14 +230,20 @@ export default function ReportsPage() {
         expensesByMonth.set(key, 0);
       }
 
+      // Income from daily entries (before VAT) + labor costs with markup
       for (const entry of dailyData || []) {
         const key = entry.entry_date?.substring(0, 7);
         if (key && incomeByMonth.has(key)) {
-          // Divide by VAT to show income without VAT — matching the P&L report
           incomeByMonth.set(key, (incomeByMonth.get(key) || 0) + Number(entry.total_register || 0) / vatDivisor);
+          // Add labor costs (with markup) to expenses — matching the P&L report
+          const laborCost = (Number(entry.labor_cost) || 0) + (Number(entry.manager_daily_cost) || 0);
+          if (laborCost > 0) {
+            expensesByMonth.set(key, (expensesByMonth.get(key) || 0) + laborCost * markupMultiplier);
+          }
         }
       }
 
+      // Invoice expenses (goods + current, NOT employees — those come from daily_entries above)
       for (const inv of invoicesData || []) {
         const key = inv.invoice_date?.substring(0, 7);
         if (key && expensesByMonth.has(key)) {
