@@ -3312,8 +3312,10 @@ function ExpensesPageInner() {
                 <span className="text-[16px] text-white/50">{filterBy ? 'לא נמצאו תוצאות' : 'אין חשבוניות להצגה'}</span>
               </div>
             ) : filtered.map((invoice) => {
-              // Fixed expense supplier - always show purple status
-              const isFixedPending = invoice.isFixed;
+              // Fixed expense supplier - show purple only if missing attachment AND reference
+              const hasAttachment = invoice.attachmentUrl && String(invoice.attachmentUrl).trim() !== "";
+              const hasReference = invoice.reference && String(invoice.reference).trim() !== "" && invoice.reference !== "-";
+              const isFixedPending = invoice.isFixed && !hasAttachment && !hasReference;
               return (
               <div
                 key={invoice.id}
