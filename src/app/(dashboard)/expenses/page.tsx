@@ -283,6 +283,7 @@ function ExpensesPageInner() {
   }
   const [dailyLaborEntries, setDailyLaborEntries] = useState<DailyLaborEntry[]>([]);
   const [totalLaborFromDaily, setTotalLaborFromDaily] = useState(0);
+  const [laborMarkupMultiplier, setLaborMarkupMultiplier] = useState(1);
   const [_isLoading, setIsLoading] = useState(true);
   const [hasMoreInvoices, setHasMoreInvoices] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -435,9 +436,9 @@ function ExpensesPageInner() {
   const [filterValue, setFilterValue] = useState<string>("");
   const [sortColumn, setSortColumn] = useState<"date" | "supplier" | "reference" | "amount" | "status" | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
-  const [laborSortCol, setLaborSortCol] = useState<"date" | "labor_cost" | "labor_hours" | "manager_daily_cost" | "total" | null>(null);
+  const [laborSortCol, setLaborSortCol] = useState<"date" | "labor_cost" | "labor_hours" | "manager_daily_cost" | "total" | "total_with_markup" | null>(null);
   const [laborSortOrder, setLaborSortOrder] = useState<"asc" | "desc" | null>(null);
-  const handleLaborSort = (col: "date" | "labor_cost" | "labor_hours" | "manager_daily_cost" | "total") => {
+  const handleLaborSort = (col: "date" | "labor_cost" | "labor_hours" | "manager_daily_cost" | "total" | "total_with_markup") => {
     if (laborSortCol !== col) { setLaborSortCol(col); setLaborSortOrder("asc"); }
     else if (laborSortOrder === "asc") { setLaborSortOrder("desc"); }
     else { setLaborSortCol(null); setLaborSortOrder(null); }
@@ -984,13 +985,13 @@ function ExpensesPageInner() {
             .lte("entry_date", endDate),
           supabase
             .from("goals")
-            .select("business_id, vat_percentage")
+            .select("business_id, vat_percentage, markup_percentage")
             .in("business_id", selectedBusinesses)
             .eq("year", targetYear)
             .eq("month", targetMonth),
           supabase
             .from("businesses")
-            .select("id, vat_percentage")
+            .select("id, vat_percentage, markup_percentage, manager_monthly_salary")
             .in("id", selectedBusinesses),
         ]);
 
@@ -1007,6 +1008,13 @@ function ExpensesPageInner() {
         const salesBeforeVat = totalRegister / vatDivisor;
         setTotalSalesBeforeVat(salesBeforeVat);
         if (avgVat > 0) setBusinessVatRate(avgVat);
+
+        // Calculate average markup multiplier (same logic as dashboard)
+        const avgMarkup = (businessVatData || []).reduce((sum, b) => {
+          const bGoal = (goalsData || []).find(g => g.business_id === b.id);
+          return sum + (bGoal?.markup_percentage != null ? Number(bGoal.markup_percentage) : (Number(b.markup_percentage) || 1));
+        }, 0) / Math.max((businessVatData || []).length, 1);
+        setLaborMarkupMultiplier(avgMarkup > 0 ? avgMarkup : 1);
 
         // Calculate totals per supplier (for chart/purchases) and per category with suppliers (for expenses drill-down)
         if (invoicesData) {
@@ -1137,8 +1145,10 @@ function ExpensesPageInner() {
               manager_daily_cost: Number(e.manager_daily_cost) || 0,
             })).filter(e => e.labor_cost > 0 || e.manager_daily_cost > 0);
             setDailyLaborEntries(entries);
-            const total = entries.reduce((sum, e) => sum + e.labor_cost + e.manager_daily_cost, 0);
-            setTotalLaborFromDaily(total);
+            const rawTotal = entries.reduce((sum, e) => sum + e.labor_cost + e.manager_daily_cost, 0);
+            // Apply markup multiplier to match dashboard calculation (use local avgMarkup, not state)
+            const markupForLabor = avgMarkup > 0 ? avgMarkup : 1;
+            setTotalLaborFromDaily(rawTotal * markupForLabor);
           }
         } else {
           setDailyLaborEntries([]);
@@ -3698,8 +3708,8 @@ function ExpensesPageInner() {
           <h2 className="text-[18px] font-bold text-center">מילוי יומי — עלות עובדים</h2>
           <div className="w-full max-h-[500px] overflow-y-scroll">
             {/* Header with sortable columns */}
-            <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] items-center sticky top-0 z-10">
-              {([ ["date", "תאריך"], ["labor_cost", "עובדים שעתיים"], ["labor_hours", "שעות"], ["manager_daily_cost", "עלות מנהל"], ["total", "סה\"כ"] ] as const).map(([col, label]) => (
+            <div className="grid grid-cols-[0.7fr_1.2fr_0.7fr_0.8fr_0.8fr_1fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] items-center sticky top-0 z-10">
+              {([ ["date", "תאריך"], ["labor_cost", "עובדים שעתיים"], ["labor_hours", "שעות"], ["manager_daily_cost", "עלות מנהל"], ["total", "סה\"כ"], ["total_with_markup", "כולל העמסה"] ] as const).map(([col, label]) => (
                 <Button key={col} type="button" onClick={() => handleLaborSort(col)}
                   className="text-[13px] font-medium text-center cursor-pointer hover:text-white/80 transition-colors flex items-center justify-center gap-[3px]">
                   {label}
@@ -3719,19 +3729,22 @@ function ExpensesPageInner() {
                 else if (laborSortCol === "labor_hours") cmp = a.labor_hours - b.labor_hours;
                 else if (laborSortCol === "manager_daily_cost") cmp = a.manager_daily_cost - b.manager_daily_cost;
                 else if (laborSortCol === "total") cmp = (a.labor_cost + a.manager_daily_cost) - (b.labor_cost + b.manager_daily_cost);
+                else if (laborSortCol === "total_with_markup") cmp = ((a.labor_cost + a.manager_daily_cost) * laborMarkupMultiplier) - ((b.labor_cost + b.manager_daily_cost) * laborMarkupMultiplier);
                 return laborSortOrder === "asc" ? cmp : -cmp;
               }).map((entry) => {
                 const dateObj = new Date(entry.entry_date);
                 const dateStr = `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${String(dateObj.getFullYear()).slice(2)}`;
                 const rowTotal = entry.labor_cost + entry.manager_daily_cost;
+                const rowTotalWithMarkup = Math.round(rowTotal * laborMarkupMultiplier);
                 return (
                   <div key={entry.entry_date} className="rounded-[7px] p-[7px_3px] border border-transparent">
-                    <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] w-full p-[5px_5px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] items-center">
+                    <div className="grid grid-cols-[0.7fr_1.2fr_0.7fr_0.8fr_0.8fr_1fr] w-full p-[5px_5px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] items-center">
                       <span className="text-[12px] ltr-num text-center">{dateStr}</span>
                       <span className="text-[12px] ltr-num text-center">{entry.labor_cost > 0 ? `₪${entry.labor_cost.toLocaleString()}` : "—"}</span>
                       <span className="text-[12px] ltr-num text-center text-white/60">{entry.labor_hours > 0 ? entry.labor_hours : "—"}</span>
                       <span className="text-[12px] ltr-num text-center">{entry.manager_daily_cost > 0 ? `₪${entry.manager_daily_cost.toLocaleString()}` : "—"}</span>
                       <span className="text-[12px] ltr-num text-center font-medium">₪{rowTotal.toLocaleString()}</span>
+                      <span className="text-[12px] ltr-num text-center font-medium text-indigo-400">₪{rowTotalWithMarkup.toLocaleString()}</span>
                     </div>
                   </div>
                 );
