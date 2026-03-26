@@ -693,7 +693,9 @@ export default function ReportsPage() {
               ...subcategoriesData.filter(s => s.id !== "__labor_employees__" && s.id !== "__labor_manager__"),
             ];
           }
-          const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : isLaborCost ? totalLaborCost : childrenActual;
+          // For labor: totalLaborCost (daily labor+manager with markup) + invoice-based subcategories (pension, extra costs, etc.)
+          const laborInvoiceActual = isLaborCost ? children.reduce((sum, c) => sum + (categoryActuals.get(c.id) || 0), 0) : 0;
+          const parentActual = isGoodsCost ? Math.max(childrenActual, totalGoodsExpenses) : isLaborCost ? totalLaborCost + laborInvoiceActual : childrenActual;
           const parentTarget = isGoodsCost ? foodCostTarget : isLaborCost ? laborCostTarget : childrenBudget;
           const parentDiff = parentTarget - parentActual;
           const parentRemaining = parentTarget > 0 ? ((parentTarget - parentActual) / parentTarget) * 100 : 0;
@@ -725,6 +727,9 @@ export default function ReportsPage() {
 
         // Calculate summary
         // Total expenses = goods + current invoices + labor cost (from daily entries with markup)
+        // Total expenses: goods + current + labor. Note: invoice-based labor subcategories
+        // (pension, delivery co, etc.) are already counted in totalCurrentExpenses because
+        // their suppliers have expense_type="current_expenses" — they are NOT double-counted.
         const allExpensesActual = totalGoodsExpenses + totalCurrentExpenses + totalLaborCost;
         // Total expenses target = food cost target + current expenses target + labor cost target (incl supplier budgets)
         const laborCostTargetPctSummary = Number(goal?.labor_cost_target_pct || 0);
