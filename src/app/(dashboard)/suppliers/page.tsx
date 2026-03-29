@@ -443,9 +443,8 @@ export default function SuppliersPage() {
           const totalPaid = balance?.total_paid || 0;
           remainingPayment = supplier.obligation_total_amount - totalPaid;
         } else {
-          // Regular suppliers: use invoice balance (total_invoiced - total_paid)
-          // Negative = overpaid (show as green), Positive = owes (show as red)
-          remainingPayment = balance?.balance || 0;
+          // Regular suppliers: use pending invoices total (unpaid invoices)
+          remainingPayment = balance?.pending_balance || 0;
         }
 
         // For suppliers with monthly_expense_amount, add current month expected expense
@@ -1225,9 +1224,10 @@ export default function SuppliersPage() {
       }
       setMonthlyBreakdown(breakdownMonths);
 
-      // For suppliers with previous obligations (loans), calculate loan balance
+      // Remaining balance = sum of unpaid invoices (status != paid)
+      const unpaidTotal = invoicesData?.filter(inv => inv.status !== 'paid').reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
       let displayTotalPurchases = totalPurchases;
-      let displayRemainingBalance = totalPurchases - totalPaid;
+      let displayRemainingBalance = unpaidTotal;
 
       if (supplier.has_previous_obligations && supplier.obligation_total_amount) {
         displayTotalPurchases = supplier.obligation_total_amount;
