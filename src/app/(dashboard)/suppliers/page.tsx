@@ -435,16 +435,17 @@ export default function SuppliersPage() {
       const suppliersWithBalance: SupplierWithBalance[] = (suppliersData || []).map((supplier) => {
         const balance = balanceData?.find((b) => b.supplier_id === supplier.id);
 
-        // Calculate remaining payment: total invoices - total payments (balance)
-        // This matches Bubble's "פתוח לתשלום" calculation
+        // Calculate remaining payment:
+        // If balance positive (owe more than paid): use balance
+        // If balance negative (paid more than invoiced): use pending invoices (still have unpaid ones)
         let remainingPayment = 0;
         if (supplier.has_previous_obligations && supplier.obligation_total_amount) {
           const totalPaid = balance?.total_paid || 0;
           remainingPayment = supplier.obligation_total_amount - totalPaid;
         } else {
-          // Regular suppliers: invoices - payments = balance
           const bal = (balance?.total_invoiced || 0) - (balance?.total_paid || 0);
-          remainingPayment = Math.max(0, bal);
+          const pending = balance?.pending_balance || 0;
+          remainingPayment = bal > 0 ? bal : pending;
         }
 
         // For suppliers with monthly_expense_amount, add current month expected expense
