@@ -387,9 +387,12 @@ for (const r of goalRows) {
   const b = budgetRows.find(b => parseInt(b['חודש (מספר)']) === month && parseInt(b['שנה']) === year);
   const revenueTarget = b ? p(b['תקציב מכירות ברוטו']) : 0;
   try {
+    const foodPct = b ? p(b['תקציב עלות מכר (באחוזים)']) : null;
+    const laborPct = b ? p(b['תקציב עלות עובדים (באחוזים)']) : null;
+    const currentTarget = b ? p(b['תקציב הוצאות שוטפות (בשקל)']) : null;
     await client.query(
-      `INSERT INTO goals (business_id, month, year, revenue_target, vat_percentage) VALUES ($1,$2,$3,$4,$5)`,
-      [BUSINESS_ID, month, year, revenueTarget, vat > 1 ? vat - 1 : vat]
+      `INSERT INTO goals (business_id, month, year, revenue_target, vat_percentage, food_cost_target_pct, labor_cost_target_pct, current_expenses_target) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [BUSINESS_ID, month, year, revenueTarget, vat > 1 ? vat - 1 : vat, foodPct || null, laborPct || null, currentTarget || null]
     );
     goalsOk++;
   } catch (e) {}
