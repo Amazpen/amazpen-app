@@ -1204,8 +1204,7 @@ export default function SuppliersPage() {
         .eq("supplier_id", supplier.id)
         .is("deleted_at", null);
 
-      // totalPaid = sum of amount_paid on invoices (more accurate than payments table)
-      const totalPaid = invoicesData?.reduce((sum, inv) => sum + Number(inv.amount_paid || 0), 0) || 0;
+      const totalPaid = paymentsData?.reduce((sum, pay) => sum + Number(pay.total_amount), 0) || 0;
 
       // Fetch monthly data for current month
       const monthlyData = await fetchMonthlyData(supplier, new Date(now.getFullYear(), now.getMonth(), 1));
