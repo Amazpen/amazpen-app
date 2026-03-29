@@ -1191,7 +1191,7 @@ export default function SuppliersPage() {
       // Fetch total purchases (invoices) for this supplier
       const { data: invoicesData } = await supabase
         .from("invoices")
-        .select("total_amount")
+        .select("total_amount, status, amount_paid")
         .eq("supplier_id", supplier.id)
         .is("deleted_at", null);
 
@@ -1204,7 +1204,8 @@ export default function SuppliersPage() {
         .eq("supplier_id", supplier.id)
         .is("deleted_at", null);
 
-      const totalPaid = paymentsData?.reduce((sum, pay) => sum + Number(pay.total_amount), 0) || 0;
+      // totalPaid = sum of amount_paid on invoices (more accurate than payments table)
+      const totalPaid = invoicesData?.reduce((sum, inv) => sum + Number(inv.amount_paid || 0), 0) || 0;
 
       // Fetch monthly data for current month
       const monthlyData = await fetchMonthlyData(supplier, new Date(now.getFullYear(), now.getMonth(), 1));
