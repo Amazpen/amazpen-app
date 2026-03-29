@@ -1064,8 +1064,8 @@ export default function DashboardPage() {
             .from("invoices")
             .select("supplier_id, business_id, subtotal")
             .in("supplier_id", goodsSupplierIdsForCards)
-            .gte("invoice_date", startDateStr)
-            .lte("invoice_date", endDateStr)
+            .gte("reference_date", startDateStr)
+            .lte("reference_date", endDateStr)
             .is("deleted_at", null)
         : { data: [] };
 
@@ -1325,8 +1325,8 @@ export default function DashboardPage() {
               .select("subtotal, invoice_date")
               .in("supplier_id", goodsSupplierIds)
               .in("business_id", selectedBusinesses)
-              .gte("invoice_date", startDateStr)
-              .lte("invoice_date", endDateStr)
+              .gte("reference_date", startDateStr)
+              .lte("reference_date", endDateStr)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
@@ -1337,8 +1337,8 @@ export default function DashboardPage() {
               .select("subtotal")
               .in("supplier_id", currentExpensesSupplierIds)
               .in("business_id", selectedBusinesses)
-              .gte("invoice_date", startDateStr)
-              .lte("invoice_date", endDateStr)
+              .gte("reference_date", startDateStr)
+              .lte("reference_date", endDateStr)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
@@ -1844,8 +1844,8 @@ export default function DashboardPage() {
               .select("subtotal")
               .in("supplier_id", goodsSupplierIds)
               .in("business_id", selectedBusinesses)
-              .gte("invoice_date", prevMonthStartStr)
-              .lte("invoice_date", prevMonthEndStr)
+              .gte("reference_date", prevMonthStartStr)
+              .lte("reference_date", prevMonthEndStr)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
@@ -1856,8 +1856,8 @@ export default function DashboardPage() {
               .select("subtotal")
               .in("supplier_id", goodsSupplierIds)
               .in("business_id", selectedBusinesses)
-              .gte("invoice_date", prevYearStartStr)
-              .lte("invoice_date", prevYearEndStr)
+              .gte("reference_date", prevYearStartStr)
+              .lte("reference_date", prevYearEndStr)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
@@ -1868,8 +1868,8 @@ export default function DashboardPage() {
               .select("subtotal")
               .in("supplier_id", currentExpensesSupplierIds)
               .in("business_id", selectedBusinesses)
-              .gte("invoice_date", prevMonthStartStr)
-              .lte("invoice_date", prevMonthEndStr)
+              .gte("reference_date", prevMonthStartStr)
+              .lte("reference_date", prevMonthEndStr)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
@@ -1880,8 +1880,8 @@ export default function DashboardPage() {
               .select("subtotal")
               .in("supplier_id", currentExpensesSupplierIds)
               .in("business_id", selectedBusinesses)
-              .gte("invoice_date", prevYearStartStr)
-              .lte("invoice_date", prevYearEndStr)
+              .gte("reference_date", prevYearStartStr)
+              .lte("reference_date", prevYearEndStr)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] })
       ]);
@@ -2099,8 +2099,8 @@ export default function DashboardPage() {
               .select("supplier_id, business_id, invoice_date, subtotal")
               .in("supplier_id", goodsSupplierIds)
               .in("business_id", selectedBusinesses)
-              .gte("invoice_date", historicalStartStr)
-              .lte("invoice_date", historicalEndStr)
+              .gte("reference_date", historicalStartStr)
+              .lte("reference_date", historicalEndStr)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
