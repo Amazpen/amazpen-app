@@ -196,8 +196,8 @@ export default function ReportsPage() {
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .in("invoice_type", ["current", "goods"])
-          .gte("invoice_date", firstStart)
-          .lte("invoice_date", lastEnd),
+          .gte("reference_date", firstStart)
+          .lte("reference_date", lastEnd),
         supabase
           .from("businesses")
           .select("id, vat_percentage, markup_percentage")
@@ -312,8 +312,8 @@ export default function ReportsPage() {
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
             .in("invoice_type", ["current", "goods", "employees"])
-            .gte("invoice_date", startDate)
-            .lte("invoice_date", endDate),
+            .gte("reference_date", startDate)
+            .lte("reference_date", endDate),
           supabase
             .from("supplier_budgets")
             .select("budget_amount, supplier_id, supplier:suppliers(name, expense_category_id, expense_type, is_fixed_expense)")

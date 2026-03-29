@@ -244,8 +244,8 @@ export default function GoalsPage() {
             .select("supplier_id, subtotal, invoice_type")
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
-            .gte("invoice_date", startDate)
-            .lte("invoice_date", endDate),
+            .gte("reference_date", startDate)
+            .lte("reference_date", endDate),
         ]);
 
         // Log any query errors
@@ -899,8 +899,8 @@ export default function GoalsPage() {
       .eq("supplier_id", supplierId)
       .in("business_id", selectedBusinesses)
       .is("deleted_at", null)
-      .gte("invoice_date", startDate)
-      .lte("invoice_date", endDate);
+      .gte("reference_date", startDate)
+      .lte("reference_date", endDate);
 
     if (existingInvoices && existingInvoices.length > 0) {
       for (const inv of existingInvoices) {

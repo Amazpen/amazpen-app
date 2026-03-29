@@ -599,8 +599,8 @@ export default function AdminGoalsPage() {
           .eq("business_id", selectedBusinessId)
           .eq("supplier_id", b.supplier_id)
           .is("deleted_at", null)
-          .gte("invoice_date", monthStart)
-          .lte("invoice_date", monthEnd);
+          .gte("reference_date", monthStart)
+          .lte("reference_date", monthEnd);
 
         if (existingInvoices && existingInvoices.length > 0) {
           // Update existing invoice amount

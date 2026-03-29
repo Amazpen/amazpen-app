@@ -293,7 +293,22 @@
       "Bash(npx.cmd next:*)",
       "Bash(wc -l /c/Users/netn1/Downloads/amazpen-new/src/app/\\\\\\(dashboard\\\\\\)/page.tsx)",
       "Bash(wc -l /c/Users/netn1/Downloads/amazpen-new/src/app/\\\\\\(dashboard\\\\\\)/expenses/page.tsx)",
-      "Bash(wc -l \"c:\\\\Users\\\\netn1\\\\Downloads\\\\amazpen-new\\\\src\\\\app\\\\\\(dashboard\\)\\\\reports\\\\page.tsx\")"
+      "Bash(wc -l \"c:\\\\Users\\\\netn1\\\\Downloads\\\\amazpen-new\\\\src\\\\app\\\\\\(dashboard\\)\\\\reports\\\\page.tsx\")",
+      "Bash(grep -A 5 \"display_order\" /c/Users/netn1/Downloads/amazpen-new/src/app/\\\\\\(dashboard\\\\\\)/admin/business/[id]/edit/page.tsx)",
+      "Bash(grep -n \"managed_products\\\\|managedProducts\" /c/Users/netn1/Downloads/amazpen-new/src/app/\\\\\\(dashboard\\\\\\)/admin/business/[id]/edit/page.tsx)",
+      "Bash(grep -B 5 -A 5 \"from.*managed_products.*order\\\\|managed_products.*display_order\" /c/Users/netn1/Downloads/amazpen-new/src/app/\\\\\\(dashboard\\\\\\)/admin/business/[id]/edit/page.tsx)",
+      "Bash(grep -n \"handleSaveAllChanges\\\\|handleSubmit\\\\|const handleSave\" /c/Users/netn1/Downloads/amazpen-new/src/app/\\\\\\(dashboard\\\\\\)/admin/business/[id]/edit/page.tsx)",
+      "Bash(grep -n \"display_order\" /c/Users/netn1/Downloads/amazpen-new/src/app/\\\\\\(dashboard\\\\\\)/admin/business/[id]/edit/page.tsx)",
+      "Bash(grep -n \"SortableObjectList\\\\|setIncomeSources\\\\|setPaymentMethods\" /c/Users/netn1/Downloads/amazpen-new/src/app/\\\\\\(dashboard\\\\\\)/admin/business/[id]/edit/page.tsx)",
+      "Bash(wc -l /c/Users/netn1/Downloads/amazpen-new/src/app/\\\\\\(dashboard\\\\\\)/layout.tsx /c/Users/netn1/Downloads/amazpen-new/src/app/api/ai/chat/route.ts)",
+      "Bash(npm install:*)",
+      "Bash(wc -l \"c:/Users/netn1/Downloads/amazpen-new/src/app/\\(dashboard\\)/suppliers/page.tsx\" \"c:/Users/netn1/Downloads/amazpen-new/src/app/\\(dashboard\\)/payments/page.tsx\")",
+      "Bash(wc -l \"/c/Users/netn1/Downloads/amazpen-new/src/app/\\(dashboard\\)/admin/bonus-plans/page.tsx\")",
+      "Read(//dev/**)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\netn1\\Downloads\\amazpen-new\\scripts",
+      "\\dev"
     ]
   },
   "enableAllProjectMcpServers": true,

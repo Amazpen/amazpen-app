@@ -967,8 +967,8 @@ function ExpensesPageInner() {
             `)
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
-            .gte("invoice_date", startDate)
-            .lte("invoice_date", endDate)
+            .gte("reference_date", startDate)
+            .lte("reference_date", endDate)
             .eq("invoice_type", activeTab === "expenses" ? "current" : activeTab === "employees" ? "employees" : "goods")
             .order("invoice_date", { ascending: false }),
           supabase
@@ -2719,8 +2719,8 @@ function ExpensesPageInner() {
         .in("business_id", selectedBusinesses)
         .eq("supplier_id", supplierId)
         .is("deleted_at", null)
-        .gte("invoice_date", startDate)
-        .lte("invoice_date", endDate)
+        .gte("reference_date", startDate)
+        .lte("reference_date", endDate)
         .order("invoice_date", { ascending: false });
 
       if (invoicesData) {

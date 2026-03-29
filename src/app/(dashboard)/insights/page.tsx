@@ -241,16 +241,16 @@ export default function InsightsPage() {
           .from("invoices")
           .select("supplier_id, subtotal, total_amount, invoice_type, invoice_date, suppliers!inner(name, expense_type, expense_category_id, is_fixed_expense)")
           .in("business_id", businessIds)
-          .gte("invoice_date", currentMonthStart)
-          .lte("invoice_date", currentMonthEnd)
+          .gte("reference_date", currentMonthStart)
+          .lte("reference_date", currentMonthEnd)
           .is("deleted_at", null),
         // Previous month invoices
         supabase
           .from("invoices")
           .select("subtotal, suppliers!inner(expense_type)")
           .in("business_id", businessIds)
-          .gte("invoice_date", prevMonthStart)
-          .lte("invoice_date", prevMonthEnd)
+          .gte("reference_date", prevMonthStart)
+          .lte("reference_date", prevMonthEnd)
           .is("deleted_at", null),
         // Goals
         supabase

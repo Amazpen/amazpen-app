@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
       supabase.from("invoices")
         .select("subtotal, invoice_type, supplier_id")
         .eq("business_id", businessId)
-        .gte("invoice_date", monthStart).lt("invoice_date", monthEnd)
+        .gte("reference_date", monthStart).lt("reference_date", monthEnd)
         .neq("status", "cancelled"),
       // Business members (owners/admins) for email
       supabase.from("business_members")

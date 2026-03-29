@@ -49,8 +49,8 @@ export async function POST(request: NextRequest) {
       .select("subtotal")
       .eq("business_id", business_id)
       .eq("supplier_id", supplier_id)
-      .gte("invoice_date", monthStart)
-      .lt("invoice_date", monthEnd)
+      .gte("reference_date", monthStart)
+      .lt("reference_date", monthEnd)
       .neq("status", "cancelled");
 
     const totalSpent = (invoices || []).reduce((sum, inv) => sum + Number(inv.subtotal || 0), 0);
