@@ -37,6 +37,9 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
   const [imageError, setImageError] = useState(false);
 
   const isPdf = isPdfUrl(imageUrl, fileType);
+  const [pdfPages, setPdfPages] = useState<string[]>([]);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -196,6 +199,60 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+
+  // Render PDF pages to images using pdf.js
+  useEffect(() => {
+    if (!isPdf) return;
+    let cancelled = false;
+    setPdfLoading(true);
+    setPdfError(false);
+    setPdfPages([]);
+
+    (async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pdfjsLib = await import('pdfjs-dist') as any;
+        if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+        }
+
+        const response = await fetch(imageUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pages: string[] = [];
+
+        for (let i = 1; i <= pdfDoc.numPages; i++) {
+          if (cancelled) return;
+          const page = await pdfDoc.getPage(i);
+          const scale = 2;
+          const viewport = page.getViewport({ scale });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) continue;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (page.render as any)({ canvasContext: ctx, viewport }).promise;
+          pages.push(canvas.toDataURL('image/jpeg', 0.9));
+        }
+
+        if (!cancelled) {
+          setPdfPages(pages);
+          setPdfLoading(false);
+        }
+      } catch (err) {
+        console.error('PDF render error:', err);
+        if (!cancelled) {
+          setPdfError(true);
+          setPdfLoading(false);
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [isPdf, imageUrl]);
 
   return (
     <div style={{ height: '100%', background: '#0a0d1f', borderRadius: '10px', overflow: 'hidden' }}>
@@ -382,16 +439,35 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
       >
         {/* PDF viewer */}
         {isPdf ? (
-          <iframe
-            src={imageUrl}
-            title="מסמך PDF"
-            style={{
-              width: '100%',
-              height: '100%',
-              border: 'none',
-              background: '#fff',
-            }}
-          />
+          <div style={{ width: '100%', height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '8px', background: '#1a1f3d' }}>
+            {pdfLoading && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#fff', fontSize: '14px' }}>
+                טוען PDF...
+              </div>
+            )}
+            {pdfError && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#EB5757', flexDirection: 'column', gap: '8px' }}>
+                <span>שגיאה בטעינת PDF</span>
+                <Button variant="ghost" onClick={() => { setPdfPages([]); setPdfError(false); setPdfLoading(true); }} className="text-white/60 hover:text-white">נסה שוב</Button>
+              </div>
+            )}
+            {pdfPages.map((dataUrl, i) => (
+              <img
+                key={i}
+                src={dataUrl}
+                alt={`עמוד ${i + 1}`}
+                style={{
+                  maxWidth: '100%',
+                  borderRadius: '4px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  transform: `scale(${zoom}) rotate(${rotation}deg)`,
+                  transformOrigin: 'top center',
+                  transition: 'transform 0.2s',
+                }}
+                draggable={false}
+              />
+            ))}
+          </div>
         ) : (
           <>
             {/* Error state */}
