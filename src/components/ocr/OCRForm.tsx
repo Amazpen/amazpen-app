@@ -2509,22 +2509,14 @@ export default function OCRForm({
       )}
 
       {/* Action buttons - fixed at bottom */}
-      <div className="px-4 py-4 bg-[#0F1535] border-t border-[#4C526B]">
-        <div className="flex gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => { setShowCalculator(v => !v); setCalcDisplay('0'); setCalcExpression(''); }}
-            className="h-[50px] w-[50px] bg-[#4C526B]/30 hover:bg-[#4C526B]/50 text-white/70 rounded-[10px] transition-colors p-0 flex-shrink-0"
-            title="מחשבון"
-          >
-            <Calculator size={22} />
-          </Button>
+      <div className="px-4 py-3 bg-[#0F1535] border-t border-[#4C526B] flex flex-col gap-2">
+        {/* Main actions row */}
+        <div className="flex gap-2">
           <Button
             type="button"
             onClick={handleSubmit}
             disabled={isLoading || (documentType === 'summary' && (!selectedBusinessId || !summarySupplierId || !summaryInvoiceNumber || !summaryTotalAmount || !summaryIsClosed)) || (documentType === 'daily_entry' && (!selectedBusinessId || !dailyEntryDate))}
-            className={`flex-1 h-[50px] text-white text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`flex-1 h-[44px] text-white text-[15px] font-semibold rounded-[10px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               documentType === 'summary' || documentType === 'daily_entry'
                 ? 'bg-gradient-to-r from-[#0075FF] to-[#00D4FF]'
                 : 'bg-[#22c55e] hover:bg-[#16a34a]'
@@ -2537,7 +2529,7 @@ export default function OCRForm({
             variant="ghost"
             onClick={() => setShowRejectModal(true)}
             disabled={isLoading}
-            className="h-[50px] px-6 bg-[#EB5757]/20 hover:bg-[#EB5757]/30 text-[#EB5757] text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
+            className="h-[44px] px-4 bg-[#EB5757]/20 hover:bg-[#EB5757]/30 text-[#EB5757] text-[14px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
           >
             דחייה
           </Button>
@@ -2547,31 +2539,43 @@ export default function OCRForm({
               variant="ghost"
               onClick={onSkip}
               disabled={isLoading}
-              className="h-[50px] px-6 bg-[#4C526B]/30 hover:bg-[#4C526B]/50 text-white/70 text-[16px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
+              className="h-[44px] px-4 bg-[#4C526B]/30 hover:bg-[#4C526B]/50 text-white/70 text-[14px] font-semibold rounded-[10px] transition-colors disabled:opacity-50"
             >
               דלג
             </Button>
           )}
+        </div>
+        {/* Secondary actions row */}
+        <div className="flex items-center gap-2 justify-between">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => { setShowCalculator(v => !v); if (!showCalculator) { setCalcDisplay('0'); setCalcExpression(''); } }}
+            className={`h-[34px] px-3 text-[13px] rounded-[8px] transition-colors gap-1.5 ${showCalculator ? 'bg-[#29318A] text-white' : 'bg-[#4C526B]/20 hover:bg-[#4C526B]/40 text-white/50'}`}
+          >
+            <Calculator size={16} />
+            מחשבון
+          </Button>
           {onDelete && document && (
             <Button
               type="button"
               variant="ghost"
-              size="icon"
               onClick={() => {
                 confirm('האם אתה בטוח שברצונך למחוק את המסמך לצמיתות?', () => {
                   onDelete(document.id);
                 });
               }}
               disabled={isLoading}
-              className="h-[50px] px-4 bg-transparent hover:bg-[#EB5757]/10 text-[#EB5757]/60 hover:text-[#EB5757] text-[14px] rounded-[10px] transition-colors disabled:opacity-50"
+              className="h-[34px] px-3 bg-transparent hover:bg-[#EB5757]/10 text-[#EB5757]/40 hover:text-[#EB5757] text-[13px] rounded-[8px] transition-colors gap-1.5"
               title="מחק מסמך"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="3 6 5 6 21 6" />
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                 <line x1="10" y1="11" x2="10" y2="17" />
                 <line x1="14" y1="11" x2="14" y2="17" />
               </svg>
+              מחק
             </Button>
           )}
         </div>
