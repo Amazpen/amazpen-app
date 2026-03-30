@@ -15,11 +15,30 @@ export const ACCEPTED_IMAGE_TYPES = [
   "image/x-icon", "image/vnd.microsoft.icon",
 ];
 
+// Google Vision API only supports these formats (no AVIF, no HEIC)
+const VISION_SUPPORTED_MIMES = new Set([
+  "image/jpeg", "image/png", "image/gif", "image/bmp", "image/webp",
+  "image/tiff", "image/x-icon", "image/vnd.microsoft.icon",
+]);
+
 /**
- * Normalize any image to a clean JPEG buffer that Google Vision can process.
- * Handles HEIC, AVIF, corrupt PNGs, wrong MIME types, etc.
+ * Check if a file's MIME type or extension requires conversion before Vision API.
+ * AVIF, HEIC, HEIF are NOT supported by Google Vision — must be converted first.
  */
-async function normalizeImageToJpeg(buffer: Buffer): Promise<Buffer> {
+function needsConversionForVision(mimeType: string, fileName: string): boolean {
+  if (VISION_SUPPORTED_MIMES.has(mimeType)) return false;
+  // Check by extension as fallback
+  const ext = fileName.toLowerCase().replace(/^.*\./, "");
+  const visionExts = new Set(["jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif", "ico"]);
+  return !visionExts.has(ext);
+}
+
+/**
+ * Normalize any image to a clean JPEG buffer using Sharp.
+ * Handles HEIC, AVIF, corrupt PNGs, wrong MIME types, etc.
+ * Returns null if conversion fails.
+ */
+async function normalizeImageToJpeg(buffer: Buffer): Promise<Buffer | null> {
   try {
     const result = await sharp(buffer)
       .rotate() // auto-rotate based on EXIF
@@ -28,37 +47,68 @@ async function normalizeImageToJpeg(buffer: Buffer): Promise<Buffer> {
     console.log(`[OCR] Normalized image: ${buffer.length} bytes → ${result.length} bytes JPEG`);
     return result;
   } catch (err) {
-    console.warn("[OCR] sharp normalization failed, using original buffer:", err);
-    return buffer;
+    console.error("[OCR] sharp normalization failed:", err);
+    return null;
   }
 }
 
-/** OCR an image file using Google Cloud Vision API */
+/**
+ * OCR an image file using Google Cloud Vision API.
+ * For formats Vision doesn't support (AVIF, HEIC), Sharp must convert first.
+ * Returns empty string on failure (never throws).
+ */
 export async function ocrImage(file: File): Promise<string> {
-  if (!getVisionApiKey()) {
-    throw new Error("GOOGLE_VISION_API_KEY is not configured");
-  }
-
   console.log(`[OCR] ocrImage called: type=${file.type}, size=${file.size}, name=${file.name}`);
   const rawBuffer = Buffer.from(await file.arrayBuffer());
+  const requiresConversion = needsConversionForVision(file.type, file.name || "");
 
-  // Normalize to JPEG — handles HEIC, AVIF, corrupt PNGs, wrong MIME types
-  const jpegBuffer = await normalizeImageToJpeg(rawBuffer);
-  const base64 = jpegBuffer.toString("base64");
-  console.log(`[OCR] base64 length: ${base64.length}`);
+  // Step 1: Try Sharp normalization → Google Vision
+  if (getVisionApiKey()) {
+    const jpegBuffer = await normalizeImageToJpeg(rawBuffer);
+    if (jpegBuffer) {
+      try {
+        const text = await callVisionOCR(jpegBuffer.toString("base64"));
+        if (text.length > 0) {
+          console.log(`[OCR] Google Vision succeeded (normalized): ${text.length} chars`);
+          return text;
+        }
+      } catch (err) {
+        console.warn("[OCR] Google Vision failed on normalized image:", err);
+      }
+    }
 
-  return callVisionOCR(base64);
+    // Step 2: If format is Vision-compatible, try raw buffer directly
+    // (skip this for AVIF/HEIC — Vision doesn't support them at all)
+    if (!requiresConversion) {
+      try {
+        const text = await callVisionOCR(rawBuffer.toString("base64"));
+        if (text.length > 0) {
+          console.log(`[OCR] Google Vision succeeded (raw buffer): ${text.length} chars`);
+          return text;
+        }
+      } catch (err) {
+        console.warn("[OCR] Google Vision failed on raw buffer:", err);
+      }
+    } else {
+      console.log(`[OCR] Format ${file.type} not supported by Vision API, skipping raw buffer attempt`);
+    }
+  }
+
+  // All attempts failed — return empty, let user fill manually
+  console.log("[OCR] All OCR attempts failed, returning empty");
+  return "";
 }
 
 /**
  * Extract text from a PDF.
- * Binary PDF → digital text extraction (pdfjs-dist) → text sent to OpenAI for structured extraction.
- * Scanned PDF (no digital text) → render to image with sharp/pdfjs, then Google Vision OCR.
+ * 1. Try digital text extraction (pdfjs)
+ * 2. Try rendering pages with Sharp → Google Vision
+ * Returns empty string on failure (never throws).
  */
 export async function extractPdfText(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
 
-  // Try digital text extraction first
+  // Try 1: Digital text extraction (fast, no API calls)
   try {
     const text = await extractDigitalPdfText(arrayBuffer);
     console.log(`[OCR] Digital PDF text length: ${text.length}`);
@@ -70,69 +120,59 @@ export async function extractPdfText(file: File): Promise<string> {
     console.error("[OCR] Digital PDF extraction failed:", err);
   }
 
-  // Fallback: render each PDF page to image, then OCR all pages
-  if (!getVisionApiKey()) {
-    throw new Error("GOOGLE_VISION_API_KEY is not configured");
+  // Try 2: Render PDF pages with Sharp → Google Vision OCR
+  if (getVisionApiKey()) {
+    try {
+      const text = await ocrPdfWithSharpAndVision(arrayBuffer);
+      if (text.length > 0) {
+        return text;
+      }
+    } catch (err) {
+      console.warn("[OCR] Sharp+Vision PDF processing failed:", err);
+    }
   }
 
+  // All attempts failed — return empty, let user fill manually
+  console.log("[OCR] All PDF OCR attempts failed, returning empty");
+  return "";
+}
+
+/** Render PDF pages with Sharp and OCR with Google Vision */
+async function ocrPdfWithSharpAndVision(arrayBuffer: ArrayBuffer): Promise<string> {
+  const pdfBuffer = Buffer.from(arrayBuffer);
+  const allTexts: string[] = [];
+
+  // Detect number of pages via sharp metadata
+  let numPages = 1;
   try {
-    // Use pdfjs to render each page to canvas → sharp → JPEG → Vision OCR
-    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    pdfjs.GlobalWorkerOptions.workerSrc = "";
+    const meta = await sharp(pdfBuffer, { density: 150 }).metadata();
+    numPages = meta.pages || 1;
+  } catch {
+    // If metadata fails, try single page
+  }
 
-    const pdf = await pdfjs.getDocument({ data: new Uint8Array(arrayBuffer), useWorkerFetch: false, isEvalSupported: false, useSystemFonts: true }).promise;
-    const maxPages = Math.min(pdf.numPages, 10); // Limit to 10 pages
-    console.log(`[OCR] Scanned PDF: ${pdf.numPages} pages, processing ${maxPages}`);
+  const maxPages = Math.min(numPages, 10);
+  console.log(`[OCR] Scanned PDF: ${numPages} pages, processing ${maxPages}`);
 
-    const allTexts: string[] = [];
-
-    for (let i = 1; i <= maxPages; i++) {
-      try {
-        const page = await pdf.getPage(i);
-        const scale = 2.0; // High res for OCR
-        const viewport = page.getViewport({ scale });
-
-        // Create a canvas-like buffer using sharp
-        // Render page to raw pixel data
-        // pdfjs needs a canvas — use a minimal node-canvas-like approach
-        // We'll use the raw PDF page bytes approach instead:
-        // Extract page as image by rendering the whole PDF at that page with sharp
-        const pdfBuffer = Buffer.from(arrayBuffer);
-        const jpegBuffer = await sharp(pdfBuffer, { density: 200, page: i - 1 })
-          .jpeg({ quality: 90 })
-          .toBuffer();
-        console.log(`[OCR] Page ${i}: rendered to JPEG (${jpegBuffer.length} bytes)`);
-
-        const base64 = jpegBuffer.toString("base64");
-        const pageText = await callVisionOCR(base64);
-        if (pageText) {
-          allTexts.push(pageText);
-        }
-      } catch (pageErr) {
-        console.warn(`[OCR] Failed to process page ${i}:`, pageErr);
-      }
-    }
-
-    await pdf.destroy();
-
-    const fullText = allTexts.join("\n\n");
-    console.log(`[OCR] Scanned PDF total text length: ${fullText.length} from ${allTexts.length} pages`);
-    return fullText;
-  } catch (err) {
-    console.warn("[OCR] Multi-page PDF render failed, trying single-page sharp:", err);
-    // Fallback: try sharp on first page only
+  for (let i = 0; i < maxPages; i++) {
     try {
-      const pdfBuffer = Buffer.from(arrayBuffer);
-      const jpegBuffer = await sharp(pdfBuffer, { density: 200 })
+      const jpegBuffer = await sharp(pdfBuffer, { density: 200, page: i })
         .jpeg({ quality: 90 })
         .toBuffer();
-      console.log(`[OCR] Single-page fallback: ${jpegBuffer.length} bytes`);
-      return callVisionOCR(jpegBuffer.toString("base64"));
-    } catch (sharpErr) {
-      console.warn("[OCR] sharp PDF render failed completely:", sharpErr);
-      throw new Error("לא ניתן לעבד את קובץ ה-PDF");
+      console.log(`[OCR] Page ${i + 1}: rendered to JPEG (${jpegBuffer.length} bytes)`);
+
+      const pageText = await callVisionOCR(jpegBuffer.toString("base64"));
+      if (pageText) {
+        allTexts.push(pageText);
+      }
+    } catch (pageErr) {
+      console.warn(`[OCR] Failed to process page ${i + 1}:`, pageErr);
     }
   }
+
+  const fullText = allTexts.join("\n\n");
+  console.log(`[OCR] Scanned PDF total text: ${fullText.length} chars from ${allTexts.length} pages`);
+  return fullText;
 }
 
 /** Extract embedded text from a digital PDF using pdfjs-dist in Node.js (no worker needed) */
@@ -164,7 +204,7 @@ async function extractDigitalPdfText(arrayBuffer: ArrayBuffer): Promise<string> 
   return fullText;
 }
 
-/** Call Google Vision DOCUMENT_TEXT_DETECTION on a base64-encoded file */
+/** Call Google Vision DOCUMENT_TEXT_DETECTION on a base64-encoded image */
 async function callVisionOCR(base64: string): Promise<string> {
   if (!getVisionApiKey()) {
     throw new Error("GOOGLE_VISION_API_KEY is not configured");

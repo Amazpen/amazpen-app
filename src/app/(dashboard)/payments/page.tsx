@@ -395,19 +395,45 @@ function PaymentsPageInner() {
     setIsOcrProcessing(true);
     setOcrProcessingStep("מעלה את הקובץ...");
     try {
-      const fd = new FormData();
-      // For scanned PDFs — convert to image first
-      if (file.type === "application/pdf") {
+      let fileToSend = file;
+      const isPdf = file.type === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf");
+      const isAvifOrHeic = /\.(avif|heic|heif)$/i.test(file.name?.toLowerCase() || "") ||
+        ["image/avif", "image/heic", "image/heif"].includes(file.type);
+
+      if (isPdf) {
         setOcrProcessingStep("ממיר PDF לתמונה...");
         try {
-          const imgFile = await convertPdfToImage(file);
-          fd.append("file", imgFile);
+          fileToSend = await convertPdfToImage(file);
         } catch {
-          fd.append("file", file);
+          // send as-is
         }
-      } else {
-        fd.append("file", file);
+      } else if (isAvifOrHeic) {
+        // Convert AVIF/HEIC to JPEG client-side (Google Vision doesn't support them)
+        setOcrProcessingStep("ממיר תמונה...");
+        try {
+          const bitmap = await createImageBitmap(file);
+          const canvas = document.createElement("canvas");
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(bitmap, 0, 0);
+            const blob = await new Promise<Blob>((resolve, reject) => {
+              canvas.toBlob((b) => b ? resolve(b) : reject(new Error("Canvas conversion failed")), "image/jpeg", 0.90);
+            });
+            fileToSend = new File([blob], file.name.replace(/\.(avif|heic|heif)$/i, ".jpg"), { type: "image/jpeg" });
+            console.log(`[OCR] Converted ${file.type} → JPEG (${(blob.size / 1024).toFixed(0)}KB)`);
+          }
+          bitmap.close();
+        } catch (convErr) {
+          console.warn("[OCR] Client-side AVIF/HEIC conversion failed, sending as-is:", convErr);
+        }
       }
+
+      const fd = new FormData();
+      fd.append("file", fileToSend);
 
       setOcrProcessingStep("סורק טקסט מהמסמך...");
       const controller = new AbortController();
@@ -424,19 +450,25 @@ function PaymentsPageInner() {
 
       setOcrProcessingStep("מחלץ נתונים...");
       const data = await res.json();
-      if (data.document_date) setPaymentDate(data.document_date);
-      if (data.document_number) setReference(data.document_number);
-      if (data.matched_supplier_id) setSelectedSupplier(data.matched_supplier_id);
+
+      // Check if OCR couldn't read the document — let user fill manually
+      if (data.ocr_failed) {
+        showToast("לא הצלחנו לזהות טקסט מהמסמך — ניתן למלא את הפרטים ידנית", "info");
+      } else {
+        if (data.document_date) setPaymentDate(data.document_date);
+        if (data.document_number) setReference(data.document_number);
+        if (data.matched_supplier_id) setSelectedSupplier(data.matched_supplier_id);
+        showToast("נתונים זוהו מהקבלה בהצלחה", "success");
+      }
 
       setOcrApplied(true);
-      showToast("נתונים זוהו מהקבלה בהצלחה", "success");
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
-        showToast("הזיהוי נכשל — חרג מזמן המתנה (60 שניות)", "error");
+        showToast("הזיהוי נכשל — חרג מזמן המתנה (60 שניות)", "info");
       } else {
-        const msg = err instanceof Error ? err.message : "שגיאה לא ידועה";
-        showToast(`לא הצלחנו לזהות נתונים: ${msg}`, "error");
+        showToast("לא הצלחנו לזהות את המסמך — ניתן למלא את הפרטים ידנית", "info");
       }
+      setOcrApplied(true);
     } finally {
       setIsOcrProcessing(false);
       setOcrProcessingStep("");

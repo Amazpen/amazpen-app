@@ -6,8 +6,8 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Install vips for sharp runtime
-RUN apk add --no-cache libc6-compat vips
+# Install vips for sharp runtime (vips-heif for AVIF/HEIF support)
+RUN apk add --no-cache libc6-compat vips vips-heif
 
 # Copy package files
 COPY package.json package-lock.json* bun.lock* ./
@@ -20,7 +20,7 @@ RUN npm install --legacy-peer-deps --cpu=x64 --os=linux --libc=musl
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-RUN apk add --no-cache vips
+RUN apk add --no-cache vips vips-heif
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -46,7 +46,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN apk add --no-cache vips
+RUN apk add --no-cache vips vips-heif
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs

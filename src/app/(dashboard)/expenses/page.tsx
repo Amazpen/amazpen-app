@@ -1574,15 +1574,41 @@ function ExpensesPageInner() {
     setIsOcrProcessing(true);
     setOcrProcessingStep("מעלה את הקובץ...");
     try {
-      // For PDFs: convert to image since Google Vision images:annotate doesn't accept PDF
+      // Convert unsupported formats client-side before sending to server
       let fileToSend = file;
       const isPdf = file.type === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf");
+      const isAvifOrHeic = /\.(avif|heic|heif)$/i.test(file.name?.toLowerCase() || "") ||
+        ["image/avif", "image/heic", "image/heif"].includes(file.type);
+
       if (isPdf) {
         setOcrProcessingStep("ממיר PDF לתמונה...");
         try {
           fileToSend = await convertPdfToImage(file);
         } catch (pdfErr) {
           console.warn("[OCR] PDF to image conversion failed, sending as-is:", pdfErr);
+        }
+      } else if (isAvifOrHeic) {
+        // Convert AVIF/HEIC to JPEG client-side using canvas (browser handles decoding)
+        setOcrProcessingStep("ממיר תמונה...");
+        try {
+          const bitmap = await createImageBitmap(file);
+          const canvas = document.createElement("canvas");
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(bitmap, 0, 0);
+            const blob = await new Promise<Blob>((resolve, reject) => {
+              canvas.toBlob((b) => b ? resolve(b) : reject(new Error("Canvas conversion failed")), "image/jpeg", 0.90);
+            });
+            fileToSend = new File([blob], file.name.replace(/\.(avif|heic|heif)$/i, ".jpg"), { type: "image/jpeg" });
+            console.log(`[OCR] Converted ${file.type} → JPEG (${(blob.size / 1024).toFixed(0)}KB)`);
+          }
+          bitmap.close();
+        } catch (convErr) {
+          console.warn("[OCR] Client-side AVIF/HEIC conversion failed, sending as-is:", convErr);
         }
       }
 
@@ -1606,41 +1632,47 @@ function ExpensesPageInner() {
       }
 
       setOcrProcessingStep("מחלץ נתונים...");
-      const data: OCRExtractedData = await res.json();
+      const data = await res.json();
 
-      // Populate form fields from extracted data
-      setOcrProcessingStep("ממלא שדות בטופס...");
-      if (data.document_date) {
-        setExpenseDate(data.document_date);
-        if (!referenceDateManuallySet.current) {
-          setReferenceDate(data.document_date);
+      // Check if OCR couldn't read the document — let user fill manually
+      if (data.ocr_failed) {
+        showToast("לא הצלחנו לזהות טקסט מהמסמך — ניתן למלא את הפרטים ידנית", "info");
+        setOcrApplied(true);
+      } else {
+        // Populate form fields from extracted data
+        setOcrProcessingStep("ממלא שדות בטופס...");
+        if (data.document_date) {
+          setExpenseDate(data.document_date);
+          if (!referenceDateManuallySet.current) {
+            setReferenceDate(data.document_date);
+          }
         }
-      }
-      if (data.document_number) setInvoiceNumber(data.document_number);
-      if (data.subtotal !== undefined) setAmountBeforeVat(data.subtotal.toString());
-      if (data.vat_amount !== undefined) {
-        const expectedVat = (data.subtotal || 0) * 0.18;
-        if (Math.abs((data.vat_amount || 0) - expectedVat) > 0.5) {
-          setPartialVat(true);
-          setVatAmount(data.vat_amount.toString());
+        if (data.document_number) setInvoiceNumber(data.document_number);
+        if (data.subtotal != null) setAmountBeforeVat(data.subtotal.toString());
+        if (data.vat_amount != null) {
+          const expectedVat = (data.subtotal || 0) * 0.18;
+          if (Math.abs(data.vat_amount - expectedVat) > 0.5) {
+            setPartialVat(true);
+            setVatAmount(data.vat_amount.toString());
+          }
         }
-      }
-      if (data.matched_supplier_id) setSelectedSupplier(data.matched_supplier_id);
-      if (data.line_items && data.line_items.length > 0) {
-        setExpenseLineItems(data.line_items);
-        setShowLineItems(true);
-        setExpenseType("goods");
-      }
+        if (data.matched_supplier_id) setSelectedSupplier(data.matched_supplier_id);
+        if (data.line_items && data.line_items.length > 0) {
+          setExpenseLineItems(data.line_items);
+          setShowLineItems(true);
+          setExpenseType("goods");
+        }
 
-      setOcrApplied(true);
-      showToast("נתונים זוהו מהמסמך בהצלחה", "success");
+        setOcrApplied(true);
+        showToast("נתונים זוהו מהמסמך בהצלחה", "success");
+      }
     } catch (err) {
       console.error("OCR extraction error:", err);
       const msg = err instanceof DOMException && err.name === "AbortError"
         ? "הזיהוי נכשל — חרג מזמן המתנה (60 שניות)"
         : `לא הצלחנו לזהות נתונים: ${err instanceof Error ? err.message : "שגיאה לא ידועה"}`;
-      showToast(msg, "error");
-      showToast("ניתן למלא את הפרטים ידנית ולשמור", "info");
+      showToast("לא הצלחנו לזהות את המסמך — ניתן למלא את הפרטים ידנית", "info");
+      setOcrApplied(true);
       // Report OCR failure to DB
       try {
         const supabaseForLog = createClient();

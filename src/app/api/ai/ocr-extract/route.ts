@@ -90,7 +90,21 @@ export async function POST(request: NextRequest) {
     console.log(`[OCR-Extract] Raw text length: ${rawText?.length ?? 0}`);
 
     if (!rawText || rawText.length < 5) {
-      return Response.json({ error: "לא זוהה טקסט במסמך" }, { status: 422 });
+      // Return empty result instead of error — let user fill form manually
+      return Response.json({
+        supplier_name: null,
+        document_number: null,
+        document_date: null,
+        discount_amount: null,
+        discount_percentage: null,
+        subtotal: null,
+        vat_amount: null,
+        total_amount: null,
+        line_items: null,
+        matched_supplier_id: undefined,
+        raw_text: rawText || "",
+        ocr_failed: true,
+      });
     }
 
     // Step 2: Extract structured data using AI
