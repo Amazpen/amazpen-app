@@ -2529,7 +2529,7 @@ export default function OCRForm({
           data-calc-popup
           className="z-50 bg-[#1A1F3D] border border-[#4C526B] rounded-[12px] shadow-2xl p-3 w-[240px]"
           dir="rtl"
-          style={calcPos ? { position: 'fixed', left: calcPos.x, top: calcPos.y } : { position: 'absolute', bottom: 80, left: 16 }}
+          style={calcPos ? { position: 'fixed', left: calcPos.x, top: calcPos.y } : { position: 'fixed', top: 60, left: 16 }}
         >
           <div
             className="flex items-center justify-between mb-2 cursor-grab active:cursor-grabbing select-none"
