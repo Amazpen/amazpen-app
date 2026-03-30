@@ -134,6 +134,7 @@ export default function OCRForm({
   const [notes, setNotes] = useState('');
   const [isPaid, setIsPaid] = useState(false);
   const [isDisputed, setIsDisputed] = useState(false);
+  const [disputeReason, setDisputeReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [rejectCustomText, setRejectCustomText] = useState('');
@@ -841,6 +842,7 @@ export default function OCRForm({
       setNotes('');
       setIsPaid(false);
       setIsDisputed(false);
+      setDisputeReason('');
       setInlinePaymentMethod('');
       setInlinePaymentDate('');
       setInlinePaymentReference('');
@@ -1147,6 +1149,7 @@ export default function OCRForm({
       const formData: OCRFormData = {
         business_id: selectedBusinessId,
         document_type: isDisputed ? 'disputed_invoice' : documentType,
+        dispute_reason: isDisputed ? disputeReason : undefined,
         expense_type: expenseType,
         supplier_id: supplierId,
         document_date: documentDate,
@@ -1803,6 +1806,35 @@ export default function OCRForm({
           </svg>
           <span className="text-[15px] font-medium text-white">מסמך בבירור</span>
         </Button>
+
+        {isDisputed && (
+          <div className="flex flex-col gap-[8px] bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded-[10px] p-[10px]">
+            <span className="text-[13px] font-medium text-[#F59E0B] text-right">סיבת הבירור:</span>
+            <div className="flex flex-wrap gap-[6px]">
+              {['מחיר שגוי', 'כמות לא תואמת', 'פריט חסר', 'חשבונית כפולה', 'סחורה לא התקבלה'].map((reason) => (
+                <Button
+                  key={reason}
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setDisputeReason(disputeReason === reason ? '' : reason)}
+                  className={`h-[32px] px-[10px] rounded-[8px] text-[12px] font-medium transition-colors ${
+                    disputeReason === reason
+                      ? 'bg-[#F59E0B] text-[#0F1535] border border-[#F59E0B]'
+                      : 'bg-transparent text-white/60 border border-[#4C526B] hover:border-[#F59E0B]/50'
+                  }`}
+                >
+                  {reason}
+                </Button>
+              ))}
+            </div>
+            <Textarea
+              placeholder="או כתוב סיבה אחרת..."
+              value={!['מחיר שגוי', 'כמות לא תואמת', 'פריט חסר', 'חשבונית כפולה', 'סחורה לא התקבלה'].includes(disputeReason) ? disputeReason : ''}
+              onChange={(e) => setDisputeReason(e.target.value)}
+              className="w-full h-[60px] bg-transparent text-white text-[13px] text-right border border-[#4C526B] rounded-[8px] p-2 resize-none placeholder:text-white/30"
+            />
+          </div>
+        )}
 
         {/* Payment Details Section - aligned with expenses page payment section */}
         {isPaid && (

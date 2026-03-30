@@ -109,6 +109,8 @@ export interface OCRFormData {
   // Summary (מרכזת) specific fields
   summary_delivery_notes?: OCRDeliveryNoteEntry[];
   summary_is_closed?: string;
+  // Dispute reason (for disputed_invoice)
+  dispute_reason?: string;
   // Line items for price tracking
   line_items?: OCRLineItem[];
   // Daily entry (רישום יומי) fields
