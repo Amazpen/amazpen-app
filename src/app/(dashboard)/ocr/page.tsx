@@ -36,6 +36,7 @@ export default function OCRPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showMobileViewer, setShowMobileViewer] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [showCalculator, setShowCalculator] = useState(false);
 
   // Fetch OCR documents from Supabase
   const fetchDocuments = useCallback(async () => {
@@ -833,6 +834,8 @@ export default function OCRPage() {
               imageUrl={currentDocument.image_url}
               fileType={currentDocument.file_type}
               onCrop={handleCrop}
+              showCalculator={showCalculator}
+              onCalculatorToggle={() => setShowCalculator(v => !v)}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-white/60 px-6">
@@ -866,6 +869,8 @@ export default function OCRPage() {
             onDelete={handleDelete}
             onSkip={handleSkip}
             isLoading={isLoading}
+            showCalculator={showCalculator}
+            onCalculatorToggle={() => setShowCalculator(v => !v)}
           />
         </div>
       </div>

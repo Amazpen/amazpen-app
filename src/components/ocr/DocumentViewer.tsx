@@ -8,6 +8,8 @@ interface DocumentViewerProps {
   imageUrl: string;
   fileType?: string;
   onCrop?: (croppedImageUrl: string) => void;
+  showCalculator?: boolean;
+  onCalculatorToggle?: () => void;
 }
 
 function isPdfUrl(url: string, fileType?: string): boolean {
@@ -20,7 +22,7 @@ function isPdfUrl(url: string, fileType?: string): boolean {
   }
 }
 
-export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentViewerProps) {
+export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalculator, onCalculatorToggle }: DocumentViewerProps) {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -321,6 +323,26 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
           )}
         </div>
 
+        <div className="flex items-center gap-1">
+        {/* Calculator toggle */}
+        {onCalculatorToggle && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onCalculatorToggle}
+            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${showCalculator ? 'bg-[#29318A] text-white' : 'bg-[#29318A]/30 hover:bg-[#29318A]/50 text-white'}`}
+            title="מחשבון"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect width="16" height="20" x="4" y="2" rx="2" />
+              <line x1="8" x2="16" y1="6" y2="6" />
+              <line x1="16" x2="16" y1="14" y2="18" />
+              <path d="M16 10h.01" /><path d="M12 10h.01" /><path d="M8 10h.01" />
+              <path d="M12 14h.01" /><path d="M8 14h.01" />
+              <path d="M12 18h.01" /><path d="M8 18h.01" />
+            </svg>
+          </Button>
+        )}
         {/* Fullscreen toggle */}
         <Button
           variant="ghost"
@@ -339,6 +361,7 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop }: DocumentV
             </svg>
           )}
         </Button>
+        </div>
       </div>
 
       {/* Image container - takes remaining height after toolbar (48px) and mobile slider (44px on mobile, 0 on desktop) */}
