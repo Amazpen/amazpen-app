@@ -2547,9 +2547,9 @@ export default function OCRForm({
           </div>
           <div className="grid grid-cols-4 gap-1">
             {['C', '⌫', '/', '*',
-              '1', '2', '3', '-',
+              '7', '8', '9', '-',
               '4', '5', '6', '+',
-              '7', '8', '9', '=',
+              '1', '2', '3', '=',
               '0', '.', '', ''].map((btn, i) => btn ? (
               <button
                 key={i}
