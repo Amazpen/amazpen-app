@@ -213,6 +213,8 @@ export default function OCRForm({
   // Calculator
   const [calcDisplay, setCalcDisplay] = useState('0');
   const [calcExpression, setCalcExpression] = useState('');
+  const [calcPos, setCalcPos] = useState<{ x: number; y: number } | null>(null);
+  const calcDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
   // Line items state for price tracking
   const [lineItems, setLineItems] = useState<OCRLineItem[]>([]);
@@ -900,6 +902,36 @@ export default function OCRForm({
       draftRestored.current = true;
     }, 0);
   }, [document, suppliers, restoreDraft]);
+
+  // Calculator drag handlers
+  const handleCalcDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const el = (e.target as HTMLElement).closest('[data-calc-popup]') as HTMLElement;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    calcDragRef.current = { startX: clientX, startY: clientY, origX: rect.left, origY: rect.top };
+
+    const handleMove = (ev: MouseEvent | TouchEvent) => {
+      if (!calcDragRef.current) return;
+      const cx = 'touches' in ev ? ev.touches[0].clientX : ev.clientX;
+      const cy = 'touches' in ev ? ev.touches[0].clientY : ev.clientY;
+      const dx = cx - calcDragRef.current.startX;
+      const dy = cy - calcDragRef.current.startY;
+      setCalcPos({ x: calcDragRef.current.origX + dx, y: calcDragRef.current.origY + dy });
+    };
+    const handleEnd = () => {
+      calcDragRef.current = null;
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
+  }, []);
 
   // Calculator logic
   const calcInput = useCallback((value: string) => {
@@ -2475,18 +2507,27 @@ export default function OCRForm({
         {documentType === 'daily_entry' && renderDailyEntryForm()}
       </div>
 
-      {/* Calculator popup */}
+      {/* Calculator popup — draggable */}
       {showCalculator && (
-        <div className="absolute bottom-[80px] left-4 z-50 bg-[#1A1F3D] border border-[#4C526B] rounded-[12px] shadow-2xl p-3 w-[240px]" dir="ltr">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white/60 text-[12px]">מחשבון</span>
-            <button onClick={() => onCalculatorToggle?.()} className="text-white/40 hover:text-white">
+        <div
+          data-calc-popup
+          className="z-50 bg-[#1A1F3D] border border-[#4C526B] rounded-[12px] shadow-2xl p-3 w-[240px]"
+          dir="rtl"
+          style={calcPos ? { position: 'fixed', left: calcPos.x, top: calcPos.y } : { position: 'absolute', bottom: 80, left: 16 }}
+        >
+          <div
+            className="flex items-center justify-between mb-2 cursor-grab active:cursor-grabbing select-none"
+            onMouseDown={handleCalcDragStart}
+            onTouchStart={handleCalcDragStart}
+          >
+            <button onClick={() => { onCalculatorToggle?.(); setCalcPos(null); }} className="text-white/40 hover:text-white">
               <X size={14} />
             </button>
+            <span className="text-white/60 text-[12px]">⠿ מחשבון</span>
           </div>
-          <div className="bg-[#0F1535] rounded-[8px] p-2 mb-2 text-left">
-            <div className="text-white/40 text-[11px] h-[16px] overflow-hidden">{calcExpression || '\u00A0'}</div>
-            <div className="text-white text-[22px] font-mono font-semibold">{calcDisplay}</div>
+          <div className="bg-[#0F1535] rounded-[8px] p-2 mb-2" dir="ltr">
+            <div className="text-white/40 text-[11px] h-[16px] overflow-hidden text-right">{calcExpression || '\u00A0'}</div>
+            <div className="text-white text-[22px] font-mono font-semibold text-right">{calcDisplay}</div>
           </div>
           <div className="grid grid-cols-4 gap-1">
             {['C', '⌫', '/', '*',
