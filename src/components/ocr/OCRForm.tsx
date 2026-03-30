@@ -133,6 +133,7 @@ export default function OCRForm({
   const [partialVat, setPartialVat] = useState(false);
   const [notes, setNotes] = useState('');
   const [isPaid, setIsPaid] = useState(false);
+  const [isDisputed, setIsDisputed] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [rejectCustomText, setRejectCustomText] = useState('');
@@ -839,6 +840,7 @@ export default function OCRForm({
       setPartialVat(false);
       setNotes('');
       setIsPaid(false);
+      setIsDisputed(false);
       setInlinePaymentMethod('');
       setInlinePaymentDate('');
       setInlinePaymentReference('');
@@ -1144,7 +1146,7 @@ export default function OCRForm({
       }
       const formData: OCRFormData = {
         business_id: selectedBusinessId,
-        document_type: documentType,
+        document_type: isDisputed ? 'disputed_invoice' : documentType,
         expense_type: expenseType,
         supplier_id: supplierId,
         document_date: documentDate,
@@ -1781,6 +1783,25 @@ export default function OCRForm({
             )}
           </svg>
           <span className="text-[15px] font-medium text-white">התעודה שולמה במלואה</span>
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setIsDisputed(!isDisputed)}
+          className="flex items-center gap-[3px] min-h-[35px]"
+        >
+          <svg width="21" height="21" viewBox="0 0 32 32" fill="none" className={isDisputed ? 'text-[#F59E0B]' : 'text-[#979797]'}>
+            {isDisputed ? (
+              <>
+                <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor" />
+                <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </>
+            ) : (
+              <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" />
+            )}
+          </svg>
+          <span className="text-[15px] font-medium text-white">מסמך בבירור</span>
         </Button>
 
         {/* Payment Details Section - aligned with expenses page payment section */}
