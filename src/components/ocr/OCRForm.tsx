@@ -2533,13 +2533,14 @@ export default function OCRForm({
         >
           <div
             className="flex items-center justify-between mb-2 cursor-grab active:cursor-grabbing select-none"
+            dir="ltr"
             onMouseDown={handleCalcDragStart}
             onTouchStart={handleCalcDragStart}
           >
+            <span className="text-white/60 text-[12px]">מחשבון ⠿</span>
             <button onClick={() => { onCalculatorToggle?.(); setCalcPos(null); }} className="text-white/40 hover:text-white">
               <X size={14} />
             </button>
-            <span className="text-white/60 text-[12px]">⠿ מחשבון</span>
           </div>
           <div className="bg-[#0F1535] rounded-[8px] p-2 mb-2" dir="ltr">
             <div className="text-white/40 text-[11px] h-[16px] overflow-hidden text-right">{calcExpression || '\u00A0'}</div>
