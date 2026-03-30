@@ -212,9 +212,7 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const pdfjsLib = await import('pdfjs-dist') as any;
-        if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-        }
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
         const response = await fetch(imageUrl);
         const arrayBuffer = await response.arrayBuffer();
