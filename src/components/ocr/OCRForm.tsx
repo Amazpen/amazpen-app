@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { X } from 'lucide-react';
+import { X, Calculator } from 'lucide-react';
 import type { OCRDocument, OCRFormData, DocumentType, ExpenseType, OCRLineItem } from '@/types/ocr';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useFormDraft } from '@/hooks/useFormDraft';
@@ -202,6 +202,15 @@ export default function OCRForm({
     manpower_labor_cost: '',
   });
 
+  // Duplicate detection
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const duplicateConfirmedRef = useRef(false);
+
+  // Calculator
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [calcDisplay, setCalcDisplay] = useState('0');
+  const [calcExpression, setCalcExpression] = useState('');
+
   // Line items state for price tracking
   const [lineItems, setLineItems] = useState<OCRLineItem[]>([]);
   const [priceCheckDone, setPriceCheckDone] = useState(false);
@@ -276,6 +285,38 @@ export default function OCRForm({
       (li) => li.price_change_pct != null && li.price_change_pct !== 0
     );
   }, [lineItems]);
+
+  // Duplicate detection: check if invoice/delivery_note with same number+supplier+business exists
+  useEffect(() => {
+    setDuplicateWarning(null);
+    duplicateConfirmedRef.current = false;
+    const docNum = documentType === 'summary' ? summaryInvoiceNumber.trim() : documentNumber.trim();
+    const supId = documentType === 'summary' ? summarySupplierId : supplierId;
+    if (!docNum || !supId || !selectedBusinessId) return;
+    if (documentType === 'payment' || documentType === 'daily_entry') return;
+
+    const timer = setTimeout(async () => {
+      const supabase = createClient();
+      const table = documentType === 'delivery_note' ? 'delivery_notes' : 'invoices';
+      const numberCol = documentType === 'delivery_note' ? 'delivery_note_number' : 'invoice_number';
+
+      const { data, error } = await supabase
+        .from(table)
+        .select('id')
+        .eq('business_id', selectedBusinessId)
+        .eq('supplier_id', supId)
+        .eq(numberCol, docNum)
+        .is('deleted_at', null)
+        .limit(1);
+
+      if (!error && data && data.length > 0) {
+        const supplierName = suppliers.find(s => s.id === supId)?.name || 'הספק';
+        setDuplicateWarning(`כבר קיים מסמך עם מספר ${docNum} לספק ${supplierName}`);
+      }
+    }, 500); // debounce
+
+    return () => clearTimeout(timer);
+  }, [documentNumber, summaryInvoiceNumber, supplierId, summarySupplierId, selectedBusinessId, documentType, suppliers]);
 
   // Pearla detection for daily entry
   const selectedBusiness = useMemo(() => businesses.find(b => b.id === selectedBusinessId), [businesses, selectedBusinessId]);
@@ -857,9 +898,54 @@ export default function OCRForm({
     }, 0);
   }, [document, suppliers, restoreDraft]);
 
+  // Calculator logic
+  const calcInput = useCallback((value: string) => {
+    if (value === 'C') {
+      setCalcDisplay('0');
+      setCalcExpression('');
+    } else if (value === '⌫') {
+      setCalcDisplay(prev => prev.length > 1 ? prev.slice(0, -1) : '0');
+    } else if (value === '=') {
+      try {
+        // Safe eval using Function constructor (only numbers and operators)
+        const sanitized = calcExpression.replace(/[^0-9+\-*/.() ]/g, '');
+        if (sanitized) {
+          const result = new Function('return ' + sanitized)();
+          const formatted = typeof result === 'number' && isFinite(result)
+            ? parseFloat(result.toFixed(6)).toString()
+            : 'שגיאה';
+          setCalcDisplay(formatted);
+          setCalcExpression(formatted);
+        }
+      } catch {
+        setCalcDisplay('שגיאה');
+        setCalcExpression('');
+      }
+    } else if (['+', '-', '*', '/'].includes(value)) {
+      setCalcExpression(prev => prev + value);
+      setCalcDisplay(value);
+    } else if (value === '.') {
+      setCalcExpression(prev => prev + '.');
+      setCalcDisplay(prev => prev.includes('.') ? prev : prev + '.');
+    } else {
+      // digit
+      setCalcExpression(prev => prev + value);
+      setCalcDisplay(prev => prev === '0' || ['+', '-', '*', '/', 'שגיאה'].includes(prev) ? value : prev + value);
+    }
+  }, [calcExpression]);
+
   const handleSubmit = () => {
     if (!selectedBusinessId) {
       alert('נא לבחור עסק');
+      return;
+    }
+
+    // Duplicate warning — ask for confirmation before proceeding
+    if (duplicateWarning && !duplicateConfirmedRef.current) {
+      confirm(`⚠️ ${duplicateWarning}\n\nהאם להמשיך בכל זאת?`, () => {
+        duplicateConfirmedRef.current = true;
+        handleSubmit();
+      });
       return;
     }
 
@@ -2371,6 +2457,13 @@ export default function OCRForm({
         ))}
       </div>
 
+      {/* Duplicate warning banner */}
+      {duplicateWarning && (
+        <div className="mx-4 mt-2 p-3 bg-[#F59E0B]/15 border border-[#F59E0B]/40 rounded-[8px] text-[#F59E0B] text-[13px] font-medium text-right" dir="rtl">
+          ⚠️ {duplicateWarning}
+        </div>
+      )}
+
       {/* Form content - scrollable */}
       <div className="flex-1 overflow-y-auto px-4 py-4" dir="rtl">
         {(documentType === 'invoice' || documentType === 'delivery_note' || documentType === 'credit_note') && renderInvoiceForm()}
@@ -2379,9 +2472,54 @@ export default function OCRForm({
         {documentType === 'daily_entry' && renderDailyEntryForm()}
       </div>
 
+      {/* Calculator popup */}
+      {showCalculator && (
+        <div className="absolute bottom-[80px] left-4 z-50 bg-[#1A1F3D] border border-[#4C526B] rounded-[12px] shadow-2xl p-3 w-[240px]" dir="ltr">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-white/60 text-[12px]">מחשבון</span>
+            <button onClick={() => setShowCalculator(false)} className="text-white/40 hover:text-white">
+              <X size={14} />
+            </button>
+          </div>
+          <div className="bg-[#0F1535] rounded-[8px] p-2 mb-2 text-left">
+            <div className="text-white/40 text-[11px] h-[16px] overflow-hidden">{calcExpression || '\u00A0'}</div>
+            <div className="text-white text-[22px] font-mono font-semibold">{calcDisplay}</div>
+          </div>
+          <div className="grid grid-cols-4 gap-1">
+            {['C', '⌫', '/', '*',
+              '7', '8', '9', '-',
+              '4', '5', '6', '+',
+              '1', '2', '3', '=',
+              '0', '.', '', ''].map((btn, i) => btn ? (
+              <button
+                key={i}
+                onClick={() => calcInput(btn)}
+                className={`h-[38px] rounded-[6px] text-[16px] font-medium transition-colors ${
+                  btn === '=' ? 'bg-[#22c55e] text-white row-span-1 hover:bg-[#16a34a]'
+                  : ['C', '⌫'].includes(btn) ? 'bg-[#EB5757]/20 text-[#EB5757] hover:bg-[#EB5757]/30'
+                  : ['+', '-', '*', '/'].includes(btn) ? 'bg-[#29318A] text-white hover:bg-[#3D44A0]'
+                  : 'bg-[#4C526B]/30 text-white hover:bg-[#4C526B]/50'
+                }`}
+              >
+                {btn}
+              </button>
+            ) : <div key={i} />)}
+          </div>
+        </div>
+      )}
+
       {/* Action buttons - fixed at bottom */}
       <div className="px-4 py-4 bg-[#0F1535] border-t border-[#4C526B]">
         <div className="flex gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => { setShowCalculator(v => !v); setCalcDisplay('0'); setCalcExpression(''); }}
+            className="h-[50px] w-[50px] bg-[#4C526B]/30 hover:bg-[#4C526B]/50 text-white/70 rounded-[10px] transition-colors p-0 flex-shrink-0"
+            title="מחשבון"
+          >
+            <Calculator size={22} />
+          </Button>
           <Button
             type="button"
             onClick={handleSubmit}
