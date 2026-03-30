@@ -10,6 +10,7 @@ interface DocumentViewerProps {
   onCrop?: (croppedImageUrl: string) => void;
   showCalculator?: boolean;
   onCalculatorToggle?: () => void;
+  calcButtonRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 function isPdfUrl(url: string, fileType?: string): boolean {
@@ -22,7 +23,7 @@ function isPdfUrl(url: string, fileType?: string): boolean {
   }
 }
 
-export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalculator, onCalculatorToggle }: DocumentViewerProps) {
+export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalculator, onCalculatorToggle, calcButtonRef }: DocumentViewerProps) {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -327,6 +328,7 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
         {/* Calculator toggle */}
         {onCalculatorToggle && (
           <Button
+            ref={calcButtonRef}
             variant="ghost"
             size="icon"
             onClick={onCalculatorToggle}

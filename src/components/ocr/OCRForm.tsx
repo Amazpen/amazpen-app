@@ -2545,7 +2545,7 @@ export default function OCRForm({
             <div className="text-white/40 text-[11px] h-[16px] overflow-hidden text-right">{calcExpression || '\u00A0'}</div>
             <div className="text-white text-[22px] font-mono font-semibold text-right">{calcDisplay}</div>
           </div>
-          <div className="grid grid-cols-4 gap-1">
+          <div className="grid grid-cols-4 gap-1" dir="ltr">
             {['C', '⌫', '/', '*',
               '7', '8', '9', '-',
               '4', '5', '6', '+',
