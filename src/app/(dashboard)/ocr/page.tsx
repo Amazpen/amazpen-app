@@ -273,6 +273,9 @@ export default function OCRPage() {
         let createdPaymentId: string | null = null;
         let createdDeliveryNoteId: string | null = null;
 
+        // The OCR document's image_url should be linked as attachment on created records
+        const ocrImageUrl = currentDocument.image_url || null;
+
         if (formData.document_type === 'invoice' || formData.document_type === 'credit_note') {
           // --- INVOICE / CREDIT NOTE ---
           const { data: newInvoice, error: invoiceError } = await supabase
@@ -292,6 +295,7 @@ export default function OCRPage() {
               notes: formData.notes || null,
               created_by: user?.id || null,
               invoice_type: formData.expense_type === 'goods' ? 'goods' : 'current',
+              attachment_url: ocrImageUrl,
             })
             .select()
             .single();
@@ -315,6 +319,7 @@ export default function OCRPage() {
                 invoice_id: newInvoice.id,
                 notes: formData.payment_notes || null,
                 created_by: user?.id || null,
+                receipt_url: ocrImageUrl,
               })
               .select()
               .single();
@@ -383,6 +388,7 @@ export default function OCRPage() {
               total_amount: parseFloat(formData.total_amount),
               notes: formData.notes || null,
               is_verified: false,
+              attachment_url: ocrImageUrl,
             })
             .select()
             .single();
@@ -405,6 +411,7 @@ export default function OCRPage() {
               total_amount: totalAmount,
               notes: formData.payment_notes || formData.notes || null,
               created_by: user?.id || null,
+              receipt_url: ocrImageUrl,
             })
             .select()
             .single();
@@ -479,6 +486,7 @@ export default function OCRPage() {
               is_consolidated: true,
               notes: formData.notes || null,
               created_by: user?.id || null,
+              attachment_url: ocrImageUrl,
             })
             .select()
             .single();
