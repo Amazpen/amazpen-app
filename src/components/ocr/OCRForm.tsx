@@ -1627,32 +1627,32 @@ export default function OCRForm({
           )}
 
           {/* Items table — editable quantity & price (#40) */}
-          <div className="w-full text-[13px]" dir="rtl">
+          <div className="w-full text-[13px] overflow-x-auto" dir="rtl">
             {/* Header */}
-            <div className="flex items-center border-b border-[#4C526B] text-white/60 py-[6px] px-[4px]">
-              <span className="flex-1 text-right">פריט</span>
-              <span className="w-[60px] text-center shrink-0">כמות</span>
-              <span className="w-[70px] text-center shrink-0">מחיר</span>
-              <span className="w-[60px] text-center shrink-0">הנחה</span>
-              <span className="w-[70px] text-center shrink-0">סה&quot;כ</span>
-              <span className="w-[28px] shrink-0" />
+            <div className="grid grid-cols-[1fr_50px_60px_50px_60px_28px] min-w-[320px] items-center border-b border-[#4C526B] text-white/60 py-[6px] px-[4px] gap-[2px]">
+              <span className="text-right">פריט</span>
+              <span className="text-center">כמות</span>
+              <span className="text-center">מחיר</span>
+              <span className="text-center">הנחה</span>
+              <span className="text-center">סה&quot;כ</span>
+              <span />
             </div>
             {/* Rows */}
             {lineItems.map((li, idx) => (
-              <div key={`line-${li.description}-${idx}`} className="flex items-center border-b border-[#4C526B]/50 py-[6px] px-[4px]">
-                <span className="flex-1 min-w-0 pr-[4px]">
+              <div key={`line-${li.description}-${idx}`} className="grid grid-cols-[1fr_50px_60px_50px_60px_28px] min-w-[320px] items-center border-b border-[#4C526B]/50 py-[6px] px-[4px] gap-[2px]">
+                <span className="min-w-0 pr-[2px]">
                   <input
                     type="text"
                     value={li.description || ''}
                     onChange={(e) => {
                       setLineItems(prev => prev.map((item, i) => i !== idx ? item : { ...item, description: e.target.value }));
                     }}
-                    className="w-full bg-transparent border border-transparent hover:border-[#4C526B]/50 focus:border-[#29318A] rounded-[4px] text-right text-white text-[13px] h-[28px] px-[4px] outline-none overflow-hidden text-ellipsis"
+                    className="w-full bg-transparent border border-transparent hover:border-[#4C526B]/50 focus:border-[#29318A] rounded-[4px] text-right text-white text-[13px] h-[28px] px-[3px] outline-none overflow-hidden text-ellipsis"
                     title={li.description || '-'}
                     dir="rtl"
                   />
                 </span>
-                <span className="w-[60px] shrink-0 px-[2px]">
+                <span className="px-[1px]">
                   <input
                     type="number"
                     value={li.quantity ?? ''}
@@ -1666,11 +1666,11 @@ export default function OCRForm({
                           : item.total,
                       }));
                     }}
-                    className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[13px] h-[28px] px-[4px] outline-none focus:border-[#29318A]"
+                    className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[12px] h-[28px] px-[2px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     dir="ltr"
                   />
                 </span>
-                <span className="w-[70px] shrink-0 px-[2px]">
+                <span className="px-[1px]">
                   <div className="relative">
                     <input
                       type="number"
@@ -1686,7 +1686,7 @@ export default function OCRForm({
                             : item.total,
                         }));
                       }}
-                      className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[13px] h-[28px] px-[4px] outline-none focus:border-[#29318A]"
+                      className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[12px] h-[28px] px-[2px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       dir="ltr"
                     />
                     {priceCheckDone && li.price_change_pct != null && li.price_change_pct !== 0 && (
@@ -1699,7 +1699,7 @@ export default function OCRForm({
                     )}
                   </div>
                 </span>
-                <span className="w-[60px] shrink-0 px-[2px]">
+                <span className="px-[1px]">
                   <input
                     type="number"
                     step="0.01"
@@ -1714,12 +1714,12 @@ export default function OCRForm({
                           : item.total,
                       }));
                     }}
-                    className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[13px] h-[28px] px-[4px] outline-none focus:border-[#29318A]"
+                    className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[12px] h-[28px] px-[2px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     dir="ltr"
                   />
                 </span>
-                <span className="w-[70px] text-center text-white/70 ltr-num shrink-0">&#8362;{li.total?.toFixed(2) || '0'}</span>
-                <span className="w-[28px] text-center shrink-0">
+                <span className="text-center text-white/70 ltr-num text-[12px]">&#8362;{li.total?.toFixed(2) || '0'}</span>
+                <span className="text-center">
                   <Button
                     type="button"
                     variant="ghost"
