@@ -668,9 +668,9 @@ export default function OCRPage() {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
-        // Update OCR document status in Supabase
+        // Update OCR document status to archived
         const { error } = await supabase.from('ocr_documents').update({
-          status: 'rejected',
+          status: 'archived',
           reviewed_by: user?.id || null,
           reviewed_at: new Date().toISOString(),
           rejection_reason: reason || null,

@@ -407,7 +407,7 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   const handleAddIncomeSource = () => {
     if (newIncomeSource.trim() && !incomeSources.some(s => s.name === newIncomeSource.trim())) {
-      setIncomeSources([...incomeSources, { id: generateUUID(), name: newIncomeSource.trim() }]);
+      setIncomeSources([...incomeSources, { id: `_new_${generateUUID()}`, name: newIncomeSource.trim() }]);
       setNewIncomeSource("");
     }
   };
@@ -418,7 +418,7 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   const handleAddCustomParameter = () => {
     if (newCustomParameter.trim() && !customParameters.some(p => p.name === newCustomParameter.trim())) {
-      setCustomParameters([...customParameters, { id: generateUUID(), name: newCustomParameter.trim() }]);
+      setCustomParameters([...customParameters, { id: `_new_${generateUUID()}`, name: newCustomParameter.trim() }]);
       setNewCustomParameter("");
     }
   };
@@ -429,7 +429,7 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   const handleAddCreditCard = () => {
     if (newCardName.trim() && newBillingDay >= 1 && newBillingDay <= 31) {
-      setCreditCards([...creditCards, { id: generateUUID(), cardName: newCardName.trim(), billingDay: newBillingDay }]);
+      setCreditCards([...creditCards, { id: `_new_${generateUUID()}`, cardName: newCardName.trim(), billingDay: newBillingDay }]);
       setNewCardName("");
       setNewBillingDay(10);
     }
@@ -442,7 +442,7 @@ export default function EditBusinessPage({ params }: PageProps) {
   const handleAddManagedProduct = () => {
     if (newProductName.trim() && newProductUnit.trim() && newProductCost >= 0) {
       setManagedProducts([...managedProducts, {
-        id: generateUUID(),
+        id: `_new_${generateUUID()}`,
         name: newProductName.trim(),
         unit: newProductUnit.trim(),
         unitCost: newProductCost
@@ -459,7 +459,7 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   const handleAddPaymentMethod = () => {
     if (newPaymentMethodName.trim() && !paymentMethods.some(pm => pm.name === newPaymentMethodName.trim())) {
-      setPaymentMethods([...paymentMethods, { id: generateUUID(), name: newPaymentMethodName.trim(), settlement_type: "daily" as SettlementType, settlement_delay_days: 1, commission_rate: 0 }]);
+      setPaymentMethods([...paymentMethods, { id: `_new_${generateUUID()}`, name: newPaymentMethodName.trim(), settlement_type: "daily" as SettlementType, settlement_delay_days: 1, commission_rate: 0 }]);
       setNewPaymentMethodName("");
     }
   };
@@ -681,7 +681,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       }
 
       // 4. Update income sources - delete removed, insert new
-      const existingIncomeIds = incomeSources.filter(s => s.id).map(s => s.id);
+      const existingIncomeIds = incomeSources.filter(s => s.id && !s.id.startsWith('_new_')).map(s => s.id);
       if (existingIncomeIds.length > 0) {
         await supabase
           .from("income_sources")
@@ -697,14 +697,14 @@ export default function EditBusinessPage({ params }: PageProps) {
 
       // Update display_order for existing income sources based on current array order (#38)
       for (let i = 0; i < incomeSources.length; i++) {
-        if (incomeSources[i].id) {
+        if (incomeSources[i].id && !incomeSources[i].id!.startsWith('_new_')) {
           await supabase.from("income_sources").update({ display_order: i }).eq("id", incomeSources[i].id!);
         }
       }
 
       const newIncomeSources = incomeSources
         .map((s, i) => ({ ...s, _order: i }))
-        .filter(s => !s.id);
+        .filter(s => !s.id || s.id.startsWith('_new_'));
       if (newIncomeSources.length > 0) {
         await supabase.from("income_sources").insert(
           newIncomeSources.map((s) => ({
@@ -717,7 +717,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       }
 
       // 5. Update custom parameters
-      const existingParamIds = customParameters.filter(p => p.id).map(p => p.id);
+      const existingParamIds = customParameters.filter(p => p.id && !p.id.startsWith('_new_')).map(p => p.id);
       if (existingParamIds.length > 0) {
         await supabase
           .from("custom_parameters")
@@ -732,7 +732,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           .eq("business_id", businessId);
       }
 
-      const newParams = customParameters.filter(p => !p.id);
+      const newParams = customParameters.filter(p => !p.id || p.id.startsWith('_new_'));
       if (newParams.length > 0) {
         await supabase.from("custom_parameters").insert(
           newParams.map((p, i) => ({
@@ -745,7 +745,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       }
 
       // 7. Update credit cards
-      const existingCardIds = creditCards.filter(c => c.id).map(c => c.id);
+      const existingCardIds = creditCards.filter(c => c.id && !c.id.startsWith('_new_')).map(c => c.id);
       if (existingCardIds.length > 0) {
         await supabase
           .from("business_credit_cards")
@@ -760,7 +760,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           .eq("business_id", businessId);
       }
 
-      const newCards = creditCards.filter(c => !c.id);
+      const newCards = creditCards.filter(c => !c.id || c.id.startsWith('_new_'));
       if (newCards.length > 0) {
         await supabase.from("business_credit_cards").insert(
           newCards.map(c => ({
@@ -773,7 +773,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       }
 
       // 8. Update managed products
-      const existingProductIds = managedProducts.filter(p => p.id).map(p => p.id);
+      const existingProductIds = managedProducts.filter(p => p.id && !p.id.startsWith('_new_')).map(p => p.id);
       if (existingProductIds.length > 0) {
         await supabase
           .from("managed_products")
@@ -789,7 +789,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       }
 
       // Update existing products (unit + unit_cost + display_order)
-      const existingProducts = managedProducts.filter(p => p.id);
+      const existingProducts = managedProducts.filter(p => p.id && !p.id.startsWith('_new_'));
       for (let i = 0; i < existingProducts.length; i++) {
         const p = existingProducts[i];
         const displayOrder = managedProducts.indexOf(p);
@@ -799,9 +799,9 @@ export default function EditBusinessPage({ params }: PageProps) {
           .eq("id", p.id);
       }
 
-      const newProducts = managedProducts.filter(p => !p.id);
+      const newProducts = managedProducts.filter(p => !p.id || p.id.startsWith('_new_'));
       if (newProducts.length > 0) {
-        const existingCount = managedProducts.filter(p => p.id).length;
+        const existingCount = managedProducts.filter(p => p.id && !p.id.startsWith('_new_')).length;
         await supabase.from("managed_products").insert(
           newProducts.map((p, idx) => ({
             business_id: businessId,
@@ -815,7 +815,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       }
 
       // 9. Update payment methods
-      const existingPmIds = paymentMethods.filter(pm => pm.id).map(pm => pm.id);
+      const existingPmIds = paymentMethods.filter(pm => pm.id && !pm.id.startsWith('_new_')).map(pm => pm.id);
       if (existingPmIds.length > 0) {
         await supabase
           .from("payment_method_types")
@@ -830,7 +830,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       }
 
       // Update existing payment methods (settlement rules + display_order)
-      const existingPms = paymentMethods.filter(pm => pm.id);
+      const existingPms = paymentMethods.filter(pm => pm.id && !pm.id.startsWith('_new_'));
       for (let i = 0; i < existingPms.length; i++) {
         const pm = existingPms[i];
         const orderIndex = paymentMethods.indexOf(pm);
@@ -852,7 +852,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         }).eq("id", pm.id);
       }
 
-      const newPms = paymentMethods.filter(pm => !pm.id);
+      const newPms = paymentMethods.filter(pm => !pm.id || pm.id.startsWith('_new_'));
       if (newPms.length > 0) {
         await supabase.from("payment_method_types").insert(
           newPms.map((pm) => ({

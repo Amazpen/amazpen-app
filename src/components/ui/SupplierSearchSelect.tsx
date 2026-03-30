@@ -25,8 +25,10 @@ export default function SupplierSearchSelect({
 }: SupplierSearchSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [highlightIndex, setHighlightIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const selectedSupplier = useMemo(
     () => suppliers.find((s) => s.id === value),
@@ -51,12 +53,45 @@ export default function SupplierSearchSelect({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Focus input when dropdown opens
+  // Focus input when dropdown opens, reset highlight
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
+      setHighlightIndex(-1);
     }
   }, [isOpen]);
+
+  // Reset highlight when search changes
+  useEffect(() => {
+    setHighlightIndex(-1);
+  }, [search]);
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (highlightIndex >= 0 && listRef.current) {
+      const items = listRef.current.querySelectorAll('[data-supplier-item]');
+      items[highlightIndex]?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [highlightIndex]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isOpen) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightIndex((prev) => (prev > 0 ? prev - 1 : filtered.length - 1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlightIndex >= 0 && highlightIndex < filtered.length) {
+        handleSelect(filtered[highlightIndex].id);
+      }
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+      setSearch('');
+    }
+  };
 
   const handleSelect = (id: string) => {
     onChange(id);
@@ -121,6 +156,7 @@ export default function SupplierSearchSelect({
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   placeholder="חפש ספק..."
                   className="flex-1 bg-transparent text-white text-[14px] text-right outline-none placeholder:text-white/30"
                 />
@@ -128,17 +164,24 @@ export default function SupplierSearchSelect({
             </div>
 
             {/* Options list */}
-            <div className="max-h-[200px] overflow-y-auto">
+            <div ref={listRef} className="max-h-[200px] overflow-y-auto">
               {filtered.length === 0 ? (
                 <div className="text-white/40 text-[14px] text-center py-[12px]">
                   לא נמצאו תוצאות
                 </div>
               ) : (
-                filtered.map((supplier) => (
+                filtered.map((supplier, index) => (
                   <div
                     key={supplier.id}
+                    data-supplier-item
                     onClick={() => handleSelect(supplier.id)}
-                    className={`px-[14px] py-[10px] text-[15px] text-right cursor-pointer transition-colors hover:bg-[#29318A]/40 ${supplier.id === value ? 'bg-[#29318A]/30 text-[#00D4FF]' : 'text-white'}`}
+                    className={`px-[14px] py-[10px] text-[15px] text-right cursor-pointer transition-colors ${
+                      index === highlightIndex
+                        ? 'bg-[#29318A]/60 text-white'
+                        : supplier.id === value
+                          ? 'bg-[#29318A]/30 text-[#00D4FF]'
+                          : 'text-white hover:bg-[#29318A]/40'
+                    }`}
                   >
                     {supplier.name}
                   </div>

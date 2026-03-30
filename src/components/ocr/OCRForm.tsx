@@ -61,6 +61,8 @@ const DOCUMENT_TABS: { value: DocumentType; label: string }[] = [
   { value: 'invoice', label: 'חשבונית' },
   { value: 'payment', label: 'תשלום' },
   { value: 'delivery_note', label: 'ת.משלוח' },
+  { value: 'disputed_invoice', label: 'בבירור' },
+  { value: 'partially_paid', label: 'לא שולם' },
   { value: 'summary', label: 'מרכזת' },
   { value: 'daily_entry', label: 'רישום יומי' },
 ];
@@ -133,6 +135,7 @@ export default function OCRForm({
   const [isPaid, setIsPaid] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [rejectCustomText, setRejectCustomText] = useState('');
 
   // Payment fields for invoice tab (when isPaid is checked) - single payment method
   const [inlinePaymentMethod, setInlinePaymentMethod] = useState('');
@@ -741,7 +744,7 @@ export default function OCRForm({
 
       if (document.document_type) {
         // Map unknown/invalid types to 'invoice' as default
-        const validTypes: DocumentType[] = ['invoice', 'payment', 'delivery_note', 'summary', 'credit_note', 'daily_entry'];
+        const validTypes: DocumentType[] = ['invoice', 'payment', 'delivery_note', 'summary', 'credit_note', 'daily_entry', 'disputed_invoice', 'partially_paid'];
         const resolvedType = validTypes.includes(document.document_type as DocumentType)
           ? (document.document_type as DocumentType)
           : 'invoice';
@@ -1170,9 +1173,11 @@ export default function OCRForm({
 
   const handleReject = () => {
     if (document) {
-      onReject(document.id, rejectReason);
+      const finalReason = rejectReason === 'אחר' ? (rejectCustomText.trim() || 'אחר') : rejectReason;
+      onReject(document.id, finalReason);
       setShowRejectModal(false);
       setRejectReason('');
+      setRejectCustomText('');
     }
   };
 
@@ -1630,7 +1635,18 @@ export default function OCRForm({
             {/* Rows */}
             {lineItems.map((li, idx) => (
               <div key={`line-${li.description}-${idx}`} className="flex items-center border-b border-[#4C526B]/50 py-[6px] px-[4px]">
-                <span className="flex-1 min-w-0 text-right text-white overflow-hidden text-ellipsis whitespace-nowrap pr-[4px]" title={li.description || '-'}>{li.description || '-'}</span>
+                <span className="flex-1 min-w-0 pr-[4px]">
+                  <input
+                    type="text"
+                    value={li.description || ''}
+                    onChange={(e) => {
+                      setLineItems(prev => prev.map((item, i) => i !== idx ? item : { ...item, description: e.target.value }));
+                    }}
+                    className="w-full bg-transparent border border-transparent hover:border-[#4C526B]/50 focus:border-[#29318A] rounded-[4px] text-right text-white text-[13px] h-[28px] px-[4px] outline-none overflow-hidden text-ellipsis"
+                    title={li.description || '-'}
+                    dir="rtl"
+                  />
+                </span>
                 <span className="w-[60px] shrink-0 px-[2px]">
                   <input
                     type="number"
@@ -2501,7 +2517,7 @@ export default function OCRForm({
 
       {/* Form content - scrollable */}
       <div className="flex-1 overflow-y-auto px-4 py-4" dir="rtl">
-        {(documentType === 'invoice' || documentType === 'delivery_note' || documentType === 'credit_note') && renderInvoiceForm()}
+        {(documentType === 'invoice' || documentType === 'delivery_note' || documentType === 'credit_note' || documentType === 'disputed_invoice' || documentType === 'partially_paid') && renderInvoiceForm()}
         {documentType === 'payment' && renderPaymentForm()}
         {documentType === 'summary' && renderSummaryForm()}
         {documentType === 'daily_entry' && renderDailyEntryForm()}
@@ -2531,9 +2547,9 @@ export default function OCRForm({
           </div>
           <div className="grid grid-cols-4 gap-1">
             {['C', '⌫', '/', '*',
-              '7', '8', '9', '-',
+              '1', '2', '3', '-',
               '4', '5', '6', '+',
-              '1', '2', '3', '=',
+              '7', '8', '9', '=',
               '0', '.', '', ''].map((btn, i) => btn ? (
               <button
                 key={i}
@@ -2656,8 +2672,8 @@ export default function OCRForm({
               <div>
                 <Textarea
                   placeholder="פרט את סיבת הדחייה..."
-                  value={rejectReason === 'אחר' ? '' : rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value || 'אחר')}
+                  value={rejectCustomText}
+                  onChange={(e) => setRejectCustomText(e.target.value)}
                   className="w-full h-[80px] bg-transparent text-white text-[14px] text-right border border-[#4C526B] rounded-[10px] p-3 resize-none"
                 />
               </div>

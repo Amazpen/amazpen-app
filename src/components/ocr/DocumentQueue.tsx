@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import type { OCRDocument, DocumentStatus } from '@/types/ocr';
-import { getStatusLabel, getSourceIcon, getSourceLabel, getDocumentTypeLabel } from '@/types/ocr';
+import { getStatusLabel, getSourceIcon, getSourceLabel, getDocumentTypeLabel, getDocumentTypeColor } from '@/types/ocr';
 
 interface DocumentQueueProps {
   documents: OCRDocument[];
@@ -20,7 +20,7 @@ const STATUS_FILTERS: { value: DocumentStatus | 'all'; label: string }[] = [
   { value: 'pending', label: 'ממתינים' },
   { value: 'reviewing', label: 'בבדיקה' },
   { value: 'approved', label: 'אושרו' },
-  { value: 'rejected', label: 'נדחו' },
+  { value: 'archived', label: 'ארכיון' },
 ];
 
 export default function DocumentQueue({
@@ -416,7 +416,7 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
       {/* Info */}
       <div className="p-2 bg-[#0F1535]">
         {/* Document type or date */}
-        <p className="text-[12px] text-white font-medium truncate">
+        <p className="text-[12px] font-medium truncate" style={{ color: document.document_type ? getDocumentTypeColor(document.document_type) : '#9CA3AF' }}>
           {document.document_type
             ? getDocumentTypeLabel(document.document_type)
             : 'סוג לא ידוע'}
@@ -441,7 +441,7 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
 
 // Vertical card for sidebar - simple text row
 function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardProps) {
-  const supplierName = document.ocr_data?.supplier_name || 'ספק לא ידוע';
+  const supplierName = document.ocr_data?.supplier_name || 'ממתין לזיהוי';
   const docTypeLabel = document.document_type
     ? getDocumentTypeLabel(document.document_type)
     : '';
@@ -467,13 +467,18 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
         {supplierName}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-        <span style={{ color: '#818cf8', fontSize: '11px' }}>{docTypeLabel}</span>
+        <span style={{ color: document.document_type ? getDocumentTypeColor(document.document_type) : '#818cf8', fontSize: '11px', fontWeight: 600 }}>{docTypeLabel}</span>
         {totalAmount != null && totalAmount > 0 && (
           <span style={{ color: '#34d399', fontSize: '12px', fontWeight: 700, direction: 'ltr' }}>
             ₪{totalAmount.toLocaleString('he-IL', { maximumFractionDigits: 0 })}
           </span>
         )}
       </div>
+      {(document.source_sender_name || document.source_sender_phone) && (
+        <div style={{ color: '#7B91B0', fontSize: '10px', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {document.source_sender_name || document.source_sender_phone}
+        </div>
+      )}
     </div>
   );
 }

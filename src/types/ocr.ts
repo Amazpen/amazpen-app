@@ -2,9 +2,9 @@
 
 export type DocumentSource = 'telegram' | 'whatsapp' | 'email' | 'upload';
 
-export type DocumentStatus = 'pending' | 'reviewing' | 'approved' | 'rejected';
+export type DocumentStatus = 'pending' | 'reviewing' | 'approved' | 'rejected' | 'archived';
 
-export type DocumentType = 'invoice' | 'delivery_note' | 'credit_note' | 'payment' | 'summary' | 'daily_entry';
+export type DocumentType = 'invoice' | 'delivery_note' | 'credit_note' | 'payment' | 'summary' | 'daily_entry' | 'disputed_invoice' | 'partially_paid';
 
 export type ExpenseType = 'goods' | 'current';
 
@@ -140,6 +140,7 @@ export function getStatusLabel(status: DocumentStatus): string {
     reviewing: 'בבדיקה',
     approved: 'אושר',
     rejected: 'נדחה',
+    archived: 'ארכיון',
   };
   return labels[status];
 }
@@ -152,8 +153,24 @@ export function getDocumentTypeLabel(type: DocumentType): string {
     payment: 'תשלום',
     summary: 'מרכזת',
     daily_entry: 'רישום יומי',
+    disputed_invoice: 'חשבונית בבירור',
+    partially_paid: 'תעודה שלא שולמה במלואה',
   };
   return labels[type];
+}
+
+export function getDocumentTypeColor(type: DocumentType): string {
+  const colors: Record<DocumentType, string> = {
+    invoice: '#3B82F6',           // כחול
+    delivery_note: '#9CA3AF',     // אפור
+    credit_note: '#EF4444',       // אדום
+    payment: '#22C55E',           // ירוק
+    summary: '#A855F7',           // סגול
+    daily_entry: '#F59E0B',       // כתום
+    disputed_invoice: '#F97316',  // כתום-אדום
+    partially_paid: '#EAB308',    // צהוב
+  };
+  return colors[type] || '#9CA3AF';
 }
 
 export function getSourceIcon(source: DocumentSource): string {
