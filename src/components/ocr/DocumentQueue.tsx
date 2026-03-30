@@ -104,10 +104,11 @@ export default function DocumentQueue({
         {/* Filter buttons */}
         <div className="px-2 py-2 border-b border-[#4C526B]/50">
           <div className="flex flex-col gap-1.5">
-            {STATUS_FILTERS.slice(0, 4).map((filter) => {
+            {STATUS_FILTERS.map((filter) => {
               const count = filter.value === 'all'
                 ? documents.length
                 : statusCounts[filter.value as DocumentStatus] || 0;
+              const isArchive = filter.value === 'archived';
 
               return (
                 <Button
@@ -117,15 +118,19 @@ export default function DocumentQueue({
                   onClick={() => onFilterChange?.(filter.value)}
                   className={`w-full px-3 py-2 rounded-lg text-[13px] font-medium transition-all flex items-center justify-between ${
                     filterStatus === filter.value
-                      ? 'bg-[#29318A] text-white shadow-md'
-                      : 'bg-[#4C526B]/20 text-white/60 hover:bg-[#4C526B]/40 hover:text-white/80'
+                      ? isArchive
+                        ? 'bg-[#EB5757]/20 text-[#EB5757] shadow-md'
+                        : 'bg-[#29318A] text-white shadow-md'
+                      : isArchive
+                        ? 'bg-[#EB5757]/10 text-[#EB5757]/50 hover:bg-[#EB5757]/20 hover:text-[#EB5757]/80'
+                        : 'bg-[#4C526B]/20 text-white/60 hover:bg-[#4C526B]/40 hover:text-white/80'
                   }`}
                 >
                   <span>{filter.label}</span>
                   <span className={`text-[11px] min-w-[24px] h-[20px] flex items-center justify-center rounded-full ${
                     filterStatus === filter.value
-                      ? 'bg-white/20'
-                      : 'bg-[#4C526B]/30'
+                      ? isArchive ? 'bg-[#EB5757]/30' : 'bg-white/20'
+                      : isArchive ? 'bg-[#EB5757]/15' : 'bg-[#4C526B]/30'
                   }`}>
                     {count}
                   </span>
@@ -191,6 +196,7 @@ export default function DocumentQueue({
             const count = filter.value === 'all'
               ? documents.length
               : statusCounts[filter.value as DocumentStatus] || 0;
+            const isArchive = filter.value === 'archived';
 
             return (
               <Button
@@ -200,8 +206,12 @@ export default function DocumentQueue({
                 onClick={() => onFilterChange?.(filter.value)}
                 className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
                   filterStatus === filter.value
-                    ? 'bg-[#29318A] text-white'
-                    : 'bg-[#4C526B]/20 text-white/60 hover:bg-[#4C526B]/40'
+                    ? isArchive
+                      ? 'bg-[#EB5757]/20 text-[#EB5757]'
+                      : 'bg-[#29318A] text-white'
+                    : isArchive
+                      ? 'bg-[#EB5757]/10 text-[#EB5757]/50 hover:bg-[#EB5757]/20'
+                      : 'bg-[#4C526B]/20 text-white/60 hover:bg-[#4C526B]/40'
                 }`}
               >
                 {filter.label}
