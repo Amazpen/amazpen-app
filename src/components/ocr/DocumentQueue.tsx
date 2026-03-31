@@ -484,11 +484,10 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
           </span>
         )}
       </div>
-      {(document.source_sender_name || document.source_sender_phone) && (
-        <div style={{ color: '#7B91B0', fontSize: '10px', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {document.source_sender_name || document.source_sender_phone}
-        </div>
-      )}
+      <div style={{ color: '#7B91B0', fontSize: '10px', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '3px' }}>
+        <span>{getSourceIcon(document.source)}</span>
+        <span>{document.source_sender_name || document.source_sender_phone || getSourceLabel(document.source)}</span>
+      </div>
     </div>
   );
 }
