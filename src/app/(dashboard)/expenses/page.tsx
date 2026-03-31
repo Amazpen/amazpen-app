@@ -129,6 +129,7 @@ interface InvoiceDisplay {
   linkedPayments: { id: string; paymentId: string; amount: number; method: string; date: string; checkNumber: string; installmentNumber: number | null; installmentsCount: number | null; referenceNumber: string }[];
   documentType: "invoice" | "delivery_note";
   invoiceType?: string;
+  statusRaw?: string;
 }
 
 const paymentMethodNames: Record<string, string> = {
@@ -411,6 +412,7 @@ function ExpensesPageInner() {
   const [editingInvoice, setEditingInvoice] = useState<InvoiceDisplay | null>(null);
   const [showEditPopup, setShowEditPopup] = useState(false);
   const [editReturnTo, setEditReturnTo] = useState<string | null>(null);
+  const [editStatus, setEditStatus] = useState('');
 
   // Delete confirmation state
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
@@ -1203,6 +1205,7 @@ function ExpensesPageInner() {
         amountWithVat: Number(inv.total_amount),
         amountBeforeVat: Number(inv.subtotal),
         status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
+        statusRaw: inv.status || "pending",
         enteredBy: inv.creator?.full_name || "מערכת",
         entryDate: formatDateString(inv.created_at),
         notes: inv.notes || "",
@@ -2155,6 +2158,7 @@ function ExpensesPageInner() {
   // Handle opening edit popup
   const handleEditInvoice = (invoice: InvoiceDisplay) => {
     setEditingInvoice(invoice);
+    setEditStatus(invoice.statusRaw || '');
     // Pre-fill form with invoice data
     // Convert date from display format (DD.MM.YY) to input format (YYYY-MM-DD)
     const dateParts = invoice.date.split('.');
@@ -2252,11 +2256,14 @@ function ExpensesPageInner() {
       };
 
       // Update clarification reason if editing a "בבירור" invoice
-      if (editingInvoice.status === "בבירור") {
+      if (editingInvoice.status === "בבירור" || editStatus === "clarification") {
         updateData.clarification_reason = clarificationReason || null;
       }
 
-      if (editingInvoice.isFixed && attachmentUrl && invoiceNumber) {
+      // Apply status from edit form
+      if (editStatus) {
+        updateData.status = editStatus;
+      } else if (editingInvoice.isFixed && attachmentUrl && invoiceNumber) {
         updateData.status = "pending";
       }
 
@@ -2766,6 +2773,7 @@ function ExpensesPageInner() {
           amountWithVat: Number(inv.total_amount),
           amountBeforeVat: Number(inv.subtotal),
           status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
+          statusRaw: inv.status || "pending",
           enteredBy: inv.creator?.full_name || "מערכת",
           entryDate: formatDateString(inv.created_at),
           notes: inv.notes || "",
@@ -4966,6 +4974,23 @@ function ExpensesPageInner() {
                   </div>
                 </div>
               )}
+
+              {/* Status Select */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[15px] font-medium text-white text-right">סטטוס</label>
+                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] appearance-none cursor-pointer"
+                    style={{ direction: 'rtl' }}
+                  >
+                    <option value="pending" className="bg-[#1A1F3D]">ממתין לתשלום</option>
+                    <option value="paid" className="bg-[#1A1F3D]">שולם</option>
+                    <option value="clarification" className="bg-[#1A1F3D]">בבירור</option>
+                  </select>
+                </div>
+              </div>
 
               {/* Submit and Cancel Buttons */}
               <div className="flex gap-[10px] mt-[10px] mb-[10px]">
