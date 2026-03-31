@@ -14,6 +14,7 @@ export interface OCRLineItem {
   quantity?: number;
   unit_price?: number;
   discount_amount?: number;
+  discount_type?: 'amount' | 'percent';
   total?: number;
   // Price tracking fields (populated client-side)
   matched_supplier_item_id?: string;

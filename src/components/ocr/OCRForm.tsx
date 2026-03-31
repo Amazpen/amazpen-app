@@ -294,6 +294,15 @@ export default function OCRForm({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierId, selectedBusinessId, lineItems.length]);
 
+  // Calculate line item total considering discount type
+  const calcLineTotal = (qty: number | undefined, price: number | undefined, discountAmt: number | undefined, discountType: 'amount' | 'percent' | undefined) => {
+    if (qty == null || price == null) return 0;
+    const gross = qty * price;
+    if (!discountAmt) return gross;
+    if (discountType === 'percent') return gross * (1 - discountAmt / 100);
+    return gross - discountAmt;
+  };
+
   // Count price alerts
   const priceAlerts = useMemo(() => {
     return lineItems.filter(
@@ -1543,41 +1552,9 @@ export default function OCRForm({
         </div>
       </div>
 
-      {/* Discount */}
-      <div className="flex items-center gap-[10px]">
-        <div className="flex flex-col gap-[5px] flex-1">
-          <label className="text-[15px] font-medium text-white text-right">הנחה (₪)</label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-            <Input
-              type="text"
-              inputMode="decimal"
-              title="סכום הנחה"
-              value={discountAmount}
-              onChange={(e) => setDiscountAmount(e.target.value)}
-              placeholder="0.00"
-              className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
-            />
-          </div>
-        </div>
-        <div className="flex flex-col gap-[5px] w-[100px]">
-          <label className="text-[15px] font-medium text-white text-right">הנחה (%)</label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
-            <Input
-              type="text"
-              inputMode="decimal"
-              title="אחוז הנחה"
-              value={discountPercentage}
-              onChange={(e) => setDiscountPercentage(e.target.value)}
-              placeholder="0"
-              className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
-            />
-          </div>
-        </div>
-      </div>
-
       {/* Amount Before VAT */}
       <div className="flex flex-col gap-[5px]">
-        <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ (אחרי הנחה)</label>
+        <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
           <Input
             type="text"
@@ -1679,7 +1656,7 @@ export default function OCRForm({
           {/* Items table — editable quantity & price (#40) */}
           <div className="w-full text-[13px] overflow-x-auto" dir="rtl">
             {/* Header */}
-            <div className="grid grid-cols-[1fr_50px_60px_50px_60px_28px] min-w-[320px] items-center border-b border-[#4C526B] text-white/60 py-[6px] px-[4px] gap-[2px]">
+            <div className="grid grid-cols-[1fr_50px_60px_75px_60px_28px] min-w-[320px] items-center border-b border-[#4C526B] text-white/60 py-[6px] px-[4px] gap-[2px]">
               <span className="text-right">פריט</span>
               <span className="text-center">כמות</span>
               <span className="text-center">מחיר</span>
@@ -1692,7 +1669,7 @@ export default function OCRForm({
               <div className="text-center text-white/40 text-[13px] py-[10px]">אין פריטים — הוסף פריט ידנית</div>
             )}
             {lineItems.map((li, idx) => (
-              <div key={`line-${li.description}-${idx}`} className="grid grid-cols-[1fr_50px_60px_50px_60px_28px] min-w-[320px] items-center border-b border-[#4C526B]/50 py-[6px] px-[4px] gap-[2px]">
+              <div key={`line-${li.description}-${idx}`} className="grid grid-cols-[1fr_50px_60px_75px_60px_28px] min-w-[320px] items-center border-b border-[#4C526B]/50 py-[6px] px-[4px] gap-[2px]">
                 <span className="min-w-0 pr-[2px]">
                   <input
                     type="text"
@@ -1714,9 +1691,7 @@ export default function OCRForm({
                       setLineItems(prev => prev.map((item, i) => i !== idx ? item : {
                         ...item,
                         quantity: qty,
-                        total: qty != null && item.unit_price != null
-                          ? (qty * item.unit_price) - (item.discount_amount || 0)
-                          : item.total,
+                        total: calcLineTotal(qty, item.unit_price, item.discount_amount, item.discount_type),
                       }));
                     }}
                     className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[12px] h-[28px] px-[2px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -1734,9 +1709,7 @@ export default function OCRForm({
                         setLineItems(prev => prev.map((item, i) => i !== idx ? item : {
                           ...item,
                           unit_price: price,
-                          total: price != null && item.quantity != null
-                            ? (item.quantity * price) - (item.discount_amount || 0)
-                            : item.total,
+                          total: calcLineTotal(item.quantity, price, item.discount_amount, item.discount_type),
                         }));
                       }}
                       className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[12px] h-[28px] px-[2px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -1753,23 +1726,40 @@ export default function OCRForm({
                   </div>
                 </span>
                 <span className="px-[1px]">
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={li.discount_amount ?? ''}
-                    onChange={(e) => {
-                      const disc = e.target.value === '' ? undefined : Number(e.target.value);
-                      setLineItems(prev => prev.map((item, i) => i !== idx ? item : {
-                        ...item,
-                        discount_amount: disc,
-                        total: item.quantity != null && item.unit_price != null
-                          ? (item.quantity * item.unit_price) - (disc || 0)
-                          : item.total,
-                      }));
-                    }}
-                    className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[12px] h-[28px] px-[2px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    dir="ltr"
-                  />
+                  <div className="flex items-center gap-[1px]">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={li.discount_amount ?? ''}
+                      onChange={(e) => {
+                        const disc = e.target.value === '' ? undefined : Number(e.target.value);
+                        const dType = li.discount_type || 'amount';
+                        setLineItems(prev => prev.map((item, i) => i !== idx ? item : {
+                          ...item,
+                          discount_amount: disc,
+                          discount_type: dType,
+                          total: calcLineTotal(item.quantity, item.unit_price, disc, dType),
+                        }));
+                      }}
+                      className="w-[42px] bg-transparent border border-[#4C526B]/50 rounded-r-[4px] rounded-l-none text-center text-white ltr-num text-[12px] h-[28px] px-[1px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      dir="ltr"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newType = (li.discount_type || 'amount') === 'amount' ? 'percent' : 'amount';
+                        setLineItems(prev => prev.map((item, i) => i !== idx ? item : {
+                          ...item,
+                          discount_type: newType,
+                          total: calcLineTotal(item.quantity, item.unit_price, item.discount_amount, newType),
+                        }));
+                      }}
+                      className="h-[28px] w-[28px] flex items-center justify-center bg-[#29318A]/50 hover:bg-[#29318A] border border-[#4C526B]/50 rounded-l-[4px] rounded-r-none text-[10px] text-white/70 hover:text-white transition-colors flex-shrink-0"
+                      title={`לחץ להחלפה: ${(li.discount_type || 'amount') === 'amount' ? '₪ → %' : '% → ₪'}`}
+                    >
+                      {(li.discount_type || 'amount') === 'amount' ? '₪' : '%'}
+                    </button>
+                  </div>
                 </span>
                 <span className="text-center text-white/70 ltr-num text-[12px]">&#8362;{li.total?.toFixed(2) || '0'}</span>
                 <span className="text-center">
@@ -1790,7 +1780,7 @@ export default function OCRForm({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => setLineItems(prev => [...prev, { description: '', quantity: 1, unit_price: 0, discount_amount: 0, total: 0 }])}
+              onClick={() => setLineItems(prev => [...prev, { description: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_type: 'amount', total: 0 }])}
               className="w-full mt-[4px] text-[13px] text-[#00D4FF] hover:text-white hover:bg-[#29318A]/30 h-[32px] rounded-[6px] border border-dashed border-[#4C526B]/50"
             >
               + הוסף פריט
