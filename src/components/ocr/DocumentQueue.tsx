@@ -308,7 +308,7 @@ function PdfThumbnail({ url }: { url: string }) {
     async function renderPdf() {
       try {
         const pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
         const pdf = await pdfjsLib.getDocument(url).promise;
         const page = await pdf.getPage(1);
         const canvas = canvasRef.current;
