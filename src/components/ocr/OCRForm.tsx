@@ -1463,6 +1463,26 @@ export default function OCRForm({
         onChange={setSupplierId}
       />
 
+      {/* Link to summary invoice checkbox */}
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => setIsSummaryLinked(!isSummaryLinked)}
+        className="flex items-center gap-[6px] min-h-[35px] w-full justify-start"
+      >
+        <svg width="21" height="21" viewBox="0 0 32 32" fill="none" className={isSummaryLinked ? 'text-[#A855F7]' : 'text-[#979797]'}>
+          {isSummaryLinked ? (
+            <>
+              <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor" />
+              <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </>
+          ) : (
+            <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" />
+          )}
+        </svg>
+        <span className="text-[14px] font-medium text-white">שייך למרכזת (תעודת משלוח)</span>
+      </Button>
+
       {/* Supplier Notes - show if selected supplier has notes */}
       {(() => {
         const selectedSupplier = suppliers.find(s => s.id === supplierId);
@@ -1807,25 +1827,6 @@ export default function OCRForm({
             )}
           </svg>
           <span className="text-[15px] font-medium text-white">מסמך בבירור</span>
-        </Button>
-
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => setIsSummaryLinked(!isSummaryLinked)}
-          className="flex items-center gap-[3px] min-h-[35px]"
-        >
-          <svg width="21" height="21" viewBox="0 0 32 32" fill="none" className={isSummaryLinked ? 'text-[#A855F7]' : 'text-[#979797]'}>
-            {isSummaryLinked ? (
-              <>
-                <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor" />
-                <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </>
-            ) : (
-              <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" />
-            )}
-          </svg>
-          <span className="text-[15px] font-medium text-white">שייך למרכזת (תעודת משלוח)</span>
         </Button>
 
         {isDisputed && (
