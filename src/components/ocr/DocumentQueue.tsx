@@ -297,63 +297,15 @@ function isPdfDocument(doc: OCRDocument): boolean {
   }
 }
 
-// PDF thumbnail - renders first page using pdf.js canvas
-function PdfThumbnail({ url }: { url: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [rendered, setRendered] = useState(false);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function renderPdf() {
-      try {
-        const pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-        const pdf = await pdfjsLib.getDocument(url).promise;
-        const page = await pdf.getPage(1);
-        const canvas = canvasRef.current;
-        if (!canvas || cancelled) return;
-        const viewport = page.getViewport({ scale: 1 });
-        const scale = Math.max(canvas.clientWidth / viewport.width, canvas.clientHeight / viewport.height);
-        const scaledViewport = page.getViewport({ scale });
-        canvas.width = scaledViewport.width;
-        canvas.height = scaledViewport.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        await page.render({ canvasContext: ctx, viewport: scaledViewport, canvas } as never).promise;
-        if (!cancelled) setRendered(true);
-      } catch {
-        if (!cancelled) setError(true);
-      }
-    }
-    renderPdf();
-    return () => { cancelled = true; };
-  }, [url]);
-
-  if (error) {
-    return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1a1f3d]">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-        </svg>
-        <span className="text-[10px] text-red-400 font-bold mt-1">PDF</span>
-      </div>
-    );
-  }
-
+// Static PDF icon fallback — no client-side PDF rendering in queue thumbnails
+function PdfThumbnail({ url: _url }: { url: string }) {
   return (
-    <div className="absolute inset-0 overflow-hidden bg-white">
-      {!rendered && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#0a0d1f]">
-          <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-        </div>
-      )}
-      <canvas
-        ref={canvasRef}
-        className="w-full h-full object-cover"
-        style={{ opacity: rendered ? 1 : 0 }}
-      />
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1a1f3d]">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.5">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+      </svg>
+      <span className="text-[11px] text-indigo-400 font-bold mt-1">PDF</span>
     </div>
   );
 }
