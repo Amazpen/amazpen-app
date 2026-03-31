@@ -1648,7 +1648,7 @@ export default function OCRForm({
       </div>
 
       {/* Line Items & Price Tracking */}
-      {lineItems.length > 0 && (
+      {(lineItems.length > 0 || documentType === 'invoice' || documentType === 'delivery_note') && (
         <div className="flex flex-col gap-[8px] border border-[#4C526B] rounded-[10px] p-[10px]">
           <div className="flex items-center justify-between">
             <span className="text-[15px] font-medium text-white">פריטים ({lineItems.length})</span>
@@ -1688,6 +1688,9 @@ export default function OCRForm({
               <span />
             </div>
             {/* Rows */}
+            {lineItems.length === 0 && (
+              <div className="text-center text-white/40 text-[13px] py-[10px]">אין פריטים — הוסף פריט ידנית</div>
+            )}
             {lineItems.map((li, idx) => (
               <div key={`line-${li.description}-${idx}`} className="grid grid-cols-[1fr_50px_60px_50px_60px_28px] min-w-[320px] items-center border-b border-[#4C526B]/50 py-[6px] px-[4px] gap-[2px]">
                 <span className="min-w-0 pr-[2px]">
@@ -1783,6 +1786,15 @@ export default function OCRForm({
                 </span>
               </div>
             ))}
+            {/* Add item button */}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setLineItems(prev => [...prev, { description: '', quantity: 1, unit_price: 0, discount_amount: 0, total: 0 }])}
+              className="w-full mt-[4px] text-[13px] text-[#00D4FF] hover:text-white hover:bg-[#29318A]/30 h-[32px] rounded-[6px] border border-dashed border-[#4C526B]/50"
+            >
+              + הוסף פריט
+            </Button>
           </div>
         </div>
       )}
