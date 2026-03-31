@@ -1460,28 +1460,34 @@ export default function OCRForm({
       <SupplierSearchSelect
         suppliers={suppliers}
         value={supplierId}
-        onChange={setSupplierId}
+        onChange={(id) => { setSupplierId(id); setIsSummaryLinked(false); }}
       />
 
-      {/* Link to summary invoice checkbox */}
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={() => setIsSummaryLinked(!isSummaryLinked)}
-        className="flex items-center gap-[6px] min-h-[35px] w-full justify-start"
-      >
-        <svg width="21" height="21" viewBox="0 0 32 32" fill="none" className={isSummaryLinked ? 'text-[#A855F7]' : 'text-[#979797]'}>
-          {isSummaryLinked ? (
-            <>
-              <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor" />
-              <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </>
-          ) : (
-            <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" />
-          )}
-        </svg>
-        <span className="text-[14px] font-medium text-white">שייך למרכזת (תעודת משלוח)</span>
-      </Button>
+      {/* Link to summary invoice checkbox - only for suppliers marked as מרכזת */}
+      {(() => {
+        const sel = suppliers.find(s => s.id === supplierId);
+        if (!sel?.waiting_for_coordinator) return null;
+        return (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setIsSummaryLinked(!isSummaryLinked)}
+            className="flex items-center gap-[6px] min-h-[35px] w-full justify-start"
+          >
+            <svg width="21" height="21" viewBox="0 0 32 32" fill="none" className={isSummaryLinked ? 'text-[#A855F7]' : 'text-[#979797]'}>
+              {isSummaryLinked ? (
+                <>
+                  <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor" />
+                  <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </>
+              ) : (
+                <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" />
+              )}
+            </svg>
+            <span className="text-[14px] font-medium text-white">שייך למרכזת (תעודת משלוח)</span>
+          </Button>
+        );
+      })()}
 
       {/* Supplier Notes - show if selected supplier has notes */}
       {(() => {
