@@ -642,6 +642,7 @@ export default function AdminExpensesPage() {
         is_consolidated: boolean;
         data_source: string | null;
         attachment_url: string | null; // single URL or JSON array of URLs
+        reference_date: string | null;
       }[] = [];
       let skippedCount = 0;
 

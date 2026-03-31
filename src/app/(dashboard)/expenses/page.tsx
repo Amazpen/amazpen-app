@@ -438,6 +438,8 @@ function ExpensesPageInner() {
   // Invoice filter & sort state
   const [filterBy, setFilterBy] = useState<string>("");
   const [filterValue, setFilterValue] = useState<string>("");
+  const [globalSearchResults, setGlobalSearchResults] = useState<InvoiceDisplay[] | null>(null);
+  const [isGlobalSearching, setIsGlobalSearching] = useState(false);
   const [sortColumn, setSortColumn] = useState<"date" | "supplier" | "reference" | "amount" | "status" | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const [laborSortCol, setLaborSortCol] = useState<"date" | "labor_cost" | "labor_hours" | "manager_daily_cost" | "total" | "total_with_markup" | null>(null);
@@ -454,6 +456,97 @@ function ExpensesPageInner() {
   };
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Global search: when filtering by reference/supplier and local results are empty, search DB directly
+  useEffect(() => {
+    setGlobalSearchResults(null);
+    if (!filterBy || !filterValue.trim() || !selectedBusinesses.length) return;
+    if (filterBy !== "reference" && filterBy !== "supplier") return;
+
+    const searchVal = filterValue.trim();
+    // Check if local results already have matches
+    const localMatch = recentInvoices.some(inv => {
+      if (filterBy === "reference") return inv.reference.toLowerCase().includes(searchVal.toLowerCase());
+      if (filterBy === "supplier") return inv.supplier.toLowerCase().includes(searchVal.toLowerCase());
+      return false;
+    });
+    if (localMatch) return;
+
+    const timer = setTimeout(async () => {
+      setIsGlobalSearching(true);
+      try {
+        const supabase = createClient();
+        const col = filterBy === "reference" ? "invoice_number" : "supplier_id";
+        let query = supabase
+          .from("invoices")
+          .select(`
+            *,
+            supplier:suppliers(id, name, expense_category_id, is_fixed_expense, is_active, deleted_at),
+            creator:profiles!invoices_created_by_fkey(full_name)
+          `)
+          .in("business_id", selectedBusinesses)
+          .is("deleted_at", null)
+          .order("invoice_date", { ascending: false })
+          .limit(20);
+
+        if (filterBy === "reference") {
+          query = query.ilike("invoice_number", `%${searchVal}%`);
+        } else {
+          // For supplier search, find matching supplier IDs first
+          const { data: matchedSuppliers } = await supabase
+            .from("suppliers")
+            .select("id")
+            .in("business_id", selectedBusinesses)
+            .ilike("name", `%${searchVal}%`)
+            .is("deleted_at", null);
+          if (!matchedSuppliers || matchedSuppliers.length === 0) {
+            setGlobalSearchResults([]);
+            setIsGlobalSearching(false);
+            return;
+          }
+          query = query.in("supplier_id", matchedSuppliers.map(s => s.id));
+        }
+
+        const { data } = await query;
+        if (data && data.length > 0) {
+          const results: InvoiceDisplay[] = data.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => ({
+            id: inv.id,
+            date: formatDateString(inv.invoice_date),
+            rawDate: inv.invoice_date ? toLocalDateStr(new Date(inv.invoice_date)) : "",
+            supplier: inv.supplier?.name || "לא ידוע",
+            reference: inv.invoice_number || "",
+            amount: Number(inv.total_amount),
+            amountWithVat: Number(inv.total_amount),
+            amountBeforeVat: Number(inv.subtotal),
+            status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
+            statusRaw: inv.status || "pending",
+            enteredBy: inv.creator?.full_name || "מערכת",
+            entryDate: formatDateString(inv.created_at),
+            notes: inv.notes || "",
+            attachmentUrl: inv.attachment_url || null,
+            attachmentUrls: parseAttachmentUrls(inv.attachment_url),
+            clarificationReason: inv.clarification_reason || null,
+            isFixed: inv.supplier?.is_fixed_expense || false,
+            approval_status: inv.approval_status || null,
+            referenceDate: inv.reference_date ? formatDateString(inv.reference_date) : null,
+            linkedPayments: [],
+            documentType: "invoice" as const,
+            invoiceType: inv.invoice_type || undefined,
+          }));
+          setGlobalSearchResults(results);
+        } else {
+          setGlobalSearchResults([]);
+        }
+      } catch {
+        setGlobalSearchResults([]);
+      } finally {
+        setIsGlobalSearching(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterBy, filterValue, selectedBusinesses, recentInvoices]);
 
   // Supplier detail popup state (from expenses breakdown)
   const [showSupplierBreakdownPopup, setShowSupplierBreakdownPopup] = useState(false);
@@ -3349,11 +3442,24 @@ function ExpensesPageInner() {
                   return sortOrder === "asc" ? cmp : -cmp;
                 });
               }
-              return filtered.length === 0 ? (
+              // Use global search results when local is empty
+              const displayInvoices = filtered.length === 0 && globalSearchResults && globalSearchResults.length > 0
+                ? globalSearchResults
+                : filtered;
+              const isShowingGlobal = filtered.length === 0 && globalSearchResults && globalSearchResults.length > 0;
+
+              return displayInvoices.length === 0 ? (
               <div className="flex items-center justify-center py-[40px]">
-                <span className="text-[16px] text-white/50">{filterBy ? 'לא נמצאו תוצאות' : 'אין חשבוניות להצגה'}</span>
+                <span className="text-[16px] text-white/50">{isGlobalSearching ? 'מחפש בכל החשבוניות...' : filterBy ? 'לא נמצאו תוצאות' : 'אין חשבוניות להצגה'}</span>
               </div>
-            ) : filtered.map((invoice) => {
+            ) : (
+              <>
+              {isShowingGlobal && (
+                <div className="bg-[#29318A]/30 border border-[#29318A]/50 rounded-[7px] px-[10px] py-[6px] mb-[5px]">
+                  <span className="text-[12px] text-[#00D4FF]">נמצאו {globalSearchResults!.length} תוצאות מחוץ לטווח הנוכחי (טאב/תאריכים)</span>
+                </div>
+              )}
+              {displayInvoices.map((invoice) => {
               // Fixed expense supplier - show purple only if missing attachment AND reference
               const hasAttachment = invoice.attachmentUrl && String(invoice.attachmentUrl).trim() !== "";
               const hasReference = invoice.reference && String(invoice.reference).trim() !== "" && invoice.reference !== "-";
@@ -3734,7 +3840,9 @@ function ExpensesPageInner() {
                 )}
               </div>
               );
-            });
+            })}
+            </>
+            );
             })()}
             {isLoadingMore && (
               <div className="flex items-center justify-center py-[15px]">
