@@ -182,7 +182,7 @@ export default function OCRPage() {
       // Fetch all active suppliers
       const { data } = await supabase
         .from('suppliers')
-        .select('id, name, waiting_for_coordinator, notes')
+        .select('id, name, waiting_for_coordinator, notes, default_payment_method, default_credit_card_id')
         .eq('business_id', selectedBusinessId)
         .is('deleted_at', null)
         .eq('is_active', true)

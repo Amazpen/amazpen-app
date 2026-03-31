@@ -19,6 +19,9 @@ interface Supplier {
   id: string;
   name: string;
   notes?: string | null;
+  default_payment_method?: string | null;
+  default_credit_card_id?: string | null;
+  waiting_for_coordinator?: boolean;
 }
 
 interface Business {
@@ -1787,17 +1790,23 @@ export default function OCRForm({
             const newVal = !isPaid;
             setIsPaid(newVal);
             if (newVal) {
-              const today = new Date().toISOString().split('T')[0];
-              setInlinePaymentDate(today);
+              const selectedSupplier = suppliers.find(s => s.id === supplierId);
+              const defaultMethod = selectedSupplier?.default_payment_method || '';
+              const defaultCardId = selectedSupplier?.default_credit_card_id || '';
+              const smartDate = defaultMethod
+                ? getSmartPaymentDate(defaultMethod, documentDate, defaultCardId || undefined)
+                : new Date().toISOString().split('T')[0];
+              setInlinePaymentDate(smartDate);
+              if (defaultMethod) setInlinePaymentMethod(defaultMethod);
               const amount = totalWithVat > 0 ? totalWithVat.toString() : '';
               setInlinePaymentMethods([{
                 id: 1,
-                method: '',
+                method: defaultMethod,
                 amount,
                 installments: '1',
                 checkNumber: '',
-                creditCardId: '',
-                customInstallments: amount ? generateInstallments(1, totalWithVat, today) : [],
+                creditCardId: defaultCardId,
+                customInstallments: amount ? generateInstallments(1, totalWithVat, smartDate) : [],
               }]);
             }
           }}
