@@ -142,6 +142,7 @@ export async function POST(request: NextRequest) {
           business_id,
           supplier_id: s.id,
           invoice_date: invoiceDate,
+          reference_date: invoiceDate,
           subtotal,
           vat_amount: vatAmount,
           total_amount: totalAmount,

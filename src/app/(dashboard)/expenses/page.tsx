@@ -5473,7 +5473,7 @@ function ExpensesPageInner() {
               </div>
               <div className="flex flex-col items-center">
                 <span className="text-[20px] font-bold text-white ltr-num">₪{breakdownSupplierInvoices.reduce((sum, inv) => sum + (Number(inv.amountWithVat) || 0), 0).toLocaleString()}</span>
-                <span className="text-[14px] text-white/70">כולל מע&quot;מ</span>
+                <span className="text-[14px] text-white/70">כולל מע&quot;מ · {breakdownSupplierInvoices.length} חשבוניות</span>
               </div>
             </div>
 

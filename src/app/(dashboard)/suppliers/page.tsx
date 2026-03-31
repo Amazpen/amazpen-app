@@ -1063,6 +1063,7 @@ export default function SuppliersPage() {
             business_id: selectedBusinesses[0],
             supplier_id: newSupplier.id,
             invoice_date: invoiceDate,
+            reference_date: invoiceDate,
             subtotal,
             vat_amount: vatAmount,
             total_amount: totalAmount,

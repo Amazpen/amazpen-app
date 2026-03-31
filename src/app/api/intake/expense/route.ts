@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         total_amount,
         invoice_number: invoice_number || null,
         due_date: due_date || null,
-        reference_date: reference_date || null,
+        reference_date: reference_date || fixedInvoiceDate,
         notes: notes || null,
         status: 'pending',
         approval_status: 'pending_review',

@@ -678,6 +678,7 @@ export default function AdminExpensesPage() {
           supplier_id: supplier?.id || null,
           invoice_number: expense.invoice_number || null,
           invoice_date: expense.invoice_date || null,
+          reference_date: expense.invoice_date || null,
           due_date: expense.due_date || null,
           subtotal: expense.subtotal,
           vat_amount: expense.vat_amount,

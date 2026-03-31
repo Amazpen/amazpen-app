@@ -625,6 +625,7 @@ export default function AdminGoalsPage() {
             business_id: selectedBusinessId,
             supplier_id: b.supplier_id,
             invoice_date: invoiceDate,
+            reference_date: invoiceDate,
             subtotal,
             vat_amount: vatAmount,
             total_amount: totalAmount,
