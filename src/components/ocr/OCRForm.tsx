@@ -21,6 +21,7 @@ interface Supplier {
   notes?: string | null;
   default_payment_method?: string | null;
   default_credit_card_id?: string | null;
+  default_discount_percentage?: number | null;
   waiting_for_coordinator?: boolean;
 }
 
@@ -800,6 +801,14 @@ export default function OCRForm({
       setPaymentTabSupplierId(matchedId);
       setSummarySupplierId(matchedId);
 
+      // Auto-fill discount from supplier defaults
+      if (matchedId) {
+        const matched = suppliers.find(s => s.id === matchedId);
+        if (matched?.default_discount_percentage && matched.default_discount_percentage > 0) {
+          setDiscountPercentage(matched.default_discount_percentage.toString());
+        }
+      }
+
       // Reset payment fields
       setIsPaid(false);
       setInlinePaymentMethod('');
@@ -1463,7 +1472,17 @@ export default function OCRForm({
       <SupplierSearchSelect
         suppliers={suppliers}
         value={supplierId}
-        onChange={(id) => { setSupplierId(id); setIsSummaryLinked(false); }}
+        onChange={(id) => {
+          setSupplierId(id);
+          setIsSummaryLinked(false);
+          // Auto-fill discount from supplier defaults
+          const sel = suppliers.find(s => s.id === id);
+          if (sel?.default_discount_percentage && sel.default_discount_percentage > 0) {
+            setDiscountPercentage(sel.default_discount_percentage.toString());
+          } else {
+            setDiscountPercentage('');
+          }
+        }}
       />
 
       {/* Link to summary invoice checkbox - only for suppliers marked as מרכזת */}

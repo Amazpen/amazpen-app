@@ -50,6 +50,7 @@ interface Supplier {
   monthly_expense_amount?: number;
   default_payment_method?: string;
   default_credit_card_id?: string;
+  default_discount_percentage?: number;
   notes?: string;
   document_url?: string;
   has_previous_obligations?: boolean;
@@ -266,6 +267,7 @@ export default function SuppliersPage() {
   const [monthlyExpenseAmount, setMonthlyExpenseAmount] = useState("");
   const [primaryPaymentMethod, setPrimaryPaymentMethod] = useState("");
   const [selectedCreditCardId, setSelectedCreditCardId] = useState("");
+  const [defaultDiscountPercentage, setDefaultDiscountPercentage] = useState("");
   const [fixedNote, setFixedNote] = useState("");
   const [supplierEmail, setSupplierEmail] = useState("");
   const [requestKarteset, setRequestKarteset] = useState(false);
@@ -580,6 +582,7 @@ export default function SuppliersPage() {
     setMonthlyExpenseAmount("");
     setPrimaryPaymentMethod("");
     setSelectedCreditCardId("");
+    setDefaultDiscountPercentage("");
     setFixedNote("");
     setAttachedFile(null);
     setSupplierEmail("");
@@ -616,6 +619,7 @@ export default function SuppliersPage() {
     setMonthlyExpenseAmount(selectedSupplier.monthly_expense_amount?.toString() || "");
     setPrimaryPaymentMethod(selectedSupplier.default_payment_method || "");
     setSelectedCreditCardId(selectedSupplier.default_credit_card_id || "");
+    setDefaultDiscountPercentage(selectedSupplier.default_discount_percentage?.toString() || "");
     setFixedNote(selectedSupplier.notes || "");
     setHasPreviousObligations(selectedSupplier.has_previous_obligations || false);
     setWaitingForCoordinator(selectedSupplier.waiting_for_coordinator || false);
@@ -808,6 +812,7 @@ export default function SuppliersPage() {
           monthly_expense_amount: monthlyExpenseAmount ? parseFloat(monthlyExpenseAmount) : null,
           default_payment_method: primaryPaymentMethod || null,
           default_credit_card_id: primaryPaymentMethod === "credit" && selectedCreditCardId ? selectedCreditCardId : null,
+          default_discount_percentage: defaultDiscountPercentage ? parseFloat(defaultDiscountPercentage) : 0,
           notes: fixedNote || null,
           document_url: documentUrl,
           has_previous_obligations: hasPreviousObligations,
@@ -998,6 +1003,7 @@ export default function SuppliersPage() {
           monthly_expense_amount: monthlyExpenseAmount ? parseFloat(monthlyExpenseAmount) : null,
           default_payment_method: primaryPaymentMethod || null,
           default_credit_card_id: primaryPaymentMethod === "credit" && selectedCreditCardId ? selectedCreditCardId : null,
+          default_discount_percentage: defaultDiscountPercentage ? parseFloat(defaultDiscountPercentage) : 0,
           notes: fixedNote || null,
           document_url: documentUrl,
           has_previous_obligations: hasPreviousObligations,
@@ -2290,6 +2296,22 @@ export default function SuppliersPage() {
                   </Select>
                 </div>
               )}
+
+              {/* Default Discount Percentage */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[15px] font-medium text-white text-right">אחוז הנחה קבוע (%)</label>
+                <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    title="אחוז הנחה קבוע"
+                    value={defaultDiscountPercentage}
+                    onChange={(e) => setDefaultDiscountPercentage(e.target.value)}
+                    placeholder="0"
+                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none ltr-num"
+                  />
+                </div>
+              </div>
 
               {/* Fixed Note */}
               <div className="flex flex-col gap-[5px]">
