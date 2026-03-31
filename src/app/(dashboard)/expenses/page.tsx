@@ -42,6 +42,8 @@ interface Supplier {
   waiting_for_coordinator: boolean;
   is_fixed_expense?: boolean;
   vat_type?: string; // "full" | "none" | "partial"
+  default_payment_method?: string | null;
+  default_credit_card_id?: string | null;
 }
 
 // Expense category from database (used for type checking)
@@ -858,7 +860,7 @@ function ExpensesPageInner() {
         // Fetch suppliers for the selected businesses
         const { data: suppliersData } = await supabase
           .from("suppliers")
-          .select("id, name, expense_category_id, waiting_for_coordinator, vat_type, is_fixed_expense")
+          .select("id, name, expense_category_id, waiting_for_coordinator, vat_type, is_fixed_expense, default_payment_method, default_credit_card_id")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .eq("is_active", true)
@@ -4325,17 +4327,22 @@ function ExpensesPageInner() {
                     const newVal = !isPaidInFull;
                     setIsPaidInFull(newVal);
                     if (newVal) {
-                      const today = toLocalDateStr(new Date());
-                      setPaymentDate(today);
+                      const sup = suppliers.find(s => s.id === selectedSupplier);
+                      const defaultMethod = sup?.default_payment_method || "";
+                      const defaultCardId = sup?.default_credit_card_id || "";
+                      const smartDate = defaultMethod
+                        ? getSmartPaymentDate(defaultMethod, expenseDate, defaultCardId || undefined)
+                        : toLocalDateStr(new Date());
+                      setPaymentDate(smartDate);
                       const amount = totalWithVat > 0 ? totalWithVat.toString() : "";
                       setPopupPaymentMethods([{
                         id: 1,
-                        method: "",
+                        method: defaultMethod,
                         amount,
                         installments: "1",
                         checkNumber: "",
-                        creditCardId: "",
-                        customInstallments: amount ? generatePopupInstallments(1, totalWithVat, today) : [],
+                        creditCardId: defaultCardId,
+                        customInstallments: amount ? generatePopupInstallments(1, totalWithVat, smartDate) : [],
                       }]);
                     }
                   }}

@@ -33,6 +33,8 @@ interface Supplier {
   id: string;
   name: string;
   expense_type: string;
+  default_payment_method?: string | null;
+  default_credit_card_id?: string | null;
 }
 
 // Payment method summary for chart
@@ -689,7 +691,7 @@ function PaymentsPageInner() {
         const [{ data: suppliersData }, { data: bizVatData }] = await Promise.all([
           supabase
             .from("suppliers")
-            .select("id, name, expense_type")
+            .select("id, name, expense_type, default_payment_method, default_credit_card_id")
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
             .eq("is_active", true)
@@ -3777,7 +3779,17 @@ function PaymentsPageInner() {
               <SupplierSearchSelect
                 suppliers={filteredSuppliers}
                 value={selectedSupplier}
-                onChange={setSelectedSupplier}
+                onChange={(id) => {
+                  setSelectedSupplier(id);
+                  const sup = suppliers.find(s => s.id === id);
+                  if (sup?.default_payment_method && paymentMethods.length > 0 && !paymentMethods[0].method) {
+                    const defaultMethod = sup.default_payment_method;
+                    const defaultCardId = sup.default_credit_card_id || '';
+                    const smartDate = getSmartPaymentDate(defaultMethod, paymentDate, defaultCardId || undefined);
+                    if (smartDate) setPaymentDate(smartDate);
+                    setPaymentMethods(prev => prev.map((pm, i) => i === 0 ? { ...pm, method: defaultMethod, creditCardId: defaultCardId } : pm));
+                  }
+                }}
               />
 
               {/* Open Invoices Section */}
