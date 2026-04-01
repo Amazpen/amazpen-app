@@ -533,7 +533,7 @@ export default function OCRPage() {
               labor_cost: parseFloat(formData.daily_labor_cost || '0') || 0,
               labor_hours: parseFloat(formData.daily_labor_hours || '0') || 0,
               discounts: parseFloat(formData.daily_discounts || '0') || 0,
-              day_factor: parseFloat(formData.daily_day_factor || '1') || 1,
+              day_factor: Math.min(1, Math.max(0, parseFloat(formData.daily_day_factor || '1') || 1)),
               manager_daily_cost: 0,
               created_by: user?.id || null,
             })

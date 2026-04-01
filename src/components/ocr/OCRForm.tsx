@@ -1996,7 +1996,12 @@ export default function OCRForm({
             min="0"
             max="1"
             value={dailyDayFactor}
-            onChange={(e) => setDailyDayFactor(e.target.value)}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              if (e.target.value === '' || (val >= 0 && val <= 1)) {
+                setDailyDayFactor(e.target.value);
+              }
+            }}
             className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
           />
         </div>
