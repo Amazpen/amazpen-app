@@ -668,14 +668,10 @@ export function ConsolidatedInvoiceModal({
                 בחירת תעודות משלוח לסגירה:
               </label>
 
-              <div className="flex flex-col border border-[#4C526B] rounded-[10px] overflow-hidden">
+              <div className="flex flex-col border border-[#4C526B] rounded-[10px] overflow-hidden" dir="rtl">
                 {/* Table Header */}
-                <div className="flex items-center justify-end gap-[10px] border-b border-[#4C526B] px-[7px] py-[7px] min-h-[40px]">
-                  <div className="flex-1 text-center text-[14px] text-white">אחרי מע&quot;מ</div>
-                  <div className="flex-1 text-center text-[14px] text-white">לפני מע&quot;מ</div>
-                  <div className="flex-1 text-center text-[14px] text-white">אסמכתא</div>
-                  <div className="flex items-center gap-[3px] w-[80px] justify-end">
-                    <span className="text-[14px] text-white">בחר/י הכל</span>
+                <div className="flex items-center gap-[10px] border-b border-[#4C526B] px-[7px] py-[7px] min-h-[40px]">
+                  <div className="flex items-center gap-[3px] w-[80px] justify-start">
                     <button
                       type="button"
                       onClick={toggleSelectAll}
@@ -687,7 +683,11 @@ export function ConsolidatedInvoiceModal({
                     >
                       {allFilteredSelected && <Check className="w-[14px] h-[14px] text-white" />}
                     </button>
+                    <span className="text-[14px] text-white">בחר/י הכל</span>
                   </div>
+                  <div className="flex-1 text-center text-[14px] text-white">אסמכתא</div>
+                  <div className="flex-1 text-center text-[14px] text-white">לפני מע&quot;מ</div>
+                  <div className="flex-1 text-center text-[14px] text-white">אחרי מע&quot;מ</div>
                 </div>
 
                 {/* Table Rows */}
@@ -699,24 +699,12 @@ export function ConsolidatedInvoiceModal({
                         type="button"
                         key={note.id}
                         onClick={() => toggleNoteSelection(note.id)}
-                        className={`flex items-center justify-end gap-[10px] w-full px-[7px] py-[7px] min-h-[45px] rounded-[7px] mx-[3px] my-[3px] transition-all cursor-pointer ${
+                        className={`flex items-center gap-[10px] w-full px-[7px] py-[7px] min-h-[45px] rounded-[7px] mx-[3px] my-[3px] transition-all cursor-pointer ${
                           isSelected ? "bg-white/10" : "hover:bg-white/5"
                         }`}
                         style={{ width: "calc(100% - 6px)" }}
                       >
-                        <div className="flex-1 text-center text-[16px] text-white font-bold">
-                          ₪{formatNumber(Number(note.total_amount))}
-                        </div>
-                        <div className="flex-1 text-center text-[16px] text-white font-bold">
-                          ₪{formatNumber(Number(note.subtotal))}
-                        </div>
-                        <div className="flex-1 text-center text-[16px] text-white font-bold">
-                          {note.delivery_note_number || "-"}
-                        </div>
-                        <div className="flex items-center gap-[3px] w-[80px] justify-end">
-                          <span className="text-[14px] text-white font-bold">
-                            {formatDateShort(note.delivery_date)}
-                          </span>
+                        <div className="flex items-center gap-[3px] w-[80px] justify-start">
                           <div
                             className="w-[20px] h-[20px] flex items-center justify-center border rounded-[3px] shrink-0 transition-colors"
                             style={{
@@ -726,6 +714,18 @@ export function ConsolidatedInvoiceModal({
                           >
                             {isSelected && <Check className="w-[14px] h-[14px] text-white" />}
                           </div>
+                          <span className="text-[14px] text-white font-bold">
+                            {formatDateShort(note.delivery_date)}
+                          </span>
+                        </div>
+                        <div className="flex-1 text-center text-[16px] text-white font-bold">
+                          {note.delivery_note_number || "-"}
+                        </div>
+                        <div className="flex-1 text-center text-[16px] text-white font-bold">
+                          ₪{formatNumber(Number(note.subtotal))}
+                        </div>
+                        <div className="flex-1 text-center text-[16px] text-white font-bold">
+                          ₪{formatNumber(Number(note.total_amount))}
                         </div>
                       </button>
                     );
