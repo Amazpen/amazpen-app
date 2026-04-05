@@ -119,11 +119,34 @@ async function computeAndStoreMetrics(
       scheduleMap.set(row.day_of_week, Number(row.day_factor) || 0);
     }
   }
+
+  // Fetch day exceptions for this month (holidays, closures)
+  const { data: dayExceptions } = await adminSb
+    .from("business_day_exceptions")
+    .select("exception_date, day_factor")
+    .eq("business_id", bizId)
+    .gte("exception_date", monthStart)
+    .lt("exception_date", nextMonth);
+
+  const exceptionMap = new Map<string, number>();
+  if (dayExceptions) {
+    for (const ex of dayExceptions) {
+      const dateStr = ex.exception_date.split("T")[0];
+      exceptionMap.set(dateStr, Number(ex.day_factor) ?? 0);
+    }
+  }
+
   const daysInMonth = new Date(year, month, 0).getDate();
   let expectedWorkDays = 0;
   for (let d = 1; d <= daysInMonth; d++) {
-    const dow = new Date(year, month - 1, d).getDay();
-    expectedWorkDays += scheduleMap.get(dow) ?? 0;
+    const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    // Use exception day_factor if exists, otherwise use schedule
+    if (exceptionMap.has(dateStr)) {
+      expectedWorkDays += exceptionMap.get(dateStr)!;
+    } else {
+      const dow = new Date(year, month - 1, d).getDay();
+      expectedWorkDays += scheduleMap.get(dow) ?? 0;
+    }
   }
 
   // ---- 6. Core calculations ----
