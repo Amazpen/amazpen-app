@@ -63,14 +63,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Business is inactive or not found", created: 0 });
     }
 
-    // 1. Get all active fixed-expense suppliers for this business (excluding previous obligations)
+    // 1. Get all active fixed-expense suppliers for this business
     const { data: fixedSuppliers, error: suppliersError } = await supabase
       .from("suppliers")
       .select("id, name, monthly_expense_amount, charge_day, vat_type, expense_type")
       .eq("business_id", business_id)
       .eq("is_fixed_expense", true)
       .eq("is_active", true)
-      .eq("has_previous_obligations", false)
       .is("deleted_at", null);
 
     if (suppliersError) {
