@@ -585,10 +585,13 @@ export default function DashboardPage() {
 
       // Calculate today's labor cost (same formula as dashboard)
       const todayRawLaborCost = todayEntries.reduce((sum: number, e: Record<string, unknown>) => sum + (Number(e.labor_cost) || 0), 0);
-      const totalMarkup = businessData.reduce((sum, b) => {
-        const bGoal = goalsData.find((g: Record<string, unknown>) => g.business_id === b.id);
-        return sum + (bGoal?.markup_percentage != null ? Number(bGoal.markup_percentage) : (Number(b.markup_percentage) || 1));
-      }, 0) / Math.max(businessData.length, 1);
+      const totalMarkup = (() => {
+        const avgVat = businessData.reduce((sum, b) => {
+          const bGoal = goalsData.find((g: Record<string, unknown>) => g.business_id === b.id);
+          return sum + (bGoal?.vat_percentage != null ? Number(bGoal.vat_percentage) : (Number(b.vat_percentage) || 0));
+        }, 0) / Math.max(businessData.length, 1);
+        return avgVat > 0 ? 1 + avgVat : 1;
+      })();
       const totalManagerSalary = businessData.reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
 
       // Expected work days from schedule (for manager daily cost)
@@ -1375,12 +1378,15 @@ export default function DashboardPage() {
       const rawLaborCost = (entries || []).reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
 
       // Calculate labor cost with markup and manager salary
-      // Formula: (labor_cost + manager_daily_cost × actual_days) × markup
+      // Formula: (labor_cost + manager_daily_cost × actual_days) × vatDivisor (העמסה)
       // Use monthly goal values with business defaults as fallback
-      const totalMarkup = (businessData || []).reduce((sum, b) => {
-        const bGoal = (goalsData || []).find((g: Record<string, unknown>) => g.business_id === b.id);
-        return sum + (bGoal?.markup_percentage != null ? Number(bGoal.markup_percentage) : (Number(b.markup_percentage) || 1));
-      }, 0) / Math.max((businessData || []).length, 1);
+      const totalMarkup = (() => {
+        const avgVat = (businessData || []).reduce((sum, b) => {
+          const bGoal = (goalsData || []).find((g: Record<string, unknown>) => g.business_id === b.id);
+          return sum + (bGoal?.vat_percentage != null ? Number(bGoal.vat_percentage) : (Number(b.vat_percentage) || 0));
+        }, 0) / Math.max((businessData || []).length, 1);
+        return avgVat > 0 ? 1 + avgVat : 1;
+      })();
       const totalManagerSalary = (businessData || []).reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
 
       // Calculate expected work days in the month from schedule
