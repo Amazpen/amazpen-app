@@ -386,25 +386,25 @@ export default function SuppliersPage() {
       const { data: monthlyInvoicesData } = supplierIds.length > 0
         ? await supabase
             .from("invoices")
-            .select("supplier_id, total_amount")
+            .select("supplier_id, subtotal")
             .in("supplier_id", supplierIds)
             .is("deleted_at", null)
             .gte("invoice_date", monthStart)
             .lte("invoice_date", monthEnd)
         : { data: [] };
 
-      // Sum current month invoices per supplier (for monthly_expense check)
+      // Sum current month invoices per supplier (subtotal = before VAT, matches expenses page)
       const supplierMonthlyPurchases = new Map<string, number>();
       for (const inv of monthlyInvoicesData || []) {
         const prev = supplierMonthlyPurchases.get(inv.supplier_id) || 0;
-        supplierMonthlyPurchases.set(inv.supplier_id, prev + Number(inv.total_amount));
+        supplierMonthlyPurchases.set(inv.supplier_id, prev + Number(inv.subtotal));
       }
 
-      // Fetch yearly invoices per supplier (total_amount = with VAT) for revenue percentage
+      // Fetch yearly invoices per supplier (subtotal = before VAT) for revenue percentage
       const { data: yearlyInvoicesData } = supplierIds.length > 0
         ? await supabase
             .from("invoices")
-            .select("supplier_id, total_amount")
+            .select("supplier_id, subtotal")
             .in("supplier_id", supplierIds)
             .is("deleted_at", null)
             .gte("invoice_date", yearStart)
@@ -415,7 +415,7 @@ export default function SuppliersPage() {
       const supplierYearlyPurchases = new Map<string, number>();
       for (const inv of yearlyInvoicesData || []) {
         const prev = supplierYearlyPurchases.get(inv.supplier_id) || 0;
-        supplierYearlyPurchases.set(inv.supplier_id, prev + Number(inv.total_amount));
+        supplierYearlyPurchases.set(inv.supplier_id, prev + Number(inv.subtotal));
       }
 
       // Fetch all revenue targets for current year per business (all months)
@@ -1113,13 +1113,13 @@ export default function SuppliersPage() {
 
     const { data: monthlyInvoices } = await supabase
       .from("invoices")
-      .select("total_amount")
+      .select("subtotal")
       .eq("supplier_id", supplier.id)
       .is("deleted_at", null)
       .gte("invoice_date", monthStart.toISOString().split("T")[0])
       .lte("invoice_date", monthEnd.toISOString().split("T")[0]);
 
-    const monthlyPurchases = monthlyInvoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+    const monthlyPurchases = monthlyInvoices?.reduce((sum, inv) => sum + Number(inv.subtotal), 0) || 0;
 
     // Get payments linked to invoices in this month (by invoice_date, not payment_date)
     // First get invoice IDs for this month
@@ -1195,14 +1195,14 @@ export default function SuppliersPage() {
     const supabase = createClient();
 
     try {
-      // Fetch total purchases (invoices) for this supplier
+      // Fetch total purchases (invoices) for this supplier — use subtotal (before VAT) to match expenses page
       const { data: invoicesData } = await supabase
         .from("invoices")
-        .select("total_amount, status, amount_paid")
+        .select("subtotal, total_amount, status, amount_paid")
         .eq("supplier_id", supplier.id)
         .is("deleted_at", null);
 
-      const totalPurchases = invoicesData?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+      const totalPurchases = invoicesData?.reduce((sum, inv) => sum + Number(inv.subtotal), 0) || 0;
 
       // Fetch total payments for this supplier
       const { data: paymentsData } = await supabase
@@ -1233,7 +1233,7 @@ export default function SuppliersPage() {
       setMonthlyBreakdown(breakdownMonths);
 
       // Remaining balance = sum of unpaid invoices (status != paid)
-      const unpaidTotal = invoicesData?.filter(inv => inv.status !== 'paid').reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+      const unpaidTotal = invoicesData?.filter(inv => inv.status !== 'paid').reduce((sum, inv) => sum + Number(inv.subtotal), 0) || 0;
       let displayTotalPurchases = totalPurchases;
       let displayRemainingBalance = unpaidTotal;
 
@@ -2596,7 +2596,7 @@ export default function SuppliersPage() {
                   <span className="text-[14px] text-white">
                     {selectedSupplier.has_previous_obligations
                       ? "סה\"כ סכום ההתחייבות (כולל ריבית)"
-                      : "סה\"כ קניות שבוצעו מהספק (כולל מע\"מ)"}
+                      : "סה\"כ קניות שבוצעו מהספק (לפני מע\"מ)"}
                   </span>
                   <span className="text-[16px] text-white font-bold ltr-num">
                     ₪{(supplierDetailData?.totalPurchases || 0).toLocaleString()}
@@ -2700,7 +2700,7 @@ export default function SuppliersPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-white/80">סך הרכישות מהספק (כולל מע&quot;מ)</span>
+                  <span className="text-[13px] text-white/80">סך הרכישות מהספק (לפני מע&quot;מ)</span>
                   <span className="text-[14px] text-white font-medium ltr-num">
                     ₪{(supplierDetailData?.monthlyData.monthlyPurchases || 0).toLocaleString()}
                   </span>
