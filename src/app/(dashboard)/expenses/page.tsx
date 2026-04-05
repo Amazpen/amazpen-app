@@ -733,12 +733,15 @@ function ExpensesPageInner() {
     return paymentDate;
   };
 
-  // Add new payment method entry to popup
+  // Add new payment method entry to popup — auto-fill remaining balance
   const addPopupPaymentMethodEntry = () => {
     const newId = Math.max(...popupPaymentMethods.map(p => p.id)) + 1;
+    const totalInvoice = paymentInvoice ? paymentInvoice.amountWithVat : 0;
+    const allocatedSoFar = popupPaymentMethods.reduce((sum, p) => sum + (parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0), 0);
+    const remaining = Math.max(0, Math.round((totalInvoice - allocatedSoFar) * 100) / 100);
     setPopupPaymentMethods(prev => [
       ...prev,
-      { id: newId, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }
+      { id: newId, method: "", amount: remaining > 0 ? String(remaining) : "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }
     ]);
   };
 
