@@ -897,7 +897,7 @@ export default function DashboardPage() {
 
   // Subscribe to realtime changes on relevant tables
   useMultiTableRealtime(
-    ["businesses", "daily_entries", "tasks", "invoices", "payments"],
+    ["businesses", "daily_entries", "tasks", "invoices", "payments", "goals"],
     handleRealtimeChange,
     true
   );
