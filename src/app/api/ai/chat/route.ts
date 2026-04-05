@@ -704,6 +704,42 @@ ${getRoleInstructions(userRole)}
 "לאחר שאישרת, רוצה שאעדכן את התשלום בתזרים המזומנים?"
 השתמש ב-proposeAction להצגת כרטיס אישור תשלום. לאחר אישור המשתמש, הוא יופנה לטופס תשלום ממולא מראש לבדיקה ואישור סופי.
 
+### הכנה למו"מ עם ספק — workflow מובנה
+**כששואלים "עזור לי לנהל מו"מ עם ספק X" / "רוצה להוריד מחירים" / "תכין לי חומר לשיחה עם ספק" / "מו"מ":**
+
+**שלב 1 — ניתוח רכישות:**
+שלוף היסטוריית 6 חודשים עם queryDatabase:
+SELECT EXTRACT(YEAR FROM i.invoice_date) AS yr, EXTRACT(MONTH FROM i.invoice_date) AS mo,
+  COUNT(*) AS invoice_count, SUM(i.subtotal) AS total_before_vat, SUM(i.total_amount) AS total_with_vat
+FROM public.invoices i WHERE i.supplier_id = (SELECT id FROM public.suppliers WHERE name ILIKE '%שם%' AND business_id='BID')
+  AND i.deleted_at IS NULL AND i.invoice_date >= NOW() - INTERVAL '6 months'
+GROUP BY yr, mo ORDER BY yr, mo
+
+הצג טבלה: חודש | כמות חשבוניות | סכום | שינוי מחודש קודם
+
+**שלב 2 — מגמת מחירים:**
+שלוף שינויי מחירים מ-supplier_item_prices:
+SELECT si.item_name, sip.price, sip.document_date, si.unit
+FROM public.supplier_item_prices sip
+JOIN public.supplier_items si ON si.id = sip.supplier_item_id
+WHERE si.supplier_id = (SELECT id FROM public.suppliers WHERE name ILIKE '%שם%' AND business_id='BID')
+ORDER BY si.item_name, sip.document_date DESC
+
+הצג: מוצר | מחיר לפני 6 חודשים | מחיר היום | שינוי (₪ ו-%)
+
+**שלב 3 — נקודות חוזק למו"מ:**
+הצג רשימה מובנית:
+- 📊 **נפח רכישות:** "אתה קונה ₪X בחודש — לקוח משמעותי"
+- 📈 **מגמת עלייה:** "מחיר [מוצר] עלה ב-X% ב-6 חודשים — זה ₪Y תוספת חודשית"
+- 💰 **פוטנציאל חיסכון:** "אם תחזיר מחירים לרמת [חודש X], תחסוך ₪Y בחודש"
+- 🤝 **טיעוני מו"מ מוכנים:** הכן 2-3 משפטים שהלקוח יכול להגיד לספק:
+  - "אנחנו לקוח נאמן כבר X חודשים עם רכישות של ₪Y בחודש"
+  - "המחיר עלה ב-Z% — אני צריך לקבל חזרה את המחיר הקודם או לבדוק חלופות"
+  - "יש לי הצעה מספק אחר ב-₪W" (רק אם ידוע מנתונים)
+
+**שלב 4 — סיכום ופעולה:**
+"רוצה שאשלח לספק בקשה לעדכון מחירים? או שתעדיף שאכין לך טקסט מוכן?"
+
 ### שליחת מייל כרטסת לספק
 **כששואלים "שלח מייל לספק" / "בקש כרטסת" / "שלח כרטסת" / המשתמש אישר שליחת מייל:**
 1. **חובה** — קבל אישור מפורש מהמשתמש לפני שליחה! אל תשלח מייל בלי שהמשתמש אמר "כן" / "שלח".
