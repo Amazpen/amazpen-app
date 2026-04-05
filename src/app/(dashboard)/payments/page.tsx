@@ -81,6 +81,7 @@ interface RecentPaymentDisplay {
   createdBy: string | null;
   createdAt: string | null;
   linkedInvoice: LinkedInvoice | null;
+  linkedInvoices: LinkedInvoice[]; // All linked invoices (when payment covers multiple)
   linkedInvoiceId: string | null;
   rawSplits: Array<{ id: string; payment_method: string; amount: number; installments_count: number | null; installment_number: number | null; due_date: string | null; check_number: string | null; reference_number: string | null }>;
 }
@@ -919,8 +920,49 @@ function PaymentsPageInner() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const transformPaymentsData = (rawData: any[], suppliersList?: Supplier[]): RecentPaymentDisplay[] => {
     const suppliersToUse = suppliersList || suppliers;
-    const results: RecentPaymentDisplay[] = [];
+
+    // Group sibling payments (same supplier + date + amount = covers multiple invoices)
+    // Key: supplier_id|payment_date|total_amount
+    const siblingGroups = new Map<string, { payments: typeof rawData; invoices: LinkedInvoice[] }>();
     for (const p of rawData) {
+      const key = `${p.supplier_id}|${p.payment_date}|${p.total_amount}`;
+      if (!siblingGroups.has(key)) {
+        siblingGroups.set(key, { payments: [], invoices: [] });
+      }
+      const group = siblingGroups.get(key)!;
+      group.payments.push(p);
+      if (p.invoice) {
+        const inv = p.invoice;
+        // Avoid duplicate invoices
+        if (!group.invoices.some(i => i.id === inv.id)) {
+          group.invoices.push({
+            id: inv.id,
+            invoiceNumber: inv.invoice_number,
+            date: formatDateString(inv.invoice_date),
+            subtotal: Number(inv.subtotal),
+            vatAmount: Number(inv.vat_amount),
+            totalAmount: Number(inv.total_amount),
+            attachmentUrl: inv.attachment_url,
+            notes: inv.notes || null,
+          });
+        }
+      }
+    }
+
+    const results: RecentPaymentDisplay[] = [];
+    const processedGroups = new Set<string>();
+
+    for (const p of rawData) {
+      const key = `${p.supplier_id}|${p.payment_date}|${p.total_amount}`;
+      const group = siblingGroups.get(key)!;
+      const allLinkedInvoices = group.invoices;
+
+      // If this is a sibling group with multiple payments, only process splits from the FIRST payment
+      if (group.payments.length > 1) {
+        if (processedGroups.has(key)) continue; // Skip duplicate payment records
+        processedGroups.add(key);
+      }
+
       const splits = p.payment_splits || [];
       const total = Number(p.total_amount);
       const inv = p.invoice;
@@ -932,16 +974,7 @@ function PaymentsPageInner() {
         if (s?.expense_type === "employee_costs") return "employees";
         return "expenses";
       })();
-      const linkedInvoice = inv ? {
-        id: inv.id,
-        invoiceNumber: inv.invoice_number,
-        date: formatDateString(inv.invoice_date),
-        subtotal: Number(inv.subtotal),
-        vatAmount: Number(inv.vat_amount),
-        totalAmount: Number(inv.total_amount),
-        attachmentUrl: inv.attachment_url,
-        notes: inv.notes || null,
-      } : null;
+      const linkedInvoice = allLinkedInvoices[0] || null;
       const allSplitsRaw = splits.map((s: { id: string; payment_method: string; amount: number; installments_count: number | null; installment_number: number | null; due_date: string | null; check_number: string | null; reference_number: string | null }) => ({
         id: s.id,
         payment_method: s.payment_method,
@@ -953,7 +986,6 @@ function PaymentsPageInner() {
         reference_number: s.reference_number,
       }));
 
-      // Create one row per split so each installment is visible in the table
       if (splits.length > 0) {
         for (const split of splits) {
           const installmentInfo = split.installments_count && split.installment_number
@@ -981,12 +1013,12 @@ function PaymentsPageInner() {
             createdBy: p.creator?.full_name || null,
             createdAt: p.created_at ? formatDateString(p.created_at.split("T")[0]) : null,
             linkedInvoice,
+            linkedInvoices: allLinkedInvoices,
             linkedInvoiceId: p.invoice_id || null,
             rawSplits: allSplitsRaw,
           });
         }
       } else {
-        // No splits — single row
         results.push({
           id: p.id,
           paymentId: p.id,
@@ -1009,6 +1041,7 @@ function PaymentsPageInner() {
           createdBy: p.creator?.full_name || null,
           createdAt: p.created_at ? formatDateString(p.created_at.split("T")[0]) : null,
           linkedInvoice,
+          linkedInvoices: allLinkedInvoices,
           linkedInvoiceId: p.invoice_id || null,
           rawSplits: allSplitsRaw,
         });
@@ -3671,20 +3704,20 @@ function PaymentsPageInner() {
                     )}
 
                     {/* Linked Invoices */}
-                    {payment.linkedInvoice && (
+                    {payment.linkedInvoices && payment.linkedInvoices.length > 0 && (
                       <div className="flex flex-col gap-[8px] border border-white/30 rounded-[7px] p-[3px] mx-[3px]">
                         <Button
                           type="button"
                           onClick={() => setShowLinkedInvoices(showLinkedInvoices === payment.id ? null : payment.id)}
                           className="bg-[#29318A] text-white text-[15px] font-medium py-[5px] px-[14px] rounded-[7px] self-start cursor-pointer hover:bg-[#3D44A0] transition-colors"
                         >
-                          הצגת חשבוניות מקושרות
+                          הצגת חשבוניות מקושרות ({payment.linkedInvoices.length})
                         </Button>
 
                         {showLinkedInvoices === payment.id && (
                           <div className="flex flex-col gap-[2px]">
                             <span className="text-[13px] font-bold text-right px-[5px]">
-                              סה&quot;כ סכום חשבוניות: ₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              סה&quot;כ סכום חשבוניות: ₪{payment.linkedInvoices.reduce((s, i) => s + i.totalAmount, 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                             {/* Header */}
                             <div dir="rtl" className="flex items-center justify-between gap-[3px] border-b border-white/20 min-h-[40px] px-[3px]">
@@ -3696,16 +3729,16 @@ function PaymentsPageInner() {
                                 <span className="text-[13px]">פעולות</span>
                               </div>
                             </div>
-                            {/* Invoice row */}
-                            {(() => {
-                              const invoiceAttachmentUrls = parseAttachmentUrls(payment.linkedInvoice.attachmentUrl);
+                            {/* Invoice rows */}
+                            {payment.linkedInvoices.map((linkedInv) => {
+                              const invoiceAttachmentUrls = parseAttachmentUrls(linkedInv.attachmentUrl);
                               return (
-                                <>
+                                <div key={linkedInv.id}>
                                   <div dir="rtl" className="flex items-center justify-between gap-[3px] min-h-[45px] px-[3px] rounded-[7px] hover:bg-[#29318A]/30 transition-colors">
-                                    <Button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] min-w-[50px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">{payment.linkedInvoice.date}</Button>
-                                    <Button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">{payment.linkedInvoice.invoiceNumber || "-"}</Button>
-                                    <Button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">₪{payment.linkedInvoice.subtotal.toLocaleString("he-IL")}</Button>
-                                    <Button type="button" onClick={() => router.push(`/expenses?invoiceId=${payment.linkedInvoice!.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">₪{payment.linkedInvoice.totalAmount.toLocaleString("he-IL")}</Button>
+                                    <Button type="button" onClick={() => router.push(`/expenses?invoiceId=${linkedInv.id}`)} className="text-[13px] min-w-[50px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">{linkedInv.date}</Button>
+                                    <Button type="button" onClick={() => router.push(`/expenses?invoiceId=${linkedInv.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">{linkedInv.invoiceNumber || "-"}</Button>
+                                    <Button type="button" onClick={() => router.push(`/expenses?invoiceId=${linkedInv.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">₪{linkedInv.subtotal.toLocaleString("he-IL")}</Button>
+                                    <Button type="button" onClick={() => router.push(`/expenses?invoiceId=${linkedInv.id}`)} className="text-[13px] w-[65px] text-center ltr-num cursor-pointer hover:text-[#7C8FFF]">₪{linkedInv.totalAmount.toLocaleString("he-IL")}</Button>
                                     <div className="flex items-center gap-[5px] min-w-[45px]">
                                       {invoiceAttachmentUrls.length > 0 && (
                                         <>
@@ -3753,12 +3786,12 @@ function PaymentsPageInner() {
                                           </Button>
                                         </>
                                       )}
-                                      {(invoiceAttachmentUrls.length > 1 || payment.linkedInvoice.notes) && (
+                                      {(invoiceAttachmentUrls.length > 1 || linkedInv.notes) && (
                                         <Button
                                           type="button"
                                           title="מסמכים והערות"
-                                          onClick={() => setExpandedOpenInvoiceId(expandedOpenInvoiceId === payment.linkedInvoice!.id ? null : payment.linkedInvoice!.id)}
-                                          className={`w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-all cursor-pointer ${expandedOpenInvoiceId === payment.linkedInvoice!.id ? "rotate-180" : ""}`}
+                                          onClick={() => setExpandedOpenInvoiceId(expandedOpenInvoiceId === linkedInv.id ? null : linkedInv.id)}
+                                          className={`w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-all cursor-pointer ${expandedOpenInvoiceId === linkedInv.id ? "rotate-180" : ""}`}
                                         >
                                           <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                             <path d="M6 9l6 6 6-6"/>
@@ -3768,7 +3801,7 @@ function PaymentsPageInner() {
                                     </div>
                                   </div>
                                   {/* Expanded: Attachment Thumbnails + Notes */}
-                                  {expandedOpenInvoiceId === payment.linkedInvoice.id && (
+                                  {expandedOpenInvoiceId === linkedInv.id && (
                                     <div className="flex flex-col gap-[8px] px-[5px] py-[8px] bg-white/5 rounded-[8px] mx-[3px] mb-[3px]">
                                       {invoiceAttachmentUrls.length > 0 && (
                                         <div className="flex flex-wrap gap-[6px]">
@@ -3793,17 +3826,17 @@ function PaymentsPageInner() {
                                           ))}
                                         </div>
                                       )}
-                                      {payment.linkedInvoice.notes && (
+                                      {linkedInv.notes && (
                                         <div className="flex items-start gap-[5px]">
                                           <span className="text-[12px] text-[#979797] flex-shrink-0">הערות:</span>
-                                          <span className="text-[12px] text-white/70 text-right">{payment.linkedInvoice.notes}</span>
+                                          <span className="text-[12px] text-white/70 text-right">{linkedInv.notes}</span>
                                         </div>
                                       )}
                                     </div>
                                   )}
-                                </>
+                                </div>
                               );
-                            })()}
+                            })}
                           </div>
                         )}
                       </div>
