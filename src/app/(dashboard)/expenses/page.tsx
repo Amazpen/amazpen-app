@@ -1245,10 +1245,11 @@ function ExpensesPageInner() {
               manager_daily_cost: Number(e.manager_daily_cost) || 0,
             })).filter(e => e.labor_cost > 0 || e.manager_daily_cost > 0);
             setDailyLaborEntries(entries);
-            const rawTotal = entries.reduce((sum, e) => sum + e.labor_cost + e.manager_daily_cost, 0);
-            // Apply markup multiplier to match dashboard calculation (use local avgMarkup, not state)
+            // Labor * markup + manager (already loaded) — matching Bubble/dashboard formula
             const markupForLabor = avgMarkup > 0 ? avgMarkup : 1;
-            setTotalLaborFromDaily(rawTotal * markupForLabor);
+            const laborTotal = entries.reduce((sum, e) => sum + e.labor_cost, 0) * markupForLabor;
+            const managerTotal = entries.reduce((sum, e) => sum + e.manager_daily_cost, 0);
+            setTotalLaborFromDaily(laborTotal + managerTotal);
           }
         } else {
           setDailyLaborEntries([]);
@@ -3884,13 +3885,13 @@ function ExpensesPageInner() {
                 else if (laborSortCol === "labor_hours") cmp = a.labor_hours - b.labor_hours;
                 else if (laborSortCol === "manager_daily_cost") cmp = a.manager_daily_cost - b.manager_daily_cost;
                 else if (laborSortCol === "total") cmp = (a.labor_cost + a.manager_daily_cost) - (b.labor_cost + b.manager_daily_cost);
-                else if (laborSortCol === "total_with_markup") cmp = ((a.labor_cost + a.manager_daily_cost) * laborMarkupMultiplier) - ((b.labor_cost + b.manager_daily_cost) * laborMarkupMultiplier);
+                else if (laborSortCol === "total_with_markup") cmp = (a.labor_cost * laborMarkupMultiplier + a.manager_daily_cost) - (b.labor_cost * laborMarkupMultiplier + b.manager_daily_cost);
                 return laborSortOrder === "asc" ? cmp : -cmp;
               }).map((entry) => {
                 const dateObj = new Date(entry.entry_date);
                 const dateStr = `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${String(dateObj.getFullYear()).slice(2)}`;
                 const rowTotal = entry.labor_cost + entry.manager_daily_cost;
-                const rowTotalWithMarkup = Math.round(rowTotal * laborMarkupMultiplier);
+                const rowTotalWithMarkup = Math.round(entry.labor_cost * laborMarkupMultiplier + entry.manager_daily_cost);
                 return (
                   <div key={entry.entry_date} className="rounded-[7px] p-[7px_3px] border border-transparent">
                     <div className="grid grid-cols-[0.7fr_1.2fr_0.7fr_0.8fr_0.8fr_1fr] w-full p-[5px_5px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] items-center">
