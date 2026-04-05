@@ -3625,7 +3625,7 @@ function PaymentsPageInner() {
                                     <span className="text-[11px] text-white/50">({group.splits.length} תשלומים)</span>
                                   )}
                                 </div>
-                                <span className="text-[13px] font-medium ltr-num">₪{group.splits[0].amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="text-[13px] font-medium ltr-num">₪{group.splits.reduce((s, sp) => s + sp.amount, 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               </div>
                               {/* Show individual installments when there are multiple */}
                               {group.splits.length > 1 && (
