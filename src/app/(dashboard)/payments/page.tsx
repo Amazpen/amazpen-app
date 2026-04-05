@@ -2123,20 +2123,9 @@ function PaymentsPageInner() {
 
   // Update payment method field
   const updatePaymentMethodField = (id: number, field: keyof PaymentMethodEntry, value: string) => {
-    // Auto-set payment date for the first payment method entry
+    // Do NOT auto-set paymentDate (תאריך קבלה) when selecting payment methods —
+    // it's set by the user or defaults to today, and should not change based on payment method.
     const isFirstEntry = paymentMethods.length > 0 && paymentMethods[0].id === id;
-    if (isFirstEntry && field === "method" && value) {
-      const selectedInvoice = openInvoices.find(inv => selectedInvoiceIds.has(inv.id));
-      const invoiceDate = selectedInvoice ? toLocalDateStr(new Date(selectedInvoice.invoice_date)) : paymentDate;
-      const smartDate = getSmartPaymentDate(value, invoiceDate);
-      if (smartDate) setPaymentDate(smartDate);
-    }
-    if (isFirstEntry && field === "creditCardId" && value) {
-      const selectedInvoice = openInvoices.find(inv => selectedInvoiceIds.has(inv.id));
-      const invoiceDate = selectedInvoice ? toLocalDateStr(new Date(selectedInvoice.invoice_date)) : paymentDate;
-      const smartDate = getSmartPaymentDate("credit_card", invoiceDate, value);
-      if (smartDate) setPaymentDate(smartDate);
-    }
     // For non-first entries: when credit card is selected, recalculate installments with correct billing date
     if (!isFirstEntry && field === "creditCardId" && value) {
       const selectedInvoice = openInvoices.find(inv => selectedInvoiceIds.has(inv.id));
