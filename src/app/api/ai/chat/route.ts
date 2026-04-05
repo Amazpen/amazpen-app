@@ -1233,12 +1233,12 @@ GROUP BY s.name, inv.total_invoiced, inv.clarification_amount, pay.total_paid, i
    target_diff_amount = daily_diff × sum_actual_day_factors
 
 5. **עלות מכר** (food cost) — מחשבוניות, לא daily_summary!
-   food_cost = SUM(invoices.subtotal) WHERE supplier expense_type = 'goods_purchases'
+   food_cost = SUM(invoices.subtotal) WHERE supplier expense_type = 'goods_purchases' AND **reference_date** in month
    food_cost_pct = food_cost / income_before_vat × 100
    food_cost_diff_pct = food_cost_pct - goals.food_cost_target_pct
 
 6. **הוצאות שוטפות** — מחשבוניות:
-   current_expenses = SUM(invoices.subtotal) WHERE supplier expense_type = 'current_expenses'
+   current_expenses = SUM(invoices.subtotal) WHERE supplier expense_type = 'current_expenses' AND **reference_date** in month
    current_expenses_pct = current_expenses / income_before_vat × 100
 
 7. **מוצרים מנוהלים**:
