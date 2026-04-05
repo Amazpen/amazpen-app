@@ -4422,6 +4422,26 @@ function PaymentsPageInner() {
                 return null;
               })()}
 
+              {/* Payment mismatch warning */}
+              {(() => {
+                if (selectedInvoiceIds.size === 0) return null;
+                const paymentTotal = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0), 0);
+                const invoicesTotal = openInvoices
+                  .filter(inv => selectedInvoiceIds.has(inv.id))
+                  .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+                const diff = invoicesTotal - paymentTotal;
+                if (Math.abs(diff) <= 5) return null;
+                return (
+                  <div className="bg-red-500/20 border border-red-500/50 rounded-[10px] p-[10px] text-center">
+                    <span className="text-[14px] text-red-400 font-medium">
+                      {diff > 0
+                        ? `חסרים ₪${diff.toFixed(2)} לסגירת החשבוניות — לא ניתן לבצע תשלום חלקי`
+                        : `סכום התשלום עולה ב-₪${Math.abs(diff).toFixed(2)} על סכום החשבוניות`}
+                    </span>
+                  </div>
+                );
+              })()}
+
               {/* Action Buttons */}
               <div className="flex flex-col gap-[10px] mt-[20px]">
                 <Button
