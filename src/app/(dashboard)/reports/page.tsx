@@ -192,7 +192,7 @@ export default function ReportsPage() {
           .lte("entry_date", lastEnd),
         supabase
           .from("invoices")
-          .select("invoice_date, subtotal")
+          .select("invoice_date, reference_date, subtotal")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .in("invoice_type", ["current", "goods"])
@@ -245,9 +245,11 @@ export default function ReportsPage() {
 
       // Invoice expenses (goods + current, NOT employees — those come from daily_entries above)
       for (const inv of invoicesData || []) {
-        const key = inv.invoice_date?.substring(0, 7);
+        const amount = Number(inv.subtotal || 0);
+        if (amount < 0) continue; // Skip credit notes
+        const key = (inv.reference_date || inv.invoice_date)?.substring(0, 7);
         if (key && expensesByMonth.has(key)) {
-          expensesByMonth.set(key, (expensesByMonth.get(key) || 0) + Number(inv.subtotal || 0));
+          expensesByMonth.set(key, (expensesByMonth.get(key) || 0) + amount);
         }
       }
 
