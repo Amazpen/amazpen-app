@@ -266,6 +266,23 @@ export default function ReportsPage() {
     fetchTrends();
   }, [selectedBusinesses, selectedYear, selectedMonth]);
 
+  // Patch current month in chart with actual summary values so they always match
+  useEffect(() => {
+    if (trendsData.length === 0 || (summary.totalRevenue === 0 && summary.totalExpenses === 0)) return;
+    const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+    const month = parseInt(selectedMonth);
+    if (isNaN(month)) return;
+    const currentMonthLabel = monthNames[month - 1];
+    const lastEntry = trendsData[trendsData.length - 1];
+    if (lastEntry?.month !== currentMonthLabel) return;
+    const patchedIncome = Math.round(summary.totalRevenue);
+    const patchedExpenses = Math.round(summary.totalExpenses);
+    if (lastEntry.income === patchedIncome && lastEntry.expenses === patchedExpenses) return;
+    setTrendsData(prev => prev.map((d, i) =>
+      i === prev.length - 1 ? { ...d, income: patchedIncome, expenses: patchedExpenses } : d
+    ));
+  }, [summary, trendsData, selectedMonth]);
+
   // Fetch data from Supabase
   useEffect(() => {
     const fetchData = async () => {
