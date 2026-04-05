@@ -423,9 +423,10 @@ export default function ReportsPage() {
             const expType = supplier?.expense_type;
             const supplierId = (inv as unknown as { supplier_id: string | null }).supplier_id;
             const amount = Number(inv.subtotal);
-            // Track credits separately (#30)
+            // Skip credit notes / cancellations — don't count in expenses
             if (amount < 0) {
-              totalCredits += amount; // negative value
+              totalCredits += amount;
+              continue;
             }
             if (catId) {
               const current = categoryActuals.get(catId) || 0;
