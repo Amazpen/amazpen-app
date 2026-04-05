@@ -4030,7 +4030,7 @@ function ExpensesPageInner() {
 
               {/* Date Field */}
               <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">תאריך</label>
+                <label className="text-[15px] font-medium text-white text-right">תאריך ערך</label>
                 <DatePickerField
                   value={expenseDate}
                   onChange={(val) => {
@@ -4890,7 +4890,7 @@ function ExpensesPageInner() {
             <div className="flex flex-col gap-[15px] px-[5px]">
               {/* Date Field */}
               <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">תאריך</label>
+                <label className="text-[15px] font-medium text-white text-right">תאריך ערך</label>
                 <DatePickerField
                   value={expenseDate}
                   onChange={(val) => {
