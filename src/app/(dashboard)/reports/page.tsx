@@ -235,10 +235,12 @@ export default function ReportsPage() {
         const key = entry.entry_date?.substring(0, 7);
         if (key && incomeByMonth.has(key)) {
           incomeByMonth.set(key, (incomeByMonth.get(key) || 0) + Number(entry.total_register || 0) / vatDivisor);
-          // Add labor costs (with VAT loading) to expenses — matching the P&L report
-          const laborCost = (Number(entry.labor_cost) || 0) + (Number(entry.manager_daily_cost) || 0);
-          if (laborCost > 0) {
-            expensesByMonth.set(key, (expensesByMonth.get(key) || 0) + laborCost * vatDivisor);
+          // Add labor costs: labor * markup + manager (already loaded)
+          const entryLabor = Number(entry.labor_cost) || 0;
+          const entryManager = Number(entry.manager_daily_cost) || 0;
+          const entryLaborCost = entryLabor * markupMultiplier + entryManager;
+          if (entryLaborCost > 0) {
+            expensesByMonth.set(key, (expensesByMonth.get(key) || 0) + entryLaborCost);
           }
         }
       }
@@ -417,10 +419,10 @@ export default function ReportsPage() {
         const vatPercentage = Number(businessData?.[0]?.vat_percentage || 0);
         const vatDivisor = vatPercentage > 0 ? 1 + vatPercentage : 1;
 
-        const laborMarkup = vatDivisor; // העמסה על עובדים = מע"מ, לא markup עסקי
-        const totalLaborCost = (rawLaborCost + (managerDailyCost * actualWorkDays)) * laborMarkup;
-        const laborOnlyCost = rawLaborCost * laborMarkup;
-        const managerOnlyCost = managerDailyCost * actualWorkDays * laborMarkup;
+        // Labor: labor * markup + manager from daily_entries (already loaded)
+        const totalLaborCost = rawLaborCost * avgMarkup + rawManagerCost;
+        const laborOnlyCost = rawLaborCost * avgMarkup;
+        const managerOnlyCost = rawManagerCost;
         void rawManagerCost;
         const totalRevenue = totalRegister / vatDivisor;
 
