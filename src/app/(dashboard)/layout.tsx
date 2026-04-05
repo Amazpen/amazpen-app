@@ -93,8 +93,8 @@ const adminMenuItems = [
   { id: 116, label: "ייבוא תקציבי ספקים", href: "/admin/supplier-budgets", key: "admin-supplier-budgets" },
   { id: 111, label: "בדיקה ורישום בהנה\"ח", href: "/admin/accounting-review", key: "admin-accounting-review" },
   { id: 112, label: "משתמשים מחוברים", href: "/admin/online-users", key: "admin-online-users" },
-  { id: 113, label: "חריגות ימי עסקים", href: "/admin/day-exceptions", key: "admin-day-exceptions" },
   { id: 114, label: "תכניות בונוסים", href: "/admin/bonus-plans", key: "admin-bonus-plans" },
+  { id: 113, label: "חריגות ימי עסקים", href: "/admin/day-exceptions", key: "admin-day-exceptions" },
 ];
 
 // Page titles mapping
