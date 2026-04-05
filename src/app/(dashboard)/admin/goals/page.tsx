@@ -127,6 +127,7 @@ export default function AdminGoalsPage() {
 
   // Tabs
   const [activeTab, setActiveTab] = usePersistedState<"kpi" | "suppliers">("admin-goals:tab", "kpi");
+  const [supplierSearch, setSupplierSearch] = useState("");
 
   // Redirect if not admin
   useEffect(() => {
@@ -948,6 +949,16 @@ export default function AdminGoalsPage() {
           ) : (
             /* Supplier Budgets Tab - 12 Month Table */
             <div className="bg-[#1A1F37] rounded-xl overflow-hidden">
+              {/* Search bar */}
+              <div className="px-4 pt-4 pb-2">
+                <Input
+                  type="text"
+                  placeholder="חיפוש ספק..."
+                  value={supplierSearch}
+                  onChange={(e) => setSupplierSearch(e.target.value)}
+                  className="w-full bg-[#0F1535] border border-[#29318A] rounded-lg px-4 py-3 text-white text-right focus:outline-none focus:border-[#4956D4] placeholder:text-white/30"
+                />
+              </div>
               <div className="overflow-x-auto">
                 <Table className="w-full min-w-[900px] border-collapse">
                   <TableHeader>
@@ -963,10 +974,13 @@ export default function AdminGoalsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {currentExpensesSuppliers.map((supplier) => (
-                      <TableRow key={supplier.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-                        <TableCell className="sticky right-0 z-10 bg-[#1A1F37] px-4 py-2 text-sm text-white/90 font-medium">{supplier.name}</TableCell>
-                        <TableCell className="px-2 py-2 text-xs text-white/40">{supplier.is_fixed_expense ? "קבוע" : "משתנה"}</TableCell>
+                    {currentExpensesSuppliers
+                      .filter(s => !supplierSearch || s.name.toLowerCase().includes(supplierSearch.toLowerCase()))
+                      .sort((a, b) => (a.is_fixed_expense === b.is_fixed_expense ? 0 : a.is_fixed_expense ? -1 : 1))
+                      .map((supplier) => (
+                      <TableRow key={supplier.id} className={`border-b border-white/5 hover:bg-white/[0.02] ${supplier.is_fixed_expense ? "bg-[#7C3AED]/10" : ""}`}>
+                        <TableCell className={`sticky right-0 z-10 px-4 py-2 text-sm font-medium ${supplier.is_fixed_expense ? "bg-[#7C3AED]/15 text-[#C084FC]" : "bg-[#1A1F37] text-white/90"}`}>{supplier.name}</TableCell>
+                        <TableCell className={`px-2 py-2 text-xs ${supplier.is_fixed_expense ? "text-[#C084FC] font-medium" : "text-white/40"}`}>{supplier.is_fixed_expense ? "קבוע" : "משתנה"}</TableCell>
                         {hebrewMonths.map((m) => {
                           const budget = getBudget(supplier.id, m.value);
                           return (
