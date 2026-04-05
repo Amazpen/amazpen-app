@@ -3568,15 +3568,28 @@ function ExpensesPageInner() {
                         ת. משלוח
                       </span>
                     ) : invoice.approval_status === 'pending_review' ? (
-                      <button
-                        className="text-[12px] font-bold px-[14px] py-[5px] rounded-full bg-white/20 text-white/60 hover:bg-green-500 hover:text-white transition-colors whitespace-nowrap min-w-[70px] text-center"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          approveInvoice(invoice.id);
-                        }}
-                      >
-                        ממתין לבדיקה ✓
-                      </button>
+                      <div className="flex items-center gap-[4px]">
+                        {invoice.attachmentUrls.length > 0 && (
+                          <button
+                            className="w-[28px] h-[28px] rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                            title="צפייה במסמך"
+                            onClick={(e) => { e.stopPropagation(); setViewerDocUrl(invoice.attachmentUrls[0]); }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/70">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                            </svg>
+                          </button>
+                        )}
+                        <button
+                          className="text-[12px] font-bold px-[14px] py-[5px] rounded-full bg-white/20 text-white/60 hover:bg-green-500 hover:text-white transition-colors whitespace-nowrap min-w-[70px] text-center"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            approveInvoice(invoice.id);
+                          }}
+                        >
+                          ממתין לבדיקה ✓
+                        </button>
+                      </div>
                     ) : (
                       <Button
                         type="button"
@@ -3614,6 +3627,36 @@ function ExpensesPageInner() {
                 {/* Expanded Content */}
                 {expandedInvoiceId === invoice.id && (
                   <div className="flex flex-col gap-[20px] p-[5px] mt-[10px]">
+                    {/* OCR Pending Review Banner */}
+                    {invoice.approval_status === 'pending_review' && (
+                      <div className="border border-[#bc76ff]/50 rounded-[7px] p-[10px] flex items-center justify-between bg-[#bc76ff]/10">
+                        <div className="flex items-center gap-[8px]">
+                          {invoice.attachmentUrls.length > 0 && (
+                            <Button
+                              type="button"
+                              onClick={() => setViewerDocUrl(invoice.attachmentUrls[0])}
+                              className="h-[34px] px-[12px] bg-white/10 hover:bg-white/20 rounded-[7px] text-white text-[13px] font-medium transition-colors flex items-center gap-[5px]"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                              </svg>
+                              צפייה במסמך
+                            </Button>
+                          )}
+                          <a
+                            href="/ocr"
+                            className="h-[34px] px-[12px] bg-[#bc76ff] hover:bg-[#a855f7] rounded-[7px] text-white text-[13px] font-medium transition-colors flex items-center gap-[5px]"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                            </svg>
+                            לאישור ב-OCR
+                          </a>
+                        </div>
+                        <span className="text-[13px] text-[#bc76ff] font-medium">ממתין לאישור סופי</span>
+                      </div>
+                    )}
+
                     {/* Notes Section - only show if has notes */}
                     {invoice.notes && invoice.notes.trim() !== "" && (
                       <div className="border border-white/50 rounded-[7px] p-[3px] flex flex-col gap-[3px]">
