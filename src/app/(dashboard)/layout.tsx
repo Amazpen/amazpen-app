@@ -417,6 +417,25 @@ export default function DashboardLayout({
     }
   }, [isMounted, fetchNotifications]);
 
+  // Auto-generate recurring fixed expenses for current month (fire-and-forget)
+  useEffect(() => {
+    if (!isMounted || selectedBusinesses.length === 0) return;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const key = `recurring-expenses-generated-${year}-${month}`;
+    if (localStorage.getItem(key)) return; // Already triggered this month
+    localStorage.setItem(key, "true");
+    // Generate for each selected business
+    for (const bizId of selectedBusinesses) {
+      fetch("/api/recurring-expenses/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ business_id: bizId, year, month }),
+      }).catch(() => {}); // Fire-and-forget
+    }
+  }, [isMounted, selectedBusinesses]);
+
   // Global Realtime subscription for all important tables
   useMultiTableRealtime(
     ["notifications", "businesses", "daily_entries", "tasks", "invoices", "payments", "suppliers", "goals"],
