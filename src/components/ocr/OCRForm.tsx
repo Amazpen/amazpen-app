@@ -352,6 +352,22 @@ export default function OCRForm({
   const isPearla = selectedBusinessName?.includes("פרלה") || false;
   const businessVatRate = Number(selectedBusiness?.vat_percentage) || DEFAULT_businessVatRate;
 
+  // Load credit cards for all document types (needed for payment methods)
+  useEffect(() => {
+    if (!selectedBusinessId) return;
+    const loadCreditCards = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('business_credit_cards')
+        .select('id, card_name, billing_day')
+        .eq('business_id', selectedBusinessId)
+        .eq('is_active', true)
+        .order('card_name');
+      if (data) setBusinessCreditCards(data);
+    };
+    loadCreditCards();
+  }, [selectedBusinessId]);
+
   // Load dynamic data for daily entry tab
   useEffect(() => {
     if (documentType !== 'daily_entry' || !selectedBusinessId) return;
@@ -2740,6 +2756,18 @@ export default function OCRForm({
       <div className="flex items-center justify-between px-4 py-3 bg-[#0F1535] border-b border-[#4C526B]">
         <h2 className="text-[18px] font-bold text-white">פרטי מסמך</h2>
       </div>
+
+      {/* Rejection reason banner for archived documents */}
+      {document.status === 'archived' && document.rejection_reason && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-[#EB5757]/15 border-b border-[#EB5757]/30" dir="rtl">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EB5757" strokeWidth="2" className="shrink-0">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="15" y1="9" x2="9" y2="15" />
+            <line x1="9" y1="9" x2="15" y2="15" />
+          </svg>
+          <span className="text-[13px] text-[#EB5757] font-medium">סיבת דחיה: {document.rejection_reason}</span>
+        </div>
+      )}
 
       {/* Business Selector */}
       <div className="px-4 py-2 bg-[#0F1535] border-b border-[#4C526B]" dir="rtl">
