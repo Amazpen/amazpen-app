@@ -74,54 +74,58 @@ export function ConsolidatedInvoiceModal({
   const [isLoadingBusinesses, setIsLoadingBusinesses] = useState(true);
   const [isLoadingSuppliers, setIsLoadingSuppliers] = useState(false);
 
-  // Delivery notes state - Bubble-style with month selector + checkboxes
+  // Delivery notes state - accordion by month/year
   const [allDeliveryNotes, setAllDeliveryNotes] = useState<DBDeliveryNote[]>([]);
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1); // 1-12
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedNoteIds, setSelectedNoteIds] = useState<Set<string>>(new Set());
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
 
-  // Available months from delivery notes
-  const availableMonths = useMemo(() => {
-    const months = new Set<string>();
+  // Group delivery notes by year-month, sorted descending
+  const groupedNotes = useMemo(() => {
+    const groups = new Map<string, DBDeliveryNote[]>();
     allDeliveryNotes.forEach(note => {
       const d = new Date(note.delivery_date);
-      months.add(`${d.getFullYear()}-${d.getMonth() + 1}`);
+      const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(note);
     });
-    return months;
+    // Sort keys descending (newest first)
+    const sorted = Array.from(groups.entries()).sort((a, b) => {
+      const [aY, aM] = a[0].split('-').map(Number);
+      const [bY, bM] = b[0].split('-').map(Number);
+      return bY !== aY ? bY - aY : bM - aM;
+    });
+    return sorted;
   }, [allDeliveryNotes]);
-
-  // Filter delivery notes by selected month
-  const filteredNotes = useMemo(() => {
-    return allDeliveryNotes.filter(note => {
-      const d = new Date(note.delivery_date);
-      return d.getMonth() + 1 === selectedMonth && d.getFullYear() === selectedYear;
-    });
-  }, [allDeliveryNotes, selectedMonth, selectedYear]);
-
-  // Get unique years from notes
-  const availableYears = useMemo(() => {
-    const years = new Set<number>();
-    allDeliveryNotes.forEach(note => {
-      years.add(new Date(note.delivery_date).getFullYear());
-    });
-    // Always include current year
-    years.add(new Date().getFullYear());
-    return Array.from(years).sort((a, b) => b - a);
-  }, [allDeliveryNotes]);
-
-  // Selected notes from filtered view
-  const selectedFilteredNotes = useMemo(() => {
-    return filteredNotes.filter(n => selectedNoteIds.has(n.id));
-  }, [filteredNotes, selectedNoteIds]);
 
   // All selected notes (across all months)
   const allSelectedNotes = useMemo(() => {
     return allDeliveryNotes.filter(n => selectedNoteIds.has(n.id));
   }, [allDeliveryNotes, selectedNoteIds]);
 
-  // Are all filtered notes selected?
-  const allFilteredSelected = filteredNotes.length > 0 && filteredNotes.every(n => selectedNoteIds.has(n.id));
+  // Toggle month accordion
+  const toggleMonth = (monthKey: string) => {
+    setExpandedMonths(prev => {
+      const next = new Set(prev);
+      if (next.has(monthKey)) next.delete(monthKey);
+      else next.add(monthKey);
+      return next;
+    });
+  };
+
+  // Toggle select all notes in a specific month group
+  const toggleSelectAllInGroup = (notes: DBDeliveryNote[]) => {
+    const allSelected = notes.every(n => selectedNoteIds.has(n.id));
+    setSelectedNoteIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) {
+        notes.forEach(n => next.delete(n.id));
+      } else {
+        notes.forEach(n => next.add(n.id));
+      }
+      return next;
+    });
+  };
 
   // Save draft on form changes
   const saveDraftData = useCallback(() => {
@@ -279,12 +283,7 @@ export function ConsolidatedInvoiceModal({
 
       if (data) {
         setAllDeliveryNotes(data);
-        // Auto-select month of first note if available
-        if (data.length > 0) {
-          const firstDate = new Date(data[0].delivery_date);
-          setSelectedMonth(firstDate.getMonth() + 1);
-          setSelectedYear(firstDate.getFullYear());
-        }
+        setExpandedMonths(new Set());
       } else {
         setAllDeliveryNotes([]);
       }
@@ -307,22 +306,13 @@ export function ConsolidatedInvoiceModal({
     });
   };
 
-  // Toggle select all filtered notes
+  // Toggle select all notes (all months)
   const toggleSelectAll = () => {
-    if (allFilteredSelected) {
-      // Deselect all filtered
-      setSelectedNoteIds(prev => {
-        const next = new Set(prev);
-        filteredNotes.forEach(n => next.delete(n.id));
-        return next;
-      });
+    const allSelected = allDeliveryNotes.length > 0 && allDeliveryNotes.every(n => selectedNoteIds.has(n.id));
+    if (allSelected) {
+      setSelectedNoteIds(new Set());
     } else {
-      // Select all filtered
-      setSelectedNoteIds(prev => {
-        const next = new Set(prev);
-        filteredNotes.forEach(n => next.add(n.id));
-        return next;
-      });
+      setSelectedNoteIds(new Set(allDeliveryNotes.map(n => n.id)));
     }
   };
 
@@ -390,8 +380,7 @@ export function ConsolidatedInvoiceModal({
     setUploadedFiles([]);
     setAllDeliveryNotes([]);
     setSelectedNoteIds(new Set());
-    setSelectedMonth(new Date().getMonth() + 1);
-    setSelectedYear(new Date().getFullYear());
+    setExpandedMonths(new Set());
   };
 
   // Close popup
@@ -587,166 +576,154 @@ export function ConsolidatedInvoiceModal({
             </p>
           )}
 
-          {/* Month Selector - like Bubble */}
+          {/* Delivery Notes - Accordion by Month */}
           {selectedSupplierId && (
-            <div className="flex flex-col gap-[5px]">
-              <label className="text-[15px] font-medium text-white text-right">בחירת חודש:</label>
-
-              {/* Year selector if multiple years */}
-              {availableYears.length > 1 && (
-                <div className="flex items-center justify-end gap-[10px] mb-[5px]">
-                  {availableYears.map(year => (
-                    <button
-                      key={year}
-                      type="button"
-                      onClick={() => setSelectedYear(year)}
-                      className={`px-[12px] py-[4px] rounded-[7px] text-[14px] transition-all border ${
-                        selectedYear === year
-                          ? "border-white bg-white/10 text-white font-bold"
-                          : "border-white/20 text-white/60 hover:border-white/40"
-                      }`}
-                    >
-                      {year}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Month buttons */}
-              <div className="flex flex-col gap-[10px]">
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(month => {
-                  const key = `${selectedYear}-${month}`;
-                  const hasNotes = availableMonths.has(key);
-                  const isSelected = selectedMonth === month && selectedYear === selectedYear;
-                  const noteCount = allDeliveryNotes.filter(n => {
-                    const d = new Date(n.delivery_date);
-                    return d.getMonth() + 1 === month && d.getFullYear() === selectedYear;
-                  }).length;
-
-                  if (!hasNotes) return null; // Only show months that have delivery notes
-
-                  return (
-                    <button
-                      key={month}
-                      type="button"
-                      onClick={() => setSelectedMonth(month)}
-                      className={`flex items-center justify-between w-full min-h-[45px] rounded-[7px] px-[12px] py-[7px] transition-all border cursor-pointer ${
-                        isSelected && selectedMonth === month
-                          ? "border-white bg-white/10"
-                          : "border-white/20 hover:border-white/40"
-                      }`}
-                    >
-                      <span className="text-[13px] text-white/50">
-                        {noteCount} תעודות
-                      </span>
-                      <span className="text-[16px] text-white">
-                        חודש {HEBREW_MONTHS[month - 1]}
-                      </span>
-                    </button>
-                  );
-                })}
-
-                {allDeliveryNotes.length === 0 && !isLoadingNotes && (
-                  <div className="text-center text-white/35 text-[20px] font-bold py-[20px]">
-                    אין תעודות משלוח
-                  </div>
-                )}
-
-                {isLoadingNotes && (
-                  <div className="text-center text-white/50 text-[14px] py-[20px]">
-                    טוען תעודות משלוח...
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Delivery Notes Table - like Bubble */}
-          {selectedSupplierId && filteredNotes.length > 0 && (
             <div className="flex flex-col gap-[10px]">
               <label className="text-[15px] font-medium text-white text-right">
                 בחירת תעודות משלוח לסגירה:
               </label>
 
-              <div className="flex flex-col border border-[#4C526B] rounded-[10px] overflow-hidden" dir="rtl">
-                {/* Table Header */}
-                <div className="flex items-center gap-[10px] border-b border-[#4C526B] px-[7px] py-[7px] min-h-[40px]">
-                  <div className="flex items-center gap-[3px] w-[80px] justify-start">
+              {isLoadingNotes && (
+                <div className="text-center text-white/50 text-[14px] py-[20px]">
+                  טוען תעודות משלוח...
+                </div>
+              )}
+
+              {!isLoadingNotes && allDeliveryNotes.length === 0 && (
+                <div className="text-center text-white/35 text-[20px] font-bold py-[20px]">
+                  אין תעודות משלוח
+                </div>
+              )}
+
+              {groupedNotes.map(([monthKey, notes]) => {
+                const [year, month] = monthKey.split('-').map(Number);
+                const isExpanded = expandedMonths.has(monthKey);
+                const selectedInGroup = notes.filter(n => selectedNoteIds.has(n.id)).length;
+                const allGroupSelected = notes.length > 0 && notes.every(n => selectedNoteIds.has(n.id));
+                const groupTotal = notes.reduce((sum, n) => sum + Number(n.total_amount), 0);
+
+                return (
+                  <div key={monthKey} className="flex flex-col border border-[#4C526B] rounded-[10px] overflow-hidden">
+                    {/* Month Header - clickable to expand/collapse */}
                     <button
                       type="button"
-                      onClick={toggleSelectAll}
-                      className="w-[18px] h-[18px] flex items-center justify-center border border-white/60 rounded-[3px] transition-colors"
-                      style={{
-                        backgroundColor: allFilteredSelected ? "#3CD856" : "transparent",
-                        borderColor: allFilteredSelected ? "#3CD856" : "rgba(255,255,255,0.6)",
-                      }}
+                      onClick={() => toggleMonth(monthKey)}
+                      className={`flex items-center justify-between w-full px-[12px] py-[10px] transition-all ${
+                        isExpanded ? "bg-[#29318A]/30" : "hover:bg-white/5"
+                      }`}
                     >
-                      {allFilteredSelected && <Check className="w-[14px] h-[14px] text-white" />}
-                    </button>
-                    <span className="text-[14px] text-white">בחר/י הכל</span>
-                  </div>
-                  <div className="flex-1 text-center text-[14px] text-white">אסמכתא</div>
-                  <div className="flex-1 text-center text-[14px] text-white">לפני מע&quot;מ</div>
-                  <div className="flex-1 text-center text-[14px] text-white">אחרי מע&quot;מ</div>
-                </div>
-
-                {/* Table Rows */}
-                <div className="max-h-[300px] overflow-y-auto">
-                  {filteredNotes.map(note => {
-                    const isSelected = selectedNoteIds.has(note.id);
-                    return (
-                      <button
-                        type="button"
-                        key={note.id}
-                        onClick={() => toggleNoteSelection(note.id)}
-                        className={`flex items-center gap-[10px] w-full px-[7px] py-[7px] min-h-[45px] rounded-[7px] mx-[3px] my-[3px] transition-all cursor-pointer ${
-                          isSelected ? "bg-white/10" : "hover:bg-white/5"
-                        }`}
-                        style={{ width: "calc(100% - 6px)" }}
-                      >
-                        <div className="flex items-center gap-[3px] w-[80px] justify-start">
-                          <div
-                            className="w-[20px] h-[20px] flex items-center justify-center border rounded-[3px] shrink-0 transition-colors"
-                            style={{
-                              backgroundColor: isSelected ? "#3CD856" : "transparent",
-                              borderColor: isSelected ? "#3CD856" : "rgba(255,255,255,0.6)",
-                            }}
-                          >
-                            {isSelected && <Check className="w-[14px] h-[14px] text-white" />}
-                          </div>
-                          <span className="text-[14px] text-white font-bold">
-                            {formatDateShort(note.delivery_date)}
+                      <div className="flex items-center gap-[8px]">
+                        <svg
+                          width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
+                          className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                        >
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                        <span className="text-[13px] text-white/50">
+                          סה&quot;כ ₪{formatNumber(groupTotal)}
+                        </span>
+                        {selectedInGroup > 0 && (
+                          <span className="text-[12px] text-[#3CD856] bg-[#3CD856]/15 px-[8px] py-[2px] rounded-full">
+                            {selectedInGroup} נבחרו
                           </span>
-                        </div>
-                        <div className="flex-1 text-center text-[16px] text-white font-bold">
-                          {note.delivery_note_number || "-"}
-                        </div>
-                        <div className="flex-1 text-center text-[16px] text-white font-bold">
-                          ₪{formatNumber(Number(note.subtotal))}
-                        </div>
-                        <div className="flex-1 text-center text-[16px] text-white font-bold">
-                          ₪{formatNumber(Number(note.total_amount))}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-[8px]">
+                        <span className="text-[16px] text-white font-medium">
+                          {HEBREW_MONTHS[month - 1]} {year}
+                        </span>
+                        <span className="text-[13px] text-white/50">
+                          {notes.length} תעודות
+                        </span>
+                      </div>
+                    </button>
 
-              {/* Summary Stats - like Bubble */}
-              <div className="flex flex-col gap-[5px] border border-white/35 rounded-[10px] p-[5px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[16px] text-white">
-                    מספר שורות שנבחרו: {selectedNoteIds.size}
-                  </span>
-                  <span className="text-[16px] text-white">
-                    מספר שורות: {filteredNotes.length}
-                  </span>
+                    {/* Expanded Content */}
+                    {isExpanded && (
+                      <div dir="rtl">
+                        {/* Table Header */}
+                        <div className="flex items-center gap-[10px] border-t border-b border-[#4C526B] px-[7px] py-[7px] min-h-[40px] bg-[#0a0e2a]">
+                          <div className="flex items-center gap-[3px] w-[80px] justify-start">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); toggleSelectAllInGroup(notes); }}
+                              className="w-[18px] h-[18px] flex items-center justify-center border border-white/60 rounded-[3px] transition-colors"
+                              style={{
+                                backgroundColor: allGroupSelected ? "#3CD856" : "transparent",
+                                borderColor: allGroupSelected ? "#3CD856" : "rgba(255,255,255,0.6)",
+                              }}
+                            >
+                              {allGroupSelected && <Check className="w-[14px] h-[14px] text-white" />}
+                            </button>
+                            <span className="text-[13px] text-white/70">הכל</span>
+                          </div>
+                          <div className="flex-1 text-center text-[13px] text-white/70">אסמכתא</div>
+                          <div className="flex-1 text-center text-[13px] text-white/70">לפני מע&quot;מ</div>
+                          <div className="flex-1 text-center text-[13px] text-white/70">אחרי מע&quot;מ</div>
+                        </div>
+
+                        {/* Table Rows */}
+                        <div className="max-h-[250px] overflow-y-auto">
+                          {notes.map(note => {
+                            const isSelected = selectedNoteIds.has(note.id);
+                            return (
+                              <button
+                                type="button"
+                                key={note.id}
+                                onClick={() => toggleNoteSelection(note.id)}
+                                className={`flex items-center gap-[10px] w-full px-[7px] py-[7px] min-h-[45px] transition-all cursor-pointer ${
+                                  isSelected ? "bg-white/10" : "hover:bg-white/5"
+                                }`}
+                              >
+                                <div className="flex items-center gap-[3px] w-[80px] justify-start">
+                                  <div
+                                    className="w-[20px] h-[20px] flex items-center justify-center border rounded-[3px] shrink-0 transition-colors"
+                                    style={{
+                                      backgroundColor: isSelected ? "#3CD856" : "transparent",
+                                      borderColor: isSelected ? "#3CD856" : "rgba(255,255,255,0.6)",
+                                    }}
+                                  >
+                                    {isSelected && <Check className="w-[14px] h-[14px] text-white" />}
+                                  </div>
+                                  <span className="text-[14px] text-white font-bold">
+                                    {formatDateShort(note.delivery_date)}
+                                  </span>
+                                </div>
+                                <div className="flex-1 text-center text-[16px] text-white font-bold">
+                                  {note.delivery_note_number || "-"}
+                                </div>
+                                <div className="flex-1 text-center text-[16px] text-white font-bold">
+                                  ₪{formatNumber(Number(note.subtotal))}
+                                </div>
+                                <div className="flex-1 text-center text-[16px] text-white font-bold">
+                                  ₪{formatNumber(Number(note.total_amount))}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Summary Stats */}
+              {selectedNoteIds.size > 0 && (
+                <div className="flex flex-col gap-[5px] border border-white/35 rounded-[10px] p-[5px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[16px] text-white">
+                      מספר שורות שנבחרו: {selectedNoteIds.size}
+                    </span>
+                    <span className="text-[16px] text-white">
+                      סה&quot;כ תעודות: {allDeliveryNotes.length}
+                    </span>
+                  </div>
+                  <div className="text-right text-[16px] text-white">
+                    סה&quot;כ תעודות משלוח שנבחרו: ₪{formatNumber(selectedTotal)}
+                  </div>
                 </div>
-                <div className="text-right text-[16px] text-white">
-                  סה&quot;כ תעודות משלוח שנבחרו: ₪{formatNumber(selectedTotal)}
-                </div>
-              </div>
+              )}
             </div>
           )}
 
