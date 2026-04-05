@@ -583,14 +583,33 @@ export default function DashboardPage() {
       // Calculate today's income
       const todayTotalIncome = todayEntries.reduce((sum: number, e: Record<string, unknown>) => sum + (Number(e.total_register) || 0), 0);
 
-      // Calculate today's labor cost: labor * markup + manager (already loaded in daily_entries)
+      // Calculate today's labor cost: (labor + manager_daily_cost) × markup — same as metrics/refresh
       const todayRawLaborCost = todayEntries.reduce((sum: number, e: Record<string, unknown>) => sum + (Number(e.labor_cost) || 0), 0);
-      const todayRawManagerCost = todayEntries.reduce((sum: number, e: Record<string, unknown>) => sum + (Number(e.manager_daily_cost) || 0), 0);
       const totalMarkup = businessData.reduce((sum, b) => {
         const bGoal = goalsData.find((g: Record<string, unknown>) => g.business_id === b.id);
         return sum + (bGoal?.markup_percentage != null ? Number(bGoal.markup_percentage) : (Number(b.markup_percentage) || 1));
       }, 0) / Math.max(businessData.length, 1);
-      const todayLaborCost = todayRawLaborCost * totalMarkup + todayRawManagerCost;
+      const todayManagerSalary = businessData.reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
+      const todayDayFactors = todayEntries.reduce((sum: number, e: Record<string, unknown>) => sum + (Number(e.day_factor) || 0), 0);
+      // Use schedule-based expected work days for manager daily cost
+      const todayScheduleDayFactors: Record<number, number[]> = {};
+      (scheduleResult.data || []).forEach((sc: { day_of_week: number; day_factor: number }) => {
+        if (!todayScheduleDayFactors[sc.day_of_week]) todayScheduleDayFactors[sc.day_of_week] = [];
+        todayScheduleDayFactors[sc.day_of_week].push(Number(sc.day_factor) || 0);
+      });
+      const todayAvgSchedule: Record<number, number> = {};
+      Object.keys(todayScheduleDayFactors).forEach(dow => {
+        const factors = todayScheduleDayFactors[Number(dow)];
+        todayAvgSchedule[Number(dow)] = factors.reduce((a, b) => a + b, 0) / factors.length;
+      });
+      const now = new Date();
+      const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      let todayExpectedWorkDays = 0;
+      for (let d = 1; d <= daysInCurrentMonth; d++) {
+        todayExpectedWorkDays += todayAvgSchedule[new Date(now.getFullYear(), now.getMonth(), d).getDay()] || 0;
+      }
+      const todayManagerDailyCost = todayExpectedWorkDays > 0 ? todayManagerSalary / todayExpectedWorkDays : 0;
+      const todayLaborCost = (todayRawLaborCost + todayManagerDailyCost * todayDayFactors) * totalMarkup;
 
       // Schedule data for other calculations
       const scheduleData = scheduleResult.data || [];
@@ -1073,13 +1092,9 @@ export default function DashboardPage() {
         const businessEntries = entries?.filter((e) => e.business_id === business.id) || [];
         const totalIncome = businessEntries.reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
         const rawLaborCost = businessEntries.reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
-        const rawManagerCost = businessEntries.reduce((sum, e) => sum + (Number(e.manager_daily_cost) || 0), 0);
-
         const businessGoal = goalsData?.find((g: Record<string, unknown>) => g.business_id === business.id);
         const vatPercentage = businessGoal?.vat_percentage != null ? Number(businessGoal.vat_percentage) : (Number(business.vat_percentage) || 0);
         const markupPercentage = businessGoal?.markup_percentage != null ? Number(businessGoal.markup_percentage) : (Number(business.markup_percentage) || 1);
-        // Labor loading: labor * markup + manager (already loaded in daily_entries)
-        const laborCost = rawLaborCost * markupPercentage + rawManagerCost;
 
         const businessSchedule = (scheduleData || []).filter(s => s.business_id === business.id);
         const dayFactorsByDow: Record<number, number> = {};
@@ -1095,6 +1110,11 @@ export default function DashboardPage() {
           currentDateCalc.setDate(currentDateCalc.getDate() + 1);
         }
         const actualWorkDays = businessEntries.reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
+
+        // Labor cost: (labor + manager_daily_cost × actual_work_days) × markup — same as metrics/refresh
+        const cardManagerSalary = Number(business.manager_monthly_salary) || 0;
+        const cardManagerDailyCost = expectedWorkDaysInMonth > 0 ? cardManagerSalary / expectedWorkDaysInMonth : 0;
+        const laborCost = (rawLaborCost + cardManagerDailyCost * actualWorkDays) * markupPercentage;
 
         const vatDivisor = vatPercentage > 0 ? 1 + vatPercentage : 1;
         const incomeBeforeVat = totalIncome / vatDivisor;
@@ -1413,8 +1433,9 @@ export default function DashboardPage() {
       const managerDailyCost = effectiveWorkDays > 0 ? totalManagerSalary / effectiveWorkDays : 0;
       const actualWorkDays = (entries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
 
-      // Labor cost: labor * markup + manager from daily_entries (already loaded)
-      const laborCost = rawLaborCost * totalMarkup + rawManagerCostFromEntries;
+      // Labor cost: (labor + manager_daily_cost × actual_work_days) × markup — same as metrics/refresh
+      const computedManagerCost = managerDailyCost * actualWorkDays;
+      const laborCost = (rawLaborCost + computedManagerCost) * totalMarkup;
 
       // Get average VAT percentage - use monthly goal values with business defaults as fallback
       // Normalize: if stored as multiplier (>1), convert to fraction
