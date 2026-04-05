@@ -2053,7 +2053,9 @@ function PaymentsPageInner() {
 
     const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
     const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
-    const firstDueDate = calculateCreditCardDueDate(paymentDateStr, billingDay);
+    // Use paymentDate directly if it's already the billing date, otherwise calculate
+    const payDateDay = new Date(paymentDateStr).getDate();
+    const firstDueDate = payDateDay === billingDay ? paymentDateStr : calculateCreditCardDueDate(paymentDateStr, billingDay);
 
     const result = [];
     // Parse firstDueDate manually to avoid UTC timezone shift
@@ -2081,7 +2083,7 @@ function PaymentsPageInner() {
     return paymentDate;
   };
 
-  // Add new payment method entry - inherits the first payment method's start date
+  // Add new payment method entry - auto-fill remaining balance
   // If the last entry was a check with a check number, auto-increment it
   const addPaymentMethodEntry = () => {
     const newId = Math.max(...paymentMethods.map(p => p.id)) + 1;
@@ -2091,7 +2093,6 @@ function PaymentsPageInner() {
     let newMethod = "";
     if (lastEntry && lastEntry.method === "check") {
       newMethod = "check";
-      // Get the check number from the last entry (single or last installment)
       const lastCheckNum = lastEntry.checkNumber ||
         (lastEntry.customInstallments.length > 0
           ? lastEntry.customInstallments[lastEntry.customInstallments.length - 1].checkNumber
@@ -2100,9 +2101,16 @@ function PaymentsPageInner() {
         newCheckNumber = String(parseInt(lastCheckNum) + 1);
       }
     }
+    // Calculate remaining balance
+    const totalInvoice = Array.from(selectedInvoiceIds).reduce((sum, invId) => {
+      const inv = openInvoices.find(i => i.id === invId);
+      return sum + (inv ? Number(inv.total_amount) : 0);
+    }, 0);
+    const allocatedSoFar = paymentMethods.reduce((sum, p) => sum + (parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0), 0);
+    const remaining = Math.max(0, Math.round((totalInvoice - allocatedSoFar) * 100) / 100);
     setPaymentMethods(prev => [
       ...prev,
-      { id: newId, method: newMethod, amount: "", installments: "1", checkNumber: newCheckNumber, creditCardId: "", customInstallments: generateInstallments(1, 0, startDate) }
+      { id: newId, method: newMethod, amount: remaining > 0 ? String(remaining) : "", installments: "1", checkNumber: newCheckNumber, creditCardId: "", customInstallments: generateInstallments(1, remaining, startDate) }
     ]);
   };
 
@@ -2115,7 +2123,7 @@ function PaymentsPageInner() {
 
   // Update payment method field
   const updatePaymentMethodField = (id: number, field: keyof PaymentMethodEntry, value: string) => {
-    // Auto-set payment date only for the first payment method entry
+    // Auto-set payment date for the first payment method entry
     const isFirstEntry = paymentMethods.length > 0 && paymentMethods[0].id === id;
     if (isFirstEntry && field === "method" && value) {
       const selectedInvoice = openInvoices.find(inv => selectedInvoiceIds.has(inv.id));
@@ -2128,6 +2136,27 @@ function PaymentsPageInner() {
       const invoiceDate = selectedInvoice ? toLocalDateStr(new Date(selectedInvoice.invoice_date)) : paymentDate;
       const smartDate = getSmartPaymentDate("credit_card", invoiceDate, value);
       if (smartDate) setPaymentDate(smartDate);
+    }
+    // For non-first entries: when credit card is selected, recalculate installments with correct billing date
+    if (!isFirstEntry && field === "creditCardId" && value) {
+      const selectedInvoice = openInvoices.find(inv => selectedInvoiceIds.has(inv.id));
+      const invoiceDate = selectedInvoice ? toLocalDateStr(new Date(selectedInvoice.invoice_date)) : paymentDate;
+      const card = businessCreditCards.find(c => c.id === value);
+      if (card) {
+        const smartDate = getSmartPaymentDate("credit_card", invoiceDate, value);
+        const entry = paymentMethods.find(p => p.id === id);
+        if (entry && smartDate) {
+          const totalAmount = parseFloat(entry.amount.replace(/[^\d.]/g, "")) || 0;
+          const numInstallments = parseInt(entry.installments) || 1;
+          // Will be applied inside the setPaymentMethods below via the installments regeneration
+          setTimeout(() => {
+            setPaymentMethods(prev => prev.map(p => {
+              if (p.id !== id) return p;
+              return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, smartDate, card.billing_day) };
+            }));
+          }, 0);
+        }
+      }
     }
 
     setPaymentMethods(prev => prev.map(p => {
