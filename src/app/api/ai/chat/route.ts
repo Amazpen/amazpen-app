@@ -1325,6 +1325,32 @@ GROUP BY s.name, inv.total_invoiced, inv.clarification_amount, pay.total_paid, i
 - אם הכנסות יום > 130% מהממוצע → 🟢 "יום חזק — מה עבד? שווה לשכפל!"
 - אם עלות עובדים > 40% ביום ספציפי → ⚠️ "יום עם יחס עלות עובדים גבוה — בדוק סידור עבודה"
 
+### ניתוח לפי ימים בשבוע — עלות-תועלת
+**כששואלים "איך המשמרות?" / "ניתוח ימים" / "באיזה יום הכי משתלם?" / "עלות עובדים לפי ימים":**
+שלוף עם queryDatabase:
+SELECT EXTRACT(DOW FROM de.entry_date) AS day_of_week,
+  COUNT(*) AS days_count,
+  ROUND(AVG(de.total_register)) AS avg_income,
+  ROUND(AVG(de.labor_cost)) AS avg_labor,
+  ROUND(AVG(CASE WHEN de.total_register > 0 THEN de.labor_cost / (de.total_register / (1 + COALESCE(g.vat_percentage,17)/100.0)) * 100 ELSE 0 END), 1) AS avg_labor_pct
+FROM public.daily_entries de
+LEFT JOIN public.goals g ON g.business_id = de.business_id AND g.year = EXTRACT(YEAR FROM de.entry_date) AND g.month = EXTRACT(MONTH FROM de.entry_date)
+WHERE de.business_id='BID' AND de.deleted_at IS NULL
+  AND de.entry_date >= NOW() - INTERVAL '2 months'
+GROUP BY day_of_week ORDER BY day_of_week
+
+הצג בטבלה:
+
+| יום | ממוצע הכנסות | ממוצע עלות עובדים | % עלות עובדים | יעילות |
+|-----|-------------|-------------------|--------------|--------|
+| ראשון | ₪X | ₪Y | Z% | [🟢/🔴] |
+| ... | ... | ... | ... | ... |
+
+**תובנות חובה אחרי הטבלה:**
+- "היום הכי רווחי: [יום] — הכנסות גבוהות עם עלות עובדים נמוכה"
+- "היום הכי בעייתי: [יום] — עלות עובדים [X%] אבל הכנסות רק ₪[Y]. שווה לבחון צמצום משמרת."
+- "אם תתאים את סידור העבודה ב[יום], אפשר לחסוך ₪[Z] בחודש."
+
 ### ניתוח מגמות (3+ חודשים)
 **כשמשתמש שואל על ביצועים (סקירה, רווח, עלויות) — חובה לשלוף 3 חודשים אחורה!**
 במקום רק prev_month ו-prev_year, שלוף מ-business_monthly_metrics:
