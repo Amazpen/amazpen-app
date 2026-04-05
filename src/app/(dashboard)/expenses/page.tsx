@@ -457,26 +457,20 @@ function ExpensesPageInner() {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // Global search: when filtering by reference/supplier and local results are empty, search DB directly
+  // Global search: when any filter is active, search DB without date restrictions
   useEffect(() => {
     setGlobalSearchResults(null);
-    if (!filterBy || !filterValue.trim() || !selectedBusinesses.length) return;
-    if (filterBy !== "reference" && filterBy !== "supplier") return;
+    if (!filterBy || !selectedBusinesses.length) return;
+    // "fixed" filter works client-side only (no search value needed)
+    if (filterBy === "fixed") return;
+    if (!filterValue.trim()) return;
 
     const searchVal = filterValue.trim();
-    // Check if local results already have matches
-    const localMatch = recentInvoices.some(inv => {
-      if (filterBy === "reference") return inv.reference.toLowerCase().includes(searchVal.toLowerCase());
-      if (filterBy === "supplier") return inv.supplier.toLowerCase().includes(searchVal.toLowerCase());
-      return false;
-    });
-    if (localMatch) return;
 
     const timer = setTimeout(async () => {
       setIsGlobalSearching(true);
       try {
         const supabase = createClient();
-        const col = filterBy === "reference" ? "invoice_number" : "supplier_id";
         let query = supabase
           .from("invoices")
           .select(`
@@ -487,12 +481,12 @@ function ExpensesPageInner() {
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .order("invoice_date", { ascending: false })
-          .limit(20);
+          .limit(50);
 
+        // Apply filter to DB query based on filter type
         if (filterBy === "reference") {
           query = query.ilike("invoice_number", `%${searchVal}%`);
-        } else {
-          // For supplier search, find matching supplier IDs first
+        } else if (filterBy === "supplier") {
           const { data: matchedSuppliers } = await supabase
             .from("suppliers")
             .select("id")
@@ -505,11 +499,23 @@ function ExpensesPageInner() {
             return;
           }
           query = query.in("supplier_id", matchedSuppliers.map(s => s.id));
+        } else if (filterBy === "notes") {
+          query = query.ilike("notes", `%${searchVal}%`);
+        } else if (filterBy === "amount") {
+          const numVal = parseFloat(searchVal.replace(/[^\d.]/g, ""));
+          if (!isNaN(numVal)) {
+            query = query.eq("subtotal", numVal);
+          }
+        } else if (filterBy === "date") {
+          // Date filter: search is done client-side on results
+          // Just fetch without date range restriction
+        } else if (filterBy === "reference_date") {
+          // Same — fetch all, filter client-side by formatted date
         }
 
         const { data } = await query;
         if (data && data.length > 0) {
-          const results: InvoiceDisplay[] = data.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => ({
+          let results: InvoiceDisplay[] = data.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => ({
             id: inv.id,
             date: formatDateString(inv.invoice_date),
             rawDate: inv.invoice_date ? toLocalDateStr(new Date(inv.invoice_date)) : "",
@@ -533,6 +539,12 @@ function ExpensesPageInner() {
             documentType: "invoice" as const,
             invoiceType: inv.invoice_type || undefined,
           }));
+          // Client-side filter for date/reference_date (formatted string match)
+          if (filterBy === "date") {
+            results = results.filter(inv => inv.date.includes(searchVal));
+          } else if (filterBy === "reference_date") {
+            results = results.filter(inv => inv.referenceDate?.includes(searchVal) || false);
+          }
           setGlobalSearchResults(results);
         } else {
           setGlobalSearchResults([]);
@@ -546,7 +558,7 @@ function ExpensesPageInner() {
 
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterBy, filterValue, selectedBusinesses, recentInvoices]);
+  }, [filterBy, filterValue, selectedBusinesses]);
 
   // Supplier detail popup state (from expenses breakdown)
   const [showSupplierBreakdownPopup, setShowSupplierBreakdownPopup] = useState(false);
@@ -3446,11 +3458,12 @@ function ExpensesPageInner() {
                   return sortOrder === "asc" ? cmp : -cmp;
                 });
               }
-              // Use global search results when local is empty
-              const displayInvoices = filtered.length === 0 && globalSearchResults && globalSearchResults.length > 0
+              // When filter is active, prefer global search results (all dates)
+              const hasActiveFilter = filterBy && filterBy !== "fixed" && filterValue.trim();
+              const displayInvoices = hasActiveFilter && globalSearchResults && globalSearchResults.length > 0
                 ? globalSearchResults
                 : filtered;
-              const isShowingGlobal = filtered.length === 0 && globalSearchResults && globalSearchResults.length > 0;
+              const isShowingGlobal = hasActiveFilter && globalSearchResults && globalSearchResults.length > 0;
 
               return displayInvoices.length === 0 ? (
               <div className="flex items-center justify-center py-[40px]">
