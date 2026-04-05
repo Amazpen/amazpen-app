@@ -180,8 +180,17 @@ async function computeAndStoreMetrics(
       ? (foodDiffPct * incomeBeforeVat) / 100
       : null;
 
-  const currentExpensesTargetPct =
+  // Current expenses target: use operating_cost_target_pct if set,
+  // otherwise calculate from current_expenses_target amount
+  let currentExpensesTargetPct =
     Number(goalsData?.operating_cost_target_pct) || 0;
+  if (currentExpensesTargetPct === 0 && goalsData?.current_expenses_target) {
+    const targetAmount = Number(goalsData.current_expenses_target);
+    if (targetAmount > 0 && monthlyPace > 0) {
+      const paceBeforeVat = monthlyPace; // monthlyPace is already before VAT
+      currentExpensesTargetPct = (targetAmount / paceBeforeVat) * 100;
+    }
+  }
   const currentExpensesDiffPct =
     currentExpensesTargetPct > 0
       ? currentExpensesPct - currentExpensesTargetPct

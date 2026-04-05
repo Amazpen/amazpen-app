@@ -1492,9 +1492,15 @@ async function computeMonthlySummary(
   const foodTarget = Number(goalsData?.food_cost_target_pct) || 0;
   const foodDiffPct = foodTarget > 0 ? foodCostPct - foodTarget : null;
 
-  // Current expenses target percentage — same as dashboard (metrics/refresh)
-  // Use operating_cost_target_pct directly (not amount-based calculation)
-  const currentExpensesTargetPct = Number(goalsData?.operating_cost_target_pct) || 0;
+  // Current expenses target: use operating_cost_target_pct if set,
+  // otherwise calculate from current_expenses_target amount — same as metrics/refresh
+  let currentExpensesTargetPct = Number(goalsData?.operating_cost_target_pct) || 0;
+  if (currentExpensesTargetPct === 0 && goalsData?.current_expenses_target) {
+    const targetAmount = Number(goalsData.current_expenses_target);
+    if (targetAmount > 0 && monthlyPace > 0) {
+      currentExpensesTargetPct = (targetAmount / monthlyPace) * 100;
+    }
+  }
   const currentExpensesDiffPct = currentExpensesTargetPct > 0
     ? currentExpensesPct - currentExpensesTargetPct
     : 0;
