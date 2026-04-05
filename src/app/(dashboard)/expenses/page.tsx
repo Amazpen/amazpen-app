@@ -1282,7 +1282,7 @@ function ExpensesPageInner() {
                 paymentId: payment.id,
                 amount: Number(split.amount),
                 method: paymentMethodNames[split.payment_method] || "אחר",
-                date: formatDateString(payment.payment_date),
+                date: formatDateString(split.due_date || payment.payment_date),
                 checkNumber: split.check_number || "",
                 installmentNumber: split.installment_number || null,
                 installmentsCount: split.installments_count || null,
