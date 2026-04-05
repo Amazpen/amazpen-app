@@ -182,7 +182,7 @@ export default function CashFlowPage() {
         const lookbackStr = formatLocalDate(lookbackDate);
 
         // 2. Parallel queries
-        const [pmResult, paymentBreakdownResult, splitsResult, overridesResult, retainersResult] = await Promise.all([
+        const [pmResult, paymentBreakdownResult, splitsResult, overridesResult, retainersResult, dailyEntriesResult] = await Promise.all([
           supabase
             .from("payment_method_types")
             .select("*")
@@ -215,6 +215,14 @@ export default function CashFlowPage() {
             .eq("business_id", businessId)
             .eq("retainer_status", "active")
             .is("deleted_at", null),
+          // Fetch daily entries as fallback when no payment breakdown exists
+          supabase
+            .from("daily_entries")
+            .select("entry_date, total_register")
+            .eq("business_id", businessId)
+            .is("deleted_at", null)
+            .gte("entry_date", lookbackStr)
+            .lte("entry_date", endDateStr),
         ]);
 
         const paymentMethods = (pmResult.data || []) as PaymentMethodType[];
@@ -263,6 +271,28 @@ export default function CashFlowPage() {
 
         // 3. Calculate settled income
         const settledMap = calculateSettledIncome(paymentEntries, paymentMethods, pmNameMap);
+
+        // 3b. Fallback: if no payment breakdown exists for a date, use total_register directly
+        const datesWithBreakdown = new Set(paymentEntries.map((e) => e.entry_date));
+        const dailyEntries = (dailyEntriesResult.data || []) as Array<{ entry_date: string; total_register: string | number | null }>;
+        for (const de of dailyEntries) {
+          const entryDate = String(de.entry_date).substring(0, 10);
+          const totalRegister = Number(de.total_register) || 0;
+          if (totalRegister <= 0 || datesWithBreakdown.has(entryDate)) continue;
+          // No breakdown for this date — add total_register as same-day income
+          const fallbackItem: SettledIncome = {
+            settlement_date: entryDate,
+            payment_method_id: "total_register",
+            payment_method_name: "הכנסה יומית (קופה)",
+            original_entry_date: entryDate,
+            gross_amount: totalRegister,
+            fee_amount: 0,
+            net_amount: totalRegister,
+          };
+          const existing = settledMap.get(entryDate) || [];
+          existing.push(fallbackItem);
+          settledMap.set(entryDate, existing);
+        }
 
         // 4. Apply overrides
         const overrides = overridesResult.data || [];
