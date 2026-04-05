@@ -423,11 +423,11 @@ export default function DashboardLayout({
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
-    const key = `recurring-expenses-generated-${year}-${month}`;
-    if (localStorage.getItem(key)) return; // Already triggered this month
-    localStorage.setItem(key, "true");
-    // Generate for each selected business
+    // Generate for each selected business (track per business)
     for (const bizId of selectedBusinesses) {
+      const key = `recurring-expenses-generated-${bizId}-${year}-${month}`;
+      if (localStorage.getItem(key)) continue;
+      localStorage.setItem(key, "true");
       fetch("/api/recurring-expenses/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -78,20 +78,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Error fetching suppliers", created: 0 });
     }
 
-    // Filter only suppliers that have a monthly amount set
-    const suppliersWithAmount = (fixedSuppliers || []).filter(
-      (s) => s.monthly_expense_amount && parseFloat(s.monthly_expense_amount) > 0
+    // 2. Check budget overrides FIRST (before filtering by amount)
+    const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+    const allSupplierIds = (fixedSuppliers || []).map((s) => s.id);
+
+    const { data: budgets } = allSupplierIds.length > 0
+      ? await supabase
+          .from("supplier_budgets")
+          .select("supplier_id, budget_amount")
+          .eq("business_id", business_id)
+          .eq("year", year)
+          .eq("month", month)
+          .in("supplier_id", allSupplierIds)
+      : { data: [] };
+
+    const budgetMap = new Map(
+      (budgets || []).map((b) => [b.supplier_id, b.budget_amount])
     );
+
+    // Filter suppliers that have either monthly_expense_amount OR a budget for this month
+    const suppliersWithAmount = (fixedSuppliers || []).filter((s) => {
+      const hasMonthly = s.monthly_expense_amount && parseFloat(s.monthly_expense_amount) > 0;
+      const hasBudget = budgetMap.has(s.id) && budgetMap.get(s.id) > 0;
+      return hasMonthly || hasBudget;
+    });
 
     if (suppliersWithAmount.length === 0) {
       return NextResponse.json({ message: "No fixed expense suppliers with amounts found", created: 0 });
     }
 
-    // 2. Check which suppliers already have invoices for this month
-    const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
-    const lastDay = new Date(year, month, 0).getDate();
-    const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-
+    // Check which suppliers already have invoices for this month
     const { data: existingInvoices } = await supabase
       .from("invoices")
       .select("supplier_id")
@@ -106,22 +125,6 @@ export async function POST(request: NextRequest) {
 
     const existingSupplierIds = new Set(
       (existingInvoices || []).map((inv) => inv.supplier_id)
-    );
-
-    // 2b. Check if there are budget overrides for this month
-    const { data: budgets } = await supabase
-      .from("supplier_budgets")
-      .select("supplier_id, budget_amount")
-      .eq("business_id", business_id)
-      .eq("year", year)
-      .eq("month", month)
-      .in(
-        "supplier_id",
-        suppliersWithAmount.map((s) => s.id)
-      );
-
-    const budgetMap = new Map(
-      (budgets || []).map((b) => [b.supplier_id, b.budget_amount])
     );
 
     // 3. Create invoices for suppliers that don't have one yet
