@@ -2,885 +2,405 @@
 
 ## סקירה כללית
 
-מערכת Multi-Tenant לניהול עסקי עם:
-- Supabase Auth לאימות
-- Row Level Security (RLS) לאבטחה
-- Realtime לעדכונים בזמן אמת
-- Audit Log מלא
-- Soft Delete
+מערכת Multi-Tenant לניהול עסקי עם Supabase Auth, RLS, Realtime, Audit Log, Soft Delete.
+כל הטבלאות מפורסמות ב-Realtime (59 טבלאות סה"כ).
+
+**קונבנציות:** UUID PK עם `gen_random_uuid()`, `created_at`/`updated_at` TIMESTAMPTZ DEFAULT NOW(), `deleted_at` ל-soft delete. כל טבלה עם `business_id` מוגנת ב-RLS דרך `business_members`.
 
 ---
 
-## טבלאות
+## טבלאות ליבה (Core)
 
 ### 1. `profiles` - פרופילי משתמשים
-```sql
-CREATE TABLE profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT NOT NULL,
-  full_name TEXT,
-  phone TEXT,
-  avatar_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ -- Soft delete
-);
-```
+`id` UUID PK→auth.users | `email` TEXT NOT NULL | `full_name` TEXT | `phone` TEXT | `avatar_url` TEXT | timestamps + soft delete
 
 ### 2. `businesses` - עסקים
-```sql
-CREATE TABLE businesses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  business_type TEXT NOT NULL, -- עירייה, מסעדה, אחר
-  status TEXT DEFAULT 'active', -- active, inactive, suspended
-  tax_id TEXT, -- מספר עוסק/ח.פ
-  address TEXT,
-  city TEXT,
-  phone TEXT,
-  email TEXT,
-  logo_url TEXT,
-
-  -- הגדרות
-  currency TEXT DEFAULT 'ILS',
-  fiscal_year_start INTEGER DEFAULT 1, -- חודש תחילת שנת כספים
-
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ
-);
-```
+`id` UUID PK | `name` TEXT NOT NULL | `business_type` TEXT NOT NULL | `status` TEXT DEFAULT 'active' | `tax_id` TEXT | `address/city/phone/email/logo_url` TEXT | `currency` TEXT DEFAULT 'ILS' | `fiscal_year_start` INT DEFAULT 1 | timestamps + soft delete
 
 ### 3. `business_members` - חברי עסק (RBAC)
-```sql
-CREATE TABLE business_members (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (role IN ('owner', 'manager', 'employee')),
+`id` UUID PK | `business_id` FK→businesses | `user_id` FK→profiles | `role` TEXT CHECK (owner/manager/employee) | `permissions` JSONB DEFAULT '{}' | `invited_at/joined_at` TIMESTAMPTZ | timestamps + soft delete | UNIQUE(business_id, user_id)
 
-  -- הרשאות מותאמות אישית
-  permissions JSONB DEFAULT '{}',
+---
 
-  invited_at TIMESTAMPTZ DEFAULT NOW(),
-  joined_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ,
-
-  UNIQUE(business_id, user_id)
-);
-```
+## הגדרות עסק (Business Configuration)
 
 ### 4. `business_schedule` - לוח זמנים עסקי
-```sql
-CREATE TABLE business_schedule (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-  day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6), -- 0=ראשון
-  day_factor DECIMAL(3,2) NOT NULL CHECK (day_factor BETWEEN 0 AND 1), -- 0, 0.5, 1
+`id` UUID PK | `business_id` FK→businesses | `day_of_week` INT 0-6 (0=ראשון) | `day_factor` DECIMAL(3,2) 0-1 | timestamps | UNIQUE(business_id, day_of_week)
 
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
+### 5. `business_day_exceptions` - חריגים ללוח זמנים
+`id` UUID PK | `business_id` FK→businesses | `exception_date` DATE NOT NULL | `day_factor` NUMERIC DEFAULT 0 | `note` TEXT | `created_by` FK→profiles | timestamps
 
-  UNIQUE(business_id, day_of_week)
-);
-```
-
-### 5. `income_sources` - מקורות הכנסה (דינמי לעסק)
-```sql
-CREATE TABLE income_sources (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-  name TEXT NOT NULL, -- שם הערוץ: קופה, 10ביס, וולט, וכו'
-  display_order INTEGER DEFAULT 0,
-  is_active BOOLEAN DEFAULT true,
-
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ,
-
-  UNIQUE(business_id, name)
-);
-```
-
-### 6. `expense_categories` - קטגוריות הוצאות (דינמי והיררכי)
-```sql
-CREATE TABLE expense_categories (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-
-  -- היררכיה
-  parent_id UUID REFERENCES expense_categories(id) ON DELETE SET NULL, -- קטגוריית אב (NULL = קטגוריה ראשית)
-
-  name TEXT NOT NULL,
-  description TEXT,
-  display_order INTEGER DEFAULT 0,
-  is_active BOOLEAN DEFAULT true,
-
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ,
-
-  UNIQUE(business_id, name, parent_id) -- שם ייחודי תחת אותה קטגוריית אב
-);
-
--- אינדקס לשליפת היררכיה
-CREATE INDEX idx_expense_categories_business ON expense_categories(business_id);
-CREATE INDEX idx_expense_categories_parent ON expense_categories(parent_id);
-
--- פונקציה לשליפת כל הקטגוריות בהיררכיה (recursive)
-CREATE OR REPLACE FUNCTION get_category_tree(p_business_id UUID)
-RETURNS TABLE (
-  id UUID,
-  name TEXT,
-  parent_id UUID,
-  parent_name TEXT,
-  depth INTEGER,
-  path TEXT
-) AS $$
-WITH RECURSIVE category_tree AS (
-  -- Base case: קטגוריות ראשיות
-  SELECT
-    ec.id,
-    ec.name,
-    ec.parent_id,
-    NULL::TEXT as parent_name,
-    0 as depth,
-    ec.name as path
-  FROM expense_categories ec
-  WHERE ec.business_id = p_business_id
-    AND ec.parent_id IS NULL
-    AND ec.deleted_at IS NULL
-
-  UNION ALL
-
-  -- Recursive case: קטגוריות משנה
-  SELECT
-    ec.id,
-    ec.name,
-    ec.parent_id,
-    ct.name as parent_name,
-    ct.depth + 1,
-    ct.path || ' > ' || ec.name
-  FROM expense_categories ec
-  JOIN category_tree ct ON ec.parent_id = ct.id
-  WHERE ec.deleted_at IS NULL
-)
-SELECT * FROM category_tree
-ORDER BY path;
-$$ LANGUAGE SQL;
-
--- דוגמת מבנה היררכי:
--- קטגוריה ראשית: "תחזוקה"
---   └── תת-קטגוריה: "מיזוג אוויר"
---   └── תת-קטגוריה: "חשמל"
---   └── תת-קטגוריה: "אינסטלציה"
--- קטגוריה ראשית: "משרדי"
---   └── תת-קטגוריה: "ציוד משרדי"
---   └── תת-קטגוריה: "שירותי הדפסה"
-```
+### 6. `business_monthly_settings` - הגדרות חודשיות (מרקאפ, מע"מ)
+`id` UUID PK | `business_id` FK→businesses | `month_year` TEXT NOT NULL (YYYY-MM) | `markup_percentage` NUMERIC DEFAULT 1.00 | `vat_percentage` NUMERIC DEFAULT 0.18 | timestamps
 
 ### 7. `business_credit_cards` - כרטיסי אשראי עסקיים
-```sql
-CREATE TABLE business_credit_cards (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+`id` UUID PK | `business_id` FK→businesses | `card_name` TEXT NOT NULL | `last_four_digits` TEXT | `card_type` TEXT (visa/mastercard/amex/diners/isracard) | `billing_day` INT 1-31 | `credit_limit` DECIMAL(12,2) | `is_active` BOOLEAN | `notes` TEXT | timestamps + soft delete | UNIQUE(business_id, card_name)
 
-  -- פרטי הכרטיס
-  card_name TEXT NOT NULL, -- שם לזיהוי: "ויזה 1234", "מסטרקארד עסקי"
-  last_four_digits TEXT, -- 4 ספרות אחרונות
-  card_type TEXT, -- visa, mastercard, amex, diners, isracard
+### 8. `income_sources` - מקורות הכנסה (דינמי)
+`id` UUID PK | `business_id` FK→businesses | `name` TEXT NOT NULL (קופה, 10ביס וכו') | `display_order` INT | `is_active` BOOLEAN | timestamps + soft delete | UNIQUE(business_id, name)
 
-  -- מועד חיוב
-  billing_day INTEGER CHECK (billing_day BETWEEN 1 AND 31), -- יום החיוב בחודש
+### 9. `expense_categories` - קטגוריות הוצאות (היררכי)
+`id` UUID PK | `business_id` FK→businesses | `parent_id` FK→self (NULL=ראשי) | `name` TEXT NOT NULL | `description` TEXT | `display_order` INT | `is_active` BOOLEAN | timestamps + soft delete | UNIQUE(business_id, name, parent_id)
 
-  -- הגדרות
-  credit_limit DECIMAL(12,2), -- מסגרת אשראי
-  is_active BOOLEAN DEFAULT true,
+### 10. `custom_parameters` - פרמטרים מותאמים למילוי יומי
+`id` UUID PK | `business_id` FK→businesses | `name` TEXT NOT NULL | `input_type` TEXT DEFAULT 'single' | `display_order` INT | `is_active` BOOLEAN | timestamps + soft delete
 
-  notes TEXT,
+### 11. `receipt_types` - סוגי קבלות למילוי יומי
+`id` UUID PK | `business_id` FK→businesses | `name` TEXT NOT NULL | `input_type` TEXT DEFAULT 'single' | `display_order` INT | `is_active` BOOLEAN | timestamps + soft delete
 
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ,
-
-  UNIQUE(business_id, card_name)
-);
-
-CREATE INDEX idx_credit_cards_business ON business_credit_cards(business_id);
-```
-
-### 8. `suppliers` - ספקים
-```sql
-CREATE TABLE suppliers (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-
-  -- סיווג (היררכי)
-  expense_type TEXT NOT NULL CHECK (expense_type IN ('current_expenses', 'goods_purchases', 'employee_costs')),
-    -- current_expenses = הוצאות שוטפות
-    -- goods_purchases = קניות סחורה
-    -- employee_costs = עלות עובדים
-  expense_category_id UUID REFERENCES expense_categories(id), -- קטגוריית הוצאה (דינמית והיררכית)
-  expense_nature TEXT CHECK (expense_nature IN ('fixed', 'variable')),
-    -- fixed = הוצאה קבועה
-    -- variable = הוצאה משתנה
-
-  -- פרטי ספק
-  contact_name TEXT,
-  phone TEXT,
-  email TEXT,
-  address TEXT,
-  tax_id TEXT, -- ח.פ/עוסק
-
-  -- תנאי תשלום
-  payment_terms_days INTEGER DEFAULT 30, -- שוטף + 30
-  requires_vat BOOLEAN DEFAULT true,
-
-  -- כרטיס אשראי ברירת מחדל לספק זה (אופציונלי)
-  default_credit_card_id UUID REFERENCES business_credit_cards(id),
-
-  notes TEXT,
-  is_active BOOLEAN DEFAULT true,
-
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ
-);
-```
-
-### 8. `managed_products` - מוצרים מנוהלים (Food Cost)
-```sql
-CREATE TABLE managed_products (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  unit TEXT NOT NULL, -- ק"ג, יחידה, ליטר, וכו'
-  unit_cost DECIMAL(10,2) NOT NULL,
-
-  -- קטגוריה
-  category TEXT, -- בשר, ירקות, חלב, וכו'
-
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ,
-
-  UNIQUE(business_id, name)
-);
-```
-
-### 9. `daily_entries` - מילוי יומי
-```sql
-CREATE TABLE daily_entries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-  entry_date DATE NOT NULL,
-
-  -- הכנסות
-  total_register DECIMAL(12,2) DEFAULT 0, -- סה"כ קופה
-
-  -- עלות עבודה
-  labor_cost DECIMAL(12,2) DEFAULT 0,
-  labor_hours DECIMAL(6,2) DEFAULT 0,
-
-  -- הנחות/אבדן
-  discounts DECIMAL(10,2) DEFAULT 0, -- הנחות
-  waste DECIMAL(10,2) DEFAULT 0, -- פחת/אבדן
-
-  -- גורם יום (מועתק מ-business_schedule או נקבע ידנית)
-  day_factor DECIMAL(3,2) DEFAULT 1,
-
-  notes TEXT,
-
-  -- מטא
-  created_by UUID REFERENCES profiles(id),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ,
-
-  UNIQUE(business_id, entry_date)
-);
-```
-
-### 10. `daily_income_breakdown` - פירוט הכנסות יומי
-```sql
-CREATE TABLE daily_income_breakdown (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  daily_entry_id UUID NOT NULL REFERENCES daily_entries(id) ON DELETE CASCADE,
-  income_source_id UUID NOT NULL REFERENCES income_sources(id),
-  amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-
-  UNIQUE(daily_entry_id, income_source_id)
-);
-```
-
-### 11. `daily_product_usage` - שימוש במוצרים מנוהלים (יומי)
-```sql
-CREATE TABLE daily_product_usage (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  daily_entry_id UUID NOT NULL REFERENCES daily_entries(id) ON DELETE CASCADE,
-  product_id UUID NOT NULL REFERENCES managed_products(id),
-  quantity DECIMAL(10,3) NOT NULL, -- כמות שנצרכה
-  unit_cost_at_time DECIMAL(10,2) NOT NULL, -- מחיר יחידה בזמן הרישום
-
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-
-  UNIQUE(daily_entry_id, product_id)
-);
-```
-
-### 12. `invoices` - חשבוניות/הוצאות
-```sql
-CREATE TABLE invoices (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-  supplier_id UUID NOT NULL REFERENCES suppliers(id),
-
-  -- פרטי חשבונית
-  invoice_number TEXT,
-  invoice_date DATE NOT NULL,
-  due_date DATE, -- תאריך לתשלום
-
-  -- סכומים
-  subtotal DECIMAL(12,2) NOT NULL, -- לפני מע"מ
-  vat_amount DECIMAL(10,2) DEFAULT 0,
-  total_amount DECIMAL(12,2) NOT NULL, -- כולל מע"מ
-
-  -- סטטוס
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'partial', 'paid', 'cancelled')),
-  amount_paid DECIMAL(12,2) DEFAULT 0,
-
-  -- קבצים
-  attachment_url TEXT, -- קישור לסריקת החשבונית
-
-  notes TEXT,
-
-  created_by UUID REFERENCES profiles(id),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ
-);
-```
-
-### 13. `payments` - תשלומים
-```sql
-CREATE TABLE payments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-  supplier_id UUID NOT NULL REFERENCES suppliers(id),
-
-  -- תאריך
-  payment_date DATE NOT NULL, -- תאריך קבלה/תשלום
-
-  -- סכום כולל
-  total_amount DECIMAL(12,2) NOT NULL,
-
-  -- קישור לחשבונית (אופציונלי)
-  invoice_id UUID REFERENCES invoices(id),
-
-  notes TEXT,
-
-  created_by UUID REFERENCES profiles(id),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ
-);
-```
-
-### 14. `payment_methods` - אמצעי תשלום (Enum)
-```sql
-CREATE TABLE payment_method_types (
-  id TEXT PRIMARY KEY,
-  name_he TEXT NOT NULL,
-  display_order INTEGER DEFAULT 0
-);
-
-INSERT INTO payment_method_types (id, name_he, display_order) VALUES
-  ('bank_transfer', 'העברה בנקאית', 1),
-  ('cash', 'מזומן', 2),
-  ('check', 'צ׳ק', 3),
-  ('bit', 'ביט', 4),
-  ('paybox', 'פייבוקס', 5),
-  ('credit_card', 'כרטיס אשראי', 6),
-  ('credit_company', 'חברות הקפה', 7),
-  ('standing_order', 'הוראת קבע', 8),
-  ('other', 'אחר', 9);
-```
-
-### 15. `payment_splits` - פיצול תשלום לאמצעי תשלום
-```sql
-CREATE TABLE payment_splits (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  payment_id UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
-  payment_method TEXT NOT NULL REFERENCES payment_method_types(id),
-  amount DECIMAL(12,2) NOT NULL,
-
-  -- כרטיס אשראי (אם אמצעי תשלום = credit_card)
-  credit_card_id UUID REFERENCES business_credit_cards(id),
-
-  -- פרטים נוספים לפי סוג
-  check_number TEXT, -- מספר צ'ק
-  check_date DATE, -- תאריך פירעון צ'ק
-  reference_number TEXT, -- אסמכתא
-
-  -- תשלומים/תשלום בתשלומים
-  installments_count INTEGER DEFAULT 1, -- מספר תשלומים
-  installment_number INTEGER DEFAULT 1, -- תשלום מספר X מתוך Y
-
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- אינדקס לשליפת תשלומים לפי כרטיס
-CREATE INDEX idx_payment_splits_credit_card ON payment_splits(credit_card_id);
-```
-
-### 16. `goals` - יעדים
-```sql
-CREATE TABLE goals (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-
-  -- תקופה
-  year INTEGER NOT NULL,
-  month INTEGER, -- NULL = יעד שנתי
-
-  -- יעדי הכנסות
-  revenue_target DECIMAL(14,2),
-
-  -- יעדי עלויות (באחוזים מההכנסות)
-  labor_cost_target_pct DECIMAL(5,2), -- יעד עלות עבודה %
-  food_cost_target_pct DECIMAL(5,2), -- יעד Food Cost %
-  operating_cost_target_pct DECIMAL(5,2), -- יעד הוצאות תפעול %
-
-  -- יעדים נוספים
-  profit_target DECIMAL(14,2),
-  profit_margin_target_pct DECIMAL(5,2),
-
-  notes TEXT,
-
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ,
-
-  UNIQUE(business_id, year, month)
-);
-```
-
-### 17. `monthly_budgets` - תקציב חודשי
-```sql
-CREATE TABLE monthly_budgets (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-  year INTEGER NOT NULL,
-  month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
-
-  -- תקציבים
-  revenue_budget DECIMAL(14,2),
-  labor_budget DECIMAL(14,2),
-  operating_budget DECIMAL(14,2),
-  goods_budget DECIMAL(14,2), -- קניות סחורה
-
-  notes TEXT,
-
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ,
-
-  UNIQUE(business_id, year, month)
-);
-```
-
-### 18. `audit_log` - לוג ביקורת
-```sql
-CREATE TABLE audit_log (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-  -- מי
-  user_id UUID REFERENCES profiles(id),
-  business_id UUID REFERENCES businesses(id),
-
-  -- מה
-  action TEXT NOT NULL, -- CREATE, UPDATE, DELETE, LOGIN, etc.
-  table_name TEXT,
-  record_id UUID,
-
-  -- פרטים
-  old_values JSONB,
-  new_values JSONB,
-  metadata JSONB, -- מידע נוסף (IP, User-Agent, וכו')
-
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- אינדקס לחיפוש מהיר
-CREATE INDEX idx_audit_log_user ON audit_log(user_id);
-CREATE INDEX idx_audit_log_business ON audit_log(business_id);
-CREATE INDEX idx_audit_log_table ON audit_log(table_name);
-CREATE INDEX idx_audit_log_created ON audit_log(created_at DESC);
-```
+### 12. `payment_method_types` - אמצעי תשלום (Enum)
+`id` TEXT PK | `name_he` TEXT NOT NULL | `display_order` INT
+ערכים: bank_transfer, cash, check, bit, paybox, credit_card, credit_company, standing_order, other
 
 ---
 
-## Views - תצוגות לחישובים
+## ספקים והוצאות (Suppliers & Expenses)
 
-### V1. `daily_summary` - סיכום יומי מחושב
+### 13. `suppliers` - ספקים
 ```sql
-CREATE VIEW daily_summary AS
-SELECT
-  de.id,
-  de.business_id,
-  de.entry_date,
-  de.total_register,
-  de.labor_cost,
-  de.labor_hours,
-  de.discounts,
-  de.waste,
-  de.day_factor,
-
-  -- סה"כ הכנסות מפירוט
-  COALESCE(SUM(dib.amount), 0) AS total_income_breakdown,
-
-  -- Food Cost מחושב
-  COALESCE(SUM(dpu.quantity * dpu.unit_cost_at_time), 0) AS food_cost,
-
-  -- אחוזים
-  CASE WHEN de.total_register > 0
-    THEN (de.labor_cost / de.total_register * 100)::DECIMAL(5,2)
-    ELSE 0
-  END AS labor_cost_pct,
-
-  CASE WHEN de.total_register > 0
-    THEN (COALESCE(SUM(dpu.quantity * dpu.unit_cost_at_time), 0) / de.total_register * 100)::DECIMAL(5,2)
-    ELSE 0
-  END AS food_cost_pct
-
-FROM daily_entries de
-LEFT JOIN daily_income_breakdown dib ON de.id = dib.daily_entry_id
-LEFT JOIN daily_product_usage dpu ON de.id = dpu.daily_entry_id
-WHERE de.deleted_at IS NULL
-GROUP BY de.id;
+-- פרטי ספק
+id UUID PK | business_id FK→businesses | name TEXT NOT NULL
+expense_type TEXT NOT NULL (current_expenses/goods_purchases/employee_costs)
+expense_category_id FK→expense_categories | parent_category_id UUID
+expense_nature TEXT (fixed/variable)
+contact_name/phone/email/address/tax_id TEXT
+-- תנאי תשלום
+payment_terms_days INT DEFAULT 30 | requires_vat BOOLEAN DEFAULT true
+vat_type TEXT DEFAULT 'full' | default_credit_card_id FK→business_credit_cards
+default_payment_method TEXT | default_discount_percentage NUMERIC DEFAULT 0
+-- הוצאה קבועה
+is_fixed_expense BOOLEAN DEFAULT false | charge_day INT | monthly_expense_amount NUMERIC
+-- התחייבויות קודמות
+has_previous_obligations BOOLEAN DEFAULT false
+obligation_total_amount/terms/first_charge_date/num_payments/monthly_amount/document_url
+-- אחר
+waiting_for_coordinator BOOLEAN | request_karteset BOOLEAN
+document_url/notes TEXT | is_active BOOLEAN | timestamps + soft delete
 ```
 
-### V2. `monthly_pl_summary` - דוח רווח והפסד חודשי
-```sql
-CREATE VIEW monthly_pl_summary AS
-WITH monthly_income AS (
-  SELECT
-    business_id,
-    DATE_TRUNC('month', entry_date) AS month,
-    SUM(total_register) AS total_revenue,
-    SUM(labor_cost) AS total_labor_cost,
-    SUM(day_factor) AS working_days, -- סה"כ ימי עבודה בפועל
-    COUNT(*) AS calendar_days
-  FROM daily_entries
-  WHERE deleted_at IS NULL
-  GROUP BY business_id, DATE_TRUNC('month', entry_date)
-),
-monthly_expenses AS (
-  SELECT
-    i.business_id,
-    DATE_TRUNC('month', i.invoice_date) AS month,
-    s.expense_type,
-    SUM(i.total_amount) AS total_expenses
-  FROM invoices i
-  JOIN suppliers s ON i.supplier_id = s.id
-  WHERE i.deleted_at IS NULL
-  GROUP BY i.business_id, DATE_TRUNC('month', i.invoice_date), s.expense_type
-),
-monthly_food_cost AS (
-  SELECT
-    de.business_id,
-    DATE_TRUNC('month', de.entry_date) AS month,
-    SUM(dpu.quantity * dpu.unit_cost_at_time) AS food_cost
-  FROM daily_entries de
-  JOIN daily_product_usage dpu ON de.id = dpu.daily_entry_id
-  WHERE de.deleted_at IS NULL
-  GROUP BY de.business_id, DATE_TRUNC('month', de.entry_date)
-)
-SELECT
-  mi.business_id,
-  mi.month,
-  mi.total_revenue,
-  mi.total_labor_cost,
-  mi.working_days,
-  mi.calendar_days,
+### 14. `invoices` - חשבוניות/הוצאות
+`id` UUID PK | `business_id` FK→businesses | `supplier_id` FK→suppliers | `invoice_number` TEXT | `invoice_date` DATE NOT NULL | `due_date` DATE | `subtotal` DECIMAL(12,2) | `vat_amount` DECIMAL(10,2) | `total_amount` DECIMAL(12,2) | `status` TEXT (pending/partial/paid/cancelled) | `amount_paid` DECIMAL(12,2) | `attachment_url` TEXT | `notes` TEXT | `created_by` FK→profiles | timestamps + soft delete
 
-  -- נרמול להכנסה ליום עבודה
-  CASE WHEN mi.working_days > 0
-    THEN (mi.total_revenue / mi.working_days)::DECIMAL(12,2)
-    ELSE 0
-  END AS revenue_per_working_day,
+### 15. `delivery_notes` - תעודות משלוח
+`id` UUID PK | `business_id` FK→businesses | `supplier_id` FK→suppliers | `invoice_id` FK→invoices | `delivery_note_number` TEXT | `delivery_date` DATE NOT NULL | `subtotal` NUMERIC | `discount_amount/discount_percentage` NUMERIC DEFAULT 0 | `vat_amount` NUMERIC | `total_amount` NUMERIC | `attachment_url` TEXT | `is_verified` BOOLEAN DEFAULT false | `notes` TEXT | `created_by` FK→profiles | timestamps
 
-  -- הוצאות
-  COALESCE(me_current.total_expenses, 0) AS current_expenses, -- הוצאות שוטפות
-  COALESCE(me_goods.total_expenses, 0) AS goods_purchases, -- קניות סחורה
-  COALESCE(mfc.food_cost, 0) AS food_cost,
+### 16. `payments` - תשלומים
+`id` UUID PK | `business_id` FK→businesses | `supplier_id` FK→suppliers | `payment_date` DATE NOT NULL | `total_amount` DECIMAL(12,2) | `invoice_id` FK→invoices | `notes` TEXT | `created_by` FK→profiles | timestamps + soft delete
 
-  -- אחוזים
-  CASE WHEN mi.total_revenue > 0
-    THEN (mi.total_labor_cost / mi.total_revenue * 100)::DECIMAL(5,2)
-    ELSE 0
-  END AS labor_cost_pct,
+### 17. `payment_splits` - פיצול תשלום
+`id` UUID PK | `payment_id` FK→payments (CASCADE) | `payment_method` FK→payment_method_types | `amount` DECIMAL(12,2) | `credit_card_id` FK→business_credit_cards | `check_number/check_date/reference_number` | `installments_count/installment_number` INT DEFAULT 1 | `created_at`
 
-  CASE WHEN mi.total_revenue > 0
-    THEN (COALESCE(mfc.food_cost, 0) / mi.total_revenue * 100)::DECIMAL(5,2)
-    ELSE 0
-  END AS food_cost_pct,
+### 18. `supplier_budgets` - תקציב חודשי לספק
+`id` UUID PK | `supplier_id` FK→suppliers | `business_id` FK→businesses | `year/month` INT | `budget_amount` NUMERIC DEFAULT 0 | `notes` TEXT | timestamps + soft delete
 
-  -- רווח גולמי
-  (mi.total_revenue - mi.total_labor_cost - COALESCE(mfc.food_cost, 0) -
-   COALESCE(me_current.total_expenses, 0) - COALESCE(me_goods.total_expenses, 0))::DECIMAL(14,2) AS gross_profit
+### 19. `supplier_documents` - מסמכי ספק
+`id` UUID PK | `supplier_id` FK→suppliers | `business_id` FK→businesses | `description` TEXT NOT NULL | `document_url` TEXT NOT NULL | `created_at`
 
-FROM monthly_income mi
-LEFT JOIN monthly_expenses me_current
-  ON mi.business_id = me_current.business_id
-  AND mi.month = me_current.month
-  AND me_current.expense_type = 'current_expenses'
-LEFT JOIN monthly_expenses me_goods
-  ON mi.business_id = me_goods.business_id
-  AND mi.month = me_goods.month
-  AND me_goods.expense_type = 'goods_purchases'
-LEFT JOIN monthly_food_cost mfc
-  ON mi.business_id = mfc.business_id
-  AND mi.month = mfc.month;
-```
+### 20. `prior_commitments` - התחייבויות קודמות
+`id` UUID PK | `business_id` FK→businesses | `name` TEXT NOT NULL | `monthly_amount` NUMERIC NOT NULL | `total_installments` INT NOT NULL | `start_date/end_date` DATE NOT NULL | `terms` TEXT | `created_by` FK→profiles | timestamps + soft delete
 
 ---
 
-## Row Level Security (RLS)
+## מעקב מחירים (Price Tracking)
 
-### הפעלה
+### 21. `supplier_items` - קטלוג מוצרי ספק
+`id` UUID PK | `business_id` FK→businesses | `supplier_id` FK→suppliers | `item_name` TEXT NOT NULL | `item_aliases` TEXT[] DEFAULT '{}' | `unit` TEXT | `current_price` NUMERIC | `last_price_date` DATE | `is_active` BOOLEAN | `alert_muted` BOOLEAN DEFAULT false | timestamps
+
+### 22. `supplier_item_prices` - היסטוריית מחירים
+`id` UUID PK | `supplier_item_id` FK→supplier_items | `price` NUMERIC NOT NULL | `quantity` NUMERIC | `invoice_id` FK→invoices | `ocr_document_id` FK→ocr_documents | `document_date` DATE NOT NULL | `notes` TEXT | `created_at`
+
+### 23. `price_alerts` - התראות שינוי מחיר
+`id` UUID PK | `business_id` FK→businesses | `supplier_item_id` FK→supplier_items | `supplier_id` FK→suppliers | `ocr_document_id` FK→ocr_documents | `old_price/new_price` NUMERIC NOT NULL | `change_pct` NUMERIC NOT NULL | `document_date` DATE | `status` TEXT DEFAULT 'unread' | `created_at`
+
+---
+
+## מילוי יומי (Daily Entries)
+
+### 24. `daily_entries` - מילוי יומי
+`id` UUID PK | `business_id` FK→businesses | `entry_date` DATE NOT NULL | `total_register` DECIMAL(12,2) | `labor_cost` DECIMAL(12,2) | `labor_hours` DECIMAL(6,2) | `discounts/waste` DECIMAL(10,2) | `day_factor` DECIMAL(3,2) DEFAULT 1 | `notes` TEXT | `created_by` FK→profiles | timestamps + soft delete | UNIQUE(business_id, entry_date)
+
+### 25. `daily_income_breakdown` - פירוט הכנסות יומי
+`id` UUID PK | `daily_entry_id` FK→daily_entries (CASCADE) | `income_source_id` FK→income_sources | `amount` DECIMAL(12,2) | timestamps | UNIQUE(daily_entry_id, income_source_id)
+
+### 26. `daily_parameters` - ערכי פרמטרים מותאמים
+`id` UUID PK | `daily_entry_id` FK→daily_entries | `parameter_id` FK→custom_parameters | `value` NUMERIC DEFAULT 0 | timestamps
+
+### 27. `daily_receipts` - ערכי קבלות יומי
+`id` UUID PK | `daily_entry_id` FK→daily_entries | `receipt_type_id` FK→receipt_types | `amount` NUMERIC DEFAULT 0 | timestamps
+
+### 28. `daily_payment_breakdown` - פירוט אמצעי תשלום יומי
+`id` UUID PK | `daily_entry_id` FK→daily_entries | `payment_method_id` UUID NOT NULL | `amount` NUMERIC DEFAULT 0 | timestamps
+
+### 29. `daily_product_usage` - שימוש במוצרים מנוהלים
+`id` UUID PK | `daily_entry_id` FK→daily_entries (CASCADE) | `product_id` FK→managed_products | `quantity` DECIMAL(10,3) | `unit_cost_at_time` DECIMAL(10,2) | timestamps | UNIQUE(daily_entry_id, product_id)
+
+### 30. `daily_entry_approvals` - אישורי שדות
+`id` UUID PK | `daily_entry_id` FK→daily_entries | `business_id` FK→businesses | `field_name` TEXT NOT NULL | `status` TEXT DEFAULT 'pending' | `source` TEXT DEFAULT 'manual' | `approved_by` FK→profiles | `approved_at` TIMESTAMPTZ | `created_at`
+
+### 31. `managed_products` - מוצרים מנוהלים (Food Cost)
+`id` UUID PK | `business_id` FK→businesses | `name` TEXT NOT NULL | `unit` TEXT NOT NULL | `unit_cost` DECIMAL(10,2) | `category` TEXT | `is_active` BOOLEAN | timestamps + soft delete | UNIQUE(business_id, name)
+
+---
+
+## יעדים ותקציבים (Goals & Budgets)
+
+### 32. `goals` - יעדים
+`id` UUID PK | `business_id` FK→businesses | `year` INT | `month` INT (NULL=שנתי) | `revenue_target` DECIMAL(14,2) | `labor_cost_target_pct/food_cost_target_pct/operating_cost_target_pct` DECIMAL(5,2) | `profit_target` DECIMAL(14,2) | `profit_margin_target_pct` DECIMAL(5,2) | `notes` TEXT | timestamps + soft delete | UNIQUE(business_id, year, month)
+
+### 33. `income_source_goals` - יעדים לפי מקור הכנסה
+`id` UUID PK | `goal_id` FK→goals | `income_source_id` FK→income_sources | `avg_ticket_target` NUMERIC DEFAULT 0 | timestamps
+
+### 34. `monthly_budgets` - תקציב חודשי כללי
+`id` UUID PK | `business_id` FK→businesses | `year/month` INT | `revenue_budget/labor_budget/operating_budget/goods_budget` DECIMAL(14,2) | `notes` TEXT | timestamps + soft delete | UNIQUE(business_id, year, month)
+
+### 35. `bonus_plans` - תוכניות בונוס לעובדים
+`id` UUID PK | `business_id` FK→businesses | `employee_user_id` FK→profiles | `area_name` TEXT NOT NULL (תחום) | `measurement_type/data_source` TEXT NOT NULL | `is_lower_better` BOOLEAN DEFAULT true | `custom_source_label` TEXT | `tier[1-3]_label/threshold/threshold_max/amount` (3 רמות בונוס) | `tips` TEXT | `push_enabled` BOOLEAN DEFAULT true | `push_hour` SMALLINT DEFAULT 8 | `push_days` SMALLINT[] DEFAULT {0..6} | `is_active` BOOLEAN | `notes` TEXT | timestamps + soft delete
+
+---
+
+## מטריקות וסיכומים (Metrics & Summaries)
+
+### 36. `business_monthly_metrics` - מטריקות חודשיות מחושבות
+`id` UUID PK | `business_id` FK→businesses | `year/month` INT NOT NULL
+**ימי עבודה:** `actual_work_days/actual_day_factors/expected_work_days` NUMERIC
+**הכנסות:** `total_income/income_before_vat/monthly_pace/daily_avg` NUMERIC
+**יעדים:** `revenue_target/target_diff_pct/target_diff_amount` NUMERIC
+**עלות עבודה:** `labor_cost_amount/pct/target_pct/diff_pct/diff_amount` NUMERIC
+**Food Cost:** `food_cost_amount/pct/target_pct/diff_pct/diff_amount` NUMERIC
+**הוצאות שוטפות:** `current_expenses_amount/pct/target_pct/diff_pct/diff_amount` NUMERIC
+**מוצרים מנוהלים:** `managed_product_[1-3]_name/cost/pct/target_pct/diff_pct` TEXT/NUMERIC
+**פירוט הכנסות:** `private_income/orders_count/avg_ticket` | `business_income/orders_count/avg_ticket`
+**השוואות:** `prev_month_income/change_pct` | `prev_year_income/change_pct`
+**הגדרות:** `vat_pct/markup_pct/manager_salary/manager_daily_cost` NUMERIC
+**אחר:** `total_labor_hours/total_discounts` | `profit_actual/pct/target/pct` | `computed_at` TIMESTAMPTZ
+
+### 37. `monthly_summaries` - סיכומים חודשיים (cached)
+`id` UUID PK | `business_id` FK→businesses | `year/month` INT NOT NULL
+`actual_work_days/total_income/monthly_pace` | `labor_cost_pct/amount` | `food_cost_pct/amount`
+`managed_product_[1-3]_pct/cost` | `avg_income_[1-4]` | `sales/labor/food_cost_budget_diff_pct`
+`managed_product_[1-3]_budget_diff_pct` | `*_cost_budget_diff_pct` | `avg_income_[1-4]_budget_diff`
+`sales/labor_cost/food_cost_yoy_change_pct` | `managed_product_[1-3]_yoy_change_pct` | `avg_income_[1-4]_yoy_change`
+`last_calculated_at` | timestamps
+
+---
+
+## תזרים מזומנים (Cashflow)
+
+### 38. `cashflow_settings` - הגדרות תזרים
+`id` UUID PK | `business_id` FK→businesses | `opening_balance` NUMERIC DEFAULT 0 | `opening_date` DATE DEFAULT CURRENT_DATE | timestamps
+
+### 39. `cashflow_income_overrides` - דריסות הכנסה בתזרים
+`id` UUID PK | `business_id` FK→businesses | `settlement_date` DATE NOT NULL | `payment_method_id` UUID NOT NULL | `original_amount/override_amount` NUMERIC DEFAULT 0 | `note` TEXT | `created_by` FK→profiles | `created_at`
+
+---
+
+## OCR - סריקת מסמכים
+
+### 40. `ocr_documents` - תור מסמכי OCR
+`id` UUID PK | `business_id` FK→businesses | `source` TEXT DEFAULT 'upload' (upload/whatsapp/email) | `source_chat_id/source_message_id/source_sender_name/source_sender_phone` TEXT | `image_url` TEXT NOT NULL | `image_storage_path/original_filename/file_type` TEXT | `file_size_bytes` INT | `status` TEXT DEFAULT 'pending' (pending/processing/ready/approved/rejected) | `document_type` TEXT (invoice/receipt/delivery_note) | `document_type_confidence` NUMERIC | `ocr_engine` TEXT | `ocr_processed_at` TIMESTAMPTZ | `ocr_error_message` TEXT | `ocr_retry_count` INT DEFAULT 0 | `reviewed_by` FK→profiles | `reviewed_at` TIMESTAMPTZ | `review_notes/rejection_reason` TEXT | `created_invoice_id` FK→invoices | `created_payment_id` FK→payments | `created_delivery_note_id` FK→delivery_notes | timestamps
+
+### 41. `ocr_extracted_data` - נתונים שחולצו מ-OCR
+`id` UUID PK | `document_id` FK→ocr_documents | `raw_text` TEXT | `overall_confidence` NUMERIC | `language_detected` TEXT | `supplier_name/supplier_tax_id` TEXT | `document_number` TEXT | `document_date/due_date` DATE | `subtotal/vat_amount/total_amount` NUMERIC | `discount_amount/discount_percentage` NUMERIC | `currency` TEXT DEFAULT 'ILS' | `confidence_supplier_name/document_number/document_date/amounts` NUMERIC | `matched_supplier_id` FK→suppliers | `supplier_match_confidence` NUMERIC | `payment_method/bank_account` TEXT | `extraction_metadata` JSONB | timestamps
+
+### 42. `ocr_extracted_line_items` - פריטי שורה מ-OCR
+`id` UUID PK | `extracted_data_id` FK→ocr_extracted_data | `line_number` INT | `description` TEXT | `quantity/unit_price/total` NUMERIC | `discount_amount` NUMERIC | `confidence` NUMERIC | `created_at`
+
+### 43. `ocr_document_crops` - גזירות מסמך
+`id` UUID PK | `document_id` FK→ocr_documents | `crop_image_url` TEXT NOT NULL | `crop_storage_path` TEXT | `crop_region` JSONB ({x,y,width,height}) | `is_active` BOOLEAN | `created_by` FK→profiles | `created_at`
+
+### 44. `ocr_audit_log` - לוג פעולות OCR
+`id` UUID PK | `document_id` FK→ocr_documents | `action` TEXT NOT NULL | `performed_by` FK→profiles | `details` JSONB | `created_at`
+
+---
+
+## לקוחות (Customers)
+
+### 45. `customers` - ניהול לקוחות
+`id` UUID PK | `business_id` FK→businesses | `contact_name` TEXT NOT NULL | `business_name` TEXT NOT NULL | `company_name/business_type/business_type_other` TEXT | `tax_id` TEXT | `work_start_date` DATE | `setup_fee/payment_terms/payment_method` TEXT | `agreement_url` TEXT | `linked_income_source_id` FK→income_sources | `is_foreign` BOOLEAN DEFAULT false | `labor_type` TEXT | `labor_monthly_salary/labor_hourly_rate` NUMERIC | `retainer_amount` NUMERIC | `retainer_type` TEXT | `retainer_months` INT | `retainer_start_date/retainer_end_date` DATE | `retainer_day_of_month` INT DEFAULT 1 | `retainer_status` TEXT DEFAULT 'active' | `notes` TEXT | `is_active` BOOLEAN | timestamps + soft delete
+
+### 46. `customer_payments` - תשלומי לקוח
+`id` UUID PK | `customer_id` FK→customers | `payment_date` DATE NOT NULL | `amount` NUMERIC NOT NULL | `description/payment_method/notes` TEXT | `created_at` | `deleted_at`
+
+### 47. `customer_services` - שירותים ללקוח
+`id` UUID PK | `customer_id` FK→customers | `name` TEXT NOT NULL | `amount` NUMERIC NOT NULL | `service_date` DATE NOT NULL | `linked_income_source_id` FK→income_sources | `notes` TEXT | `created_at` | `deleted_at`
+
+### 48. `customer_retainer_entries` - רשומות ריטיינר
+`id` UUID PK | `customer_id` FK→customers | `entry_month` DATE NOT NULL | `amount` NUMERIC NOT NULL | `daily_income_breakdown_id` FK→daily_income_breakdown | `created_at`
+
+### 49. `customer_surveys` - סקרי שביעות רצון
+`id` UUID PK | `customer_id` FK→customers | `token` TEXT NOT NULL (קישור ייחודי) | `is_completed` BOOLEAN DEFAULT false | `created_at` | `completed_at`
+
+### 50. `customer_survey_responses` - תשובות לסקר
+`id` UUID PK | `survey_id` FK→customer_surveys | `question_key` TEXT NOT NULL | `answer_value` TEXT NOT NULL | `created_at`
+
+### 51. `customer_documents` - מסמכי לקוח
+`id` UUID PK | `customer_id` FK→customers | `description` TEXT NOT NULL | `document_url` TEXT NOT NULL | `created_at`
+
+---
+
+## AI, התראות ומשימות
+
+### 52. `ai_chat_sessions` - שיחות AI
+`id` UUID PK | `user_id` FK→profiles | `business_id` FK→businesses | `title` TEXT | timestamps
+
+### 53. `ai_chat_messages` - הודעות AI
+`id` UUID PK | `session_id` FK→ai_chat_sessions | `role` TEXT NOT NULL (user/assistant/tool) | `content` TEXT NOT NULL | `chart_data` JSONB | `created_at`
+
+### 54. `notifications` - התראות
+`id` BIGINT PK (serial) | `user_id` FK→profiles | `business_id` FK→businesses | `title` TEXT NOT NULL | `message` TEXT | `type` TEXT DEFAULT 'info' | `is_read` BOOLEAN DEFAULT false | `link` TEXT | timestamps
+
+### 55. `push_subscriptions` - מנויי Push
+`id` BIGINT PK | `user_id` FK→profiles | `endpoint` TEXT NOT NULL | `p256dh` TEXT NOT NULL | `auth` TEXT NOT NULL | `created_at`
+
+### 56. `tasks` - משימות עסקיות
+`id` UUID PK | `business_id` FK→businesses | `assignee_id` FK→profiles | `title` TEXT NOT NULL | `description` TEXT | `category` TEXT DEFAULT 'כללי' | `status` TEXT DEFAULT 'pending' (pending/in_progress/done) | `priority` TEXT DEFAULT 'medium' (low/medium/high) | `due_date` DATE | `completed_at` TIMESTAMPTZ | `created_by` FK→profiles | timestamps + soft delete
+
+### 57. `data_reminders` - תזכורות מילוי נתונים
+`id` UUID PK | `business_id` FK→businesses | `reminder_type` TEXT NOT NULL | `reference_date` DATE NOT NULL | `sent_at` TIMESTAMPTZ | `sent_to` TEXT NOT NULL | `channel` TEXT NOT NULL (push/email/whatsapp)
+
+---
+
+## לוגים (Logging)
+
+### 58. `audit_log` - לוג ביקורת
+`id` UUID PK | `user_id` FK→profiles | `business_id` FK→businesses | `action` TEXT NOT NULL (CREATE/UPDATE/DELETE/LOGIN) | `table_name` TEXT | `record_id` UUID | `old_values/new_values` JSONB | `metadata` JSONB | `created_at`
+
+### 59. `client_error_logs` - לוג שגיאות צד לקוח
+`id` UUID PK | `user_id` FK→profiles | `business_id` FK→businesses | `action` TEXT NOT NULL | `error_message` TEXT | `error_details` JSONB | `page` TEXT | `created_at`
+
+---
+
+## RLS & Realtime
+
+### Row Level Security
+כל הטבלאות מוגנות ב-RLS. הדפוס הבסיסי:
 ```sql
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE businesses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE business_members ENABLE ROW LEVEL SECURITY;
--- ... לכל הטבלאות
-```
-
-### פוליסות בסיסיות
-```sql
--- Profiles - משתמש רואה רק את עצמו
-CREATE POLICY "Users can view own profile" ON profiles
-  FOR SELECT USING (auth.uid() = id);
-
-CREATE POLICY "Users can update own profile" ON profiles
-  FOR UPDATE USING (auth.uid() = id);
-
--- Business Members - משתמש רואה רק עסקים שהוא חבר בהם
-CREATE POLICY "Users can view their business memberships" ON business_members
-  FOR SELECT USING (user_id = auth.uid());
-
--- Businesses - משתמש רואה רק עסקים שהוא חבר בהם
-CREATE POLICY "Users can view businesses they belong to" ON businesses
-  FOR SELECT USING (
-    id IN (SELECT business_id FROM business_members WHERE user_id = auth.uid() AND deleted_at IS NULL)
-  );
-
--- כל שאר הטבלאות - דרך business_id
-CREATE POLICY "Users can view business data" ON daily_entries
+CREATE POLICY "Users can view business data" ON [table]
   FOR SELECT USING (
     business_id IN (SELECT business_id FROM business_members WHERE user_id = auth.uid() AND deleted_at IS NULL)
   );
-
--- הרשאות עריכה לפי role
-CREATE POLICY "Owners and managers can insert" ON daily_entries
-  FOR INSERT WITH CHECK (
-    business_id IN (
-      SELECT business_id FROM business_members
-      WHERE user_id = auth.uid()
-      AND role IN ('owner', 'manager')
-      AND deleted_at IS NULL
-    )
-  );
 ```
 
----
-
-## Realtime
-
-### הפעלה
-```sql
--- הוספת טבלאות ל-publication
-ALTER PUBLICATION supabase_realtime ADD TABLE daily_entries;
-ALTER PUBLICATION supabase_realtime ADD TABLE payments;
-ALTER PUBLICATION supabase_realtime ADD TABLE invoices;
-ALTER PUBLICATION supabase_realtime ADD TABLE business_members;
-```
-
----
-
-## אינדקסים
-
-```sql
--- מילוי יומי
-CREATE INDEX idx_daily_entries_business_date ON daily_entries(business_id, entry_date DESC);
-
--- חשבוניות
-CREATE INDEX idx_invoices_business ON invoices(business_id);
-CREATE INDEX idx_invoices_supplier ON invoices(supplier_id);
-CREATE INDEX idx_invoices_status ON invoices(status) WHERE deleted_at IS NULL;
-
--- תשלומים
-CREATE INDEX idx_payments_business ON payments(business_id);
-CREATE INDEX idx_payments_supplier ON payments(supplier_id);
-CREATE INDEX idx_payments_date ON payments(payment_date DESC);
-
--- ספקים
-CREATE INDEX idx_suppliers_business ON suppliers(business_id);
-CREATE INDEX idx_suppliers_type ON suppliers(expense_type);
-```
-
----
-
-## Triggers
-
-### עדכון updated_at
-```sql
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- החלה על כל הטבלאות
-CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
--- ... לכל טבלה עם updated_at
-```
-
-### Audit Log Trigger
-```sql
-CREATE OR REPLACE FUNCTION audit_log_trigger()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF TG_OP = 'INSERT' THEN
-    INSERT INTO audit_log (user_id, business_id, action, table_name, record_id, new_values)
-    VALUES (auth.uid(), NEW.business_id, 'CREATE', TG_TABLE_NAME, NEW.id, to_jsonb(NEW));
-  ELSIF TG_OP = 'UPDATE' THEN
-    INSERT INTO audit_log (user_id, business_id, action, table_name, record_id, old_values, new_values)
-    VALUES (auth.uid(), COALESCE(NEW.business_id, OLD.business_id), 'UPDATE', TG_TABLE_NAME, OLD.id, to_jsonb(OLD), to_jsonb(NEW));
-  ELSIF TG_OP = 'DELETE' THEN
-    INSERT INTO audit_log (user_id, business_id, action, table_name, record_id, old_values)
-    VALUES (auth.uid(), OLD.business_id, 'DELETE', TG_TABLE_NAME, OLD.id, to_jsonb(OLD));
-  END IF;
-  RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
+### Realtime Publication
+כל 59 הטבלאות מפורסמות ב-`supabase_realtime` publication.
 
 ---
 
 ## סיכום מבנה
 
-| טבלה | תיאור |
-|------|-------|
-| `profiles` | פרופילי משתמשים |
-| `businesses` | עסקים |
-| `business_members` | חברות בעסק (RBAC) |
-| `business_schedule` | לוח זמנים (ימי עבודה) |
-| `business_credit_cards` | כרטיסי אשראי עסקיים |
-| `income_sources` | מקורות הכנסה דינמיים |
-| `expense_categories` | קטגוריות הוצאות (היררכי + דינמי) |
-| `suppliers` | ספקים |
-| `managed_products` | מוצרים מנוהלים (Food Cost) |
-| `daily_entries` | מילוי יומי |
-| `daily_income_breakdown` | פירוט הכנסות יומי |
-| `daily_product_usage` | שימוש במוצרים יומי |
-| `invoices` | חשבוניות/הוצאות |
-| `payments` | תשלומים |
-| `payment_method_types` | סוגי אמצעי תשלום |
-| `payment_splits` | פיצול תשלום (כולל כרטיס אשראי) |
-| `goals` | יעדים |
-| `monthly_budgets` | תקציב חודשי |
-| `audit_log` | לוג ביקורת |
+| # | טבלה | תיאור |
+|---|------|-------|
+| 1 | `profiles` | פרופילי משתמשים |
+| 2 | `businesses` | עסקים |
+| 3 | `business_members` | חברות בעסק (RBAC) |
+| 4 | `business_schedule` | לוח זמנים (ימי עבודה) |
+| 5 | `business_day_exceptions` | חריגים ללוח זמנים |
+| 6 | `business_monthly_settings` | הגדרות חודשיות (מרקאפ, מע"מ) |
+| 7 | `business_credit_cards` | כרטיסי אשראי עסקיים |
+| 8 | `income_sources` | מקורות הכנסה דינמיים |
+| 9 | `expense_categories` | קטגוריות הוצאות (היררכי) |
+| 10 | `custom_parameters` | פרמטרים מותאמים למילוי יומי |
+| 11 | `receipt_types` | סוגי קבלות למילוי יומי |
+| 12 | `payment_method_types` | סוגי אמצעי תשלום |
+| 13 | `suppliers` | ספקים |
+| 14 | `invoices` | חשבוניות/הוצאות |
+| 15 | `delivery_notes` | תעודות משלוח |
+| 16 | `payments` | תשלומים |
+| 17 | `payment_splits` | פיצול תשלום |
+| 18 | `supplier_budgets` | תקציב חודשי לספק |
+| 19 | `supplier_documents` | מסמכי ספק |
+| 20 | `prior_commitments` | התחייבויות קודמות |
+| 21 | `supplier_items` | קטלוג מוצרי ספק |
+| 22 | `supplier_item_prices` | היסטוריית מחירים |
+| 23 | `price_alerts` | התראות שינוי מחיר |
+| 24 | `daily_entries` | מילוי יומי |
+| 25 | `daily_income_breakdown` | פירוט הכנסות יומי |
+| 26 | `daily_parameters` | ערכי פרמטרים מותאמים |
+| 27 | `daily_receipts` | ערכי קבלות יומי |
+| 28 | `daily_payment_breakdown` | פירוט אמצעי תשלום יומי |
+| 29 | `daily_product_usage` | שימוש במוצרים יומי |
+| 30 | `daily_entry_approvals` | אישורי שדות יומי |
+| 31 | `managed_products` | מוצרים מנוהלים (Food Cost) |
+| 32 | `goals` | יעדים |
+| 33 | `income_source_goals` | יעדים לפי מקור הכנסה |
+| 34 | `monthly_budgets` | תקציב חודשי כללי |
+| 35 | `bonus_plans` | תוכניות בונוס לעובדים |
+| 36 | `business_monthly_metrics` | מטריקות חודשיות מחושבות |
+| 37 | `monthly_summaries` | סיכומים חודשיים (cached) |
+| 38 | `cashflow_settings` | הגדרות תזרים מזומנים |
+| 39 | `cashflow_income_overrides` | דריסות הכנסה בתזרים |
+| 40 | `ocr_documents` | תור מסמכי OCR |
+| 41 | `ocr_extracted_data` | נתונים שחולצו מ-OCR |
+| 42 | `ocr_extracted_line_items` | פריטי שורה מ-OCR |
+| 43 | `ocr_document_crops` | גזירות מסמך OCR |
+| 44 | `ocr_audit_log` | לוג פעולות OCR |
+| 45 | `customers` | ניהול לקוחות |
+| 46 | `customer_payments` | תשלומי לקוח |
+| 47 | `customer_services` | שירותים ללקוח |
+| 48 | `customer_retainer_entries` | רשומות ריטיינר |
+| 49 | `customer_surveys` | סקרי שביעות רצון |
+| 50 | `customer_survey_responses` | תשובות לסקר |
+| 51 | `customer_documents` | מסמכי לקוח |
+| 52 | `ai_chat_sessions` | שיחות AI |
+| 53 | `ai_chat_messages` | הודעות AI |
+| 54 | `notifications` | התראות |
+| 55 | `push_subscriptions` | מנויי Push |
+| 56 | `tasks` | משימות עסקיות |
+| 57 | `data_reminders` | תזכורות מילוי נתונים |
+| 58 | `audit_log` | לוג ביקורת |
+| 59 | `client_error_logs` | לוג שגיאות צד לקוח |
 
 ---
 
-## ERD (יחסים)
+## ERD (יחסים עיקריים)
 
 ```
-profiles ─────┬──────────────────────────────────────┐
-              │                                      │
-              ▼                                      │
-        business_members ◄──── businesses           │
-              │                     │               │
-              │                     ├── business_schedule
-              │                     ├── business_credit_cards ◄────────┐
-              │                     │                                  │
-              │                     ├── income_sources                 │
-              │                     │                                  │
-              │                     ├── expense_categories (היררכי)    │
-              │                     │       │ (parent_id → self)       │
-              │                     │       ▼                          │
-              │                     ├── suppliers ─────────────────────┤
-              │                     │       │ (expense_category_id)    │
-              │                     │       │ (default_credit_card_id) │
-              │                     │       │                          │
-              │                     │       ├── invoices               │
-              │                     │       └── payments               │
-              │                     │               │                  │
-              │                     │               ▼                  │
-              │                     │         payment_splits ──────────┘
-              │                     │               │ (credit_card_id)
-              │                     │               ▼
-              │                     │         payment_method_types
-              │                     │
-              │                     ├── managed_products
-              │                     │
-              │                     ├── daily_entries
-              │                     │       ├── daily_income_breakdown ◄── income_sources
-              │                     │       └── daily_product_usage ◄── managed_products
-              │                     │
-              │                     ├── goals
-              │                     └── monthly_budgets
-              │
-              └──────────────────── audit_log
-```
-
-## דוגמת היררכיית קטגוריות
-
-```
-עסק: "מסעדת השף"
-│
-├── קטגוריה ראשית: "תחזוקה"
-│   ├── תת-קטגוריה: "מיזוג אוויר"
-│   ├── תת-קטגוריה: "חשמל"
-│   └── תת-קטגוריה: "אינסטלציה"
-│
-├── קטגוריה ראשית: "מזון"
-│   ├── תת-קטגוריה: "בשר"
-│   ├── תת-קטגוריה: "ירקות"
-│   └── תת-קטגוריה: "מוצרי חלב"
-│
-├── קטגוריה ראשית: "משרדי"
-│   ├── תת-קטגוריה: "ציוד משרדי"
-│   └── תת-קטגוריה: "שירותי הדפסה"
-│
-└── קטגוריה ראשית: "הוצאות קבועות"
-    ├── תת-קטגוריה: "שכירות"
-    ├── תת-קטגוריה: "ביטוחים"
-    └── תת-קטגוריה: "הנהלת חשבונות"
-```
-
-## דוגמת כרטיסי אשראי עסקיים
-
-```
-עסק: "מסעדת השף"
-│
-├── כרטיס אשראי: "ויזה 1234" (חיוב: 10 לחודש)
-├── כרטיס אשראי: "מסטרקארד 5678" (חיוב: 15 לחודש)
-└── כרטיס אשראי: "אמריקן אקספרס 9012" (חיוב: 1 לחודש)
-
-תשלום לספק "יבואן הבשר":
-├── 70% בכרטיס "ויזה 1234" - 3 תשלומים
-└── 30% בהעברה בנקאית
+profiles ──┬── business_members ◄── businesses
+           │                           │
+           │   ┌────────────────────────┤
+           │   ├── business_schedule    ├── business_day_exceptions
+           │   ├── business_credit_cards ◄───────────────────┐
+           │   ├── business_monthly_settings                 │
+           │   ├── income_sources ◄──────────────────┐       │
+           │   ├── expense_categories (self-ref)     │       │
+           │   ├── custom_parameters                 │       │
+           │   ├── receipt_types                     │       │
+           │   │                                     │       │
+           │   ├── suppliers ────────────────────────┤       │
+           │   │     ├── invoices ◄── delivery_notes │       │
+           │   │     ├── payments ── payment_splits ─┘───────┘
+           │   │     ├── supplier_items ── supplier_item_prices
+           │   │     │      └── price_alerts
+           │   │     ├── supplier_budgets / supplier_documents
+           │   │     └── prior_commitments
+           │   │
+           │   ├── daily_entries
+           │   │     ├── daily_income_breakdown ◄── income_sources
+           │   │     ├── daily_product_usage ◄── managed_products
+           │   │     ├── daily_parameters ◄── custom_parameters
+           │   │     ├── daily_receipts ◄── receipt_types
+           │   │     ├── daily_payment_breakdown
+           │   │     └── daily_entry_approvals
+           │   │
+           │   ├── goals ── income_source_goals
+           │   ├── monthly_budgets / bonus_plans
+           │   ├── business_monthly_metrics / monthly_summaries
+           │   ├── cashflow_settings / cashflow_income_overrides
+           │   │
+           │   ├── ocr_documents
+           │   │     ├── ocr_extracted_data ── ocr_extracted_line_items
+           │   │     ├── ocr_document_crops
+           │   │     └── ocr_audit_log
+           │   │
+           │   ├── customers
+           │   │     ├── customer_payments / customer_services
+           │   │     ├── customer_retainer_entries
+           │   │     ├── customer_surveys ── customer_survey_responses
+           │   │     └── customer_documents
+           │   │
+           │   ├── tasks / notifications / data_reminders
+           │   └── audit_log / client_error_logs
+           │
+           ├── ai_chat_sessions ── ai_chat_messages
+           └── push_subscriptions
 ```
