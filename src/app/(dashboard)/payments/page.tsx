@@ -1431,26 +1431,11 @@ function PaymentsPageInner() {
         receiptUrl = existingUrls.length === 1 ? existingUrls[0] : JSON.stringify(existingUrls);
       }
 
-      // Create the payment
-      const { data: newPayment, error: paymentError } = await supabase
-        .from("payments")
-        .insert({
-          business_id: selectedBusinesses[0],
-          supplier_id: selectedSupplier,
-          payment_date: paymentDate,
-          total_amount: totalAmount,
-          invoice_id: selectedInvoiceIds.size > 0 ? Array.from(selectedInvoiceIds)[0] : null,
-          notes: notes || null,
-          created_by: user?.id || null,
-          receipt_url: receiptUrl,
-        })
-        .select()
-        .single();
+      // Create payment(s) — one per selected invoice for proper linking
+      const invoiceIds = selectedInvoiceIds.size > 0 ? Array.from(selectedInvoiceIds) : [null];
 
-      if (paymentError) throw paymentError;
-
-      // Create payment splits for each payment method
-      if (newPayment) {
+      // Helper to create splits for a payment
+      const createSplitsForPayment = async (paymentId: string) => {
         for (const pm of paymentMethods) {
           const amount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
           if (amount > 0) {
@@ -1459,12 +1444,11 @@ function PaymentsPageInner() {
             const card = creditCardId ? businessCreditCards.find(c => c.id === creditCardId) : null;
 
             if (pm.customInstallments.length > 0) {
-              // Create split for each installment
               for (const inst of pm.customInstallments) {
                 await supabase
                   .from("payment_splits")
                   .insert({
-                    payment_id: newPayment.id,
+                    payment_id: paymentId,
                     payment_method: pm.method || "other",
                     amount: inst.amount,
                     installments_count: installmentsCount,
@@ -1476,7 +1460,6 @@ function PaymentsPageInner() {
                   });
               }
             } else {
-              // Fallback - single payment without customInstallments
               const dueDate = card && paymentDate
                 ? calculateCreditCardDueDate(paymentDate, card.billing_day)
                 : paymentDate || null;
@@ -1484,7 +1467,7 @@ function PaymentsPageInner() {
               await supabase
                 .from("payment_splits")
                 .insert({
-                  payment_id: newPayment.id,
+                  payment_id: paymentId,
                   payment_method: pm.method || "other",
                   amount: amount,
                   installments_count: 1,
@@ -1496,6 +1479,29 @@ function PaymentsPageInner() {
                 });
             }
           }
+        }
+      };
+
+      // Create one payment per invoice so each invoice is properly linked
+      for (const invoiceId of invoiceIds) {
+        const { data: newPayment, error: paymentError } = await supabase
+          .from("payments")
+          .insert({
+            business_id: selectedBusinesses[0],
+            supplier_id: selectedSupplier,
+            payment_date: paymentDate,
+            total_amount: totalAmount,
+            invoice_id: invoiceId,
+            notes: notes || null,
+            created_by: user?.id || null,
+            receipt_url: receiptUrl,
+          })
+          .select()
+          .single();
+
+        if (paymentError) throw paymentError;
+        if (newPayment) {
+          await createSplitsForPayment(newPayment.id);
         }
       }
 
