@@ -152,7 +152,7 @@ export default function OCRForm({
 
   // Payment tab - multiple payment methods (aligned with payments page)
   const [paymentTabDate, setPaymentTabDate] = useState('');
-  const [paymentTabExpenseType, setPaymentTabExpenseType] = useState<'expenses' | 'purchases'>('expenses');
+  const [paymentTabExpenseType, setPaymentTabExpenseType] = useState<'all' | 'expenses' | 'purchases' | 'employees'>('all');
   const [paymentTabSupplierId, setPaymentTabSupplierId] = useState('');
   const [paymentTabReference, setPaymentTabReference] = useState('');
   const [paymentTabNotes, setPaymentTabNotes] = useState('');
@@ -915,7 +915,7 @@ export default function OCRForm({
           if (draft.inlinePaymentNotes !== undefined) setInlinePaymentNotes(draft.inlinePaymentNotes as string);
           if (draft.inlinePaymentMethods) setInlinePaymentMethods(draft.inlinePaymentMethods as PaymentMethodEntry[]);
           if (draft.paymentTabDate) setPaymentTabDate(draft.paymentTabDate as string);
-          if (draft.paymentTabExpenseType) setPaymentTabExpenseType(draft.paymentTabExpenseType as 'expenses' | 'purchases');
+          if (draft.paymentTabExpenseType) setPaymentTabExpenseType(draft.paymentTabExpenseType as 'all' | 'expenses' | 'purchases' | 'employees');
           if (draft.paymentTabSupplierId !== undefined) setPaymentTabSupplierId(draft.paymentTabSupplierId as string);
           if (draft.paymentTabReference !== undefined) setPaymentTabReference(draft.paymentTabReference as string);
           if (draft.paymentTabNotes !== undefined) setPaymentTabNotes(draft.paymentTabNotes as string);
@@ -1083,7 +1083,7 @@ export default function OCRForm({
       const formData: OCRFormData = {
         business_id: selectedBusinessId,
         document_type: documentType,
-        expense_type: paymentTabExpenseType === 'purchases' ? 'goods' : 'current',
+        expense_type: paymentTabExpenseType === 'purchases' ? 'goods' : paymentTabExpenseType === 'employees' ? 'employee_costs' : 'current',
         supplier_id: paymentTabSupplierId,
         document_date: paymentTabDate,
         document_number: '',
@@ -2254,41 +2254,32 @@ export default function OCRForm({
       {/* Expense Type */}
       <div className="flex flex-col gap-[3px]">
         <label className="text-[16px] font-medium text-white text-right">סוג הוצאה</label>
-        <div dir="rtl" className="flex items-start gap-[20px]">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setPaymentTabExpenseType('purchases')}
-            className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
-          >
-            <span className={`text-[16px] font-semibold ${paymentTabExpenseType === 'purchases' ? 'text-white' : 'text-[#979797]'}`}>
-              קניות סחורה
-            </span>
-            <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={paymentTabExpenseType === 'purchases' ? 'text-white' : 'text-[#979797]'}>
-              {paymentTabExpenseType === 'purchases' ? (
-                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor" />
-              ) : (
-                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" />
-              )}
-            </svg>
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setPaymentTabExpenseType('expenses')}
-            className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
-          >
-            <span className={`text-[16px] font-semibold ${paymentTabExpenseType === 'expenses' ? 'text-white' : 'text-[#979797]'}`}>
-              הוצאות שוטפות
-            </span>
-            <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={paymentTabExpenseType === 'expenses' ? 'text-white' : 'text-[#979797]'}>
-              {paymentTabExpenseType === 'expenses' ? (
-                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor" />
-              ) : (
-                <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" />
-              )}
-            </svg>
-          </Button>
+        <div dir="rtl" className="flex items-start gap-[20px] flex-wrap">
+          {([
+            { key: 'all' as const, label: 'הכל' },
+            { key: 'purchases' as const, label: 'קניות סחורה' },
+            { key: 'expenses' as const, label: 'הוצאות שוטפות' },
+            { key: 'employees' as const, label: 'עלות עובדים' },
+          ]).map(({ key, label }) => (
+            <Button
+              key={key}
+              type="button"
+              variant="ghost"
+              onClick={() => setPaymentTabExpenseType(key)}
+              className="flex flex-row-reverse items-center gap-[3px] cursor-pointer"
+            >
+              <span className={`text-[16px] font-semibold ${paymentTabExpenseType === key ? 'text-white' : 'text-[#979797]'}`}>
+                {label}
+              </span>
+              <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={paymentTabExpenseType === key ? 'text-white' : 'text-[#979797]'}>
+                {paymentTabExpenseType === key ? (
+                  <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor" />
+                ) : (
+                  <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" />
+                )}
+              </svg>
+            </Button>
+          ))}
         </div>
       </div>
 
@@ -2302,23 +2293,49 @@ export default function OCRForm({
       <SupplierSearchSelect
         suppliers={suppliers}
         value={paymentTabSupplierId}
-        onChange={setPaymentTabSupplierId}
+        onChange={(id) => {
+          setPaymentTabSupplierId(id);
+          const sup = suppliers.find(s => s.id === id);
+          if (sup?.default_payment_method && paymentMethods.length > 0 && !paymentMethods[0].method) {
+            const defaultMethod = sup.default_payment_method;
+            const defaultCardId = sup.default_credit_card_id || '';
+            const smartDate = getSmartPaymentDate(defaultMethod, paymentTabDate, defaultCardId || undefined);
+            if (smartDate) setPaymentTabDate(smartDate);
+            setPaymentMethods(prev => prev.map((pm, i) => i === 0 ? { ...pm, method: defaultMethod, creditCardId: defaultCardId } : pm));
+          }
+        }}
       />
 
       {/* Payment Methods Section */}
       {renderPaymentMethodsSection(paymentMethods, setPaymentMethods, paymentTabDate, setPaymentTabDate)}
 
-      {/* Reference */}
+      {/* Reference + Upload */}
       <div className="flex flex-col gap-[3px]">
         <label className="text-[16px] font-medium text-white text-right">אסמכתא</label>
-        <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
-          <Input
-            type="text"
-            value={paymentTabReference}
-            onChange={(e) => setPaymentTabReference(e.target.value)}
-            placeholder="מספר אסמכתא..."
-            className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
-          />
+        <div className="flex gap-[8px] items-center">
+          <div className="flex-1 border border-[#4C526B] rounded-[10px] min-h-[50px]">
+            <Input
+              type="text"
+              value={paymentTabReference}
+              onChange={(e) => setPaymentTabReference(e.target.value)}
+              placeholder="מספר אסמכתא..."
+              className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
+            />
+          </div>
+          <label className="shrink-0 border border-[#4C526B] border-dashed rounded-[10px] w-[50px] h-[50px] flex items-center justify-center cursor-pointer hover:bg-white/5 transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              multiple
+              className="hidden"
+              onChange={() => {/* handled by OCR queue — file already attached to document */}}
+            />
+          </label>
         </div>
       </div>
 

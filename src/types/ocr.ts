@@ -6,7 +6,7 @@ export type DocumentStatus = 'pending' | 'reviewing' | 'approved' | 'rejected' |
 
 export type DocumentType = 'invoice' | 'delivery_note' | 'credit_note' | 'payment' | 'summary' | 'daily_entry' | 'disputed_invoice' | 'partially_paid';
 
-export type ExpenseType = 'goods' | 'current';
+export type ExpenseType = 'goods' | 'current' | 'employee_costs';
 
 export interface OCRLineItem {
   id?: string;
