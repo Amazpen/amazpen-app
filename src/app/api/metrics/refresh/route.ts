@@ -12,6 +12,8 @@ function jsonResponse(data: Record<string, unknown>, status = 200) {
   });
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = any;
 
@@ -28,6 +30,11 @@ async function computeAndStoreMetrics(
   year: number,
   month: number
 ) {
+  // Validate inputs to prevent SQL injection in raw queries
+  if (!UUID_RE.test(bizId)) throw new Error("Invalid business ID format");
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) throw new Error("Invalid year");
+  if (!Number.isInteger(month) || month < 1 || month > 12) throw new Error("Invalid month");
+
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const nextMonth =
     month === 12
@@ -457,6 +464,17 @@ export async function POST(request: NextRequest) {
       { error: "חסרים שדות: businessId, year, month" },
       400
     );
+  }
+
+  // Validate input formats before any DB queries
+  if (!UUID_RE.test(businessId)) {
+    return jsonResponse({ error: "מזהה עסק לא תקין" }, 400);
+  }
+  const numYear = Number(year);
+  const numMonth = Number(month);
+  if (!Number.isInteger(numYear) || numYear < 2000 || numYear > 2100 ||
+      !Number.isInteger(numMonth) || numMonth < 1 || numMonth > 12) {
+    return jsonResponse({ error: "שנה או חודש לא תקינים" }, 400);
   }
 
   // Verify membership

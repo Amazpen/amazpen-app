@@ -1,9 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const webpush = require('web-push')
 
 export async function POST(request: NextRequest) {
+  // Auth: require admin or internal caller (cron secret)
+  const cronSecret = request.headers.get('x-cron-secret')
+  const isInternalCall = cronSecret && cronSecret === process.env.CRON_SECRET
+
+  if (!isInternalCall) {
+    const serverSupabase = await createServerClient()
+    const { data: { user } } = await serverSupabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const { data: profile } = await serverSupabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .single()
+    if (!profile?.is_admin) {
+      return NextResponse.json({ error: 'Admin required' }, { status: 403 })
+    }
+  }
+
   const { userIds, title, message, url } = await request.json()
 
   if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
