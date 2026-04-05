@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { Trash2, Search, X, ChevronDown, Building2, Check } from "lucide-react";
+import { Trash2, Search, X, ChevronDown, Building2, Check, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAiChat } from "./useAiChat";
 import { AiWelcomeScreen } from "./AiWelcomeScreen";
@@ -52,6 +52,25 @@ export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusiness
   }, [isBusinessPickerOpen]);
 
   const selectedBusinessName = allBusinesses?.find(b => b.id === businessId)?.name || "כל העסקים";
+
+  const downloadChat = useCallback(() => {
+    if (messages.length === 0) return;
+    const lines = messages.map((m) => {
+      const role = m.role === "user" ? "אני" : "דדי";
+      const text = getDisplayText(m);
+      return `${role}:\n${text}`;
+    });
+    const content = lines.join("\n\n---\n\n");
+    const date = new Date().toLocaleDateString("he-IL").replace(/\./g, "-");
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `שיחת-AI-${date}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [messages, getDisplayText]);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -217,15 +236,27 @@ export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusiness
           )}
 
           {hasMessages && (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={clearChat}
-              className="flex items-center gap-1.5 text-white hover:text-white/70 text-[12px] transition-colors flex-shrink-0"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              נקה שיחה
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={downloadChat}
+                className="flex items-center gap-1.5 text-white hover:text-white/70 text-[12px] transition-colors flex-shrink-0"
+                title="הורד שיחה"
+              >
+                <Download className="w-3.5 h-3.5" />
+                הורד שיחה
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={clearChat}
+                className="flex items-center gap-1.5 text-white hover:text-white/70 text-[12px] transition-colors flex-shrink-0"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                נקה שיחה
+              </Button>
+            </div>
           )}
         </div>
       )}

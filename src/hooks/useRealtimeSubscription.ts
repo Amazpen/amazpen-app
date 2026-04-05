@@ -36,8 +36,12 @@ export function useRealtimeSubscription({
 }: UseRealtimeOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const callbackRef = useRef(onDataChange);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [realtimeAvailable, setRealtimeAvailable] = useState(!REALTIME_DISABLED);
+
+  const MAX_RETRIES = 3;
 
   // Keep callback ref updated
   useEffect(() => {
@@ -94,38 +98,43 @@ export function useRealtimeSubscription({
       );
     }
 
-    // Subscribe to the channel with error handling and auto-retry
+    // Subscribe to the channel with error handling and limited retry
     try {
       channel.subscribe((status) => {
         if (status === "SUBSCRIBED") {
-          // Successfully connected to realtime
+          retryCountRef.current = 0;
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          // Retry after delay instead of permanently disabling
-          console.warn(`[Realtime] Channel ${status}, retrying in 5s...`);
-          setTimeout(() => {
+          if (retryCountRef.current >= MAX_RETRIES) {
+            console.warn(`[Realtime] Disabled after ${MAX_RETRIES} failed attempts`);
+            setRealtimeAvailable(false);
+            return;
+          }
+          retryCountRef.current++;
+          const delay = Math.min(5000 * Math.pow(2, retryCountRef.current - 1), 30000);
+          console.warn(`[Realtime] Channel ${status}, retry ${retryCountRef.current}/${MAX_RETRIES} in ${delay / 1000}s...`);
+          retryTimerRef.current = setTimeout(() => {
             if (channelRef.current) {
               supabase.removeChannel(channelRef.current);
               channelRef.current = null;
             }
-            // Force re-subscribe by toggling state
             setRealtimeAvailable(false);
             setTimeout(() => setRealtimeAvailable(true), 100);
-          }, 5000);
+          }, delay);
         }
       });
     } catch {
-      // WebSocket connection failed - retry after delay
-      console.warn("[Realtime] WebSocket failed, retrying in 5s...");
-      setTimeout(() => {
-        setRealtimeAvailable(false);
-        setTimeout(() => setRealtimeAvailable(true), 100);
-      }, 5000);
+      console.warn("[Realtime] WebSocket connection failed, disabling");
+      setRealtimeAvailable(false);
     }
 
     channelRef.current = channel;
 
     // Cleanup on unmount
     return () => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;

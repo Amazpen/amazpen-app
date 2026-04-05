@@ -304,7 +304,11 @@
       "Bash(npm install:*)",
       "Bash(wc -l \"c:/Users/netn1/Downloads/amazpen-new/src/app/\\(dashboard\\)/suppliers/page.tsx\" \"c:/Users/netn1/Downloads/amazpen-new/src/app/\\(dashboard\\)/payments/page.tsx\")",
       "Bash(wc -l \"/c/Users/netn1/Downloads/amazpen-new/src/app/\\(dashboard\\)/admin/bonus-plans/page.tsx\")",
-      "Read(//dev/**)"
+      "Read(//dev/**)",
+      "Bash(ls -la \"/c/Users/netn1/Downloads/amazpen-new/src/app/\\(dashboard\\)/ocr/\")",
+      "Bash(head -100 \"/c/Users/netn1/Downloads/amazpen-new/src/app/\\(dashboard\\)/ocr/page.tsx\")",
+      "Bash(grep -n \"creditCards\\\\|CreditCard\\\\|카드\\\\|card\" /c/Users/netn1/Downloads/amazpen-new/src/app/\\\\\\(dashboard\\\\\\)/admin/business/[id]/edit/page.tsx)",
+      "Bash(ls -la /c/Users/netn1/Downloads/amazpen-new/src/app/\\\\\\(dashboard\\\\\\)/ocr/)"
     ],
     "additionalDirectories": [
       "C:\\Users\\netn1\\Downloads\\amazpen-new\\scripts",
