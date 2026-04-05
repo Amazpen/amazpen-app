@@ -701,12 +701,14 @@ function ExpensesPageInner() {
   };
 
   // Generate installments with credit card billing day logic
+  // Uses paymentDate directly as first installment date (already calculated by getSmartPaymentDate)
   const generateCreditCardInstallments = (numInstallments: number, totalAmount: number, paymentDateStr: string, billingDay: number) => {
     if (numInstallments <= 1 || totalAmount === 0) return [];
 
     const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
     const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
-    const firstDueDate = calculateCreditCardDueDate(paymentDateStr, billingDay);
+    // Use paymentDate as-is for the first due date — it's already the correct billing date
+    const firstDueDate = paymentDate || calculateCreditCardDueDate(paymentDateStr, billingDay);
 
     const result = [];
     for (let i = 0; i < numInstallments; i++) {
@@ -827,11 +829,9 @@ function ExpensesPageInner() {
           } else {
             // No existing installments or same count - generate fresh
             const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
-            // Use invoice date as base for credit card installments (not the already-calculated payment date)
-            const invoiceDateForCalc = paymentInvoice ? paymentInvoice.rawDate : expenseDate;
             const effectiveDate = existing.length > 0 ? existing[0].dateForInput : getPopupEffectiveStartDate();
-            if (card && invoiceDateForCalc) {
-              updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, invoiceDateForCalc, card.billing_day);
+            if (card) {
+              updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, effectiveDate, card.billing_day);
             } else {
               updated.customInstallments = generatePopupInstallments(numInstallments, totalAmount, effectiveDate);
             }
@@ -852,10 +852,9 @@ function ExpensesPageInner() {
           }));
         } else if (totalAmount > 0 && numInstallments > 1) {
           const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
-          const invoiceDateForCalc = paymentInvoice ? paymentInvoice.rawDate : expenseDate;
           const startDate = getPopupEffectiveStartDate();
-          if (card && invoiceDateForCalc) {
-            updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, invoiceDateForCalc, card.billing_day);
+          if (card) {
+            updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, startDate, card.billing_day);
           } else {
             updated.customInstallments = generatePopupInstallments(numInstallments, totalAmount, startDate);
           }
