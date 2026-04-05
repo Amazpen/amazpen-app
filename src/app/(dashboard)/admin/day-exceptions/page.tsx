@@ -67,6 +67,15 @@ export default function DayExceptionsPage() {
   const [exceptions, setExceptions] = useState<DayException[]>([]);
   const [isLoadingExceptions, setIsLoadingExceptions] = useState(false);
 
+  // Month/Year summary
+  const now = new Date();
+  const [summaryMonth, setSummaryMonth] = useState(String(now.getMonth() + 1));
+  const [summaryYear, setSummaryYear] = useState(String(now.getFullYear()));
+  const [scheduleWorkDays, setScheduleWorkDays] = useState(0);
+  const [effectiveWorkDays, setEffectiveWorkDays] = useState(0);
+  const [calendarDays, setCalendarDays] = useState(0);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+
   // Form
   const [newDate, setNewDate] = useState("");
   const [newFactor, setNewFactor] = useState("0");
@@ -137,6 +146,77 @@ export default function DayExceptionsPage() {
     if (isAdmin) fetchExceptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBusinessId, isAdmin]);
+
+  // ===== Month summary: schedule work days vs effective (with exceptions) =====
+  useEffect(() => {
+    if (!selectedBusinessId || !summaryMonth || !summaryYear) return;
+    const year = parseInt(summaryYear);
+    const month = parseInt(summaryMonth);
+    if (isNaN(year) || isNaN(month)) return;
+
+    async function calcSummary() {
+      setIsLoadingSummary(true);
+      // 1. Get business schedule
+      const { data: schedule } = await supabase
+        .from("business_schedule")
+        .select("day_of_week, day_factor")
+        .eq("business_id", selectedBusinessId);
+
+      // 2. Get exceptions for this month
+      const firstDay = `${year}-${String(month).padStart(2, "0")}-01`;
+      const lastDay = new Date(year, month, 0);
+      const lastDayStr = `${year}-${String(month).padStart(2, "0")}-${String(lastDay.getDate()).padStart(2, "0")}`;
+
+      const { data: monthExceptions } = await supabase
+        .from("business_day_exceptions")
+        .select("exception_date, day_factor")
+        .eq("business_id", selectedBusinessId)
+        .gte("exception_date", firstDay)
+        .lte("exception_date", lastDayStr);
+
+      // Build schedule map: day_of_week → day_factor
+      const scheduleMap: Record<number, number> = {};
+      (schedule || []).forEach(s => {
+        scheduleMap[s.day_of_week] = Number(s.day_factor) || 0;
+      });
+
+      // Build exceptions map: date string → day_factor
+      const exceptionsMap = new Map<string, number>();
+      (monthExceptions || []).forEach(ex => {
+        const d = String(ex.exception_date).substring(0, 10);
+        exceptionsMap.set(d, Number(ex.day_factor));
+      });
+
+      // Calculate days
+      const totalDays = lastDay.getDate();
+      let scheduleDays = 0;
+      let effectiveDays = 0;
+
+      for (let d = 1; d <= totalDays; d++) {
+        const date = new Date(year, month - 1, d);
+        const dow = date.getDay();
+        const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        const scheduleFactor = scheduleMap[dow] ?? 0;
+
+        scheduleDays += scheduleFactor;
+
+        // If there's an exception for this date, use it; otherwise use schedule
+        if (exceptionsMap.has(dateStr)) {
+          effectiveDays += exceptionsMap.get(dateStr)!;
+        } else {
+          effectiveDays += scheduleFactor;
+        }
+      }
+
+      setCalendarDays(totalDays);
+      setScheduleWorkDays(scheduleDays);
+      setEffectiveWorkDays(effectiveDays);
+      setIsLoadingSummary(false);
+    }
+
+    calcSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBusinessId, summaryMonth, summaryYear, exceptions]);
 
   // ===== Create =====
   const handleCreate = useCallback(async () => {
@@ -317,6 +397,67 @@ export default function DayExceptionsPage() {
                 )}
               </Button>
             </div>
+          </div>
+
+          {/* Month Summary */}
+          <div className="bg-[#111056]/60 border border-white/10 rounded-[10px] p-5 mb-6">
+            <h2 className="text-white font-semibold text-base mb-4">סיכום ימי עבודה חודשי</h2>
+            <div className="flex gap-3 mb-4">
+              <div className="flex-1">
+                <label className="text-white/70 text-sm mb-1.5 block">חודש</label>
+                <Select value={summaryMonth} onValueChange={setSummaryMonth}>
+                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] px-[12px] text-[14px] text-white text-right">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"].map((name, i) => (
+                      <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1">
+                <label className="text-white/70 text-sm mb-1.5 block">שנה</label>
+                <Select value={summaryYear} onValueChange={setSummaryYear}>
+                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] px-[12px] text-[14px] text-white text-right">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[2024, 2025, 2026, 2027].map(y => (
+                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {isLoadingSummary ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="animate-spin w-5 h-5 text-white/40" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-[#0F1535] rounded-[10px] p-3 text-center">
+                  <span className="text-white/50 text-xs block mb-1">ימים בחודש</span>
+                  <span className="text-white text-lg font-bold">{calendarDays}</span>
+                </div>
+                <div className="bg-[#0F1535] rounded-[10px] p-3 text-center">
+                  <span className="text-white/50 text-xs block mb-1">לפי לוח עסקי</span>
+                  <span className="text-white text-lg font-bold">{scheduleWorkDays % 1 === 0 ? scheduleWorkDays : scheduleWorkDays.toFixed(1)}</span>
+                </div>
+                <div className={`rounded-[10px] p-3 text-center ${effectiveWorkDays !== scheduleWorkDays ? 'bg-[#29318A]' : 'bg-[#0F1535]'}`}>
+                  <span className="text-white/50 text-xs block mb-1">בפועל (עם חריגות)</span>
+                  <span className={`text-lg font-bold ${effectiveWorkDays !== scheduleWorkDays ? 'text-[#FFA412]' : 'text-white'}`}>
+                    {effectiveWorkDays % 1 === 0 ? effectiveWorkDays : effectiveWorkDays.toFixed(1)}
+                  </span>
+                  {effectiveWorkDays !== scheduleWorkDays && (
+                    <span className="text-[#FFA412] text-xs block mt-0.5">
+                      ({effectiveWorkDays > scheduleWorkDays ? '+' : ''}{(effectiveWorkDays - scheduleWorkDays) % 1 === 0 ? effectiveWorkDays - scheduleWorkDays : (effectiveWorkDays - scheduleWorkDays).toFixed(1)} ימים)
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Exceptions list */}
