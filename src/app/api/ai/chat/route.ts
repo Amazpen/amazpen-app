@@ -1465,8 +1465,8 @@ async function computeMonthlySummary(
   const sumDayFactors = Number(daily.sum_day_factors) || 0;
   const workDays = Number(daily.work_days) || 0;
 
-  // monthlyPace uses totalIncome (WITH VAT) — same as dashboard
-  const dailyAvg = sumDayFactors > 0 ? totalIncome / sumDayFactors : 0;
+  // monthlyPace uses incomeBeforeVat — same as dashboard (metrics/refresh)
+  const dailyAvg = sumDayFactors > 0 ? incomeBeforeVat / sumDayFactors : 0;
   const monthlyPace = dailyAvg * expectedWorkDays;
 
   const managerDailyCost = expectedWorkDays > 0 ? managerSalary / expectedWorkDays : 0;
@@ -1492,14 +1492,12 @@ async function computeMonthlySummary(
   const foodTarget = Number(goalsData?.food_cost_target_pct) || 0;
   const foodDiffPct = foodTarget > 0 ? foodCostPct - foodTarget : null;
 
-  // Current expenses target percentage — same as dashboard
-  // Use goals.current_expenses_target if set, otherwise 0
-  const currentExpensesTargetAmount = Number(goalsData?.current_expenses_target) || 0;
-  const monthlyPaceBeforeVat = monthlyPace / (1 + vatPct);
-  const currentExpensesTargetPct = monthlyPaceBeforeVat > 0
-    ? (currentExpensesTargetAmount / monthlyPaceBeforeVat) * 100
+  // Current expenses target percentage — same as dashboard (metrics/refresh)
+  // Use operating_cost_target_pct directly (not amount-based calculation)
+  const currentExpensesTargetPct = Number(goalsData?.operating_cost_target_pct) || 0;
+  const currentExpensesDiffPct = currentExpensesTargetPct > 0
+    ? currentExpensesPct - currentExpensesTargetPct
     : 0;
-  const currentExpensesDiffPct = currentExpensesPct - currentExpensesTargetPct;
 
   // 7. Income sources breakdown
   const { data: incomeSourcesRaw } = await execReadOnlyQuery(sb,
@@ -1590,12 +1588,14 @@ async function computeMonthlySummary(
       let totalCost = 0;
       if (ids.length > 0) {
         const idList = ids.map((r) => `'${r}'`).join(",");
+        // Use SUM(quantity) × current unit_cost — same as dashboard (metrics/refresh)
         const { data: usageAgg } = await execReadOnlyQuery(sb,
-          `SELECT COALESCE(SUM(quantity * unit_cost_at_time), 0) as total_cost
+          `SELECT COALESCE(SUM(quantity), 0) as total_qty
            FROM public.daily_product_usage
            WHERE daily_entry_id IN (${idList}) AND product_id = '${mp.id}'`
         );
-        totalCost = Array.isArray(usageAgg) && usageAgg[0] ? Number(usageAgg[0].total_cost) || 0 : 0;
+        const totalQty = Array.isArray(usageAgg) && usageAgg[0] ? Number(usageAgg[0].total_qty) || 0 : 0;
+        totalCost = totalQty * (Number(mp.unit_cost) || 0);
       }
       const pct = incomeBeforeVat > 0 ? (totalCost / incomeBeforeVat) * 100 : 0;
       const tPct = mp.target_pct != null ? Number(mp.target_pct) : null;
@@ -1656,6 +1656,7 @@ async function computeMonthlySummary(
       const revenueTargetBeforeVat = revenueTarget > 0 ? revenueTarget / (1 + vatPct) : 0;
       const laborTargetAmount = (laborTarget / 100) * revenueTargetBeforeVat;
       const foodTargetAmount = (foodTarget / 100) * revenueTargetBeforeVat;
+      const currentExpensesTargetAmount = (currentExpensesTargetPct / 100) * revenueTargetBeforeVat;
       const profitTarget = revenueTargetBeforeVat > 0
         ? revenueTargetBeforeVat - laborTargetAmount - foodTargetAmount - currentExpensesTargetAmount
         : null;
