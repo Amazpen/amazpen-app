@@ -146,11 +146,11 @@ export default function AdminDailyEntriesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBusinessId]);
 
-  // Parse date - support DD/MM/YYYY HH:mm, DD/MM/YYYY, etc.
+  // Parse date - support DD/MM/YYYY, YYYY-MM-DD, and "Mon DD, YYYY HH:mm am/pm" (Bubble export)
   const parseDate = (raw: string): string => {
     if (!raw) return "";
     const trimmed = raw.trim();
-    const dateOnly = trimmed.replace(/\s+\d{1,2}:\d{2}(:\d{2})?.*$/, "");
+    const dateOnly = trimmed.replace(/\s+\d{1,2}:\d{2}(:\d{2})?\s*(am|pm)?.*$/i, "").trim();
     const ddmmyyyy = dateOnly.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
     if (ddmmyyyy) {
       return `${ddmmyyyy[3]}-${ddmmyyyy[2].padStart(2, "0")}-${ddmmyyyy[1].padStart(2, "0")}`;
@@ -158,6 +158,17 @@ export default function AdminDailyEntriesPage() {
     const yyyymmdd = dateOnly.match(/^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/);
     if (yyyymmdd) {
       return `${yyyymmdd[1]}-${yyyymmdd[2].padStart(2, "0")}-${yyyymmdd[3].padStart(2, "0")}`;
+    }
+    // Bubble format: "Jan 1, 2026" or "Apr 24, 2025"
+    const monthNames: Record<string, string> = { Jan: "01", Feb: "02", Mar: "03", Apr: "04", May: "05", Jun: "06", Jul: "07", Aug: "08", Sep: "09", Oct: "10", Nov: "11", Dec: "12" };
+    const bubbleMatch = dateOnly.match(/^(\w{3})\s+(\d{1,2}),?\s+(\d{4})$/);
+    if (bubbleMatch && monthNames[bubbleMatch[1]]) {
+      return `${bubbleMatch[3]}-${monthNames[bubbleMatch[1]]}-${bubbleMatch[2].padStart(2, "0")}`;
+    }
+    // Fallback: try native Date parsing
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     }
     return "";
   };
