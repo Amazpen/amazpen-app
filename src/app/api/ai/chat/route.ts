@@ -376,7 +376,7 @@ function buildUnifiedPrompt(opts: {
 3. 💡 **פעולה מומלצת:** [פעולה קונקרטית עם שם אדם אם רלוונטי]
 
 **אם יש חריגה בהוצאות שוטפות** — שלוף TOP 5 ספקים עם queryDatabase והצג בטבלת markdown:
-SELECT s.name, SUM(i.subtotal) as total FROM public.invoices i JOIN public.suppliers s ON i.supplier_id=s.id WHERE i.business_id='BID' AND s.expense_type='current_expenses' AND i.invoice_date >= 'MONTH_START' AND i.invoice_date < 'MONTH_END' AND i.deleted_at IS NULL AND i.status != 'cancelled' GROUP BY s.name ORDER BY total DESC LIMIT 5
+SELECT s.name, SUM(i.subtotal) as total FROM public.invoices i JOIN public.suppliers s ON i.supplier_id=s.id WHERE i.business_id='BID' AND s.expense_type='current_expenses' AND i.reference_date >= 'MONTH_START' AND i.reference_date < 'MONTH_END' AND i.deleted_at IS NULL AND i.status != 'cancelled' GROUP BY s.name ORDER BY total DESC LIMIT 5
 
 **בונוסים** — אם getBonusPlans החזיר תכניות פעילות, הצג סטטוס בטקסט:
 🏆 **בונוסים:** [areaName]: [currentValue] (רמה [tier] — בונוס ₪[amount]). [מה צריך כדי לעלות רמה]
@@ -725,6 +725,9 @@ ${getRoleInstructions(userRole)}
   suppliers.vat_type: 'full' | 'none'
 - **תשלומים ותזרים:** כשהמשתמש שואל "כמה שילמנו החודש" / "כמה כסף יצא" / תזרים מזומנים — סנן לפי payment_splits.due_date (תאריך הורדת הכסף מהבנק), לא לפי payments.payment_date (תאריך הרישום). JOIN עם payments דרך payment_id.
 - **סינון תאריכים לחודש:** השתמש ב-BETWEEN 'YYYY-MM-01' AND 'YYYY-MM-28/29/30/31' או: EXTRACT(YEAR FROM date_col)=YYYY AND EXTRACT(MONTH FROM date_col)=MM.
+- **⚠️ כלל ברזל — reference_date, לא invoice_date!** כששואלים על הוצאות/חשבוניות של חודש מסוים, **חובה** לסנן לפי **i.reference_date** ולא i.invoice_date. reference_date הוא התאריך שמשמש את האפליקציה. שימוש ב-invoice_date יגרום למספרים שונים ממה שהמשתמש רואה בדשבורד!
+  ✅ WHERE i.reference_date >= '2026-03-01' AND i.reference_date < '2026-04-01'
+  ❌ WHERE i.invoice_date >= '2026-03-01' (יגרום לאי-התאמה!)
 
 ### ⚠️ חובות ספקים — כלל עקביות קריטי!
 **כששואלים "כמה חייבים לספק X" / "חוב פתוח" / "מה צריך לשלם":**
@@ -741,7 +744,7 @@ ${getRoleInstructions(userRole)}
 **כששואלים "מה הרווח שלי" / "רווח והפסד" / "דוח רו"ה":**
 1. קרא ל-getMonthlySummary לקבל: הכנסות, עלות עובדים, עלות מכר, הוצאות שוטפות
 2. **פירוט הוצאות שוטפות** — שלוף עם queryDatabase:
-   - הוצאות קבועות (is_fixed_expense=true): SELECT s.name, SUM(i.subtotal) FROM invoices i JOIN suppliers s ON i.supplier_id=s.id WHERE s.is_fixed_expense=true AND s.expense_type='current_expenses' AND i.business_id='BID' AND i.invoice_date BETWEEN... GROUP BY s.name
+   - הוצאות קבועות (is_fixed_expense=true): SELECT s.name, SUM(i.subtotal) FROM invoices i JOIN suppliers s ON i.supplier_id=s.id WHERE s.is_fixed_expense=true AND s.expense_type='current_expenses' AND i.business_id='BID' AND i.reference_date BETWEEN... GROUP BY s.name
    - הוצאות משתנות (is_fixed_expense=false): אותו דבר עם false
 3. **רווח = הכנסה לפני מע"מ − עלות עובדים − עלות מכר − הוצאות שוטפות**
 4. הצג בפורמט:
@@ -798,7 +801,7 @@ ${getRoleInstructions(userRole)}
 SELECT EXTRACT(YEAR FROM i.invoice_date) AS yr, EXTRACT(MONTH FROM i.invoice_date) AS mo,
   COUNT(*) AS invoice_count, SUM(i.subtotal) AS total_before_vat, SUM(i.total_amount) AS total_with_vat
 FROM public.invoices i WHERE i.supplier_id = (SELECT id FROM public.suppliers WHERE name ILIKE '%שם%' AND business_id='BID')
-  AND i.deleted_at IS NULL AND i.invoice_date >= NOW() - INTERVAL '6 months'
+  AND i.deleted_at IS NULL AND i.reference_date >= NOW() - INTERVAL '6 months'
 GROUP BY yr, mo ORDER BY yr, mo
 
 הצג טבלה: חודש | כמות חשבוניות | סכום | שינוי מחודש קודם
@@ -902,6 +905,14 @@ ${isAdmin ? `
 <sql-best-practices>
 ## כללי SQL קריטיים — חובה לפני כתיבת שאילתה!
 
+### ⚠️ כלל ברזל #0 — reference_date, לא invoice_date!
+**כשמסננים חשבוניות לפי חודש, חובה להשתמש ב-reference_date!**
+האפליקציה (דשבורד, דף הוצאות, דף ספקים) כולה מסננת לפי reference_date.
+שימוש ב-invoice_date יגרום למספרים שונים ממה שהמשתמש רואה!
+- ✅ WHERE i.reference_date >= '2026-03-01' AND i.reference_date < '2026-04-01'
+- ❌ WHERE i.invoice_date >= '2026-03-01' — יוצר אי-התאמה לאפליקציה!
+**יוצא דופן:** invoice_date מותר כעמודה בתוצאות (SELECT i.invoice_date) לתצוגה, רק לא בסינון WHERE/BETWEEN.
+
 ### Aliases — באנגלית בלבד!
 - **לעולם** אל תשתמש בעברית ב-AS. עברית (במיוחד מע"מ, ש"ח) מכילה גרשיים שמשבשים SQL.
 - ✅ נכון: SUM(i.vat_amount) AS vat_total, s.name AS supplier_name
@@ -933,7 +944,7 @@ SELECT ec.name AS category, s.name AS supplier_name, s.expense_type,
 FROM public.suppliers s
 LEFT JOIN public.expense_categories ec ON s.expense_category_id = ec.id
 LEFT JOIN public.invoices i ON i.supplier_id = s.id AND i.deleted_at IS NULL
-  AND i.invoice_date >= '2026-02-01' AND i.invoice_date < '2026-03-01'
+  AND i.reference_date >= '2026-02-01' AND i.reference_date < '2026-03-01'
 WHERE s.business_id = 'BID' AND s.deleted_at IS NULL
 GROUP BY ec.name, s.name, s.expense_type
 ORDER BY ec.name, total DESC;
@@ -944,7 +955,7 @@ SELECT s.name AS supplier_name, s.expense_type,
 FROM public.invoices i
 JOIN public.suppliers s ON i.supplier_id = s.id
 WHERE i.business_id = 'BID' AND i.deleted_at IS NULL AND s.deleted_at IS NULL
-  AND i.invoice_date BETWEEN '2026-02-01' AND '2026-02-28'
+  AND i.reference_date BETWEEN '2026-02-01' AND '2026-02-28'
 GROUP BY s.name, s.expense_type
 ORDER BY total DESC;
 
@@ -1737,6 +1748,8 @@ async function computeMonthlySummary(
   };
 
   // 2. Invoices: food cost (goods_purchases) and current expenses
+  // IMPORTANT: Use reference_date (not invoice_date) to match dashboard display!
+  // Dashboard filters by reference_date — this ensures AI numbers = app numbers.
   const { data: invoiceAgg } = await execReadOnlyQuery(sb,
     `SELECT
        COALESCE(SUM(CASE WHEN s.expense_type = 'goods_purchases' THEN i.subtotal ELSE 0 END), 0) as food_cost,
@@ -1745,8 +1758,8 @@ async function computeMonthlySummary(
      FROM public.invoices i
      JOIN public.suppliers s ON s.id = i.supplier_id
      WHERE i.business_id = '${bizId}'
-       AND i.invoice_date >= '${monthStart}'
-       AND i.invoice_date < '${nextMonth}'
+       AND i.reference_date >= '${monthStart}'
+       AND i.reference_date < '${nextMonth}'
        AND i.deleted_at IS NULL`
   );
   const invoices = Array.isArray(invoiceAgg) && invoiceAgg[0] ? invoiceAgg[0] : {

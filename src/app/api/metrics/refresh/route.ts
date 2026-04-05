@@ -78,8 +78,8 @@ async function computeAndStoreMetrics(
      FROM public.invoices i
      JOIN public.suppliers s ON s.id = i.supplier_id
      WHERE i.business_id = '${bizId}'
-       AND i.invoice_date >= '${monthStart}'
-       AND i.invoice_date < '${nextMonth}'
+       AND i.reference_date >= '${monthStart}'
+       AND i.reference_date < '${nextMonth}'
        AND i.deleted_at IS NULL`
   );
   const inv =
