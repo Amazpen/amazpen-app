@@ -17,6 +17,8 @@ const LazyYAxis = dynamic(() => import("recharts").then((mod) => ({ default: mod
 const LazyCartesianGrid = dynamic(() => import("recharts").then((mod) => ({ default: mod.CartesianGrid })), { ssr: false });
 const LazyTooltip = dynamic(() => import("recharts").then((mod) => ({ default: mod.Tooltip })), { ssr: false });
 const LazyResponsiveContainer = dynamic(() => import("recharts").then((mod) => ({ default: mod.ResponsiveContainer })), { ssr: false });
+const LazyBarChart = dynamic(() => import("recharts").then((mod) => ({ default: mod.BarChart })), { ssr: false });
+const LazyBar = dynamic(() => import("recharts").then((mod) => ({ default: mod.Bar })), { ssr: false });
 
 const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 
@@ -1141,6 +1143,72 @@ export function HistoryModal({
                   })}
                 </TableBody>
               </Table>
+            </div>
+          </div>
+        )}
+
+        {/* Quantities Bar Chart — below the quantities table */}
+        {!isLoading && hasQuantityData && (
+          <div className="px-[5px] pb-[25px]">
+            <div className="rounded-[20px] p-[15px_10px_10px] overflow-hidden" style={{ backgroundColor: 'rgb(41, 49, 138)' }}>
+              <h3 className="text-white text-[16px] font-semibold text-center mb-[10px]">
+                {cardTitle} - כמות הזמנות לפי חודש
+              </h3>
+              <div dir="ltr">
+                <SafeChartContainer height={250}>
+                  <LazyBarChart
+                    data={monthlyData
+                      .filter(row => (row.quantity ?? 0) > 0)
+                      .map(row => ({
+                        name: row.monthName,
+                        value: row.quantity ?? 0,
+                      }))}
+                    margin={{ top: 5, right: 15, left: 5, bottom: 5 }}
+                  >
+                    <defs>
+                      <linearGradient id="quantityBarGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#818CF8" stopOpacity={0.9} />
+                        <stop offset="100%" stopColor="#818CF8" stopOpacity={0.3} />
+                      </linearGradient>
+                    </defs>
+                    <LazyCartesianGrid strokeDasharray="3 3" stroke="#7B91B0" strokeOpacity={0.15} />
+                    <LazyXAxis
+                      dataKey="name"
+                      tick={{ fill: '#7B91B0', fontSize: 12 }}
+                      axisLine={{ stroke: '#7B91B0', strokeOpacity: 0.3 }}
+                      tickLine={false}
+                    />
+                    <LazyYAxis
+                      tick={{ fill: '#7B91B0', fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v: number) => v.toLocaleString("he-IL")}
+                      width={50}
+                    />
+                    <LazyTooltip
+                      contentStyle={{
+                        backgroundColor: '#0f1535',
+                        border: '1px solid #4C526B',
+                        borderRadius: '8px',
+                        color: '#fff',
+                        fontSize: '13px',
+                        direction: 'rtl',
+                      }}
+                      formatter={(value: unknown) => {
+                        const v = Number(value) || 0;
+                        return [v.toLocaleString("he-IL"), 'כמות הזמנות'];
+                      }}
+                      labelStyle={{ color: '#7B91B0' }}
+                    />
+                    <LazyBar
+                      dataKey="value"
+                      fill="url(#quantityBarGradient)"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={40}
+                    />
+                  </LazyBarChart>
+                </SafeChartContainer>
+              </div>
             </div>
           </div>
         )}
