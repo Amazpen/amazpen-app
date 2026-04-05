@@ -2101,12 +2101,17 @@ function PaymentsPageInner() {
         newCheckNumber = String(parseInt(lastCheckNum) + 1);
       }
     }
-    // Calculate remaining balance
+    // Calculate remaining balance — use actual installments sum if they exist (user may have edited)
     const totalInvoice = Array.from(selectedInvoiceIds).reduce((sum, invId) => {
       const inv = openInvoices.find(i => i.id === invId);
       return sum + (inv ? Number(inv.total_amount) : 0);
     }, 0);
-    const allocatedSoFar = paymentMethods.reduce((sum, p) => sum + (parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0), 0);
+    const allocatedSoFar = paymentMethods.reduce((sum, p) => {
+      if (p.customInstallments.length > 0) {
+        return sum + p.customInstallments.reduce((s, inst) => s + (Number(inst.amount) || 0), 0);
+      }
+      return sum + (parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0);
+    }, 0);
     const remaining = Math.max(0, Math.round((totalInvoice - allocatedSoFar) * 100) / 100);
     setPaymentMethods(prev => [
       ...prev,
@@ -4411,22 +4416,43 @@ function PaymentsPageInner() {
                 return null;
               })()}
 
-              {/* Payment mismatch warning */}
+              {/* Payment mismatch warnings */}
               {(() => {
-                if (selectedInvoiceIds.size === 0) return null;
-                const paymentTotal = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0), 0);
-                const invoicesTotal = openInvoices
-                  .filter(inv => selectedInvoiceIds.has(inv.id))
-                  .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
-                const diff = invoicesTotal - paymentTotal;
-                if (Math.abs(diff) <= 5) return null;
+                const warnings: string[] = [];
+                // Per-PM: check installments sum vs amount
+                paymentMethods.forEach((pm, idx) => {
+                  if (pm.customInstallments.length > 0) {
+                    const pmAmount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+                    const instTotal = pm.customInstallments.reduce((s, inst) => s + (Number(inst.amount) || 0), 0);
+                    if (pmAmount > 0 && Math.abs(instTotal - pmAmount) > 0.01) {
+                      warnings.push(`אמצעי תשלום ${idx + 1}: סכום תשלומים (₪${instTotal.toFixed(2)}) לא תואם לסכום (₪${pmAmount.toFixed(2)})`);
+                    }
+                  }
+                });
+                // Total: check all payments vs invoices
+                if (selectedInvoiceIds.size > 0) {
+                  const actualPaymentTotal = paymentMethods.reduce((sum, pm) => {
+                    if (pm.customInstallments.length > 0) {
+                      return sum + pm.customInstallments.reduce((s, inst) => s + (Number(inst.amount) || 0), 0);
+                    }
+                    return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
+                  }, 0);
+                  const invoicesTotal = openInvoices
+                    .filter(inv => selectedInvoiceIds.has(inv.id))
+                    .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+                  const diff = invoicesTotal - actualPaymentTotal;
+                  if (Math.abs(diff) > 5) {
+                    warnings.push(diff > 0
+                      ? `חסרים ₪${diff.toFixed(2)} לסגירת החשבוניות`
+                      : `סכום התשלומים עולה ב-₪${Math.abs(diff).toFixed(2)} על סכום החשבוניות`);
+                  }
+                }
+                if (warnings.length === 0) return null;
                 return (
-                  <div className="bg-red-500/20 border border-red-500/50 rounded-[10px] p-[10px] text-center">
-                    <span className="text-[14px] text-red-400 font-medium">
-                      {diff > 0
-                        ? `חסרים ₪${diff.toFixed(2)} לסגירת החשבוניות — לא ניתן לבצע תשלום חלקי`
-                        : `סכום התשלום עולה ב-₪${Math.abs(diff).toFixed(2)} על סכום החשבוניות`}
-                    </span>
+                  <div className="bg-red-500/20 border border-red-500/50 rounded-[10px] p-[10px] flex flex-col gap-[5px]">
+                    {warnings.map((w, i) => (
+                      <span key={i} className="text-[13px] text-red-400 font-medium text-center">{w}</span>
+                    ))}
                   </div>
                 );
               })()}
