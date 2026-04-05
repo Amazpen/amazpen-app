@@ -815,9 +815,11 @@ function ExpensesPageInner() {
           } else {
             // No existing installments or same count - generate fresh
             const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
+            // Use invoice date as base for credit card installments (not the already-calculated payment date)
+            const invoiceDateForCalc = paymentInvoice ? paymentInvoice.rawDate : expenseDate;
             const effectiveDate = existing.length > 0 ? existing[0].dateForInput : getPopupEffectiveStartDate();
-            if (card && effectiveDate) {
-              updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, effectiveDate, card.billing_day);
+            if (card && invoiceDateForCalc) {
+              updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, invoiceDateForCalc, card.billing_day);
             } else {
               updated.customInstallments = generatePopupInstallments(numInstallments, totalAmount, effectiveDate);
             }
@@ -838,9 +840,10 @@ function ExpensesPageInner() {
           }));
         } else if (totalAmount > 0 && numInstallments > 1) {
           const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
+          const invoiceDateForCalc = paymentInvoice ? paymentInvoice.rawDate : expenseDate;
           const startDate = getPopupEffectiveStartDate();
-          if (card && startDate) {
-            updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, startDate, card.billing_day);
+          if (card && invoiceDateForCalc) {
+            updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, invoiceDateForCalc, card.billing_day);
           } else {
             updated.customInstallments = generatePopupInstallments(numInstallments, totalAmount, startDate);
           }
