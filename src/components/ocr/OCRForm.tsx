@@ -180,6 +180,10 @@ export default function OCRForm({
     total_amount: '',
     notes: '',
   });
+  // Open delivery notes from DB for selected supplier
+  const [openDeliveryNotes, setOpenDeliveryNotes] = useState<Array<{ id: string; delivery_note_number: string; delivery_date: string; total_amount: number; notes: string | null }>>([]);
+  const [selectedDeliveryNoteIds, setSelectedDeliveryNoteIds] = useState<Set<string>>(new Set());
+  const [isLoadingDeliveryNotes, setIsLoadingDeliveryNotes] = useState(false);
 
   // Business credit cards
   const [businessCreditCards, setBusinessCreditCards] = useState<{id: string, card_name: string, billing_day: number}[]>([]);
@@ -697,6 +701,55 @@ export default function OCRForm({
     return customInstallments.reduce((sum, item) => sum + item.amount, 0);
   };
 
+  // Auto-fetch open delivery notes when supplier is selected in summary tab
+  useEffect(() => {
+    if (!selectedBusinessId || !summarySupplierId || documentType !== 'summary') {
+      setOpenDeliveryNotes([]);
+      setSelectedDeliveryNoteIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    async function fetchOpenNotes() {
+      setIsLoadingDeliveryNotes(true);
+      const supabase = (await import('@/lib/supabase/client')).createClient();
+      const { data } = await supabase
+        .from('delivery_notes')
+        .select('id, delivery_note_number, delivery_date, total_amount, notes')
+        .eq('business_id', selectedBusinessId)
+        .eq('supplier_id', summarySupplierId)
+        .is('invoice_id', null)
+        .order('delivery_date', { ascending: true });
+      if (!cancelled && data) {
+        setOpenDeliveryNotes(data.map(d => ({
+          id: d.id,
+          delivery_note_number: d.delivery_note_number || '',
+          delivery_date: String(d.delivery_date || '').substring(0, 10),
+          total_amount: Number(d.total_amount) || 0,
+          notes: d.notes,
+        })));
+        // Auto-select all
+        setSelectedDeliveryNoteIds(new Set(data.map(d => d.id)));
+      }
+      if (!cancelled) setIsLoadingDeliveryNotes(false);
+    }
+    fetchOpenNotes();
+    return () => { cancelled = true; };
+  }, [selectedBusinessId, summarySupplierId, documentType]);
+
+  // Calculate selected delivery notes total
+  const selectedDeliveryNotesTotal = useMemo(() => {
+    return openDeliveryNotes
+      .filter(n => selectedDeliveryNoteIds.has(n.id))
+      .reduce((sum, n) => sum + n.total_amount, 0);
+  }, [openDeliveryNotes, selectedDeliveryNoteIds]);
+
+  // Auto-fill total amount from selected delivery notes
+  useEffect(() => {
+    if (selectedDeliveryNoteIds.size > 0 && selectedDeliveryNotesTotal > 0) {
+      setSummaryTotalAmount(selectedDeliveryNotesTotal.toFixed(2));
+    }
+  }, [selectedDeliveryNotesTotal, selectedDeliveryNoteIds.size]);
+
   // Summary tab helpers
   const summaryDeliveryNotesTotal = useMemo(() => {
     return summaryDeliveryNotes.reduce((sum, note) => sum + (parseFloat(note.total_amount) || 0), 0);
@@ -1146,6 +1199,8 @@ export default function OCRForm({
         is_paid: false,
         summary_delivery_notes: summaryDeliveryNotes,
         summary_is_closed: summaryIsClosed,
+        // Pass existing delivery note IDs to link (instead of creating new ones)
+        summary_existing_delivery_note_ids: Array.from(selectedDeliveryNoteIds),
       };
       clearDraft();
       onApprove(formData);
@@ -2410,8 +2465,91 @@ export default function OCRForm({
         </div>
       </div>
 
-      {/* Delivery Notes Section */}
+      {/* Open Delivery Notes from DB */}
       <div className="flex flex-col gap-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+        <div className="flex items-center justify-between">
+          {openDeliveryNotes.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                if (selectedDeliveryNoteIds.size === openDeliveryNotes.length) {
+                  setSelectedDeliveryNoteIds(new Set());
+                } else {
+                  setSelectedDeliveryNoteIds(new Set(openDeliveryNotes.map(n => n.id)));
+                }
+              }}
+              className="text-[13px] text-[#0075FF] hover:text-[#00D4FF] transition-colors"
+            >
+              {selectedDeliveryNoteIds.size === openDeliveryNotes.length ? 'בטל הכל' : 'בחר הכל'}
+            </Button>
+          )}
+          <label className="text-[15px] font-medium text-white">תעודות משלוח פתוחות ({openDeliveryNotes.length})</label>
+        </div>
+
+        {isLoadingDeliveryNotes ? (
+          <div className="flex justify-center py-[15px]">
+            <svg className="animate-spin w-5 h-5 text-white/40" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" strokeLinecap="round"/></svg>
+          </div>
+        ) : !summarySupplierId ? (
+          <p className="text-[12px] text-white/40 text-center py-[10px]">בחר ספק כדי לראות תעודות</p>
+        ) : openDeliveryNotes.length === 0 ? (
+          <p className="text-[12px] text-white/40 text-center py-[10px]">אין תעודות משלוח פתוחות לספק זה</p>
+        ) : (
+          <div className="flex flex-col gap-[6px] max-h-[300px] overflow-y-auto">
+            {openDeliveryNotes.map(note => {
+              const isSelected = selectedDeliveryNoteIds.has(note.id);
+              return (
+                <button
+                  key={note.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDeliveryNoteIds(prev => {
+                      const next = new Set(prev);
+                      if (next.has(note.id)) next.delete(note.id); else next.add(note.id);
+                      return next;
+                    });
+                  }}
+                  className={`flex items-center justify-between rounded-[8px] p-[10px] transition-colors cursor-pointer ${isSelected ? 'bg-[#29318A]/40 border border-[#29318A]' : 'bg-[#1a1f42] border border-transparent hover:border-white/20'}`}
+                >
+                  <div className="flex items-center gap-[8px]">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={isSelected ? 'text-[#3CD856]' : 'text-white/30'}>
+                      {isSelected ? (
+                        <><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2" fill="currentColor"/><path d="M8 12l3 3 5-5" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></>
+                      ) : (
+                        <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                    <span className="text-[14px] text-white font-medium ltr-num">
+                      ₪{note.total_amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[14px] text-white">{note.delivery_note_number}</span>
+                    <span className="text-[11px] text-white/50">
+                      {note.delivery_date ? new Date(note.delivery_date + 'T00:00:00').toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {selectedDeliveryNoteIds.size > 0 && (
+          <div className="flex items-center justify-between bg-[#29318A]/20 rounded-[7px] p-[8px] border border-[#29318A]">
+            <span className="text-[14px] text-white font-bold ltr-num">
+              ₪{selectedDeliveryNotesTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span className="text-[13px] text-white/70">
+              {selectedDeliveryNoteIds.size} תעודות נבחרו
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Manual Delivery Notes (legacy) */}
+      <div className="flex flex-col gap-[10px] border border-[#4C526B] rounded-[10px] p-[10px]" style={{ display: openDeliveryNotes.length > 0 ? 'none' : undefined }}>
         <div className="flex items-center justify-between">
           <Button
             type="button"

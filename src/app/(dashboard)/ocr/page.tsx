@@ -494,7 +494,16 @@ export default function OCRPage() {
           if (invoiceError) throw invoiceError;
           createdInvoiceId = invoice?.id || null;
 
-          // Insert delivery notes linked to this invoice
+          // Link existing delivery notes to this invoice (update invoice_id)
+          if (formData.summary_existing_delivery_note_ids && formData.summary_existing_delivery_note_ids.length > 0 && invoice) {
+            const { error: linkError } = await supabase
+              .from('delivery_notes')
+              .update({ invoice_id: invoice.id, is_verified: isClosed })
+              .in('id', formData.summary_existing_delivery_note_ids);
+            if (linkError) console.error('Error linking delivery notes:', linkError);
+          }
+
+          // Also insert manually added delivery notes (legacy flow)
           if (formData.summary_delivery_notes && formData.summary_delivery_notes.length > 0 && invoice) {
             const deliveryNotesData = formData.summary_delivery_notes.map(note => {
               const noteTotal = parseFloat(note.total_amount);
