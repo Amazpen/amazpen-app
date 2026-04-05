@@ -311,6 +311,8 @@ function PaymentsPageInner() {
   const [filterBy, setFilterBy] = useState<string>("");
   const [filterValue, setFilterValue] = useState<string>("");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [globalPaymentResults, setGlobalPaymentResults] = useState<RecentPaymentDisplay[] | null>(null);
+  const [isGlobalPaymentSearching, setIsGlobalPaymentSearching] = useState(false);
   const [sortColumn, setSortColumn] = useState<"date" | "supplier" | "reference" | "installments" | "method" | "amount" | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const handleColumnSort = (col: "date" | "supplier" | "reference" | "installments" | "method" | "amount") => {
@@ -319,6 +321,89 @@ function PaymentsPageInner() {
     else { setSortColumn(null); setSortOrder(null); }
   };
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Global search: when filter is active, search DB without date/page restrictions
+  useEffect(() => {
+    setGlobalPaymentResults(null);
+    if (!filterBy || !filterValue.trim() || !selectedBusinesses.length) return;
+
+    const searchVal = filterValue.trim();
+
+    const timer = setTimeout(async () => {
+      setIsGlobalPaymentSearching(true);
+      try {
+        const supabase = createClient();
+        let query = supabase
+          .from("payments")
+          .select(`
+            *,
+            supplier:suppliers(id, name),
+            payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id),
+            invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes),
+            creator:profiles!payments_created_by_fkey(full_name)
+          `)
+          .in("business_id", selectedBusinesses)
+          .is("deleted_at", null)
+          .order("payment_date", { ascending: false })
+          .limit(50);
+
+        // Apply DB-level filters where possible
+        if (filterBy === "reference") {
+          // Search by reference in payment_splits
+          const { data: matchedSplits } = await supabase
+            .from("payment_splits")
+            .select("payment_id")
+            .ilike("reference_number", `%${searchVal}%`);
+          if (matchedSplits && matchedSplits.length > 0) {
+            const paymentIds = [...new Set(matchedSplits.map(s => s.payment_id))];
+            query = query.in("id", paymentIds);
+          } else {
+            setGlobalPaymentResults([]);
+            setIsGlobalPaymentSearching(false);
+            return;
+          }
+        } else if (filterBy === "supplier") {
+          const { data: matchedSuppliers } = await supabase
+            .from("suppliers")
+            .select("id")
+            .in("business_id", selectedBusinesses)
+            .ilike("name", `%${searchVal}%`)
+            .is("deleted_at", null);
+          if (!matchedSuppliers || matchedSuppliers.length === 0) {
+            setGlobalPaymentResults([]);
+            setIsGlobalPaymentSearching(false);
+            return;
+          }
+          query = query.in("supplier_id", matchedSuppliers.map(s => s.id));
+        } else if (filterBy === "notes") {
+          query = query.ilike("notes", `%${searchVal}%`);
+        }
+
+        const { data } = await query;
+        if (data && data.length > 0) {
+          let results = transformPaymentsData(data);
+          // Client-side filter for fields that can't be DB-filtered
+          if (filterBy === "date") {
+            results = results.filter(p => p.date.includes(searchVal));
+          } else if (filterBy === "amount") {
+            results = results.filter(p => p.totalAmount.toString().includes(searchVal) || p.totalAmount.toLocaleString().includes(searchVal));
+          } else if (filterBy === "paymentNumber") {
+            results = results.filter(p => p.checkNumber?.includes(searchVal) || p.rawSplits.some(s => s.check_number?.includes(searchVal)));
+          }
+          setGlobalPaymentResults(results);
+        } else {
+          setGlobalPaymentResults([]);
+        }
+      } catch {
+        setGlobalPaymentResults([]);
+      } finally {
+        setIsGlobalPaymentSearching(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterBy, filterValue, selectedBusinesses]);
 
   // Close filter menu on outside click
   useEffect(() => {
@@ -3258,7 +3343,12 @@ function PaymentsPageInner() {
           <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="max-h-[450px] overflow-y-auto flex flex-col gap-[5px]">
             {(() => {
               const searchVal = filterValue.trim().toLowerCase();
-              const filteredPayments = recentPaymentsData.filter((payment) => {
+              const hasActiveFilter = filterBy && searchVal;
+              // When filter is active, prefer global search results (all dates/pages)
+              const basePayments = hasActiveFilter && globalPaymentResults && globalPaymentResults.length > 0
+                ? globalPaymentResults
+                : recentPaymentsData;
+              const filteredPayments = basePayments.filter((payment) => {
                 if (!filterBy || !searchVal) return true;
                 switch (filterBy) {
                   case "date": return payment.date.includes(searchVal);
@@ -3272,6 +3362,7 @@ function PaymentsPageInner() {
                   default: return true;
                 }
               });
+              const isShowingGlobal = hasActiveFilter && globalPaymentResults && globalPaymentResults.length > 0;
               let sortedPayments = filteredPayments;
               if (sortColumn && sortOrder) {
                 sortedPayments = [...filteredPayments].sort((a, b) => {
