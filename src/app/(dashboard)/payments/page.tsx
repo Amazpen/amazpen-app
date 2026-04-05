@@ -3464,11 +3464,16 @@ function PaymentsPageInner() {
                   {/* Payment Method */}
                   <span className="text-[12px] sm:text-[13px] font-medium text-center leading-tight truncate">{payment.paymentMethod}</span>
 
-                  {/* Amount */}
+                  {/* Amount: split amount (large) + total (small) */}
                   <div className="flex flex-col items-center">
                     <span className="text-[12px] sm:text-[13px] font-medium ltr-num">
-                      ₪{payment.totalAmount % 1 === 0 ? payment.totalAmount.toLocaleString("he-IL") : payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₪{payment.amount % 1 === 0 ? payment.amount.toLocaleString("he-IL") : payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
+                    {payment.amount !== payment.totalAmount && (
+                      <span className="text-[10px] text-white/40 ltr-num">
+                        מתוך ₪{payment.totalAmount.toLocaleString("he-IL")}
+                      </span>
+                    )}
                   </div>
                 </div>
 
