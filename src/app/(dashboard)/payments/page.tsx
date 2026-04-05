@@ -61,6 +61,7 @@ interface LinkedInvoice {
 
 interface RecentPaymentDisplay {
   id: string;
+  paymentId: string; // Real payment UUID (id may be paymentId-splitId for flat display)
   date: string;
   rawDate: string;
   supplier: string;
@@ -448,7 +449,7 @@ function PaymentsPageInner() {
   const highlightedRef = useRef(false);
   useEffect(() => {
     if (!highlightPaymentId || highlightedRef.current || recentPaymentsData.length === 0) return;
-    const match = recentPaymentsData.find(p => p.id === highlightPaymentId);
+    const match = recentPaymentsData.find(p => p.paymentId === highlightPaymentId || p.id === highlightPaymentId);
     if (match) {
       highlightedRef.current = true;
       // rowKey format is "paymentId:splitIndex" — expand the first split row
@@ -918,63 +919,102 @@ function PaymentsPageInner() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const transformPaymentsData = (rawData: any[], suppliersList?: Supplier[]): RecentPaymentDisplay[] => {
     const suppliersToUse = suppliersList || suppliers;
-    return rawData.map((p) => {
-      const firstSplit = p.payment_splits?.[0];
-      const installmentInfo = firstSplit?.installments_count && firstSplit?.installment_number
-        ? `${firstSplit.installment_number}/${firstSplit.installments_count}`
-        : "1/1";
+    const results: RecentPaymentDisplay[] = [];
+    for (const p of rawData) {
+      const splits = p.payment_splits || [];
       const total = Number(p.total_amount);
       const inv = p.invoice;
       const subtotal = inv ? Number(inv.subtotal) : Math.round(total / (1 + businessVatRate) * 100) / 100;
       const vatAmount = inv ? Number(inv.vat_amount) : Math.round((total - subtotal) * 100) / 100;
-      return {
-        id: p.id,
-        date: formatDateString(p.payment_date),
-        rawDate: p.payment_date,
-        supplier: p.supplier?.name || "לא ידוע",
-        supplierId: p.supplier?.id || "",
-        expenseType: (() => {
-          const s = suppliersToUse.find(s => s.id === p.supplier?.id);
-          if (s?.expense_type === "goods_purchases") return "purchases";
-          if (s?.expense_type === "employee_costs") return "employees";
-          return "expenses";
-        })(),
-        paymentMethod: paymentMethodNames[firstSplit?.payment_method || "other"] || "אחר",
-        paymentMethodKey: firstSplit?.payment_method || "other",
-        installments: installmentInfo,
-        amount: firstSplit ? Number(firstSplit.amount) : total,
-        totalAmount: total,
-        subtotal,
-        vatAmount,
-        notes: p.notes || null,
-        receiptUrl: p.receipt_url || null,
-        reference: firstSplit?.reference_number ? String(firstSplit.reference_number) : null,
-        checkNumber: firstSplit?.check_number || null,
-        createdBy: p.creator?.full_name || null,
-        createdAt: p.created_at ? formatDateString(p.created_at.split("T")[0]) : null,
-        linkedInvoice: inv ? {
-          id: inv.id,
-          invoiceNumber: inv.invoice_number,
-          date: formatDateString(inv.invoice_date),
-          subtotal: Number(inv.subtotal),
-          vatAmount: Number(inv.vat_amount),
-          totalAmount: Number(inv.total_amount),
-          attachmentUrl: inv.attachment_url,
-          notes: inv.notes || null,
-        } : null,
-        linkedInvoiceId: p.invoice_id || null,
-        rawSplits: (p.payment_splits || []).map((s: { id: string; payment_method: string; amount: number; installments_count: number | null; installment_number: number | null; due_date: string | null; check_number: string | null; reference_number: string | null }) => ({
-          id: s.id,
-          payment_method: s.payment_method,
-          amount: Number(s.amount),
-          installments_count: s.installments_count,
-          installment_number: s.installment_number,
-          due_date: s.due_date,
-          check_number: s.check_number,
-          reference_number: s.reference_number,
-        })),
-      };
-    });
+      const expenseType = (() => {
+        const s = suppliersToUse.find(s => s.id === p.supplier?.id);
+        if (s?.expense_type === "goods_purchases") return "purchases";
+        if (s?.expense_type === "employee_costs") return "employees";
+        return "expenses";
+      })();
+      const linkedInvoice = inv ? {
+        id: inv.id,
+        invoiceNumber: inv.invoice_number,
+        date: formatDateString(inv.invoice_date),
+        subtotal: Number(inv.subtotal),
+        vatAmount: Number(inv.vat_amount),
+        totalAmount: Number(inv.total_amount),
+        attachmentUrl: inv.attachment_url,
+        notes: inv.notes || null,
+      } : null;
+      const allSplitsRaw = splits.map((s: { id: string; payment_method: string; amount: number; installments_count: number | null; installment_number: number | null; due_date: string | null; check_number: string | null; reference_number: string | null }) => ({
+        id: s.id,
+        payment_method: s.payment_method,
+        amount: Number(s.amount),
+        installments_count: s.installments_count,
+        installment_number: s.installment_number,
+        due_date: s.due_date,
+        check_number: s.check_number,
+        reference_number: s.reference_number,
+      }));
+
+      // Create one row per split so each installment is visible in the table
+      if (splits.length > 0) {
+        for (const split of splits) {
+          const installmentInfo = split.installments_count && split.installment_number
+            ? `${split.installment_number}/${split.installments_count}`
+            : "1/1";
+          results.push({
+            id: `${p.id}-${split.id}`,
+            paymentId: p.id,
+            date: formatDateString(split.due_date || p.payment_date),
+            rawDate: split.due_date || p.payment_date,
+            supplier: p.supplier?.name || "לא ידוע",
+            supplierId: p.supplier?.id || "",
+            expenseType,
+            paymentMethod: paymentMethodNames[split.payment_method || "other"] || "אחר",
+            paymentMethodKey: split.payment_method || "other",
+            installments: installmentInfo,
+            amount: Number(split.amount),
+            totalAmount: total,
+            subtotal,
+            vatAmount,
+            notes: p.notes || null,
+            receiptUrl: p.receipt_url || null,
+            reference: split.reference_number ? String(split.reference_number) : null,
+            checkNumber: split.check_number || null,
+            createdBy: p.creator?.full_name || null,
+            createdAt: p.created_at ? formatDateString(p.created_at.split("T")[0]) : null,
+            linkedInvoice,
+            linkedInvoiceId: p.invoice_id || null,
+            rawSplits: allSplitsRaw,
+          });
+        }
+      } else {
+        // No splits — single row
+        results.push({
+          id: p.id,
+          paymentId: p.id,
+          date: formatDateString(p.payment_date),
+          rawDate: p.payment_date,
+          supplier: p.supplier?.name || "לא ידוע",
+          supplierId: p.supplier?.id || "",
+          expenseType,
+          paymentMethod: "אחר",
+          paymentMethodKey: "other",
+          installments: "1/1",
+          amount: total,
+          totalAmount: total,
+          subtotal,
+          vatAmount,
+          notes: p.notes || null,
+          receiptUrl: p.receipt_url || null,
+          reference: null,
+          checkNumber: null,
+          createdBy: p.creator?.full_name || null,
+          createdAt: p.created_at ? formatDateString(p.created_at.split("T")[0]) : null,
+          linkedInvoice,
+          linkedInvoiceId: p.invoice_id || null,
+          rawSplits: allSplitsRaw,
+        });
+      }
+    }
+    return results;
   };
 
   // Load more payments (infinite scroll)
@@ -1613,7 +1653,7 @@ function PaymentsPageInner() {
       })),
     });
 
-    setEditingPaymentId(payment.id);
+    setEditingPaymentId(payment.paymentId);
     setShowAddPaymentPopup(true);
   };
 
@@ -3459,7 +3499,7 @@ function PaymentsPageInner() {
                             type="button"
                             onClick={() => {
                               confirm("האם למחוק את התשלום?", () => {
-                                handleDeletePayment(payment.id);
+                                handleDeletePayment(payment.paymentId);
                               });
                             }}
                             className="w-[20px] h-[20px] text-white opacity-70 hover:text-[#F64E60] transition-opacity cursor-pointer"
