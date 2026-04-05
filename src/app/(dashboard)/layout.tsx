@@ -729,7 +729,7 @@ export default function DashboardLayout({
                   <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </Button>
-              <div className={`overflow-hidden transition-all duration-200 ${isAdminMenuOpen || isAdminPage ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              <div className={`overflow-hidden transition-all duration-200 ${isAdminMenuOpen || isAdminPage ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
               {adminMenuItems.map((item) => {
                 const pageExists = existingPages.includes(item.href);
 
