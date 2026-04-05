@@ -1835,9 +1835,13 @@ async function computeMonthlySummary(
   const sumDayFactors = Number(daily.sum_day_factors) || 0;
   const workDays = Number(daily.work_days) || 0;
 
-  // monthlyPace uses incomeBeforeVat — same as dashboard (metrics/refresh)
+  // monthlyPace uses totalIncome (WITH VAT) — same as dashboard display!
+  // Dashboard: dailyAverage = totalIncome / sumActualDayFactors, monthlyPace = dailyAverage * expected
+  // The dashboard displays monthlyPace WITH VAT. All percentage calculations use incomeBeforeVat separately.
+  const dailyAvgWithVat = sumDayFactors > 0 ? totalIncome / sumDayFactors : 0;
+  const monthlyPace = dailyAvgWithVat * expectedWorkDays;
   const dailyAvg = sumDayFactors > 0 ? incomeBeforeVat / sumDayFactors : 0;
-  const monthlyPace = dailyAvg * expectedWorkDays;
+  const monthlyPaceBeforeVat = dailyAvg * expectedWorkDays;
 
   const managerDailyCost = expectedWorkDays > 0 ? managerSalary / expectedWorkDays : 0;
   const laborCostTotal = (Number(daily.total_labor_cost) + managerDailyCost * workDays) * markup;
@@ -1863,12 +1867,13 @@ async function computeMonthlySummary(
   const foodDiffPct = foodTarget > 0 ? foodCostPct - foodTarget : null;
 
   // Current expenses target: use operating_cost_target_pct if set,
-  // otherwise calculate from current_expenses_target amount — same as metrics/refresh
+  // otherwise calculate from current_expenses_target amount
+  // Dashboard uses: targetAmount / monthlyPaceBeforeVat * 100
   let currentExpensesTargetPct = Number(goalsData?.operating_cost_target_pct) || 0;
   if (currentExpensesTargetPct === 0 && goalsData?.current_expenses_target) {
     const targetAmount = Number(goalsData.current_expenses_target);
-    if (targetAmount > 0 && monthlyPace > 0) {
-      currentExpensesTargetPct = (targetAmount / monthlyPace) * 100;
+    if (targetAmount > 0 && monthlyPaceBeforeVat > 0) {
+      currentExpensesTargetPct = (targetAmount / monthlyPaceBeforeVat) * 100;
     }
   }
   const currentExpensesDiffPct = currentExpensesTargetPct > 0
@@ -1993,8 +1998,9 @@ async function computeMonthlySummary(
       incomeBeforeVat: Math.round(incomeBeforeVat),
       workDays,
       sumDayFactors: Math.round(sumDayFactors * 100) / 100,
-      dailyAvg: Math.round(dailyAvg),
+      dailyAvg: Math.round(dailyAvgWithVat),
       monthlyPace: Math.round(monthlyPace),
+      monthlyPaceBeforeVat: Math.round(monthlyPaceBeforeVat),
       expectedWorkDays: Math.round(expectedWorkDays * 100) / 100,
       totalDiscounts: Math.round(Number(daily.total_discounts)),
       totalLaborHours: Math.round(Number(daily.total_labor_hours)),
