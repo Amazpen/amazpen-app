@@ -171,7 +171,14 @@ export default function CashFlowPage() {
         setSettings(settingsData);
 
         const openingBalance = settingsData?.opening_balance ? Number(settingsData.opening_balance) : 0;
-        const openingDate = settingsData?.opening_date ? String(settingsData.opening_date).substring(0, 10) : formatLocalDate(new Date());
+        // Default opening date: first of month 3 months ago (to show historical data)
+        const defaultOpeningDate = (() => {
+          const d = new Date();
+          d.setMonth(d.getMonth() - 3);
+          d.setDate(1);
+          return formatLocalDate(d);
+        })();
+        const openingDate = settingsData?.opening_date ? String(settingsData.opening_date).substring(0, 10) : defaultOpeningDate;
         const endDateStr = formatLocalDate(endDate);
 
         // We need to fetch income entries from BEFORE the opening date too,
