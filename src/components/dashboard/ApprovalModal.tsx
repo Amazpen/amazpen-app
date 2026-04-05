@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { X, Check, CheckCheck, Clock, FileText, CreditCard } from 'lucide-react';
+import { X, Check, CheckCheck, Clock, FileText, CreditCard, Eye, ScanLine } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { FIELD_LABELS } from '@/types/approvals';
 import type { DailyEntryApproval } from '@/types/approvals';
@@ -42,6 +42,7 @@ interface PendingInvoice {
   invoice_date: string;
   total_amount: number;
   supplier_name: string;
+  attachment_url: string | null;
   selected: boolean;
 }
 
@@ -121,7 +122,7 @@ export default function ApprovalModal({
         !cardFieldNames || cardFieldNames.length === 0
           ? supabase
               .from('invoices')
-              .select('id, invoice_number, invoice_date, total_amount, suppliers(name)')
+              .select('id, invoice_number, invoice_date, total_amount, attachment_url, suppliers(name)')
               .eq('business_id', businessId)
               .eq('approval_status', 'pending_review')
               .is('deleted_at', null)
@@ -168,12 +169,14 @@ export default function ApprovalModal({
         invoice_number: string | null;
         invoice_date: string;
         total_amount: number;
+        attachment_url: string | null;
         suppliers: { name: string } | { name: string }[] | null;
       }>).map((inv) => ({
         id: inv.id,
         invoice_number: inv.invoice_number,
         invoice_date: inv.invoice_date,
         total_amount: inv.total_amount,
+        attachment_url: inv.attachment_url || null,
         supplier_name: Array.isArray(inv.suppliers) ? (inv.suppliers[0]?.name || 'ספק לא ידוע') : (inv.suppliers?.name || 'ספק לא ידוע'),
         selected: true,
       }));
@@ -541,35 +544,62 @@ export default function ApprovalModal({
               {/* Invoices tab */}
               {activeTab === 'invoices' &&
                 pendingInvoices.map((inv, idx) => (
-                  <button
+                  <div
                     key={inv.id}
-                    onClick={() => toggleInvoice(idx)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[8px] transition-all text-right ${
+                    className={`rounded-[8px] transition-all ${
                       inv.selected
                         ? 'bg-green-500/20 border border-green-500/30'
                         : 'bg-white/5 border border-transparent hover:bg-white/8'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-[20px] h-[20px] rounded-[4px] flex items-center justify-center shrink-0 transition-colors ${
-                          inv.selected ? 'bg-green-500' : 'bg-white/10'
-                        }`}
+                    <button
+                      onClick={() => toggleInvoice(idx)}
+                      className="w-full flex items-center justify-between px-3 py-2.5 text-right"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-[20px] h-[20px] rounded-[4px] flex items-center justify-center shrink-0 transition-colors ${
+                            inv.selected ? 'bg-green-500' : 'bg-white/10'
+                          }`}
+                        >
+                          {inv.selected && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-white text-sm">{inv.supplier_name}</span>
+                          <span className="text-white/40 text-xs ltr-num">
+                            {formatDate(inv.invoice_date)}
+                            {inv.invoice_number ? ` · חשבונית ${inv.invoice_number}` : ''}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="ltr-num text-white/70 text-sm">
+                        ₪{inv.total_amount.toLocaleString('he-IL')}
+                      </span>
+                    </button>
+                    {/* View document + OCR link */}
+                    <div className="flex items-center gap-2 px-3 pb-2.5 pt-0">
+                      {inv.attachment_url && (
+                        <a
+                          href={inv.attachment_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors px-2 py-1 rounded-[6px] hover:bg-blue-500/10"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>צפה במסמך</span>
+                        </a>
+                      )}
+                      <a
+                        href="/ocr"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors px-2 py-1 rounded-[6px] hover:bg-amber-500/10"
                       >
-                        {inv.selected && <Check className="w-3 h-3 text-white" />}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-white text-sm">{inv.supplier_name}</span>
-                        <span className="text-white/40 text-xs ltr-num">
-                          {formatDate(inv.invoice_date)}
-                          {inv.invoice_number ? ` · חשבונית ${inv.invoice_number}` : ''}
-                        </span>
-                      </div>
+                        <ScanLine className="w-3.5 h-3.5" />
+                        <span>אישור ב-OCR</span>
+                      </a>
                     </div>
-                    <span className="ltr-num text-white/70 text-sm">
-                      ₪{inv.total_amount.toLocaleString('he-IL')}
-                    </span>
-                  </button>
+                  </div>
                 ))}
 
               {/* Payments tab */}
