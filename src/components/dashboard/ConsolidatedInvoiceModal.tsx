@@ -769,7 +769,7 @@ export function ConsolidatedInvoiceModal({
               </div>
 
               {/* Is Closed - with red border like Bubble */}
-              <div className="flex flex-col gap-[3px] border border-[#F64E60] rounded-[10px] p-[3px]">
+              <div className="flex flex-col gap-[3px] border border-[#F64E60] rounded-[10px] p-[3px]" dir="rtl">
                 <label className="text-[15px] font-medium text-white text-right">האם נסגר?</label>
                 <Select
                   value={isClosed || "__none__"}
@@ -801,13 +801,15 @@ export function ConsolidatedInvoiceModal({
 
               {/* File Upload - with red border like Bubble */}
               <div className="flex flex-col gap-[5px] border border-[#F64E60] rounded-[10px] p-[3px]">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-row-reverse">
+                  <label className="text-[15px] font-medium text-white">הוספת תמונות</label>
                   <div className="flex items-center gap-[5px] flex-wrap">
                     {uploadedFiles.map((file, index) => (
                       <div
                         key={`file-${file.name}-${file.url}`}
-                        className="flex items-center gap-[3px] bg-white/10 rounded-[5px] px-[8px] py-[3px]"
+                        className="flex items-center gap-[3px] bg-white/10 rounded-[5px] px-[8px] py-[3px] flex-row-reverse"
                       >
+                        <span className="text-white text-[12px] truncate max-w-[80px]">{file.name}</span>
                         <Button
                           type="button"
                           variant="ghost"
@@ -817,11 +819,9 @@ export function ConsolidatedInvoiceModal({
                         >
                           ×
                         </Button>
-                        <span className="text-white text-[12px] truncate max-w-[80px]">{file.name}</span>
                       </div>
                     ))}
                   </div>
-                  <label className="text-[15px] font-medium text-white">הוספת תמונות</label>
                 </div>
 
                 <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center cursor-pointer hover:border-white/30 transition-colors">
@@ -842,15 +842,7 @@ export function ConsolidatedInvoiceModal({
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-around gap-0 mt-[30px] mb-[10px]">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleReset}
-                  className="min-w-[40%] max-w-[40%] h-[40px] border border-white rounded-[5px] text-white text-[17px] font-semibold transition-all hover:bg-white/10"
-                >
-                  איפוס
-                </Button>
+              <div className="flex items-center justify-around gap-0 mt-[30px] mb-[10px] flex-row-reverse">
                 <Button
                   type="button"
                   onClick={handleSubmit}
@@ -858,6 +850,14 @@ export function ConsolidatedInvoiceModal({
                   className="min-w-[40%] max-w-[40%] h-[40px] bg-[#0F1535] border border-[#0F1535] rounded-[5px] text-white text-[17px] font-semibold transition-all disabled:opacity-50 disabled:cursor-default hover:bg-[#1a2050]"
                 >
                   {isSubmitting ? "שומר..." : "שמירה"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleReset}
+                  className="min-w-[40%] max-w-[40%] h-[40px] border border-white rounded-[5px] text-white text-[17px] font-semibold transition-all hover:bg-white/10"
+                >
+                  איפוס
                 </Button>
               </div>
             </div>
