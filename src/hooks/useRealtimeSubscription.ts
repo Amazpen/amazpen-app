@@ -41,21 +41,42 @@ export function useRealtimeSubscription({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [realtimeAvailable, setRealtimeAvailable] = useState(!REALTIME_DISABLED);
 
-  const MAX_RETRIES = 3;
-
   // Keep callback ref updated
   useEffect(() => {
     callbackRef.current = onDataChange;
   }, [onDataChange]);
 
-  // Check authentication status
+  // Track authentication status and token refreshes
   useEffect(() => {
-    const checkAuth = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAuthenticated(!!user);
-    };
-    checkAuth();
+    const supabase = createClient();
+    // Initial check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session);
+    });
+    // Listen for auth changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const wasAuthenticated = isAuthenticated;
+      setIsAuthenticated(!!session);
+      // When token refreshes, reconnect Realtime with the new token
+      if (event === "TOKEN_REFRESHED" && session) {
+        supabase.realtime.setAuth(session.access_token);
+      }
+      // If user signed out, stop retrying
+      if (event === "SIGNED_OUT") {
+        retryCountRef.current = 0;
+        if (retryTimerRef.current) {
+          clearTimeout(retryTimerRef.current);
+          retryTimerRef.current = null;
+        }
+      }
+      // If user just signed in, reset retries and reconnect
+      if (event === "SIGNED_IN" && !wasAuthenticated) {
+        retryCountRef.current = 0;
+        setRealtimeAvailable(true);
+      }
+    });
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -98,20 +119,28 @@ export function useRealtimeSubscription({
       );
     }
 
-    // Subscribe to the channel with error handling and limited retry
+    // Ensure we have a fresh token before subscribing
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        supabase.realtime.setAuth(session.access_token);
+      }
+    });
+
+    // Subscribe with exponential backoff retry (keeps trying indefinitely)
     try {
       channel.subscribe((status) => {
         if (status === "SUBSCRIBED") {
+          if (retryCountRef.current > 0) {
+            console.info(`[Realtime] Reconnected after ${retryCountRef.current} retries`);
+          }
           retryCountRef.current = 0;
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          if (retryCountRef.current >= MAX_RETRIES) {
-            console.warn(`[Realtime] Disabled after ${MAX_RETRIES} failed attempts`);
-            setRealtimeAvailable(false);
-            return;
-          }
           retryCountRef.current++;
-          const delay = Math.min(5000 * Math.pow(2, retryCountRef.current - 1), 30000);
-          console.warn(`[Realtime] Channel ${status}, retry ${retryCountRef.current}/${MAX_RETRIES} in ${delay / 1000}s...`);
+          const delay = Math.min(5000 * Math.pow(2, retryCountRef.current - 1), 60000);
+          // Only log first 3 retries to avoid console spam
+          if (retryCountRef.current <= 3) {
+            console.warn(`[Realtime] Channel ${status}, retry ${retryCountRef.current} in ${delay / 1000}s...`);
+          }
           retryTimerRef.current = setTimeout(() => {
             if (channelRef.current) {
               supabase.removeChannel(channelRef.current);
@@ -123,8 +152,12 @@ export function useRealtimeSubscription({
         }
       });
     } catch {
-      console.warn("[Realtime] WebSocket connection failed, disabling");
-      setRealtimeAvailable(false);
+      // WebSocket failed — retry after 10s
+      console.warn("[Realtime] WebSocket connection failed, retrying in 10s...");
+      retryTimerRef.current = setTimeout(() => {
+        setRealtimeAvailable(false);
+        setTimeout(() => setRealtimeAvailable(true), 100);
+      }, 10000);
     }
 
     channelRef.current = channel;
