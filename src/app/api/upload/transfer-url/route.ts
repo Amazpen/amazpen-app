@@ -51,10 +51,39 @@ export async function POST(request: NextRequest) {
 
   let { url, bucket = "attachments", folder = "imported" } = body;
 
+  // Validate bucket against whitelist
+  const ALLOWED_BUCKETS = ["assets", "attachments", "documents", "avatars", "ocr-documents"];
+  if (!ALLOWED_BUCKETS.includes(bucket)) {
+    return NextResponse.json({ error: "באקט לא מורשה" }, { status: 400 });
+  }
+
   // Normalize protocol-relative URLs (//cdn...) to https://
   if (url?.startsWith("//")) url = `https:${url}`;
 
   if (!url || typeof url !== "string" || !url.startsWith("http")) {
+    return NextResponse.json({ error: "URL לא תקין" }, { status: 400 });
+  }
+
+  // Block SSRF: prevent fetching private/internal IPs
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "0.0.0.0" ||
+      host === "[::1]" ||
+      host.startsWith("10.") ||
+      host.startsWith("192.168.") ||
+      host.startsWith("172.16.") || host.startsWith("172.17.") ||
+      host.startsWith("172.18.") || host.startsWith("172.19.") ||
+      host.startsWith("172.2") || host.startsWith("172.30.") || host.startsWith("172.31.") ||
+      host === "169.254.169.254" || host.startsWith("169.254.") ||
+      host.endsWith(".internal") || host.endsWith(".local")
+    ) {
+      return NextResponse.json({ error: "URL חסום" }, { status: 400 });
+    }
+  } catch {
     return NextResponse.json({ error: "URL לא תקין" }, { status: 400 });
   }
 

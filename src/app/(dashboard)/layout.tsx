@@ -266,11 +266,6 @@ export default function DashboardLayout({
 
   // Set mounted state after hydration and restore client-only state
   useEffect(() => {
-    // Restore isAdmin from localStorage to avoid flash before profile fetch
-    const savedAdmin = localStorage.getItem('isAdmin') === 'true';
-    if (savedAdmin) {
-      setIsAdmin(true);
-    }
     setIsMounted(true);
   }, []);
 
@@ -297,7 +292,6 @@ export default function DashboardLayout({
         // Check if user is admin from profile
         const adminStatus = profile.is_admin === true;
         setIsAdmin(adminStatus);
-        localStorage.setItem('isAdmin', String(adminStatus));
 
         // For non-admin users: check if all their businesses are inactive
         if (!adminStatus) {

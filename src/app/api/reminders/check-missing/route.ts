@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { timingSafeEqual } from 'crypto';
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const REMINDERS_ENABLED = process.env.REMINDERS_ENABLED === 'true';
+
+function verifyCronSecret(secret: string | null): boolean {
+  if (!CRON_SECRET || !secret) return false;
+  try {
+    return timingSafeEqual(Buffer.from(secret), Buffer.from(CRON_SECRET));
+  } catch { return false; }
+}
 
 function getSupabaseAdmin() {
   return createClient(
@@ -12,8 +20,7 @@ function getSupabaseAdmin() {
 }
 
 export async function GET(request: NextRequest) {
-  const secret = request.headers.get('x-cron-secret') || request.nextUrl.searchParams.get('secret');
-  if (!CRON_SECRET || secret !== CRON_SECRET) {
+  if (!verifyCronSecret(request.headers.get('x-cron-secret'))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

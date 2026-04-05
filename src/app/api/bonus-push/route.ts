@@ -2,11 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { resolveBonusPlanStatus } from "@/lib/bonusPlanResolver";
 import type { BonusPlan, BonusPlanStatus } from "@/types/bonus";
+import { timingSafeEqual } from "crypto";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const webpush = require("web-push");
 
 const CRON_SECRET = process.env.CRON_SECRET;
+
+function verifyCronSecret(secret: string | null): boolean {
+  if (!CRON_SECRET || !secret) return false;
+  try {
+    return timingSafeEqual(Buffer.from(secret), Buffer.from(CRON_SECRET));
+  } catch { return false; }
+}
 
 function getSupabaseAdmin() {
   return createClient(
@@ -282,11 +290,8 @@ function buildConsolidatedEmailHtml(
 /* ------------------------------------------------------------------ */
 
 export async function POST(request: NextRequest) {
-  // Auth check
-  const secret =
-    request.headers.get("x-cron-secret") ||
-    request.nextUrl.searchParams.get("secret");
-  if (!CRON_SECRET || secret !== CRON_SECRET) {
+  // Auth check (timing-safe, header only)
+  if (!verifyCronSecret(request.headers.get("x-cron-secret"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

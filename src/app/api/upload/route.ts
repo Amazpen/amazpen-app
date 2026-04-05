@@ -34,6 +34,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "חסר נתיב" }, { status: 400 });
     }
 
+    // Validate bucket against whitelist
+    const ALLOWED_BUCKETS = ["assets", "attachments", "documents", "avatars", "ocr-documents"];
+    if (!ALLOWED_BUCKETS.includes(bucket)) {
+      return NextResponse.json({ error: "באקט לא מורשה" }, { status: 400 });
+    }
+
+    // Sanitize path: prevent directory traversal
+    path = path.replace(/\.\./g, "").replace(/\/\//g, "/");
+
     // Create admin client with service role key to bypass CORS
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

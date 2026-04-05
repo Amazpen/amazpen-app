@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { timingSafeEqual } from 'crypto';
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -10,13 +11,22 @@ function getSupabaseAdmin() {
 
 export async function POST(request: NextRequest) {
   try {
-    // Auth: API key or cron secret
+    // Auth: API key or cron secret (timing-safe comparison)
     const apiKey = request.headers.get('x-api-key');
     const cronSecret = request.headers.get('x-cron-secret');
     const validKey = process.env.INTAKE_API_KEY;
     const validCron = process.env.CRON_SECRET;
 
-    if ((!validKey || apiKey !== validKey) && (!validCron || cronSecret !== validCron)) {
+    let authorized = false;
+    try {
+      if (validKey && apiKey) {
+        authorized = timingSafeEqual(Buffer.from(apiKey), Buffer.from(validKey));
+      }
+      if (!authorized && validCron && cronSecret) {
+        authorized = timingSafeEqual(Buffer.from(cronSecret), Buffer.from(validCron));
+      }
+    } catch { /* length mismatch = unauthorized */ }
+    if (!authorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
