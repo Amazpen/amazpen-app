@@ -613,12 +613,6 @@ export function ConsolidatedInvoiceModal({
                       }`}
                     >
                       <div className="flex items-center gap-[8px]">
-                        <svg
-                          width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
-                          className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                        >
-                          <polyline points="6 9 12 15 18 9" />
-                        </svg>
                         <span className="text-[13px] text-white/50">
                           סה&quot;כ ₪{formatNumber(groupTotal)}
                         </span>
@@ -628,7 +622,13 @@ export function ConsolidatedInvoiceModal({
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-[8px]">
+                      <div className="flex items-center gap-[8px] flex-row-reverse">
+                        <svg
+                          width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
+                          className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                        >
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
                         <span className="text-[16px] text-white font-medium">
                           {HEBREW_MONTHS[month - 1]} {year}
                         </span>
