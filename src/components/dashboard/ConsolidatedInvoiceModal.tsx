@@ -613,28 +613,28 @@ export function ConsolidatedInvoiceModal({
                       }`}
                     >
                       <div className="flex items-center gap-[8px]">
-                        <span className="text-[13px] text-white/50">
-                          {notes.length} תעודות
-                        </span>
-                        <span className="text-[16px] text-white font-medium">
-                          {HEBREW_MONTHS[month - 1]} {year}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-[8px]">
-                        {selectedInGroup > 0 && (
-                          <span className="text-[12px] text-[#3CD856] bg-[#3CD856]/15 px-[8px] py-[2px] rounded-full">
-                            {selectedInGroup} נבחרו
-                          </span>
-                        )}
-                        <span className="text-[13px] text-white/50">
-                          סה&quot;כ ₪{formatNumber(groupTotal)}
-                        </span>
                         <svg
                           width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"
                           className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
                         >
                           <polyline points="6 9 12 15 18 9" />
                         </svg>
+                        <span className="text-[13px] text-white/50">
+                          סה&quot;כ ₪{formatNumber(groupTotal)}
+                        </span>
+                        {selectedInGroup > 0 && (
+                          <span className="text-[12px] text-[#3CD856] bg-[#3CD856]/15 px-[8px] py-[2px] rounded-full">
+                            {selectedInGroup} נבחרו
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-[8px]">
+                        <span className="text-[16px] text-white font-medium">
+                          {HEBREW_MONTHS[month - 1]} {year}
+                        </span>
+                        <span className="text-[13px] text-white/50">
+                          {notes.length} תעודות
+                        </span>
                       </div>
                     </button>
 
