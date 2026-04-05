@@ -161,8 +161,12 @@ async function computeAndStoreMetrics(
   const sumDayFactors = Number(daily.sum_day_factors) || 0;
   const workDays = Number(daily.work_days) || 0;
 
+  // monthlyPace uses totalIncome (WITH VAT) to match dashboard display
+  const dailyAvgWithVat = sumDayFactors > 0 ? totalIncome / sumDayFactors : 0;
+  const monthlyPace = dailyAvgWithVat * expectedWorkDays;
+  // dailyAvg and monthlyPaceBeforeVat for percentage calculations
   const dailyAvg = sumDayFactors > 0 ? incomeBeforeVat / sumDayFactors : 0;
-  const monthlyPace = dailyAvg * expectedWorkDays;
+  const monthlyPaceBeforeVat = dailyAvg * expectedWorkDays;
 
   const managerDailyCost =
     expectedWorkDays > 0 ? managerSalary / expectedWorkDays : 0;
@@ -209,9 +213,8 @@ async function computeAndStoreMetrics(
     Number(goalsData?.operating_cost_target_pct) || 0;
   if (currentExpensesTargetPct === 0 && goalsData?.current_expenses_target) {
     const targetAmount = Number(goalsData.current_expenses_target);
-    if (targetAmount > 0 && monthlyPace > 0) {
-      const paceBeforeVat = monthlyPace; // monthlyPace is already before VAT
-      currentExpensesTargetPct = (targetAmount / paceBeforeVat) * 100;
+    if (targetAmount > 0 && monthlyPaceBeforeVat > 0) {
+      currentExpensesTargetPct = (targetAmount / monthlyPaceBeforeVat) * 100;
     }
   }
   const currentExpensesDiffPct =
@@ -386,7 +389,7 @@ async function computeAndStoreMetrics(
     total_income: r2(totalIncome),
     income_before_vat: r2(incomeBeforeVat),
     monthly_pace: r2(monthlyPace),
-    daily_avg: r2(dailyAvg),
+    daily_avg: r2(dailyAvgWithVat),
     // Revenue targets
     revenue_target: r2(revenueTarget),
     target_diff_pct: r2(targetDiffPct),
