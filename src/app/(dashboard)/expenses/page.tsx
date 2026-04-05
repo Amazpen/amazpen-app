@@ -39,6 +39,7 @@ interface Supplier {
   id: string;
   name: string;
   expense_category_id: string | null;
+  expense_type?: string | null;
   waiting_for_coordinator: boolean;
   is_fixed_expense?: boolean;
   vat_type?: string; // "full" | "none" | "partial"
@@ -994,7 +995,7 @@ function ExpensesPageInner() {
         // Fetch suppliers for the selected businesses
         const { data: suppliersData } = await supabase
           .from("suppliers")
-          .select("id, name, expense_category_id, waiting_for_coordinator, vat_type, is_fixed_expense, default_payment_method, default_credit_card_id")
+          .select("id, name, expense_category_id, expense_type, waiting_for_coordinator, vat_type, is_fixed_expense, default_payment_method, default_credit_card_id")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .eq("is_active", true)
@@ -1600,6 +1601,14 @@ function ExpensesPageInner() {
     if (!supplierId) return;
     const supplier = suppliers.find(s => s.id === supplierId);
     if (!supplier) return;
+    // Auto-set expense type based on supplier
+    if (supplier.expense_type === "goods_purchases") {
+      setExpenseType("goods");
+    } else if (supplier.expense_type === "employee_costs") {
+      setExpenseType("employees");
+    } else {
+      setExpenseType("current");
+    }
     if (supplier.vat_type === "none") {
       setPartialVat(true);
       setVatAmount("0");
@@ -1796,11 +1805,17 @@ function ExpensesPageInner() {
             setVatAmount(data.vat_amount.toString());
           }
         }
-        if (data.matched_supplier_id) setSelectedSupplier(data.matched_supplier_id);
+        if (data.matched_supplier_id) {
+          setSelectedSupplier(data.matched_supplier_id);
+          // Auto-set expense type from supplier
+          const matchedSup = suppliers.find(s => s.id === data.matched_supplier_id);
+          if (matchedSup?.expense_type === "goods_purchases") setExpenseType("goods");
+          else if (matchedSup?.expense_type === "employee_costs") setExpenseType("employees");
+          else if (matchedSup?.expense_type) setExpenseType("current");
+        }
         if (data.line_items && data.line_items.length > 0) {
           setExpenseLineItems(data.line_items);
           setShowLineItems(true);
-          setExpenseType("goods");
         }
 
         setOcrApplied(true);
@@ -2303,10 +2318,12 @@ function ExpensesPageInner() {
       const year = dateParts[2].length === 2 ? `20${dateParts[2]}` : dateParts[2];
       setExpenseDate(`${year}-${dateParts[1]}-${dateParts[0]}`);
     }
-    setExpenseType(activeTab === "expenses" ? "current" : "goods");
-    // Find supplier ID by name and set VAT based on supplier's vat_type
+    // Find supplier ID by name and set expense type + VAT based on supplier
     const supplier = suppliers.find(s => s.name === invoice.supplier);
     setSelectedSupplier(supplier?.id || "");
+    if (supplier?.expense_type === "goods_purchases") setExpenseType("goods");
+    else if (supplier?.expense_type === "employee_costs") setExpenseType("employees");
+    else setExpenseType("current");
     if (supplier?.vat_type === "none") {
       setPartialVat(true);
       setVatAmount("0");
