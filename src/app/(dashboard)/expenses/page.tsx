@@ -476,7 +476,8 @@ function ExpensesPageInner() {
           .select(`
             *,
             supplier:suppliers(id, name, expense_category_id, is_fixed_expense, is_active, deleted_at),
-            creator:profiles!invoices_created_by_fkey(full_name)
+            creator:profiles!invoices_created_by_fkey(full_name),
+            payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
           `)
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
@@ -515,30 +516,53 @@ function ExpensesPageInner() {
 
         const { data } = await query;
         if (data && data.length > 0) {
-          let results: InvoiceDisplay[] = data.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => ({
-            id: inv.id,
-            date: formatDateString(inv.invoice_date),
-            rawDate: inv.invoice_date ? toLocalDateStr(new Date(inv.invoice_date)) : "",
-            supplier: inv.supplier?.name || "לא ידוע",
-            reference: inv.invoice_number || "",
-            amount: Number(inv.total_amount),
-            amountWithVat: Number(inv.total_amount),
-            amountBeforeVat: Number(inv.subtotal),
-            status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
-            statusRaw: inv.status || "pending",
-            enteredBy: inv.creator?.full_name || "מערכת",
-            entryDate: formatDateString(inv.created_at),
-            notes: inv.notes || "",
-            attachmentUrl: inv.attachment_url || null,
-            attachmentUrls: parseAttachmentUrls(inv.attachment_url),
-            clarificationReason: inv.clarification_reason || null,
-            isFixed: inv.supplier?.is_fixed_expense || false,
-            approval_status: inv.approval_status || null,
-            referenceDate: inv.reference_date ? formatDateString(inv.reference_date) : null,
-            linkedPayments: [],
-            documentType: "invoice" as const,
-            invoiceType: inv.invoice_type || undefined,
-          }));
+          let results: InvoiceDisplay[] = data.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null; payments?: Array<{ id: string; payment_date: string; total_amount: number; payment_splits?: Array<{ id: string; payment_method: string; amount: number; installments_count: number; installment_number: number; due_date: string; check_number: string; reference_number: string }> }> }) => {
+            // Build linked payments from joined data
+            const linkedPayments: InvoiceDisplay["linkedPayments"] = [];
+            if (inv.payments && Array.isArray(inv.payments)) {
+              for (const payment of inv.payments) {
+                if (payment.payment_splits && Array.isArray(payment.payment_splits)) {
+                  for (const split of payment.payment_splits) {
+                    linkedPayments.push({
+                      id: `${payment.id}-${split.id || split.payment_method}`,
+                      paymentId: payment.id,
+                      amount: Number(split.amount),
+                      method: paymentMethodNames[split.payment_method] || "אחר",
+                      date: formatDateString(split.due_date || payment.payment_date),
+                      checkNumber: split.check_number || "",
+                      installmentNumber: split.installment_number || null,
+                      installmentsCount: split.installments_count || null,
+                      referenceNumber: split.reference_number || "",
+                    });
+                  }
+                }
+              }
+            }
+            return {
+              id: inv.id,
+              date: formatDateString(inv.invoice_date),
+              rawDate: inv.invoice_date ? toLocalDateStr(new Date(inv.invoice_date)) : "",
+              supplier: inv.supplier?.name || "לא ידוע",
+              reference: inv.invoice_number || "",
+              amount: Number(inv.total_amount),
+              amountWithVat: Number(inv.total_amount),
+              amountBeforeVat: Number(inv.subtotal),
+              status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
+              statusRaw: inv.status || "pending",
+              enteredBy: inv.creator?.full_name || "מערכת",
+              entryDate: formatDateString(inv.created_at),
+              notes: inv.notes || "",
+              attachmentUrl: inv.attachment_url || null,
+              attachmentUrls: parseAttachmentUrls(inv.attachment_url),
+              clarificationReason: inv.clarification_reason || null,
+              isFixed: inv.supplier?.is_fixed_expense || false,
+              approval_status: inv.approval_status || null,
+              referenceDate: inv.reference_date ? formatDateString(inv.reference_date) : null,
+              linkedPayments,
+              documentType: "invoice" as const,
+              invoiceType: inv.invoice_type || undefined,
+            };
+          });
           // Client-side filter for date/reference_date (formatted string match)
           if (filterBy === "date") {
             results = results.filter(inv => inv.date.includes(searchVal));
