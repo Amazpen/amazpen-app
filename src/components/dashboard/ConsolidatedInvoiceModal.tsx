@@ -215,6 +215,38 @@ export function ConsolidatedInvoiceModal({
     fetchSuppliers();
   }, [selectedBusinessId]);
 
+  // Fetch unlinked delivery notes when supplier is selected
+  useEffect(() => {
+    if (!selectedSupplierId || !selectedBusinessId) {
+      return;
+    }
+
+    const fetchUnlinkedDeliveryNotes = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("delivery_notes")
+        .select("id, delivery_note_number, delivery_date, total_amount, notes")
+        .eq("supplier_id", selectedSupplierId)
+        .eq("business_id", selectedBusinessId)
+        .is("invoice_id", null)
+        .order("delivery_date", { ascending: false });
+
+      if (data && data.length > 0) {
+        setDeliveryNotes(data.map(dn => ({
+          id: dn.id,
+          delivery_note_number: dn.delivery_note_number || "",
+          delivery_date: dn.delivery_date ? dn.delivery_date.split("T")[0] : "",
+          total_amount: String(dn.total_amount || ""),
+          notes: dn.notes || "",
+        })));
+      } else {
+        setDeliveryNotes([]);
+      }
+    };
+
+    fetchUnlinkedDeliveryNotes();
+  }, [selectedSupplierId, selectedBusinessId]);
+
   // Calculate total from delivery notes
   const calculateDeliveryNotesTotal = () => {
     return deliveryNotes.reduce((sum, note) => {
