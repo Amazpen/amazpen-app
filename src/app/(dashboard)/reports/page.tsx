@@ -1116,21 +1116,6 @@ export default function ReportsPage() {
           ))}
         </div>
 
-        {/* Credits/Cancellations Row (#30) */}
-        {summary.totalCredits < 0 && (
-          <div className="flex flex-row-reverse items-center justify-between bg-[#1B1F4B] rounded-[10px] p-[7px] mt-[5px] min-h-[45px] gap-[5px]">
-            <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
-              <span className="flex-1 min-w-0"></span>
-              <span className="flex-1 min-w-0"></span>
-              <span className="text-[11px] sm:text-[14px] font-medium flex-1 min-w-0 text-center ltr-num leading-[1.4] text-[#17DB4E]">
-                {formatCurrency(Math.abs(summary.totalCredits))}
-              </span>
-              <span className="flex-1 min-w-0"></span>
-            </div>
-            <span className="text-[12px] sm:text-[15px] font-medium text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px] text-[#17DB4E]">זיכויים וביטולים</span>
-          </div>
-        )}
-
         {/* Total Expenses Row */}
         <div className="flex flex-row-reverse items-center justify-between bg-[#2C3595] rounded-[10px] p-[7px] mt-[10px] min-h-[60px] gap-[5px]">
           <div className="flex flex-row-reverse items-center gap-[3px] sm:gap-[5px] flex-1 min-w-0">
