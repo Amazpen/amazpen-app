@@ -235,10 +235,10 @@ export default function ReportsPage() {
         const key = entry.entry_date?.substring(0, 7);
         if (key && incomeByMonth.has(key)) {
           incomeByMonth.set(key, (incomeByMonth.get(key) || 0) + Number(entry.total_register || 0) / vatDivisor);
-          // Add labor costs (with markup) to expenses — matching the P&L report
+          // Add labor costs (with VAT loading) to expenses — matching the P&L report
           const laborCost = (Number(entry.labor_cost) || 0) + (Number(entry.manager_daily_cost) || 0);
           if (laborCost > 0) {
-            expensesByMonth.set(key, (expensesByMonth.get(key) || 0) + laborCost * markupMultiplier);
+            expensesByMonth.set(key, (expensesByMonth.get(key) || 0) + laborCost * vatDivisor);
           }
         }
       }
@@ -413,14 +413,15 @@ export default function ReportsPage() {
         const managerDailyCost = expectedWorkDays > 0 ? totalManagerSalary / expectedWorkDays : 0;
         const actualWorkDays = (dailyEntries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
 
-        const totalLaborCost = (rawLaborCost + (managerDailyCost * actualWorkDays)) * avgMarkup;
-        const laborOnlyCost = rawLaborCost * avgMarkup;
-        const managerOnlyCost = managerDailyCost * actualWorkDays * avgMarkup;
-        void rawManagerCost;
-
         // VAT divisor from business (vat_percentage stored as decimal, e.g. 0.18 for 18%)
         const vatPercentage = Number(businessData?.[0]?.vat_percentage || 0);
         const vatDivisor = vatPercentage > 0 ? 1 + vatPercentage : 1;
+
+        const laborMarkup = vatDivisor; // העמסה על עובדים = מע"מ, לא markup עסקי
+        const totalLaborCost = (rawLaborCost + (managerDailyCost * actualWorkDays)) * laborMarkup;
+        const laborOnlyCost = rawLaborCost * laborMarkup;
+        const managerOnlyCost = managerDailyCost * actualWorkDays * laborMarkup;
+        void rawManagerCost;
         const totalRevenue = totalRegister / vatDivisor;
 
         // Calculate actual totals by category + separate goods/current totals + per-supplier tracking

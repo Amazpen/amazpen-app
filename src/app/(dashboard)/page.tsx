@@ -1079,7 +1079,7 @@ export default function DashboardPage() {
         const vatPercentage = businessGoal?.vat_percentage != null ? Number(businessGoal.vat_percentage) : (Number(business.vat_percentage) || 0);
         const markupPercentage = businessGoal?.markup_percentage != null ? Number(businessGoal.markup_percentage) : (Number(business.markup_percentage) || 1);
         const managerSalary = Number(business.manager_monthly_salary) || 0;
-        const markupMultiplier = markupPercentage;
+        const laborMarkup = vatPercentage > 0 ? 1 + vatPercentage : 1; // העמסה על עובדים = מע"מ, לא markup
 
         const businessSchedule = (scheduleData || []).filter(s => s.business_id === business.id);
         const dayFactorsByDow: Record<number, number> = {};
@@ -1100,7 +1100,7 @@ export default function DashboardPage() {
         const actualWorkDays = businessEntries.reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
         const managerDailyCost = expectedWorkDaysInMonth > 0 ? managerSalary / expectedWorkDaysInMonth : 0;
         const managerCostForPeriod = managerDailyCost * actualWorkDays;
-        const laborCost = (rawLaborCost + managerCostForPeriod) * markupMultiplier;
+        const laborCost = (rawLaborCost + managerCostForPeriod) * laborMarkup;
 
         const vatDivisor = vatPercentage > 0 ? 1 + vatPercentage : 1;
         const incomeBeforeVat = totalIncome / vatDivisor;
