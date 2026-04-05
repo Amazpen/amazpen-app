@@ -6,15 +6,15 @@ const STATIC_ASSETS = [
   '/icon.svg',
 ];
 
-// Install event - cache static assets and activate immediately
+// Install event - cache static assets, wait for user to approve update
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
     })
   );
-  // Activate immediately — don't wait for user to click "update"
-  self.skipWaiting();
+  // Do NOT call self.skipWaiting() here — let UpdatePrompt handle it
+  // so users don't lose their screen mid-use
 });
 
 // Activate event - clear ALL caches on new SW version to prevent stale content
