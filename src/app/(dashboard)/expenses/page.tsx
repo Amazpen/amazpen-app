@@ -161,7 +161,7 @@ interface ExpenseCategorySummary {
   category: string;
   amount: number;
   percentage: number;
-  suppliers: { id: string; name: string; amount: number; percentage: number; isFixed?: boolean }[];
+  suppliers: { id: string; name: string; amount: number; percentage: number; isFixed?: boolean; hasPending?: boolean }[];
 }
 
 // PDF Thumbnail component - renders first page of a PDF URL as an image
@@ -1158,7 +1158,7 @@ function ExpensesPageInner() {
         // Calculate totals per supplier (for chart/purchases) and per category with suppliers (for expenses drill-down)
         if (invoicesData) {
           const supplierTotals = new Map<string, { name: string; total: number; categoryId: string | null }>();
-          const categoryTotals = new Map<string, { name: string; total: number; suppliers: Map<string, { name: string; total: number; isFixed: boolean }> }>();
+          const categoryTotals = new Map<string, { name: string; total: number; suppliers: Map<string, { name: string; total: number; isFixed: boolean; hasPending: boolean }> }>();
 
           // Initialize category totals with suppliers map
           if (categoriesData) {
@@ -1185,6 +1185,8 @@ function ExpensesPageInner() {
               const categoryId = inv.supplier.expense_category_id;
               // isFixed = supplier is marked as fixed expense
               const isFixed = inv.supplier.is_fixed_expense || false;
+              // Track if this invoice is still pending (not paid)
+              const isPending = inv.status !== "paid";
 
               // Add to supplier totals (for chart/purchases tab)
               if (supplierTotals.has(supplierId)) {
@@ -1203,10 +1205,11 @@ function ExpensesPageInner() {
                 if (category.suppliers.has(supplierId)) {
                   const supplier = category.suppliers.get(supplierId)!;
                   supplier.total += subtotal;
-                  // If any invoice for this supplier is still pending, keep it as fixed
                   if (isFixed) supplier.isFixed = true;
+                  // If any invoice is still pending, mark hasPending
+                  if (isPending) supplier.hasPending = true;
                 } else {
-                  category.suppliers.set(supplierId, { name: supplierName, total: subtotal, isFixed });
+                  category.suppliers.set(supplierId, { name: supplierName, total: subtotal, isFixed, hasPending: isFixed && isPending });
                 }
               } else {
                 // Supplier has no category - add to uncategorized
@@ -1220,8 +1223,9 @@ function ExpensesPageInner() {
                   const supplier = uncategorized.suppliers.get(supplierId)!;
                   supplier.total += subtotal;
                   if (isFixed) supplier.isFixed = true;
+                  if (isPending) supplier.hasPending = true;
                 } else {
-                  uncategorized.suppliers.set(supplierId, { name: supplierName, total: subtotal, isFixed });
+                  uncategorized.suppliers.set(supplierId, { name: supplierName, total: subtotal, isFixed, hasPending: isFixed && isPending });
                 }
               }
             }
@@ -1258,6 +1262,7 @@ function ExpensesPageInner() {
                   amount: supData.total,
                   percentage: pctDenominator > 0 ? (supData.total / pctDenominator) * 100 : 0,
                   isFixed: supData.isFixed,
+                  hasPending: supData.hasPending,
                 }))
                 .sort((a, b) => b.amount - a.amount),
             }))
@@ -3221,10 +3226,10 @@ function ExpensesPageInner() {
                                   style={{ backgroundColor: chartColors[chartIdx % chartColors.length] }}
                                 />
                               )}
-                              <span className={`text-[14px] flex-1 text-center ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.name}</span>
+                              <span className={`text-[14px] flex-1 text-center ${supplier.isFixed && supplier.hasPending ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.name}</span>
                             </div>
-                            <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>₪{supplier.amount.toLocaleString()}</span>
-                            <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.percentage % 1 === 0 ? supplier.percentage.toFixed(0) : supplier.percentage.toFixed(2)}%</span>
+                            <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed && supplier.hasPending ? 'text-[#bc76ff]' : 'text-white/80'}`}>₪{supplier.amount.toLocaleString()}</span>
+                            <span className={`text-[14px] flex-1 text-center ltr-num ${supplier.isFixed && supplier.hasPending ? 'text-[#bc76ff]' : 'text-white/80'}`}>{supplier.percentage % 1 === 0 ? supplier.percentage.toFixed(0) : supplier.percentage.toFixed(2)}%</span>
                           </Button>
                           );
                         })}
