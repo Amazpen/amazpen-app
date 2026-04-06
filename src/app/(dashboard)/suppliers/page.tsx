@@ -389,11 +389,11 @@ export default function SuppliersPage() {
             .select("supplier_id, subtotal")
             .in("supplier_id", supplierIds)
             .is("deleted_at", null)
-            .gte("invoice_date", monthStart)
-            .lte("invoice_date", monthEnd)
+            .gte("reference_date", monthStart)
+            .lte("reference_date", monthEnd)
         : { data: [] };
 
-      // Sum current month invoices per supplier (subtotal = before VAT, matches expenses page)
+      // Sum current month invoices per supplier (subtotal = before VAT, matches dashboard)
       const supplierMonthlyPurchases = new Map<string, number>();
       for (const inv of monthlyInvoicesData || []) {
         const prev = supplierMonthlyPurchases.get(inv.supplier_id) || 0;
@@ -407,8 +407,8 @@ export default function SuppliersPage() {
             .select("supplier_id, subtotal")
             .in("supplier_id", supplierIds)
             .is("deleted_at", null)
-            .gte("invoice_date", yearStart)
-            .lte("invoice_date", yearEnd)
+            .gte("reference_date", yearStart)
+            .lte("reference_date", yearEnd)
         : { data: [] };
 
       // Sum yearly invoices per supplier
@@ -1116,20 +1116,20 @@ export default function SuppliersPage() {
       .select("subtotal")
       .eq("supplier_id", supplier.id)
       .is("deleted_at", null)
-      .gte("invoice_date", monthStart.toISOString().split("T")[0])
-      .lte("invoice_date", monthEnd.toISOString().split("T")[0]);
+      .gte("reference_date", monthStart.toISOString().split("T")[0])
+      .lte("reference_date", monthEnd.toISOString().split("T")[0]);
 
     const monthlyPurchases = monthlyInvoices?.reduce((sum, inv) => sum + Number(inv.subtotal), 0) || 0;
 
-    // Get payments linked to invoices in this month (by invoice_date, not payment_date)
+    // Get payments linked to invoices in this month (by reference_date, matching dashboard)
     // First get invoice IDs for this month
     const { data: monthlyInvoiceIds } = await supabase
       .from("invoices")
       .select("id")
       .eq("supplier_id", supplier.id)
       .is("deleted_at", null)
-      .gte("invoice_date", monthStart.toISOString().split("T")[0])
-      .lte("invoice_date", monthEnd.toISOString().split("T")[0]);
+      .gte("reference_date", monthStart.toISOString().split("T")[0])
+      .lte("reference_date", monthEnd.toISOString().split("T")[0]);
 
     let monthlyPaid = 0;
     if (monthlyInvoiceIds && monthlyInvoiceIds.length > 0) {
