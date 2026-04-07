@@ -1046,6 +1046,22 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                         defaultMonth={formData.entry_date ? new Date(formData.entry_date + "T00:00:00") : undefined}
                         locale={he}
                       />
+                      <div className="border-t border-[#4C526B] px-3 py-2">
+                        <button
+                          type="button"
+                          className="w-full text-center text-sm font-medium text-blue-400 hover:text-blue-300 hover:bg-white/5 rounded-md py-1.5 transition-colors"
+                          onClick={() => {
+                            const now = new Date();
+                            const yyyy = now.getFullYear();
+                            const mm = String(now.getMonth() + 1).padStart(2, '0');
+                            const dd = String(now.getDate()).padStart(2, '0');
+                            handleChange("entry_date", `${yyyy}-${mm}-${dd}`);
+                            setDatePopoverOpen(false);
+                          }}
+                        >
+                          היום
+                        </button>
+                      </div>
                     </PopoverContent>
                   </Popover>
                   {dateWarning && (
@@ -1186,6 +1202,22 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                         defaultMonth={formData.entry_date ? new Date(formData.entry_date + "T00:00:00") : undefined}
                         locale={he}
                       />
+                      <div className="border-t border-[#4C526B] px-3 py-2">
+                        <button
+                          type="button"
+                          className="w-full text-center text-sm font-medium text-blue-400 hover:text-blue-300 hover:bg-white/5 rounded-md py-1.5 transition-colors"
+                          onClick={() => {
+                            const now = new Date();
+                            const yyyy = now.getFullYear();
+                            const mm = String(now.getMonth() + 1).padStart(2, '0');
+                            const dd = String(now.getDate()).padStart(2, '0');
+                            handleChange("entry_date", `${yyyy}-${mm}-${dd}`);
+                            setDatePopoverOpen(false);
+                          }}
+                        >
+                          היום
+                        </button>
+                      </div>
                     </PopoverContent>
                   </Popover>
                   {dateWarning && (

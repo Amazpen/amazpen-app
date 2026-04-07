@@ -44,3 +44,10 @@ next-env.d.ts
 
 # MCP configuration (contains secrets)
 .mcp.json
+
+# Research & analysis files
+autoresearch-results.tsv
+autoresearch-results-consistency.tsv
+autoresearch-scenarios.md
+sales-call-analysis-mahmoud.html
+security/

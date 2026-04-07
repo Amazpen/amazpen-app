@@ -392,6 +392,13 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
              : new Date(document.created_at).toLocaleDateString('he-IL'))}
         </p>
 
+        {/* Rejection reason for archived documents */}
+        {document.status === 'archived' && document.rejection_reason && (
+          <p className="text-[10px] text-[#EB5757] truncate mt-0.5">
+            סיבה: {document.rejection_reason}
+          </p>
+        )}
+
         {/* Confidence score indicator */}
         {document.ocr_data?.confidence_score !== undefined && (
           <ConfidenceBar score={document.ocr_data.confidence_score} />
@@ -440,6 +447,11 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
         <span>{getSourceIcon(document.source)}</span>
         <span>{document.source_sender_name || document.source_sender_phone || getSourceLabel(document.source)}</span>
       </div>
+      {document.status === 'archived' && document.rejection_reason && (
+        <div style={{ color: '#EB5757', fontSize: '10px', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          סיבה: {document.rejection_reason}
+        </div>
+      )}
     </div>
   );
 }
