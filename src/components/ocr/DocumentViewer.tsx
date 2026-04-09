@@ -43,6 +43,14 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const pdfScrollRef = useRef<HTMLDivElement>(null);
+  const pdfDragState = useRef<{ active: boolean; startX: number; startY: number; scrollLeft: number; scrollTop: number }>({
+    active: false,
+    startX: 0,
+    startY: 0,
+    scrollLeft: 0,
+    scrollTop: 0,
+  });
 
   // Zoom controls
   const handleZoomIn = useCallback(() => {
@@ -67,8 +75,9 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
     setRotation(prev => (prev - 90 + 360) % 360);
   }, []);
 
-  // Pan/Drag functionality
+  // Pan/Drag functionality (image only — PDF uses its own drag-to-scroll handlers)
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (isPdf) return;
     if (isCropping) {
       const rect = containerRef.current?.getBoundingClientRect();
       if (rect) {
@@ -90,9 +99,10 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
         y: e.clientY - position.y,
       });
     }
-  }, [position, isCropping]);
+  }, [position, isCropping, isPdf]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isPdf) return;
     if (isCropping && cropStart.x !== 0) {
       const rect = containerRef.current?.getBoundingClientRect();
       if (rect) {
@@ -111,7 +121,7 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
         y: e.clientY - dragStart.y,
       });
     }
-  }, [isDragging, dragStart, isCropping, cropStart]);
+  }, [isDragging, dragStart, isCropping, cropStart, isPdf]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -122,12 +132,18 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
     }
   }, [isCropping, cropArea]);
 
-  // Mouse wheel zoom - use native event listener for non-passive support
+  // Mouse wheel zoom - use native event listener for non-passive support.
+  // For PDFs we let native scroll happen (and only zoom on Ctrl/Cmd + wheel),
+  // so users can scroll between multi-page documents with the wheel.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const onWheel = (e: WheelEvent) => {
+      if (isPdf && !e.ctrlKey && !e.metaKey) {
+        // Let the inner PDF scroll container handle the wheel natively
+        return;
+      }
       e.preventDefault();
       const delta = e.deltaY > 0 ? -0.1 : 0.1;
       setZoom(prev => Math.min(Math.max(prev + delta, 0.25), 5));
@@ -135,6 +151,34 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
 
     container.addEventListener('wheel', onWheel, { passive: false });
     return () => container.removeEventListener('wheel', onWheel);
+  }, [isPdf]);
+
+  // PDF drag-to-scroll (click-and-drag anywhere inside the PDF panel)
+  const handlePdfMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const el = pdfScrollRef.current;
+    if (!el) return;
+    pdfDragState.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      scrollLeft: el.scrollLeft,
+      scrollTop: el.scrollTop,
+    };
+    el.style.cursor = 'grabbing';
+    e.preventDefault();
+  }, []);
+
+  const handlePdfMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const s = pdfDragState.current;
+    const el = pdfScrollRef.current;
+    if (!s.active || !el) return;
+    el.scrollLeft = s.scrollLeft - (e.clientX - s.startX);
+    el.scrollTop = s.scrollTop - (e.clientY - s.startY);
+  }, []);
+
+  const handlePdfMouseUp = useCallback(() => {
+    pdfDragState.current.active = false;
+    if (pdfScrollRef.current) pdfScrollRef.current.style.cursor = 'grab';
   }, []);
 
   // Fullscreen toggle
@@ -437,7 +481,14 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
       >
         {/* PDF viewer */}
         {isPdf ? (
-          <div style={{ width: '100%', height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '8px', background: '#1a1f3d' }}>
+          <div
+            ref={pdfScrollRef}
+            onMouseDown={handlePdfMouseDown}
+            onMouseMove={handlePdfMouseMove}
+            onMouseUp={handlePdfMouseUp}
+            onMouseLeave={handlePdfMouseUp}
+            style={{ width: '100%', height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '8px', background: '#1a1f3d', cursor: 'grab', userSelect: 'none' }}
+          >
             {pdfLoading && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#fff', fontSize: '14px' }}>
                 טוען PDF...

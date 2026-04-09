@@ -23,6 +23,8 @@ interface Supplier {
   id: string;
   name: string;
   waiting_for_coordinator?: boolean;
+  is_fixed_expense?: boolean;
+  vat_type?: string | null;
 }
 
 export default function OCRPage() {
@@ -33,13 +35,14 @@ export default function OCRPage() {
   const [documents, setDocuments] = useState<OCRDocument[]>([]);
   const [currentDocument, setCurrentDocument] = useState<OCRDocument | null>(null);
   const [filterStatus, setFilterStatus] = usePersistedState<DocumentStatus | 'all'>('ocr:filterStatus', 'pending');
+  const [businessFilter, setBusinessFilter] = usePersistedState<string>('ocr:businessFilter', 'all');
   const [isLoading, setIsLoading] = useState(false);
   const [showMobileViewer, setShowMobileViewer] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [showCalculator, setShowCalculator] = useState(false);
 
   // Fetch OCR documents from Supabase
-  const fetchDocuments = useCallback(async () => {
+  const fetchDocuments = useCallback(async (): Promise<OCRDocument[]> => {
     const supabase = createClient();
     const { data, error } = await supabase
       .from('ocr_documents')
@@ -48,7 +51,7 @@ export default function OCRPage() {
 
     if (error) {
       console.error('Error fetching OCR documents:', error);
-      return;
+      return [];
     }
 
     if (data) {
@@ -106,7 +109,9 @@ export default function OCRPage() {
         };
       });
       setDocuments(mapped);
+      return mapped;
     }
+    return [];
   }, []);
 
   // Business and supplier state
@@ -182,7 +187,7 @@ export default function OCRPage() {
       // Fetch all active suppliers
       const { data } = await supabase
         .from('suppliers')
-        .select('id, name, waiting_for_coordinator, notes, default_payment_method, default_credit_card_id, default_discount_percentage')
+        .select('id, name, waiting_for_coordinator, notes, default_payment_method, default_credit_card_id, default_discount_percentage, is_fixed_expense, vat_type')
         .eq('business_id', selectedBusinessId)
         .is('deleted_at', null)
         .eq('is_active', true)
@@ -258,13 +263,16 @@ export default function OCRPage() {
           }
         }
 
-        // Calculate due date based on credit card billing day
+        // Calculate due date based on credit card billing day.
+        // Payment is recorded 1 day BEFORE the card's billing day
+        // (e.g. card withdraws on 10 → payment date = 9).
         const calcCreditCardDueDate = (paymentDateStr: string, billingDay: number): string => {
           const payDate = new Date(paymentDateStr);
+          const adjustedDay = billingDay - 1;
           if (payDate.getDate() < billingDay) {
-            return new Date(payDate.getFullYear(), payDate.getMonth(), billingDay).toISOString().split('T')[0];
+            return new Date(payDate.getFullYear(), payDate.getMonth(), adjustedDay).toISOString().split('T')[0];
           } else {
-            return new Date(payDate.getFullYear(), payDate.getMonth() + 1, billingDay).toISOString().split('T')[0];
+            return new Date(payDate.getFullYear(), payDate.getMonth() + 1, adjustedDay).toISOString().split('T')[0];
           }
         };
 
@@ -278,27 +286,56 @@ export default function OCRPage() {
 
         if (formData.document_type === 'invoice' || formData.document_type === 'credit_note') {
           // --- INVOICE / CREDIT NOTE ---
-          const { data: newInvoice, error: invoiceError } = await supabase
-            .from('invoices')
-            .insert({
-              business_id: formData.business_id,
-              supplier_id: formData.supplier_id,
-              invoice_number: formData.document_number || null,
-              invoice_date: formData.document_date,
-              reference_date: formData.document_date,
-              discount_amount: parseFloat(formData.discount_amount || '0') || 0,
-              discount_percentage: parseFloat(formData.discount_percentage || '0') || 0,
-              subtotal: parseFloat(formData.amount_before_vat),
-              vat_amount: parseFloat(formData.vat_amount),
-              total_amount: parseFloat(formData.total_amount),
-              status: formData.is_paid ? 'paid' : 'pending',
-              notes: formData.notes || null,
-              created_by: user?.id || null,
-              invoice_type: formData.expense_type === 'goods' ? 'goods' : 'current',
-              attachment_url: ocrImageUrl,
-            })
-            .select()
-            .single();
+          // If this document should be linked to an existing pending fixed-expense
+          // invoice, UPDATE that placeholder instead of creating a duplicate.
+          let newInvoice: { id: string } | null = null;
+          let invoiceError: unknown = null;
+          if (formData.link_to_fixed_invoice_id) {
+            const { data, error } = await supabase
+              .from('invoices')
+              .update({
+                invoice_number: formData.document_number || null,
+                invoice_date: formData.document_date,
+                reference_date: formData.document_date,
+                discount_amount: parseFloat(formData.discount_amount || '0') || 0,
+                discount_percentage: parseFloat(formData.discount_percentage || '0') || 0,
+                subtotal: parseFloat(formData.amount_before_vat),
+                vat_amount: parseFloat(formData.vat_amount),
+                total_amount: parseFloat(formData.total_amount),
+                status: formData.is_paid ? 'paid' : 'pending',
+                notes: formData.notes || null,
+                attachment_url: ocrImageUrl,
+              })
+              .eq('id', formData.link_to_fixed_invoice_id)
+              .select()
+              .single();
+            newInvoice = data;
+            invoiceError = error;
+          } else {
+            const { data, error } = await supabase
+              .from('invoices')
+              .insert({
+                business_id: formData.business_id,
+                supplier_id: formData.supplier_id,
+                invoice_number: formData.document_number || null,
+                invoice_date: formData.document_date,
+                reference_date: formData.document_date,
+                discount_amount: parseFloat(formData.discount_amount || '0') || 0,
+                discount_percentage: parseFloat(formData.discount_percentage || '0') || 0,
+                subtotal: parseFloat(formData.amount_before_vat),
+                vat_amount: parseFloat(formData.vat_amount),
+                total_amount: parseFloat(formData.total_amount),
+                status: formData.is_paid ? 'paid' : 'pending',
+                notes: formData.notes || null,
+                created_by: user?.id || null,
+                invoice_type: formData.expense_type === 'goods' ? 'goods' : 'current',
+                attachment_url: ocrImageUrl,
+              })
+              .select()
+              .single();
+            newInvoice = data;
+            invoiceError = error;
+          }
 
           if (invoiceError) throw invoiceError;
           createdInvoiceId = newInvoice?.id || null;
@@ -402,25 +439,16 @@ export default function OCRPage() {
             ? formData.payment_methods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0), 0)
             : parseFloat(formData.total_amount);
 
-          const { data: newPayment, error: paymentError } = await supabase
-            .from('payments')
-            .insert({
-              business_id: formData.business_id,
-              supplier_id: formData.supplier_id,
-              payment_date: formData.document_date,
-              total_amount: totalAmount,
-              notes: formData.payment_notes || formData.notes || null,
-              created_by: user?.id || null,
-              receipt_url: ocrImageUrl,
-            })
-            .select()
-            .single();
+          // Mirror payments/page.tsx behaviour: create one payment per linked invoice
+          // so each invoice gets its own payment row with invoice_id set. If no invoices
+          // were selected, fall back to a single unlinked payment (legacy OCR behaviour).
+          const linkedInvoiceIds = formData.payment_linked_invoice_ids && formData.payment_linked_invoice_ids.length > 0
+            ? formData.payment_linked_invoice_ids
+            : [null as string | null];
 
-          if (paymentError) throw paymentError;
-          createdPaymentId = newPayment?.id || null;
-
-          // Create payment splits
-          if (newPayment && formData.payment_methods) {
+          // Helper to write splits against a created payment row
+          const createSplitsForPayment = async (paymentId: string) => {
+            if (!formData.payment_methods) return;
             for (const pm of formData.payment_methods) {
               const amount = parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0;
               if (amount > 0 && pm.method) {
@@ -431,7 +459,7 @@ export default function OCRPage() {
                 if (pm.customInstallments.length > 0) {
                   for (const inst of pm.customInstallments) {
                     await supabase.from('payment_splits').insert({
-                      payment_id: newPayment.id,
+                      payment_id: paymentId,
                       payment_method: pm.method,
                       amount: inst.amount,
                       installments_count: installmentsCount,
@@ -448,7 +476,7 @@ export default function OCRPage() {
                     : formData.document_date || null;
 
                   await supabase.from('payment_splits').insert({
-                    payment_id: newPayment.id,
+                    payment_id: paymentId,
                     payment_method: pm.method,
                     amount: amount,
                     installments_count: 1,
@@ -458,6 +486,60 @@ export default function OCRPage() {
                     credit_card_id: creditCardId,
                     due_date: dueDate,
                   });
+                }
+              }
+            }
+          };
+
+          for (const invoiceId of linkedInvoiceIds) {
+            const { data: newPayment, error: paymentError } = await supabase
+              .from('payments')
+              .insert({
+                business_id: formData.business_id,
+                supplier_id: formData.supplier_id,
+                payment_date: formData.document_date,
+                total_amount: totalAmount,
+                invoice_id: invoiceId,
+                notes: formData.payment_notes || formData.notes || null,
+                created_by: user?.id || null,
+                receipt_url: ocrImageUrl,
+              })
+              .select()
+              .single();
+
+            if (paymentError) throw paymentError;
+            if (!createdPaymentId && newPayment?.id) createdPaymentId = newPayment.id;
+            if (newPayment) await createSplitsForPayment(newPayment.id);
+          }
+
+          // Mark linked invoices as paid (±₪5 tolerance, like payments/page.tsx)
+          if (formData.payment_linked_invoice_ids && formData.payment_linked_invoice_ids.length > 0) {
+            const { data: selectedInvs } = await supabase
+              .from('invoices')
+              .select('id, total_amount')
+              .in('id', formData.payment_linked_invoice_ids);
+            if (selectedInvs) {
+              const invoicesTotal = selectedInvs.reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+              const diff = Math.abs(invoicesTotal - totalAmount);
+              if (diff <= 5) {
+                await supabase
+                  .from('invoices')
+                  .update({ status: 'paid' })
+                  .in('id', formData.payment_linked_invoice_ids);
+              } else {
+                // Partial coverage — mark smallest-first until exhausted
+                const sorted = [...selectedInvs].sort((a, b) => Number(a.total_amount) - Number(b.total_amount));
+                let remaining = totalAmount;
+                const toMarkPaid: string[] = [];
+                for (const inv of sorted) {
+                  const invAmount = Number(inv.total_amount);
+                  if (invAmount <= remaining + 1) {
+                    toMarkPaid.push(inv.id as string);
+                    remaining -= invAmount;
+                  }
+                }
+                if (toMarkPaid.length > 0) {
+                  await supabase.from('invoices').update({ status: 'paid' }).in('id', toMarkPaid);
                 }
               }
             }
@@ -654,9 +736,16 @@ export default function OCRPage() {
           created_delivery_note_id: createdDeliveryNoteId,
         }).eq('id', currentDocument.id);
 
-        // Re-fetch documents and move to next pending
-        await fetchDocuments();
-        setCurrentDocument(null);
+        // Re-fetch documents and auto-select next pending
+        const fresh = await fetchDocuments();
+        const nextPending = fresh.find(
+          (d) => d.status === 'pending' && d.id !== currentDocument.id
+        );
+        if (nextPending) {
+          handleSelectDocument(nextPending);
+        } else {
+          setCurrentDocument(null);
+        }
 
       } catch (error) {
         console.error('Error saving document:', error);
@@ -665,7 +754,7 @@ export default function OCRPage() {
         setIsLoading(false);
       }
     },
-    [currentDocument, fetchDocuments]
+    [currentDocument, fetchDocuments, handleSelectDocument]
   );
 
   // Handle document rejection
@@ -687,9 +776,16 @@ export default function OCRPage() {
 
         if (error) throw error;
 
-        // Re-fetch documents and move to next pending
-        await fetchDocuments();
-        setCurrentDocument(null);
+        // Re-fetch documents and auto-select next pending
+        const fresh = await fetchDocuments();
+        const nextPending = fresh.find(
+          (d) => d.status === 'pending' && d.id !== documentId
+        );
+        if (nextPending) {
+          handleSelectDocument(nextPending);
+        } else {
+          setCurrentDocument(null);
+        }
       } catch (error) {
         console.error('Error rejecting document:', error);
         alert('שגיאה בדחיית המסמך');
@@ -697,7 +793,7 @@ export default function OCRPage() {
         setIsLoading(false);
       }
     },
-    [fetchDocuments]
+    [fetchDocuments, handleSelectDocument]
   );
 
   // Handle document deletion
@@ -710,8 +806,15 @@ export default function OCRPage() {
         const { error } = await supabase.from('ocr_documents').delete().eq('id', documentId);
         if (error) throw error;
 
-        await fetchDocuments();
-        setCurrentDocument(null);
+        const fresh = await fetchDocuments();
+        const nextPending = fresh.find(
+          (d) => d.status === 'pending' && d.id !== documentId
+        );
+        if (nextPending) {
+          handleSelectDocument(nextPending);
+        } else {
+          setCurrentDocument(null);
+        }
       } catch (error) {
         console.error('Error deleting document:', error);
         alert('שגיאה במחיקת המסמך');
@@ -719,7 +822,7 @@ export default function OCRPage() {
         setIsLoading(false);
       }
     },
-    [fetchDocuments]
+    [fetchDocuments, handleSelectDocument]
   );
 
   // Handle skip
@@ -834,6 +937,9 @@ export default function OCRPage() {
             filterStatus={filterStatus}
             onFilterChange={setFilterStatus}
             vertical={true}
+            businesses={businesses}
+            businessFilter={businessFilter}
+            onBusinessFilterChange={setBusinessFilter}
           />
         </div>
 
@@ -901,6 +1007,9 @@ export default function OCRPage() {
           filterStatus={filterStatus}
           onFilterChange={setFilterStatus}
           vertical={false}
+          businesses={businesses}
+          businessFilter={businessFilter}
+          onBusinessFilterChange={setBusinessFilter}
         />
       </div>
     </div>

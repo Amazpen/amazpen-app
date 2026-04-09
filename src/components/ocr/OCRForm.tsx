@@ -23,6 +23,8 @@ interface Supplier {
   default_credit_card_id?: string | null;
   default_discount_percentage?: number | null;
   waiting_for_coordinator?: boolean;
+  is_fixed_expense?: boolean;
+  vat_type?: string | null;
 }
 
 interface Business {
@@ -61,15 +63,43 @@ interface OCRFormProps {
 }
 
 // Tabs for document type selection
+// Only 4 top-level tabs. Legacy types (delivery_note / disputed_invoice /
+// partially_paid) are now expressed as toggles *inside* the invoice tab:
+// - delivery_note  → invoice + "שייך למרכזת (ת.מ)"   (isSummaryLinked)
+// - disputed_invoice → invoice + "מסמך בבירור"      (isDisputed)
+// - partially_paid → invoice (simply unpaid invoice; isPaid=false)
 const DOCUMENT_TABS: { value: DocumentType; label: string }[] = [
   { value: 'invoice', label: 'חשבונית' },
   { value: 'payment', label: 'תשלום' },
-  { value: 'delivery_note', label: 'ת.משלוח' },
-  { value: 'disputed_invoice', label: 'בבירור' },
-  { value: 'partially_paid', label: 'לא שולם' },
   { value: 'summary', label: 'מרכזת' },
   { value: 'daily_entry', label: 'רישום יומי' },
 ];
+
+// Hebrew month grouping helpers (mirrors payments/page.tsx)
+const HEBREW_MONTH_NAMES = [
+  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
+];
+
+function getMonthYearKey(dateStr: string): string {
+  const date = new Date(dateStr);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function getMonthYearLabel(key: string): string {
+  const [year, month] = key.split('-');
+  return `${HEBREW_MONTH_NAMES[parseInt(month, 10) - 1]}, ${year}`;
+}
+
+function groupByMonth<T extends { [k: string]: unknown }>(items: T[], dateField: keyof T): Array<[string, T[]]> {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const key = getMonthYearKey(String(item[dateField]));
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(item);
+  }
+  return Array.from(groups.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+}
 
 const PAYMENT_METHODS = [
   { value: 'bank_transfer', label: 'העברה בנקאית' },
@@ -144,6 +174,57 @@ export default function OCRForm({
   const [rejectReason, setRejectReason] = useState('');
   const [rejectCustomText, setRejectCustomText] = useState('');
 
+  // Fixed-expense linking — when the selected supplier is marked as is_fixed_expense,
+  // pull their currently-open monthly invoices so the user can attach this document
+  // to an existing placeholder invoice instead of creating a duplicate.
+  const [fixedOpenInvoices, setFixedOpenInvoices] = useState<{ id: string; invoice_date: string; subtotal: number; total_amount: number; month: string }[]>([]);
+  const [linkToFixedInvoiceId, setLinkToFixedInvoiceId] = useState<string | null>(null); // null = create new
+  const [showFixedInvoices, setShowFixedInvoices] = useState(false);
+
+  // Fetch open fixed-expense invoices whenever the user picks a fixed-expense supplier
+  useEffect(() => {
+    const sel = suppliers.find(s => s.id === supplierId);
+    if (!supplierId || !selectedBusinessId || !sel?.is_fixed_expense) {
+      setFixedOpenInvoices([]);
+      setLinkToFixedInvoiceId(null);
+      setShowFixedInvoices(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const { data: openInvs } = await supabase
+        .from('invoices')
+        .select('id, invoice_date, subtotal, total_amount')
+        .eq('business_id', selectedBusinessId)
+        .eq('supplier_id', supplierId)
+        .eq('status', 'pending')
+        .is('deleted_at', null)
+        .order('invoice_date', { ascending: false });
+
+      if (cancelled) return;
+      if (openInvs && openInvs.length > 0) {
+        const monthNames = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+        const mapped = openInvs.map(inv => {
+          const d = new Date(inv.invoice_date as string);
+          return {
+            id: inv.id as string,
+            invoice_date: inv.invoice_date as string,
+            subtotal: Number(inv.subtotal),
+            total_amount: Number(inv.total_amount),
+            month: `חודש ${monthNames[d.getMonth()]}, ${d.getFullYear()}`,
+          };
+        });
+        setFixedOpenInvoices(mapped);
+        setShowFixedInvoices(true);
+      } else {
+        setFixedOpenInvoices([]);
+        setShowFixedInvoices(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [supplierId, selectedBusinessId, suppliers]);
+
   // Payment fields for invoice tab (when isPaid is checked) - single payment method
   const [inlinePaymentMethod, setInlinePaymentMethod] = useState('');
   const [inlinePaymentDate, setInlinePaymentDate] = useState('');
@@ -156,6 +237,70 @@ export default function OCRForm({
   const [paymentTabSupplierId, setPaymentTabSupplierId] = useState('');
   const [paymentTabReference, setPaymentTabReference] = useState('');
   const [paymentTabNotes, setPaymentTabNotes] = useState('');
+
+  // Payment tab — open invoices for linking (mirrors payments/page.tsx)
+  type PaymentOpenInvoice = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number; status: string };
+  const [paymentOpenInvoices, setPaymentOpenInvoices] = useState<PaymentOpenInvoice[]>([]);
+  const [paymentSelectedInvoiceIds, setPaymentSelectedInvoiceIds] = useState<Set<string>>(new Set());
+  const [paymentExpandedMonths, setPaymentExpandedMonths] = useState<Set<string>>(new Set());
+  const [paymentIsLoadingInvoices, setPaymentIsLoadingInvoices] = useState(false);
+
+  // Fetch open invoices whenever the user picks a supplier in the payment tab
+  useEffect(() => {
+    if (!paymentTabSupplierId || !selectedBusinessId) {
+      setPaymentOpenInvoices([]);
+      setPaymentSelectedInvoiceIds(new Set());
+      setPaymentExpandedMonths(new Set());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setPaymentIsLoadingInvoices(true);
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, invoice_date, total_amount, status')
+        .eq('business_id', selectedBusinessId)
+        .eq('supplier_id', paymentTabSupplierId)
+        .in('status', ['pending', 'clarification'])
+        .is('deleted_at', null)
+        .order('invoice_date', { ascending: false });
+      if (cancelled) return;
+      const mapped: PaymentOpenInvoice[] = (data || []).map(inv => ({
+        id: inv.id as string,
+        invoice_number: (inv.invoice_number as string) || null,
+        invoice_date: inv.invoice_date as string,
+        total_amount: Number(inv.total_amount),
+        status: inv.status as string,
+      }));
+      setPaymentOpenInvoices(mapped);
+      setPaymentSelectedInvoiceIds(new Set());
+      // Auto-expand the most recent month so the user sees at least one invoice
+      if (mapped.length > 0) {
+        setPaymentExpandedMonths(new Set([getMonthYearKey(mapped[0].invoice_date)]));
+      } else {
+        setPaymentExpandedMonths(new Set());
+      }
+      setPaymentIsLoadingInvoices(false);
+    })();
+    return () => { cancelled = true; };
+  }, [paymentTabSupplierId, selectedBusinessId]);
+
+  // When invoices are selected, auto-sync the payment amount to match the total
+  const paymentSelectedInvoicesTotal = useMemo(() => {
+    return paymentOpenInvoices
+      .filter(inv => paymentSelectedInvoiceIds.has(inv.id))
+      .reduce((sum, inv) => sum + inv.total_amount, 0);
+  }, [paymentOpenInvoices, paymentSelectedInvoiceIds]);
+
+  useEffect(() => {
+    if (paymentSelectedInvoiceIds.size === 0) return;
+    setPaymentMethods(prev => {
+      if (prev.length === 0) return prev;
+      const amountStr = paymentSelectedInvoicesTotal.toFixed(2).replace(/\.?0+$/, '') || '0';
+      return prev.map((pm, i) => i === 0 ? { ...pm, amount: amountStr } : pm);
+    });
+  }, [paymentSelectedInvoicesTotal, paymentSelectedInvoiceIds.size]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodEntry[]>([
     { id: 1, method: '', amount: '', installments: '1', checkNumber: '', creditCardId: '', customInstallments: [] },
   ]);
@@ -184,6 +329,8 @@ export default function OCRForm({
   const [openDeliveryNotes, setOpenDeliveryNotes] = useState<Array<{ id: string; delivery_note_number: string; delivery_date: string; total_amount: number; notes: string | null }>>([]);
   const [selectedDeliveryNoteIds, setSelectedDeliveryNoteIds] = useState<Set<string>>(new Set());
   const [isLoadingDeliveryNotes, setIsLoadingDeliveryNotes] = useState(false);
+  // Summary tab — month groups expand/collapse state (keyed as "YYYY-MM")
+  const [summaryExpandedMonths, setSummaryExpandedMonths] = useState<Set<string>>(new Set());
 
   // Business credit cards
   const [businessCreditCards, setBusinessCreditCards] = useState<{id: string, card_name: string, billing_day: number}[]>([]);
@@ -524,16 +671,21 @@ export default function OCRForm({
     }
   };
 
-  // Calculate due date based on credit card billing day
+  // Calculate due date based on credit card billing day.
+  // Payment is recorded 1 day BEFORE the card's billing day
+  // (e.g. card withdraws on the 10th → payment date = the 9th).
+  // Passing `billingDay - 1` to `new Date(y, m, d)` with d=0 rolls to the last
+  // day of the previous month, which is the desired behaviour when billing_day=1.
   const calculateCreditCardDueDate = (paymentDateStr: string, billingDay: number): string => {
     const payDate = new Date(paymentDateStr);
     const dayOfMonth = payDate.getDate();
+    const adjustedDay = billingDay - 1;
 
     if (dayOfMonth < billingDay) {
-      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth(), billingDay);
+      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth(), adjustedDay);
       return dueDate.toISOString().split('T')[0];
     } else {
-      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth() + 1, billingDay);
+      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth() + 1, adjustedDay);
       return dueDate.toISOString().split('T')[0];
     }
   };
@@ -736,15 +888,26 @@ export default function OCRForm({
         .is('invoice_id', null)
         .order('delivery_date', { ascending: true });
       if (!cancelled && data) {
-        setOpenDeliveryNotes(data.map(d => ({
+        const mapped = data.map(d => ({
           id: d.id,
           delivery_note_number: d.delivery_note_number || '',
           delivery_date: String(d.delivery_date || '').substring(0, 10),
           total_amount: Number(d.total_amount) || 0,
           notes: d.notes,
-        })));
+        }));
+        setOpenDeliveryNotes(mapped);
         // Auto-select all
         setSelectedDeliveryNoteIds(new Set(data.map(d => d.id)));
+        // Auto-expand the most recent month group so users see the list
+        if (mapped.length > 0) {
+          const newestKey = mapped
+            .map(n => getMonthYearKey(n.delivery_date))
+            .sort()
+            .pop()!;
+          setSummaryExpandedMonths(new Set([newestKey]));
+        } else {
+          setSummaryExpandedMonths(new Set());
+        }
       }
       if (!cancelled) setIsLoadingDeliveryNotes(false);
     }
@@ -828,13 +991,30 @@ export default function OCRForm({
       const data = document.ocr_data;
 
       if (document.document_type) {
-        // Map unknown/invalid types to 'invoice' as default
-        const validTypes: DocumentType[] = ['invoice', 'payment', 'delivery_note', 'summary', 'credit_note', 'daily_entry', 'disputed_invoice', 'partially_paid'];
-        const resolvedType = validTypes.includes(document.document_type as DocumentType)
-          ? (document.document_type as DocumentType)
-          : 'invoice';
-         
-        setDocumentType(resolvedType);
+        // Collapse legacy "sub-types" into the 4 top-level tabs + flags.
+        // Tab-visible: invoice / payment / summary / daily_entry.
+        // Everything else lives inside "invoice" and is expressed as a toggle.
+        const raw = document.document_type as DocumentType;
+        const topLevelTypes: DocumentType[] = ['invoice', 'payment', 'summary', 'daily_entry', 'credit_note'];
+        if (topLevelTypes.includes(raw)) {
+          setDocumentType(raw);
+          setIsSummaryLinked(false);
+          setIsDisputed(false);
+        } else if (raw === 'delivery_note') {
+          setDocumentType('invoice');
+          setIsSummaryLinked(true);
+          setIsDisputed(false);
+        } else if (raw === 'disputed_invoice') {
+          setDocumentType('invoice');
+          setIsDisputed(true);
+          setIsSummaryLinked(false);
+        } else if (raw === 'partially_paid') {
+          setDocumentType('invoice');
+          setIsSummaryLinked(false);
+          setIsDisputed(false);
+        } else {
+          setDocumentType('invoice');
+        }
       }
       if (document.expense_type) {
         setExpenseType(document.expense_type);
@@ -1167,6 +1347,7 @@ export default function OCRForm({
         payment_reference: paymentTabReference,
         payment_notes: paymentTabNotes,
         payment_methods: paymentMethods,
+        payment_linked_invoice_ids: Array.from(paymentSelectedInvoiceIds),
       };
       clearDraft();
       onApprove(formData);
@@ -1255,6 +1436,7 @@ export default function OCRForm({
         total_amount: totalWithVat.toFixed(2),
         notes,
         is_paid: isPaid,
+        link_to_fixed_invoice_id: linkToFixedInvoiceId,
         line_items: lineItems.length > 0 ? lineItems : undefined,
         ...(isPaid && {
           payment_method: inlinePaymentMethods[0]?.method || inlinePaymentMethod,
@@ -1609,6 +1791,65 @@ export default function OCRForm({
         return null;
       })()}
 
+      {/* Fixed Expense — link to existing open monthly invoice (or create new) */}
+      {fixedOpenInvoices.length > 0 && (() => {
+        const selectedSupplier = suppliers.find(s => s.id === supplierId);
+        if (!selectedSupplier?.is_fixed_expense) return null;
+        return (
+          <div className="flex flex-col gap-[8px]">
+            <div
+              className="flex items-center gap-[5px] cursor-pointer"
+              dir="rtl"
+              onClick={() => setShowFixedInvoices(!showFixedInvoices)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`text-white/70 transition-transform ${showFixedInvoices ? 'rotate-180' : ''}`}>
+                <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span className="text-[14px] font-medium text-[#bc76ff]">
+                הוצאה חודשית קבועה — {fixedOpenInvoices.length} חשבוניות פתוחות
+              </span>
+            </div>
+            {showFixedInvoices && (
+              <div className="flex flex-col gap-[6px] pr-[10px]">
+                <Button
+                  type="button"
+                  onClick={() => setLinkToFixedInvoiceId(null)}
+                  className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
+                    linkToFixedInvoiceId === null
+                      ? 'bg-[#4F46E5] text-white border border-white/30'
+                      : 'bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80'
+                  }`}
+                >
+                  פתח חשבונית חדשה
+                </Button>
+                {fixedOpenInvoices.map(inv => (
+                  <Button
+                    key={inv.id}
+                    type="button"
+                    onClick={() => {
+                      setLinkToFixedInvoiceId(inv.id);
+                      setAmountBeforeVat(String(inv.subtotal));
+                      setDocumentDate(inv.invoice_date);
+                      if (selectedSupplier.vat_type === 'none') {
+                        setPartialVat(true);
+                        setVatAmount('0');
+                      }
+                    }}
+                    className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
+                      linkToFixedInvoiceId === inv.id
+                        ? 'bg-[#4F46E5] text-white border border-white/30'
+                        : 'bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80'
+                    }`}
+                  >
+                    {inv.month} — &#8362;{inv.total_amount.toLocaleString('he-IL')}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Document Number */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-normal text-white text-right">מספר חשבונית / תעודת משלוח</label>
@@ -1847,6 +2088,20 @@ export default function OCRForm({
                 </span>
               </div>
             ))}
+            {/* Items total — display only, lets user verify amounts match */}
+            {lineItems.length > 0 && (() => {
+              const itemsTotal = lineItems.reduce((sum, li) => sum + (li.total || 0), 0);
+              return (
+                <div className="grid grid-cols-[1fr_50px_60px_75px_60px_28px] min-w-[320px] items-center border-t border-[#4C526B] py-[6px] px-[4px] gap-[2px]">
+                  <span className="text-right text-white/70 text-[13px] font-medium">סה&quot;כ פריטים</span>
+                  <span />
+                  <span />
+                  <span />
+                  <span className="text-center text-white font-semibold ltr-num text-[13px]">&#8362;{itemsTotal.toFixed(2)}</span>
+                  <span />
+                </div>
+              );
+            })()}
             {/* Add item button */}
             <Button
               type="button"
@@ -2377,36 +2632,152 @@ export default function OCRForm({
         }}
       />
 
+      {/* Open invoices to link payment to — grouped by month */}
+      {paymentTabSupplierId && (
+        <div className="flex flex-col gap-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] text-white/60 ltr-num">
+              {paymentSelectedInvoiceIds.size > 0 && (
+                <>נבחרו {paymentSelectedInvoiceIds.size} — &#8362;{paymentSelectedInvoicesTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
+              )}
+            </span>
+            <label className="text-[15px] font-medium text-white">
+              חשבוניות פתוחות ({paymentOpenInvoices.length})
+            </label>
+          </div>
+
+          {paymentIsLoadingInvoices ? (
+            <div className="flex justify-center py-[15px]">
+              <svg className="animate-spin w-5 h-5 text-white/40" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="30 70" strokeLinecap="round"/></svg>
+            </div>
+          ) : paymentOpenInvoices.length === 0 ? (
+            <p className="text-[12px] text-white/40 text-center py-[10px]">אין חשבוניות פתוחות לספק זה</p>
+          ) : (
+            <div className="flex flex-col gap-[6px] max-h-[360px] overflow-y-auto">
+              {groupByMonth(paymentOpenInvoices, 'invoice_date').map(([monthKey, monthInvs]) => {
+                const isExpanded = paymentExpandedMonths.has(monthKey);
+                const monthTotal = monthInvs.reduce((s, i) => s + i.total_amount, 0);
+                const monthIds = monthInvs.filter(i => i.status !== 'clarification').map(i => i.id);
+                const monthAllSelected = monthIds.length > 0 && monthIds.every(id => paymentSelectedInvoiceIds.has(id));
+                const monthSomeSelected = monthIds.some(id => paymentSelectedInvoiceIds.has(id));
+                return (
+                  <div key={monthKey} className="flex flex-col gap-[4px]">
+                    {/* Month header */}
+                    <button
+                      type="button"
+                      onClick={() => setPaymentExpandedMonths(prev => {
+                        const next = new Set(prev);
+                        if (next.has(monthKey)) next.delete(monthKey); else next.add(monthKey);
+                        return next;
+                      })}
+                      className={`flex items-center justify-between p-[8px_10px] rounded-[8px] border ${monthSomeSelected ? 'bg-[#29318A]/20 border-[#29318A]' : 'bg-[#1a1f42] border-[#4C526B]/50'} hover:border-white/30 transition-colors`}
+                    >
+                      <div className="flex items-center gap-[8px]">
+                        <span className="text-[13px] text-white/80 font-semibold ltr-num">
+                          &#8362;{monthTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-[11px] text-white/40">({monthInvs.length})</span>
+                      </div>
+                      <div className="flex items-center gap-[8px]">
+                        <span className="text-[14px] text-white font-medium">{getMonthYearLabel(monthKey)}</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`text-white/60 transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+                          <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                    </button>
+
+                    {/* Month items */}
+                    {isExpanded && (
+                      <div className="flex flex-col gap-[4px] pr-[6px]">
+                        {monthIds.length > 0 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                              setPaymentSelectedInvoiceIds(prev => {
+                                const next = new Set(prev);
+                                if (monthAllSelected) {
+                                  monthIds.forEach(id => next.delete(id));
+                                } else {
+                                  monthIds.forEach(id => next.add(id));
+                                }
+                                return next;
+                              });
+                            }}
+                            className="text-[12px] text-[#0075FF] hover:text-[#00D4FF] transition-colors self-start"
+                          >
+                            {monthAllSelected ? 'בטל הכל בחודש' : 'בחר הכל בחודש'}
+                          </Button>
+                        )}
+                        {monthInvs.map(inv => {
+                          const isSelected = paymentSelectedInvoiceIds.has(inv.id);
+                          const disabled = inv.status === 'clarification';
+                          return (
+                            <button
+                              key={inv.id}
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => {
+                                if (disabled) return;
+                                setPaymentSelectedInvoiceIds(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(inv.id)) next.delete(inv.id); else next.add(inv.id);
+                                  return next;
+                                });
+                              }}
+                              className={`flex items-center justify-between rounded-[8px] p-[10px] transition-colors ${
+                                disabled
+                                  ? 'bg-[#1a1f42] border border-[#F59E0B]/30 opacity-60 cursor-not-allowed'
+                                  : isSelected
+                                    ? 'bg-[#29318A]/40 border border-[#29318A] cursor-pointer'
+                                    : 'bg-[#1a1f42] border border-transparent hover:border-white/20 cursor-pointer'
+                              }`}
+                            >
+                              <div className="flex items-center gap-[8px]">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={isSelected ? 'text-[#3CD856]' : 'text-white/30'}>
+                                  {isSelected ? (
+                                    <><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2" fill="currentColor"/><path d="M8 12l3 3 5-5" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></>
+                                  ) : (
+                                    <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/>
+                                  )}
+                                </svg>
+                                <span className="text-[14px] text-white font-medium ltr-num">
+                                  &#8362;{inv.total_amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                              <div className="flex flex-col items-end">
+                                <span className="text-[14px] text-white">{inv.invoice_number || '(ללא מספר)'}</span>
+                                <span className="text-[11px] text-white/50">
+                                  {inv.invoice_date ? new Date(inv.invoice_date + 'T00:00:00').toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Payment Methods Section */}
       {renderPaymentMethodsSection(paymentMethods, setPaymentMethods, paymentTabDate, setPaymentTabDate)}
 
-      {/* Reference + Upload */}
+      {/* Reference (upload button removed — the receipt is already attached from OCR) */}
       <div className="flex flex-col gap-[3px]">
         <label className="text-[16px] font-medium text-white text-right">אסמכתא</label>
-        <div className="flex gap-[8px] items-center">
-          <div className="flex-1 border border-[#4C526B] rounded-[10px] min-h-[50px]">
-            <Input
-              type="text"
-              value={paymentTabReference}
-              onChange={(e) => setPaymentTabReference(e.target.value)}
-              placeholder="מספר אסמכתא..."
-              className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
-            />
-          </div>
-          <label className="shrink-0 border border-[#4C526B] border-dashed rounded-[10px] w-[50px] h-[50px] flex items-center justify-center cursor-pointer hover:bg-white/5 transition-colors">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="17 8 12 3 7 8"/>
-              <line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-            <input
-              type="file"
-              accept="image/*,.pdf"
-              multiple
-              className="hidden"
-              onChange={() => {/* handled by OCR queue — file already attached to document */}}
-            />
-          </label>
+        <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+          <Input
+            type="text"
+            value={paymentTabReference}
+            onChange={(e) => setPaymentTabReference(e.target.value)}
+            placeholder="מספר אסמכתא..."
+            className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
+          />
         </div>
       </div>
 
@@ -2512,41 +2883,100 @@ export default function OCRForm({
         ) : openDeliveryNotes.length === 0 ? (
           <p className="text-[12px] text-white/40 text-center py-[10px]">אין תעודות משלוח פתוחות לספק זה</p>
         ) : (
-          <div className="flex flex-col gap-[6px] max-h-[300px] overflow-y-auto">
-            {openDeliveryNotes.map(note => {
-              const isSelected = selectedDeliveryNoteIds.has(note.id);
+          <div className="flex flex-col gap-[6px] max-h-[360px] overflow-y-auto">
+            {groupByMonth(openDeliveryNotes, 'delivery_date').map(([monthKey, monthNotes]) => {
+              const isExpanded = summaryExpandedMonths.has(monthKey);
+              const monthTotal = monthNotes.reduce((sum, n) => sum + n.total_amount, 0);
+              const monthIds = monthNotes.map(n => n.id);
+              const monthAllSelected = monthIds.length > 0 && monthIds.every(id => selectedDeliveryNoteIds.has(id));
+              const monthSomeSelected = monthIds.some(id => selectedDeliveryNoteIds.has(id));
               return (
-                <button
-                  key={note.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedDeliveryNoteIds(prev => {
+                <div key={monthKey} className="flex flex-col gap-[4px]">
+                  {/* Month header */}
+                  <button
+                    type="button"
+                    onClick={() => setSummaryExpandedMonths(prev => {
                       const next = new Set(prev);
-                      if (next.has(note.id)) next.delete(note.id); else next.add(note.id);
+                      if (next.has(monthKey)) next.delete(monthKey); else next.add(monthKey);
                       return next;
-                    });
-                  }}
-                  className={`flex items-center justify-between rounded-[8px] p-[10px] transition-colors cursor-pointer ${isSelected ? 'bg-[#29318A]/40 border border-[#29318A]' : 'bg-[#1a1f42] border border-transparent hover:border-white/20'}`}
-                >
-                  <div className="flex items-center gap-[8px]">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={isSelected ? 'text-[#3CD856]' : 'text-white/30'}>
-                      {isSelected ? (
-                        <><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2" fill="currentColor"/><path d="M8 12l3 3 5-5" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></>
-                      ) : (
-                        <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/>
-                      )}
-                    </svg>
-                    <span className="text-[14px] text-white font-medium ltr-num">
-                      ₪{note.total_amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-[14px] text-white">{note.delivery_note_number}</span>
-                    <span className="text-[11px] text-white/50">
-                      {note.delivery_date ? new Date(note.delivery_date + 'T00:00:00').toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
-                    </span>
-                  </div>
-                </button>
+                    })}
+                    className={`flex items-center justify-between p-[8px_10px] rounded-[8px] border ${monthSomeSelected ? 'bg-[#29318A]/20 border-[#29318A]' : 'bg-[#1a1f42] border-[#4C526B]/50'} hover:border-white/30 transition-colors`}
+                  >
+                    <div className="flex items-center gap-[8px]">
+                      <span className="text-[13px] text-white/80 font-semibold ltr-num">
+                        &#8362;{monthTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-[11px] text-white/40">({monthNotes.length})</span>
+                    </div>
+                    <div className="flex items-center gap-[8px]">
+                      <span className="text-[14px] text-white font-medium">{getMonthYearLabel(monthKey)}</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`text-white/60 transition-transform ${isExpanded ? 'rotate-180' : ''}`}>
+                        <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  </button>
+
+                  {/* Month items */}
+                  {isExpanded && (
+                    <div className="flex flex-col gap-[4px] pr-[6px]">
+                      {/* Select all within month */}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedDeliveryNoteIds(prev => {
+                            const next = new Set(prev);
+                            if (monthAllSelected) {
+                              monthIds.forEach(id => next.delete(id));
+                            } else {
+                              monthIds.forEach(id => next.add(id));
+                            }
+                            return next;
+                          });
+                        }}
+                        className="text-[12px] text-[#0075FF] hover:text-[#00D4FF] transition-colors self-start"
+                      >
+                        {monthAllSelected ? 'בטל הכל בחודש' : 'בחר הכל בחודש'}
+                      </Button>
+                      {monthNotes.map(note => {
+                        const isSelected = selectedDeliveryNoteIds.has(note.id);
+                        return (
+                          <button
+                            key={note.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDeliveryNoteIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(note.id)) next.delete(note.id); else next.add(note.id);
+                                return next;
+                              });
+                            }}
+                            className={`flex items-center justify-between rounded-[8px] p-[10px] transition-colors cursor-pointer ${isSelected ? 'bg-[#29318A]/40 border border-[#29318A]' : 'bg-[#1a1f42] border border-transparent hover:border-white/20'}`}
+                          >
+                            <div className="flex items-center gap-[8px]">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={isSelected ? 'text-[#3CD856]' : 'text-white/30'}>
+                                {isSelected ? (
+                                  <><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2" fill="currentColor"/><path d="M8 12l3 3 5-5" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></>
+                                ) : (
+                                  <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/>
+                                )}
+                              </svg>
+                              <span className="text-[14px] text-white font-medium ltr-num">
+                                &#8362;{note.total_amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <span className="text-[14px] text-white">{note.delivery_note_number}</span>
+                              <span className="text-[11px] text-white/50">
+                                {note.delivery_date ? new Date(note.delivery_date + 'T00:00:00').toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -2816,7 +3246,7 @@ export default function OCRForm({
 
       {/* Form content - scrollable */}
       <div className="flex-1 overflow-y-auto px-4 py-4" dir="rtl">
-        {(documentType === 'invoice' || documentType === 'delivery_note' || documentType === 'credit_note' || documentType === 'disputed_invoice' || documentType === 'partially_paid') && renderInvoiceForm()}
+        {(documentType === 'invoice' || documentType === 'credit_note') && renderInvoiceForm()}
         {documentType === 'payment' && renderPaymentForm()}
         {documentType === 'summary' && renderSummaryForm()}
         {documentType === 'daily_entry' && renderDailyEntryForm()}

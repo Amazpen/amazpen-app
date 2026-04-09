@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import type { OCRDocument, DocumentStatus } from '@/types/ocr';
 import { getStatusLabel, getSourceIcon, getSourceLabel, getDocumentTypeLabel, getDocumentTypeColor } from '@/types/ocr';
 
+interface QueueBusiness {
+  id: string;
+  name: string;
+}
+
 interface DocumentQueueProps {
   documents: OCRDocument[];
   currentDocumentId: string | null;
@@ -13,6 +18,9 @@ interface DocumentQueueProps {
   filterStatus?: DocumentStatus | 'all';
   onFilterChange?: (status: DocumentStatus | 'all') => void;
   vertical?: boolean;
+  businesses?: QueueBusiness[];
+  businessFilter?: string; // business id or 'all'
+  onBusinessFilterChange?: (businessId: string) => void;
 }
 
 const STATUS_FILTERS: { value: DocumentStatus | 'all'; label: string }[] = [
@@ -30,7 +38,12 @@ export default function DocumentQueue({
   filterStatus = 'pending',
   onFilterChange,
   vertical = false,
+  businesses = [],
+  businessFilter = 'all',
+  onBusinessFilterChange,
 }: DocumentQueueProps) {
+  // Map business_id -> name for card lookups
+  const businessNameById = new Map(businesses.map(b => [b.id, b.name]));
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -75,19 +88,32 @@ export default function DocumentQueue({
     }
   };
 
-  // Filter documents
-  const filteredDocuments = filterStatus === 'all'
-    ? documents
-    : documents.filter((doc) => doc.status === filterStatus);
+  // Filter documents by status + business
+  const filteredDocuments = documents.filter((doc) => {
+    if (filterStatus !== 'all' && doc.status !== filterStatus) return false;
+    if (businessFilter !== 'all' && doc.business_id !== businessFilter) return false;
+    return true;
+  });
 
-  // Count by status
-  const statusCounts = documents.reduce(
+  // Count by status (respecting current business filter so numbers match what's shown)
+  const businessScoped = businessFilter === 'all'
+    ? documents
+    : documents.filter((doc) => doc.business_id === businessFilter);
+  const statusCounts = businessScoped.reduce(
     (acc, doc) => {
       acc[doc.status] = (acc[doc.status] || 0) + 1;
       return acc;
     },
     {} as Record<DocumentStatus, number>
   );
+
+  // Count docs per business (for the business filter list, scoped to current status)
+  const businessCounts: Record<string, number> = { all: 0 };
+  for (const doc of documents) {
+    if (filterStatus !== 'all' && doc.status !== filterStatus) continue;
+    businessCounts.all += 1;
+    businessCounts[doc.business_id] = (businessCounts[doc.business_id] || 0) + 1;
+  }
 
   // Vertical layout for desktop sidebar
   if (vertical) {
@@ -101,12 +127,61 @@ export default function DocumentQueue({
           </p>
         </div>
 
+        {/* Business filter (folder-like list) */}
+        {businesses.length > 0 && onBusinessFilterChange && (
+          <div className="px-2 py-2 border-b border-[#4C526B]/50">
+            <div className="text-[11px] text-white/40 text-right px-1 mb-1.5">סינון לפי עסק</div>
+            <div className="flex flex-col gap-1 max-h-[150px] overflow-y-auto">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onBusinessFilterChange('all')}
+                className={`w-full px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-all flex items-center justify-between gap-2 ${
+                  businessFilter === 'all'
+                    ? 'bg-[#29318A] text-white'
+                    : 'bg-[#4C526B]/15 text-white/60 hover:bg-[#4C526B]/30 hover:text-white/80'
+                }`}
+              >
+                <span className="truncate text-right flex-1">כל העסקים</span>
+                <span className={`text-[10px] min-w-[20px] h-[16px] flex items-center justify-center rounded-full ${
+                  businessFilter === 'all' ? 'bg-white/20' : 'bg-[#4C526B]/30'
+                }`}>
+                  {businessCounts.all || 0}
+                </span>
+              </Button>
+              {businesses.map((biz) => {
+                const count = businessCounts[biz.id] || 0;
+                return (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    key={biz.id}
+                    onClick={() => onBusinessFilterChange(biz.id)}
+                    className={`w-full px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-all flex items-center justify-between gap-2 ${
+                      businessFilter === biz.id
+                        ? 'bg-[#29318A] text-white'
+                        : 'bg-[#4C526B]/15 text-white/60 hover:bg-[#4C526B]/30 hover:text-white/80'
+                    }`}
+                  >
+                    <span className="truncate text-right flex-1" title={biz.name}>{biz.name}</span>
+                    <span className={`text-[10px] min-w-[20px] h-[16px] flex items-center justify-center rounded-full ${
+                      businessFilter === biz.id ? 'bg-white/20' : 'bg-[#4C526B]/30'
+                    }`}>
+                      {count}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Filter buttons */}
         <div className="px-2 py-2 border-b border-[#4C526B]/50">
           <div className="flex flex-col gap-1.5">
             {STATUS_FILTERS.map((filter) => {
               const count = filter.value === 'all'
-                ? documents.length
+                ? businessScoped.length
                 : statusCounts[filter.value as DocumentStatus] || 0;
               const isArchive = filter.value === 'archived';
 
@@ -169,6 +244,7 @@ export default function DocumentQueue({
                   document={doc}
                   isSelected={doc.id === currentDocumentId}
                   onClick={() => onSelectDocument(doc)}
+                  businessName={businessNameById.get(doc.business_id)}
                 />
               ))
             )}
@@ -271,6 +347,7 @@ export default function DocumentQueue({
                 document={doc}
                 isSelected={doc.id === currentDocumentId}
                 onClick={() => onSelectDocument(doc)}
+                businessName={businessNameById.get(doc.business_id)}
               />
             ))
           )}
@@ -284,6 +361,24 @@ interface DocumentCardProps {
   document: OCRDocument;
   isSelected: boolean;
   onClick: () => void;
+  businessName?: string;
+}
+
+// Format upload time: "לפני 3 שעות" / "לפני 2 ימים" / DD/MM HH:mm
+function formatUploadedAt(iso: string): string {
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const diffMs = now - then;
+  const minutes = Math.round(diffMs / 60000);
+  if (minutes < 1) return 'הרגע';
+  if (minutes < 60) return `לפני ${minutes} דק׳`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `לפני ${hours} שע׳`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `לפני ${days} ימים`;
+  const d = new Date(iso);
+  return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) +
+    ' ' + d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 }
 
 function isPdfDocument(doc: OCRDocument): boolean {
@@ -311,7 +406,7 @@ function PdfThumbnail({ url: _url }: { url: string }) {
 }
 
 // Horizontal card for bottom queue
-function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
+function DocumentCard({ document, isSelected, onClick, businessName }: DocumentCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const isPdf = isPdfDocument(document);
@@ -377,8 +472,18 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
 
       {/* Info */}
       <div className="p-2 bg-[#0F1535]">
-        {/* Document type or date */}
-        <p className="text-[12px] font-medium truncate" style={{ color: document.document_type ? getDocumentTypeColor(document.document_type) : '#9CA3AF' }}>
+        {/* Business name - primary label */}
+        <p className="text-[12px] font-semibold text-white truncate" title={businessName || 'עסק לא ידוע'}>
+          {businessName || 'עסק לא ידוע'}
+        </p>
+
+        {/* Upload time */}
+        <p className="text-[10px] text-white/40 truncate">
+          {formatUploadedAt(document.created_at)}
+        </p>
+
+        {/* Document type */}
+        <p className="text-[11px] font-medium truncate mt-0.5" style={{ color: document.document_type ? getDocumentTypeColor(document.document_type) : '#9CA3AF' }}>
           {document.document_type
             ? getDocumentTypeLabel(document.document_type)
             : 'סוג לא ידוע'}
@@ -389,7 +494,7 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
           {document.ocr_data?.supplier_name ||
            (document.ocr_data?.total_amount
              ? `₪${document.ocr_data.total_amount.toLocaleString()}`
-             : new Date(document.created_at).toLocaleDateString('he-IL'))}
+             : '')}
         </p>
 
         {/* Rejection reason for archived documents */}
@@ -408,13 +513,15 @@ function DocumentCard({ document, isSelected, onClick }: DocumentCardProps) {
   );
 }
 
-// Vertical card for sidebar - simple text row
-function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardProps) {
+// Vertical card for sidebar - business name is the primary label
+function DocumentCardVertical({ document, isSelected, onClick, businessName }: DocumentCardProps) {
   const supplierName = document.ocr_data?.supplier_name || 'ממתין לזיהוי';
   const docTypeLabel = document.document_type
     ? getDocumentTypeLabel(document.document_type)
     : '';
   const totalAmount = document.ocr_data?.total_amount;
+  const bizLabel = businessName || 'עסק לא ידוע';
+  const uploadedAt = formatUploadedAt(document.created_at);
 
   return (
     <div
@@ -432,10 +539,29 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
         direction: 'rtl',
       }}
     >
-      <div style={{ color: '#fff', fontSize: '13px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      {/* Business name - primary label (what this document belongs to) */}
+      <div
+        title={bizLabel}
+        style={{ color: '#fff', fontSize: '13px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+      >
+        {bizLabel}
+      </div>
+
+      {/* Upload time */}
+      <div style={{ color: '#9ca3af', fontSize: '10px', marginTop: '2px' }}>
+        {uploadedAt}
+      </div>
+
+      {/* Supplier name (if detected) */}
+      <div
+        title={supplierName}
+        style={{ color: '#c7d2fe', fontSize: '11px', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+      >
         {supplierName}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+
+      {/* Document type + amount */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '3px' }}>
         <span style={{ color: document.document_type ? getDocumentTypeColor(document.document_type) : '#818cf8', fontSize: '11px', fontWeight: 600 }}>{docTypeLabel}</span>
         {totalAmount != null && totalAmount > 0 && (
           <span style={{ color: '#34d399', fontSize: '12px', fontWeight: 700, direction: 'ltr' }}>
@@ -443,10 +569,13 @@ function DocumentCardVertical({ document, isSelected, onClick }: DocumentCardPro
           </span>
         )}
       </div>
-      <div style={{ color: '#7B91B0', fontSize: '10px', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '3px' }}>
+
+      {/* Source */}
+      <div style={{ color: '#7B91B0', fontSize: '10px', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '3px' }}>
         <span>{getSourceIcon(document.source)}</span>
         <span>{document.source_sender_name || document.source_sender_phone || getSourceLabel(document.source)}</span>
       </div>
+
       {document.status === 'archived' && document.rejection_reason && (
         <div style={{ color: '#EB5757', fontSize: '10px', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           סיבה: {document.rejection_reason}

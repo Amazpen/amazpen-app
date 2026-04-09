@@ -113,6 +113,12 @@ export interface OCRFormData {
   summary_existing_delivery_note_ids?: string[];
   // Dispute reason (for disputed_invoice)
   dispute_reason?: string;
+  // Fixed expense: when supplier is_fixed_expense, link to existing pending invoice
+  // (null/undefined = create new invoice; string = update existing invoice id)
+  link_to_fixed_invoice_id?: string | null;
+  // Payment tab: link this payment to one or more open invoices.
+  // Empty array = unlinked payment (legacy behaviour).
+  payment_linked_invoice_ids?: string[];
   // Line items for price tracking
   line_items?: OCRLineItem[];
   // Daily entry (רישום יומי) fields
