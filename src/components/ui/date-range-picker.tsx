@@ -116,18 +116,20 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
         <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className="text-[#4C526B]">
           <path d="M10 13L16 19L22 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
-        <span
-          onClick={openEndPicker}
-          className="text-[16px] text-white/80 ltr-num cursor-pointer"
-        >
-          {formatDate(dateRange.end)}
-        </span>
-        <span className="text-[16px] text-white/60">-</span>
+        {/* Start → end in DOM order so RTL readers see "from X to Y"
+            (first date on the right, second date on the left). */}
         <span
           onClick={openStartPicker}
           className="text-[16px] text-white/80 ltr-num cursor-pointer"
         >
           {formatDate(dateRange.start)}
+        </span>
+        <span className="text-[16px] text-white/60">-</span>
+        <span
+          onClick={openEndPicker}
+          className="text-[16px] text-white/80 ltr-num cursor-pointer"
+        >
+          {formatDate(dateRange.end)}
         </span>
         <Input
           ref={endInputRef}
@@ -165,12 +167,14 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
         <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className="text-[#4C526B] ml-1 sm:w-3 sm:h-3">
           <path d="M10 13L16 19L22 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
+        {/* Start → end in DOM order so RTL readers see "from X to Y"
+            (first date on the right, second date on the left). */}
         <span className="text-[15px] sm:text-[14px] text-white leading-[1.4] ltr-num">
-          {formatDate(dateRange.end)}
+          {formatDate(dateRange.start)}
         </span>
         <span className="text-[15px] sm:text-[14px] text-white leading-[1.4] mx-1">-</span>
         <span className="text-[15px] sm:text-[14px] text-white leading-[1.4] ltr-num">
-          {formatDate(dateRange.start)}
+          {formatDate(dateRange.end)}
         </span>
       </Button>
 

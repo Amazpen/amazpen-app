@@ -90,6 +90,20 @@ export default function SurveysPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
 
+  // Tracks whether we are on md+ so Recharts doesn't try to measure charts
+  // inside a `display:none` container (that path produces width:-1 / height:-1
+  // warnings because ResponsiveContainer runs before the hidden class hides it).
+  // Start false on both server and client to avoid hydration mismatch.
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   useEffect(() => {
     if (!selectedBusinesses || selectedBusinesses.length === 0) {
       setRows([]);
@@ -344,38 +358,40 @@ export default function SurveysPage() {
         className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]"
       >
         <span className="text-[16px] sm:text-[18px] font-bold leading-[1.4] text-white">פילוח דירוגים</span>
-        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-[15px] items-center">
-          <div className="hidden md:block" style={{ width: "100%", height: 180 }} dir="ltr">
-            <ResponsiveContainer>
-              <PieChart>
-                <Pie
-                  data={distribution}
-                  dataKey="count"
-                  nameKey="label"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={75}
-                  innerRadius={40}
-                  paddingAngle={1}
-                  stroke="none"
-                >
-                  {distribution.map((d) => (
-                    <Cell key={d.score} fill={d.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: "#1a1f4e",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 8,
-                    direction: "rtl",
-                  }}
-                  labelStyle={{ color: "white" }}
-                  itemStyle={{ color: "white" }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+        <div className={`grid gap-[15px] items-center ${isDesktop ? "md:grid-cols-[200px_1fr]" : "grid-cols-1"}`}>
+          {isDesktop && (
+            <div style={{ width: "100%", height: 180 }} dir="ltr">
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie
+                    data={distribution}
+                    dataKey="count"
+                    nameKey="label"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={75}
+                    innerRadius={40}
+                    paddingAngle={1}
+                    stroke="none"
+                  >
+                    {distribution.map((d) => (
+                      <Cell key={d.score} fill={d.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      background: "#1a1f4e",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: 8,
+                      direction: "rtl",
+                    }}
+                    labelStyle={{ color: "white" }}
+                    itemStyle={{ color: "white" }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
           <div className="flex flex-col gap-[6px]">
             {distribution.map((d) => {
               const pct = stats.total > 0 ? (d.count / stats.total) * 100 : 0;
