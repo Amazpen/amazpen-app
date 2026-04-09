@@ -88,6 +88,18 @@ export default function DocumentQueue({
     }
   };
 
+  // Assign a stable upload-order serial number to every document.
+  // Oldest upload = #1, newest = #N — so a bigger number means the doc arrived later.
+  // Documents load pre-sorted newest-first from the DB, so we walk the chronological
+  // reverse to number them, then look up by id.
+  const serialByDocId = new Map<string, number>();
+  const chronological = [...documents].sort((a, b) =>
+    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+  chronological.forEach((doc, idx) => {
+    serialByDocId.set(doc.id, idx + 1);
+  });
+
   // Filter documents by status + business
   const filteredDocuments = documents.filter((doc) => {
     if (filterStatus !== 'all' && doc.status !== filterStatus) return false;
@@ -245,6 +257,7 @@ export default function DocumentQueue({
                   isSelected={doc.id === currentDocumentId}
                   onClick={() => onSelectDocument(doc)}
                   businessName={businessNameById.get(doc.business_id)}
+                  serial={serialByDocId.get(doc.id)}
                 />
               ))
             )}
@@ -348,6 +361,7 @@ export default function DocumentQueue({
                 isSelected={doc.id === currentDocumentId}
                 onClick={() => onSelectDocument(doc)}
                 businessName={businessNameById.get(doc.business_id)}
+                serial={serialByDocId.get(doc.id)}
               />
             ))
           )}
@@ -362,6 +376,7 @@ interface DocumentCardProps {
   isSelected: boolean;
   onClick: () => void;
   businessName?: string;
+  serial?: number;
 }
 
 // Format upload time: "לפני 3 שעות" / "לפני 2 ימים" / DD/MM HH:mm
@@ -406,7 +421,7 @@ function PdfThumbnail({ url: _url }: { url: string }) {
 }
 
 // Horizontal card for bottom queue
-function DocumentCard({ document, isSelected, onClick, businessName }: DocumentCardProps) {
+function DocumentCard({ document, isSelected, onClick, businessName, serial }: DocumentCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const isPdf = isPdfDocument(document);
@@ -464,6 +479,16 @@ function DocumentCard({ document, isSelected, onClick, businessName }: DocumentC
           {getStatusLabel(document.status)}
         </div>
 
+        {/* Serial number badge (upload order) */}
+        {serial != null && (
+          <div
+            className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/80 text-white ltr-num"
+            title="מספר סידורי (סדר העלאה)"
+          >
+            #{serial}
+          </div>
+        )}
+
         {/* Source icon */}
         <div className="absolute bottom-1.5 left-1.5 text-[14px]">
           {getSourceIcon(document.source)}
@@ -514,7 +539,7 @@ function DocumentCard({ document, isSelected, onClick, businessName }: DocumentC
 }
 
 // Vertical card for sidebar - business name is the primary label
-function DocumentCardVertical({ document, isSelected, onClick, businessName }: DocumentCardProps) {
+function DocumentCardVertical({ document, isSelected, onClick, businessName, serial }: DocumentCardProps) {
   const supplierName = document.ocr_data?.supplier_name || 'ממתין לזיהוי';
   const docTypeLabel = document.document_type
     ? getDocumentTypeLabel(document.document_type)
@@ -539,12 +564,33 @@ function DocumentCardVertical({ document, isSelected, onClick, businessName }: D
         direction: 'rtl',
       }}
     >
-      {/* Business name - primary label (what this document belongs to) */}
-      <div
-        title={bizLabel}
-        style={{ color: '#fff', fontSize: '13px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-      >
-        {bizLabel}
+      {/* Serial number badge + business name */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+        {serial != null && (
+          <span
+            title="מספר סידורי (סדר העלאה)"
+            style={{
+              flexShrink: 0,
+              fontSize: '10px',
+              fontWeight: 700,
+              color: isSelected ? '#0F1535' : '#c7d2fe',
+              backgroundColor: isSelected ? '#c7d2fe' : 'rgba(129, 140, 248, 0.15)',
+              border: `1px solid ${isSelected ? '#c7d2fe' : 'rgba(129, 140, 248, 0.4)'}`,
+              borderRadius: '4px',
+              padding: '1px 5px',
+              direction: 'ltr',
+              lineHeight: '14px',
+            }}
+          >
+            #{serial}
+          </span>
+        )}
+        <div
+          title={bizLabel}
+          style={{ color: '#fff', fontSize: '13px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}
+        >
+          {bizLabel}
+        </div>
       </div>
 
       {/* Upload time */}
