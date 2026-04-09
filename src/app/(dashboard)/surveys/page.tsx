@@ -21,6 +21,7 @@ import {
   Tooltip,
 } from "recharts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DateRangePicker, type DateRange } from "@/components/ui/date-range-picker";
 
 interface SurveyRow {
   id: string;
@@ -63,12 +64,31 @@ function formatDate(iso: string | null): string {
   return d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
+// "2023-08" -> "08-2023" — matches the mm-yyyy format requested for charts
+function formatMonthKey(key: string): string {
+  const [year, month] = key.split("-");
+  if (!year || !month) return key;
+  return `${month}-${year}`;
+}
+
+// A sensible default window: the last 12 months (start of month → today)
+function defaultDateRange(): DateRange {
+  const end = new Date();
+  const start = new Date();
+  start.setMonth(start.getMonth() - 11);
+  start.setDate(1);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
 export default function SurveysPage() {
   const { selectedBusinesses } = useDashboard();
   const [rows, setRows] = useState<SurveyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange>(defaultDateRange);
 
   useEffect(() => {
     if (!selectedBusinesses || selectedBusinesses.length === 0) {
@@ -103,20 +123,34 @@ export default function SurveysPage() {
     };
   }, [selectedBusinesses]);
 
+  // Apply the top-of-page date range to every downstream computation.
+  // Anything without a submitted_at slips through so we don't accidentally
+  // hide legitimate rows that happen to lack a timestamp.
+  const dateFilteredRows = useMemo(() => {
+    const startMs = dateRange.start.getTime();
+    const endMs = dateRange.end.getTime();
+    return rows.filter((r) => {
+      if (!r.submitted_at) return true;
+      const ms = new Date(r.submitted_at).getTime();
+      return ms >= startMs && ms <= endMs;
+    });
+  }, [rows, dateRange]);
+
   const stats = useMemo(() => {
-    const n = rows.length;
+    const src = dateFilteredRows;
+    const n = src.length;
     if (n === 0) return null;
     const avg = (field: keyof SurveyRow) => {
-      const vals = rows.map((r) => r[field]).filter((v): v is number => typeof v === "number");
+      const vals = src.map((r) => r[field]).filter((v): v is number => typeof v === "number");
       return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
     };
-    const commitmentAnswered = rows.filter((r) => r.commitment_kept && r.commitment_kept.trim()).length;
-    const commitmentYes = rows.filter((r) => (r.commitment_kept || "").trim() === "כן").length;
-    const handled = rows.filter((r) => r.is_handled).length;
-    const promoters = rows.filter((r) => (r.order_satisfaction_score || 0) >= 4).length;
-    const detractors = rows.filter((r) => r.order_satisfaction_score != null && r.order_satisfaction_score <= 2).length;
-    const neutral = rows.filter((r) => r.order_satisfaction_score === 3).length;
-    const withIdea = rows.filter((r) => r.improvement_idea && r.improvement_idea.trim()).length;
+    const commitmentAnswered = src.filter((r) => r.commitment_kept && r.commitment_kept.trim()).length;
+    const commitmentYes = src.filter((r) => (r.commitment_kept || "").trim() === "כן").length;
+    const handled = src.filter((r) => r.is_handled).length;
+    const promoters = src.filter((r) => (r.order_satisfaction_score || 0) >= 4).length;
+    const detractors = src.filter((r) => r.order_satisfaction_score != null && r.order_satisfaction_score <= 2).length;
+    const neutral = src.filter((r) => r.order_satisfaction_score === 3).length;
+    const withIdea = src.filter((r) => r.improvement_idea && r.improvement_idea.trim()).length;
     return {
       total: n,
       avgOrder: avg("order_satisfaction_score"),
@@ -130,11 +164,11 @@ export default function SurveysPage() {
       detractors,
       withIdea,
     };
-  }, [rows]);
+  }, [dateFilteredRows]);
 
   const distribution = useMemo(() => {
     const bins: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    for (const r of rows) {
+    for (const r of dateFilteredRows) {
       if (r.order_satisfaction_score) bins[r.order_satisfaction_score] = (bins[r.order_satisfaction_score] || 0) + 1;
     }
     return [5, 4, 3, 2, 1].map((s) => ({
@@ -143,11 +177,11 @@ export default function SurveysPage() {
       count: bins[s],
       color: scoreColor(s),
     }));
-  }, [rows]);
+  }, [dateFilteredRows]);
 
   const trend = useMemo(() => {
     const byMonth = new Map<string, { sum: number; count: number }>();
-    for (const r of rows) {
+    for (const r of dateFilteredRows) {
       if (!r.submitted_at || !r.order_satisfaction_score) continue;
       const key = r.submitted_at.substring(0, 7);
       const bucket = byMonth.get(key) || { sum: 0, count: 0 };
@@ -159,69 +193,91 @@ export default function SurveysPage() {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([month, b]) => ({
         month,
+        monthLabel: formatMonthKey(month),
         avg: +(b.sum / b.count).toFixed(2),
         count: b.count,
       }));
-  }, [rows]);
+  }, [dateFilteredRows]);
 
   const filteredRows = useMemo(() => {
     switch (filter) {
       case "promoter":
-        return rows.filter((r) => (r.order_satisfaction_score || 0) >= 4);
+        return dateFilteredRows.filter((r) => (r.order_satisfaction_score || 0) >= 4);
       case "neutral":
-        return rows.filter((r) => r.order_satisfaction_score === 3);
+        return dateFilteredRows.filter((r) => r.order_satisfaction_score === 3);
       case "detractor":
-        return rows.filter((r) => r.order_satisfaction_score != null && r.order_satisfaction_score <= 2);
+        return dateFilteredRows.filter((r) => r.order_satisfaction_score != null && r.order_satisfaction_score <= 2);
       case "unhandled":
-        return rows.filter((r) => !r.is_handled);
+        return dateFilteredRows.filter((r) => !r.is_handled);
       case "with_idea":
-        return rows.filter((r) => r.improvement_idea && r.improvement_idea.trim());
+        return dateFilteredRows.filter((r) => r.improvement_idea && r.improvement_idea.trim());
       case "all":
       default:
-        return rows;
+        return dateFilteredRows;
     }
-  }, [rows, filter]);
+  }, [dateFilteredRows, filter]);
+
+  // The date range picker lives outside the loading/empty guards so users
+  // can always adjust the window even when the current range has no rows.
+  const dateRangeCard = (
+    <section
+      aria-label="סינון לפי תאריך"
+      className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-row-reverse items-center justify-between gap-[10px] flex-wrap"
+    >
+      <span className="text-[13px] sm:text-[14px] font-bold text-white">טווח תאריכים</span>
+      <DateRangePicker dateRange={dateRange} onChange={setDateRange} variant="compact" />
+    </section>
+  );
 
   if (loading) {
     return (
-      <div className="bg-[#0F1535] rounded-[10px] p-[40px] text-center">
-        <span className="text-white/60 text-[14px]">טוען...</span>
+      <div className="flex flex-col gap-[10px]" dir="rtl">
+        {dateRangeCard}
+        <div className="bg-[#0F1535] rounded-[10px] p-[40px] text-center">
+          <span className="text-white/60 text-[14px]">טוען...</span>
+        </div>
       </div>
     );
   }
 
   if (!stats) {
     return (
-      <div className="bg-[#0F1535] rounded-[10px] p-[40px] text-center text-white/60">
-        <span className="text-[14px]">אין סקרים לעסק זה עדיין</span>
+      <div className="flex flex-col gap-[10px]" dir="rtl">
+        {dateRangeCard}
+        <div className="bg-[#0F1535] rounded-[10px] p-[40px] text-center text-white/60">
+          <span className="text-[14px]">אין סקרים בטווח התאריכים שנבחר</span>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-[10px]" dir="rtl">
-      {/* Summary card — follows the reports page "סיכום הכנסות" pattern */}
+      {dateRangeCard}
+
+      {/* Summary card — follows the reports page "סיכום הכנסות" pattern.
+          Mobile: 3 cols × 2 rows, tablet: 6 cols × 1 row. */}
       <section
         aria-label="סיכום סקרי לקוחות"
-        className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[80px] flex flex-row-reverse items-center justify-between gap-[5px]"
+        className="bg-[#2C3595] rounded-[10px] p-[8px] grid grid-cols-3 sm:grid-cols-6 gap-[4px] sm:gap-[5px]"
       >
-        <SummaryStat label="סה״כ תגובות" value={stats.total.toLocaleString("he-IL")} />
+        <SummaryStat label="סה״כ" value={stats.total.toLocaleString("he-IL")} />
         <SummaryStat
-          label="שביעות רצון כללית"
-          value={`${stats.avgOrder.toFixed(2)} ★`}
+          label="כללי"
+          value={`${stats.avgOrder.toFixed(2)}★`}
           color={scoreColor(Math.round(stats.avgOrder))}
         />
         <SummaryStat
-          label="איכות מוצרים"
-          value={`${stats.avgProduct.toFixed(2)} ★`}
+          label="מוצרים"
+          value={`${stats.avgProduct.toFixed(2)}★`}
           color={scoreColor(Math.round(stats.avgProduct))}
         />
         <SummaryStat
-          label="איכות שליח"
-          value={`${stats.avgDelivery.toFixed(2)} ★`}
+          label="שליח"
+          value={`${stats.avgDelivery.toFixed(2)}★`}
           color={scoreColor(Math.round(stats.avgDelivery))}
         />
-        <SummaryStat label="עמידה בהתחייבות" value={`${stats.commitmentPct.toFixed(0)}%`} />
+        <SummaryStat label="התחייבות" value={`${stats.commitmentPct.toFixed(0)}%`} />
         <SummaryStat
           label="לא טופלו"
           value={stats.unhandled.toLocaleString("he-IL")}
@@ -233,20 +289,20 @@ export default function SurveysPage() {
       {trend.length > 1 && (
         <section
           aria-label="שביעות רצון לאורך זמן"
-          className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]"
+          className="bg-[#0F1535] rounded-[10px] p-[12px_8px] sm:p-[15px_10px] flex flex-col gap-[10px]"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[18px] font-bold leading-[1.4] text-white">שביעות רצון לאורך זמן</span>
-            <div className="flex items-center gap-[4px]">
+          <div className="flex items-center justify-between gap-[10px]">
+            <span className="text-[16px] sm:text-[18px] font-bold leading-[1.4] text-white">שביעות רצון לאורך זמן</span>
+            <div className="flex items-center gap-[4px] flex-shrink-0">
               <div className="w-[10px] h-[10px] rounded-[2px] bg-[#17DB4E]" />
               <span className="text-[11px] text-white/60">ממוצע חודשי</span>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={200}>
             <LineChart data={trend} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
               <XAxis
-                dataKey="month"
+                dataKey="monthLabel"
                 tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
@@ -281,14 +337,15 @@ export default function SurveysPage() {
         </section>
       )}
 
-      {/* Distribution — compact stacked bar with numbers on the side */}
+      {/* Distribution — pie on desktop only; mobile shows just the bars so
+          the donut chart doesn't eat half the screen. */}
       <section
         aria-label="פילוח דירוגים"
         className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]"
       >
-        <span className="text-[18px] font-bold leading-[1.4] text-white">פילוח דירוגים</span>
-        <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-[15px] items-center">
-          <div style={{ width: "100%", height: 180 }} dir="ltr">
+        <span className="text-[16px] sm:text-[18px] font-bold leading-[1.4] text-white">פילוח דירוגים</span>
+        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-[15px] items-center">
+          <div className="hidden md:block" style={{ width: "100%", height: 180 }} dir="ltr">
             <ResponsiveContainer>
               <PieChart>
                 <Pie
@@ -323,18 +380,24 @@ export default function SurveysPage() {
             {distribution.map((d) => {
               const pct = stats.total > 0 ? (d.count / stats.total) * 100 : 0;
               return (
-                <div key={d.score} className="flex flex-row-reverse items-center gap-[10px]">
-                  <span className="text-[14px] font-bold text-white w-[40px] text-right" style={{ color: d.color }}>
+                <div key={d.score} className="flex flex-row-reverse items-center gap-[6px] sm:gap-[10px]">
+                  <span
+                    className="text-[12px] sm:text-[14px] font-bold w-[32px] sm:w-[40px] text-right flex-shrink-0"
+                    style={{ color: d.color }}
+                  >
                     {d.label}
                   </span>
-                  <div className="flex-1 h-[10px] bg-white/10 rounded-full overflow-hidden" dir="ltr">
+                  <div className="flex-1 h-[8px] sm:h-[10px] bg-white/10 rounded-full overflow-hidden" dir="ltr">
                     <div
                       className="h-full rounded-full"
                       style={{ width: `${pct}%`, backgroundColor: d.color }}
                     />
                   </div>
-                  <span className="text-[13px] font-bold ltr-num text-white/80 w-[70px] text-left" dir="ltr">
-                    {d.count.toLocaleString("he-IL")} · {pct.toFixed(1)}%
+                  <span
+                    className="text-[11px] sm:text-[13px] font-bold ltr-num text-white/80 w-[60px] sm:w-[70px] text-left flex-shrink-0"
+                    dir="ltr"
+                  >
+                    {d.count.toLocaleString("he-IL")} · {pct.toFixed(0)}%
                   </span>
                 </div>
               );
@@ -343,47 +406,35 @@ export default function SurveysPage() {
         </div>
       </section>
 
-      {/* Responses — filter tabs + list */}
+      {/* Responses — filter tabs + list.
+          Tabs use auto-width + horizontal scroll on mobile so the Hebrew
+          labels stay legible; they stretch to full width on sm+. */}
       <section aria-label="תגובות לקוחות" className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
         <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterKey)}>
-          <TabsList className="w-full bg-transparent rounded-[7px] p-0 h-[44px] gap-0 border border-[#6B6B6B] flex">
-            <TabsTrigger
-              value="all"
-              className="flex-1 text-[13px] font-semibold py-0 h-full rounded-none rounded-r-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent"
-            >
-              הכל ({rows.length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="promoter"
-              className="flex-1 text-[13px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent"
-            >
-              ממליצים ({stats.promoters})
-            </TabsTrigger>
-            <TabsTrigger
-              value="neutral"
-              className="flex-1 text-[13px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent"
-            >
-              בינוני ({stats.neutral})
-            </TabsTrigger>
-            <TabsTrigger
-              value="detractor"
-              className="flex-1 text-[13px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent"
-            >
-              לא מרוצים ({stats.detractors})
-            </TabsTrigger>
-            <TabsTrigger
-              value="unhandled"
-              className="flex-1 text-[13px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent"
-            >
-              לא טופלו ({stats.unhandled})
-            </TabsTrigger>
-            <TabsTrigger
-              value="with_idea"
-              className="flex-1 text-[13px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent"
-            >
-              עם רעיון ({stats.withIdea})
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-[10px] px-[10px] sm:mx-0 sm:px-0">
+            <TabsList className="bg-transparent rounded-[7px] p-0 h-[40px] sm:h-[44px] gap-0 border border-[#6B6B6B] inline-flex sm:flex sm:w-full w-max">
+              {(
+                [
+                  { key: "all", label: `הכל (${rows.length})` },
+                  { key: "promoter", label: `ממליצים (${stats.promoters})` },
+                  { key: "neutral", label: `בינוני (${stats.neutral})` },
+                  { key: "detractor", label: `לא מרוצים (${stats.detractors})` },
+                  { key: "unhandled", label: `לא טופלו (${stats.unhandled})` },
+                  { key: "with_idea", label: `עם רעיון (${stats.withIdea})` },
+                ] as { key: FilterKey; label: string }[]
+              ).map((t, i, arr) => (
+                <TabsTrigger
+                  key={t.key}
+                  value={t.key}
+                  className={`sm:flex-1 whitespace-nowrap text-[12px] sm:text-[13px] font-semibold py-0 h-full px-[12px] sm:px-[8px] rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent ${
+                    i === 0 ? "rounded-r-[7px]" : ""
+                  } ${i === arr.length - 1 ? "rounded-l-[7px]" : ""}`}
+                >
+                  {t.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
         </Tabs>
 
         <div className="flex flex-col max-h-[600px] overflow-y-auto">
@@ -409,28 +460,32 @@ export default function SurveysPage() {
                   <button
                     type="button"
                     onClick={() => setExpandedId(isExpanded ? null : r.id)}
-                    className="w-full flex flex-row-reverse items-center justify-between gap-[10px] p-[10px_5px] text-right hover:bg-[#29318A]/20 transition-colors"
+                    className="w-full flex flex-row-reverse items-center justify-between gap-[6px] sm:gap-[10px] p-[10px_5px] text-right hover:bg-[#29318A]/20 transition-colors"
                   >
                     {/* Score */}
                     <span
-                      className="text-[14px] font-bold ltr-num leading-[1.4] w-[50px] text-center flex-shrink-0"
+                      className="text-[13px] sm:text-[14px] font-bold ltr-num leading-[1.4] w-[42px] sm:w-[50px] text-center flex-shrink-0"
                       style={{ color }}
                     >
-                      {score ? `${score} ★` : "—"}
+                      {score ? `${score}★` : "—"}
                     </span>
 
-                    {/* Name + date */}
+                    {/* Name + date + phone (stacks on very narrow screens) */}
                     <div className="flex flex-col flex-1 min-w-0">
-                      <span className="text-[14px] font-bold text-white truncate text-right">{name}</span>
-                      <span className="text-[11px] text-white/50 text-right">
-                        {formatDate(r.submitted_at)}
-                        {r.customer_phone ? ` · ${r.customer_phone}` : ""}
-                      </span>
+                      <span className="text-[13px] sm:text-[14px] font-bold text-white truncate text-right">{name}</span>
+                      <div className="flex flex-row-reverse items-center gap-[6px] text-[11px] text-white/50">
+                        <span className="whitespace-nowrap">{formatDate(r.submitted_at)}</span>
+                        {r.customer_phone && (
+                          <span className="ltr-num truncate" dir="ltr">
+                            {r.customer_phone}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Handled badge */}
                     {!r.is_handled && (
-                      <span className="text-[10px] font-bold text-[#F64E60] border border-[#F64E60]/50 rounded-[4px] px-[6px] py-[2px] flex-shrink-0">
+                      <span className="text-[9px] sm:text-[10px] font-bold text-[#F64E60] border border-[#F64E60]/50 rounded-[4px] px-[4px] sm:px-[6px] py-[2px] flex-shrink-0 whitespace-nowrap">
                         לא טופל
                       </span>
                     )}
@@ -497,12 +552,12 @@ export default function SurveysPage() {
 
 function SummaryStat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="flex flex-col items-center flex-1 min-w-0">
-      <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4] whitespace-nowrap text-white">
+    <div className="flex flex-col items-center justify-center min-w-0 px-[2px]">
+      <span className="text-[10px] sm:text-[14px] font-medium leading-[1.4] text-white/80 truncate max-w-full">
         {label}
       </span>
       <span
-        className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap"
+        className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap truncate max-w-full"
         style={{ color: color || "#ffffff" }}
       >
         {value}
