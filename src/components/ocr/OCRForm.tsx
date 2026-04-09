@@ -25,6 +25,8 @@ interface Supplier {
   waiting_for_coordinator?: boolean;
   is_fixed_expense?: boolean;
   vat_type?: string | null;
+  // DB values: 'current_expenses' | 'goods_purchases' | 'employee_costs'
+  expense_type?: string | null;
 }
 
 interface Business {
@@ -1753,12 +1755,24 @@ export default function OCRForm({
         onChange={(id) => {
           setSupplierId(id);
           setIsSummaryLinked(false);
-          // Auto-fill discount from supplier defaults
           const sel = suppliers.find(s => s.id === id);
+          // Auto-fill discount from supplier defaults
           if (sel?.default_discount_percentage && sel.default_discount_percentage > 0) {
             setDiscountPercentage(sel.default_discount_percentage.toString());
           } else {
             setDiscountPercentage('');
+          }
+          // Auto-sync expense type to match the supplier's classification so
+          // the created invoice lands under the right bucket in the P&L
+          // report. Without this the expense stayed on the form's default
+          // ("קניות סחורה") even when the user picked a "הוצאות שוטפות"
+          // supplier, silently breaking the P&L totals.
+          if (sel?.expense_type) {
+            const mapped: ExpenseType | null =
+              sel.expense_type === 'current_expenses' ? 'current' :
+              sel.expense_type === 'goods_purchases' ? 'goods' :
+              sel.expense_type === 'employee_costs' ? 'employee_costs' : null;
+            if (mapped) setExpenseType(mapped);
           }
         }}
       />
@@ -2638,6 +2652,15 @@ export default function OCRForm({
         onChange={(id) => {
           setPaymentTabSupplierId(id);
           const sup = suppliers.find(s => s.id === id);
+          // Sync the payment-tab expense type filter with the supplier's
+          // own classification (same reason as the invoice tab).
+          if (sup?.expense_type) {
+            const mapped: 'expenses' | 'purchases' | 'employees' | null =
+              sup.expense_type === 'current_expenses' ? 'expenses' :
+              sup.expense_type === 'goods_purchases' ? 'purchases' :
+              sup.expense_type === 'employee_costs' ? 'employees' : null;
+            if (mapped) setPaymentTabExpenseType(mapped);
+          }
           if (sup?.default_payment_method && paymentMethods.length > 0 && !paymentMethods[0].method) {
             const defaultMethod = sup.default_payment_method;
             const defaultCardId = sup.default_credit_card_id || '';
