@@ -3,9 +3,7 @@
 // Customer satisfaction surveys dashboard.
 //
 // Data source: `public.external_survey_responses` — populated by the n8n
-// workflow "סנכרון סקרים - פתרונות לחיות → Supabase" (runs hourly from the
-// private Google Sheet). The page is business-scoped via RLS so each user
-// only sees their own business's rows.
+// workflow "סנכרון סקרים - פתרונות לחיות → Supabase". Business-scoped via RLS.
 
 import { useEffect, useMemo, useState } from "react";
 import { useDashboard } from "../layout";
@@ -21,8 +19,8 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
 } from "recharts";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface SurveyRow {
   id: string;
@@ -50,30 +48,19 @@ interface SurveyRow {
 
 type FilterKey = "all" | "promoter" | "neutral" | "detractor" | "unhandled" | "with_idea";
 
-const SCORE_COLORS: Record<number, string> = {
-  5: "#22c55e",
-  4: "#84cc16",
-  3: "#eab308",
-  2: "#f97316",
-  1: "#ef4444",
-};
+// Project palette — keep calm, avoid inventing new colors.
+// Green = good (≥4), Orange = neutral (3), Red = bad (≤2).
+function scoreColor(score: number | null): string {
+  if (score == null) return "#979797";
+  if (score >= 4) return "#17DB4E";
+  if (score === 3) return "#FFA412";
+  return "#F64E60";
+}
 
 function formatDate(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   return d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
-}
-
-function StarScore({ value }: { value: number | null }) {
-  if (value == null) return <span className="text-white/30 text-[12px]">—</span>;
-  return (
-    <span
-      className="font-semibold ltr-num"
-      style={{ color: SCORE_COLORS[value] || "#9ca3af" }}
-    >
-      {value.toFixed(1)} ★
-    </span>
-  );
 }
 
 export default function SurveysPage() {
@@ -116,57 +103,53 @@ export default function SurveysPage() {
     };
   }, [selectedBusinesses]);
 
-  // KPIs
-  const kpis = useMemo(() => {
+  const stats = useMemo(() => {
     const n = rows.length;
     if (n === 0) return null;
     const avg = (field: keyof SurveyRow) => {
       const vals = rows.map((r) => r[field]).filter((v): v is number => typeof v === "number");
       return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
     };
-    const avgOrder = avg("order_satisfaction_score");
-    const avgProduct = avg("product_quality_score");
-    const avgDelivery = avg("delivery_quality_score");
-    const commitmentYes = rows.filter((r) => (r.commitment_kept || "").trim() === "כן").length;
     const commitmentAnswered = rows.filter((r) => r.commitment_kept && r.commitment_kept.trim()).length;
+    const commitmentYes = rows.filter((r) => (r.commitment_kept || "").trim() === "כן").length;
     const handled = rows.filter((r) => r.is_handled).length;
-    const unhandled = n - handled;
     const promoters = rows.filter((r) => (r.order_satisfaction_score || 0) >= 4).length;
-    const detractors = rows.filter((r) => {
-      const s = r.order_satisfaction_score;
-      return s != null && s <= 2;
-    }).length;
+    const detractors = rows.filter((r) => r.order_satisfaction_score != null && r.order_satisfaction_score <= 2).length;
+    const neutral = rows.filter((r) => r.order_satisfaction_score === 3).length;
     const withIdea = rows.filter((r) => r.improvement_idea && r.improvement_idea.trim()).length;
     return {
       total: n,
-      avgOrder,
-      avgProduct,
-      avgDelivery,
+      avgOrder: avg("order_satisfaction_score"),
+      avgProduct: avg("product_quality_score"),
+      avgDelivery: avg("delivery_quality_score"),
       commitmentPct: commitmentAnswered ? (commitmentYes / commitmentAnswered) * 100 : 0,
       handled,
-      unhandled,
-      handledPct: (handled / n) * 100,
+      unhandled: n - handled,
       promoters,
+      neutral,
       detractors,
       withIdea,
     };
   }, [rows]);
 
-  // Distribution (1..5)
   const distribution = useMemo(() => {
     const bins: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     for (const r of rows) {
       if (r.order_satisfaction_score) bins[r.order_satisfaction_score] = (bins[r.order_satisfaction_score] || 0) + 1;
     }
-    return [5, 4, 3, 2, 1].map((s) => ({ score: s, label: `${s} ★`, count: bins[s] }));
+    return [5, 4, 3, 2, 1].map((s) => ({
+      score: s,
+      label: `${s} ★`,
+      count: bins[s],
+      color: scoreColor(s),
+    }));
   }, [rows]);
 
-  // Monthly trend
   const trend = useMemo(() => {
     const byMonth = new Map<string, { sum: number; count: number }>();
     for (const r of rows) {
       if (!r.submitted_at || !r.order_satisfaction_score) continue;
-      const key = r.submitted_at.substring(0, 7); // YYYY-MM
+      const key = r.submitted_at.substring(0, 7);
       const bucket = byMonth.get(key) || { sum: 0, count: 0 };
       bucket.sum += r.order_satisfaction_score;
       bucket.count += 1;
@@ -181,7 +164,6 @@ export default function SurveysPage() {
       }));
   }, [rows]);
 
-  // Filtered rows for the details table
   const filteredRows = useMemo(() => {
     switch (filter) {
       case "promoter":
@@ -202,78 +184,111 @@ export default function SurveysPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full text-white/60">
-        <span>טוען...</span>
+      <div className="bg-[#0F1535] rounded-[10px] p-[40px] text-center">
+        <span className="text-white/60 text-[14px]">טוען...</span>
       </div>
     );
   }
 
-  if (!kpis) {
+  if (!stats) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-white/60 px-6 text-center">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-        <p className="mt-4 text-lg">אין סקרים לעסק זה עדיין</p>
-        <p className="mt-1 text-sm text-white/40">ברגע שהנתונים יגיעו הם יוצגו כאן אוטומטית</p>
+      <div className="bg-[#0F1535] rounded-[10px] p-[40px] text-center text-white/60">
+        <span className="text-[14px]">אין סקרים לעסק זה עדיין</span>
       </div>
     );
   }
-
-  const filters: { key: FilterKey; label: string; count: number }[] = [
-    { key: "all", label: "הכל", count: rows.length },
-    { key: "promoter", label: "ממליצים (4-5★)", count: kpis.promoters },
-    { key: "neutral", label: "בינוני (3★)", count: rows.filter((r) => r.order_satisfaction_score === 3).length },
-    { key: "detractor", label: "לא מרוצים (1-2★)", count: kpis.detractors },
-    { key: "unhandled", label: "לא טופלו", count: kpis.unhandled },
-    { key: "with_idea", label: "עם רעיון לשיפור", count: kpis.withIdea },
-  ];
 
   return (
-    <div className="flex flex-col gap-[15px] p-[20px]" dir="rtl">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-[10px]">
-        <div>
-          <h1 className="text-[24px] font-bold text-white">סקרי לקוחות</h1>
-          <p className="text-[13px] text-white/50 mt-[2px]">
-            {rows.length.toLocaleString("he-IL")} תגובות ·{" "}
-            {kpis.avgOrder.toFixed(2)} ★ ממוצע · מתעדכן אוטומטית
-          </p>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-[10px]">
-        <KpiCard label="סה״כ תגובות" value={kpis.total.toLocaleString("he-IL")} color="#818cf8" />
-        <KpiCard
+    <div className="flex flex-col gap-[10px]" dir="rtl">
+      {/* Summary card — follows the reports page "סיכום הכנסות" pattern */}
+      <section
+        aria-label="סיכום סקרי לקוחות"
+        className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[80px] flex flex-row-reverse items-center justify-between gap-[5px]"
+      >
+        <SummaryStat label="סה״כ תגובות" value={stats.total.toLocaleString("he-IL")} />
+        <SummaryStat
           label="שביעות רצון כללית"
-          value={`${kpis.avgOrder.toFixed(2)} ★`}
-          color={SCORE_COLORS[Math.round(kpis.avgOrder)] || "#22c55e"}
+          value={`${stats.avgOrder.toFixed(2)} ★`}
+          color={scoreColor(Math.round(stats.avgOrder))}
         />
-        <KpiCard
-          label="איכות המוצרים"
-          value={`${kpis.avgProduct.toFixed(2)} ★`}
-          color={SCORE_COLORS[Math.round(kpis.avgProduct)] || "#22c55e"}
+        <SummaryStat
+          label="איכות מוצרים"
+          value={`${stats.avgProduct.toFixed(2)} ★`}
+          color={scoreColor(Math.round(stats.avgProduct))}
         />
-        <KpiCard
-          label="איכות השליח"
-          value={`${kpis.avgDelivery.toFixed(2)} ★`}
-          color={SCORE_COLORS[Math.round(kpis.avgDelivery)] || "#22c55e"}
+        <SummaryStat
+          label="איכות שליח"
+          value={`${stats.avgDelivery.toFixed(2)} ★`}
+          color={scoreColor(Math.round(stats.avgDelivery))}
         />
-        <KpiCard label="עמידה בהתחייבות" value={`${kpis.commitmentPct.toFixed(0)}%`} color="#38bdf8" />
-        <KpiCard
+        <SummaryStat label="עמידה בהתחייבות" value={`${stats.commitmentPct.toFixed(0)}%`} />
+        <SummaryStat
           label="לא טופלו"
-          value={kpis.unhandled.toLocaleString("he-IL")}
-          color={kpis.unhandled > 0 ? "#ef4444" : "#22c55e"}
+          value={stats.unhandled.toLocaleString("he-IL")}
+          color={stats.unhandled > 0 ? "#F64E60" : "#17DB4E"}
         />
-      </div>
+      </section>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[15px]">
-        {/* Distribution */}
-        <div className="bg-[#0F1535] border border-[#4C526B]/50 rounded-[10px] p-[15px]">
-          <h3 className="text-[15px] font-semibold text-white mb-[10px]">פילוח דירוגי שביעות רצון</h3>
-          <div style={{ width: "100%", height: 260 }} dir="ltr">
+      {/* Monthly trend */}
+      {trend.length > 1 && (
+        <section
+          aria-label="שביעות רצון לאורך זמן"
+          className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[18px] font-bold leading-[1.4] text-white">שביעות רצון לאורך זמן</span>
+            <div className="flex items-center gap-[4px]">
+              <div className="w-[10px] h-[10px] rounded-[2px] bg-[#17DB4E]" />
+              <span className="text-[11px] text-white/60">ממוצע חודשי</span>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={trend} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+              <XAxis
+                dataKey="month"
+                tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                domain={[1, 5]}
+                tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                width={25}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "#1a1f4e",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 8,
+                  direction: "rtl",
+                }}
+                labelStyle={{ color: "white", fontWeight: "bold", marginBottom: 4 }}
+                itemStyle={{ color: "white" }}
+              />
+              <Line
+                type="monotone"
+                dataKey="avg"
+                stroke="#17DB4E"
+                strokeWidth={2}
+                dot={{ fill: "#17DB4E", r: 3 }}
+                activeDot={{ r: 5 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </section>
+      )}
+
+      {/* Distribution — compact stacked bar with numbers on the side */}
+      <section
+        aria-label="פילוח דירוגים"
+        className="bg-[#0F1535] rounded-[10px] p-[15px_10px] flex flex-col gap-[10px]"
+      >
+        <span className="text-[18px] font-bold leading-[1.4] text-white">פילוח דירוגים</span>
+        <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-[15px] items-center">
+          <div style={{ width: "100%", height: 180 }} dir="ltr">
             <ResponsiveContainer>
               <PieChart>
                 <Pie
@@ -282,176 +297,214 @@ export default function SurveysPage() {
                   nameKey="label"
                   cx="50%"
                   cy="50%"
-                  outerRadius={90}
-                  innerRadius={50}
-                  paddingAngle={2}
+                  outerRadius={75}
+                  innerRadius={40}
+                  paddingAngle={1}
+                  stroke="none"
                 >
                   {distribution.map((d) => (
-                    <Cell key={d.score} fill={SCORE_COLORS[d.score]} />
+                    <Cell key={d.score} fill={d.color} />
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#1a1f3d", border: "1px solid #4C526B", borderRadius: "8px", color: "#fff" }}
-                />
-                <Legend
-                  formatter={(val) => <span style={{ color: "#fff", fontSize: "12px" }}>{val}</span>}
+                  contentStyle={{
+                    background: "#1a1f4e",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 8,
+                    direction: "rtl",
+                  }}
+                  labelStyle={{ color: "white" }}
+                  itemStyle={{ color: "white" }}
                 />
               </PieChart>
             </ResponsiveContainer>
           </div>
-        </div>
-
-        {/* Trend */}
-        <div className="bg-[#0F1535] border border-[#4C526B]/50 rounded-[10px] p-[15px]">
-          <h3 className="text-[15px] font-semibold text-white mb-[10px]">שביעות רצון לאורך זמן</h3>
-          <div style={{ width: "100%", height: 260 }} dir="ltr">
-            <ResponsiveContainer>
-              <LineChart data={trend} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#4C526B" strokeOpacity={0.3} />
-                <XAxis dataKey="month" tick={{ fill: "#9ca3af", fontSize: 11 }} />
-                <YAxis domain={[1, 5]} tick={{ fill: "#9ca3af", fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: "#1a1f3d", border: "1px solid #4C526B", borderRadius: "8px", color: "#fff" }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="avg"
-                  stroke="#22c55e"
-                  strokeWidth={2}
-                  dot={{ fill: "#22c55e", r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="flex flex-col gap-[6px]">
+            {distribution.map((d) => {
+              const pct = stats.total > 0 ? (d.count / stats.total) * 100 : 0;
+              return (
+                <div key={d.score} className="flex flex-row-reverse items-center gap-[10px]">
+                  <span className="text-[14px] font-bold text-white w-[40px] text-right" style={{ color: d.color }}>
+                    {d.label}
+                  </span>
+                  <div className="flex-1 h-[10px] bg-white/10 rounded-full overflow-hidden" dir="ltr">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${pct}%`, backgroundColor: d.color }}
+                    />
+                  </div>
+                  <span className="text-[13px] font-bold ltr-num text-white/80 w-[70px] text-left" dir="ltr">
+                    {d.count.toLocaleString("he-IL")} · {pct.toFixed(1)}%
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Filter chips + responses list */}
-      <div className="bg-[#0F1535] border border-[#4C526B]/50 rounded-[10px] p-[15px] flex flex-col gap-[10px]">
-        <div className="flex items-center justify-between flex-wrap gap-[10px]">
-          <h3 className="text-[15px] font-semibold text-white">תגובות</h3>
-          <div className="flex flex-wrap gap-[6px]">
-            {filters.map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setFilter(f.key)}
-                className={`px-[10px] py-[5px] rounded-[6px] text-[12px] font-medium transition-colors ${
-                  filter === f.key
-                    ? "bg-[#29318A] text-white"
-                    : "bg-[#4C526B]/20 text-white/60 hover:bg-[#4C526B]/40"
-                }`}
-              >
-                {f.label} ({f.count})
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Responses — filter tabs + list */}
+      <section aria-label="תגובות לקוחות" className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterKey)}>
+          <TabsList className="w-full bg-transparent rounded-[7px] p-0 h-[44px] gap-0 border border-[#6B6B6B] flex">
+            <TabsTrigger
+              value="all"
+              className="flex-1 text-[13px] font-semibold py-0 h-full rounded-none rounded-r-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent"
+            >
+              הכל ({rows.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="promoter"
+              className="flex-1 text-[13px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent"
+            >
+              ממליצים ({stats.promoters})
+            </TabsTrigger>
+            <TabsTrigger
+              value="neutral"
+              className="flex-1 text-[13px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent"
+            >
+              בינוני ({stats.neutral})
+            </TabsTrigger>
+            <TabsTrigger
+              value="detractor"
+              className="flex-1 text-[13px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent"
+            >
+              לא מרוצים ({stats.detractors})
+            </TabsTrigger>
+            <TabsTrigger
+              value="unhandled"
+              className="flex-1 text-[13px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent"
+            >
+              לא טופלו ({stats.unhandled})
+            </TabsTrigger>
+            <TabsTrigger
+              value="with_idea"
+              className="flex-1 text-[13px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent"
+            >
+              עם רעיון ({stats.withIdea})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-        {/* Responses list */}
-        <div className="flex flex-col gap-[6px] max-h-[600px] overflow-y-auto">
-          {filteredRows.slice(0, 200).map((r) => {
-            const name = [r.customer_first_name, r.customer_last_name].filter(Boolean).join(" ") || "אנונימי";
-            const isExpanded = expandedId === r.id;
-            const score = r.order_satisfaction_score;
-            const scoreColor = score ? SCORE_COLORS[score] : "#9ca3af";
-            const hasDetails =
-              r.order_satisfaction_notes ||
-              r.product_quality_notes ||
-              r.delivery_quality_notes ||
-              r.commitment_kept_notes ||
-              r.improvement_idea ||
-              r.internal_notes;
-            return (
-              <div
-                key={r.id}
-                className={`rounded-[8px] border ${
-                  !r.is_handled ? "border-[#ef4444]/40 bg-[#ef4444]/5" : "border-[#4C526B]/40 bg-[#1a1f3d]"
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(isExpanded ? null : r.id)}
-                  className="w-full flex items-center justify-between gap-[10px] p-[10px] text-right"
-                >
-                  <div className="flex items-center gap-[8px] flex-shrink-0">
+        <div className="flex flex-col max-h-[600px] overflow-y-auto">
+          {filteredRows.length === 0 ? (
+            <div className="text-center text-[13px] text-white/40 py-[20px]">אין תגובות שמתאימות לפילטר</div>
+          ) : (
+            filteredRows.slice(0, 200).map((r) => {
+              const name = [r.customer_first_name, r.customer_last_name].filter(Boolean).join(" ") || "אנונימי";
+              const isExpanded = expandedId === r.id;
+              const score = r.order_satisfaction_score;
+              const color = scoreColor(score);
+              const hasDetails =
+                r.order_satisfaction_notes ||
+                r.product_quality_notes ||
+                r.delivery_quality_notes ||
+                r.commitment_kept_notes ||
+                r.improvement_idea ||
+                r.internal_notes ||
+                r.customer_email;
+
+              return (
+                <div key={r.id} className="border-b border-white/10 last:border-b-0">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                    className="w-full flex flex-row-reverse items-center justify-between gap-[10px] p-[10px_5px] text-right hover:bg-[#29318A]/20 transition-colors"
+                  >
+                    {/* Score */}
+                    <span
+                      className="text-[14px] font-bold ltr-num leading-[1.4] w-[50px] text-center flex-shrink-0"
+                      style={{ color }}
+                    >
+                      {score ? `${score} ★` : "—"}
+                    </span>
+
+                    {/* Name + date */}
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <span className="text-[14px] font-bold text-white truncate text-right">{name}</span>
+                      <span className="text-[11px] text-white/50 text-right">
+                        {formatDate(r.submitted_at)}
+                        {r.customer_phone ? ` · ${r.customer_phone}` : ""}
+                      </span>
+                    </div>
+
+                    {/* Handled badge */}
                     {!r.is_handled && (
-                      <span className="text-[10px] font-bold bg-[#ef4444]/20 text-[#ef4444] border border-[#ef4444]/40 rounded-full px-[6px] py-[1px]">
+                      <span className="text-[10px] font-bold text-[#F64E60] border border-[#F64E60]/50 rounded-[4px] px-[6px] py-[2px] flex-shrink-0">
                         לא טופל
                       </span>
                     )}
-                    <span style={{ color: scoreColor }} className="text-[14px] font-bold ltr-num">
-                      {score ? `${score} ★` : "—"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-end flex-1 min-w-0">
-                    <span className="text-[13px] text-white font-medium truncate w-full text-right">{name}</span>
-                    <span className="text-[11px] text-white/40">
-                      {formatDate(r.submitted_at)}
-                      {r.customer_phone ? ` · ${r.customer_phone}` : ""}
-                    </span>
-                  </div>
-                  {hasDetails && (
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      className={`text-white/40 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                    >
-                      <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </button>
 
-                {isExpanded && (
-                  <div className="border-t border-[#4C526B]/30 p-[12px] flex flex-col gap-[8px]">
-                    <DetailRow label="שביעות רצון כללית" score={r.order_satisfaction_score} text={r.order_satisfaction} notes={r.order_satisfaction_notes} />
-                    <DetailRow label="איכות המוצרים" score={r.product_quality_score} text={r.product_quality} notes={r.product_quality_notes} />
-                    <DetailRow label="איכות השליח" score={r.delivery_quality_score} text={r.delivery_quality} notes={r.delivery_quality_notes} />
-                    <DetailRow label="עמדנו בהתחייבות?" text={r.commitment_kept} notes={r.commitment_kept_notes} />
-                    {r.improvement_idea && (
-                      <div className="bg-[#29318A]/20 border border-[#29318A]/40 rounded-[6px] p-[8px]">
-                        <div className="text-[11px] text-[#00D4FF] font-semibold mb-[2px]">רעיון לשיפור</div>
-                        <div className="text-[13px] text-white">{r.improvement_idea}</div>
-                      </div>
+                    {/* Expand chevron */}
+                    {hasDetails && (
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className={`text-white/40 flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                      >
+                        <path
+                          d="M6 9L12 15L18 9"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
                     )}
-                    {r.internal_notes && (
-                      <div className="bg-[#FFA500]/10 border border-[#FFA500]/30 rounded-[6px] p-[8px]">
-                        <div className="text-[11px] text-[#FFA500] font-semibold mb-[2px]">הערות פנימיות</div>
-                        <div className="text-[13px] text-white/80">{r.internal_notes}</div>
-                      </div>
-                    )}
-                    {r.customer_email && (
-                      <div className="text-[11px] text-white/40">
-                        מייל: <span className="text-white/60 ltr-num" dir="ltr">{r.customer_email}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  </button>
+
+                  {isExpanded && (
+                    <div className="bg-[#141A40] p-[12px_15px] flex flex-col gap-[8px]">
+                      <DetailRow label="שביעות רצון כללית" score={r.order_satisfaction_score} text={r.order_satisfaction} notes={r.order_satisfaction_notes} />
+                      <DetailRow label="איכות המוצרים" score={r.product_quality_score} text={r.product_quality} notes={r.product_quality_notes} />
+                      <DetailRow label="איכות השליח" score={r.delivery_quality_score} text={r.delivery_quality} notes={r.delivery_quality_notes} />
+                      <DetailRow label="עמדנו בהתחייבות" text={r.commitment_kept} notes={r.commitment_kept_notes} />
+                      {r.improvement_idea && (
+                        <div className="flex flex-col gap-[2px] pt-[4px] border-t border-white/10">
+                          <span className="text-[11px] text-white/50">רעיון לשיפור</span>
+                          <span className="text-[13px] text-white">{r.improvement_idea}</span>
+                        </div>
+                      )}
+                      {r.internal_notes && (
+                        <div className="flex flex-col gap-[2px] pt-[4px] border-t border-white/10">
+                          <span className="text-[11px] text-[#FFA412]">הערות פנימיות</span>
+                          <span className="text-[13px] text-white/80">{r.internal_notes}</span>
+                        </div>
+                      )}
+                      {r.customer_email && (
+                        <div className="text-[11px] text-white/50 pt-[4px] border-t border-white/10">
+                          מייל: <span className="text-white/70 ltr-num" dir="ltr">{r.customer_email}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
           {filteredRows.length > 200 && (
-            <div className="text-center text-[12px] text-white/40 py-[10px]">
-              מוצגות 200 תגובות מתוך {filteredRows.length.toLocaleString("he-IL")}. השתמש בפילטרים לצמצום התצוגה.
+            <div className="text-center text-[11px] text-white/40 py-[8px] border-t border-white/10">
+              מוצגות 200 תגובות מתוך {filteredRows.length.toLocaleString("he-IL")}. צמצם עם הפילטרים.
             </div>
           )}
-          {filteredRows.length === 0 && (
-            <div className="text-center text-[13px] text-white/40 py-[20px]">אין תגובות שמתאימות לפילטר הנוכחי</div>
-          )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
 
-function KpiCard({ label, value, color }: { label: string; value: string; color: string }) {
+function SummaryStat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="bg-[#0F1535] border border-[#4C526B]/50 rounded-[10px] p-[12px] flex flex-col gap-[4px]">
-      <span className="text-[11px] text-white/50">{label}</span>
-      <span className="text-[22px] font-bold ltr-num" style={{ color }}>
+    <div className="flex flex-col items-center flex-1 min-w-0">
+      <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4] whitespace-nowrap text-white">
+        {label}
+      </span>
+      <span
+        className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap"
+        style={{ color: color || "#ffffff" }}
+      >
         {value}
       </span>
     </div>
@@ -470,14 +523,19 @@ function DetailRow({
   notes?: string | null;
 }) {
   if (!text && !notes) return null;
+  const color = score != null ? scoreColor(score) : "#979797";
   return (
     <div className="flex flex-col gap-[2px]">
-      <div className="flex items-center justify-between gap-[8px]">
-        <StarScore value={score ?? null} />
+      <div className="flex flex-row-reverse items-center justify-between gap-[8px]">
         <span className="text-[12px] text-white/50">{label}</span>
+        {score != null && (
+          <span className="text-[12px] font-bold ltr-num" style={{ color }}>
+            {score} ★
+          </span>
+        )}
       </div>
-      {text && <div className="text-[13px] text-white text-right">{text}</div>}
-      {notes && <div className="text-[12px] text-white/60 text-right italic">„{notes}”</div>}
+      {text && <span className="text-[13px] text-white text-right">{text}</span>}
+      {notes && <span className="text-[12px] text-white/60 text-right">„{notes}”</span>}
     </div>
   );
 }
