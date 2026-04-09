@@ -249,32 +249,13 @@ export default function OCRPage() {
         // Get business VAT rate from already-loaded businesses data
         const bizVatRate = Number(businesses.find(b => b.id === formData.business_id)?.vat_percentage) || 0.18;
 
-        // Fetch credit cards for billing day lookup (if any payment method uses credit card)
-        const hasCreditCard = formData.payment_methods?.some(pm => pm.method === 'credit_card' && pm.creditCardId);
-        let creditCardsMap: Record<string, number> = {};
-        if (hasCreditCard && formData.business_id) {
-          const { data: cards } = await supabase
-            .from('business_credit_cards')
-            .select('id, billing_day')
-            .eq('business_id', formData.business_id)
-            .eq('is_active', true);
-          if (cards) {
-            creditCardsMap = Object.fromEntries(cards.map(c => [c.id, c.billing_day]));
-          }
-        }
-
-        // Calculate due date based on credit card billing day.
-        // Payment is recorded 1 day BEFORE the card's billing day
-        // (e.g. card withdraws on 10 → payment date = 9).
-        const calcCreditCardDueDate = (paymentDateStr: string, billingDay: number): string => {
-          const payDate = new Date(paymentDateStr);
-          const adjustedDay = billingDay - 1;
-          if (payDate.getDate() < billingDay) {
-            return new Date(payDate.getFullYear(), payDate.getMonth(), adjustedDay).toISOString().split('T')[0];
-          } else {
-            return new Date(payDate.getFullYear(), payDate.getMonth() + 1, adjustedDay).toISOString().split('T')[0];
-          }
-        };
+        // NOTE: we intentionally do NOT recompute credit-card due dates
+        // on the server any more. OCRForm already applies the
+        // `billing_day - 1` shift via getSmartPaymentDate when a card is
+        // picked, and any manual date edit is the user's explicit intent.
+        // Recomputing here was double-shifting (e.g. saving May 8 instead
+        // of April 9) and was the root cause of the "כרטיס שיורד ב10 →
+        // נשמר כ-8.5" bug.
 
         // Track created record IDs for linking back to ocr_documents
         let createdInvoiceId: string | null = null;
@@ -370,7 +351,6 @@ export default function OCRPage() {
                 if (amount > 0 && pm.method) {
                   const installmentsCount = parseInt(pm.installments) || 1;
                   const creditCardId = pm.method === 'credit_card' && pm.creditCardId ? pm.creditCardId : null;
-                  const billingDay = creditCardId ? creditCardsMap[creditCardId] : null;
 
                   if (pm.customInstallments.length > 0) {
                     for (const inst of pm.customInstallments) {
@@ -387,10 +367,13 @@ export default function OCRPage() {
                       });
                     }
                   } else {
-                    const effectiveDate = formData.payment_date || formData.document_date;
-                    const dueDate = billingDay && effectiveDate
-                      ? calcCreditCardDueDate(effectiveDate, billingDay)
-                      : effectiveDate || null;
+                    // OCRForm already applied the credit-card billing-day
+                    // adjustment (via getSmartPaymentDate) when the user
+                    // picked the card, and any subsequent manual date edit
+                    // represents the user's explicit intent. Re-applying
+                    // calcCreditCardDueDate here would DOUBLE-SHIFT either
+                    // case, so we just persist the date as-is.
+                    const dueDate = formData.payment_date || formData.document_date || null;
 
                     await supabase.from('payment_splits').insert({
                       payment_id: newPayment.id,
@@ -454,7 +437,6 @@ export default function OCRPage() {
               if (amount > 0 && pm.method) {
                 const installmentsCount = parseInt(pm.installments) || 1;
                 const creditCardId = pm.method === 'credit_card' && pm.creditCardId ? pm.creditCardId : null;
-                const billingDay = creditCardId ? creditCardsMap[creditCardId] : null;
 
                 if (pm.customInstallments.length > 0) {
                   for (const inst of pm.customInstallments) {
@@ -471,9 +453,11 @@ export default function OCRPage() {
                     });
                   }
                 } else {
-                  const dueDate = billingDay && formData.document_date
-                    ? calcCreditCardDueDate(formData.document_date, billingDay)
-                    : formData.document_date || null;
+                  // Trust the client-side date (already adjusted via
+                  // getSmartPaymentDate when a credit card was picked, or
+                  // manually overridden by the user). Re-running
+                  // calcCreditCardDueDate here double-shifts the day.
+                  const dueDate = formData.payment_date || formData.document_date || null;
 
                   await supabase.from('payment_splits').insert({
                     payment_id: paymentId,

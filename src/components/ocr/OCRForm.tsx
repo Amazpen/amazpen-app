@@ -676,17 +676,33 @@ export default function OCRForm({
   // (e.g. card withdraws on the 10th → payment date = the 9th).
   // Passing `billingDay - 1` to `new Date(y, m, d)` with d=0 rolls to the last
   // day of the previous month, which is the desired behaviour when billing_day=1.
+  //
+  // IMPORTANT: use local-date formatting, NOT `.toISOString().split('T')[0]`.
+  // toISOString() converts to UTC, which shifts the day back by one in
+  // east-of-UTC timezones (Israel = UTC+2/+3) — that's how we ended up saving
+  // May 8 instead of May 9 for billing_day=10.
+  const formatLocalYMD = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
   const calculateCreditCardDueDate = (paymentDateStr: string, billingDay: number): string => {
-    const payDate = new Date(paymentDateStr);
+    // Parse the incoming YYYY-MM-DD as LOCAL midnight (not UTC), otherwise
+    // `new Date("2026-04-10")` is interpreted as UTC and `.getDate()` in a
+    // positive-offset TZ can flip to the previous day.
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(paymentDateStr);
+    const payDate = m
+      ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+      : new Date(paymentDateStr);
     const dayOfMonth = payDate.getDate();
     const adjustedDay = billingDay - 1;
 
     if (dayOfMonth < billingDay) {
-      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth(), adjustedDay);
-      return dueDate.toISOString().split('T')[0];
+      return formatLocalYMD(new Date(payDate.getFullYear(), payDate.getMonth(), adjustedDay));
     } else {
-      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth() + 1, adjustedDay);
-      return dueDate.toISOString().split('T')[0];
+      return formatLocalYMD(new Date(payDate.getFullYear(), payDate.getMonth() + 1, adjustedDay));
     }
   };
 
