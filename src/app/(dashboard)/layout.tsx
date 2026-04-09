@@ -65,10 +65,10 @@ const menuItems = [
   { id: 2, label: "ניהול הוצאות", href: "/expenses", key: "expenses", requiresBusiness: true },
   { id: 3, label: "ניהול ספקים", href: "/suppliers", key: "suppliers", requiresBusiness: true },
   { id: 4, label: "ניהול תשלומים", href: "/payments", key: "payments", requiresBusiness: true },
-  { id: 5, label: "תזרים מזומנים", href: "/cashflow", key: "cashflow", requiresBusiness: true },
+  { id: 5, label: "תזרים מזומנים", href: "/cashflow", key: "cashflow", requiresBusiness: true, adminOnly: true },
   { id: 7, label: "דוח רווח הפסד", href: "/reports", key: "reports", requiresBusiness: true },
   { id: 8, label: "יעדים", href: "/goals", key: "goals", requiresBusiness: true },
-  { id: 9, label: "תובנות", href: "/insights", key: "insights", requiresBusiness: true },
+  { id: 9, label: "תובנות", href: "/insights", key: "insights", requiresBusiness: true, adminOnly: true },
   { id: 14, label: "סקרים", href: "/surveys", key: "surveys", requiresBusiness: true },
   { id: 13, label: "תכניות בונוסים", href: "/admin/bonus-plans", key: "bonus-plans", requiresBusiness: true },
   { id: 10, label: "הגדרות", href: "/settings", key: "settings" },
@@ -690,19 +690,27 @@ export default function DashboardLayout({
                 }
 
                 const pageExists = existingPages.includes(item.href);
+                // Admin-only items appear as "בקרוב" to regular users
+                const lockedForUser = !!item.adminOnly && !isAdmin;
 
                 const IconComponent = item.key === "settings" ? SettingsIcon : item.key === "dashboard" ? DashboardIcon : item.key === "expenses" ? ExpensesIcon : item.key === "suppliers" ? SuppliersIcon : item.key === "payments" ? PaymentsIcon : item.key === "cashflow" ? CashFlowIcon : item.key === "insights" ? InsightsIcon : item.key === "tasks" ? TasksIcon : item.key === "reports" ? ReportsIcon : item.key === "goals" ? GoalsIcon : item.key === "surveys" ? SurveysIcon : item.key === "customers" ? CustomersIcon : MenuIcon;
 
-                if (!pageExists) {
+                if (!pageExists || lockedForUser) {
                   return (
                     <div
                       key={item.id}
-                      className="flex items-center gap-[10px] p-[7px] rounded-[10px] opacity-30 cursor-not-allowed"
+                      className="flex items-center gap-[10px] p-[7px] rounded-[10px] opacity-40 cursor-not-allowed"
+                      title={lockedForUser ? 'בקרוב' : undefined}
                     >
                       <div className="w-[21px] h-[21px] flex items-center justify-center flex-shrink-0">
                         <IconComponent />
                       </div>
                       <span className="text-white text-[14px] font-medium text-right flex-1">{item.label}</span>
+                      {lockedForUser && (
+                        <span className="text-[10px] text-[#FFA412] font-semibold bg-[#FFA412]/15 border border-[#FFA412]/30 rounded-full px-[6px] py-[1px] flex-shrink-0">
+                          בקרוב
+                        </span>
+                      )}
                     </div>
                   );
                 }

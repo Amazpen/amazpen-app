@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -93,8 +94,22 @@ const formatDayLabel = (dateStr: string) => {
 // MAIN COMPONENT
 // ============================================================================
 export default function CashFlowPage() {
-  const { selectedBusinesses } = useDashboard();
+  const { selectedBusinesses, isAdmin } = useDashboard();
+  const router = useRouter();
   const supabase = createClient();
+
+  // Gate: cashflow is admin-only for now (non-admin sees "בקרוב" in the sidebar
+  // and lands back on the dashboard if they try to reach this URL directly).
+  // The 500ms delay matches the pattern used on /ocr so we don't redirect
+  // before the profile has had a chance to load from Supabase.
+  const [isCheckingAdminAccess, setIsCheckingAdminAccess] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setIsCheckingAdminAccess(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (!isCheckingAdminAccess && !isAdmin) router.replace('/');
+  }, [isAdmin, isCheckingAdminAccess, router]);
 
   // Persisted state
   const [savedEndDate, setSavedEndDate] = usePersistedState<string | null>("cashflow:endDate", null);

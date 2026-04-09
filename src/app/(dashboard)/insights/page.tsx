@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { ChartLineUp, Receipt, UsersThree, Package, ArrowsLeftRight, GearSix, Trophy } from "@phosphor-icons/react";
@@ -167,10 +168,22 @@ const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמיש
 // MAIN PAGE
 // ============================================================================
 export default function InsightsPage() {
-  const { selectedBusinesses } = useDashboard();
+  const { selectedBusinesses, isAdmin } = useDashboard();
+  const router = useRouter();
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<InsightCategory | "all">("all");
+
+  // Gate: insights is admin-only for now. Non-admin sees "בקרוב" in the sidebar;
+  // if they bypass the sidebar we redirect them back to the dashboard.
+  const [isCheckingAdminAccess, setIsCheckingAdminAccess] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setIsCheckingAdminAccess(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (!isCheckingAdminAccess && !isAdmin) router.replace('/');
+  }, [isAdmin, isCheckingAdminAccess, router]);
 
   const fetchInsights = useCallback(async () => {
     if (!selectedBusinesses || selectedBusinesses.length === 0) {
