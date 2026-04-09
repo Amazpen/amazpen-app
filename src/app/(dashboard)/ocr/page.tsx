@@ -37,6 +37,15 @@ export default function OCRPage() {
   const [currentDocument, setCurrentDocument] = useState<OCRDocument | null>(null);
   const [filterStatus, setFilterStatus] = usePersistedState<DocumentStatus | 'all'>('ocr:filterStatus', 'pending');
   const [businessFilter, setBusinessFilter] = usePersistedState<string>('ocr:businessFilter', 'all');
+
+  // Reviewers used to get stuck on filterStatus='reviewing' because the old
+  // code flipped docs to that bucket on click and persisted the filter in
+  // localStorage. We no longer use 'reviewing' at all — normalize any stale
+  // stored value back to 'pending' on mount.
+  useEffect(() => {
+    if (filterStatus === 'reviewing') setFilterStatus('pending');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [showMobileViewer, setShowMobileViewer] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);

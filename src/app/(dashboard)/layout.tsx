@@ -61,7 +61,7 @@ const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments"
 // Menu items for sidebar
 const menuItems = [
   { id: 1, label: "דשבורד ראשי", href: "/", key: "dashboard" },
-  { id: 12, label: "ניהול לקוחות ונותני שירות", href: "/customers", key: "customers", requiresBusiness: true },
+  { id: 12, label: "ניהול לקוחות ונותני שירות", href: "/customers", key: "customers", requiresBusiness: true, hideForNonAdmin: true },
   { id: 2, label: "ניהול הוצאות", href: "/expenses", key: "expenses", requiresBusiness: true },
   { id: 3, label: "ניהול ספקים", href: "/suppliers", key: "suppliers", requiresBusiness: true },
   { id: 4, label: "ניהול תשלומים", href: "/payments", key: "payments", requiresBusiness: true },
@@ -668,7 +668,13 @@ export default function DashboardLayout({
             </div>
 
             <div className="flex flex-col gap-[5px]">
-              {menuItems.map((item) => {
+              {menuItems
+                // hideForNonAdmin: completely omit the item for non-admin
+                // users (different from adminOnly, which shows a "בקרוב"
+                // placeholder). Used for admin-only features that
+                // shouldn't be advertised at all to business owners.
+                .filter((item) => !(item.hideForNonAdmin && !isAdmin))
+                .map((item) => {
                 // Handle logout button
                 if (item.isLogout) {
                   return (

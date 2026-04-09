@@ -23,10 +23,13 @@ interface DocumentQueueProps {
   onBusinessFilterChange?: (businessId: string) => void;
 }
 
+// 'reviewing' removed from the filter list — selecting a document no longer
+// flips it into a separate 'reviewing' bucket (see ocr/page.tsx
+// handleSelectDocument), so exposing that filter just produced a dead
+// "(0)" button that reviewers kept getting stuck on.
 const STATUS_FILTERS: { value: DocumentStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'הכל' },
   { value: 'pending', label: 'ממתינים' },
-  { value: 'reviewing', label: 'בבדיקה' },
   { value: 'approved', label: 'אושרו' },
   { value: 'archived', label: 'ארכיון' },
 ];
@@ -44,6 +47,15 @@ export default function DocumentQueue({
 }: DocumentQueueProps) {
   // Map business_id -> name for card lookups
   const businessNameById = new Map(businesses.map(b => [b.id, b.name]));
+
+  // Business filter is collapsed by default so the sidebar gives most of
+  // its real estate to the actual document list. Click the header to expand.
+  const [isBusinessFilterOpen, setIsBusinessFilterOpen] = useState(false);
+
+  // Selected business label for the collapsed-header chip.
+  const selectedBusinessName = businessFilter === 'all'
+    ? 'כל העסקים'
+    : (businessNameById.get(businessFilter) || 'עסק לא ידוע');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -139,52 +151,85 @@ export default function DocumentQueue({
           </p>
         </div>
 
-        {/* Business filter (folder-like list) */}
+        {/* Business filter (folder-like list) — collapsible so the
+            documents list gets most of the sidebar height. */}
         {businesses.length > 0 && onBusinessFilterChange && (
           <div className="px-2 py-2 border-b border-[#4C526B]/50">
-            <div className="text-[11px] text-white/40 text-right px-1 mb-1.5">סינון לפי עסק</div>
-            <div className="flex flex-col gap-1 max-h-[150px] overflow-y-auto">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => onBusinessFilterChange('all')}
-                className={`w-full px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-all flex items-center justify-between gap-2 ${
-                  businessFilter === 'all'
-                    ? 'bg-[#29318A] text-white'
-                    : 'bg-[#4C526B]/15 text-white/60 hover:bg-[#4C526B]/30 hover:text-white/80'
-                }`}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsBusinessFilterOpen(prev => !prev)}
+              className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-medium bg-[#4C526B]/15 text-white/80 hover:bg-[#4C526B]/30 hover:text-white transition-all"
+              title="סינון לפי עסק"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                className={`text-white/60 flex-shrink-0 transition-transform ${isBusinessFilterOpen ? 'rotate-180' : ''}`}
               >
-                <span className="truncate text-right flex-1">כל העסקים</span>
-                <span className={`text-[10px] min-w-[20px] h-[16px] flex items-center justify-center rounded-full ${
-                  businessFilter === 'all' ? 'bg-white/20' : 'bg-[#4C526B]/30'
-                }`}>
-                  {businessCounts.all || 0}
-                </span>
-              </Button>
-              {businesses.map((biz) => {
-                const count = businessCounts[biz.id] || 0;
-                return (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    key={biz.id}
-                    onClick={() => onBusinessFilterChange(biz.id)}
-                    className={`w-full px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-all flex items-center justify-between gap-2 ${
-                      businessFilter === biz.id
-                        ? 'bg-[#29318A] text-white'
-                        : 'bg-[#4C526B]/15 text-white/60 hover:bg-[#4C526B]/30 hover:text-white/80'
-                    }`}
-                  >
-                    <span className="truncate text-right flex-1" title={biz.name}>{biz.name}</span>
-                    <span className={`text-[10px] min-w-[20px] h-[16px] flex items-center justify-center rounded-full ${
-                      businessFilter === biz.id ? 'bg-white/20' : 'bg-[#4C526B]/30'
-                    }`}>
-                      {count}
-                    </span>
-                  </Button>
-                );
-              })}
-            </div>
+                <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="truncate flex-1 text-right" title={selectedBusinessName}>
+                <span className="text-white/40">עסק: </span>
+                {selectedBusinessName}
+              </span>
+              <span className="text-[10px] min-w-[20px] h-[16px] flex items-center justify-center rounded-full bg-[#4C526B]/30 flex-shrink-0">
+                {(businessFilter === 'all' ? businessCounts.all : businessCounts[businessFilter]) || 0}
+              </span>
+            </Button>
+
+            {isBusinessFilterOpen && (
+              <div className="flex flex-col gap-1 max-h-[220px] overflow-y-auto mt-1.5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    onBusinessFilterChange('all');
+                    setIsBusinessFilterOpen(false);
+                  }}
+                  className={`w-full px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-all flex items-center justify-between gap-2 ${
+                    businessFilter === 'all'
+                      ? 'bg-[#29318A] text-white'
+                      : 'bg-[#4C526B]/15 text-white/60 hover:bg-[#4C526B]/30 hover:text-white/80'
+                  }`}
+                >
+                  <span className="truncate text-right flex-1">כל העסקים</span>
+                  <span className={`text-[10px] min-w-[20px] h-[16px] flex items-center justify-center rounded-full ${
+                    businessFilter === 'all' ? 'bg-white/20' : 'bg-[#4C526B]/30'
+                  }`}>
+                    {businessCounts.all || 0}
+                  </span>
+                </Button>
+                {businesses.map((biz) => {
+                  const count = businessCounts[biz.id] || 0;
+                  return (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      key={biz.id}
+                      onClick={() => {
+                        onBusinessFilterChange(biz.id);
+                        setIsBusinessFilterOpen(false);
+                      }}
+                      className={`w-full px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-all flex items-center justify-between gap-2 ${
+                        businessFilter === biz.id
+                          ? 'bg-[#29318A] text-white'
+                          : 'bg-[#4C526B]/15 text-white/60 hover:bg-[#4C526B]/30 hover:text-white/80'
+                      }`}
+                    >
+                      <span className="truncate text-right flex-1" title={biz.name}>{biz.name}</span>
+                      <span className={`text-[10px] min-w-[20px] h-[16px] flex items-center justify-center rounded-full ${
+                        businessFilter === biz.id ? 'bg-white/20' : 'bg-[#4C526B]/30'
+                      }`}>
+                        {count}
+                      </span>
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

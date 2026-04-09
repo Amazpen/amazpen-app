@@ -2674,15 +2674,17 @@ export default function OCRForm({
       {/* Open invoices to link payment to — grouped by month */}
       {paymentTabSupplierId && (
         <div className="flex flex-col gap-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+          {/* Label on the right (DOM order first inside dir="rtl"),
+              selection summary on the left. */}
           <div className="flex items-center justify-between">
+            <label className="text-[15px] font-medium text-white">
+              חשבוניות פתוחות ({paymentOpenInvoices.length})
+            </label>
             <span className="text-[13px] text-white/60 ltr-num">
               {paymentSelectedInvoiceIds.size > 0 && (
                 <>נבחרו {paymentSelectedInvoiceIds.size} — &#8362;{paymentSelectedInvoicesTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
               )}
             </span>
-            <label className="text-[15px] font-medium text-white">
-              חשבוניות פתוחות ({paymentOpenInvoices.length})
-            </label>
           </div>
 
           {paymentIsLoadingInvoices ? (
@@ -2893,7 +2895,9 @@ export default function OCRForm({
 
       {/* Open Delivery Notes from DB */}
       <div className="flex flex-col gap-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+        {/* Label on the right (RTL natural), action button on the left. */}
         <div className="flex items-center justify-between">
+          <label className="text-[15px] font-medium text-white">תעודות משלוח פתוחות ({openDeliveryNotes.length})</label>
           {openDeliveryNotes.length > 0 && (
             <Button
               type="button"
@@ -2910,7 +2914,6 @@ export default function OCRForm({
               {selectedDeliveryNoteIds.size === openDeliveryNotes.length ? 'בטל הכל' : 'בחר הכל'}
             </Button>
           )}
-          <label className="text-[15px] font-medium text-white">תעודות משלוח פתוחות ({openDeliveryNotes.length})</label>
         </div>
 
         {isLoadingDeliveryNotes ? (
@@ -3035,7 +3038,9 @@ export default function OCRForm({
 
       {/* Manual Delivery Notes (legacy) */}
       <div className="flex flex-col gap-[10px] border border-[#4C526B] rounded-[10px] p-[10px]" style={{ display: openDeliveryNotes.length > 0 ? 'none' : undefined }}>
+        {/* Label on the right, action button on the left (RTL natural). */}
         <div className="flex items-center justify-between">
+          <label className="text-[15px] font-medium text-white">תעודות משלוח</label>
           <Button
             type="button"
             variant="ghost"
@@ -3044,7 +3049,6 @@ export default function OCRForm({
           >
             + הוספת תעודה
           </Button>
-          <label className="text-[15px] font-medium text-white">תעודות משלוח</label>
         </div>
 
         {/* Add Delivery Note Form */}
