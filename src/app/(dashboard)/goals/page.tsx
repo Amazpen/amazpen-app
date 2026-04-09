@@ -163,6 +163,10 @@ export default function GoalsPage() {
   const [supplierBudgetState, setSupplierBudgetState] = useState<Map<string, number>>(new Map());
   const [supplierActualCurrentState, setSupplierActualCurrentState] = useState<Map<string, number>>(new Map());
   const [supplierActualGoodsState, setSupplierActualGoodsState] = useState<Map<string, number>>(new Map());
+  // Fixed-expense suppliers that already have a real invoice this month —
+  // used to drop the purple "awaiting invoice" highlight off the goals row
+  // once the OCR/manual invoice has landed.
+  const [fixedSuppliersWithInvoiceState, setFixedSuppliersWithInvoiceState] = useState<Set<string>>(new Set());
   const [supplierFixedInfoMap, setSupplierFixedInfoMap] = useState<Map<string, { isFixed: boolean; vatType: string }>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [goalId, setGoalId] = useState<string | null>(null);
@@ -286,9 +290,13 @@ export default function GoalsPage() {
           }
         });
 
-        // Build per-supplier actual amounts split by invoice type
+        // Build per-supplier actual amounts split by invoice type.
+        // Track fixed-expense suppliers that have a REAL invoice this month
+        // (before we apply the budget fallback) — those rows should no
+        // longer be highlighted purple in the goals page.
         const perSupplierCurrentActuals = new Map<string, number>();
         const perSupplierGoodsActuals = new Map<string, number>();
+        const fixedSuppliersWithInvoice = new Set<string>();
         (invoicesData || []).forEach(inv => {
           const expType = supplierExpenseTypeMap.get(inv.supplier_id);
           if (expType === "current_expenses") {
@@ -297,6 +305,9 @@ export default function GoalsPage() {
           } else if (expType === "goods_purchases") {
             const current = perSupplierGoodsActuals.get(inv.supplier_id) || 0;
             perSupplierGoodsActuals.set(inv.supplier_id, current + Number(inv.subtotal));
+          }
+          if (fixedInfoMap.get(inv.supplier_id)?.isFixed) {
+            fixedSuppliersWithInvoice.add(inv.supplier_id);
           }
         });
         // For fixed expense suppliers with no invoice this month, actual = budget
@@ -313,6 +324,7 @@ export default function GoalsPage() {
         setSupplierBudgetState(supplierBudgetMap);
         setSupplierActualCurrentState(perSupplierCurrentActuals);
         setSupplierActualGoodsState(perSupplierGoodsActuals);
+        setFixedSuppliersWithInvoiceState(fixedSuppliersWithInvoice);
 
         // Aggregate invoices by category for current expenses
         const categoryActuals = new Map<string, number>();
@@ -1346,12 +1358,16 @@ export default function GoalsPage() {
                           const sDiff = sActual - sTarget;
                           const sColor = getStatusColor(sPct, true, sActual, sTarget);
                           const isFixedSupplier = supplierFixedInfoMap.get(sId)?.isFixed;
+                          // Paint purple only while we're still waiting for the
+                          // real invoice — once one has been matched (OCR or
+                          // manual), the row flips back to the normal style.
+                          const isAwaitingFixedInvoice = isFixedSupplier && !fixedSuppliersWithInvoiceState.has(sId);
 
                           return (
                             <div
                               key={sId}
                               className={`flex flex-row items-center justify-between gap-[5px] p-[7px] min-h-[42px] ${sIdx < item.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
-                              style={isFixedSupplier ? { backgroundColor: 'rgb(188 118 255 / 0.1)' } : undefined}
+                              style={isAwaitingFixedInvoice ? { backgroundColor: 'rgb(188 118 255 / 0.1)' } : undefined}
                             >
                               {/* Status */}
                               <div className="flex flex-col items-center gap-[2px]">
@@ -1393,7 +1409,7 @@ export default function GoalsPage() {
                               )}
 
                               {/* Supplier Name */}
-                              <span className="flex-1 text-[13px] text-right" style={isFixedSupplier ? { color: '#bc76ff' } : { color: 'rgb(255 255 255 / 0.7)' }} dir="rtl">
+                              <span className="flex-1 text-[13px] text-right" style={isAwaitingFixedInvoice ? { color: '#bc76ff' } : { color: 'rgb(255 255 255 / 0.7)' }} dir="rtl">
                                 {supplierNamesMap.get(sId) || sId}
                               </span>
                             </div>
