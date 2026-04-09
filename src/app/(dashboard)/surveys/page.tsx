@@ -233,10 +233,13 @@ export default function SurveysPage() {
 
   // The date range picker lives outside the loading/empty guards so users
   // can always adjust the window even when the current range has no rows.
+  // Layout: label on the right (RTL natural reading), picker on the left.
+  // NB: the parent is already dir="rtl" so `flex-row` (not `flex-row-reverse`)
+  // is what puts the first child on the right.
   const dateRangeCard = (
     <section
       aria-label="סינון לפי תאריך"
-      className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-row-reverse items-center justify-between gap-[10px] flex-wrap"
+      className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-row items-center justify-between gap-[10px] flex-wrap"
     >
       <span className="text-[13px] sm:text-[14px] font-bold text-white">טווח תאריכים</span>
       <DateRangePicker dateRange={dateRange} onChange={setDateRange} variant="compact" />
