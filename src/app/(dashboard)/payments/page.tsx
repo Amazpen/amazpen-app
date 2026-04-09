@@ -1493,9 +1493,12 @@ function PaymentsPageInner() {
                   });
               }
             } else {
-              const dueDate = card && paymentDate
-                ? calculateCreditCardDueDate(paymentDate, card.billing_day)
-                : paymentDate || null;
+              // Trust the user's paymentDate as-is. The billing-day
+              // adjustment is already applied upstream via
+              // getSmartPaymentDate when the card is picked; any manual
+              // edit represents the user's explicit intent. Re-running
+              // calculateCreditCardDueDate here was double-shifting.
+              const dueDate = paymentDate || null;
 
               await supabase
                 .from("payment_splits")
@@ -1941,9 +1944,10 @@ function PaymentsPageInner() {
                 });
             }
           } else {
-            const dueDate = card && paymentDate
-              ? calculateCreditCardDueDate(paymentDate, card.billing_day)
-              : paymentDate || null;
+            // Edit path: same reasoning as the create path above — trust
+            // the user-chosen payment date without re-applying the credit
+            // card adjustment that's already been applied upstream.
+            const dueDate = paymentDate || null;
 
             await supabase
               .from("payment_splits")
@@ -2174,16 +2178,23 @@ function PaymentsPageInner() {
     return result;
   };
 
-  // Calculate due date based on credit card billing day
+  // Calculate due date based on credit card billing day.
+  // Payment is recorded 1 day BEFORE the card's billing day
+  // (e.g. card withdraws on the 10th → payment date = the 9th), matching
+  // the rule used by the OCR and expenses pages. Passing billing_day-1
+  // as the day also rolls back to the previous month's last day when
+  // billing_day is 1 (d=0 semantics of the JS Date constructor).
   const calculateCreditCardDueDate = (paymentDateStr: string, billingDay: number): string => {
-    // Parse date parts manually to avoid UTC timezone shift (new Date("YYYY-MM-DD") parses as UTC)
+    // Parse date parts manually to avoid UTC timezone shift
+    // (new Date("YYYY-MM-DD") parses as UTC).
     const [year, month, day] = paymentDateStr.split("-").map(Number);
+    const adjustedDay = billingDay - 1;
 
     let dueDate: Date;
     if (day < billingDay) {
-      dueDate = new Date(year, month - 1, billingDay);
+      dueDate = new Date(year, month - 1, adjustedDay);
     } else {
-      dueDate = new Date(year, month, billingDay);
+      dueDate = new Date(year, month, adjustedDay);
     }
     // Format manually to avoid toISOString() UTC shift
     return `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, "0")}-${String(dueDate.getDate()).padStart(2, "0")}`;

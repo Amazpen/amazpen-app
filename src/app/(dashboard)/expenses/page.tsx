@@ -707,21 +707,25 @@ function ExpensesPageInner() {
     return invoiceDate || toLocalDateStr(new Date());
   };
 
-  // Calculate due date based on credit card billing day
-  // If payment is before billing day in same month → due on billing day same month
-  // If payment is on or after billing day → due on billing day next month
+  // Calculate due date based on credit card billing day.
+  // Payment is recorded 1 day BEFORE the card's billing day
+  // (e.g. card withdraws on the 10th → payment date = the 9th),
+  // matching the same rule used in the OCR intake flow.
+  // If billing_day is 1, `new Date(y, m, 0)` conveniently rolls to the
+  // last day of the previous month.
   const calculateCreditCardDueDate = (paymentDateStr: string, billingDay: number): string => {
-    const payDate = new Date(paymentDateStr);
+    // Parse as local midnight so timezones east of UTC don't flip the day.
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(paymentDateStr);
+    const payDate = m
+      ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+      : new Date(paymentDateStr);
     const dayOfMonth = payDate.getDate();
+    const adjustedDay = billingDay - 1;
 
     if (dayOfMonth < billingDay) {
-      // Due this month on billing day
-      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth(), billingDay);
-      return toLocalDateStr(dueDate);
+      return toLocalDateStr(new Date(payDate.getFullYear(), payDate.getMonth(), adjustedDay));
     } else {
-      // Due next month on billing day
-      const dueDate = new Date(payDate.getFullYear(), payDate.getMonth() + 1, billingDay);
-      return toLocalDateStr(dueDate);
+      return toLocalDateStr(new Date(payDate.getFullYear(), payDate.getMonth() + 1, adjustedDay));
     }
   };
 
@@ -2172,10 +2176,13 @@ function ExpensesPageInner() {
                       });
                   }
                 } else {
-                  const effectiveDate = paymentDate || expenseDate;
-                  const dueDate = card && effectiveDate
-                    ? calculateCreditCardDueDate(effectiveDate, card.billing_day)
-                    : effectiveDate || null;
+                  // Trust the user-chosen payment date as-is. getSmartPaymentDate
+                  // already applied the billing-day adjustment when the card was
+                  // picked, and any subsequent manual edit is the user's
+                  // explicit intent (e.g. foreign services that charge
+                  // immediately rather than on a card's billing cycle).
+                  // Re-running calculateCreditCardDueDate here double-shifts.
+                  const dueDate = paymentDate || expenseDate || null;
 
                   await supabase
                     .from("payment_splits")
@@ -2830,10 +2837,11 @@ function ExpensesPageInner() {
                   });
               }
             } else {
-              // Single payment
-              const dueDate = card && paymentDate
-                ? calculateCreditCardDueDate(paymentDate, card.billing_day)
-                : paymentDate || null;
+              // Single payment: persist the user's chosen date directly.
+              // See the matching comment in the other save path — the
+              // credit-card adjustment is already applied upstream via
+              // getSmartPaymentDate; re-running it here was double-shifting.
+              const dueDate = paymentDate || null;
 
               await supabase
                 .from("payment_splits")
