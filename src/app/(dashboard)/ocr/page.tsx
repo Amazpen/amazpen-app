@@ -214,27 +214,28 @@ export default function OCRPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documents, currentDocument, isCheckingAuth, isAdmin]);
 
-  // Handle document selection
+  // Handle document selection.
+  //
+  // We used to flip the document from 'pending' → 'reviewing' the moment a
+  // reviewer clicked on it, and also switched the sidebar filter to
+  // 'reviewing' so they'd still see their working doc. That broke the
+  // approve-flow: after approving the doc moved to 'approved', the filter
+  // was left pointing at the now-empty 'reviewing' bucket, the selected
+  // business filter appeared to reset, and the reviewer had to manually
+  // switch back to 'ממתינים' every single time.
+  //
+  // The selection itself is already visually distinct (the card shows as
+  // active), so there's no need for a separate status bucket. We now keep
+  // the document on 'pending' until it's approved/rejected — the filter
+  // stays on 'ממתינים' and the business filter stays intact through the
+  // whole approve loop.
   const handleSelectDocument = useCallback((document: OCRDocument) => {
     setCurrentDocument(document);
     // Auto-select the business identified by AI from the document
     if (document.business_id) {
       setSelectedBusinessId(document.business_id);
     }
-    if (document.status === 'pending') {
-      // Update local state immediately for UI responsiveness
-      setDocuments((prev) =>
-        prev.map((doc) =>
-          doc.id === document.id ? { ...doc, status: 'reviewing' as DocumentStatus } : doc
-        )
-      );
-      // Switch filter so user can see the document they're working on
-      setFilterStatus('reviewing');
-      // Update status in Supabase (fire-and-forget)
-      const supabase = createClient();
-      supabase.from('ocr_documents').update({ status: 'reviewing' }).eq('id', document.id);
-    }
-  }, [setSelectedBusinessId, setFilterStatus]);
+  }, [setSelectedBusinessId]);
 
   // Handle form approval - saves to Supabase based on document type
   const handleApprove = useCallback(
