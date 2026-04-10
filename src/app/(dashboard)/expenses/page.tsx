@@ -5754,6 +5754,18 @@ function ExpensesPageInner() {
                       )}
                     </span>
                     <div className="flex items-center justify-center gap-[4px]" style={{ width: 76, maxWidth: 76 }}>
+                      {inv.notes && inv.notes.trim() && (
+                        <Button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); alert(inv.notes); }}
+                          className="w-[25px] h-[25px] flex items-center justify-center text-[#FFA412] hover:text-[#FFB84D] transition-colors"
+                          title={inv.notes}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                          </svg>
+                        </Button>
+                      )}
                       {isAdmin && (
                         <Button
                           type="button"
