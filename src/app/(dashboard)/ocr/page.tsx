@@ -724,7 +724,7 @@ export default function OCRPage() {
 
         // Update OCR document status in Supabase
         const mergedIds = formData.merged_document_ids || [];
-        await supabase.from('ocr_documents').update({
+        const { error: ocrUpdateError } = await supabase.from('ocr_documents').update({
           status: 'approved',
           reviewed_by: user?.id || null,
           reviewed_at: new Date().toISOString(),
@@ -734,15 +734,20 @@ export default function OCRPage() {
           created_delivery_note_id: createdDeliveryNoteId,
           merged_document_ids: mergedIds.length > 0 ? mergedIds : null,
         }).eq('id', currentDocument.id);
+        if (ocrUpdateError) throw ocrUpdateError;
 
         // Mark merged documents as approved too
         if (mergedIds.length > 0) {
-          await supabase.from('ocr_documents').update({
+          const { error: mergeUpdateError } = await supabase.from('ocr_documents').update({
             status: 'approved',
             reviewed_by: user?.id || null,
             reviewed_at: new Date().toISOString(),
           }).in('id', mergedIds);
+          if (mergeUpdateError) throw mergeUpdateError;
         }
+
+        // === SUCCESS — show confirmation so the user KNOWS it saved ===
+        alert('המסמך נקלט בהצלחה ✓');
 
         // Clear merged state
         setMergedDocuments([]);
@@ -761,7 +766,7 @@ export default function OCRPage() {
 
       } catch (error) {
         console.error('Error saving document:', error);
-        alert('שגיאה בשמירת המסמך');
+        alert('שגיאה בשמירת המסמך — הנתונים לא נשמרו. נסה שוב.');
       } finally {
         setIsLoading(false);
       }
