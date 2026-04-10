@@ -447,6 +447,7 @@ export default function GoalsPage() {
           { data: dailyEntries },
           { data: businessData },
           { data: scheduleData },
+          { data: dayExceptionsData },
         ] = await Promise.all([
           supabase
             .from("daily_entries")
@@ -463,6 +464,14 @@ export default function GoalsPage() {
             .from("business_schedule")
             .select("business_id, day_of_week, day_factor")
             .in("business_id", selectedBusinesses),
+          // Day exceptions (holidays, partial days) override the weekly
+          // schedule for specific dates in the month.
+          supabase
+            .from("business_day_exceptions")
+            .select("exception_date, day_factor")
+            .in("business_id", selectedBusinesses)
+            .gte("exception_date", startDate)
+            .lte("exception_date", endDate),
         ]);
 
         // Calculate totals from daily entries
@@ -477,7 +486,9 @@ export default function GoalsPage() {
           : (businessData || []).reduce((sum, b) => sum + (Number(b.markup_percentage) || 1), 0) / Math.max((businessData || []).length, 1);
         const totalManagerSalary = (businessData || []).reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
 
-        // Calculate expected work days from schedule
+        // Calculate expected work days from schedule + day exceptions.
+        // Exceptions (holidays, partial days) override the weekly schedule
+        // for the specific dates they cover.
         const scheduleDayFactors: Record<number, number[]> = {};
         (scheduleData || []).forEach(s => {
           if (!scheduleDayFactors[s.day_of_week]) {
@@ -490,13 +501,28 @@ export default function GoalsPage() {
           const factors = scheduleDayFactors[Number(dow)];
           avgScheduleDayFactors[Number(dow)] = factors.reduce((a, b) => a + b, 0) / factors.length;
         });
+
+        // Build exception map: "YYYY-MM-DD" → day_factor
+        const exceptionMap: Record<string, number> = {};
+        (dayExceptionsData || []).forEach((e: { exception_date: string; day_factor: number }) => {
+          const d = new Date(e.exception_date);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          exceptionMap[key] = Number(e.day_factor);
+        });
+
         const firstDay = new Date(year, month - 1, 1);
         const lastDay = new Date(year, month, 0);
         const totalDaysInMonth = lastDay.getDate();
         let scheduleWorkDays = 0;
         const curDate = new Date(firstDay);
         while (curDate <= lastDay) {
-          scheduleWorkDays += avgScheduleDayFactors[curDate.getDay()] || 0;
+          const dateKey = `${curDate.getFullYear()}-${String(curDate.getMonth() + 1).padStart(2, '0')}-${String(curDate.getDate()).padStart(2, '0')}`;
+          // Exception wins over weekly schedule
+          if (exceptionMap[dateKey] !== undefined) {
+            scheduleWorkDays += exceptionMap[dateKey];
+          } else {
+            scheduleWorkDays += avgScheduleDayFactors[curDate.getDay()] || 0;
+          }
           curDate.setDate(curDate.getDate() + 1);
         }
 
