@@ -440,44 +440,70 @@ function TrainingFeedback({
 
   if (status === "correcting") {
     return (
-      <div className="mt-2 bg-[#0F1535] rounded-[10px] p-3 border border-white/10">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[12px] text-white/70 font-medium">מה הייתה צריכה להיות התשובה?</span>
-          <button
-            type="button"
-            onClick={handleCancelCorrection}
-            className="p-1 rounded-full hover:bg-white/10 transition-colors"
-          >
-            <X className="w-3.5 h-3.5 text-white/40" />
-          </button>
+      <>
+        {/* Full-screen overlay modal */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" dir="rtl">
+          <div className="w-full max-w-[600px] bg-[#1A1F4E] rounded-[16px] border border-white/15 shadow-2xl shadow-black/50 flex flex-col max-h-[80vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <ThumbsDown className="w-4 h-4 text-orange-400" />
+                <span className="text-[15px] text-white font-medium">תיקון תשובת הסוכן</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelCorrection}
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <X className="w-4 h-4 text-white/50" />
+              </button>
+            </div>
+
+            {/* Original messages preview */}
+            <div className="px-5 py-3 border-b border-white/5 bg-white/[0.02] max-h-[200px] overflow-y-auto">
+              <p className="text-[11px] text-white/40 mb-2">השאלה המקורית:</p>
+              <p className="text-[13px] text-white/70 mb-3 bg-[#6366f1]/20 rounded-[10px] px-3 py-2 leading-relaxed">{userMessage.length > 300 ? userMessage.slice(0, 300) + "..." : userMessage}</p>
+              <p className="text-[11px] text-white/40 mb-2">תשובת דדי:</p>
+              <p className="text-[13px] text-white/50 bg-[#29318A]/30 rounded-[10px] px-3 py-2 leading-relaxed">{assistantMessage.length > 400 ? assistantMessage.slice(0, 400) + "..." : assistantMessage}</p>
+            </div>
+
+            {/* Correction input */}
+            <div className="flex-1 px-5 py-4">
+              <label className="text-[13px] text-white/70 font-medium mb-2 block">
+                מה הייתה צריכה להיות התשובה הנכונה?
+              </label>
+              <textarea
+                ref={textareaRef}
+                value={correctionText}
+                onChange={(e) => setCorrectionText(e.target.value)}
+                placeholder="כתוב כאן את התשובה הנכונה, או תאר מה היה לא בסדר ומה צריך לשנות..."
+                className="w-full bg-white/5 text-white text-[14px] leading-relaxed placeholder:text-white/30 rounded-[12px] p-4 outline-none border border-white/10 focus:border-indigo-400/50 resize-none min-h-[150px] max-h-[300px]"
+                dir="rtl"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-white/10">
+              <button
+                type="button"
+                onClick={handleCancelCorrection}
+                className="text-[13px] text-white/50 hover:text-white/70 transition-colors px-4 py-2 rounded-[10px] hover:bg-white/5"
+              >
+                ביטול
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitCorrection}
+                disabled={!correctionText.trim()}
+                className="flex items-center gap-2 text-[13px] text-white font-medium bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors px-5 py-2.5 rounded-[10px]"
+              >
+                <Send className="w-3.5 h-3.5" />
+                שמור תיקון
+              </button>
+            </div>
+          </div>
         </div>
-        <textarea
-          ref={textareaRef}
-          value={correctionText}
-          onChange={(e) => setCorrectionText(e.target.value)}
-          placeholder="תאר את התשובה הנכונה או מה היה לא בסדר..."
-          className="w-full bg-white/5 text-white text-[13px] placeholder:text-white/30 rounded-[8px] p-2.5 outline-none border border-white/10 focus:border-indigo-400/50 resize-none min-h-[80px] max-h-[200px]"
-          dir="rtl"
-        />
-        <div className="flex items-center justify-end gap-2 mt-2">
-          <button
-            type="button"
-            onClick={handleCancelCorrection}
-            className="text-[12px] text-white/50 hover:text-white/70 transition-colors px-3 py-1.5"
-          >
-            ביטול
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmitCorrection}
-            disabled={!correctionText.trim()}
-            className="flex items-center gap-1.5 text-[12px] text-white bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors px-3 py-1.5 rounded-[8px]"
-          >
-            <Send className="w-3 h-3" />
-            שמור תיקון
-          </button>
-        </div>
-      </div>
+      </>
     );
   }
 
