@@ -122,6 +122,9 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const [managedProducts, setManagedProducts] = useState<ManagedProduct[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [businessSchedule, setBusinessSchedule] = useState<Record<number, number>>({});
+  // Date-specific overrides from business_day_exceptions. Keyed as "YYYY-MM-DD".
+  // If a date appears here its day_factor wins over the weekly schedule.
+  const [dayExceptions, setDayExceptions] = useState<Record<string, number>>({});
   const [formSectionOrder, setFormSectionOrder] = useState<string[]>(["income_sources", "labor", "payments", "custom_params", "discounts", "managed_products"]);
 
   // Monthly settings for admin calculated fields
@@ -288,6 +291,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         { data: pmTypes },
         { data: schedules },
         { data: bizSettings },
+        { data: exceptionsData },
       ] = await Promise.all([
         supabase
           .from("income_sources")
@@ -334,6 +338,12 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
           .select("form_section_order, manager_monthly_salary, markup_percentage")
           .eq("id", businessId)
           .maybeSingle(),
+        // Fetch day exceptions for the current month (+/- buffer) so
+        // getDayFactorForDate can override the weekly schedule default.
+        supabase
+          .from("business_day_exceptions")
+          .select("exception_date, day_factor")
+          .eq("business_id", businessId),
       ]);
 
       // Always set manager salary + markup from business (fixes stale state when switching businesses)
@@ -372,6 +382,16 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         scheduleMap[s.day_of_week] = s.day_factor;
       });
       setBusinessSchedule(scheduleMap);
+
+      // Build exceptions map: "YYYY-MM-DD" -> day_factor.
+      // exception_date is stored as TIMESTAMPTZ so we parse to local date.
+      const exMap: Record<string, number> = {};
+      (exceptionsData || []).forEach((e: { exception_date: string; day_factor: number }) => {
+        const d = new Date(e.exception_date);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        exMap[key] = Number(e.day_factor);
+      });
+      setDayExceptions(exMap);
 
       setIncomeSources(sources || []);
       setCustomParameters(parameters || []);
@@ -569,14 +589,21 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
     }
   };
 
-  // Get day_factor from business schedule for a given date
+  // Get day_factor for a given date.
+  // Priority: day exception (specific date override) > weekly schedule > null.
   const getDayFactorForDate = useCallback((dateStr: string): string | null => {
-    if (!dateStr || Object.keys(businessSchedule).length === 0) return null;
+    if (!dateStr) return null;
+    // 1. Check date-specific exceptions first (holidays, partial days, etc.)
+    if (dayExceptions[dateStr] !== undefined) {
+      return dayExceptions[dateStr].toString();
+    }
+    // 2. Fall back to the weekly schedule
+    if (Object.keys(businessSchedule).length === 0) return null;
     const date = new Date(dateStr + "T00:00:00");
     const dayOfWeek = date.getDay(); // 0=Sunday, 6=Saturday
     const factor = businessSchedule[dayOfWeek];
     return factor !== undefined ? factor.toString() : null;
-  }, [businessSchedule]);
+  }, [businessSchedule, dayExceptions]);
 
   const handleChange = (field: keyof BaseFormData, value: string) => {
     setFormData((prev) => {
@@ -1069,7 +1096,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                   )}
                 </FormField>
 
-                {isAdmin && <FormField label="יום חלקי/יום מלא">
+                <FormField label="יום חלקי/יום מלא">
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -1081,7 +1108,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     onChange={(e) => handleChange("day_factor", e.target.value)}
                     className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                   />
-                </FormField>}
+                </FormField>
 
                 <FormField label="כמות מנות">
                   <Input
@@ -1225,22 +1252,23 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                   )}
                 </FormField>
 
-                {/* יום חלקי/יום מלא - רק לאדמין */}
-                {isAdmin && (
-                  <FormField label="יום חלקי/יום מלא">
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="1"
-                      step="0.1"
-                      min="0"
-                      max="1"
-                      value={formData.day_factor}
-                      onChange={(e) => handleChange("day_factor", e.target.value)}
-                      className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
-                    />
-                  </FormField>
-                )}
+                {/* יום חלקי/יום מלא — accessible to all users so business
+                    owners can override the default schedule for specific days
+                    (e.g. half-day, closed). The schedule provides the default;
+                    the user corrects it per actual work hours. */}
+                <FormField label="יום חלקי/יום מלא">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="1"
+                    step="0.1"
+                    min="0"
+                    max="1"
+                    value={formData.day_factor}
+                    onChange={(e) => handleChange("day_factor", e.target.value)}
+                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                  />
+                </FormField>
 
                 <FormField label='סה"כ קופה'>
                   <NumberInput
