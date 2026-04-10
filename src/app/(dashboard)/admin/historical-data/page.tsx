@@ -100,8 +100,10 @@ const headerAliases: Record<string, string> = {
   'הפרש מתקציב ממוצע 2 בש"ח': "avg_income_2_budget_diff",
   'הפרש מתקציב ממוצע 3 בש"ח': "avg_income_3_budget_diff",
   'הפרש מתקציב ממוצע 4 בש"ח': "avg_income_4_budget_diff",
-  // YoY changes
+  // YoY changes — accept both the full header and the shortened "%"
+  // variant that some CSV exports use (e.g. "שינוי משנה שעברה %").
   "שינוי משנה שעברה מכירות באחוזים": "sales_yoy_change_pct",
+  "שינוי משנה שעברה %": "sales_yoy_change_pct",
   "עלות עבודה שינוי משנה שעבר באחוזים": "labor_cost_yoy_change_pct",
   "עלות מכר שינוי משנה שעבר באחוזים": "food_cost_yoy_change_pct",
   "שינוי משנה שעברה מוצר מנוהל 1 באחוזים": "managed_product_1_yoy_change_pct",
