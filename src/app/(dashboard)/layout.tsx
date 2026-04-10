@@ -95,6 +95,7 @@ const adminMenuItems = [
   { id: 112, label: "משתמשים מחוברים", href: "/admin/online-users", key: "admin-online-users" },
   { id: 114, label: "תכניות בונוסים", href: "/admin/bonus-plans", key: "admin-bonus-plans" },
   { id: 113, label: "חריגות ימי עסקים", href: "/admin/day-exceptions", key: "admin-day-exceptions" },
+  { id: 117, label: "שיחות AI", href: "/admin/ai-conversations", key: "admin-ai-conversations" },
 ];
 
 // Page titles mapping
