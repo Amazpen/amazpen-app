@@ -964,10 +964,23 @@ export function DailyEntriesModal({
     }
   };
 
-  // Handle delete
+  // Handle delete — soft-delete the entry AND hard-delete its related
+  // breakdown records so they don't keep inflating dashboard totals.
   const handleDelete = (entryId: string) => {
     confirm("האם אתה בטוח שברצונך למחוק רשומה זו?", async () => {
       const supabase = createClient();
+
+      // Clean up related records first (they don't have deleted_at —
+      // a soft-deleted parent with live children caused the income to
+      // count twice when the user re-entered the same date).
+      await Promise.all([
+        supabase.from("daily_income_breakdown").delete().eq("daily_entry_id", entryId),
+        supabase.from("daily_payment_breakdown").delete().eq("daily_entry_id", entryId),
+        supabase.from("daily_parameters").delete().eq("daily_entry_id", entryId),
+        supabase.from("daily_product_usage").delete().eq("daily_entry_id", entryId),
+        supabase.from("daily_receipts").delete().eq("daily_entry_id", entryId),
+      ]);
+
       const { error } = await supabase
         .from("daily_entries")
         .update({ deleted_at: new Date().toISOString() })
