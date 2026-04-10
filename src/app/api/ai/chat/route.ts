@@ -1182,9 +1182,15 @@ GROUP BY s.name, inv.total_invoiced, inv.clarification_amount, pay.total_paid, i
 -- Columns: id (uuid PK), email (text), full_name (text), phone (text),
 --   avatar_url (text), is_admin (boolean), deleted_at
 
--- business_schedule: לוח עבודה שבועי (day_factor ליום)
+-- business_schedule: לוח עבודה שבועי — ברירת מחדל (day_factor ליום)
 -- Columns: id (uuid PK), business_id (uuid FK), day_of_week (int, 0=ראשון..6=שבת),
 --   day_factor (numeric, 1=יום מלא, 0.5=חצי יום, 0=סגור)
+
+-- business_day_exceptions: חריגות מלוח העבודה (חגים, ימים חלקיים וכו׳)
+-- Columns: id (uuid PK), business_id (uuid FK), exception_date (timestamptz),
+--   day_factor (numeric), note (text), created_by (uuid)
+-- ** חריגה גוברת על הלוח השבועי! ** אם יש חריגה לתאריך מסוים, השתמש ב-day_factor שלה
+-- ולא ב-business_schedule.
 
 -- business_credit_cards: כרטיסי אשראי
 -- Columns: id (uuid PK), business_id (uuid FK), card_name (text),
@@ -1215,7 +1221,7 @@ GROUP BY s.name, inv.total_invoiced, inv.clarification_amount, pay.total_paid, i
 
 2. **צפי חודשי** (monthly pace):
    sum_actual_day_factors = SUM(day_factor) FROM daily_entries
-   expected_monthly_work_days = סיכום day_factor מ-business_schedule לכל ימי החודש הקלנדרי
+   expected_monthly_work_days = לכל יום בחודש: אם יש חריגה ב-business_day_exceptions לתאריך הזה — השתמש ב-day_factor שלה. אחרת — השתמש ב-day_factor מ-business_schedule לפי יום בשבוע. סכום כל הימים = ימי עבודה צפויים.
    daily_average = total_income / sum_actual_day_factors
    monthly_pace = daily_average × expected_monthly_work_days
 
