@@ -722,8 +722,12 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
         const offMonth = offlineEntryDate.getMonth();
         const offLastDay = new Date(offYear, offMonth + 1, 0).getDate();
         for (let d = 1; d <= offLastDay; d++) {
-          const dow = new Date(offYear, offMonth, d).getDay();
-          offlineWorkDays += businessSchedule[dow] || 0;
+          const dk = `${offYear}-${String(offMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          if (dayExceptions[dk] !== undefined) {
+            offlineWorkDays += dayExceptions[dk];
+          } else {
+            offlineWorkDays += businessSchedule[new Date(offYear, offMonth, d).getDay()] || 0;
+          }
         }
         if (offlineWorkDays === 0) offlineWorkDays = 26;
         const offlineManagerDailyCost = offlineWorkDays > 0
@@ -761,14 +765,20 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       const saveEntryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
       const saveDayFactor = parseFloat(formData.day_factor) || 1;
 
-      // Calculate expected work days from business schedule (sum of day_factors across all calendar days)
+      // Calculate expected work days from schedule + exceptions (sum of day_factors across all calendar days)
       let saveWorkDaysInMonth = 0;
       const saveYear = saveEntryDate.getFullYear();
       const saveMonth = saveEntryDate.getMonth();
       const saveLastDay = new Date(saveYear, saveMonth + 1, 0).getDate();
       for (let d = 1; d <= saveLastDay; d++) {
-        const dow = new Date(saveYear, saveMonth, d).getDay();
-        saveWorkDaysInMonth += businessSchedule[dow] || 0;
+        const dateObj = new Date(saveYear, saveMonth, d);
+        const dateKey = `${saveYear}-${String(saveMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        // Exception wins over weekly schedule
+        if (dayExceptions[dateKey] !== undefined) {
+          saveWorkDaysInMonth += dayExceptions[dateKey];
+        } else {
+          saveWorkDaysInMonth += businessSchedule[dateObj.getDay()] || 0;
+        }
       }
       if (saveWorkDaysInMonth === 0) saveWorkDaysInMonth = 26; // Fallback
 
@@ -1345,13 +1355,18 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                             const laborWithMarkup = laborCost * monthlyMarkup;
                             const entryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
                             const dayFactor = parseFloat(formData.day_factor) || 1;
-                            // Calculate work days from schedule
+                            // Calculate work days from schedule + exceptions
                             let displayWorkDays = 0;
                             const dYear = entryDate.getFullYear();
                             const dMonth = entryDate.getMonth();
                             const dLastDay = new Date(dYear, dMonth + 1, 0).getDate();
                             for (let dd = 1; dd <= dLastDay; dd++) {
-                              displayWorkDays += businessSchedule[new Date(dYear, dMonth, dd).getDay()] || 0;
+                              const dk = `${dYear}-${String(dMonth + 1).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+                              if (dayExceptions[dk] !== undefined) {
+                                displayWorkDays += dayExceptions[dk];
+                              } else {
+                                displayWorkDays += businessSchedule[new Date(dYear, dMonth, dd).getDay()] || 0;
+                              }
                             }
                             if (displayWorkDays === 0) displayWorkDays = 26;
                             const dailyManagerCost = displayWorkDays > 0
