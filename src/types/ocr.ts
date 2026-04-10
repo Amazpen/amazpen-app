@@ -61,6 +61,7 @@ export interface OCRDocument {
   created_invoice_id?: string;
   created_payment_id?: string;
   created_delivery_note_id?: string;
+  merged_document_ids?: string[];
 }
 
 export interface OCRDeliveryNoteEntry {
@@ -133,6 +134,8 @@ export interface OCRFormData {
   daily_parameter_data?: Record<string, string>;
   daily_product_usage?: Record<string, { opening_stock: string; received_quantity: string; closing_stock: string }>;
   daily_managed_products?: Array<{ id: string; unit_cost: number }>;
+  // Merged document IDs (for multi-page document merging)
+  merged_document_ids?: string[];
   // Pearla-specific daily entry fields
   daily_pearla_data?: {
     portions_count: string;

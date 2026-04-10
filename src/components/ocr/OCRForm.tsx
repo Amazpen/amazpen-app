@@ -62,6 +62,9 @@ interface OCRFormProps {
   isLoading?: boolean;
   showCalculator?: boolean;
   onCalculatorToggle?: () => void;
+  mergedDocuments?: OCRDocument[];
+  pendingDocuments?: OCRDocument[];
+  onMergeDocuments?: (docs: OCRDocument[]) => void;
 }
 
 // Tabs for document type selection
@@ -148,6 +151,9 @@ export default function OCRForm({
   isLoading = false,
   showCalculator = false,
   onCalculatorToggle,
+  mergedDocuments = [],
+  pendingDocuments = [],
+  onMergeDocuments,
 }: OCRFormProps) {
   const { confirm, ConfirmDialog } = useConfirmDialog();
 
@@ -175,6 +181,10 @@ export default function OCRForm({
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [rejectCustomText, setRejectCustomText] = useState('');
+
+  // Merge documents state
+  const [showMergePicker, setShowMergePicker] = useState(false);
+  const [mergeSelectedIds, setMergeSelectedIds] = useState<Set<string>>(new Set());
 
   // Fixed-expense linking — when the selected supplier is marked as is_fixed_expense,
   // pull their currently-open monthly invoices so the user can attach this document
@@ -1311,6 +1321,7 @@ export default function OCRForm({
           daily_parameter_data: dailyParameterData,
           daily_product_usage: dailyProductUsage,
           daily_managed_products: dailyManagedProducts.map(p => ({ id: p.id, unit_cost: p.unit_cost })),
+          merged_document_ids: mergedDocuments.length > 0 ? mergedDocuments.map(d => d.id) : undefined,
           ...(isPearla && { daily_pearla_data: {
             portions_count: dailyPearlaData.portions_count,
             serving_supplement: dailyPearlaData.serving_supplement,
@@ -1366,6 +1377,7 @@ export default function OCRForm({
         payment_notes: paymentTabNotes,
         payment_methods: paymentMethods,
         payment_linked_invoice_ids: Array.from(paymentSelectedInvoiceIds),
+        merged_document_ids: mergedDocuments.length > 0 ? mergedDocuments.map(d => d.id) : undefined,
       };
       clearDraft();
       onApprove(formData);
@@ -1416,6 +1428,7 @@ export default function OCRForm({
         summary_is_closed: summaryIsClosed,
         // Pass existing delivery note IDs to link (instead of creating new ones)
         summary_existing_delivery_note_ids: Array.from(selectedDeliveryNoteIds),
+        merged_document_ids: mergedDocuments.length > 0 ? mergedDocuments.map(d => d.id) : undefined,
       };
       clearDraft();
       onApprove(formData);
@@ -1456,6 +1469,7 @@ export default function OCRForm({
         is_paid: isPaid,
         link_to_fixed_invoice_id: linkToFixedInvoiceId,
         line_items: lineItems.length > 0 ? lineItems : undefined,
+        merged_document_ids: mergedDocuments.length > 0 ? mergedDocuments.map(d => d.id) : undefined,
         ...(isPaid && {
           payment_method: inlinePaymentMethods[0]?.method || inlinePaymentMethod,
           payment_date: inlinePaymentDate,
@@ -3280,10 +3294,104 @@ export default function OCRForm({
         ))}
       </div>
 
+      {/* Merge documents section */}
+      {document && onMergeDocuments && (
+        <div className="px-4 py-2 border-b border-[#4C526B]" dir="rtl">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              type="button"
+              onClick={() => {
+                setMergeSelectedIds(new Set());
+                setShowMergePicker(true);
+              }}
+              className="bg-[#29318A]/30 hover:bg-[#29318A]/50 text-white text-[12px] font-medium px-3 py-1.5 rounded-[7px] transition-colors h-auto"
+            >
+              + צרף עמודים נוספים
+            </Button>
+            {mergedDocuments.map((md) => (
+              <span
+                key={md.id}
+                className="inline-flex items-center gap-1 bg-[#29318A]/20 border border-[#29318A]/40 text-white text-[11px] px-2 py-1 rounded-[6px]"
+              >
+                {md.original_filename || md.source_sender_name || md.id.slice(0, 8)}
+                <button
+                  type="button"
+                  onClick={() => onMergeDocuments(mergedDocuments.filter(d => d.id !== md.id))}
+                  className="text-white/50 hover:text-white"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Merge picker Sheet */}
+      <Sheet open={showMergePicker} onOpenChange={setShowMergePicker}>
+        <SheetContent side="right" className="w-[340px] bg-[#0F1535] border-l border-[#4C526B] p-0 flex flex-col">
+          <SheetHeader className="px-4 py-3 border-b border-[#4C526B]">
+            <SheetTitle className="text-white text-[15px] text-right">בחר מסמכים לצירוף</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2" dir="rtl">
+            {pendingDocuments.filter(d => d.id !== document?.id && !mergedDocuments.some(m => m.id === d.id)).length === 0 ? (
+              <p className="text-white/50 text-[13px] text-center py-8">אין מסמכים ממתינים נוספים</p>
+            ) : (
+              pendingDocuments
+                .filter(d => d.id !== document?.id && !mergedDocuments.some(m => m.id === d.id))
+                .map((pd) => (
+                  <label
+                    key={pd.id}
+                    className={`flex items-center gap-3 p-2 rounded-[8px] cursor-pointer transition-colors ${
+                      mergeSelectedIds.has(pd.id) ? 'bg-[#29318A]/30 border border-[#29318A]' : 'bg-[#1A1F3D] border border-[#4C526B]/50 hover:border-[#4C526B]'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={mergeSelectedIds.has(pd.id)}
+                      onChange={() => {
+                        setMergeSelectedIds(prev => {
+                          const next = new Set(prev);
+                          if (next.has(pd.id)) next.delete(pd.id);
+                          else next.add(pd.id);
+                          return next;
+                        });
+                      }}
+                      className="w-4 h-4 rounded accent-[#29318A] shrink-0"
+                    />
+                    <div className="w-[50px] h-[50px] rounded-[4px] overflow-hidden bg-[#0a0d1f] shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={pd.image_url} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-[12px] truncate">{pd.original_filename || pd.source_sender_name || 'מסמך'}</p>
+                      <p className="text-white/40 text-[11px]">{new Date(pd.created_at).toLocaleDateString('he-IL')}</p>
+                    </div>
+                  </label>
+                ))
+            )}
+          </div>
+          <div className="px-4 py-3 border-t border-[#4C526B]">
+            <Button
+              type="button"
+              disabled={mergeSelectedIds.size === 0}
+              onClick={() => {
+                const selected = pendingDocuments.filter(d => mergeSelectedIds.has(d.id));
+                onMergeDocuments?.([...mergedDocuments, ...selected]);
+                setShowMergePicker(false);
+              }}
+              className="w-full h-[40px] bg-[#29318A] hover:bg-[#3D44A0] text-white text-[14px] font-medium rounded-[8px] transition-colors disabled:opacity-40"
+            >
+              צרף {mergeSelectedIds.size > 0 ? `(${mergeSelectedIds.size})` : ''}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* Duplicate warning banner */}
       {duplicateWarning && (
         <div className="mx-4 mt-2 p-3 bg-[#F59E0B]/15 border border-[#F59E0B]/40 rounded-[8px] text-[#F59E0B] text-[13px] font-medium text-right" dir="rtl">
-          ⚠️ {duplicateWarning}
+          {duplicateWarning}
         </div>
       )}
 

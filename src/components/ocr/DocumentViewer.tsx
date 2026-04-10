@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 
 interface DocumentViewerProps {
   imageUrl: string;
+  imageUrls?: string[];
   fileType?: string;
   onCrop?: (croppedImageUrl: string) => void;
   showCalculator?: boolean;
@@ -23,7 +24,14 @@ function isPdfUrl(url: string, fileType?: string): boolean {
   }
 }
 
-export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalculator, onCalculatorToggle, calcButtonRef }: DocumentViewerProps) {
+export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, showCalculator, onCalculatorToggle, calcButtonRef }: DocumentViewerProps) {
+  // Resolve URLs: prefer imageUrls array, fall back to single imageUrl
+  const resolvedUrls = imageUrls?.length ? imageUrls : (imageUrl ? [imageUrl] : []);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const activeUrl = resolvedUrls[currentPageIndex] || imageUrl;
+  const totalPages = resolvedUrls.length;
+  const hasMultiplePages = totalPages > 1;
+
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -36,7 +44,29 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
   const [_imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  const isPdf = isPdfUrl(imageUrl, fileType);
+  // Reset zoom/rotation/position when page changes
+  useEffect(() => {
+    setZoom(1);
+    setRotation(0);
+    setPosition({ x: 0, y: 0 });
+    setImageLoaded(false);
+    setImageError(false);
+  }, [currentPageIndex]);
+
+  // Reset page index when URLs change
+  useEffect(() => {
+    setCurrentPageIndex(0);
+  }, [imageUrls, imageUrl]);
+
+  const handlePrevPage = useCallback(() => {
+    setCurrentPageIndex(prev => Math.max(0, prev - 1));
+  }, []);
+
+  const handleNextPage = useCallback(() => {
+    setCurrentPageIndex(prev => Math.min(totalPages - 1, prev + 1));
+  }, [totalPages]);
+
+  const isPdf = isPdfUrl(activeUrl, fileType);
   const [pdfPages, setPdfPages] = useState<string[]>([]);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState(false);
@@ -258,7 +288,7 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
         const pdfjsLib = await import('pdfjs-dist') as any;
         pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
-        const response = await fetch(imageUrl);
+        const response = await fetch(activeUrl);
         const arrayBuffer = await response.arrayBuffer();
         const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const pages: string[] = [];
@@ -294,7 +324,7 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
     })();
 
     return () => { cancelled = true; };
-  }, [isPdf, imageUrl]);
+  }, [isPdf, activeUrl]);
 
   return (
     <div style={{ height: '100%', background: '#0a0d1f', borderRadius: '10px', overflow: 'hidden' }}>
@@ -424,6 +454,39 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
         </div>
 
         <div className="flex items-center gap-1">
+        {/* Page navigation (multi-page) */}
+        {hasMultiplePages && (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePrevPage}
+              disabled={currentPageIndex === 0}
+              className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#29318A]/30 hover:bg-[#29318A]/50 text-white transition-colors disabled:opacity-30"
+              title="עמוד קודם"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </Button>
+            <span className="text-white text-sm min-w-[50px] text-center" dir="ltr">
+              {currentPageIndex + 1} / {totalPages}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNextPage}
+              disabled={currentPageIndex === totalPages - 1}
+              className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#29318A]/30 hover:bg-[#29318A]/50 text-white transition-colors disabled:opacity-30"
+              title="עמוד הבא"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </Button>
+            <div className="w-px h-6 bg-[#4C526B] mx-1" />
+          </>
+        )}
         {/* Calculator toggle */}
         {onCalculatorToggle && (
           <Button
@@ -523,14 +586,14 @@ export default function DocumentViewer({ imageUrl, fileType, onCrop, showCalcula
             {imageError && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#EB5757', flexDirection: 'column', gap: '8px' }}>
                 <p>שגיאה בטעינת התמונה</p>
-                <a href={imageUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4C9AFF', textDecoration: 'underline', fontSize: '14px' }}>פתח תמונה בחלון חדש</a>
+                <a href={activeUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#4C9AFF', textDecoration: 'underline', fontSize: '14px' }}>פתח תמונה בחלון חדש</a>
               </div>
             )}
 
             {/* Image - using next/image with ref access needed by crop functionality */}
             <Image
               ref={imageRef}
-              src={imageUrl}
+              src={activeUrl}
               alt="מסמך"
               onLoad={() => setImageLoaded(true)}
               onError={() => setImageError(true)}

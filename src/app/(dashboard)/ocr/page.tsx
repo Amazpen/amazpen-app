@@ -50,6 +50,7 @@ export default function OCRPage() {
   const [showMobileViewer, setShowMobileViewer] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [mergedDocuments, setMergedDocuments] = useState<OCRDocument[]>([]);
 
   // Fetch OCR documents from Supabase
   const fetchDocuments = useCallback(async (): Promise<OCRDocument[]> => {
@@ -240,6 +241,7 @@ export default function OCRPage() {
   // whole approve loop.
   const handleSelectDocument = useCallback((document: OCRDocument) => {
     setCurrentDocument(document);
+    setMergedDocuments([]);
     // Auto-select the business identified by AI from the document
     if (document.business_id) {
       setSelectedBusinessId(document.business_id);
@@ -721,6 +723,7 @@ export default function OCRPage() {
         }
 
         // Update OCR document status in Supabase
+        const mergedIds = formData.merged_document_ids || [];
         await supabase.from('ocr_documents').update({
           status: 'approved',
           reviewed_by: user?.id || null,
@@ -729,12 +732,26 @@ export default function OCRPage() {
           created_invoice_id: createdInvoiceId,
           created_payment_id: createdPaymentId,
           created_delivery_note_id: createdDeliveryNoteId,
+          merged_document_ids: mergedIds.length > 0 ? mergedIds : null,
         }).eq('id', currentDocument.id);
+
+        // Mark merged documents as approved too
+        if (mergedIds.length > 0) {
+          await supabase.from('ocr_documents').update({
+            status: 'approved',
+            reviewed_by: user?.id || null,
+            reviewed_at: new Date().toISOString(),
+          }).in('id', mergedIds);
+        }
+
+        // Clear merged state
+        setMergedDocuments([]);
 
         // Re-fetch documents and auto-select next pending
         const fresh = await fetchDocuments();
+        const excludeIds = new Set([currentDocument.id, ...mergedIds]);
         const nextPending = fresh.find(
-          (d) => d.status === 'pending' && d.id !== currentDocument.id
+          (d) => d.status === 'pending' && !excludeIds.has(d.id)
         );
         if (nextPending) {
           handleSelectDocument(nextPending);
@@ -948,8 +965,9 @@ export default function OCRPage() {
         >
           {currentDocument ? (
             <DocumentViewer
-              key={currentDocument.image_url}
+              key={currentDocument.image_url + mergedDocuments.map(d => d.id).join(',')}
               imageUrl={currentDocument.image_url}
+              imageUrls={[currentDocument.image_url, ...mergedDocuments.map(d => d.image_url)]}
               fileType={currentDocument.file_type}
               onCrop={handleCrop}
               showCalculator={showCalculator}
@@ -989,6 +1007,9 @@ export default function OCRPage() {
             isLoading={isLoading}
             showCalculator={showCalculator}
             onCalculatorToggle={() => setShowCalculator(v => !v)}
+            mergedDocuments={mergedDocuments}
+            pendingDocuments={documents.filter(d => d.status === 'pending' && d.business_id === (currentDocument?.business_id || selectedBusinessId))}
+            onMergeDocuments={setMergedDocuments}
           />
         </div>
       </div>
