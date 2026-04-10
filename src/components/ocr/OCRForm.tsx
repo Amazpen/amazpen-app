@@ -3359,13 +3359,30 @@ export default function OCRForm({
                       }}
                       className="w-4 h-4 rounded accent-[#29318A] shrink-0"
                     />
-                    <div className="w-[50px] h-[50px] rounded-[4px] overflow-hidden bg-[#0a0d1f] shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={pd.image_url} alt="" className="w-full h-full object-cover" />
+                    <div className="w-[50px] h-[50px] rounded-[4px] overflow-hidden bg-[#0a0d1f] shrink-0 flex items-center justify-center">
+                      {pd.file_type === 'pdf' || pd.image_url?.toLowerCase().endsWith('.pdf') ? (
+                        <div className="flex flex-col items-center">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                          <span className="text-[8px] text-indigo-400 font-bold">PDF</span>
+                        </div>
+                      ) : (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={pd.image_url} alt="" className="w-full h-full object-cover" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-[12px] truncate">{pd.original_filename || pd.source_sender_name || 'מסמך'}</p>
-                      <p className="text-white/40 text-[11px]">{new Date(pd.created_at).toLocaleDateString('he-IL')}</p>
+                      <p className="text-white text-[12px] truncate">
+                        {pd.ocr_data?.supplier_name || pd.source_sender_name || pd.original_filename || 'מסמך'}
+                      </p>
+                      {pd.ocr_data?.total_amount != null && pd.ocr_data.total_amount > 0 && (
+                        <p className="text-[#17DB4E] text-[11px] font-semibold ltr-num" dir="ltr">
+                          ₪{pd.ocr_data.total_amount.toLocaleString('he-IL')}
+                        </p>
+                      )}
+                      <p className="text-white/40 text-[10px]">
+                        {new Date(pd.created_at).toLocaleDateString('he-IL')}
+                        {pd.ocr_data?.document_number ? ` · ${pd.ocr_data.document_number}` : ''}
+                      </p>
                     </div>
                   </label>
                 ))
