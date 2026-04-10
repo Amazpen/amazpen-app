@@ -212,7 +212,6 @@ export default function AdminAiConversationsPage() {
               ))}
             </div>
           </div>
-          <MessageCircle className="w-4 h-4 text-indigo-400" />
         </div>
       </div>
 
