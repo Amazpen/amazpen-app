@@ -432,7 +432,7 @@ export function HistoryModal({
         }
       } else if (cardType === 'laborCost') {
         // Fetch labor cost data
-        const [entriesResult, prevEntriesResult, businessDataResult, goalsResult, scheduleResult] = await Promise.all([
+        const [entriesResult, prevEntriesResult, businessDataResult, goalsResult, scheduleResult, exceptionsResult] = await Promise.all([
           supabase
             .from("daily_entries")
             .select("entry_date, total_register, labor_cost, day_factor")
@@ -461,6 +461,13 @@ export function HistoryModal({
             .from("business_schedule")
             .select("day_of_week, day_factor")
             .in("business_id", businessIds),
+          // Day exceptions for both current and previous year
+          supabase
+            .from("business_day_exceptions")
+            .select("exception_date, day_factor")
+            .in("business_id", businessIds)
+            .gte("exception_date", prevYearStart)
+            .lte("exception_date", yearEnd),
         ]);
 
         const entries = entriesResult.data || [];
@@ -468,6 +475,7 @@ export function HistoryModal({
         const businessData = businessDataResult.data || [];
         const goals = goalsResult.data || [];
         const scheduleData = scheduleResult.data || [];
+        const exceptionsData = exceptionsResult.data || [];
 
         const defaultVatPct = businessData.reduce((sum, b) => sum + (Number(b.vat_percentage) || 0), 0) / Math.max(businessData.length, 1);
         const defaultMarkup = businessData.reduce((sum, b) => sum + (Number(b.markup_percentage) || 1), 0) / Math.max(businessData.length, 1);
@@ -483,16 +491,29 @@ export function HistoryModal({
           };
         });
 
-        // Calculate expected work days per month
+        // Build exception map: "YYYY-MM-DD" → day_factor
+        const exceptionMap: Record<string, number> = {};
+        exceptionsData.forEach((e: { exception_date: string; day_factor: number }) => {
+          const d = new Date(e.exception_date);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          exceptionMap[key] = Number(e.day_factor);
+        });
+
+        // Calculate expected work days per month (exception-first, then weekly schedule)
         const calcExpectedWorkDays = (monthIdx: number, yr: number) => {
           const monthStart = new Date(yr, monthIdx, 1);
           const monthEnd = new Date(yr, monthIdx + 1, 0);
           let total = 0;
           const d = new Date(monthStart);
           while (d <= monthEnd) {
-            const dow = d.getDay();
-            const dayFactor = scheduleData.find(s => s.day_of_week === dow)?.day_factor || 0;
-            if (dayFactor > 0) total += dayFactor;
+            const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            if (exceptionMap[dateKey] !== undefined) {
+              total += exceptionMap[dateKey];
+            } else {
+              const dow = d.getDay();
+              const dayFactor = scheduleData.find(s => s.day_of_week === dow)?.day_factor || 0;
+              if (dayFactor > 0) total += dayFactor;
+            }
             d.setDate(d.getDate() + 1);
           }
           return total || 22;

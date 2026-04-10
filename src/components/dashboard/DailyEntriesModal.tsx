@@ -656,6 +656,7 @@ export function DailyEntriesModal({
       { data: allInvoicesData },
       { data: allPaymentsData },
       { data: priorCommitmentsData },
+      { data: dayExceptionsData },
     ] = await Promise.all([
       // 1. Entry income breakdown
       supabase
@@ -750,6 +751,13 @@ export function DailyEntriesModal({
         .select("monthly_amount, total_installments, start_date, end_date")
         .eq("business_id", businessId)
         .is("deleted_at", null),
+      // 17. Day exceptions for this month (holidays, partial days)
+      supabase
+        .from("business_day_exceptions")
+        .select("exception_date, day_factor")
+        .eq("business_id", businessId)
+        .gte("exception_date", firstOfMonth)
+        .lte("exception_date", lastOfMonth),
     ]);
 
     // Sequential fetches that depend on parallel results
@@ -824,11 +832,25 @@ export function DailyEntriesModal({
       const factors = scheduleDayFactors[Number(dow)];
       avgScheduleDayFactors[Number(dow)] = factors.reduce((a, b) => a + b, 0) / factors.length;
     });
+
+    // Build exception map: "YYYY-MM-DD" → day_factor
+    const exceptionMap: Record<string, number> = {};
+    (dayExceptionsData || []).forEach((e: { exception_date: string; day_factor: number }) => {
+      const d = new Date(e.exception_date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      exceptionMap[key] = Number(e.day_factor);
+    });
+
     let workDaysInMonth = 0;
     const curDate = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
     while (curDate <= lastDay) {
-      workDaysInMonth += avgScheduleDayFactors[curDate.getDay()] || 0;
+      const dateKey = `${curDate.getFullYear()}-${String(curDate.getMonth() + 1).padStart(2, '0')}-${String(curDate.getDate()).padStart(2, '0')}`;
+      if (exceptionMap[dateKey] !== undefined) {
+        workDaysInMonth += exceptionMap[dateKey];
+      } else {
+        workDaysInMonth += avgScheduleDayFactors[curDate.getDay()] || 0;
+      }
       curDate.setDate(curDate.getDate() + 1);
     }
     // Fallback to 26 if no schedule data
