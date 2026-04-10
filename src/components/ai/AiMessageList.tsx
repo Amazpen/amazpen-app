@@ -17,9 +17,12 @@ interface AiMessageListProps {
   isLoadingMore?: boolean;
   onLoadMore?: () => void;
   userAvatarUrl?: string | null;
+  isAdmin?: boolean;
+  businessId?: string;
+  sessionId?: string | null;
 }
 
-export function AiMessageList({ messages, isLoading, thinkingStatus, lastError, getChartData, getDisplayText, searchQuery, hasMore, isLoadingMore, onLoadMore, userAvatarUrl }: AiMessageListProps) {
+export function AiMessageList({ messages, isLoading, thinkingStatus, lastError, getChartData, getDisplayText, searchQuery, hasMore, isLoadingMore, onLoadMore, userAvatarUrl, isAdmin, businessId, sessionId }: AiMessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
@@ -87,19 +90,29 @@ export function AiMessageList({ messages, isLoading, thinkingStatus, lastError, 
           )}
         </div>
       )}
-      {messages.map((message, idx) => (
-        <AiMessageBubble
-          key={message.id}
-          message={message}
-          thinkingStatus={isLoading && idx === messages.length - 1 ? thinkingStatus : null}
-          errorText={!isLoading && idx === messages.length - 1 && lastError ? lastError : undefined}
-          isStreaming={isLoading && idx === messages.length - 1}
-          getChartData={getChartData}
-          getDisplayText={getDisplayText}
-          searchQuery={searchQuery}
-          userAvatarUrl={userAvatarUrl}
-        />
-      ))}
+      {messages.map((message, idx) => {
+        // Find the preceding user message for training feedback context
+        const prevUserMessage = message.role === "assistant" && idx > 0
+          ? messages.slice(0, idx).reverse().find(m => m.role === "user")
+          : undefined;
+        return (
+          <AiMessageBubble
+            key={message.id}
+            message={message}
+            thinkingStatus={isLoading && idx === messages.length - 1 ? thinkingStatus : null}
+            errorText={!isLoading && idx === messages.length - 1 && lastError ? lastError : undefined}
+            isStreaming={isLoading && idx === messages.length - 1}
+            getChartData={getChartData}
+            getDisplayText={getDisplayText}
+            searchQuery={searchQuery}
+            userAvatarUrl={userAvatarUrl}
+            isAdmin={isAdmin}
+            businessId={businessId}
+            sessionId={sessionId}
+            prevUserMessageText={prevUserMessage ? getDisplayText(prevUserMessage) : undefined}
+          />
+        );
+      })}
       {isLoading && messages.length > 0 && messages[messages.length - 1].role === "user" && (
         <AiThinkingBubble status={thinkingStatus || "חושב..."} />
       )}

@@ -316,6 +316,7 @@ export function useAiChat(businessId: string | undefined, isAdmin = false, viewA
     isLoadingMore,
     hasMore,
     lastError,
+    sessionId: sessionIdRef.current,
     sendMessage: handleSend,
     clearChat,
     loadMore,

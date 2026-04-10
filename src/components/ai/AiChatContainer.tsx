@@ -34,7 +34,7 @@ interface AiChatContainerProps {
 export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusinessChange, userAvatarUrl }: AiChatContainerProps) {
   const [adminViewAsOwner, setAdminViewAsOwner] = useState(false);
   const effectiveIsAdmin = isAdmin && !adminViewAsOwner;
-  const { messages, isLoading, thinkingStatus, isLoadingHistory, isLoadingMore, hasMore, lastError, sendMessage, clearChat, loadMore, getChartData, getDisplayText } = useAiChat(businessId, effectiveIsAdmin, adminViewAsOwner);
+  const { messages, isLoading, thinkingStatus, isLoadingHistory, isLoadingMore, hasMore, lastError, sessionId, sendMessage, clearChat, loadMore, getChartData, getDisplayText } = useAiChat(businessId, effectiveIsAdmin, adminViewAsOwner);
   const hasMessages = messages.length > 0;
   const [isBusinessPickerOpen, setIsBusinessPickerOpen] = useState(false);
   const businessPickerRef = useRef<HTMLDivElement>(null);
@@ -314,6 +314,9 @@ export function AiChatContainer({ isAdmin, businessId, allBusinesses, onBusiness
           isLoadingMore={isLoadingMore}
           onLoadMore={loadMore}
           userAvatarUrl={userAvatarUrl}
+          isAdmin={isAdmin}
+          businessId={businessId}
+          sessionId={sessionId}
         />
       ) : (
         <AiWelcomeScreen

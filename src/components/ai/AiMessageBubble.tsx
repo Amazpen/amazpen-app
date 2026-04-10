@@ -3,7 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, ThumbsUp, ThumbsDown, X, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { UIMessage } from "ai";
 import type { AiChartData, AiProposedAction } from "@/types/ai";
@@ -349,6 +349,165 @@ function UserIcon({ avatarUrl }: { avatarUrl?: string | null }) {
   );
 }
 
+// Training feedback buttons + correction modal (admin only)
+function TrainingFeedback({
+  userMessage,
+  assistantMessage,
+  businessId,
+  sessionId,
+}: {
+  userMessage: string;
+  assistantMessage: string;
+  businessId?: string;
+  sessionId?: string | null;
+}) {
+  const [status, setStatus] = useState<"idle" | "liked" | "disliked" | "correcting" | "saving" | "saved">("idle");
+  const [correctionText, setCorrectionText] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (status === "correcting" && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [status]);
+
+  const submitFeedback = useCallback(async (feedbackType: "positive" | "negative", correction?: string) => {
+    setStatus("saving");
+    try {
+      const res = await fetch("/api/ai/training-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: sessionId || null,
+          businessId: businessId || null,
+          userMessage,
+          assistantMessage,
+          feedbackType,
+          correctionText: correction || null,
+        }),
+      });
+      if (res.ok) {
+        setStatus(feedbackType === "positive" ? "liked" : "disliked");
+      } else {
+        setStatus("idle");
+      }
+    } catch {
+      setStatus("idle");
+    }
+  }, [userMessage, assistantMessage, businessId, sessionId]);
+
+  const handleLike = useCallback(() => {
+    submitFeedback("positive");
+  }, [submitFeedback]);
+
+  const handleDislike = useCallback(() => {
+    setStatus("correcting");
+  }, []);
+
+  const handleSubmitCorrection = useCallback(() => {
+    if (!correctionText.trim()) return;
+    submitFeedback("negative", correctionText);
+  }, [correctionText, submitFeedback]);
+
+  const handleCancelCorrection = useCallback(() => {
+    setStatus("idle");
+    setCorrectionText("");
+  }, []);
+
+  if (status === "liked" || status === "disliked") {
+    return (
+      <div className="flex items-center gap-1.5 mt-1">
+        <span className="text-[11px] text-white/40">
+          {status === "liked" ? "תודה על הפידבק!" : "התיקון נשמר, תודה!"}
+        </span>
+        {status === "liked" ? (
+          <ThumbsUp className="w-3 h-3 text-green-400" />
+        ) : (
+          <ThumbsDown className="w-3 h-3 text-orange-400" />
+        )}
+      </div>
+    );
+  }
+
+  if (status === "saving") {
+    return (
+      <div className="flex items-center gap-1.5 mt-1">
+        <div className="w-3 h-3 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+        <span className="text-[11px] text-white/40">שומר...</span>
+      </div>
+    );
+  }
+
+  if (status === "correcting") {
+    return (
+      <div className="mt-2 bg-[#0F1535] rounded-[10px] p-3 border border-white/10">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[12px] text-white/70 font-medium">מה הייתה צריכה להיות התשובה?</span>
+          <button
+            type="button"
+            onClick={handleCancelCorrection}
+            className="p-1 rounded-full hover:bg-white/10 transition-colors"
+          >
+            <X className="w-3.5 h-3.5 text-white/40" />
+          </button>
+        </div>
+        <textarea
+          ref={textareaRef}
+          value={correctionText}
+          onChange={(e) => setCorrectionText(e.target.value)}
+          placeholder="תאר את התשובה הנכונה או מה היה לא בסדר..."
+          className="w-full bg-white/5 text-white text-[13px] placeholder:text-white/30 rounded-[8px] p-2.5 outline-none border border-white/10 focus:border-indigo-400/50 resize-none min-h-[80px] max-h-[200px]"
+          dir="rtl"
+        />
+        <div className="flex items-center justify-end gap-2 mt-2">
+          <button
+            type="button"
+            onClick={handleCancelCorrection}
+            className="text-[12px] text-white/50 hover:text-white/70 transition-colors px-3 py-1.5"
+          >
+            ביטול
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmitCorrection}
+            disabled={!correctionText.trim()}
+            className="flex items-center gap-1.5 text-[12px] text-white bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors px-3 py-1.5 rounded-[8px]"
+          >
+            <Send className="w-3 h-3" />
+            שמור תיקון
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Idle state — show like/dislike buttons
+  return (
+    <div className="flex items-center gap-1 mt-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={handleLike}
+        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-white/10"
+        title="תשובה טובה"
+      >
+        <ThumbsUp className="w-3.5 h-3.5 text-white/40 hover:text-green-400" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={handleDislike}
+        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-white/10"
+        title="תשובה לא טובה"
+      >
+        <ThumbsDown className="w-3.5 h-3.5 text-white/40 hover:text-orange-400" />
+      </Button>
+    </div>
+  );
+}
+
 interface AiMessageBubbleProps {
   message: UIMessage;
   thinkingStatus?: string | null;
@@ -358,9 +517,13 @@ interface AiMessageBubbleProps {
   getDisplayText: (message: UIMessage) => string;
   searchQuery?: string;
   userAvatarUrl?: string | null;
+  isAdmin?: boolean;
+  businessId?: string;
+  sessionId?: string | null;
+  prevUserMessageText?: string;
 }
 
-export function AiMessageBubble({ message, thinkingStatus, errorText, isStreaming, getChartData, getDisplayText, searchQuery, userAvatarUrl }: AiMessageBubbleProps) {
+export function AiMessageBubble({ message, thinkingStatus, errorText, isStreaming, getChartData, getDisplayText, searchQuery, userAvatarUrl, isAdmin, businessId, sessionId, prevUserMessageText }: AiMessageBubbleProps) {
   const isUser = message.role === "user";
   const displayText = getDisplayText(message);
   const chartData = isUser ? undefined : getChartData(message);
@@ -489,6 +652,14 @@ export function AiMessageBubble({ message, thinkingStatus, errorText, isStreamin
       </div>
       <div className="flex items-center px-1 mr-[30px] sm:mr-[36px]">
         <CopyButton text={displayText} />
+        {isAdmin && !isStreaming && displayText && prevUserMessageText && (
+          <TrainingFeedback
+            userMessage={prevUserMessageText}
+            assistantMessage={displayText}
+            businessId={businessId}
+            sessionId={sessionId}
+          />
+        )}
       </div>
     </div>
   );
