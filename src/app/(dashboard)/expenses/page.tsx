@@ -24,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -5755,16 +5756,24 @@ function ExpensesPageInner() {
                     </span>
                     <div className="flex items-center justify-center gap-[4px]" style={{ width: 76, maxWidth: 76 }}>
                       {inv.notes && inv.notes.trim() && (
-                        <Button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); alert(inv.notes); }}
-                          className="w-[25px] h-[25px] flex items-center justify-center text-[#FFA412] hover:text-[#FFB84D] transition-colors"
-                          title={inv.notes}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                          </svg>
-                        </Button>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-[25px] h-[25px] flex items-center justify-center text-[#FFA412] hover:text-[#FFB84D] transition-colors"
+                              title="הערות"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                              </svg>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="bg-[#1A1F3D] border border-[#4C526B] rounded-[8px] p-[12px] max-w-[250px] text-right" dir="rtl" side="top">
+                            <p className="text-[12px] text-[#FFA412] font-semibold mb-[4px]">הערות</p>
+                            <p className="text-[13px] text-white leading-[1.5]">{inv.notes}</p>
+                          </PopoverContent>
+                        </Popover>
                       )}
                       {isAdmin && (
                         <Button
