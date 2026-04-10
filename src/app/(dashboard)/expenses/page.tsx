@@ -1124,6 +1124,7 @@ function ExpensesPageInner() {
             .from("daily_entries")
             .select("total_register, business_id")
             .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
             .gte("entry_date", startDate)
             .lte("entry_date", endDate),
           supabase
@@ -1281,6 +1282,7 @@ function ExpensesPageInner() {
             .from("daily_entries")
             .select("entry_date, labor_cost, labor_hours, manager_daily_cost")
             .in("business_id", selectedBusinesses)
+            .is("deleted_at", null)
             .gte("entry_date", startDate)
             .lte("entry_date", endDate)
             .order("entry_date", { ascending: false });
