@@ -493,7 +493,7 @@ export default function DashboardPage() {
       const todayEntryIds = todayEntries.map(e => e.id);
 
       // Fetch today's breakdowns, goods invoices, current expenses invoices, managed products in parallel
-      const [todayBreakdownResult, todayGoodsInvoicesResult, todayCurrentExpensesInvoicesResult, todayProductUsageResult, incomeSourcesResult, incomeSourceGoalsResult, managedProductsResult, scheduleResult] = await Promise.all([
+      const [todayBreakdownResult, todayGoodsInvoicesResult, todayCurrentExpensesInvoicesResult, todayProductUsageResult, incomeSourcesResult, incomeSourceGoalsResult, managedProductsResult, scheduleResult, dayExceptionsResult] = await Promise.all([
         todayEntryIds.length > 0
           ? supabase.from("daily_income_breakdown").select("income_source_id, amount, orders_count").in("daily_entry_id", todayEntryIds)
           : Promise.resolve({ data: [] }),
@@ -512,6 +512,8 @@ export default function DashboardPage() {
           : Promise.resolve({ data: [] }),
         supabase.from("managed_products").select("id, name, unit, unit_cost, target_pct, display_order").in("business_id", selectedBusinesses).eq("is_active", true).is("deleted_at", null).order("display_order"),
         supabase.from("business_schedule").select("business_id, day_of_week, day_factor").in("business_id", selectedBusinesses),
+        // Day exceptions (holidays, partial days) override the weekly schedule
+        supabase.from("business_day_exceptions").select("exception_date, day_factor, business_id").in("business_id", selectedBusinesses).gte("exception_date", formatLocalDate(new Date(dateRange.start.getFullYear(), dateRange.start.getMonth(), 1))).lte("exception_date", formatLocalDate(new Date(dateRange.start.getFullYear(), dateRange.start.getMonth() + 1, 0))),
       ]);
 
       // Fetch additional info: open payments, open suppliers, open commitments
@@ -602,11 +604,24 @@ export default function DashboardPage() {
         const factors = todayScheduleDayFactors[Number(dow)];
         todayAvgSchedule[Number(dow)] = factors.reduce((a, b) => a + b, 0) / factors.length;
       });
+      // Build exception map for today's month
+      const todayExceptionMap: Record<string, number> = {};
+      (dayExceptionsResult.data || []).forEach((e: { exception_date: string; day_factor: number }) => {
+        const d = new Date(e.exception_date);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        todayExceptionMap[key] = Number(e.day_factor);
+      });
       const now = new Date();
       const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
       let todayExpectedWorkDays = 0;
       for (let d = 1; d <= daysInCurrentMonth; d++) {
-        todayExpectedWorkDays += todayAvgSchedule[new Date(now.getFullYear(), now.getMonth(), d).getDay()] || 0;
+        const todayLoopDate = new Date(now.getFullYear(), now.getMonth(), d);
+        const todayDateKey = `${todayLoopDate.getFullYear()}-${String(todayLoopDate.getMonth() + 1).padStart(2, '0')}-${String(todayLoopDate.getDate()).padStart(2, '0')}`;
+        if (todayExceptionMap[todayDateKey] !== undefined) {
+          todayExpectedWorkDays += todayExceptionMap[todayDateKey];
+        } else {
+          todayExpectedWorkDays += todayAvgSchedule[todayLoopDate.getDay()] || 0;
+        }
       }
       const todayManagerDailyCost = todayExpectedWorkDays > 0 ? todayManagerSalary / todayExpectedWorkDays : 0;
       const todayLaborCost = (todayRawLaborCost + todayManagerDailyCost * todayDayFactors) * totalMarkup;
@@ -627,10 +642,22 @@ export default function DashboardPage() {
       const targetYearForSchedule = dateRange.start.getFullYear();
       const firstDayOfMonthSchedule = new Date(targetYearForSchedule, targetMonthForSchedule, 1);
       const lastDayOfMonthSchedule = new Date(targetYearForSchedule, targetMonthForSchedule + 1, 0);
+      // Build exception map for main month
+      const mainExceptionMap: Record<string, number> = {};
+      (dayExceptionsResult.data || []).forEach((e: { exception_date: string; day_factor: number }) => {
+        const d = new Date(e.exception_date);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        mainExceptionMap[key] = Number(e.day_factor);
+      });
       let expectedWorkDaysInMonth = 0;
       const curDateSch = new Date(firstDayOfMonthSchedule);
       while (curDateSch <= lastDayOfMonthSchedule) {
-        expectedWorkDaysInMonth += avgScheduleDayFactors[curDateSch.getDay()] || 0;
+        const schDateKey = `${curDateSch.getFullYear()}-${String(curDateSch.getMonth() + 1).padStart(2, '0')}-${String(curDateSch.getDate()).padStart(2, '0')}`;
+        if (mainExceptionMap[schDateKey] !== undefined) {
+          expectedWorkDaysInMonth += mainExceptionMap[schDateKey];
+        } else {
+          expectedWorkDaysInMonth += avgScheduleDayFactors[curDateSch.getDay()] || 0;
+        }
         curDateSch.setDate(curDateSch.getDate() + 1);
       }
       const totalManagerSalary = businessData.reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
@@ -1022,7 +1049,8 @@ export default function DashboardPage() {
         entriesResult,
         scheduleResult,
         goalsResult,
-        suppliersResult
+        suppliersResult,
+        dayExceptionsCardResult
       ] = await Promise.all([
         supabase
           .from("businesses")
@@ -1054,7 +1082,14 @@ export default function DashboardPage() {
           .in("business_id", businessIds)
           .eq("expense_type", "goods_purchases")
           .eq("is_active", true)
-          .is("deleted_at", null)
+          .is("deleted_at", null),
+        // Day exceptions for business cards
+        supabase
+          .from("business_day_exceptions")
+          .select("exception_date, day_factor, business_id")
+          .in("business_id", businessIds)
+          .gte("exception_date", startDateStr)
+          .lte("exception_date", endDateStr)
       ]);
 
       const { data: businesses, error: businessError } = businessesResult;
@@ -1101,12 +1136,26 @@ export default function DashboardPage() {
         businessSchedule.forEach(s => {
           dayFactorsByDow[s.day_of_week] = Number(s.day_factor) || 0;
         });
+        // Build per-business exception map
+        const cardExceptionMap: Record<string, number> = {};
+        (dayExceptionsCardResult.data || [])
+          .filter((e: { business_id: string }) => e.business_id === business.id)
+          .forEach((e: { exception_date: string; day_factor: number }) => {
+            const d = new Date(e.exception_date);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            cardExceptionMap[key] = Number(e.day_factor);
+          });
         const firstDayOfMonth = new Date(targetYear, targetMonth - 1, 1);
         const lastDayOfMonth = new Date(targetYear, targetMonth, 0);
         let expectedWorkDaysInMonth = 0;
         const currentDateCalc = new Date(firstDayOfMonth);
         while (currentDateCalc <= lastDayOfMonth) {
-          expectedWorkDaysInMonth += dayFactorsByDow[currentDateCalc.getDay()] || 0;
+          const cardDateKey = `${currentDateCalc.getFullYear()}-${String(currentDateCalc.getMonth() + 1).padStart(2, '0')}-${String(currentDateCalc.getDate()).padStart(2, '0')}`;
+          if (cardExceptionMap[cardDateKey] !== undefined) {
+            expectedWorkDaysInMonth += cardExceptionMap[cardDateKey];
+          } else {
+            expectedWorkDaysInMonth += dayFactorsByDow[currentDateCalc.getDay()] || 0;
+          }
           currentDateCalc.setDate(currentDateCalc.getDate() + 1);
         }
         const actualWorkDays = businessEntries.reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
@@ -1230,7 +1279,8 @@ export default function DashboardPage() {
         incomeSourcesResult,
         managedProductsResult,
         goodsSuppliersResult,
-        currentExpensesSuppliersResult
+        currentExpensesSuppliersResult,
+        dayExceptionsDetailResult
       ] = await Promise.all([
         // 1. Fetch daily entries for selected businesses
         supabase
@@ -1296,7 +1346,15 @@ export default function DashboardPage() {
           .in("business_id", selectedBusinesses)
           .eq("expense_type", "current_expenses")
           .eq("is_active", true)
-          .is("deleted_at", null)
+          .is("deleted_at", null),
+
+        // 9. Day exceptions (holidays, partial days) override weekly schedule
+        supabase
+          .from("business_day_exceptions")
+          .select("exception_date, day_factor")
+          .in("business_id", selectedBusinesses)
+          .gte("exception_date", startDateStr)
+          .lte("exception_date", endDateStr)
       ]);
 
       // Extract data from results
@@ -1418,12 +1476,24 @@ export default function DashboardPage() {
         avgScheduleDayFactors[Number(dow)] = factors.reduce((a, b) => a + b, 0) / factors.length;
       });
 
-      // Count expected work days
+      // Build exception map for detail metrics
+      const detailExceptionMap: Record<string, number> = {};
+      (dayExceptionsDetailResult.data || []).forEach((e: { exception_date: string; day_factor: number }) => {
+        const d = new Date(e.exception_date);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        detailExceptionMap[key] = Number(e.day_factor);
+      });
+
+      // Count expected work days (exceptions override weekly schedule)
       let expectedWorkDaysInMonth = 0;
       const currentDateSchedule = new Date(firstDayOfMonthSchedule);
       while (currentDateSchedule <= lastDayOfMonthSchedule) {
-        const dayOfWeek = currentDateSchedule.getDay();
-        expectedWorkDaysInMonth += avgScheduleDayFactors[dayOfWeek] || 0;
+        const detailDateKey = `${currentDateSchedule.getFullYear()}-${String(currentDateSchedule.getMonth() + 1).padStart(2, '0')}-${String(currentDateSchedule.getDate()).padStart(2, '0')}`;
+        if (detailExceptionMap[detailDateKey] !== undefined) {
+          expectedWorkDaysInMonth += detailExceptionMap[detailDateKey];
+        } else {
+          expectedWorkDaysInMonth += avgScheduleDayFactors[currentDateSchedule.getDay()] || 0;
+        }
         currentDateSchedule.setDate(currentDateSchedule.getDate() + 1);
       }
 
@@ -1759,10 +1829,15 @@ export default function DashboardPage() {
         });
 
         // Count expected work days in the month by summing day_factors
+        // (reuses detailExceptionMap built above for the same month)
         const currentDate = new Date(firstDayOfMonth);
         while (currentDate <= lastDayOfMonth) {
-          const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
-          expectedMonthlyWorkDays += avgDayFactorsByDow[dayOfWeek] || 0;
+          const paceDateKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+          if (detailExceptionMap[paceDateKey] !== undefined) {
+            expectedMonthlyWorkDays += detailExceptionMap[paceDateKey];
+          } else {
+            expectedMonthlyWorkDays += avgDayFactorsByDow[currentDate.getDay()] || 0;
+          }
           currentDate.setDate(currentDate.getDate() + 1);
         }
 
@@ -2087,7 +2162,8 @@ export default function DashboardPage() {
         historicalGoalsResult,
         historicalGoodsInvoicesResult,
         historicalBreakdownResult,
-        historicalProductUsageResult
+        historicalProductUsageResult,
+        historicalDayExceptionsResult
       ] = await Promise.all([
         // All entries for last 6 months
         supabase
@@ -2129,7 +2205,15 @@ export default function DashboardPage() {
               .from("daily_product_usage")
               .select("daily_entry_id, product_id, quantity")
               .eq("product_id", (allManagedProducts || [])[0].id)
-          : Promise.resolve({ data: [] })
+          : Promise.resolve({ data: [] }),
+
+        // Day exceptions for historical 6-month range
+        supabase
+          .from("business_day_exceptions")
+          .select("exception_date, day_factor")
+          .in("business_id", selectedBusinesses)
+          .gte("exception_date", historicalStartStr)
+          .lte("exception_date", historicalEndStr)
       ]);
 
       const historicalEntries = historicalEntriesResult.data || [];
@@ -2137,6 +2221,13 @@ export default function DashboardPage() {
       const historicalGoodsInvoices = historicalGoodsInvoicesResult.data || [];
       const allBreakdownData = historicalBreakdownResult.data || [];
       const allProductUsageData = historicalProductUsageResult.data || [];
+      // Build historical exception map
+      const historicalExceptionMap: Record<string, number> = {};
+      (historicalDayExceptionsResult.data || []).forEach((e: { exception_date: string; day_factor: number }) => {
+        const d = new Date(e.exception_date);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        historicalExceptionMap[key] = Number(e.day_factor);
+      });
 
       // Create entry ID set for filtering breakdowns
       const historicalEntryIds = new Set(historicalEntries.map(e => e.id));
@@ -2226,13 +2317,18 @@ export default function DashboardPage() {
         const monthRawLaborCost = monthEntries.reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
         const monthActualDayFactors = monthEntries.reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
 
-        // Calculate expected work days
+        // Calculate expected work days (exceptions override weekly schedule)
         let expectedWorkDaysMonth = 0;
         const currentDateLoop = new Date(monthStart);
         while (currentDateLoop <= monthEnd) {
-          const dow = currentDateLoop.getDay();
-          const dayFactor = (scheduleData || []).find(s => s.day_of_week === dow)?.day_factor || 0;
-          if (dayFactor > 0) expectedWorkDaysMonth += dayFactor;
+          const histDateKey = `${currentDateLoop.getFullYear()}-${String(currentDateLoop.getMonth() + 1).padStart(2, '0')}-${String(currentDateLoop.getDate()).padStart(2, '0')}`;
+          if (historicalExceptionMap[histDateKey] !== undefined) {
+            expectedWorkDaysMonth += historicalExceptionMap[histDateKey];
+          } else {
+            const dow = currentDateLoop.getDay();
+            const dayFactor = (scheduleData || []).find(s => s.day_of_week === dow)?.day_factor || 0;
+            if (dayFactor > 0) expectedWorkDaysMonth += dayFactor;
+          }
           currentDateLoop.setDate(currentDateLoop.getDate() + 1);
         }
         if (expectedWorkDaysMonth === 0) expectedWorkDaysMonth = 22;
