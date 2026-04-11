@@ -1,4 +1,4 @@
-// BUILD_TIME=1775826133743
+// BUILD_TIME=1775854904583
 const CACHE_NAME = 'amazpen-v1';
 const STATIC_ASSETS = [
   '/',
@@ -80,6 +80,9 @@ self.addEventListener('fetch', (event) => {
 
   // Skip chrome-extension and other non-http(s) requests
   if (!event.request.url.startsWith('http')) return;
+
+  // Skip third-party requests (fonts, analytics, extensions) — let browser handle them directly
+  if (!event.request.url.startsWith(self.location.origin)) return;
 
   // Never cache sw.js itself — browser handles SW updates separately
   if (event.request.url.includes('/sw.js')) return;
