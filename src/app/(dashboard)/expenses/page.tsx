@@ -134,6 +134,7 @@ interface InvoiceDisplay {
   documentType: "invoice" | "delivery_note";
   invoiceType?: string;
   statusRaw?: string;
+  parentInvoiceId?: string | null;
 }
 
 const paymentMethodNames: Record<string, string> = {
@@ -1082,6 +1083,7 @@ function ExpensesPageInner() {
           referenceDate: null,
           linkedPayments: [],
           documentType: "delivery_note" as const,
+          parentInvoiceId: dn.invoice_id || null,
         }));
 
         // Merge and sort by date descending
@@ -3356,6 +3358,16 @@ function ExpensesPageInner() {
             className="flex flex-col items-center gap-[5px] cursor-pointer"
             onClick={() => {
               const searchVal = filterValue.trim().toLowerCase();
+              // For "reference" filter: include parent consolidated invoices when a delivery note matches
+              const matchedParentIds = new Set<string>();
+              if (filterBy === "reference" && searchVal) {
+                for (const inv of recentInvoices) {
+                  if (inv.documentType === "delivery_note" && inv.parentInvoiceId &&
+                      inv.reference.toLowerCase().includes(searchVal)) {
+                    matchedParentIds.add(inv.parentInvoiceId);
+                  }
+                }
+              }
               let filtered = recentInvoices.filter((inv) => {
                 if (!filterBy) return true;
                 if (filterBy === "fixed") return inv.isFixed;
@@ -3364,7 +3376,7 @@ function ExpensesPageInner() {
                   case "date": return inv.date.includes(searchVal);
                   case "reference_date": return inv.referenceDate?.includes(searchVal) || false;
                   case "supplier": return inv.supplier.toLowerCase().includes(searchVal);
-                  case "reference": return inv.reference.toLowerCase().includes(searchVal);
+                  case "reference": return inv.reference.toLowerCase().includes(searchVal) || matchedParentIds.has(inv.id);
                   case "amount": return inv.amountBeforeVat.toLocaleString().includes(searchVal) || inv.amountBeforeVat.toString().includes(searchVal);
                   case "notes": return inv.notes.toLowerCase().includes(searchVal);
                   default: return true;
@@ -3485,6 +3497,16 @@ function ExpensesPageInner() {
           <div ref={invoicesListRef} onScroll={handleInvoicesScroll} className="max-h-[450px] overflow-y-auto flex flex-col gap-[5px]">
             {(() => {
               const searchVal = filterValue.trim().toLowerCase();
+              // For "reference" filter: include parent consolidated invoices when a delivery note matches
+              const matchedParentIds = new Set<string>();
+              if (filterBy === "reference" && searchVal) {
+                for (const inv of recentInvoices) {
+                  if (inv.documentType === "delivery_note" && inv.parentInvoiceId &&
+                      inv.reference.toLowerCase().includes(searchVal)) {
+                    matchedParentIds.add(inv.parentInvoiceId);
+                  }
+                }
+              }
               let filtered = recentInvoices.filter((inv) => {
                 if (!filterBy) return true;
                 if (filterBy === "fixed") return inv.isFixed;
@@ -3493,7 +3515,7 @@ function ExpensesPageInner() {
                   case "date": return inv.date.includes(searchVal);
                   case "reference_date": return inv.referenceDate?.includes(searchVal) || false;
                   case "supplier": return inv.supplier.toLowerCase().includes(searchVal);
-                  case "reference": return inv.reference.toLowerCase().includes(searchVal);
+                  case "reference": return inv.reference.toLowerCase().includes(searchVal) || matchedParentIds.has(inv.id);
                   case "amount": return inv.amountBeforeVat.toLocaleString().includes(searchVal) || inv.amountBeforeVat.toString().includes(searchVal);
                   case "notes": return inv.notes.toLowerCase().includes(searchVal);
                   default: return true;
