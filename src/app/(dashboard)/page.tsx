@@ -532,12 +532,13 @@ export default function DashboardPage() {
           .select("total_amount")
           .eq("business_id", businessId)
           .is("deleted_at", null),
-        // All payments total
+        // Paid splits total - only splits with due_date up to today count as "paid"
         supabase
-          .from("payments")
-          .select("total_amount")
-          .eq("business_id", businessId)
-          .is("deleted_at", null),
+          .from("payment_splits")
+          .select("amount, payments!inner(business_id, deleted_at)")
+          .eq("payments.business_id", businessId)
+          .is("payments.deleted_at", null)
+          .lte("due_date", todayStr),
         // All prior commitments (from prior_commitments table)
         supabase
           .from("prior_commitments")
@@ -552,10 +553,11 @@ export default function DashboardPage() {
       const totalInvoicesAmount = (allInvoicesTotalResult.data || []).reduce(
         (sum: number, inv: Record<string, unknown>) => sum + (Number(inv.total_amount) || 0), 0
       );
-      const totalPaymentsAmount = (allPaymentsTotalResult.data || []).reduce(
-        (sum: number, pay: Record<string, unknown>) => sum + (Number(pay.total_amount) || 0), 0
+      // Only splits that were already due/paid (due_date <= today) count as payments made
+      const paidSplitsAmount = (allPaymentsTotalResult.data || []).reduce(
+        (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
       );
-      const openSuppliersTotal = totalInvoicesAmount - totalPaymentsAmount;
+      const openSuppliersTotal = totalInvoicesAmount - paidSplitsAmount;
       // Calculate open commitments from prior_commitments table
       // For each commitment: remaining = monthly_amount * remaining_installments
       const openCommitmentsTotal = (priorCommitmentsResult.data || []).reduce(

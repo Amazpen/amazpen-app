@@ -772,12 +772,13 @@ export function DailyEntriesModal({
         .select("total_amount")
         .eq("business_id", businessId)
         .is("deleted_at", null),
-      // 15. All payments total (for open suppliers calculation)
+      // 15. Paid splits (due_date <= entry date) for open suppliers calculation
       supabase
-        .from("payments")
-        .select("total_amount")
-        .eq("business_id", businessId)
-        .is("deleted_at", null),
+        .from("payment_splits")
+        .select("amount, payments!inner(business_id, deleted_at)")
+        .eq("payments.business_id", businessId)
+        .is("payments.deleted_at", null)
+        .lte("due_date", currentEntry?.entry_date || new Date().toISOString().split("T")[0]),
       // 16. Prior commitments from dedicated table
       supabase
         .from("prior_commitments")
@@ -983,10 +984,10 @@ export function DailyEntriesModal({
     const totalInvoices = (allInvoicesData || []).reduce(
       (sum: number, inv: Record<string, unknown>) => sum + (Number(inv.total_amount) || 0), 0
     );
-    const totalPayments = (allPaymentsData || []).reduce(
-      (sum: number, pay: Record<string, unknown>) => sum + (Number(pay.total_amount) || 0), 0
+    const paidSplits = (allPaymentsData || []).reduce(
+      (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
     );
-    setOpenSuppliersTotal(() => totalInvoices - totalPayments);
+    setOpenSuppliersTotal(() => totalInvoices - paidSplits);
 
     // Calculate open commitments from prior_commitments table
     const entryDateStr = currentEntry?.entry_date || new Date().toISOString().split("T")[0];
