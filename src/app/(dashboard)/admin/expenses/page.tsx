@@ -666,11 +666,20 @@ export default function AdminExpensesPage() {
       const normalizeUrl = (u: string) => u.startsWith("//") ? `https:${u}` : u;
 
       let processedIdx = 0;
+      let insertedSoFar = 0;
+      const BATCH = 50;
+      const flushBatch = async () => {
+        if (records.length === 0) return;
+        const { error } = await supabase.from("invoices").insert(records);
+        if (error) throw new Error(error.message);
+        insertedSoFar += records.length;
+        records.length = 0;
+        setImportProgress(`נשמרו ${insertedSoFar}/${csvExpenses.length}`);
+      };
       for (const expense of csvExpenses) {
         processedIdx++;
-        if (processedIdx % 50 === 0) {
-          setImportProgress(`מכין רשומות... ${processedIdx}/${csvExpenses.length}`);
-          // Give the UI a chance to repaint
+        if (processedIdx % 10 === 0) {
+          setImportProgress(`מעבד... ${processedIdx}/${csvExpenses.length} (נשמרו ${insertedSoFar})`);
           await new Promise(r => setTimeout(r, 0));
         }
         const supplier = findSupplierByName(expense.supplier_name);
@@ -739,9 +748,16 @@ export default function AdminExpensesPage() {
           attachment_url: transferredUrl,
           consolidated_reference: expense.consolidated_reference || null,
         });
+
+        if (records.length >= BATCH) {
+          await flushBatch();
+        }
       }
 
-      if (records.length === 0) {
+      // Final flush
+      await flushBatch();
+
+      if (insertedSoFar === 0) {
         showToast(skippedCount > 0
           ? `כל ${skippedCount} ההוצאות כבר קיימות במערכת`
           : "לא נמצאו הוצאות תקינות לייבוא", "info");
@@ -750,28 +766,9 @@ export default function AdminExpensesPage() {
         return;
       }
 
-      // 4. Insert in batches
-      setImportProgress(`מייבא ${records.length} הוצאות...`);
-
-      const batchSize = 50;
-      let inserted = 0;
-      for (let i = 0; i < records.length; i += batchSize) {
-        const batch = records.slice(i, i + batchSize);
-        const { error } = await supabase.from("invoices").insert(batch);
-
-        if (error) {
-          showToast(`שגיאה בייבוא (אחרי ${inserted} הוצאות): ${error.message}`, "error");
-          setIsImporting(false);
-          setImportProgress("");
-          return;
-        }
-        inserted += batch.length;
-        setImportProgress(`מייבא... ${inserted}/${records.length}`);
-      }
-
       const msg = skippedCount > 0
-        ? `יובאו ${records.length} הוצאות בהצלחה (${skippedCount} דולגו כי כבר קיימות)`
-        : `יובאו ${records.length} הוצאות בהצלחה`;
+        ? `יובאו ${insertedSoFar} הוצאות בהצלחה (${skippedCount} דולגו כי כבר קיימות)`
+        : `יובאו ${insertedSoFar} הוצאות בהצלחה`;
       showToast(msg, "success");
       handleClearCsv();
     } catch {
