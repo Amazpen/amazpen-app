@@ -733,10 +733,41 @@ export default function AdminPaymentsPage() {
 
         setImportProgress(`מייבא... ${inserted + 1}/${mergedPayments.length} - ${payment.supplier_name}`);
 
-        // Save original URL as-is (normalized) — image migration handled separately
-        const finalReceiptUrl: string | null = payment.receipt_url
-          ? (payment.receipt_url.startsWith("//") ? `https:${payment.receipt_url}` : payment.receipt_url)
-          : null;
+        // Handle receipt URLs: download from Bubble CDN → upload to Supabase Storage
+        // Keep Google Drive URLs as-is, keep already-Storage URLs as-is
+        const rawUrls = (payment.receipt_url || "")
+          .split(/\s*,\s*/)
+          .map(u => u.trim())
+          .filter(u => u.startsWith("//") || u.startsWith("http"))
+          .map(u => u.startsWith("//") ? `https:${u}` : u);
+
+        let finalReceiptUrl: string | null = null;
+        if (rawUrls.length > 0) {
+          const uploadedUrls: string[] = [];
+          for (let i = 0; i < rawUrls.length; i++) {
+            const url = rawUrls[i];
+            // Skip non-Bubble URLs (Drive / already-Storage) — keep as-is
+            if (!url.includes("bubble.io") && !url.includes("ae8ccc76")) {
+              uploadedUrls.push(url);
+              continue;
+            }
+            try {
+              const res = await fetch(url);
+              if (!res.ok) { uploadedUrls.push(url); continue; }
+              const buf = new Uint8Array(await res.arrayBuffer());
+              const lower = url.toLowerCase();
+              let ext = "jpg", ct = "image/jpeg";
+              if (lower.endsWith(".png")) { ext = "png"; ct = "image/png"; }
+              else if (lower.endsWith(".pdf")) { ext = "pdf"; ct = "application/pdf"; }
+              const path = `bubble-migrate/${selectedBusinessId}/payment_${Date.now()}_${i}.${ext}`;
+              const { error: upErr } = await supabase.storage.from("attachments").upload(path, buf, { contentType: ct, upsert: true });
+              if (upErr) { uploadedUrls.push(url); continue; }
+              const { data: pub } = supabase.storage.from("attachments").getPublicUrl(path);
+              uploadedUrls.push(pub.publicUrl);
+            } catch { uploadedUrls.push(url); }
+          }
+          finalReceiptUrl = uploadedUrls.join(", ");
+        }
 
         // Insert payment
         const paymentRecord: Record<string, unknown> = {

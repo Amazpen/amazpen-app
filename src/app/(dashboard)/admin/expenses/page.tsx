@@ -669,13 +669,35 @@ export default function AdminExpensesPage() {
         if (expense.payment_status === "paid") status = "paid";
         else if (expense.payment_status === "clarification") status = "clarification";
 
-        // Save original URLs as-is (normalized) — image migration handled separately
+        // Download Bubble CDN URLs to Supabase Storage, keep other URLs as-is
         const normalizedUrls = expense.attachment_urls
           .map(u => normalizeUrl(u))
           .filter(u => u.startsWith("http"));
-        const transferredUrl = normalizedUrls.length === 0 ? null
-          : normalizedUrls.length === 1 ? normalizedUrls[0]
-          : JSON.stringify(normalizedUrls);
+        const uploadedUrls: string[] = [];
+        for (let i = 0; i < normalizedUrls.length; i++) {
+          const url = normalizedUrls[i];
+          if (!url.includes("bubble.io") && !url.includes("ae8ccc76")) {
+            uploadedUrls.push(url);
+            continue;
+          }
+          try {
+            const res = await fetch(url);
+            if (!res.ok) { uploadedUrls.push(url); continue; }
+            const buf = new Uint8Array(await res.arrayBuffer());
+            const lower = url.toLowerCase();
+            let ext = "jpg", ct = "image/jpeg";
+            if (lower.endsWith(".png")) { ext = "png"; ct = "image/png"; }
+            else if (lower.endsWith(".pdf")) { ext = "pdf"; ct = "application/pdf"; }
+            const path = `bubble-migrate/${selectedBusinessId}/invoice_${Date.now()}_${i}.${ext}`;
+            const { error: upErr } = await supabase.storage.from("attachments").upload(path, buf, { contentType: ct, upsert: true });
+            if (upErr) { uploadedUrls.push(url); continue; }
+            const { data: pub } = supabase.storage.from("attachments").getPublicUrl(path);
+            uploadedUrls.push(pub.publicUrl);
+          } catch { uploadedUrls.push(url); }
+        }
+        const transferredUrl = uploadedUrls.length === 0 ? null
+          : uploadedUrls.length === 1 ? uploadedUrls[0]
+          : JSON.stringify(uploadedUrls);
 
         records.push({
           business_id: selectedBusinessId,
