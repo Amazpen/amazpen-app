@@ -29,6 +29,7 @@ interface CsvExpense {
   requires_vat: boolean;
   bubble_payment_ids: string;
   attachment_urls: string[]; // all image URLs from the row
+  consolidated_reference: string;
 }
 
 interface Business {
@@ -473,6 +474,7 @@ export default function AdminExpensesPage() {
               requires_vat,
               bubble_payment_ids,
               attachment_urls,
+              consolidated_reference: getField(row, "consolidated_number") || "",
             });
           });
 
@@ -643,6 +645,7 @@ export default function AdminExpensesPage() {
         data_source: string | null;
         attachment_url: string | null; // single URL or JSON array of URLs
         reference_date: string | null;
+        consolidated_reference: string | null;
       }[] = [];
       let skippedCount = 0;
 
@@ -692,6 +695,7 @@ export default function AdminExpensesPage() {
           is_consolidated: expense.is_consolidated,
           data_source: expense.bubble_payment_ids ? `bubble:${expense.bubble_payment_ids}` : null,
           attachment_url: transferredUrl,
+          consolidated_reference: expense.consolidated_reference || null,
         });
       }
 
