@@ -2037,9 +2037,11 @@ function PaymentsPageInner() {
     try {
       const payment = recentPaymentsData.find(p => p.id === paymentId);
 
+      // Hard delete - remove payment_splits (FK) first, then payment
+      await supabase.from("payment_splits").delete().eq("payment_id", paymentId);
       const { error } = await supabase
         .from("payments")
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq("id", paymentId);
 
       if (error) throw error;

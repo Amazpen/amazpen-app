@@ -1037,9 +1037,11 @@ export function DailyEntriesModal({
         supabase.from("daily_receipts").delete().eq("daily_entry_id", entryId),
       ]);
 
+      // Hard delete — also remove daily_income_breakdown (other children already deleted above)
+      await supabase.from("daily_income_breakdown").delete().eq("daily_entry_id", entryId);
       const { error } = await supabase
         .from("daily_entries")
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq("id", entryId);
 
       if (!error) {

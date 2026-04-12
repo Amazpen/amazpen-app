@@ -2659,14 +2659,13 @@ function ExpensesPageInner() {
         updateData.clarification_reason = null;
       }
 
-      // If moving away from "paid", soft-delete linked payments
+      // If moving away from "paid", hard-delete linked payments
       const invoice = recentInvoices.find(inv => inv.id === statusConfirm.invoiceId);
       if (invoice?.status === 'שולם' && statusConfirm.newStatus !== 'paid') {
         await supabase
           .from("payments")
-          .update({ deleted_at: new Date().toISOString() })
-          .eq("invoice_id", statusConfirm.invoiceId)
-          .is("deleted_at", null);
+          .delete()
+          .eq("invoice_id", statusConfirm.invoiceId);
       }
 
       const { error } = await supabase
@@ -2699,14 +2698,13 @@ function ExpensesPageInner() {
     const supabase = createClient();
 
     try {
-      // If moving away from "paid", soft-delete linked payments
+      // If moving away from "paid", hard-delete linked payments
       const invoice = recentInvoices.find(inv => inv.id === clarificationInvoiceId);
       if (invoice?.status === 'שולם') {
         await supabase
           .from("payments")
-          .update({ deleted_at: new Date().toISOString() })
-          .eq("invoice_id", clarificationInvoiceId)
-          .is("deleted_at", null);
+          .delete()
+          .eq("invoice_id", clarificationInvoiceId);
       }
 
       const updateData: Record<string, unknown> = {
@@ -3003,10 +3001,11 @@ function ExpensesPageInner() {
     const supabase = createClient();
 
     try {
-      // Soft delete - set deleted_at
+      // Hard delete - remove linked payments first (FK), then invoice
+      await supabase.from("payments").delete().eq("invoice_id", deletingInvoiceId);
       const { error } = await supabase
         .from("invoices")
-        .update({ deleted_at: new Date().toISOString() })
+        .delete()
         .eq("id", deletingInvoiceId);
 
       if (error) throw error;
