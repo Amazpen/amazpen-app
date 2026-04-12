@@ -82,17 +82,26 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
   };
 
   const handleMonthSelect = (month: string) => {
-    setSelectedMonth(month);
-    if (selectedYear) {
-      applyMonthYear(month, selectedYear);
-    }
+    // Use functional setState to read latest year (avoid stale closure)
+    setSelectedYear((currentYear) => {
+      if (currentYear) {
+        applyMonthYear(month, currentYear);
+      } else {
+        setSelectedMonth(month);
+      }
+      return currentYear;
+    });
   };
 
   const handleYearSelect = (year: string) => {
-    setSelectedYear(year);
-    if (selectedMonth) {
-      applyMonthYear(selectedMonth, year);
-    }
+    setSelectedMonth((currentMonth) => {
+      if (currentMonth) {
+        applyMonthYear(currentMonth, year);
+      } else {
+        setSelectedYear(year);
+      }
+      return currentMonth;
+    });
   };
 
   const applyMonthYear = (month: string, year: string) => {
