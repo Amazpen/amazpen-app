@@ -860,9 +860,13 @@ export default function DashboardPage() {
       </div>`;
 
       // === Monthly Forecast Section (צפי הכנסות חודשי, צפי רווח החודש) ===
+      // Profit uses P&L formula (matches DailyEntriesModal): actual MTD revenue − labor − food − current expenses
       const monthlyPace = s.monthlyPace || 0;
-      const totalCostsPct = (s.laborCostPct || 0) + (s.foodCostPct || 0) + (s.currentExpensesPct || 0);
-      const monthlyProfit = monthlyPace > 0 ? monthlyPace * (1 - totalCostsPct / 100) : 0;
+      const revenueMTD = s.incomeBeforeVat || 0;
+      const laborMTD = s.laborCost || 0;
+      const foodMTD = revenueMTD * ((s.foodCostPct || 0) / 100);
+      const currentExpensesMTD = s.currentExpenses || 0;
+      const monthlyProfit = revenueMTD - laborMTD - foodMTD - currentExpensesMTD;
       const forecastLabelStyle = 'color:#fff;font-size:18px;font-weight:bold;line-height:1.4;';
       const forecastValueStyle = 'color:#fff;font-size:18px;font-weight:500;line-height:1.4;direction:ltr;';
       const monthlyForecastHtml = `<div style="background:#0F1535;border:2px solid #FFCF00;border-radius:10px;padding:10px 15px;margin-top:15px;direction:rtl;">
