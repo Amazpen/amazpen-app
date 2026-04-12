@@ -176,6 +176,7 @@ export function DailyEntriesModal({
   const [monthlyMarkup, setMonthlyMarkup] = useState<number>(1);
   const [managerMonthlySalary, setManagerMonthlySalary] = useState<number>(0);
   const [workingDaysUpToDate, setWorkingDaysUpToDate] = useState<number>(0);
+  const [freshWorkDaysInMonth, setFreshWorkDaysInMonth] = useState<number | null>(null);
 
   // Save draft on edit form changes
   const saveDraftData = useCallback(() => {
@@ -404,6 +405,7 @@ export function DailyEntriesModal({
   // Handle edit - load entry data into form
   const handleEdit = async (entry: DailyEntry) => {
     setEditingEntry(entry);
+    setFreshWorkDaysInMonth(null);
     setEditFormData({
       entry_date: entry.entry_date,
       total_register: entry.total_register.toString(),
@@ -452,6 +454,37 @@ export function DailyEntriesModal({
         const { count } = await supabase.from("daily_entries").select("id", { count: "exact", head: true })
           .eq("business_id", businessId).gte("entry_date", firstOfMonth).lte("entry_date", entry.entry_date);
         setWorkingDaysUpToDate(count || 0);
+
+        // Recompute workDaysInMonth from current schedule (not stale goalsData)
+        const lastDayDate = new Date(year, month, 0);
+        const lastOfMonth = `${year}-${String(month).padStart(2, "0")}-${String(lastDayDate.getDate()).padStart(2, "0")}`;
+        const { data: scheduleData } = await supabase.from("business_schedule").select("day_of_week, day_factor").eq("business_id", businessId);
+        const { data: exData } = await supabase.from("business_day_exceptions").select("exception_date, day_factor").eq("business_id", businessId).gte("exception_date", firstOfMonth).lte("exception_date", lastOfMonth);
+        const factorsByDow: Record<number, number[]> = {};
+        (scheduleData || []).forEach((s: { day_of_week: number; day_factor: number }) => {
+          if (!factorsByDow[s.day_of_week]) factorsByDow[s.day_of_week] = [];
+          factorsByDow[s.day_of_week].push(Number(s.day_factor) || 0);
+        });
+        const avgByDow: Record<number, number> = {};
+        Object.keys(factorsByDow).forEach((dow) => {
+          const arr = factorsByDow[Number(dow)];
+          avgByDow[Number(dow)] = arr.reduce((a, b) => a + b, 0) / arr.length;
+        });
+        const exMap: Record<string, number> = {};
+        (exData || []).forEach((e: { exception_date: string; day_factor: number }) => {
+          const d = new Date(e.exception_date);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+          exMap[key] = Number(e.day_factor);
+        });
+        let wdim = 0;
+        const cur = new Date(year, month - 1, 1);
+        const last = new Date(year, month, 0);
+        while (cur <= last) {
+          const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
+          wdim += exMap[key] !== undefined ? exMap[key] : (avgByDow[cur.getDay()] || 0);
+          cur.setDate(cur.getDate() + 1);
+        }
+        setFreshWorkDaysInMonth(wdim > 0 ? wdim : null);
       }
 
       // Restore draft if exists for this entry
@@ -495,7 +528,7 @@ export function DailyEntriesModal({
       // Calculate manager daily cost for saving (daily rate from schedule × day_factor, no markup)
       const saveLaborCost = parseFloat(editFormData.labor_cost) || 0;
       const saveDayFactor = parseFloat(editFormData.day_factor) || 1;
-      const saveWorkDaysInMonth = goalsData?.workDaysInMonth || 26;
+      const saveWorkDaysInMonth = freshWorkDaysInMonth ?? goalsData?.workDaysInMonth ?? 26;
       const saveManagerDailyCost = saveWorkDaysInMonth > 0
         ? (managerMonthlySalary / saveWorkDaysInMonth) * saveDayFactor
         : 0;
@@ -1206,7 +1239,7 @@ export function DailyEntriesModal({
                   const laborWithMarkup = laborCost * monthlyMarkup;
 
                   const displayDayFactor = parseFloat(editFormData.day_factor) || 1;
-                  const displayWorkDaysInMonth = goalsData?.workDaysInMonth || 26;
+                  const displayWorkDaysInMonth = freshWorkDaysInMonth ?? goalsData?.workDaysInMonth ?? 26;
                   const dailyManagerWithMarkup = displayWorkDaysInMonth > 0
                     ? (managerMonthlySalary / displayWorkDaysInMonth) * displayDayFactor
                     : 0;
@@ -1245,6 +1278,37 @@ export function DailyEntriesModal({
                               const firstOfMonth = `${yr}-${String(mo).padStart(2, "0")}-01`;
                               const { count } = await supabase.from("daily_entries").select("id", { count: "exact", head: true }).eq("business_id", businessId).gte("entry_date", firstOfMonth).lte("entry_date", editFormData.entry_date);
                               setWorkingDaysUpToDate(count || 0);
+
+                              // Recompute workDaysInMonth from current business_schedule + exceptions
+                              const { data: scheduleData } = await supabase.from("business_schedule").select("day_of_week, day_factor").eq("business_id", businessId);
+                              const lastDayDate = new Date(yr, mo, 0);
+                              const lastOfMonth = `${yr}-${String(mo).padStart(2, "0")}-${String(lastDayDate.getDate()).padStart(2, "0")}`;
+                              const { data: exData } = await supabase.from("business_day_exceptions").select("exception_date, day_factor").eq("business_id", businessId).gte("exception_date", firstOfMonth).lte("exception_date", lastOfMonth);
+                              const factorsByDow: Record<number, number[]> = {};
+                              (scheduleData || []).forEach((s: { day_of_week: number; day_factor: number }) => {
+                                if (!factorsByDow[s.day_of_week]) factorsByDow[s.day_of_week] = [];
+                                factorsByDow[s.day_of_week].push(Number(s.day_factor) || 0);
+                              });
+                              const avgByDow: Record<number, number> = {};
+                              Object.keys(factorsByDow).forEach((dow) => {
+                                const arr = factorsByDow[Number(dow)];
+                                avgByDow[Number(dow)] = arr.reduce((a, b) => a + b, 0) / arr.length;
+                              });
+                              const exMap: Record<string, number> = {};
+                              (exData || []).forEach((e: { exception_date: string; day_factor: number }) => {
+                                const d = new Date(e.exception_date);
+                                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                                exMap[key] = Number(e.day_factor);
+                              });
+                              let wdim = 0;
+                              const cur = new Date(yr, mo - 1, 1);
+                              const last = new Date(yr, mo, 0);
+                              while (cur <= last) {
+                                const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
+                                wdim += exMap[key] !== undefined ? exMap[key] : (avgByDow[cur.getDay()] || 0);
+                                cur.setDate(cur.getDate() + 1);
+                              }
+                              setFreshWorkDaysInMonth(wdim > 0 ? wdim : null);
                             }}
                             className="opacity-50 hover:opacity-100 transition-opacity"
                           >
