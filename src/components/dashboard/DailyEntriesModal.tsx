@@ -1966,12 +1966,13 @@ export function DailyEntriesModal({
                           const actualDays = monthlyCumulative?.actualWorkDays || 0;
                           const expectedDays = goalsData?.workDaysInMonth || 0;
                           const monthlyPace = (actualDays > 0 && expectedDays > 0) ? (actual / actualDays) * expectedDays : 0;
-                          // Labor & food scale with days (their cumulative pct already matches projected pct)
-                          // Current expenses are fixed monthly — scale the pct down by the partial-month ratio
-                          const cumToPaceRatio = (actualDays > 0 && expectedDays > 0) ? actualDays / expectedDays : 1;
-                          const currentExpensesPctOnPace = (monthlyCumulative?.currentExpensesPct || 0) * cumToPaceRatio;
-                          const totalCostsPct = (monthlyCumulative?.laborCostPct || 0) + (monthlyCumulative?.foodCostPct || 0) + currentExpensesPctOnPace;
-                          const monthlyProfit = monthlyPace > 0 ? monthlyPace * (1 - totalCostsPct / 100) : 0;
+                          // Profit = actual MTD revenue (before VAT) − actual MTD labor − actual MTD food − monthly current expenses
+                          // Matches reports/page.tsx P&L formula (month-to-date, current expenses are full-month)
+                          const revenueMTD = monthlyCumulative?.incomeBeforeVat || 0;
+                          const laborMTD = monthlyCumulative?.laborCost || 0;
+                          const foodMTD = revenueMTD * ((monthlyCumulative?.foodCostPct || 0) / 100);
+                          const currentExpensesMTD = monthlyCumulative?.currentExpenses || 0;
+                          const monthlyProfit = revenueMTD - laborMTD - foodMTD - currentExpensesMTD;
                           const valueColor = monthlyProfit < 0 ? "text-[#FF4D4D]" : monthlyProfit > 0 ? "text-[#4ADE80]" : "text-white";
                           return (
                             <div className="flex flex-col border-2 border-[#FFCF00] rounded-[10px] p-[10px_7px] mt-[15px]" dir="rtl">
