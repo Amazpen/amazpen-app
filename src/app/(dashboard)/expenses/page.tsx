@@ -565,7 +565,7 @@ function ExpensesPageInner() {
               linkedPayments,
               documentType: "invoice" as const,
               invoiceType: inv.invoice_type || undefined,
-              consolidatedReference: inv.consolidated_reference || null,
+              consolidatedReference: (inv as unknown as { consolidated_reference?: string | null }).consolidated_reference || null,
             };
           });
           // Client-side filter for date/reference_date (formatted string match)
