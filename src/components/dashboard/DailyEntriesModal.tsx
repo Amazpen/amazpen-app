@@ -913,7 +913,7 @@ export function DailyEntriesModal({
     });
 
     // Build monthly cumulative (Section 3) — exclude the current day (matches Bubble behavior)
-    const allMonthEntries = (monthlyEntries || []).filter((e: { entry_date?: string }) => e.entry_date !== currentEntry?.entry_date);
+    const allMonthEntries = (monthlyEntries || []).filter((e) => e.id !== currentEntry?.id);
     const monthTotalIncome = allMonthEntries.reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
     const vatDivisor = vatPct > 0 ? 1 + vatPct : 1;
     const monthIncomeBeforeVat = monthTotalIncome / vatDivisor;
