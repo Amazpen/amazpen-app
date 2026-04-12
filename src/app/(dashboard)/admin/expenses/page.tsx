@@ -140,6 +140,19 @@ export default function AdminExpensesPage() {
       return `${yyyymmdd[1]}-${yyyymmdd[2].padStart(2, "0")}-${yyyymmdd[3].padStart(2, "0")}`;
     }
 
+    // Try Bubble format: "Apr 1, 2025 3:00 am" or "Apr 1, 2025"
+    const MONTHS: Record<string, string> = {
+      jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+      jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+    };
+    const bubbleMatch = trimmed.match(/^([A-Za-z]{3})\s+(\d{1,2}),\s+(\d{4})/);
+    if (bubbleMatch) {
+      const monthNum = MONTHS[bubbleMatch[1].toLowerCase()];
+      if (monthNum) {
+        return `${bubbleMatch[3]}-${monthNum}-${bubbleMatch[2].padStart(2, "0")}`;
+      }
+    }
+
     return "";
   };
 
