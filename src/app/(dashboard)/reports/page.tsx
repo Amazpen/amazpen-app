@@ -453,6 +453,8 @@ export default function ReportsPage() {
         const supplierExpenseTypes = new Map<string, string>();
         // Track suppliers with open fixed expenses (#22 - show in purple)
         const suppliersWithUnapproved = new Set<string>();
+        // Track suppliers that have at least one approved invoice — overrides purple
+        const suppliersApproved = new Set<string>();
         // Track which category each supplier belongs to (for 3-level drill-down)
         const supplierCategoryMap = new Map<string, string>();
         let totalGoodsExpenses = 0;
@@ -479,13 +481,19 @@ export default function ReportsPage() {
               if (supplier?.name) supplierNames.set(supplierId, supplier.name);
               if (catId) supplierCategoryMap.set(supplierId, catId);
               if (expType) supplierExpenseTypes.set(supplierId, expType);
-              // Track open fixed expenses (#22) — same logic as expenses page
+              // Track open fixed expenses (#22): purple only when ALL invoices lack both attachment AND reference
               const invRaw = inv as unknown as { invoice_number: string | null; attachment_url: string | null };
               const hasAttachment = invRaw.attachment_url && String(invRaw.attachment_url).trim() !== "";
               const hasReference = invRaw.invoice_number && String(invRaw.invoice_number).trim() !== "" && invRaw.invoice_number !== "-";
-              const isOpenFixed = (supplier?.is_fixed_expense || false) && !hasAttachment && !hasReference;
-              if (isOpenFixed) {
-                suppliersWithUnapproved.add(supplierId);
+              const isApproved = hasAttachment || hasReference;
+              if (supplier?.is_fixed_expense) {
+                if (isApproved) {
+                  // Any approved invoice removes purple status
+                  suppliersWithUnapproved.delete(supplierId);
+                  suppliersApproved.add(supplierId);
+                } else if (!suppliersApproved.has(supplierId)) {
+                  suppliersWithUnapproved.add(supplierId);
+                }
               }
             }
             if (expType === "goods_purchases") {
@@ -520,8 +528,8 @@ export default function ReportsPage() {
                 if (catId) categoryActuals.set(catId, (categoryActuals.get(catId) || 0) + budgetAmount);
                 if (supplier.expense_type === "current_expenses") totalCurrentExpenses += budgetAmount;
                 else if (supplier.expense_type === "goods_purchases") totalGoodsExpenses += budgetAmount;
-                // No invoice at all → still open fixed expense → purple
-                suppliersWithUnapproved.add(supplierId);
+                // No invoice at all → still open fixed expense → purple (unless already approved elsewhere)
+                if (!suppliersApproved.has(supplierId)) suppliersWithUnapproved.add(supplierId);
               }
             }
           }
