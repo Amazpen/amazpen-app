@@ -1968,8 +1968,7 @@ export function DailyEntriesModal({
                           const monthlyPace = (actualDays > 0 && expectedDays > 0) ? (actual / actualDays) * expectedDays : 0;
                           const totalCostsPct = (monthlyCumulative?.laborCostPct || 0) + (monthlyCumulative?.foodCostPct || 0) + (monthlyCumulative?.currentExpensesPct || 0);
                           const monthlyProfit = monthlyPace > 0 ? monthlyPace * (1 - totalCostsPct / 100) : 0;
-                          const profitNegative = monthlyProfit < 0;
-                          const valueColor = profitNegative ? "text-[#FF4D4D]" : "text-white";
+                          const valueColor = monthlyProfit < 0 ? "text-[#FF4D4D]" : monthlyProfit > 0 ? "text-[#4ADE80]" : "text-white";
                           return (
                             <div className="flex flex-col border-2 border-[#FFCF00] rounded-[10px] p-[10px_7px] mt-[15px]" dir="rtl">
                               <div className="flex items-center w-full">
