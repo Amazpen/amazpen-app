@@ -3619,7 +3619,12 @@ function ExpensesPageInner() {
                     ₪{invoice.amountBeforeVat.toLocaleString()}
                   </Button>
                   {/* Status - Clickable with dropdown */}
-                  <div className="flex justify-center min-w-0" data-status-menu>
+                  <div className="flex flex-col items-center justify-center min-w-0 gap-[3px]" data-status-menu>
+                    {invoice.consolidatedReference && (
+                      <span className="text-[9px] font-bold px-[8px] py-[1px] rounded-full bg-[#FFB84D] text-black whitespace-nowrap leading-tight">
+                        מרכזת
+                      </span>
+                    )}
                     {invoice.documentType === 'delivery_note' ? (
                       <span className="text-[12px] font-bold px-[14px] py-[5px] rounded-full bg-[#00bcd4] whitespace-nowrap min-w-[70px] text-center">
                         ת. משלוח
