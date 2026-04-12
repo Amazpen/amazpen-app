@@ -446,8 +446,7 @@ export default function SuppliersPage() {
           remainingPayment = supplier.obligation_total_amount - totalPaid;
         } else {
           const bal = (balance?.total_invoiced || 0) - (balance?.total_paid || 0);
-          const pending = balance?.pending_balance || 0;
-          remainingPayment = bal > 0 ? bal : pending;
+          remainingPayment = Math.max(bal, 0);
         }
 
         // For suppliers with monthly_expense_amount, add current month expected expense
@@ -1232,10 +1231,9 @@ export default function SuppliersPage() {
       }
       setMonthlyBreakdown(breakdownMonths);
 
-      // Remaining balance = sum of unpaid invoices (status != paid)
-      const unpaidTotal = invoicesData?.filter(inv => inv.status !== 'paid').reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+      // Remaining balance = total invoiced - total paid (matches Bubble formula)
       let displayTotalPurchases = totalPurchases;
-      let displayRemainingBalance = unpaidTotal;
+      let displayRemainingBalance = Math.max(totalPurchases - totalPaid, 0);
 
       if (supplier.has_previous_obligations && supplier.obligation_total_amount) {
         displayTotalPurchases = supplier.obligation_total_amount;
