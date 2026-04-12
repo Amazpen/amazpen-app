@@ -2267,12 +2267,15 @@ export default function SuppliersPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__"></SelectItem>
-                    <SelectItem value="credit">כרטיס אשראי</SelectItem>
                     <SelectItem value="bank_transfer">העברה בנקאית</SelectItem>
-                    <SelectItem value="check">צ&apos;ק</SelectItem>
                     <SelectItem value="cash">מזומן</SelectItem>
+                    <SelectItem value="check">צ&apos;ק</SelectItem>
                     <SelectItem value="bit">ביט</SelectItem>
                     <SelectItem value="paybox">פייבוקס</SelectItem>
+                    <SelectItem value="credit">כרטיס אשראי</SelectItem>
+                    <SelectItem value="other">אחר</SelectItem>
+                    <SelectItem value="credit_companies">חברות הקפה</SelectItem>
+                    <SelectItem value="standing_order">הוראת קבע</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
