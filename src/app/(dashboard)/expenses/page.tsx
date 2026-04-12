@@ -135,6 +135,7 @@ interface InvoiceDisplay {
   invoiceType?: string;
   statusRaw?: string;
   parentInvoiceId?: string | null;
+  consolidatedReference?: string | null;
 }
 
 const paymentMethodNames: Record<string, string> = {
@@ -489,7 +490,7 @@ function ExpensesPageInner() {
 
         // Apply filter to DB query based on filter type
         if (filterBy === "reference") {
-          query = query.ilike("invoice_number", `%${searchVal}%`);
+          query = query.or(`invoice_number.ilike.%${searchVal}%,consolidated_reference.ilike.%${searchVal}%`);
         } else if (filterBy === "supplier") {
           const { data: matchedSuppliers } = await supabase
             .from("suppliers")
@@ -1370,6 +1371,7 @@ function ExpensesPageInner() {
         linkedPayments,
         documentType: inv._documentType || "invoice",
         invoiceType: inv.invoice_type || undefined,
+        consolidatedReference: inv.consolidated_reference || null,
       };
     });
   };
@@ -3376,7 +3378,7 @@ function ExpensesPageInner() {
                   case "date": return inv.date.includes(searchVal);
                   case "reference_date": return inv.referenceDate?.includes(searchVal) || false;
                   case "supplier": return inv.supplier.toLowerCase().includes(searchVal);
-                  case "reference": return inv.reference.toLowerCase().includes(searchVal) || matchedParentIds.has(inv.id);
+                  case "reference": return inv.reference.toLowerCase().includes(searchVal) || matchedParentIds.has(inv.id) || (inv.consolidatedReference?.toLowerCase().includes(searchVal) ?? false);
                   case "amount": return inv.amountBeforeVat.toLocaleString().includes(searchVal) || inv.amountBeforeVat.toString().includes(searchVal);
                   case "notes": return inv.notes.toLowerCase().includes(searchVal);
                   default: return true;
@@ -3515,7 +3517,7 @@ function ExpensesPageInner() {
                   case "date": return inv.date.includes(searchVal);
                   case "reference_date": return inv.referenceDate?.includes(searchVal) || false;
                   case "supplier": return inv.supplier.toLowerCase().includes(searchVal);
-                  case "reference": return inv.reference.toLowerCase().includes(searchVal) || matchedParentIds.has(inv.id);
+                  case "reference": return inv.reference.toLowerCase().includes(searchVal) || matchedParentIds.has(inv.id) || (inv.consolidatedReference?.toLowerCase().includes(searchVal) ?? false);
                   case "amount": return inv.amountBeforeVat.toLocaleString().includes(searchVal) || inv.amountBeforeVat.toString().includes(searchVal);
                   case "notes": return inv.notes.toLowerCase().includes(searchVal);
                   default: return true;
