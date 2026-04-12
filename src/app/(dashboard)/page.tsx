@@ -1849,11 +1849,12 @@ export default function DashboardPage() {
         monthlyPace = dailyAverage * expectedMonthlyWorkDays;
       }
 
-      // Current expenses target: (תקציב הוצאות שוטפות / מילוי יומי סהכ קופה ללא מעמ) × 100
+      // Current expenses target %: sum of current_expenses budgets / MTD income before VAT × 100
+      // Matches Bubble formula exactly: diff_pct = (actual − target) / incomeBeforeVat_MTD × 100
       const monthlyPaceBeforeVat = vatDivisorForFood > 0 ? monthlyPace / vatDivisorForFood : 0;
-      const currentExpensesTargetPct = monthlyPaceBeforeVat > 0 ? (currentExpensesTargetAmount / monthlyPaceBeforeVat) * 100 : 0;
-      // Match Bubble formula: target − actual (negative = over budget)
-      const currentExpensesDiffPct = currentExpensesTargetPct - currentExpensesPct;
+      const currentExpensesTargetPct = incomeBeforeVatForFood > 0 ? (currentExpensesTargetAmount / incomeBeforeVatForFood) * 100 : 0;
+      // (actual_amount − target_amount) / incomeBeforeVat_MTD × 100 = actual_pct − target_pct
+      const currentExpensesDiffPct = currentExpensesPct - currentExpensesTargetPct;
 
       // Calculate target difference (הפרש מהיעד)
       // Formula: ((צפי חודשי / יעד הכנסות) - 1) × 100
