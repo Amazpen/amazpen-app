@@ -1355,8 +1355,8 @@ export default function DashboardPage() {
           .from("business_day_exceptions")
           .select("exception_date, day_factor")
           .in("business_id", selectedBusinesses)
-          .gte("exception_date", startDateStr)
-          .lte("exception_date", endDateStr)
+          .gte("exception_date", formatLocalDate(new Date(dateRange.start.getFullYear(), dateRange.start.getMonth(), 1)))
+          .lte("exception_date", formatLocalDate(new Date(dateRange.start.getFullYear(), dateRange.start.getMonth() + 1, 0)))
       ]);
 
       // Extract data from results
