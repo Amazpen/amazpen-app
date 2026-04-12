@@ -1966,7 +1966,11 @@ export function DailyEntriesModal({
                           const actualDays = monthlyCumulative?.actualWorkDays || 0;
                           const expectedDays = goalsData?.workDaysInMonth || 0;
                           const monthlyPace = (actualDays > 0 && expectedDays > 0) ? (actual / actualDays) * expectedDays : 0;
-                          const totalCostsPct = (monthlyCumulative?.laborCostPct || 0) + (monthlyCumulative?.foodCostPct || 0) + (monthlyCumulative?.currentExpensesPct || 0);
+                          // Labor & food scale with days (their cumulative pct already matches projected pct)
+                          // Current expenses are fixed monthly — scale the pct down by the partial-month ratio
+                          const cumToPaceRatio = (actualDays > 0 && expectedDays > 0) ? actualDays / expectedDays : 1;
+                          const currentExpensesPctOnPace = (monthlyCumulative?.currentExpensesPct || 0) * cumToPaceRatio;
+                          const totalCostsPct = (monthlyCumulative?.laborCostPct || 0) + (monthlyCumulative?.foodCostPct || 0) + currentExpensesPctOnPace;
                           const monthlyProfit = monthlyPace > 0 ? monthlyPace * (1 - totalCostsPct / 100) : 0;
                           const valueColor = monthlyProfit < 0 ? "text-[#FF4D4D]" : monthlyProfit > 0 ? "text-[#4ADE80]" : "text-white";
                           return (
