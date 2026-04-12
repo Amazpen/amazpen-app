@@ -418,7 +418,6 @@ export default function ReportsPage() {
           exceptionMap[key] = Number(e.day_factor);
         });
         const firstDay = new Date(year, month - 1, 1);
-        const lastDay = new Date(year, month, 0);
         let scheduleWorkDays = 0;
         const curDate = new Date(firstDay);
         while (curDate <= lastDay) {
