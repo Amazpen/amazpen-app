@@ -665,7 +665,14 @@ export default function AdminExpensesPage() {
       // Normalize protocol-relative URLs (//cdn...) to https://
       const normalizeUrl = (u: string) => u.startsWith("//") ? `https:${u}` : u;
 
+      let processedIdx = 0;
       for (const expense of csvExpenses) {
+        processedIdx++;
+        if (processedIdx % 50 === 0) {
+          setImportProgress(`מכין רשומות... ${processedIdx}/${csvExpenses.length}`);
+          // Give the UI a chance to repaint
+          await new Promise(r => setTimeout(r, 0));
+        }
         const supplier = findSupplierByName(expense.supplier_name);
 
         // Skip if invoice number already exists for this supplier
