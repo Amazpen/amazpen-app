@@ -227,22 +227,21 @@ export default function DashboardLayout({
     end: new Date(0),
   });
   useEffect(() => {
-    if (savedGlobalDateRange) {
-      setGlobalDateRangeState({
-        start: new Date(savedGlobalDateRange.start),
-        end: new Date(savedGlobalDateRange.end),
-      });
-    } else {
-      setGlobalDateRangeState({
-        start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-        end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
-      });
-    }
+    // Always snap to full-month range (date picker is month-only)
+    const src = savedGlobalDateRange ? new Date(savedGlobalDateRange.start) : new Date();
+    setGlobalDateRangeState({
+      start: new Date(src.getFullYear(), src.getMonth(), 1),
+      end: new Date(src.getFullYear(), src.getMonth() + 1, 0),
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const setGlobalDateRange = useCallback((range: { start: Date; end: Date }) => {
-    setGlobalDateRangeState(range);
-    setSavedGlobalDateRange({ start: range.start.toISOString(), end: range.end.toISOString() });
+    // Force full-month range regardless of what was passed
+    const y = range.start.getFullYear();
+    const m = range.start.getMonth();
+    const snapped = { start: new Date(y, m, 1), end: new Date(y, m + 1, 0) };
+    setGlobalDateRangeState(snapped);
+    setSavedGlobalDateRange({ start: snapped.start.toISOString(), end: snapped.end.toISOString() });
   }, [setSavedGlobalDateRange]);
 
   // Global month/year (goals, reports)
