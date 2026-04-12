@@ -1265,12 +1265,8 @@ export default function DashboardPage() {
         setIsLoadingSummary(true);
       }
       const supabase = createClient();
-      // Use ISO timestamps for entry_date comparison — entries are stored as timestamptz
-      // and local midnight in IL (UTC+3) converts to 21:00 UTC of the previous day.
-      // formatLocalDate alone would miss the first-of-month local entry.
-      const startDateStr = dateRange.start.toISOString();
-      const endDateStrDayAfter = new Date(dateRange.end.getFullYear(), dateRange.end.getMonth(), dateRange.end.getDate() + 1).toISOString();
-      const endDateStr = formatLocalDate(dateRange.end); // retained for DATE columns
+      const startDateStr = formatLocalDate(dateRange.start);
+      const endDateStr = formatLocalDate(dateRange.end);
       const targetMonth = dateRange.start.getMonth() + 1; // 1-12 for database
       const targetYear = dateRange.start.getFullYear();
 
@@ -1294,7 +1290,7 @@ export default function DashboardPage() {
           .select("*")
           .in("business_id", selectedBusinesses)
           .gte("entry_date", startDateStr)
-          .lt("entry_date", endDateStrDayAfter)
+          .lte("entry_date", endDateStr)
           .is("deleted_at", null),
 
         // 2. Fetch business schedule for monthly pace calculation
