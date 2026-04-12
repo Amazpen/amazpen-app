@@ -1851,7 +1851,8 @@ export default function DashboardPage() {
       // Current expenses target: (תקציב הוצאות שוטפות / מילוי יומי סהכ קופה ללא מעמ) × 100
       const monthlyPaceBeforeVat = vatDivisorForFood > 0 ? monthlyPace / vatDivisorForFood : 0;
       const currentExpensesTargetPct = monthlyPaceBeforeVat > 0 ? (currentExpensesTargetAmount / monthlyPaceBeforeVat) * 100 : 0;
-      const currentExpensesDiffPct = currentExpensesPct - currentExpensesTargetPct;
+      // Match Bubble formula: target − actual (negative = over budget)
+      const currentExpensesDiffPct = currentExpensesTargetPct - currentExpensesPct;
 
       // Calculate target difference (הפרש מהיעד)
       // Formula: ((צפי חודשי / יעד הכנסות) - 1) × 100
@@ -3924,8 +3925,9 @@ export default function DashboardPage() {
                 const noTarget = !detailedSummary?.currentExpensesTargetPct || detailedSummary.currentExpensesTargetPct === 0;
                 // Main percentage color: based on diff from target (< 0 = green/under budget, > 0 = red/over budget)
                 const expDiffValue = detailedSummary?.currentExpensesDiffPct || 0;
-                const expPctColor = (noExpData || noTarget) ? 'text-white' : expDiffValue > 0 ? 'text-red-500' : expDiffValue < 0 ? 'text-green-500' : 'text-white';
-                const expDiffColor = (noExpData || noTarget) ? 'text-white' : (detailedSummary?.currentExpensesDiffPct || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesDiffPct || 0) < 0 ? 'text-green-500' : 'text-white';
+                // Flipped formula (target − actual): negative = over budget (red), positive = under budget (green)
+                const expPctColor = (noExpData || noTarget) ? 'text-white' : expDiffValue < 0 ? 'text-red-500' : expDiffValue > 0 ? 'text-green-500' : 'text-white';
+                const expDiffColor = (noExpData || noTarget) ? 'text-white' : (detailedSummary?.currentExpensesDiffPct || 0) < 0 ? 'text-red-500' : (detailedSummary?.currentExpensesDiffPct || 0) > 0 ? 'text-green-500' : 'text-white';
                 const expPrevMonthColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevMonthChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white';
                 const expPrevYearColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevYearChange || 0) > 0 ? 'text-red-500' : (detailedSummary?.currentExpensesPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white';
                 return (
