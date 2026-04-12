@@ -300,7 +300,8 @@ export default function ReportsPage() {
 
       try {
         const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
-        const endDate = new Date(year, month, 0).toISOString().split("T")[0];
+        const lastDay = new Date(year, month, 0);
+        const endDate = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, "0")}-${String(lastDay.getDate()).padStart(2, "0")}`;
 
         const [
           { data: categoriesData },
