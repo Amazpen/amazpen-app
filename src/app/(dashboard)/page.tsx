@@ -663,8 +663,8 @@ export default function DashboardPage() {
         curDateSch.setDate(curDateSch.getDate() + 1);
       }
       const totalManagerSalary = businessData.reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
-      const calendarDaysInMonth = new Date(targetYearForSchedule, targetMonthForSchedule + 1, 0).getDate();
-      const managerDailyCost = calendarDaysInMonth > 0 ? totalManagerSalary / calendarDaysInMonth : 0;
+      // Manager salary spreads over WORK days, not calendar days — matches reports/dashboard/goals formulas
+      const managerDailyCost = expectedWorkDaysInMonth > 0 ? totalManagerSalary / expectedWorkDaysInMonth : 0;
 
       // VAT calculation — normalize: if stored as multiplier (>1), convert to fraction
       const rawAvgVatPct = businessData.reduce((sum, b) => {
