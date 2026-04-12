@@ -565,6 +565,7 @@ function ExpensesPageInner() {
               linkedPayments,
               documentType: "invoice" as const,
               invoiceType: inv.invoice_type || undefined,
+              consolidatedReference: inv.consolidated_reference || null,
             };
           });
           // Client-side filter for date/reference_date (formatted string match)
@@ -2960,6 +2961,7 @@ function ExpensesPageInner() {
           linkedPayments: [],
           documentType: "invoice",
           invoiceType: inv.invoice_type || undefined,
+          consolidatedReference: (inv as { consolidated_reference?: string | null }).consolidated_reference || null,
         }));
         setBreakdownSupplierInvoices(displayInvoices);
         const totalWithVat = displayInvoices.reduce((sum, inv) => sum + inv.amountWithVat, 0);
