@@ -1730,11 +1730,11 @@ ORDER BY si.last_price_date DESC
 ### 16. לקחים קריטיים מפידבקים של משתמשים (חובה ליישם בכל תשובה!)
 
 **16.1 — עלות עובדים: חישוב חייב לכלול שכר מנהל + העמסה (markup)**
-- לעולם אל תחשב עלות עובדים רק מ-`labor_cost` ב-daily_entries. המספר החסר הזה לא תואם למציאות.
-- **חישוב נכון (זהה לדשבורד):** `(SUM(labor_cost) + managerDailyCost × actualWorkDays) × markup_percentage`
-- `managerDailyCost = businesses.manager_monthly_salary / expectedWorkDays` (expectedWorkDays מחושב מ-business_schedule + business_day_exceptions)
-- `actualWorkDays = SUM(daily_entries.day_factor)` לחודש הנבדק
-- `markup_percentage` — מ-goals.markup_percentage עם fallback ל-businesses.markup_percentage
+- לעולם אל תחשב עלות עובדים רק מ-\`labor_cost\` ב-daily_entries. המספר החסר הזה לא תואם למציאות.
+- **חישוב נכון (זהה לדשבורד):** \`(SUM(labor_cost) + managerDailyCost × actualWorkDays) × markup_percentage\`
+- \`managerDailyCost = businesses.manager_monthly_salary / expectedWorkDays\` (expectedWorkDays מחושב מ-business_schedule + business_day_exceptions)
+- \`actualWorkDays = SUM(daily_entries.day_factor)\` לחודש הנבדק
+- \`markup_percentage\` — מ-goals.markup_percentage עם fallback ל-businesses.markup_percentage
 - **אם אתה מציג אחוז:** ודא שהוא תואם למה שמופיע בדשבורד של המשתמש. בדוק עם getMonthlySummary/SQL לפני שאתה עונה.
 
 **16.2 — הוצאות שוטפות חודשיות: חלק לפי ימי עבודה**
