@@ -1113,36 +1113,50 @@ export default function SuppliersPage() {
     const supabase = createClient();
     const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
     const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+    const startStr = monthStart.toISOString().split("T")[0];
+    const endStr = monthEnd.toISOString().split("T")[0];
 
+    // 1. Fetch invoices for this supplier IN THIS BUSINESS for the month (by invoice_date, not reference_date — matches what the user sees)
     const { data: monthlyInvoices } = await supabase
       .from("invoices")
-      .select("total_amount")
+      .select("id, total_amount")
       .eq("supplier_id", supplier.id)
+      .eq("business_id", supplier.business_id)
       .is("deleted_at", null)
-      .gte("reference_date", monthStart.toISOString().split("T")[0])
-      .lte("reference_date", monthEnd.toISOString().split("T")[0]);
+      .gte("invoice_date", startStr)
+      .lte("invoice_date", endStr);
 
     const monthlyPurchases = monthlyInvoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+    const invoiceIds = (monthlyInvoices || []).map(inv => inv.id);
 
-    // Get payments linked to invoices in this month (by reference_date, matching dashboard)
-    // First get invoice IDs for this month
-    const { data: monthlyInvoiceIds } = await supabase
-      .from("invoices")
-      .select("id")
-      .eq("supplier_id", supplier.id)
-      .is("deleted_at", null)
-      .gte("reference_date", monthStart.toISOString().split("T")[0])
-      .lte("reference_date", monthEnd.toISOString().split("T")[0]);
-
+    // 2. Calculate paid: sum from payment_invoice_links.amount_allocated (the trustworthy
+    // per-invoice allocation), and avoid double-counting the same payment from payments.invoice_id.
     let monthlyPaid = 0;
-    if (monthlyInvoiceIds && monthlyInvoiceIds.length > 0) {
-      const invoiceIds = monthlyInvoiceIds.map(inv => inv.id);
-      const { data: linkedPayments } = await supabase
+    if (invoiceIds.length > 0) {
+      // Pull ALL allocations for these invoices via N:M links
+      const { data: linkRows } = await supabase
+        .from("payment_invoice_links")
+        .select("payment_id, amount_allocated")
+        .in("invoice_id", invoiceIds);
+
+      const seenPaymentIds = new Set<string>();
+      for (const row of linkRows || []) {
+        monthlyPaid += Number(row.amount_allocated) || 0;
+        if (row.payment_id) seenPaymentIds.add(row.payment_id);
+      }
+
+      // Add payments that are linked ONLY via direct invoice_id FK (no row in payment_invoice_links)
+      const { data: directPayments } = await supabase
         .from("payments")
-        .select("total_amount")
+        .select("id, total_amount")
         .in("invoice_id", invoiceIds)
         .is("deleted_at", null);
-      monthlyPaid = linkedPayments?.reduce((sum, pay) => sum + Number(pay.total_amount), 0) || 0;
+
+      for (const p of directPayments || []) {
+        if (!seenPaymentIds.has(p.id)) {
+          monthlyPaid += Number(p.total_amount) || 0;
+        }
+      }
     }
 
     let expectedPaymentDate: string | null = null;

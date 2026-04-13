@@ -3002,11 +3002,7 @@ function PaymentsPageInner() {
       {/* Forecast Section - צפי תשלומים קדימה */}
       {showForecast && (
         <div className="bg-[#0F1535] rounded-[20px] mt-[10px] flex flex-col gap-[10px]">
-          {isLoadingForecast ? (
-            <div className="flex items-center justify-center py-[40px]">
-              <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-            </div>
-          ) : forecastMonths.length === 0 ? (
+          {isLoadingForecast && forecastMonths.length === 0 ? null : forecastMonths.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-[30px] gap-[8px]">
               <span className="text-[18px] text-white/50">אין תשלומים עתידיים</span>
               <span className="text-[14px] text-white/30">כל התשלומים שולמו או שאין תשלומים עם תאריך יעד</span>
@@ -3171,11 +3167,7 @@ function PaymentsPageInner() {
       {/* Past Payments Section - תשלומי עבר */}
       {showPastPayments && (
         <div className="bg-[#0F1535] rounded-[20px] mt-[10px] flex flex-col gap-[10px]">
-          {isLoadingPast ? (
-            <div className="flex items-center justify-center py-[40px]">
-              <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-            </div>
-          ) : pastMonths.length === 0 ? (
+          {isLoadingPast && pastMonths.length === 0 ? null : pastMonths.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-[30px] gap-[8px]">
               <span className="text-[18px] text-white/50">אין תשלומי עבר</span>
               <span className="text-[14px] text-white/30">לא נמצאו תשלומים שבוצעו בעבר</span>
