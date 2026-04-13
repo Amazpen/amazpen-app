@@ -53,6 +53,7 @@ interface MergedPayment {
   splits: ParsedSplit[];
   unique_id: string;
   invoice_id: string | null;
+  linked_invoice_ids: string[]; // All invoices this payment is linked to (Bubble "חשבוניות" column)
 }
 
 // ===== Constants =====
@@ -248,6 +249,22 @@ export default function AdminPaymentsPage() {
     });
   }, [invoices]);
 
+  // Find ALL invoices matching Bubble UIDs (comma-separated string from "חשבוניות" column)
+  const findInvoicesByBubbleIds = useCallback((uidsRaw: string): Invoice[] => {
+    if (!uidsRaw) return [];
+    const uids = uidsRaw.split(/\s*,\s*/).map(u => u.trim()).filter(Boolean);
+    const matched: Invoice[] = [];
+    const seen = new Set<string>();
+    for (const uid of uids) {
+      const inv = findInvoiceByBubbleId(uid);
+      if (inv && !seen.has(inv.id)) {
+        matched.push(inv);
+        seen.add(inv.id);
+      }
+    }
+    return matched;
+  }, [findInvoiceByBubbleId]);
+
   // ===== Header aliases for main CSV =====
   const mainHeaderAliases: Record<string, string> = {
     "Supplier name": "supplier_name", "שם ספק": "supplier_name", "ספק": "supplier_name",
@@ -265,6 +282,8 @@ export default function AdminPaymentsPage() {
     "הערות": "notes",
     "כל התמונות": "images",
     "שולם": "is_paid",
+    // Linked invoice UIDs (Bubble "חשבוניות" column — may contain multiple comma-separated UIDs)
+    "חשבוניות": "linked_invoice_uids",
   };
 
   // ===== Header aliases for sub-payments CSV =====
@@ -444,7 +463,9 @@ export default function AdminPaymentsPage() {
         if (!findSupplierByName(supplierName)) unmatchedSet.add(supplierName);
 
         const uid = group.uniqueIds[0] || "";
-        const matchedInvoice = findInvoiceByBubbleId(uid);
+        const linkedInvUidsRaw = getMain(firstRow, "linked_invoice_uids");
+        const linkedInvs = findInvoicesByBubbleIds(linkedInvUidsRaw);
+        const matchedInvoice = linkedInvs[0] || findInvoiceByBubbleId(uid);
         payments.push({
           supplier_name: supplierName,
           payment_date: earliestDate,
@@ -455,6 +476,7 @@ export default function AdminPaymentsPage() {
           splits,
           unique_id: uid,
           invoice_id: matchedInvoice?.id || null,
+          linked_invoice_ids: linkedInvs.map(i => i.id),
         });
       } else {
         // No sub-payments - splits come from main rows themselves
@@ -498,7 +520,9 @@ export default function AdminPaymentsPage() {
           if (!findSupplierByName(supplierName)) unmatchedSet.add(supplierName);
 
           const installUid = group.uniqueIds[0] || "";
-          const installMatchedInvoice = findInvoiceByBubbleId(installUid);
+          const installLinkedUidsRaw = getMain(firstRow, "linked_invoice_uids");
+          const installLinkedInvs = findInvoicesByBubbleIds(installLinkedUidsRaw);
+          const installMatchedInvoice = installLinkedInvs[0] || findInvoiceByBubbleId(installUid);
           payments.push({
             supplier_name: supplierName,
             payment_date: earliestDate,
@@ -509,6 +533,7 @@ export default function AdminPaymentsPage() {
             splits,
             unique_id: installUid,
             invoice_id: installMatchedInvoice?.id || null,
+            linked_invoice_ids: installLinkedInvs.map(i => i.id),
           });
         } else {
           // Single payment row - check if it has sub-payments from subs CSV (standalone subs)
@@ -530,7 +555,10 @@ export default function AdminPaymentsPage() {
 
           if (!findSupplierByName(supplierName)) unmatchedSet.add(supplierName);
 
-          const singleMatchedInvoice = findInvoiceByBubbleId(uid);
+          const singleLinkedUidsRaw = getMain(firstRow, "linked_invoice_uids");
+          const singleLinkedInvs = findInvoicesByBubbleIds(singleLinkedUidsRaw);
+          const singleMatchedInvoice = singleLinkedInvs[0] || findInvoiceByBubbleId(uid);
+          const singleLinkedIds = singleLinkedInvs.map(i => i.id);
           if (splitAmount > 0 && method !== "other") {
             // Main row has split info
             payments.push({
@@ -553,6 +581,7 @@ export default function AdminPaymentsPage() {
               }],
               unique_id: uid,
               invoice_id: singleMatchedInvoice?.id || null,
+              linked_invoice_ids: singleLinkedIds,
             });
           } else {
             // Main row without split info - will get splits from subs CSV or be a bare payment
@@ -566,6 +595,7 @@ export default function AdminPaymentsPage() {
               splits: [],
               unique_id: uid,
               invoice_id: singleMatchedInvoice?.id || null,
+              linked_invoice_ids: singleLinkedIds,
             });
           }
         }
@@ -651,6 +681,7 @@ export default function AdminPaymentsPage() {
           splits,
           unique_id: "",
           invoice_id: null,
+          linked_invoice_ids: [],
         });
       }
     }
@@ -824,6 +855,15 @@ export default function AdminPaymentsPage() {
           setIsImporting(false);
           setImportProgress("");
           return;
+        }
+
+        // Insert payment-invoice links (for multi-invoice payments)
+        if (payment.linked_invoice_ids && payment.linked_invoice_ids.length > 0) {
+          const linkRecords = payment.linked_invoice_ids.map(invId => ({
+            payment_id: paymentData.id,
+            invoice_id: invId,
+          }));
+          await supabase.from("payment_invoice_links").insert(linkRecords);
         }
 
         // Insert splits

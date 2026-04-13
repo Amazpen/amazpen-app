@@ -1,0 +1,15 @@
+{
+  "mutate": [
+    "src/**/*.ts",
+    "src/**/*.js",
+    "lib/**/*.ts",
+    "lib/**/*.js"
+  ],
+  "testRunner": "jest",
+  "reporters": [
+    "json",
+    "clear-text"
+  ],
+  "timeoutMS": 300000,
+  "concurrency": 4
+}

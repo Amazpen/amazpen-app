@@ -27,6 +27,7 @@ interface CsvExpense {
   parent_category: string;
   child_category: string;
   requires_vat: boolean;
+  bubble_invoice_uid: string;
   bubble_payment_ids: string;
   attachment_urls: string[]; // all image URLs from the row
   consolidated_reference: string;
@@ -239,7 +240,9 @@ export default function AdminExpensesPage() {
             "שנה": "year", "חודש (מספר)": "month", "יום (מספר)": "day",
             // Business
             "עסק": "business_name",
-            // Bubble payment IDs (for migration linking)
+            // Bubble invoice unique_id (of THIS invoice)
+            "unique id": "bubble_invoice_uid",
+            // Bubble payment IDs (legacy — linked payment UIDs)
             "תשלומים": "bubble_payment_ids",
             // Attachment URL
             "קישור": "attachment_url", "url": "attachment_url", "URL": "attachment_url",
@@ -461,7 +464,9 @@ export default function AdminExpensesPage() {
               });
             }
 
-            // Bubble payment IDs (for migration linking)
+            // Bubble unique_id of THIS invoice (for linking payments → invoices)
+            const bubble_invoice_uid = getField(row, "bubble_invoice_uid");
+            // Bubble payment IDs (legacy — for migration linking)
             const bubble_payment_ids = getField(row, "bubble_payment_ids");
 
             // Attachment URLs — field may contain multiple URLs separated by " , "
@@ -488,6 +493,7 @@ export default function AdminExpensesPage() {
               parent_category,
               child_category,
               requires_vat,
+              bubble_invoice_uid,
               bubble_payment_ids,
               attachment_urls,
               consolidated_reference: getField(row, "consolidated_number") || "",
@@ -747,7 +753,7 @@ export default function AdminExpensesPage() {
           invoice_type: expense.invoice_type,
           clarification_reason: expense.clarification_reason || null,
           is_consolidated: expense.is_consolidated,
-          data_source: expense.bubble_payment_ids ? `bubble:${expense.bubble_payment_ids}` : null,
+          data_source: expense.bubble_invoice_uid ? `bubble:${expense.bubble_invoice_uid}` : (expense.bubble_payment_ids ? `bubble:${expense.bubble_payment_ids}` : null),
           attachment_url: transferredUrl,
           consolidated_reference: expense.consolidated_reference || null,
         });
