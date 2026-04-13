@@ -182,10 +182,10 @@ export default function ReportsPage() {
       const firstStart = `${months[0].year}-${String(months[0].month).padStart(2, "0")}-01`;
       const lastEnd = new Date(months[5].year, months[5].month, 0).toISOString().split("T")[0];
 
-      const [{ data: dailyData }, { data: invoicesData }, { data: bizVatData }, { data: goalsVatData }] = await Promise.all([
+      const [{ data: dailyData }, { data: invoicesData }, { data: bizVatData }, { data: goalsVatData }, { data: scheduleData }] = await Promise.all([
         supabase
           .from("daily_entries")
-          .select("entry_date, total_register, labor_cost, manager_daily_cost, day_factor")
+          .select("business_id, entry_date, total_register, labor_cost, manager_daily_cost, day_factor")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .gte("entry_date", firstStart)
@@ -200,11 +200,15 @@ export default function ReportsPage() {
           .lte("reference_date", lastEnd),
         supabase
           .from("businesses")
-          .select("id, vat_percentage, markup_percentage")
+          .select("id, vat_percentage, markup_percentage, manager_monthly_salary")
           .in("id", selectedBusinesses),
         supabase
           .from("goals")
           .select("business_id, vat_percentage, markup_percentage")
+          .in("business_id", selectedBusinesses),
+        supabase
+          .from("business_schedule")
+          .select("business_id, day_of_week, day_factor")
           .in("business_id", selectedBusinesses),
       ]);
 
@@ -230,14 +234,46 @@ export default function ReportsPage() {
         expensesByMonth.set(key, 0);
       }
 
+      // Compute avg day factors per day_of_week for manager cost fallback
+      const dayFactorsByDow: Record<number, number[]> = {};
+      (scheduleData || []).forEach(s => {
+        const dow = Number(s.day_of_week);
+        if (!dayFactorsByDow[dow]) dayFactorsByDow[dow] = [];
+        dayFactorsByDow[dow].push(Number(s.day_factor) || 0);
+      });
+      const avgDayFactorsByDow: Record<number, number> = {};
+      for (let dow = 0; dow < 7; dow++) {
+        const arr = dayFactorsByDow[dow] || [];
+        avgDayFactorsByDow[dow] = arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+      }
+      const managerMonthlySalaryAvg = (bizVatData || []).reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0) / Math.max((bizVatData || []).length, 1);
+
+      // Precompute expected work days per month
+      const expectedWorkDaysByMonth = new Map<string, number>();
+      for (const m of months) {
+        const firstDay = new Date(m.year, m.month - 1, 1);
+        const lastDay = new Date(m.year, m.month, 0);
+        let wd = 0;
+        const cur = new Date(firstDay);
+        while (cur <= lastDay) {
+          wd += avgDayFactorsByDow[cur.getDay()] || 0;
+          cur.setDate(cur.getDate() + 1);
+        }
+        expectedWorkDaysByMonth.set(`${m.year}-${String(m.month).padStart(2, "0")}`, wd);
+      }
+
       // Income from daily entries (before VAT) + labor costs with markup
       for (const entry of dailyData || []) {
         const key = entry.entry_date?.substring(0, 7);
         if (key && incomeByMonth.has(key)) {
           incomeByMonth.set(key, (incomeByMonth.get(key) || 0) + Number(entry.total_register || 0) / vatDivisor);
-          // Add labor costs: labor * markup + manager (already loaded)
           const entryLabor = Number(entry.labor_cost) || 0;
-          const entryManager = Number(entry.manager_daily_cost) || 0;
+          let entryManager = Number(entry.manager_daily_cost) || 0;
+          if (entryManager === 0 && managerMonthlySalaryAvg > 0) {
+            const expectedWd = expectedWorkDaysByMonth.get(key) || 0;
+            const dayFactor = Number(entry.day_factor) || 0;
+            if (expectedWd > 0) entryManager = (managerMonthlySalaryAvg / expectedWd) * dayFactor;
+          }
           const entryLaborCost = entryLabor * markupMultiplier + entryManager;
           if (entryLaborCost > 0) {
             expensesByMonth.set(key, (expensesByMonth.get(key) || 0) + entryLaborCost);
@@ -439,10 +475,12 @@ export default function ReportsPage() {
         const vatPercentage = Number(businessData?.[0]?.vat_percentage || 0);
         const vatDivisor = vatPercentage > 0 ? 1 + vatPercentage : 1;
 
-        // Labor: labor * markup + manager from daily_entries (already loaded)
-        const totalLaborCost = rawLaborCost * avgMarkup + rawManagerCost;
+        // Labor: labor * markup + manager (compute manager from monthly_salary like dashboard does)
+        const computedManagerCost = managerDailyCost * actualWorkDays;
+        const effectiveManagerCost = rawManagerCost > 0 ? rawManagerCost : computedManagerCost;
+        const totalLaborCost = rawLaborCost * avgMarkup + effectiveManagerCost;
         const laborOnlyCost = rawLaborCost * avgMarkup;
-        const managerOnlyCost = rawManagerCost;
+        const managerOnlyCost = effectiveManagerCost;
         void rawManagerCost;
         const totalRevenue = totalRegister / vatDivisor;
 
