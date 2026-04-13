@@ -192,7 +192,6 @@ export default function AdminExpensesPage() {
             "מספר חשבונית": "invoice_number", "חשבונית": "invoice_number", "מס חשבונית": "invoice_number",
             "invoice_number": "invoice_number", "מספר מסמך": "invoice_number",
             "מספר תעודה (מספר חשבונית)": "invoice_number",
-            "(תעודת משלוח)חשבונית": "invoice_number",
             // Invoice date
             "תאריך חשבונית": "invoice_date", "תאריך": "invoice_date",
             "invoice_date": "invoice_date", "date": "invoice_date",
@@ -432,6 +431,10 @@ export default function AdminExpensesPage() {
             // Invoice number - clean up dashes
             let invoice_number = getField(row, "invoice_number");
             if (invoice_number === "-" || invoice_number === "–") {
+              invoice_number = "";
+            }
+            // Reject URLs — invoice_number should be a short identifier, not a link
+            if (invoice_number.startsWith("http") || invoice_number.startsWith("//")) {
               invoice_number = "";
             }
 
