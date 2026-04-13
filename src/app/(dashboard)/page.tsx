@@ -526,21 +526,18 @@ export default function DashboardPage() {
           .eq("payments.business_id", businessId)
           .is("payments.deleted_at", null)
           .gte("due_date", todayStr),
-        // All invoices total — only goods_purchases + current_expenses suppliers
-        // (matches the suppliers page tabs the user actually sees).
-        // Excludes employee costs and prior commitments which have separate views.
+        // All invoices grouped per supplier — only goods_purchases + current_expenses
+        // (matches the suppliers page tabs).
         supabase
           .from("invoices")
-          .select("total_amount, supplier:suppliers!inner(expense_type)")
+          .select("supplier_id, total_amount, supplier:suppliers!inner(expense_type)")
           .eq("business_id", businessId)
           .is("deleted_at", null)
           .in("supplier.expense_type", ["goods_purchases", "current_expenses"]),
-        // Paid splits total - only splits with due_date BEFORE today count as "paid"
-        // (today's splits are counted as 'open' to match payments page logic).
-        // Filter to splits whose payment is for goods/current-expenses suppliers.
+        // Paid splits per supplier (due_date < today) — same expense_type filter.
         supabase
           .from("payment_splits")
-          .select("amount, payments!inner(business_id, deleted_at, supplier:suppliers!inner(expense_type))")
+          .select("amount, payments!inner(business_id, supplier_id, deleted_at, supplier:suppliers!inner(expense_type))")
           .eq("payments.business_id", businessId)
           .is("payments.deleted_at", null)
           .in("payments.supplier.expense_type", ["goods_purchases", "current_expenses"])
@@ -556,15 +553,27 @@ export default function DashboardPage() {
       const openPaymentsTotal = (openPaymentSplitsResult.data || []).reduce(
         (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
       );
-      const totalInvoicesAmount = (allInvoicesTotalResult.data || []).reduce(
-        (sum: number, inv: Record<string, unknown>) => sum + (Number(inv.total_amount) || 0), 0
-      );
-      // Only splits that were already due (due_date < today) count as payments made.
-      // Today's splits are still 'open' to match the payments-page forecast.
-      const paidSplitsAmount = (allPaymentsTotalResult.data || []).reduce(
-        (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
-      );
-      const openSuppliersTotal = totalInvoicesAmount - paidSplitsAmount;
+      // Per-supplier balance: invoiced - paid, capped at 0 (matches suppliers page).
+      // Suppliers who paid more than they were invoiced contribute 0, not a negative.
+      const invoicedBySupplier = new Map<string, number>();
+      for (const inv of (allInvoicesTotalResult.data || []) as Record<string, unknown>[]) {
+        const sid = inv.supplier_id as string;
+        if (!sid) continue;
+        invoicedBySupplier.set(sid, (invoicedBySupplier.get(sid) || 0) + (Number(inv.total_amount) || 0));
+      }
+      const paidBySupplier = new Map<string, number>();
+      for (const s of (allPaymentsTotalResult.data || []) as Record<string, unknown>[]) {
+        const p = s.payments as { supplier_id?: string } | undefined;
+        const sid = p?.supplier_id;
+        if (!sid) continue;
+        paidBySupplier.set(sid, (paidBySupplier.get(sid) || 0) + (Number(s.amount) || 0));
+      }
+      const allSupplierIds = new Set<string>([...invoicedBySupplier.keys(), ...paidBySupplier.keys()]);
+      let openSuppliersTotal = 0;
+      for (const sid of allSupplierIds) {
+        const balance = (invoicedBySupplier.get(sid) || 0) - (paidBySupplier.get(sid) || 0);
+        if (balance > 0) openSuppliersTotal += balance;
+      }
       // Calculate open commitments from prior_commitments table
       // For each commitment: remaining = monthly_amount * remaining_installments
       const openCommitmentsTotal = (priorCommitmentsResult.data || []).reduce(
