@@ -526,19 +526,24 @@ export default function DashboardPage() {
           .eq("payments.business_id", businessId)
           .is("payments.deleted_at", null)
           .gte("due_date", todayStr),
-        // All invoices total
+        // All invoices total — only goods_purchases + current_expenses suppliers
+        // (matches the suppliers page tabs the user actually sees).
+        // Excludes employee costs and prior commitments which have separate views.
         supabase
           .from("invoices")
-          .select("total_amount")
+          .select("total_amount, supplier:suppliers!inner(expense_type)")
           .eq("business_id", businessId)
-          .is("deleted_at", null),
+          .is("deleted_at", null)
+          .in("supplier.expense_type", ["goods_purchases", "current_expenses"]),
         // Paid splits total - only splits with due_date BEFORE today count as "paid"
         // (today's splits are counted as 'open' to match payments page logic).
+        // Filter to splits whose payment is for goods/current-expenses suppliers.
         supabase
           .from("payment_splits")
-          .select("amount, payments!inner(business_id, deleted_at)")
+          .select("amount, payments!inner(business_id, deleted_at, supplier:suppliers!inner(expense_type))")
           .eq("payments.business_id", businessId)
           .is("payments.deleted_at", null)
+          .in("payments.supplier.expense_type", ["goods_purchases", "current_expenses"])
           .lt("due_date", todayStr),
         // All prior commitments (from prior_commitments table)
         supabase
