@@ -1522,80 +1522,78 @@ function PaymentsPageInner() {
         receiptUrl = existingUrls.length === 1 ? existingUrls[0] : JSON.stringify(existingUrls);
       }
 
-      // Create payment(s) — one per selected invoice for proper linking
-      const invoiceIds = selectedInvoiceIds.size > 0 ? Array.from(selectedInvoiceIds) : [null];
+      // Create ONE payment that aggregates all selected invoices, then
+      // link it to each invoice via payment_invoice_links with amount_allocated.
+      const selectedInvoicesArr = Array.from(selectedInvoiceIds);
 
-      // Helper to create splits for a payment
-      const createSplitsForPayment = async (paymentId: string) => {
-        for (const pm of paymentMethods) {
-          const amount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
-          if (amount > 0) {
-            const installmentsCount = parseInt(pm.installments) || 1;
-            const creditCardId = pm.method === "credit_card" && pm.creditCardId ? pm.creditCardId : null;
-            const card = creditCardId ? businessCreditCards.find(c => c.id === creditCardId) : null;
+      const { data: newPayment, error: paymentError } = await supabase
+        .from("payments")
+        .insert({
+          business_id: selectedBusinesses[0],
+          supplier_id: selectedSupplier,
+          payment_date: paymentDate,
+          total_amount: totalAmount,
+          // Direct FK only when a single invoice is paid; otherwise rely on links table.
+          invoice_id: selectedInvoicesArr.length === 1 ? selectedInvoicesArr[0] : null,
+          notes: notes || null,
+          created_by: user?.id || null,
+          receipt_url: receiptUrl,
+        })
+        .select()
+        .single();
 
-            if (pm.customInstallments.length > 0) {
-              for (const inst of pm.customInstallments) {
-                await supabase
-                  .from("payment_splits")
-                  .insert({
-                    payment_id: paymentId,
-                    payment_method: pm.method || "other",
-                    amount: inst.amount,
-                    installments_count: installmentsCount,
-                    installment_number: inst.number,
-                    reference_number: reference || null,
-                    check_number: (pm.method === "check" && inst.checkNumber) ? inst.checkNumber : (pm.checkNumber || null),
-                    credit_card_id: creditCardId,
-                    due_date: inst.dateForInput || paymentDate || null,
-                  });
-              }
-            } else {
-              // Trust the user's paymentDate as-is. The billing-day
-              // adjustment is already applied upstream via
-              // getSmartPaymentDate when the card is picked; any manual
-              // edit represents the user's explicit intent. Re-running
-              // calculateCreditCardDueDate here was double-shifting.
-              const dueDate = paymentDate || null;
+      if (paymentError) throw paymentError;
+      if (!newPayment) throw new Error("Failed to create payment");
 
-              await supabase
-                .from("payment_splits")
-                .insert({
-                  payment_id: paymentId,
-                  payment_method: pm.method || "other",
-                  amount: amount,
-                  installments_count: 1,
-                  installment_number: 1,
-                  reference_number: reference || null,
-                  check_number: pm.checkNumber || null,
-                  credit_card_id: creditCardId,
-                  due_date: dueDate,
-                });
-            }
+      // Create splits for the single payment
+      for (const pm of paymentMethods) {
+        const amount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+        if (amount <= 0) continue;
+        const installmentsCount = parseInt(pm.installments) || 1;
+        const creditCardId = pm.method === "credit_card" && pm.creditCardId ? pm.creditCardId : null;
+
+        if (pm.customInstallments.length > 0) {
+          for (const inst of pm.customInstallments) {
+            await supabase.from("payment_splits").insert({
+              payment_id: newPayment.id,
+              payment_method: pm.method || "other",
+              amount: inst.amount,
+              installments_count: installmentsCount,
+              installment_number: inst.number,
+              reference_number: reference || null,
+              check_number: (pm.method === "check" && inst.checkNumber) ? inst.checkNumber : (pm.checkNumber || null),
+              credit_card_id: creditCardId,
+              due_date: inst.dateForInput || paymentDate || null,
+            });
           }
+        } else {
+          await supabase.from("payment_splits").insert({
+            payment_id: newPayment.id,
+            payment_method: pm.method || "other",
+            amount: amount,
+            installments_count: 1,
+            installment_number: 1,
+            reference_number: reference || null,
+            check_number: pm.checkNumber || null,
+            credit_card_id: creditCardId,
+            due_date: paymentDate || null,
+          });
         }
-      };
+      }
 
-      // Create one payment per invoice so each invoice is properly linked
-      for (const invoiceId of invoiceIds) {
-        const { data: newPayment, error: paymentError } = await supabase
-          .from("payments")
-          .insert({
-            business_id: selectedBusinesses[0],
-            supplier_id: selectedSupplier,
-            payment_date: paymentDate,
-            total_amount: totalAmount,
-            invoice_id: invoiceId,
-            notes: notes || null,
-            created_by: user?.id || null,
-            receipt_url: receiptUrl,
-          })
-          .select()
-          .single();
-
-        if (paymentError) throw paymentError;
-        if (newPayment) {
-          await createSplitsForPayment(newPayment.id);
+      // Link the payment to each selected invoice via N:M table.
+      // amount_allocated = invoice's total_amount (capped by remaining payment amount).
+      if (selectedInvoicesArr.length > 1) {
+        const selectedInvObjs = openInvoices.filter(inv => selectedInvoiceIds.has(inv.id));
+        let remaining = totalAmount;
+        for (const inv of selectedInvObjs) {
+          const allocated = Math.min(Number(inv.total_amount), remaining);
+          remaining -= allocated;
+          await supabase.from("payment_invoice_links").insert({
+            payment_id: newPayment.id,
+            invoice_id: inv.id,
+            amount_allocated: allocated,
+          });
         }
       }
 
