@@ -1191,7 +1191,7 @@ function ExpensesPageInner() {
             .lte("entry_date", endDate),
           supabase
             .from("goals")
-            .select("business_id, vat_percentage, markup_percentage")
+            .select("business_id, vat_percentage, markup_percentage, expected_work_days")
             .in("business_id", selectedBusinesses)
             .eq("year", targetYear)
             .eq("month", targetMonth),
@@ -1199,6 +1199,21 @@ function ExpensesPageInner() {
             .from("businesses")
             .select("id, vat_percentage, markup_percentage, manager_monthly_salary")
             .in("id", selectedBusinesses),
+        ]);
+
+        // Fetch business_schedule + day_exceptions to compute expected work days
+        // (same approach as dashboard/reports for manager-cost fallback)
+        const [{ data: scheduleRows }, { data: exceptionRows }] = await Promise.all([
+          supabase
+            .from("business_schedule")
+            .select("business_id, day_of_week, day_factor")
+            .in("business_id", selectedBusinesses),
+          supabase
+            .from("business_day_exceptions")
+            .select("business_id, date, day_factor")
+            .in("business_id", selectedBusinesses)
+            .gte("date", startDate)
+            .lte("date", endDate),
         ]);
 
         if (stale) return;
@@ -1342,7 +1357,7 @@ function ExpensesPageInner() {
         if (activeTab === "employees") {
           const { data: laborData } = await supabase
             .from("daily_entries")
-            .select("entry_date, labor_cost, labor_hours, manager_daily_cost")
+            .select("entry_date, labor_cost, labor_hours, manager_daily_cost, day_factor")
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
             .gte("entry_date", startDate)
@@ -1350,12 +1365,47 @@ function ExpensesPageInner() {
             .order("entry_date", { ascending: false });
 
           if (!stale && laborData) {
-            const entries = laborData.map(e => ({
-              entry_date: e.entry_date,
-              labor_cost: Number(e.labor_cost) || 0,
-              labor_hours: Number(e.labor_hours) || 0,
-              manager_daily_cost: Number(e.manager_daily_cost) || 0,
-            })).filter(e => e.labor_cost > 0 || e.manager_daily_cost > 0);
+            // Compute expected work days in month from schedule + exceptions (matches dashboard/reports)
+            const avgScheduleDayFactors: number[] = [0, 0, 0, 0, 0, 0, 0];
+            const counts: number[] = [0, 0, 0, 0, 0, 0, 0];
+            for (const row of (scheduleRows || [])) {
+              const dow = Number(row.day_of_week);
+              avgScheduleDayFactors[dow] += Number(row.day_factor) || 0;
+              counts[dow] += 1;
+            }
+            for (let i = 0; i < 7; i++) {
+              if (counts[i] > 0) avgScheduleDayFactors[i] /= counts[i];
+            }
+            const exceptionMap: Record<string, number> = {};
+            for (const ex of (exceptionRows || [])) {
+              if (ex.date) exceptionMap[ex.date] = Number(ex.day_factor) || 0;
+            }
+            const firstDay = new Date(targetYear, targetMonth - 1, 1);
+            const lastDay = new Date(targetYear, targetMonth, 0);
+            let scheduleWorkDays = 0;
+            const cur = new Date(firstDay);
+            while (cur <= lastDay) {
+              const k = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+              scheduleWorkDays += exceptionMap[k] !== undefined ? exceptionMap[k] : (avgScheduleDayFactors[cur.getDay()] || 0);
+              cur.setDate(cur.getDate() + 1);
+            }
+            const goalExpectedWorkDays = (goalsData || []).reduce((sum, g) => sum + (Number(g.expected_work_days) || 0), 0);
+            const expectedWorkDays = goalExpectedWorkDays > 0 ? goalExpectedWorkDays : scheduleWorkDays;
+
+            const totalManagerSalary = (businessVatData || []).reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
+            const managerDailyCostComputed = expectedWorkDays > 0 ? totalManagerSalary / expectedWorkDays : 0;
+
+            // Always compute manager cost from monthly_salary (matches dashboard exactly).
+            // DB column is unreliable — use it only for display reference, not for totals.
+            const entries = laborData.map(e => {
+              const dayFactor = Number(e.day_factor) || 1;
+              return {
+                entry_date: e.entry_date,
+                labor_cost: Number(e.labor_cost) || 0,
+                labor_hours: Number(e.labor_hours) || 0,
+                manager_daily_cost: managerDailyCostComputed * dayFactor,
+              };
+            }).filter(e => e.labor_cost > 0 || e.manager_daily_cost > 0);
             setDailyLaborEntries(entries);
             // (labor + manager) × markup — matching dashboard formula
             const markupForLabor = avgMarkup > 0 ? avgMarkup : 1;

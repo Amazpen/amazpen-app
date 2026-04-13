@@ -626,9 +626,13 @@ export default function SuppliersPage() {
     setSupplierEmail(selectedSupplier.email || "");
     setRequestKarteset(selectedSupplier.request_karteset || false);
 
-    // Close detail popup and open add/edit modal
+    // Close detail popup and open add/edit modal.
+    // Open the edit modal on the next tick to let Radix fully finish
+    // the detail-sheet close transition — otherwise Radix's dismissable layer
+    // from the closing sheet can swallow pointer events on the new sheet and
+    // immediately close it.
     setShowSupplierDetailPopup(false);
-    setIsAddSupplierModalOpen(true);
+    setTimeout(() => setIsAddSupplierModalOpen(true), 50);
   };
 
   // Handle open karteset period picker
@@ -1268,7 +1272,7 @@ export default function SuppliersPage() {
             total_amount,
             notes,
             receipt_url,
-            payment_splits(payment_method, amount, installments_count, installment_number)
+            payment_splits(payment_method, amount, installments_count, installment_number, due_date)
           `)
           .in("invoice_id", invoiceIds)
           .is("deleted_at", null);
@@ -1299,7 +1303,7 @@ export default function SuppliersPage() {
               amount: Number(pay.total_amount),
               method: paymentMethodNames[firstSplit?.payment_method || "other"] || "אחר",
               installments: installCount > 1 ? `${installNum}/${installCount}` : "1/1",
-              date: new Date(pay.payment_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
+              date: new Date((firstSplit?.due_date as string) || pay.payment_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
               receiptUrl: pay.receipt_url || null,
               notes: pay.notes || null,
             });
@@ -2995,7 +2999,13 @@ export default function SuppliersPage() {
                                           className="flex flex-col gap-[8px] p-[8px] bg-white/5 rounded-[7px] cursor-pointer hover:bg-white/10 transition-colors"
                                           onClick={() => router.push(`/payments?paymentId=${payment.id}`)}
                                         >
-                                          <div className="flex items-center justify-between">
+                                          <div className="flex items-center justify-between" dir="rtl">
+                                            <div className="flex items-center gap-[12px]">
+                                              <span className="text-[13px] text-white/70 ltr-num">{payment.date}</span>
+                                              <span className="text-[13px] text-white/70 ltr-num">{payment.installments}</span>
+                                              <span className="text-[13px] text-white">{payment.method}</span>
+                                              <span className="text-[13px] text-white ltr-num">₪{payment.amount.toLocaleString()}</span>
+                                            </div>
                                             <div className="flex items-center gap-[6px]">
                                               {/* View receipt */}
                                               {payment.receiptUrl && (
@@ -3028,12 +3038,6 @@ export default function SuppliersPage() {
                                                   </svg>
                                                 </a>
                                               )}
-                                            </div>
-                                            <div className="flex items-center gap-[12px]">
-                                              <span className="text-[13px] text-white ltr-num">₪{payment.amount.toLocaleString()}</span>
-                                              <span className="text-[13px] text-white">{payment.method}</span>
-                                              <span className="text-[13px] text-white/70 ltr-num">{payment.installments}</span>
-                                              <span className="text-[13px] text-white/70 ltr-num">{payment.date}</span>
                                             </div>
                                           </div>
                                           {payment.notes && (

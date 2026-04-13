@@ -475,12 +475,13 @@ export default function ReportsPage() {
         const vatPercentage = Number(businessData?.[0]?.vat_percentage || 0);
         const vatDivisor = vatPercentage > 0 ? 1 + vatPercentage : 1;
 
-        // Labor: labor * markup + manager (compute manager from monthly_salary like dashboard does)
+        // Labor: (labor + manager) × markup — matches dashboard exactly.
+        // Manager cost is ALWAYS computed from monthly_salary, not from DB column
+        // (DB column is unreliable — empty for most days).
         const computedManagerCost = managerDailyCost * actualWorkDays;
-        const effectiveManagerCost = rawManagerCost > 0 ? rawManagerCost : computedManagerCost;
-        const totalLaborCost = rawLaborCost * avgMarkup + effectiveManagerCost;
+        const totalLaborCost = (rawLaborCost + computedManagerCost) * avgMarkup;
         const laborOnlyCost = rawLaborCost * avgMarkup;
-        const managerOnlyCost = effectiveManagerCost;
+        const managerOnlyCost = computedManagerCost * avgMarkup;
         void rawManagerCost;
         const totalRevenue = totalRegister / vatDivisor;
 

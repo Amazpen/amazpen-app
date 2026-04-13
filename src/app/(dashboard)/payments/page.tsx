@@ -173,7 +173,8 @@ const paymentMethodNames: Record<string, string> = {
   "paybox": "פייבוקס",
   "credit_card": "כרטיס אשראי",
   "other": "אחר",
-  "credit_companies": "חברות הקפה",
+  "credit_company": "אחר",
+  "credit_companies": "אחר",
   "standing_order": "הוראת קבע",
 };
 
@@ -890,7 +891,7 @@ function PaymentsPageInner() {
           const methodsSummary: PaymentMethodSummary[] = Array.from(methodTotals.entries())
             .map(([method, amount]) => ({
               id: method,
-              name: paymentMethodNames[method] || method,
+              name: paymentMethodNames[method] || "אחר",
               amount,
               percentage: totalRevenueWithVat > 0 ? (amount / totalRevenueWithVat) * 100 : 0,
               color: paymentMethodColors[method]?.color || "#6b7280",

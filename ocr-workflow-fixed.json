@@ -1,0 +1,449 @@
+{
+  "name": "OCR Documents - Multi Source (Fixed)",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "העלאת מסמך OCR",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "העלה קבצים (תמונות או PDF)",
+              "fieldType": "file",
+              "acceptFileTypes": ".pdf,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.webp",
+              "multipleFiles": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "trigger-upload-form",
+      "name": "Upload Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [400, 400],
+      "webhookId": "880fa822-0f0f-4791-a704-b1b944e70fbd"
+    },
+    {
+      "parameters": {
+        "pollTimes": { "item": [{ "mode": "everyX", "value": 5, "unit": "minutes" }] },
+        "simple": false,
+        "filters": {},
+        "options": {
+          "dataPropertyAttachmentsPrefixName": "data",
+          "downloadAttachments": true
+        }
+      },
+      "id": "trigger-gmail",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [400, 200],
+      "credentials": {
+        "gmailOAuth2": { "id": "wx3CICOn3hj9AzdJ", "name": "Gmail account Hello@amazpen" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "has-attachments",
+              "leftValue": "={{ Object.keys($binary || {}).length }}",
+              "rightValue": "0",
+              "operator": { "type": "number", "operation": "gt", "singleValue": true }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "filter-gmail-attachments",
+      "name": "Filter Gmail Attachments",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [620, 200]
+    },
+    {
+      "parameters": {},
+      "id": "trigger-whatsapp",
+      "name": "WhatsApp Trigger",
+      "type": "@devlikeapro/n8n-nodes-waha.wahaTrigger",
+      "typeVersion": 202502,
+      "position": [400, 600],
+      "webhookId": "31ff2ccb-9553-4b6a-a295-2d3ed3de4c3a"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "wa-has-media",
+              "leftValue": "={{ $json.payload && $json.payload.hasMedia }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "filter-whatsapp-media",
+      "name": "Filter WhatsApp Media",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [620, 600]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.payload.media.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Api-Key", "value": "0ebc5b8190219d2fad5912572d7e6926ae358048c1561ba49d0c4a1b71e7abd4" }
+          ]
+        },
+        "options": { "response": { "response": { "responseFormat": "file" } } }
+      },
+      "id": "download-whatsapp-file",
+      "name": "Download WhatsApp File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [840, 600]
+    },
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": { "download": true }
+      },
+      "id": "trigger-telegram",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [400, 800],
+      "webhookId": "2f6c5fd6-b88a-46b0-b77d-eebebe016c17",
+      "credentials": {
+        "telegramApi": { "id": "K77bioRmljveswQM", "name": "Telegram account" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "" },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "tg-photo",
+              "leftValue": "={{ $json.message.photo }}",
+              "rightValue": "",
+              "operator": { "type": "array", "operation": "notEmpty", "singleValue": true }
+            },
+            {
+              "id": "tg-doc",
+              "leftValue": "={{ $json.message.document }}",
+              "rightValue": "",
+              "operator": { "type": "object", "operation": "notEmpty", "singleValue": true }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "filter-telegram-media",
+      "name": "Filter Telegram Media",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [620, 800]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split multiple uploaded files into separate n8n items.\n// Each output item has: { json: { ...metadata }, binary: { data: <file> } }\n// This node detects the source and normalizes to a single shape downstream.\n\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const binary = item.binary || {};\n  const j = item.json || {};\n\n  // Detect source\n  const isGmail = !!(j.subject || j.from || j.labelIds);\n  const isWhatsApp = !!(j.payload && j.payload.media);\n  const isTelegram = !!(j.message && (j.message.photo || j.message.document));\n  const source = isTelegram ? 'telegram' : (isWhatsApp ? 'whatsapp' : (isGmail ? 'email' : 'upload'));\n\n  const senderName = isTelegram\n    ? (j.message.from?.first_name || 'Telegram')\n    : isWhatsApp\n      ? (j.payload._data?.pushName || 'WhatsApp')\n      : isGmail\n        ? (typeof j.from === 'object' ? j.from.emailAddress : j.from) || 'Gmail'\n        : 'Upload';\n\n  const senderPhone = isWhatsApp\n    ? (j.payload._data?.key?.remoteJidAlt || j.payload.from || '').replace(/@.*/, '')\n    : isTelegram\n      ? String(j.message.from?.id || '')\n      : isGmail\n        ? (typeof j.from === 'object' ? j.from.emailAddress : j.from) || ''\n        : '';\n\n  const chatId = isTelegram\n    ? String(j.message.chat?.id || '')\n    : isWhatsApp\n      ? (j.payload.from || '')\n      : isGmail\n        ? (j.subject || '')\n        : 'upload';\n\n  const keys = Object.keys(binary);\n  if (keys.length === 0) continue;\n\n  for (const key of keys) {\n    const file = binary[key];\n    if (!file) continue;\n\n    const mimeType = file.mimeType || '';\n    const fileName = file.fileName || (isWhatsApp ? (j.payload.media?.filename || 'unknown') : 'unknown');\n    const ext = (fileName.split('.').pop() || '').toLowerCase();\n    const isPdf = mimeType.includes('pdf') || ext === 'pdf';\n\n    // Accept only supported types\n    const supportedImageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp'];\n    const isImage = mimeType.startsWith('image/') || supportedImageExts.includes(ext);\n    if (!isPdf && !isImage) continue;\n\n    results.push({\n      json: {\n        is_pdf: isPdf,\n        mime_type: mimeType,\n        file_name: fileName,\n        source,\n        sender_name: senderName,\n        sender_phone: senderPhone,\n        chat_id: chatId,\n      },\n      // Keep the binary under a predictable key 'data' so downstream nodes work uniformly.\n      binary: { data: file },\n    });\n  }\n}\n\nif (results.length === 0) {\n  // No files found — return empty array so downstream short-circuits.\n  return [];\n}\n\nreturn results;"
+      },
+      "id": "split-files",
+      "name": "Split Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "is-pdf",
+              "leftValue": "={{ $json.is_pdf }}",
+              "rightValue": "",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-pdf",
+      "name": "Is PDF?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1320, 400]
+    },
+    {
+      "parameters": { "operation": "binaryToPropery", "options": {} },
+      "id": "pdf-to-base64",
+      "name": "PDF → Base64",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [1560, 280]
+    },
+    {
+      "parameters": { "operation": "binaryToPropery", "options": {} },
+      "id": "image-to-base64",
+      "name": "Image → Base64",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [1560, 520]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Google Vision OCR for PDFs — tries files:annotate first, falls back to images:annotate\nconst API_KEY = 'AIzaSyD2cs8yuO_9JVNqKUPlF3TyOd1acwPBGpU';\nconst items = $input.all();\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  let base64 = item.json.data || '';\n  if (base64.includes(',')) base64 = base64.split(',').pop();\n\n  const fileName = item.json.file_name || '';\n  const senderName = item.json.sender_name || '';\n  const senderPhone = item.json.sender_phone || '';\n\n  let fullText = '';\n  let pagesProcessed = 0;\n  let ocrMethod = 'failed';\n\n  const MAX_PAGES_PER_CALL = 5;\n  const MAX_TOTAL_PAGES = 50;\n\n  try {\n    // Attempt 1: PDF multi-page via files:annotate\n    let hasMore = true;\n    for (let startPage = 1; startPage <= MAX_TOTAL_PAGES && hasMore; startPage += MAX_PAGES_PER_CALL) {\n      const pages = [];\n      for (let p = startPage; p < startPage + MAX_PAGES_PER_CALL && p <= MAX_TOTAL_PAGES; p++) pages.push(p);\n\n      const resp = await this.helpers.httpRequest({\n        method: 'POST',\n        url: 'https://vision.googleapis.com/v1/files:annotate?key=' + API_KEY,\n        headers: { 'Content-Type': 'application/json' },\n        body: {\n          requests: [{\n            inputConfig: { content: base64, mimeType: 'application/pdf' },\n            features: [{ type: 'DOCUMENT_TEXT_DETECTION' }],\n            pages\n          }]\n        },\n        json: true,\n        timeout: 30000\n      });\n\n      const outer = resp.responses || [];\n      let batchPages = 0;\n      for (const r of outer) {\n        const pageResponses = r.responses || [];\n        batchPages = pageResponses.length;\n        for (const page of pageResponses) {\n          if (page.fullTextAnnotation?.text) fullText += page.fullTextAnnotation.text + '\\n';\n          pagesProcessed++;\n        }\n      }\n      if (batchPages < MAX_PAGES_PER_CALL) hasMore = false;\n    }\n    if (fullText.trim().length > 20) ocrMethod = 'google_vision_pdf';\n  } catch (e1) {\n    // Attempt 2: treat PDF first page as image\n    try {\n      const resp = await this.helpers.httpRequest({\n        method: 'POST',\n        url: 'https://vision.googleapis.com/v1/images:annotate?key=' + API_KEY,\n        headers: { 'Content-Type': 'application/json' },\n        body: { requests: [{ image: { content: base64 }, features: [{ type: 'DOCUMENT_TEXT_DETECTION' }] }] },\n        json: true,\n        timeout: 30000\n      });\n      const t = resp.responses?.[0]?.fullTextAnnotation?.text;\n      if (t) { fullText = t; pagesProcessed = 1; ocrMethod = 'google_vision_image_fallback'; }\n    } catch (e2) {\n      fullText = `[OCR failed for PDF: ${fileName}]\\nSender: ${senderName} ${senderPhone}`;\n      ocrMethod = 'failed';\n    }\n  }\n\n  results.push({\n    json: {\n      raw_text: fullText.trim(),\n      file_type: 'pdf',\n      ocr_method: ocrMethod,\n      pages_processed: pagesProcessed,\n      file_name: fileName,\n      source: item.json.source,\n      sender_name: senderName,\n      sender_phone: senderPhone,\n      chat_id: item.json.chat_id\n    },\n    binary: item.binary || {}\n  });\n}\n\nreturn results;"
+      },
+      "id": "ocr-pdf",
+      "name": "OCR PDF (Google Vision)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1800, 280],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Google Vision OCR for single images\nconst API_KEY = 'AIzaSyD2cs8yuO_9JVNqKUPlF3TyOd1acwPBGpU';\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  let base64 = item.json.data || '';\n  if (base64.includes(',')) base64 = base64.split(',').pop();\n\n  let text = '';\n  let ocrMethod = 'failed';\n\n  try {\n    const resp = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://vision.googleapis.com/v1/images:annotate?key=' + API_KEY,\n      headers: { 'Content-Type': 'application/json' },\n      body: { requests: [{ image: { content: base64 }, features: [{ type: 'DOCUMENT_TEXT_DETECTION' }] }] },\n      json: true,\n      timeout: 30000\n    });\n    const t = resp.responses?.[0]?.fullTextAnnotation?.text || resp.responses?.[0]?.textAnnotations?.[0]?.description;\n    if (t) { text = t; ocrMethod = 'google_vision'; }\n  } catch (e) {\n    text = `[OCR failed for image: ${item.json.file_name}]`;\n    ocrMethod = 'failed';\n  }\n\n  results.push({\n    json: {\n      raw_text: text.trim(),\n      file_type: 'image',\n      ocr_method: ocrMethod,\n      file_name: item.json.file_name,\n      source: item.json.source,\n      sender_name: item.json.sender_name,\n      sender_phone: item.json.sender_phone,\n      chat_id: item.json.chat_id\n    },\n    binary: item.binary || {}\n  });\n}\n\nreturn results;"
+      },
+      "id": "ocr-image",
+      "name": "OCR Image (Google Vision)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1800, 520],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build context: fetch active businesses and prepare text for AI matching.\nconst SB = 'https://db.amazpenbiz.co.il';\nconst SK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzExNTM2NTMsImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlzcyI6InN1cGFiYXNlIn0.jO_qu5aNUaOZ0YBdfW5MbzdML-csEU9QkqoTGAx5yzY';\nconst authHeaders = { apikey: SK, Authorization: 'Bearer ' + SK };\n\nconst items = $input.all();\nconst results = [];\n\nlet businessesMd;\ntry {\n  const businesses = await this.helpers.httpRequest({\n    method: 'GET',\n    url: SB + '/rest/v1/businesses?select=id,name,tax_id&deleted_at=is.null&status=eq.active',\n    headers: authHeaders,\n    json: true\n  });\n  businessesMd = '| ID | Name | Tax ID |\\n|---|---|---|\\n';\n  for (const b of businesses) {\n    businessesMd += `| ${b.id} | ${b.name || ''} | ${b.tax_id || ''} |\\n`;\n  }\n} catch (e) {\n  businessesMd = '| ID | Name | Tax ID |\\n|---|---|---|\\n';\n}\n\nfor (const item of items) {\n  const ocrText = item.json.raw_text || '';\n  const clean = ocrText.replace(/\\t{2,}/g, ' ').trim();\n  const ocrMethod = item.json.ocr_method || 'unknown';\n  const ocrFailed = ocrMethod === 'failed' || clean.length < 30;\n\n  results.push({\n    json: {\n      raw_text: ocrText,\n      text: clean,\n      businesses_markdown: businessesMd,\n      source: item.json.source || 'upload',\n      file_type: item.json.file_type || 'image',\n      file_name: item.json.file_name || '',\n      ocr_method: ocrMethod,\n      ocr_failed: ocrFailed,\n      sender_name: item.json.sender_name || 'Upload',\n      sender_phone: item.json.sender_phone || '',\n      chat_id: item.json.chat_id || 'upload'\n    },\n    binary: item.binary || {}\n  });\n}\n\nreturn results;"
+      },
+      "id": "build-context",
+      "name": "Build Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2040, 400]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Document text:\n{{ $json.text }}\n\nBusinesses list:\n{{ $json.businesses_markdown }}\n\nIdentify which BUSINESS (the customer/buyer who RECEIVED this invoice) this document belongs to. Match by tax ID (ח.פ. / ע.מ.) or business name. The business details usually appear BELOW the supplier header.\n\nIf no match — return empty strings for business_id, business_name, business_tax_id.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an expert at identifying Israeli businesses from invoice text. Your ONLY job is to identify which BUSINESS (buyer/customer) this document was sent TO. The business name/tax ID typically appears in the middle or lower part of the document, NOT at the top (the top is usually the supplier/issuer). Return ONLY the matched business info."
+        }
+      },
+      "id": "ai-match-business",
+      "name": "AI Match Business",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [2300, 400]
+    },
+    {
+      "parameters": {
+        "model": { "__rl": true, "value": "gpt-4o-mini", "mode": "list" },
+        "options": { "temperature": 0 }
+      },
+      "id": "llm-match-business",
+      "name": "LLM: Match Business",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [2200, 620],
+      "credentials": { "openAiApi": { "id": "ARGBLBvXvIQYSgg1", "name": "OpenAi account" } }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\"business_id\":\"\",\"business_name\":\"\",\"business_tax_id\":\"\"}",
+        "autoFix": false
+      },
+      "id": "parser-business",
+      "name": "Parser: Business",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [2380, 620]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fetch suppliers for the matched business (or return empty list).\nconst SB = 'https://db.amazpenbiz.co.il';\nconst SK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzExNTM2NTMsImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlzcyI6InN1cGFiYXNlIn0.jO_qu5aNUaOZ0YBdfW5MbzdML-csEU9QkqoTGAx5yzY';\nconst authHeaders = { apikey: SK, Authorization: 'Bearer ' + SK };\n\nconst items = $input.all();\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  const ai = item.json.output || item.json;\n  const ctx = $('Build Context').all()[i]?.json || {};\n  const businessId = (ai.business_id || '').trim();\n\n  let suppliersMd = '| ID | Name | Tax ID |\\n|---|---|---|\\n';\n  if (businessId) {\n    try {\n      const suppliers = await this.helpers.httpRequest({\n        method: 'GET',\n        url: SB + '/rest/v1/suppliers?select=id,name,tax_id&business_id=eq.' + businessId + '&is_active=eq.true&deleted_at=is.null&order=name.asc',\n        headers: authHeaders,\n        json: true\n      });\n      for (const s of suppliers) {\n        suppliersMd += `| ${s.id} | ${s.name || ''} | ${s.tax_id || ''} |\\n`;\n      }\n    } catch (e) {}\n  }\n\n  results.push({\n    json: {\n      text: ctx.text,\n      raw_text: ctx.raw_text,\n      source: ctx.source,\n      file_type: ctx.file_type,\n      file_name: ctx.file_name,\n      ocr_method: ctx.ocr_method,\n      sender_name: ctx.sender_name,\n      sender_phone: ctx.sender_phone,\n      chat_id: ctx.chat_id,\n      business_id: businessId || null,\n      business_name: ai.business_name || '',\n      business_tax_id: ai.business_tax_id || '',\n      suppliers_markdown: suppliersMd,\n      has_matched_business: !!businessId,\n      business_context_note: businessId\n        ? `The business has already been identified:\\n- Business ID: ${businessId}\\n- Business Name: ${ai.business_name || ''}\\n- Business Tax ID: ${ai.business_tax_id || ''}`\n        : 'No business was matched. Extract business_name and business_tax_id from the document text if visible.'\n    },\n    binary: item.binary || {}\n  });\n}\n\nreturn results;"
+      },
+      "id": "fetch-suppliers",
+      "name": "Fetch Suppliers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2620, 400]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=text:\n{{ $json.text }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an expert extraction algorithm for Israeli invoices and financial documents. Only extract relevant information from the text. If you do not know a value, omit it.\n\nThe document has TWO parties:\n1. The BUSINESS - the company that RECEIVED the invoice/service\n2. The SUPPLIER - the company that ISSUED the invoice/document\n\n{{ $json.business_context_note }}\n\nSuppliers list for this business (match the issuer/seller):\n{{ $json.suppliers_markdown }}\n\nIf the supplier is NOT in the list, still extract supplier_name and supplier_tax_id — leave supplier_id empty.\n\nDates MUST be in YYYY-MM-DD format. Years must be logical (we are in 2026). If date is empty, use today's date.\n\ndocument_type MUST be one of these English values ONLY:\n- invoice\n- delivery_note\n- credit_note\n- payment\n- summary\n- daily_entry\n\nExtract ALL line items as a JSON array. Each item must have:\n- description (Hebrew preferred)\n- quantity (number)\n- unit_price (number)\n- total (number)\nIf no items, return []. Never return items as a string."
+        }
+      },
+      "id": "ai-extract-data",
+      "name": "AI Extract Data",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [2880, 400]
+    },
+    {
+      "parameters": {
+        "model": { "__rl": true, "value": "gpt-4o-mini", "mode": "list" },
+        "options": { "temperature": 0 }
+      },
+      "id": "llm-extract-data",
+      "name": "LLM: Extract Data",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [2780, 620],
+      "credentials": { "openAiApi": { "id": "ARGBLBvXvIQYSgg1", "name": "OpenAi account" } }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\"document_type\":\"\",\"document_number\":\"\",\"date\":\"YYYY-MM-DD\",\"supplier_name\":\"\",\"supplier_tax_id\":\"\",\"supplier_id\":\"\",\"business_name\":\"\",\"business_tax_id\":\"\",\"business_id\":\"\",\"items\":[{\"description\":\"\",\"quantity\":0,\"unit_price\":0,\"total\":0}],\"amount_before_vat\":0,\"vat_amount\":0,\"amount_after_vat\":0}",
+        "autoFix": false
+      },
+      "id": "parser-extract",
+      "name": "Parser: Extract Data",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [2960, 620]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare storage path + normalize extracted data for DB insertion.\n// Restores the file binary from the Split Files node (AI nodes drop binary).\nconst items = $input.all();\nconst splitItems = $('Split Files').all();\nconst results = [];\n\nconst typeMap = {\n  invoice: 'invoice',\n  delivery_note: 'delivery_note',\n  credit_note: 'credit_note',\n  payment: 'payment',\n  receipt: 'payment',\n  summary: 'summary',\n  daily_entry: 'daily_entry',\n  'חשבונית': 'invoice',\n  'חשבונית מס': 'invoice',\n  'חשבונית מס קבלה': 'invoice',\n  'חשבונית עסקה': 'invoice',\n  'תעודת משלוח': 'delivery_note',\n  'חשבונית זיכוי': 'credit_note',\n  'זיכוי': 'credit_note',\n  'קבלה': 'payment',\n  'אישור תשלום': 'payment',\n  'מרכזת': 'summary',\n  'ריכוז חשבוניות': 'summary',\n  'מילוי יומי': 'daily_entry',\n  'רישום יומי': 'daily_entry',\n  'דוח יומי': 'daily_entry',\n  'נתוני יום': 'daily_entry'\n};\n\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  const ai = item.json.output || item.json;\n  const ctx = $('Fetch Suppliers').all()[i]?.json || {};\n  const fileType = ctx.file_type || 'image';\n  const ext = fileType === 'pdf' ? '.pdf' : '.jpg';\n  const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;\n  const storagePath = `upload/${fileName}`;\n  const contentType = fileType === 'pdf' ? 'application/pdf' : 'image/jpeg';\n\n  let itemsList = [];\n  if (Array.isArray(ai.items)) {\n    itemsList = ai.items.filter(x => x && x.description);\n  } else if (typeof ai.items === 'string' && ai.items.trim()) {\n    try { itemsList = JSON.parse(ai.items); } catch (e) { itemsList = []; }\n  }\n\n  const businessId = (ai.business_id && String(ai.business_id).trim()) || ctx.business_id || null;\n\n  // Restore binary from Split Files by matching file_name (safer than $itemIndex).\n  let fileBinary = {};\n  const targetName = ctx.file_name;\n  if (targetName) {\n    const match = splitItems.find(s => s.json?.file_name === targetName);\n    if (match?.binary?.data) fileBinary = { data: match.binary.data };\n  }\n  // Fallback to index if name match failed.\n  if (!fileBinary.data && splitItems[i]?.binary?.data) {\n    fileBinary = { data: splitItems[i].binary.data };\n  }\n\n  const dt = (ai.document_type || '').toLowerCase().trim();\n\n  results.push({\n    json: {\n      storagePath,\n      contentType,\n      fileName,\n      fileType,\n      document_type: typeMap[dt] || typeMap[ai.document_type] || 'invoice',\n      supplier_name: ai.supplier_name || '',\n      supplier_tax_id: ai.supplier_tax_id || '',\n      supplier_id: (ai.supplier_id && String(ai.supplier_id).trim()) || null,\n      business_id: businessId,\n      business_name: ai.business_name || ctx.business_name || '',\n      business_tax_id: ai.business_tax_id || ctx.business_tax_id || '',\n      document_number: ai.document_number || '',\n      date: ai.date || null,\n      amount_before_vat: ai.amount_before_vat || 0,\n      vat_amount: ai.vat_amount || 0,\n      amount_after_vat: ai.amount_after_vat || 0,\n      items: itemsList,\n      raw_text: ctx.raw_text || '',\n      ocr_method: ctx.ocr_method || 'unknown',\n      source: ctx.source || 'upload',\n      chat_id: ctx.chat_id || '',\n      sender_name: ctx.sender_name || '',\n      sender_phone: ctx.sender_phone || ''\n    },\n    binary: fileBinary\n  });\n}\n\nreturn results;"
+      },
+      "id": "prepare-upload",
+      "name": "Prepare Upload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3220, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://db.amazpenbiz.co.il/storage/v1/object/ocr-documents/{{ $json.storagePath }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzExNTM2NTMsImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlzcyI6InN1cGFiYXNlIn0.jO_qu5aNUaOZ0YBdfW5MbzdML-csEU9QkqoTGAx5yzY" },
+            { "name": "apikey", "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzExNTM2NTMsImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlzcyI6InN1cGFiYXNlIn0.jO_qu5aNUaOZ0YBdfW5MbzdML-csEU9QkqoTGAx5yzY" },
+            { "name": "Content-Type", "value": "={{ $json.contentType }}" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "upload-storage",
+      "name": "Upload to Storage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3460, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Insert into ocr_documents, ocr_extracted_data, ocr_extracted_line_items.\nconst SB = 'https://db.amazpenbiz.co.il';\nconst SK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NzExNTM2NTMsImV4cCI6MTg5MzQ1NjAwMCwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlzcyI6InN1cGFiYXNlIn0.jO_qu5aNUaOZ0YBdfW5MbzdML-csEU9QkqoTGAx5yzY';\nconst h = { 'Content-Type': 'application/json', apikey: SK, Authorization: 'Bearer ' + SK, Prefer: 'return=representation' };\n\nconst items = $input.all();\nconst results = [];\n\n// Validation helpers\nconst validUUID = (v) => {\n  if (!v || typeof v !== 'string') return null;\n  v = v.trim();\n  if (!v || v === 'null' || v === 'undefined' || v === 'N/A') return null;\n  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v : null;\n};\nconst validDate = (v) => {\n  if (!v || typeof v !== 'string') return null;\n  v = v.trim();\n  if (!v || v === 'null' || v === 'N/A' || v === 'undefined') return null;\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(v)) return v;\n  const m = v.match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})$/);\n  if (m) return `${m[3]}-${m[2]}-${m[1]}`;\n  return null;\n};\nconst validNum = (v) => {\n  if (v === null || v === undefined || v === '' || v === 'N/A') return 0;\n  const n = Number(v);\n  return isNaN(n) ? 0 : n;\n};\nconst validText = (v) => (!v || typeof v !== 'string') ? '' : v.trim();\n\nfor (let i = 0; i < items.length; i++) {\n  const prep = $('Prepare Upload').all()[i]?.json;\n  if (!prep) {\n    results.push({ json: { success: false, error: 'Missing prepare data' } });\n    continue;\n  }\n\n  const storagePath = prep.storagePath;\n  const imageUrl = `${SB}/storage/v1/object/public/ocr-documents/${storagePath}`;\n  const ocrEngine = prep.ocr_method || (prep.fileType === 'pdf' ? 'pdf_extract' : 'google_vision');\n\n  try {\n    const docBody = {\n      source: validText(prep.source) || 'upload',\n      image_url: imageUrl,\n      image_storage_path: storagePath,\n      file_type: validText(prep.fileType) || 'image',\n      status: 'pending',\n      document_type: validText(prep.document_type) || 'invoice',\n      ocr_engine: ocrEngine,\n      ocr_processed_at: new Date().toISOString()\n    };\n    const ocrFailed = prep.ocr_method === 'failed' || (prep.raw_text || '').trim().length < 30;\n    const biz = ocrFailed ? null : validUUID(prep.business_id);\n    if (biz) docBody.business_id = biz;\n    if (validText(prep.chat_id)) docBody.source_chat_id = validText(prep.chat_id);\n    if (validText(prep.sender_name)) docBody.source_sender_name = validText(prep.sender_name);\n    if (validText(prep.sender_phone)) docBody.source_sender_phone = validText(prep.sender_phone);\n\n    const d1 = await this.helpers.httpRequest({\n      method: 'POST',\n      url: SB + '/rest/v1/ocr_documents',\n      headers: h,\n      body: docBody,\n      json: true\n    });\n    const docId = Array.isArray(d1) ? d1[0]?.id : d1.id;\n    if (!docId) {\n      results.push({ json: { success: false, error: 'Failed to insert document', details: d1 } });\n      continue;\n    }\n\n    const extBody = {\n      document_id: docId,\n      raw_text: validText(prep.raw_text),\n      supplier_name: validText(prep.supplier_name),\n      supplier_tax_id: validText(prep.supplier_tax_id),\n      document_number: validText(prep.document_number),\n      subtotal: validNum(prep.amount_before_vat),\n      vat_amount: validNum(prep.vat_amount),\n      total_amount: validNum(prep.amount_after_vat),\n      extraction_metadata: {\n        items: prep.items || [],\n        business_name: validText(prep.business_name),\n        business_tax_id: validText(prep.business_tax_id),\n        business_id: validUUID(prep.business_id)\n      }\n    };\n    const docDate = validDate(prep.date);\n    if (docDate) extBody.document_date = docDate;\n    const suppId = validUUID(prep.supplier_id);\n    if (suppId) extBody.matched_supplier_id = suppId;\n\n    const d2 = await this.helpers.httpRequest({\n      method: 'POST',\n      url: SB + '/rest/v1/ocr_extracted_data',\n      headers: h,\n      body: extBody,\n      json: true\n    });\n    const extractedDataId = Array.isArray(d2) ? d2[0]?.id : d2.id;\n\n    let lineItemsCount = 0;\n    if (extractedDataId && Array.isArray(prep.items) && prep.items.length > 0) {\n      for (let idx = 0; idx < prep.items.length; idx++) {\n        const it = prep.items[idx];\n        if (!it || !it.description) continue;\n        try {\n          await this.helpers.httpRequest({\n            method: 'POST',\n            url: SB + '/rest/v1/ocr_extracted_line_items',\n            headers: h,\n            body: {\n              extracted_data_id: extractedDataId,\n              line_number: idx + 1,\n              description: validText(it.description),\n              quantity: validNum(it.quantity),\n              unit_price: validNum(it.unit_price),\n              total: validNum(it.total)\n            },\n            json: true\n          });\n          lineItemsCount++;\n        } catch (e) {}\n      }\n    }\n\n    results.push({\n      json: {\n        success: true,\n        document_id: docId,\n        image_url: imageUrl,\n        source: prep.source,\n        business_id: biz,\n        supplier_id: suppId,\n        line_items_saved: lineItemsCount,\n        ocr_method: prep.ocr_method\n      }\n    });\n  } catch (err) {\n    results.push({\n      json: {\n        success: false,\n        error: err.message,\n        source: prep.source || 'unknown',\n        fileName: prep.fileName || 'unknown',\n        supplier_name: prep.supplier_name || ''\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "save-db",
+      "name": "Save DB Records",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3700, 400],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Upload Form": {
+      "main": [[{ "node": "Split Files", "type": "main", "index": 0 }]]
+    },
+    "Gmail Trigger": {
+      "main": [[{ "node": "Filter Gmail Attachments", "type": "main", "index": 0 }]]
+    },
+    "Filter Gmail Attachments": {
+      "main": [[{ "node": "Split Files", "type": "main", "index": 0 }]]
+    },
+    "WhatsApp Trigger": {
+      "main": [[{ "node": "Filter WhatsApp Media", "type": "main", "index": 0 }]]
+    },
+    "Filter WhatsApp Media": {
+      "main": [[{ "node": "Download WhatsApp File", "type": "main", "index": 0 }]]
+    },
+    "Download WhatsApp File": {
+      "main": [[{ "node": "Split Files", "type": "main", "index": 0 }]]
+    },
+    "Telegram Trigger": {
+      "main": [[{ "node": "Filter Telegram Media", "type": "main", "index": 0 }]]
+    },
+    "Filter Telegram Media": {
+      "main": [[{ "node": "Split Files", "type": "main", "index": 0 }]]
+    },
+    "Split Files": {
+      "main": [[{ "node": "Is PDF?", "type": "main", "index": 0 }]]
+    },
+    "Is PDF?": {
+      "main": [
+        [{ "node": "PDF → Base64", "type": "main", "index": 0 }],
+        [{ "node": "Image → Base64", "type": "main", "index": 0 }]
+      ]
+    },
+    "PDF → Base64": {
+      "main": [[{ "node": "OCR PDF (Google Vision)", "type": "main", "index": 0 }]]
+    },
+    "Image → Base64": {
+      "main": [[{ "node": "OCR Image (Google Vision)", "type": "main", "index": 0 }]]
+    },
+    "OCR PDF (Google Vision)": {
+      "main": [[{ "node": "Build Context", "type": "main", "index": 0 }]]
+    },
+    "OCR Image (Google Vision)": {
+      "main": [[{ "node": "Build Context", "type": "main", "index": 0 }]]
+    },
+    "Build Context": {
+      "main": [[{ "node": "AI Match Business", "type": "main", "index": 0 }]]
+    },
+    "LLM: Match Business": {
+      "ai_languageModel": [[{ "node": "AI Match Business", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Parser: Business": {
+      "ai_outputParser": [[{ "node": "AI Match Business", "type": "ai_outputParser", "index": 0 }]]
+    },
+    "AI Match Business": {
+      "main": [[{ "node": "Fetch Suppliers", "type": "main", "index": 0 }]]
+    },
+    "Fetch Suppliers": {
+      "main": [[{ "node": "AI Extract Data", "type": "main", "index": 0 }]]
+    },
+    "LLM: Extract Data": {
+      "ai_languageModel": [[{ "node": "AI Extract Data", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Parser: Extract Data": {
+      "ai_outputParser": [[{ "node": "AI Extract Data", "type": "ai_outputParser", "index": 0 }]]
+    },
+    "AI Extract Data": {
+      "main": [[{ "node": "Prepare Upload", "type": "main", "index": 0 }]]
+    },
+    "Prepare Upload": {
+      "main": [[{ "node": "Upload to Storage", "type": "main", "index": 0 }]]
+    },
+    "Upload to Storage": {
+      "main": [[{ "node": "Save DB Records", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1" },
+  "meta": { "instanceId": "ff51c7b117b2b1acb40d590902906ec640659bab28c38b8f77a79ec2a840b5b4" }
+}
