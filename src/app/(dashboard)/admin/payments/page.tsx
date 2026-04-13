@@ -742,7 +742,8 @@ export default function AdminPaymentsPage() {
           continue;
         }
 
-        setImportProgress(`מייבא... ${inserted + 1}/${mergedPayments.length} - ${payment.supplier_name}`);
+        setImportProgress(`נשמר ${inserted}/${mergedPayments.length} | דולגו ${skipped} | מעבד: ${payment.supplier_name}`);
+        if (inserted % 5 === 0) await new Promise(r => setTimeout(r, 0));
 
         // Handle receipt URLs: download from Bubble CDN → upload to Supabase Storage
         // Keep Google Drive URLs as-is, keep already-Storage URLs as-is
