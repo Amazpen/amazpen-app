@@ -1619,8 +1619,10 @@ export function DailyEntriesModal({
                                     if (!goalsData || entry.total_register <= 0) return "0%";
                                     const vatDivisor = goalsData.vatPercentage > 0 ? 1 + goalsData.vatPercentage : 1;
                                     const revenueBeforeVat = entry.total_register / vatDivisor;
-                                    const laborWithMarkup = entry.labor_cost * goalsData.markupPercentage;
-                                    const laborPct = revenueBeforeVat > 0 ? (laborWithMarkup / revenueBeforeVat) * 100 : 0;
+                                    // (labor + manager × day_factor) × markup — same formula as dashboard
+                                    const dayFactor = Number(entry.day_factor) || 1;
+                                    const laborFull = (entry.labor_cost + goalsData.managerDailyCost * dayFactor) * goalsData.markupPercentage;
+                                    const laborPct = revenueBeforeVat > 0 ? (laborFull / revenueBeforeVat) * 100 : 0;
                                     return formatPercent(laborPct);
                                   })()}</span>
                                 </div>
@@ -1691,8 +1693,10 @@ export function DailyEntriesModal({
                                   );
                                   const vatDivisor = goalsData.vatPercentage > 0 ? 1 + goalsData.vatPercentage : 1;
                                   const revenueBeforeVat = entry.total_register / vatDivisor;
-                                  const laborWithMarkup = entry.labor_cost * goalsData.markupPercentage;
-                                  const laborPct = revenueBeforeVat > 0 ? (laborWithMarkup / revenueBeforeVat) * 100 : 0;
+                                  // (labor + manager × day_factor) × markup — same as dashboard
+                                  const dayFactor = Number(entry.day_factor) || 1;
+                                  const laborFull = (entry.labor_cost + goalsData.managerDailyCost * dayFactor) * goalsData.markupPercentage;
+                                  const laborPct = revenueBeforeVat > 0 ? (laborFull / revenueBeforeVat) * 100 : 0;
                                   const targetPct = goalsData.laborCostTargetPct || 0;
                                   const diff = targetPct > 0 ? laborPct - targetPct : 0;
                                   return (
