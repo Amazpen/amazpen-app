@@ -439,16 +439,35 @@ export default function OCRPage() {
             ? formData.payment_methods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0), 0)
             : parseFloat(formData.total_amount);
 
-          // Mirror payments/page.tsx behaviour: create one payment per linked invoice
-          // so each invoice gets its own payment row with invoice_id set. If no invoices
-          // were selected, fall back to a single unlinked payment (legacy OCR behaviour).
-          const linkedInvoiceIds = formData.payment_linked_invoice_ids && formData.payment_linked_invoice_ids.length > 0
-            ? formData.payment_linked_invoice_ids
-            : [null as string | null];
+          // Create ONE payment that aggregates all selected invoices, then
+          // link it to each invoice via payment_invoice_links with amount_allocated.
+          // Mirrors payments/page.tsx behaviour (commit 2c43273) — prior OCR code
+          // created one payment per linked invoice, causing N duplicate payments
+          // with N*splits in cashflow and payment forecast views.
+          const selectedInvoicesArr = formData.payment_linked_invoice_ids || [];
 
-          // Helper to write splits against a created payment row
-          const createSplitsForPayment = async (paymentId: string) => {
-            if (!formData.payment_methods) return;
+          const { data: newPayment, error: paymentError } = await supabase
+            .from('payments')
+            .insert({
+              business_id: formData.business_id,
+              supplier_id: formData.supplier_id,
+              payment_date: formData.document_date,
+              total_amount: totalAmount,
+              // Direct FK only when a single invoice is paid; otherwise rely on links table.
+              invoice_id: selectedInvoicesArr.length === 1 ? selectedInvoicesArr[0] : null,
+              notes: formData.payment_notes || formData.notes || null,
+              created_by: user?.id || null,
+              receipt_url: ocrImageUrl,
+            })
+            .select()
+            .single();
+
+          if (paymentError) throw paymentError;
+          if (!newPayment) throw new Error('Failed to create payment');
+          if (!createdPaymentId && newPayment?.id) createdPaymentId = newPayment.id;
+
+          // Create splits once for the single payment
+          if (formData.payment_methods) {
             for (const pm of formData.payment_methods) {
               const amount = parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0;
               if (amount > 0 && pm.method) {
@@ -458,7 +477,7 @@ export default function OCRPage() {
                 if (pm.customInstallments.length > 0) {
                   for (const inst of pm.customInstallments) {
                     await supabase.from('payment_splits').insert({
-                      payment_id: paymentId,
+                      payment_id: newPayment.id,
                       payment_method: pm.method,
                       amount: inst.amount,
                       installments_count: installmentsCount,
@@ -477,7 +496,7 @@ export default function OCRPage() {
                   const dueDate = formData.payment_date || formData.document_date || null;
 
                   await supabase.from('payment_splits').insert({
-                    payment_id: paymentId,
+                    payment_id: newPayment.id,
                     payment_method: pm.method,
                     amount: amount,
                     installments_count: 1,
@@ -490,27 +509,25 @@ export default function OCRPage() {
                 }
               }
             }
-          };
+          }
 
-          for (const invoiceId of linkedInvoiceIds) {
-            const { data: newPayment, error: paymentError } = await supabase
-              .from('payments')
-              .insert({
-                business_id: formData.business_id,
-                supplier_id: formData.supplier_id,
-                payment_date: formData.document_date,
-                total_amount: totalAmount,
-                invoice_id: invoiceId,
-                notes: formData.payment_notes || formData.notes || null,
-                created_by: user?.id || null,
-                receipt_url: ocrImageUrl,
-              })
-              .select()
-              .single();
-
-            if (paymentError) throw paymentError;
-            if (!createdPaymentId && newPayment?.id) createdPaymentId = newPayment.id;
-            if (newPayment) await createSplitsForPayment(newPayment.id);
+          // Link the payment to each selected invoice via N:M table
+          // (only when there are 2+ invoices; single invoice already uses invoice_id FK)
+          if (selectedInvoicesArr.length > 1) {
+            const { data: invDetails } = await supabase
+              .from('invoices')
+              .select('id, total_amount')
+              .in('id', selectedInvoicesArr);
+            let remaining = totalAmount;
+            for (const inv of invDetails || []) {
+              const allocated = Math.min(Number(inv.total_amount), remaining);
+              remaining -= allocated;
+              await supabase.from('payment_invoice_links').insert({
+                payment_id: newPayment.id,
+                invoice_id: inv.id,
+                amount_allocated: allocated,
+              });
+            }
           }
 
           // Mark linked invoices as paid (±₪5 tolerance, like payments/page.tsx)

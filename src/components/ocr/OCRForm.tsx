@@ -701,6 +701,7 @@ export default function OCRForm({
   };
 
   const calculateCreditCardDueDate = (paymentDateStr: string, billingDay: number): string => {
+    // Payment date = the card's billing day itself (e.g. billing_day=15 → the 15th).
     // Parse the incoming YYYY-MM-DD as LOCAL midnight (not UTC), otherwise
     // `new Date("2026-04-10")` is interpreted as UTC and `.getDate()` in a
     // positive-offset TZ can flip to the previous day.
@@ -709,12 +710,11 @@ export default function OCRForm({
       ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
       : new Date(paymentDateStr);
     const dayOfMonth = payDate.getDate();
-    const adjustedDay = billingDay - 1;
 
-    if (dayOfMonth < billingDay) {
-      return formatLocalYMD(new Date(payDate.getFullYear(), payDate.getMonth(), adjustedDay));
+    if (dayOfMonth <= billingDay) {
+      return formatLocalYMD(new Date(payDate.getFullYear(), payDate.getMonth(), billingDay));
     } else {
-      return formatLocalYMD(new Date(payDate.getFullYear(), payDate.getMonth() + 1, adjustedDay));
+      return formatLocalYMD(new Date(payDate.getFullYear(), payDate.getMonth() + 1, billingDay));
     }
   };
 

@@ -1168,14 +1168,18 @@ function ExpensesPageInner() {
             .from("invoices")
             .select(`
               *,
-              supplier:suppliers(id, name, expense_category_id, is_fixed_expense, is_active, deleted_at),
+              supplier:suppliers!inner(id, name, expense_category_id, is_fixed_expense, is_active, deleted_at, expense_type),
               creator:profiles!invoices_created_by_fkey(full_name)
             `)
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
             .gte("reference_date", startDate)
             .lte("reference_date", endDate)
-            .eq("invoice_type", activeTab === "expenses" ? "current" : activeTab === "employees" ? "employees" : "goods")
+            // Filter by the supplier's expense_type (source of truth) instead of
+            // invoice_type on the invoice itself — invoice_type can be 'manual'
+            // or NULL when created via intake/import/placeholder flows, which
+            // would otherwise hide real fixed-expense invoices from this page.
+            .eq("supplier.expense_type", activeTab === "expenses" ? "current_expenses" : activeTab === "employees" ? "employee_costs" : "goods_purchases")
             .order("reference_date", { ascending: false }),
           supabase
             .from("expense_categories")

@@ -50,6 +50,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Auto-detect invoice_type from supplier's expense_type so the invoice
+    // shows up in the correct tab on the expenses page (which filters by
+    // invoice_type in ['current', 'goods', 'employees']). Without this the
+    // invoice defaults to something the expenses filter ignores.
+    const { data: sup } = await supabase
+      .from('suppliers')
+      .select('expense_type')
+      .eq('id', supplier_id)
+      .maybeSingle();
+    const invoiceType = sup?.expense_type === 'goods_purchases'
+      ? 'goods'
+      : sup?.expense_type === 'employee_costs'
+      ? 'employees'
+      : 'current';
+
     // Create invoice with pending_review status
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
@@ -63,6 +78,7 @@ export async function POST(request: NextRequest) {
         reference_date: reference_date || fixedInvoiceDate,
         notes: notes || null,
         status: 'pending',
+        invoice_type: invoiceType,
         approval_status: 'pending_review',
         data_source: data_source,
         amount_paid: 0,
