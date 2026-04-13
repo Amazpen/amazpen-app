@@ -2204,22 +2204,17 @@ function PaymentsPageInner() {
   };
 
   // Calculate due date based on credit card billing day.
-  // Payment is recorded 1 day BEFORE the card's billing day
-  // (e.g. card withdraws on the 10th → payment date = the 9th), matching
-  // the rule used by the OCR and expenses pages. Passing billing_day-1
-  // as the day also rolls back to the previous month's last day when
-  // billing_day is 1 (d=0 semantics of the JS Date constructor).
+  // Payment date = the card's billing day itself (e.g. billing_day=10 → the 10th).
   const calculateCreditCardDueDate = (paymentDateStr: string, billingDay: number): string => {
     // Parse date parts manually to avoid UTC timezone shift
     // (new Date("YYYY-MM-DD") parses as UTC).
     const [year, month, day] = paymentDateStr.split("-").map(Number);
-    const adjustedDay = billingDay - 1;
 
     let dueDate: Date;
-    if (day < billingDay) {
-      dueDate = new Date(year, month - 1, adjustedDay);
+    if (day <= billingDay) {
+      dueDate = new Date(year, month - 1, billingDay);
     } else {
-      dueDate = new Date(year, month, adjustedDay);
+      dueDate = new Date(year, month, billingDay);
     }
     // Format manually to avoid toISOString() UTC shift
     return `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, "0")}-${String(dueDate.getDate()).padStart(2, "0")}`;
@@ -3643,18 +3638,6 @@ function PaymentsPageInner() {
                       </div>
                     </div>
 
-                    {/* Details row */}
-                    <div className="flex items-center justify-between px-[7px] flex-wrap gap-y-[8px]">
-                      <div className="flex flex-col items-center min-w-[60px]">
-                        <span className="text-[13px] text-[#979797]">סכום לפני מע&quot;מ</span>
-                        <span className="text-[13px] ltr-num">₪{payment.subtotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      </div>
-                      <div className="flex flex-col items-center min-w-[60px]">
-                        <span className="text-[13px] text-[#979797]">סכום כולל מע&quot;מ</span>
-                        <span className="text-[13px] ltr-num">₪{payment.totalAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                      </div>
-                    </div>
-
                     {/* Who performed + entry date */}
                     <div className="flex items-center justify-between px-[7px] flex-wrap gap-y-[8px]">
                       {payment.createdBy && (
@@ -3689,7 +3672,14 @@ function PaymentsPageInner() {
                             <div key={idx} className="flex flex-col gap-[3px]">
                               <div className="flex items-center justify-between bg-white/5 rounded-[5px] px-[8px] py-[5px]">
                                 <div className="flex items-center gap-[8px]">
-                                  <span className="text-[13px] font-medium">{paymentMethodNames[group.method] || "אחר"}</span>
+                                  <span className="text-[13px] font-medium">
+                                    {paymentMethodNames[group.method] || "אחר"}
+                                    {group.method === "credit_card" && (() => {
+                                      const cardId = (group.splits[0] as Record<string, unknown>)?.credit_card_id as string | undefined;
+                                      const card = cardId ? businessCreditCards.find(c => c.id === cardId) : null;
+                                      return card ? ` ${card.card_name}` : "";
+                                    })()}
+                                  </span>
                                   {group.splits.length > 1 && (
                                     <span className="text-[11px] text-white/50">({group.splits.length} תשלומים)</span>
                                   )}

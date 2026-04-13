@@ -1888,6 +1888,24 @@ function ExpensesPageInner() {
         return;
       }
 
+      // Duplicate invoice-number check (same business + supplier + invoice_number)
+      if (invoiceNumber && invoiceNumber.trim() && !linkToCoordinator && !linkToFixedInvoiceId) {
+        const { data: duplicates } = await supabase
+          .from("invoices")
+          .select("id")
+          .eq("business_id", selectedBusinesses[0])
+          .eq("supplier_id", selectedSupplier)
+          .eq("invoice_number", invoiceNumber.trim())
+          .limit(1);
+        if (duplicates && duplicates.length > 0) {
+          const ok = window.confirm(`כבר קיימת חשבונית עם מספר ${invoiceNumber} עבור ספק זה. האם לשמור בכל זאת?`);
+          if (!ok) {
+            setIsSaving(false);
+            return;
+          }
+        }
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
 
       // Check if user chose to link to coordinator (מרכזת) - save as delivery note instead
@@ -3497,7 +3515,7 @@ function ExpensesPageInner() {
           </div>
 
           {/* Table Rows */}
-          <div ref={invoicesListRef} onScroll={handleInvoicesScroll} className="max-h-[450px] overflow-y-auto flex flex-col gap-[5px]">
+          <div ref={invoicesListRef} onScroll={handleInvoicesScroll} className="max-h-[calc(100vh-280px)] overflow-y-auto flex flex-col gap-[5px]">
             {(() => {
               const searchVal = filterValue.trim().toLowerCase();
               // For "reference" filter: include parent consolidated invoices when a delivery note matches
