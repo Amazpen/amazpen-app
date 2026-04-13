@@ -438,17 +438,74 @@ export default function AdminDailyEntriesPage() {
 
       let imported = 0;
       let skipped = 0;
+      let filled = 0; // count of days where we only filled missing product usage
 
       for (let i = 0; i < csvEntries.length; i++) {
         const entry = csvEntries[i];
         const isDuplicate = duplicateDates.has(entry.entry_date);
 
+        setImportProgress(`מייבא ${i + 1}/${csvEntries.length}...`);
+
+        let entryId: string | null = null;
+
         if (isDuplicate && !overwriteExisting) {
-          skipped++;
+          // Day exists and user did NOT ask to overwrite — don't touch daily_entries /
+          // income / receipts, but DO fill in missing daily_product_usage rows
+          // (only for products that aren't recorded yet for this day).
+          const { data: existingEntry } = await supabase
+            .from("daily_entries")
+            .select("id")
+            .eq("business_id", selectedBusinessId)
+            .eq("entry_date", entry.entry_date)
+            .is("deleted_at", null)
+            .maybeSingle();
+
+          if (!existingEntry) {
+            skipped++;
+            continue;
+          }
+
+          entryId = existingEntry.id;
+
+          const { data: existingUsage } = await supabase
+            .from("daily_product_usage")
+            .select("product_id")
+            .eq("daily_entry_id", entryId);
+          const existingProductIds = new Set((existingUsage || []).map(u => u.product_id as string));
+
+          let addedAny = false;
+          for (let j = 0; j < managedProducts.length && j < 3; j++) {
+            const product = managedProducts[j];
+            if (existingProductIds.has(product.id)) continue;
+
+            const opening = entry.product_openings[j] || 0;
+            const received = entry.product_received[j] || 0;
+            const closing = entry.product_closings[j] || 0;
+            const usage = entry.product_usage[j] || 0;
+
+            if (opening > 0 || received > 0 || closing > 0 || usage > 0) {
+              const quantityUsed = usage > 0 ? usage : (opening + received - closing);
+              const { error } = await supabase.from("daily_product_usage").insert({
+                daily_entry_id: entryId,
+                product_id: product.id,
+                opening_stock: opening,
+                received_quantity: received,
+                closing_stock: closing,
+                quantity: quantityUsed,
+                unit_cost_at_time: product.unit_cost,
+              });
+              if (error) {
+                console.error("Product usage insert error:", error);
+              } else {
+                addedAny = true;
+              }
+            }
+          }
+
+          if (addedAny) filled++;
+          else skipped++;
           continue;
         }
-
-        setImportProgress(`מייבא ${i + 1}/${csvEntries.length}...`);
 
         // If overwriting, delete existing entry and related data
         if (isDuplicate && overwriteExisting) {
@@ -495,7 +552,7 @@ export default function AdminDailyEntriesPage() {
           continue;
         }
 
-        const entryId = dailyEntry.id;
+        entryId = dailyEntry.id;
 
         // Insert income breakdowns
         const incomeRows = [];
@@ -589,9 +646,11 @@ export default function AdminDailyEntriesPage() {
         imported++;
       }
 
-      const msg = skipped > 0
-        ? `יובאו ${imported} רשומות בהצלחה (${skipped} דולגו - כבר קיימות)`
-        : `יובאו ${imported} רשומות בהצלחה`;
+      const parts: string[] = [];
+      if (imported > 0) parts.push(`יובאו ${imported} רשומות חדשות`);
+      if (filled > 0) parts.push(`הושלמו מוצרים מנוהלים ב-${filled} ימים קיימים`);
+      if (skipped > 0) parts.push(`${skipped} דולגו (כבר קיימות ולא חסר מה להשלים)`);
+      const msg = parts.length > 0 ? parts.join(" | ") : "לא יובאו רשומות";
       showToast(msg, "success");
       handleClearCsv();
     } catch {
