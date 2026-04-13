@@ -1100,7 +1100,9 @@ function ExpensesPageInner() {
             `)
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
-            .order("invoice_date", { ascending: false })
+            .gte("reference_date", startDate)
+            .lte("reference_date", endDate)
+            .order("reference_date", { ascending: false })
             .range(0, INVOICES_PAGE_SIZE - 1),
           supabase
             .from("delivery_notes")
@@ -1110,6 +1112,8 @@ function ExpensesPageInner() {
               creator:profiles!delivery_notes_created_by_fkey(full_name)
             `)
             .in("business_id", selectedBusinesses)
+            .gte("delivery_date", startDate)
+            .lte("delivery_date", endDate)
             .order("delivery_date", { ascending: false })
             .range(0, INVOICES_PAGE_SIZE - 1),
         ]);
@@ -1452,6 +1456,9 @@ function ExpensesPageInner() {
     setIsLoadingMore(true);
     const supabase = createClient();
     try {
+      const formatLocalDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const startDate = formatLocalDate(dateRange.start);
+      const endDate = formatLocalDate(dateRange.end);
       const { data } = await supabase
         .from("invoices")
         .select(`
@@ -1463,7 +1470,9 @@ function ExpensesPageInner() {
         `)
         .in("business_id", selectedBusinesses)
         .is("deleted_at", null)
-        .order("invoice_date", { ascending: false })
+        .gte("reference_date", startDate)
+        .lte("reference_date", endDate)
+        .order("reference_date", { ascending: false })
         .range(invoicesOffset, invoicesOffset + INVOICES_PAGE_SIZE - 1);
 
       const newInvoices = transformInvoicesData(data || []);
@@ -1476,7 +1485,7 @@ function ExpensesPageInner() {
       setIsLoadingMore(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- transformInvoicesData is a plain function (not stateful); adding it would require wrapping in useCallback for no benefit.
-  }, [isLoadingMore, hasMoreInvoices, selectedBusinesses, invoicesOffset, activeTab]);
+  }, [isLoadingMore, hasMoreInvoices, selectedBusinesses, invoicesOffset, activeTab, dateRange]);
 
   // Scroll handler for infinite scroll
   const handleInvoicesScroll = useCallback(() => {

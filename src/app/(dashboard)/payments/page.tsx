@@ -2182,11 +2182,22 @@ function PaymentsPageInner() {
     const labelX = isFullCircle ? (cx as number) : (cx as number) + labelRadius * Math.cos(midAngleRad);
     const labelY = isFullCircle ? (cy as number) : (cy as number) - labelRadius * Math.sin(midAngleRad);
 
+    const innerHoleRadius = (outerRadius as number) * 0.55;
+    const anyActive = activePaymentIndex !== undefined;
+
     if (!isActive) {
       return (
         <g>
-          <Sector cx={cx} cy={cy} outerRadius={outerRadius} startAngle={startAngle} endAngle={endAngle} fill={fill} />
-          {showLabel && (
+          <Sector
+            cx={cx}
+            cy={cy}
+            outerRadius={outerRadius}
+            innerRadius={anyActive ? innerHoleRadius : 0}
+            startAngle={startAngle}
+            endAngle={endAngle}
+            fill={fill}
+          />
+          {showLabel && !anyActive && (
             <text x={labelX} y={labelY} textAnchor="middle" dominantBaseline="central"
               fill="#fff" fontSize={12} fontWeight="bold" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>
               {`${pct.toFixed(0)}%`}
@@ -2196,14 +2207,12 @@ function PaymentsPageInner() {
       );
     }
 
-    const innerHoleRadius = (outerRadius as number) * 0.55;
     return (
       <g>
         <Sector cx={cx} cy={cy} outerRadius={(outerRadius as number) + 8} innerRadius={innerHoleRadius}
           startAngle={startAngle} endAngle={endAngle} fill={fill} />
         <Sector cx={cx} cy={cy} outerRadius={(outerRadius as number) + 14} innerRadius={(outerRadius as number) + 10}
           startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.3} />
-        <circle cx={cx as number} cy={cy as number} r={innerHoleRadius} fill="#0F1535" />
         <text x={cx} y={cy as number - 18} textAnchor="middle" fill="#fff" fontSize={14} fontWeight="bold">
           {payload.name}
         </text>
