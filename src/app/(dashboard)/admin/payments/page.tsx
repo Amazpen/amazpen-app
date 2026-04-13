@@ -1268,7 +1268,7 @@ export default function AdminPaymentsPage() {
                 type="button"
                 variant="default"
                 onClick={handleImport}
-                disabled={isImporting || !selectedBusinessId || unmatchedSuppliers.length > 0}
+                disabled={isImporting || !selectedBusinessId || mergedPayments.length === 0}
                 className="w-full bg-[#4956D4] hover:bg-[#3a45b5] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[16px] font-bold py-[12px] rounded-[12px] transition-colors flex items-center justify-center gap-2"
               >
                 {isImporting ? (
