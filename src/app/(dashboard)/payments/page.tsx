@@ -2730,7 +2730,7 @@ function PaymentsPageInner() {
   // Show message if no business selected
   if (selectedBusinesses.length === 0) {
     return (
-      <div className="text-white p-[7px] pb-[80px]">
+      <div className="text-white p-[7px] pb-[10px]">
         <div className="bg-[#0F1535] rounded-[20px] p-[40px] text-center">
           <p className="text-[20px] text-white/70">יש לבחור עסק כדי לצפות בתשלומים</p>
         </div>
@@ -2739,7 +2739,7 @@ function PaymentsPageInner() {
   }
 
   return (
-    <div className="text-white p-[7px] pb-[80px]">
+    <div className="text-white p-[7px] pb-[10px]">
       <ConfirmDialog />
       {/* Date Range and Add Button */}
       <div className="flex items-center justify-between mb-[10px]">
@@ -3450,7 +3450,7 @@ function PaymentsPageInner() {
           </div>
 
           {/* Rows */}
-          <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="max-h-[450px] overflow-y-auto flex flex-col gap-[5px]">
+          <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="max-h-[calc(100vh-280px)] overflow-y-auto flex flex-col gap-[5px]">
             {(() => {
               const searchVal = filterValue.trim().toLowerCase();
               const hasActiveFilter = filterBy && searchVal;

@@ -3062,7 +3062,7 @@ function ExpensesPageInner() {
   // Show message if no business selected
   if (selectedBusinesses.length === 0) {
     return (
-      <div className="text-white p-[7px] pb-[80px]">
+      <div className="text-white p-[7px] pb-[10px]">
         <div className="bg-[#0F1535] rounded-[20px] p-[40px] text-center">
           <p className="text-[20px] text-white/70">יש לבחור עסק כדי לצפות בהוצאות</p>
         </div>
@@ -3071,7 +3071,7 @@ function ExpensesPageInner() {
   }
 
   return (
-    <div className="text-white p-[7px] pb-[80px] w-full">
+    <div className="text-white p-[7px] pb-[10px] w-full">
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val as "expenses" | "purchases" | "employees"); setFilterBy(""); setFilterValue(""); }} dir="rtl">
         <TabsList className="w-full bg-transparent rounded-[7px] p-0 h-[50px] sm:h-[60px] mb-[34px] gap-0 border border-[#6B6B6B]">
