@@ -1394,20 +1394,30 @@ function PaymentsPageInner() {
     });
   }, []);
 
+  // Prevent duplicate submission of save payment
+  const savingPaymentRef = useRef(false);
+
   // Handle saving new payment
   const handleSavePayment = async () => {
+    // Prevent duplicate submissions
+    if (savingPaymentRef.current) return;
+    savingPaymentRef.current = true;
+
     if (!selectedSupplier || !paymentDate || paymentMethods.every(pm => !pm.amount)) {
       showToast("נא למלא את כל השדות הנדרשים", "warning");
+      savingPaymentRef.current = false;
       return;
     }
 
     if (paymentMethods.some(pm => parseFloat(pm.amount.replace(/[^\d.]/g, "")) > 0 && !pm.method)) {
       showToast("נא לבחור אמצעי תשלום", "warning");
+      savingPaymentRef.current = false;
       return;
     }
 
     if (selectedBusinesses.length === 0) {
       showToast("נא לבחור עסק", "warning");
+      savingPaymentRef.current = false;
       return;
     }
 
@@ -1432,6 +1442,7 @@ function PaymentsPageInner() {
       const diff = Math.abs(invoicesTotal - paymentTotal);
       if (diff > 5) {
         showToast(`לא ניתן לבצע תשלום חלקי — הפרש של ₪${diff.toFixed(2)} בין סכום התשלום לסכום החשבוניות`, "error");
+        savingPaymentRef.current = false;
         return;
       }
     }
@@ -1620,6 +1631,7 @@ function PaymentsPageInner() {
       showToast("שגיאה בשמירת התשלום", "error");
     } finally {
       setIsSaving(false);
+      savingPaymentRef.current = false;
     }
   };
 
@@ -2797,7 +2809,7 @@ function PaymentsPageInner() {
                     animationDuration={800}
                     animationEasing="ease-out"
                     shape={renderPaymentShape}
-                    activeIndex={activePaymentIndex}
+                    {...({ activeIndex: activePaymentIndex } as Record<string, unknown>)}
                     onMouseEnter={(_, index) => setActivePaymentIndex(index)}
                     onMouseLeave={() => setActivePaymentIndex(undefined)}
                   >

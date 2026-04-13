@@ -603,6 +603,8 @@ function ExpensesPageInner() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const statusMenuRef = useRef<HTMLDivElement | null>(null);
   const [statusConfirm, setStatusConfirm] = useState<{ invoiceId: string; newStatus: string; label: string } | null>(null);
+  const [duplicateInvoicePrompt, setDuplicateInvoicePrompt] = useState<{ invoiceNumber: string } | null>(null);
+  const duplicateProceedRef = useRef<(() => void) | null>(null);
 
   // Clarification popup state (when changing status to "בבירור")
   const [showClarificationPopup, setShowClarificationPopup] = useState(false);
@@ -1889,7 +1891,7 @@ function ExpensesPageInner() {
       }
 
       // Duplicate invoice-number check (same business + supplier + invoice_number)
-      if (invoiceNumber && invoiceNumber.trim() && !linkToCoordinator && !linkToFixedInvoiceId) {
+      if (invoiceNumber && invoiceNumber.trim() && !linkToCoordinator && !linkToFixedInvoiceId && !duplicateProceedRef.current) {
         const { data: duplicates } = await supabase
           .from("invoices")
           .select("id")
@@ -1898,13 +1900,12 @@ function ExpensesPageInner() {
           .eq("invoice_number", invoiceNumber.trim())
           .limit(1);
         if (duplicates && duplicates.length > 0) {
-          const ok = window.confirm(`כבר קיימת חשבונית עם מספר ${invoiceNumber} עבור ספק זה. האם לשמור בכל זאת?`);
-          if (!ok) {
-            setIsSaving(false);
-            return;
-          }
+          setIsSaving(false);
+          setDuplicateInvoicePrompt({ invoiceNumber: invoiceNumber.trim() });
+          return;
         }
       }
+      duplicateProceedRef.current = null;
 
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -6059,6 +6060,40 @@ function ExpensesPageInner() {
                 </div>
               </div>
             )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Duplicate Invoice Number Confirmation */}
+      {duplicateInvoicePrompt && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50" onClick={() => setDuplicateInvoicePrompt(null)}>
+          <div dir="rtl" className="bg-[#1A1F4E] rounded-[14px] border border-white/20 shadow-2xl p-[20px] w-[340px]" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[16px] font-bold text-white text-center mb-[12px]">חשבונית כפולה</h3>
+            <p className="text-[14px] text-white/80 text-center mb-[20px]">
+              כבר קיימת חשבונית עם מספר <span className="font-bold text-white ltr-num">{duplicateInvoicePrompt.invoiceNumber}</span> עבור ספק זה.
+              <br />האם לשמור בכל זאת?
+            </p>
+            <div className="flex gap-[10px]">
+              <Button
+                type="button"
+                onClick={() => {
+                  setDuplicateInvoicePrompt(null);
+                  duplicateProceedRef.current = () => {};
+                  handleSaveExpense();
+                }}
+                className="flex-1 bg-[#FFA500] hover:bg-[#e8970e] text-[#0F1535] text-[14px] font-bold py-[10px] rounded-[8px] transition-colors"
+              >
+                שמור בכל זאת
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setDuplicateInvoicePrompt(null)}
+                className="flex-1 bg-white/10 hover:bg-white/20 text-white text-[14px] py-[10px] rounded-[8px] transition-colors"
+              >
+                ביטול
+              </Button>
+            </div>
           </div>
         </div>,
         document.body
