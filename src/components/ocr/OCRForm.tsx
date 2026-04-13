@@ -1780,6 +1780,15 @@ export default function OCRForm({
           } else {
             setDiscountPercentage('');
           }
+          // VAT-exempt supplier (vat_type='none'): force VAT amount to 0
+          if (sel?.vat_type === 'none') {
+            setPartialVat(true);
+            setVatAmount('0');
+          } else {
+            // Reset to standard VAT calculation when switching to a regular supplier
+            setPartialVat(false);
+            setVatAmount('');
+          }
           // Auto-sync expense type to match the supplier's classification so
           // the created invoice lands under the right bucket in the P&L
           // report. Without this the expense stayed on the form's default
@@ -1925,6 +1934,58 @@ export default function OCRForm({
             placeholder="0.00"
             className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
           />
+        </div>
+      </div>
+
+      {/* Overall Discount — applies to entire invoice (in addition to per-line discounts) */}
+      <div className="flex flex-col gap-[5px]">
+        <label className="text-[15px] font-medium text-white text-right">הנחה כללית על כל החשבונית</label>
+        <div className="flex items-center gap-[5px]">
+          <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex-1">
+            <Input
+              type="text"
+              inputMode="decimal"
+              title="הנחה על כל הסכום"
+              value={discountAmount}
+              onChange={(e) => {
+                const val = e.target.value.replace(/,/g, '');
+                setDiscountAmount(val);
+                // When user types in ₪ field, auto-compute % from amountBeforeVat
+                const baseAmount = parseFloat(amountBeforeVat) || 0;
+                const discAmt = parseFloat(val) || 0;
+                if (baseAmount > 0 && discAmt > 0) {
+                  setDiscountPercentage(((discAmt / baseAmount) * 100).toFixed(2));
+                } else {
+                  setDiscountPercentage('');
+                }
+              }}
+              placeholder="0.00"
+              className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+            />
+          </div>
+          <span className="text-white/60 text-[14px]">או</span>
+          <div className="border border-[#4C526B] rounded-[10px] h-[50px] w-[100px] flex items-center">
+            <Input
+              type="text"
+              inputMode="decimal"
+              title="הנחה באחוזים"
+              value={discountPercentage}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^\d.]/g, '');
+                setDiscountPercentage(val);
+                const baseAmount = parseFloat(amountBeforeVat) || 0;
+                const pct = parseFloat(val) || 0;
+                if (baseAmount > 0 && pct > 0) {
+                  setDiscountAmount((baseAmount * (pct / 100)).toFixed(2));
+                } else if (!val) {
+                  setDiscountAmount('');
+                }
+              }}
+              placeholder="0"
+              className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[5px]"
+            />
+            <span className="text-white/60 text-[14px] pe-[8px]">%</span>
+          </div>
         </div>
       </div>
 

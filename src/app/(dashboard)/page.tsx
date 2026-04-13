@@ -516,9 +516,9 @@ export default function DashboardPage() {
         supabase.from("business_day_exceptions").select("exception_date, day_factor, business_id").in("business_id", selectedBusinesses).gte("exception_date", formatLocalDate(new Date(dateRange.start.getFullYear(), dateRange.start.getMonth(), 1))).lte("exception_date", formatLocalDate(new Date(dateRange.start.getFullYear(), dateRange.start.getMonth() + 1, 0))),
       ]);
 
-      // Fetch additional info: open payments, open suppliers, open commitments
+      // Fetch additional info: open payments, supplier balance view, open commitments
       const businessId = selectedBusinesses[0];
-      const [openPaymentSplitsResult, allInvoicesTotalResult, allPaymentsTotalResult, priorCommitmentsResult] = await Promise.all([
+      const [openPaymentSplitsResult, supplierBalanceResult, priorCommitmentsResult] = await Promise.all([
         // Open payments - payment splits with due_date >= today (matches payments page forecast)
         supabase
           .from("payment_splits")
@@ -526,22 +526,13 @@ export default function DashboardPage() {
           .eq("payments.business_id", businessId)
           .is("payments.deleted_at", null)
           .gte("due_date", todayStr),
-        // All invoices grouped per supplier — only goods_purchases + current_expenses
-        // (matches the suppliers page tabs).
+        // Supplier balance view — same source the suppliers page uses,
+        // filtered to goods + current expenses tabs only.
         supabase
-          .from("invoices")
-          .select("supplier_id, total_amount, supplier:suppliers!inner(expense_type)")
+          .from("supplier_balance")
+          .select("supplier_id, total_invoiced, total_paid, supplier:suppliers!inner(expense_type)")
           .eq("business_id", businessId)
-          .is("deleted_at", null)
           .in("supplier.expense_type", ["goods_purchases", "current_expenses"]),
-        // Paid splits per supplier (due_date < today) — same expense_type filter.
-        supabase
-          .from("payment_splits")
-          .select("amount, payments!inner(business_id, supplier_id, deleted_at, supplier:suppliers!inner(expense_type))")
-          .eq("payments.business_id", businessId)
-          .is("payments.deleted_at", null)
-          .in("payments.supplier.expense_type", ["goods_purchases", "current_expenses"])
-          .lt("due_date", todayStr),
         // All prior commitments (from prior_commitments table)
         supabase
           .from("prior_commitments")
@@ -553,25 +544,10 @@ export default function DashboardPage() {
       const openPaymentsTotal = (openPaymentSplitsResult.data || []).reduce(
         (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
       );
-      // Per-supplier balance: invoiced - paid, capped at 0 (matches suppliers page).
-      // Suppliers who paid more than they were invoiced contribute 0, not a negative.
-      const invoicedBySupplier = new Map<string, number>();
-      for (const inv of (allInvoicesTotalResult.data || []) as Record<string, unknown>[]) {
-        const sid = inv.supplier_id as string;
-        if (!sid) continue;
-        invoicedBySupplier.set(sid, (invoicedBySupplier.get(sid) || 0) + (Number(inv.total_amount) || 0));
-      }
-      const paidBySupplier = new Map<string, number>();
-      for (const s of (allPaymentsTotalResult.data || []) as Record<string, unknown>[]) {
-        const p = s.payments as { supplier_id?: string } | undefined;
-        const sid = p?.supplier_id;
-        if (!sid) continue;
-        paidBySupplier.set(sid, (paidBySupplier.get(sid) || 0) + (Number(s.amount) || 0));
-      }
-      const allSupplierIds = new Set<string>([...invoicedBySupplier.keys(), ...paidBySupplier.keys()]);
+      // Per-supplier max(0, invoiced - paid), exactly like the suppliers page.
       let openSuppliersTotal = 0;
-      for (const sid of allSupplierIds) {
-        const balance = (invoicedBySupplier.get(sid) || 0) - (paidBySupplier.get(sid) || 0);
+      for (const row of (supplierBalanceResult.data || []) as Record<string, unknown>[]) {
+        const balance = (Number(row.total_invoiced) || 0) - (Number(row.total_paid) || 0);
         if (balance > 0) openSuppliersTotal += balance;
       }
       // Calculate open commitments from prior_commitments table

@@ -1161,6 +1161,7 @@ function ExpensesPageInner() {
           { data: categoriesData },
           { data: dailyEntries },
           { data: goalsData },
+          { data: chartDeliveryNotes },
           { data: businessVatData },
         ] = await Promise.all([
           supabase
@@ -1195,6 +1196,14 @@ function ExpensesPageInner() {
             .in("business_id", selectedBusinesses)
             .eq("year", targetYear)
             .eq("month", targetMonth),
+          supabase
+            .from("delivery_notes")
+            .select(`*, supplier:suppliers!inner(id, name, expense_category_id, is_fixed_expense, is_active, deleted_at, expense_type)`)
+            .in("business_id", selectedBusinesses)
+            .is("invoice_id", null)
+            .gte("delivery_date", startDate)
+            .lte("delivery_date", endDate)
+            .eq("supplier.expense_type", activeTab === "expenses" ? "current_expenses" : activeTab === "employees" ? "employee_costs" : "goods_purchases"),
           supabase
             .from("businesses")
             .select("id, vat_percentage, markup_percentage, manager_monthly_salary")
@@ -1253,12 +1262,23 @@ function ExpensesPageInner() {
           const uncategorizedId = "__uncategorized__";
 
           // Sum invoice amounts by supplier and category
-          // Filter: only include invoices from active, non-deleted suppliers (matches dashboard calculation)
+          // Include both invoices AND unlinked delivery notes (treated as invoices for
+          // calculation; UI will still display them as 'תעודת משלוח' until they're
+          // closed into a מרכזת invoice).
           const activeInvoices = invoicesData.filter(inv => {
             if (!inv.supplier) return false;
             const sup = inv.supplier as Record<string, unknown>;
             return sup.is_active !== false && sup.deleted_at == null;
           });
+          // Add unlinked delivery notes as if they were invoices (status='pending')
+          const unlinkedDNs = (chartDeliveryNotes || []).filter((dn: Record<string, unknown>) => {
+            const sup = dn.supplier as Record<string, unknown> | null;
+            return sup && sup.is_active !== false && sup.deleted_at == null;
+          }).map((dn: Record<string, unknown>) => ({
+            ...dn,
+            status: 'pending',
+          }));
+          activeInvoices.push(...(unlinkedDNs as typeof activeInvoices));
           for (const inv of activeInvoices) {
             if (inv.supplier) {
               const supplierId = inv.supplier.id;
