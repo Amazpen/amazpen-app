@@ -2115,7 +2115,7 @@ function PaymentsPageInner() {
   const totalPayments = paymentMethodsData.reduce((sum, item) => sum + item.amount, 0);
 
   // Active index for interactive pie chart hover
-  const [_activePaymentIndex, setActivePaymentIndex] = useState<number | undefined>(undefined);
+  const [activePaymentIndex, setActivePaymentIndex] = useState<number | undefined>(undefined);
 
   // Custom shape renderer for full pie chart (recharts v3 uses shape prop with isActive)
   const renderPaymentShape = (props: PieSectorDataItem & { isActive: boolean; index: number }) => {
@@ -2797,6 +2797,7 @@ function PaymentsPageInner() {
                     animationDuration={800}
                     animationEasing="ease-out"
                     shape={renderPaymentShape}
+                    activeIndex={activePaymentIndex}
                     onMouseEnter={(_, index) => setActivePaymentIndex(index)}
                     onMouseLeave={() => setActivePaymentIndex(undefined)}
                   >
@@ -3030,7 +3031,7 @@ function PaymentsPageInner() {
                                     <span className="flex-1 text-[14px] font-medium text-white text-center">תאריך התשלום</span>
                                     <span className="flex-1 text-[14px] text-white text-center">ספק</span>
                                     <span className="flex-1 text-[14px] font-medium text-white text-center">סכום לתשלום</span>
-                                    <span className="flex-1 text-[14px] font-medium text-white text-center">אמצאי תשלום</span>
+                                    <span className="flex-1 text-[14px] font-medium text-white text-center">אמצעי תשלום</span>
                                   </div>
 
                                   {/* Payment Rows */}
