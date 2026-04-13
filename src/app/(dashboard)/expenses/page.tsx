@@ -3171,52 +3171,92 @@ function ExpensesPageInner() {
       const startDate = formatLocalDate(dateRange.start);
       const endDate = formatLocalDate(dateRange.end);
 
-      const { data: invoicesData } = await supabase
-        .from("invoices")
-        .select(`
-          *,
-          supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
-          creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
-          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
-        `)
-        .in("business_id", selectedBusinesses)
-        .eq("supplier_id", supplierId)
-        .is("deleted_at", null)
-        .gte("reference_date", startDate)
-        .lte("reference_date", endDate)
-        .order("reference_date", { ascending: false });
+      const [{ data: invoicesData }, { data: deliveryNotesData }] = await Promise.all([
+        supabase
+          .from("invoices")
+          .select(`
+            *,
+            supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
+            creator:profiles!invoices_created_by_fkey(full_name),
+            payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+            payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
+          `)
+          .in("business_id", selectedBusinesses)
+          .eq("supplier_id", supplierId)
+          .is("deleted_at", null)
+          .gte("reference_date", startDate)
+          .lte("reference_date", endDate)
+          .order("reference_date", { ascending: false }),
+        supabase
+          .from("delivery_notes")
+          .select(`
+            *,
+            supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
+            creator:profiles!delivery_notes_created_by_fkey(full_name)
+          `)
+          .in("business_id", selectedBusinesses)
+          .eq("supplier_id", supplierId)
+          .is("invoice_id", null)
+          .gte("delivery_date", startDate)
+          .lte("delivery_date", endDate)
+          .order("delivery_date", { ascending: false }),
+      ]);
 
-      if (invoicesData) {
-        const displayInvoices: InvoiceDisplay[] = invoicesData.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => ({
-          id: inv.id,
-          date: formatDateString(inv.invoice_date),
-          rawDate: inv.invoice_date ? toLocalDateStr(new Date(inv.invoice_date)) : "",
-          supplier: inv.supplier?.name || "לא ידוע",
-          reference: inv.invoice_number || "",
-          amount: Number(inv.total_amount),
-          amountWithVat: Number(inv.total_amount),
-          amountBeforeVat: Number(inv.subtotal),
-          status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
-          statusRaw: inv.status || "pending",
-          enteredBy: inv.creator?.full_name || "מערכת",
-          entryDate: formatDateString(inv.created_at),
-          notes: inv.notes || "",
-          attachmentUrl: inv.attachment_url || null,
-          attachmentUrls: parseAttachmentUrls(inv.attachment_url),
-          clarificationReason: inv.clarification_reason || null,
-          isFixed: inv.supplier?.is_fixed_expense || false,
-          approval_status: inv.approval_status || null,
-          referenceDate: inv.reference_date ? formatDateString(inv.reference_date) : null,
-          linkedPayments: [],
-          documentType: "invoice",
-          invoiceType: inv.invoice_type || undefined,
-          consolidatedReference: (inv as { consolidated_reference?: string | null }).consolidated_reference || null,
-        }));
-        setBreakdownSupplierInvoices(displayInvoices);
-        const totalWithVat = displayInvoices.reduce((sum, inv) => sum + inv.amountWithVat, 0);
-        setBreakdownSupplierTotalWithVat(totalWithVat);
-      }
+      const displayInvoices: InvoiceDisplay[] = (invoicesData || []).map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => ({
+        id: inv.id,
+        date: formatDateString(inv.invoice_date),
+        rawDate: inv.invoice_date ? toLocalDateStr(new Date(inv.invoice_date)) : "",
+        supplier: inv.supplier?.name || "לא ידוע",
+        reference: inv.invoice_number || "",
+        amount: Number(inv.total_amount),
+        amountWithVat: Number(inv.total_amount),
+        amountBeforeVat: Number(inv.subtotal),
+        status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
+        statusRaw: inv.status || "pending",
+        enteredBy: inv.creator?.full_name || "מערכת",
+        entryDate: formatDateString(inv.created_at),
+        notes: inv.notes || "",
+        attachmentUrl: inv.attachment_url || null,
+        attachmentUrls: parseAttachmentUrls(inv.attachment_url),
+        clarificationReason: inv.clarification_reason || null,
+        isFixed: inv.supplier?.is_fixed_expense || false,
+        approval_status: inv.approval_status || null,
+        referenceDate: inv.reference_date ? formatDateString(inv.reference_date) : null,
+        linkedPayments: [],
+        documentType: "invoice",
+        invoiceType: inv.invoice_type || undefined,
+        consolidatedReference: (inv as { consolidated_reference?: string | null }).consolidated_reference || null,
+      }));
+      // Add unlinked delivery notes (status='ת. משלוח')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const dnDisplay: InvoiceDisplay[] = (deliveryNotesData || []).map((dn: any) => ({
+        id: dn.id,
+        date: formatDateString(dn.delivery_date),
+        rawDate: dn.delivery_date ? toLocalDateStr(new Date(dn.delivery_date)) : "",
+        supplier: dn.supplier?.name || "לא ידוע",
+        reference: dn.delivery_note_number || "",
+        amount: Number(dn.total_amount),
+        amountWithVat: Number(dn.total_amount),
+        amountBeforeVat: Number(dn.subtotal),
+        status: "ת. משלוח",
+        statusRaw: "delivery_note",
+        enteredBy: dn.creator?.full_name || "מערכת",
+        entryDate: formatDateString(dn.created_at),
+        notes: dn.notes || "",
+        attachmentUrl: dn.attachment_url || null,
+        attachmentUrls: parseAttachmentUrls(dn.attachment_url),
+        clarificationReason: null,
+        isFixed: dn.supplier?.is_fixed_expense || false,
+        approval_status: null,
+        referenceDate: null,
+        linkedPayments: [],
+        documentType: "delivery_note",
+        parentInvoiceId: null,
+      }));
+      const merged = [...displayInvoices, ...dnDisplay].sort((a, b) => (b.rawDate || "").localeCompare(a.rawDate || ""));
+      setBreakdownSupplierInvoices(merged);
+      const totalWithVat = merged.reduce((sum, inv) => sum + inv.amountWithVat, 0);
+      setBreakdownSupplierTotalWithVat(totalWithVat);
     } catch (error) {
       console.error("Error fetching supplier invoices:", error);
     } finally {
@@ -6065,6 +6105,7 @@ function ExpensesPageInner() {
                         <span className={`px-[7px] py-[3px] rounded-full ${
                           inv.status === "שולם" ? "bg-[#00E096]/20 text-[#00E096]" :
                           inv.status === "בבירור" ? "bg-[#FFA500]/20 text-[#FFA500]" :
+                          inv.status === "ת. משלוח" ? "bg-[#00bcd4] text-white" :
                           "bg-[#29318A] text-white"
                         }`}>
                           {inv.status}
