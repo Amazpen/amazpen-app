@@ -1015,6 +1015,10 @@ export default function OCRForm({
 
   // Populate form from OCR data when document changes
   useEffect(() => {
+    // Reset partialVat toggle on each new document — default is OFF (regular VAT).
+    // It only turns ON below if the OCR'd vat_amount significantly deviates
+    // from expected (businessVatRate × subtotal).
+    setPartialVat(false);
     if (document?.ocr_data) {
       const data = document.ocr_data;
 
@@ -1066,9 +1070,11 @@ export default function OCRForm({
       if (data.vat_amount !== undefined) {
         setVatAmount(data.vat_amount.toString());
         const expectedVat = (data.subtotal || 0) * businessVatRate;
-        if (Math.abs((data.vat_amount || 0) - expectedVat) > 0.01) {
-          setPartialVat(true);
-        }
+        // Only mark as partial VAT when the difference is significant (>1% of expected
+        // or > ₪2). Small rounding differences from OCR shouldn't flip this flag.
+        const diff = Math.abs((data.vat_amount || 0) - expectedVat);
+        const significantDiff = diff > Math.max(2, expectedVat * 0.01);
+        setPartialVat(significantDiff);
       }
 
       // Pre-select supplier: prefer matched_supplier_id from AI, fallback to name matching

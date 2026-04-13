@@ -1013,7 +1013,13 @@ export default function OCRPage() {
             showCalculator={showCalculator}
             onCalculatorToggle={() => setShowCalculator(v => !v)}
             mergedDocuments={mergedDocuments}
-            pendingDocuments={documents.filter(d => d.status === 'pending' && d.business_id === (currentDocument?.business_id || selectedBusinessId))}
+            pendingDocuments={documents.filter(d => {
+              if (d.status !== 'pending') return false;
+              const targetBiz = currentDocument?.business_id || selectedBusinessId;
+              // Include docs that match the target business OR have no business assigned
+              // (OCR-failed docs) so users can still merge them.
+              return !d.business_id || !targetBiz || d.business_id === targetBiz;
+            })}
             onMergeDocuments={setMergedDocuments}
           />
         </div>
