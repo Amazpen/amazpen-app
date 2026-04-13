@@ -412,9 +412,11 @@ export default function AdminExpensesPage() {
             // Payment method
             const payment_method = getField(row, "payment_method");
 
-            // Consolidated
-            const isConsolidatedRaw = getField(row, "is_consolidated");
-            const is_consolidated = isConsolidatedRaw === "כן" || isConsolidatedRaw === "true";
+            // Consolidated:
+            // The "האם יש צורך במרכזת" flag in Bubble means "needs consolidation",
+            // NOT "this row IS a consolidation". Always import as a regular invoice.
+            // True markezet records come from the dedicated מרכזות import page.
+            const is_consolidated = false;
 
             // Clarification
             const isInClarificationRaw = getField(row, "is_in_clarification");
