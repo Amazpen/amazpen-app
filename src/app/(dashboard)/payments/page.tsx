@@ -342,6 +342,7 @@ function PaymentsPageInner() {
             supplier:suppliers(id, name),
             payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id),
             invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes),
+            payment_invoice_links(invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes)),
             creator:profiles!payments_created_by_fkey(full_name)
           `)
           .in("business_id", selectedBusinesses)
@@ -893,6 +894,7 @@ function PaymentsPageInner() {
               supplier:suppliers(id, name),
               payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id),
               invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes),
+            payment_invoice_links(invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes)),
               creator:profiles!payments_created_by_fkey(full_name)
             `)
             .in("business_id", selectedBusinesses)
@@ -931,9 +933,9 @@ function PaymentsPageInner() {
       }
       const group = siblingGroups.get(key)!;
       group.payments.push(p);
+      // Direct invoice_id link
       if (p.invoice) {
         const inv = p.invoice;
-        // Avoid duplicate invoices
         if (!group.invoices.some(i => i.id === inv.id)) {
           group.invoices.push({
             id: inv.id,
@@ -945,6 +947,25 @@ function PaymentsPageInner() {
             attachmentUrl: inv.attachment_url,
             notes: inv.notes || null,
           });
+        }
+      }
+      // N:M links via payment_invoice_links
+      if (Array.isArray(p.payment_invoice_links)) {
+        for (const link of p.payment_invoice_links) {
+          const inv = link.invoice;
+          if (!inv) continue;
+          if (!group.invoices.some(i => i.id === inv.id)) {
+            group.invoices.push({
+              id: inv.id,
+              invoiceNumber: inv.invoice_number,
+              date: formatDateString(inv.invoice_date),
+              subtotal: Number(inv.subtotal),
+              vatAmount: Number(inv.vat_amount),
+              totalAmount: Number(inv.total_amount),
+              attachmentUrl: inv.attachment_url,
+              notes: inv.notes || null,
+            });
+          }
         }
       }
     }
@@ -1063,6 +1084,7 @@ function PaymentsPageInner() {
           supplier:suppliers(id, name),
           payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id),
           invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes),
+            payment_invoice_links(invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes)),
           creator:profiles!payments_created_by_fkey(full_name)
         `)
         .in("business_id", selectedBusinesses)
@@ -1747,6 +1769,7 @@ function PaymentsPageInner() {
           supplier:suppliers(id, name),
           payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id),
           invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes),
+            payment_invoice_links(invoice:invoices(id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes)),
           creator:profiles!payments_created_by_fkey(full_name)
         `)
         .eq("id", editId)
