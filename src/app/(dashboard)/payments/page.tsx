@@ -2159,19 +2159,18 @@ function PaymentsPageInner() {
       );
     }
 
-    const midAngle = midAngleRad;
-    const pullX = (cx as number) + 6 * Math.cos(midAngle);
-    const pullY = (cy as number) - 6 * Math.sin(midAngle);
+    const innerHoleRadius = (outerRadius as number) * 0.55;
     return (
       <g>
-        <Sector cx={pullX} cy={pullY} outerRadius={(outerRadius as number) + 8}
+        <Sector cx={cx} cy={cy} outerRadius={(outerRadius as number) + 8} innerRadius={innerHoleRadius}
           startAngle={startAngle} endAngle={endAngle} fill={fill} />
-        <Sector cx={pullX} cy={pullY} outerRadius={(outerRadius as number) + 14} innerRadius={(outerRadius as number) + 10}
+        <Sector cx={cx} cy={cy} outerRadius={(outerRadius as number) + 14} innerRadius={(outerRadius as number) + 10}
           startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.3} />
-        <text x={cx} y={cy - 18} textAnchor="middle" fill="#fff" fontSize={14} fontWeight="bold">
+        <circle cx={cx as number} cy={cy as number} r={innerHoleRadius} fill="#0F1535" />
+        <text x={cx} y={cy as number - 18} textAnchor="middle" fill="#fff" fontSize={14} fontWeight="bold">
           {payload.name}
         </text>
-        <text x={cx} y={cy + 6} textAnchor="middle" fill="#fff" fontSize={22} fontWeight="bold" direction="ltr">
+        <text x={cx} y={cy as number + 6} textAnchor="middle" fill="#fff" fontSize={22} fontWeight="bold" direction="ltr">
           {`₪${payload.amount.toLocaleString("he-IL", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
         </text>
         <text x={cx} y={cy + 26} textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize={13}>

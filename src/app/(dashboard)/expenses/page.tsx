@@ -370,7 +370,8 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)))
         `)
         .eq("id", highlightInvoiceId)
         .in("business_id", selectedBusinesses)
@@ -481,7 +482,8 @@ function ExpensesPageInner() {
             *,
             supplier:suppliers(id, name, expense_category_id, is_fixed_expense, is_active, deleted_at),
             creator:profiles!invoices_created_by_fkey(full_name),
-            payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
+            payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)))
           `)
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
@@ -520,25 +522,36 @@ function ExpensesPageInner() {
 
         const { data } = await query;
         if (data && data.length > 0) {
-          let results: InvoiceDisplay[] = data.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null; payments?: Array<{ id: string; payment_date: string; total_amount: number; payment_splits?: Array<{ id: string; payment_method: string; amount: number; installments_count: number; installment_number: number; due_date: string; check_number: string; reference_number: string }> }> }) => {
-            // Build linked payments from joined data
+          let results: InvoiceDisplay[] = data.map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null; payments?: Array<{ id: string; payment_date: string; total_amount: number; payment_splits?: Array<{ id: string; payment_method: string; amount: number; installments_count: number; installment_number: number; due_date: string; check_number: string; reference_number: string }> }>; payment_invoice_links?: Array<{ payment: { id: string; payment_date: string; total_amount: number; payment_splits?: Array<{ id: string; payment_method: string; amount: number; installments_count: number; installment_number: number; due_date: string; check_number: string; reference_number: string }> } }> }) => {
+            // Build linked payments from joined data (both direct invoice_id and payment_invoice_links)
             const linkedPayments: InvoiceDisplay["linkedPayments"] = [];
+            const seenPaymentIds = new Set<string>();
+            const allPayments: Array<{ id: string; payment_date: string; total_amount: number; payment_splits?: Array<{ id: string; payment_method: string; amount: number; installments_count: number; installment_number: number; due_date: string; check_number: string; reference_number: string }> }> = [];
             if (inv.payments && Array.isArray(inv.payments)) {
-              for (const payment of inv.payments) {
-                if (payment.payment_splits && Array.isArray(payment.payment_splits)) {
-                  for (const split of payment.payment_splits) {
-                    linkedPayments.push({
-                      id: `${payment.id}-${split.id || split.payment_method}`,
-                      paymentId: payment.id,
-                      amount: Number(split.amount),
-                      method: paymentMethodNames[split.payment_method] || "אחר",
-                      date: formatDateString(split.due_date || payment.payment_date),
-                      checkNumber: split.check_number || "",
-                      installmentNumber: split.installment_number || null,
-                      installmentsCount: split.installments_count || null,
-                      referenceNumber: split.reference_number || "",
-                    });
-                  }
+              for (const p of inv.payments) {
+                if (!seenPaymentIds.has(p.id)) { seenPaymentIds.add(p.id); allPayments.push(p); }
+              }
+            }
+            if (inv.payment_invoice_links && Array.isArray(inv.payment_invoice_links)) {
+              for (const link of inv.payment_invoice_links) {
+                const p = link.payment;
+                if (p && !seenPaymentIds.has(p.id)) { seenPaymentIds.add(p.id); allPayments.push(p); }
+              }
+            }
+            for (const payment of allPayments) {
+              if (payment.payment_splits && Array.isArray(payment.payment_splits)) {
+                for (const split of payment.payment_splits) {
+                  linkedPayments.push({
+                    id: `${payment.id}-${split.id || split.payment_method}`,
+                    paymentId: payment.id,
+                    amount: Number(split.amount),
+                    method: paymentMethodNames[split.payment_method] || "אחר",
+                    date: formatDateString(split.due_date || payment.payment_date),
+                    checkNumber: split.check_number || "",
+                    installmentNumber: split.installment_number || null,
+                    installmentsCount: split.installments_count || null,
+                    referenceNumber: split.reference_number || "",
+                  });
                 }
               }
             }
@@ -1045,7 +1058,8 @@ function ExpensesPageInner() {
               *,
               supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
               creator:profiles!invoices_created_by_fkey(full_name),
-              payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
+              payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)))
             `)
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
@@ -1331,8 +1345,23 @@ function ExpensesPageInner() {
     return rawData.map((inv: any) => {
       // Build linked payments from joined data — grouped by payment ID
       const linkedPayments: InvoiceDisplay["linkedPayments"] = [];
+      const seenPids = new Set<string>();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allPays: any[] = [];
       if (inv.payments && Array.isArray(inv.payments)) {
-        for (const payment of inv.payments) {
+        for (const p of inv.payments) {
+          if (!seenPids.has(p.id)) { seenPids.add(p.id); allPays.push(p); }
+        }
+      }
+      if (inv.payment_invoice_links && Array.isArray(inv.payment_invoice_links)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const link of inv.payment_invoice_links as any[]) {
+          const p = link.payment;
+          if (p && !seenPids.has(p.id)) { seenPids.add(p.id); allPays.push(p); }
+        }
+      }
+      if (allPays.length > 0) {
+        for (const payment of allPays) {
           if (payment.payment_splits && Array.isArray(payment.payment_splits)) {
             for (const split of payment.payment_splits) {
               linkedPayments.push({
@@ -1391,7 +1420,8 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)))
         `)
         .in("business_id", selectedBusinesses)
         .is("deleted_at", null)
@@ -2560,7 +2590,8 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)))
         `)
         .eq("id", editId)
         .maybeSingle();
@@ -2945,7 +2976,8 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)))
         `)
         .in("business_id", selectedBusinesses)
         .eq("supplier_id", supplierId)
