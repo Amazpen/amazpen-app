@@ -1991,11 +1991,31 @@ export default function OCRForm({
         <div className="flex flex-col gap-[8px] border border-[#4C526B] rounded-[10px] p-[10px]">
           <div className="flex items-center justify-between">
             <span className="text-[15px] font-medium text-white">פריטים ({lineItems.length})</span>
-            {priceAlerts.length > 0 && (
-              <span className="text-[12px] font-medium bg-[#F64E60]/20 text-[#F64E60] px-[8px] py-[2px] rounded-full">
-                {priceAlerts.length} שינויי מחיר
-              </span>
-            )}
+            <div className="flex items-center gap-[8px]">
+              {priceAlerts.length > 0 && (
+                <span className="text-[12px] font-medium bg-[#F64E60]/20 text-[#F64E60] px-[8px] py-[2px] rounded-full">
+                  {priceAlerts.length} שינויי מחיר
+                </span>
+              )}
+              {lineItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`למחוק את כל ${lineItems.length} הפריטים?`)) {
+                      setLineItems([]);
+                    }
+                  }}
+                  className="text-[12px] font-medium text-[#F64E60] hover:bg-[#F64E60]/10 px-[8px] py-[2px] rounded-[6px] transition-colors flex items-center gap-[4px]"
+                  title="מחיקת כל הפריטים"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                  <span>מחק הכל</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Price alerts banner */}
@@ -2031,7 +2051,7 @@ export default function OCRForm({
               <div className="text-center text-white/40 text-[13px] py-[10px]">אין פריטים — הוסף פריט ידנית</div>
             )}
             {lineItems.map((li, idx) => (
-              <div key={`line-${li.description}-${idx}`} className="grid grid-cols-[1fr_50px_60px_75px_60px_28px] min-w-[320px] items-center border-b border-[#4C526B]/50 py-[6px] px-[4px] gap-[2px]">
+              <div key={`line-${idx}`} className="grid grid-cols-[1fr_50px_60px_75px_60px_28px] min-w-[320px] items-center border-b border-[#4C526B]/50 py-[6px] px-[4px] gap-[2px]">
                 <span className="min-w-0 pr-[2px]">
                   <input
                     type="text"

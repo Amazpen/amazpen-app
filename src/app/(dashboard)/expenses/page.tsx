@@ -2833,8 +2833,9 @@ function ExpensesPageInner() {
         updateData.clarification_reason = null;
       }
 
-      // If moving away from "paid", hard-delete linked payments
       const invoice = recentInvoices.find(inv => inv.id === statusConfirm.invoiceId);
+
+      // If moving away from "paid", hard-delete linked payments
       if (invoice?.status === 'שולם' && statusConfirm.newStatus !== 'paid') {
         await supabase
           .from("payments")
@@ -2848,6 +2849,62 @@ function ExpensesPageInner() {
         .eq("id", statusConfirm.invoiceId);
 
       if (error) throw error;
+
+      // If moving TO "paid" and no payment exists yet, create a payment record
+      // so the invoice is actually marked as paid with a payment trail.
+      if (statusConfirm.newStatus === 'paid' && invoice && invoice.status !== 'שולם') {
+        const { data: existingPayments } = await supabase
+          .from("payments")
+          .select("id")
+          .eq("invoice_id", statusConfirm.invoiceId)
+          .is("deleted_at", null)
+          .limit(1);
+
+        if (!existingPayments || existingPayments.length === 0) {
+          const { data: { user } } = await supabase.auth.getUser();
+          // Fetch supplier_id from the invoice
+          const { data: invRow } = await supabase
+            .from("invoices")
+            .select("supplier_id, business_id, total_amount, subtotal, vat_amount")
+            .eq("id", statusConfirm.invoiceId)
+            .maybeSingle();
+
+          if (invRow) {
+            const todayStr = toLocalDateStr(new Date());
+            const defaultMethod = suppliers.find(s => s.id === invRow.supplier_id)?.default_payment_method || "other";
+            const { data: newPayment, error: paymentError } = await supabase
+              .from("payments")
+              .insert({
+                business_id: invRow.business_id,
+                supplier_id: invRow.supplier_id,
+                invoice_id: statusConfirm.invoiceId,
+                payment_date: todayStr,
+                total_amount: invRow.total_amount,
+                subtotal: invRow.subtotal,
+                vat_amount: invRow.vat_amount,
+                created_by: user?.id || null,
+              })
+              .select()
+              .single();
+
+            if (paymentError) {
+              console.error("[Status Change] Failed to create payment:", paymentError);
+              throw paymentError;
+            }
+
+            if (newPayment) {
+              await supabase.from("payment_splits").insert({
+                payment_id: newPayment.id,
+                payment_method: defaultMethod,
+                amount: invRow.total_amount,
+                installments_count: 1,
+                installment_number: 1,
+                due_date: todayStr,
+              });
+            }
+          }
+        }
+      }
 
       showToast(`הסטטוס עודכן ל"${statusConfirm.label}"`, "success");
       setRefreshTrigger(prev => prev + 1);
