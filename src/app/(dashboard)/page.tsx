@@ -1999,8 +1999,10 @@ export default function DashboardPage() {
       const prevMonthChangePct = prevMonthIncome > 0 ? ((monthlyPace / prevMonthIncome) - 1) * 100 : 0;
 
       const prevMonthRawLaborCost = (prevMonthEntries || []).reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
-      const prevMonthRawManagerCost = (prevMonthEntries || []).reduce((sum, e) => sum + (Number(e.manager_daily_cost) || 0), 0);
-      const prevMonthLaborCost = prevMonthRawLaborCost * totalMarkup + prevMonthRawManagerCost;
+      // Manager cost computed from monthly_salary (same approach as current month)
+      const prevMonthActualWorkDays = (prevMonthEntries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
+      const prevMonthComputedManagerCost = managerDailyCost * prevMonthActualWorkDays;
+      const prevMonthLaborCost = (prevMonthRawLaborCost + prevMonthComputedManagerCost) * totalMarkup;
       const prevMonthIncomeBeforeVat = prevMonthIncome / vatDivisor;
       const prevMonthLaborCostPct = prevMonthIncomeBeforeVat > 0 ? (prevMonthLaborCost / prevMonthIncomeBeforeVat) * 100 : 0;
       const laborCostPrevMonthChange = prevMonthLaborCostPct > 0 ? laborCostPct - prevMonthLaborCostPct : 0;
@@ -2016,8 +2018,9 @@ export default function DashboardPage() {
       const prevYearChangePct = prevYearIncome > 0 ? ((monthlyPace / prevYearIncome) - 1) * 100 : 0;
 
       const prevYearRawLaborCost = (prevYearEntries || []).reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
-      const prevYearRawManagerCost = (prevYearEntries || []).reduce((sum, e) => sum + (Number(e.manager_daily_cost) || 0), 0);
-      const prevYearLaborCost = prevYearRawLaborCost * totalMarkup + prevYearRawManagerCost;
+      const prevYearActualWorkDays = (prevYearEntries || []).reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
+      const prevYearComputedManagerCost = managerDailyCost * prevYearActualWorkDays;
+      const prevYearLaborCost = (prevYearRawLaborCost + prevYearComputedManagerCost) * totalMarkup;
       const prevYearIncomeBeforeVat = prevYearIncome / vatDivisor;
       const prevYearLaborCostPct = prevYearIncomeBeforeVat > 0 ? (prevYearLaborCost / prevYearIncomeBeforeVat) * 100 : 0;
       let laborCostPrevYearChange = prevYearLaborCostPct > 0 ? laborCostPct - prevYearLaborCostPct : 0;

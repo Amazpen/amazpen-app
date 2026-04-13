@@ -1210,10 +1210,10 @@ function ExpensesPageInner() {
             .in("business_id", selectedBusinesses),
           supabase
             .from("business_day_exceptions")
-            .select("business_id, date, day_factor")
+            .select("business_id, exception_date, day_factor")
             .in("business_id", selectedBusinesses)
-            .gte("date", startDate)
-            .lte("date", endDate),
+            .gte("exception_date", startDate)
+            .lte("exception_date", endDate),
         ]);
 
         if (stale) return;
@@ -1378,7 +1378,11 @@ function ExpensesPageInner() {
             }
             const exceptionMap: Record<string, number> = {};
             for (const ex of (exceptionRows || [])) {
-              if (ex.date) exceptionMap[ex.date] = Number(ex.day_factor) || 0;
+              if (ex.exception_date) {
+                const d = new Date(ex.exception_date);
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                exceptionMap[key] = Number(ex.day_factor) || 0;
+              }
             }
             const firstDay = new Date(targetYear, targetMonth - 1, 1);
             const lastDay = new Date(targetYear, targetMonth, 0);
@@ -1389,11 +1393,11 @@ function ExpensesPageInner() {
               scheduleWorkDays += exceptionMap[k] !== undefined ? exceptionMap[k] : (avgScheduleDayFactors[cur.getDay()] || 0);
               cur.setDate(cur.getDate() + 1);
             }
-            const goalExpectedWorkDays = (goalsData || []).reduce((sum, g) => sum + (Number(g.expected_work_days) || 0), 0);
-            const expectedWorkDays = goalExpectedWorkDays > 0 ? goalExpectedWorkDays : scheduleWorkDays;
+            // Match dashboard exactly: use schedule-derived work days, fallback to 26.
+            const effectiveWorkDays = scheduleWorkDays > 0 ? scheduleWorkDays : 26;
 
             const totalManagerSalary = (businessVatData || []).reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
-            const managerDailyCostComputed = expectedWorkDays > 0 ? totalManagerSalary / expectedWorkDays : 0;
+            const managerDailyCostComputed = effectiveWorkDays > 0 ? totalManagerSalary / effectiveWorkDays : 0;
 
             // Always compute manager cost from monthly_salary (matches dashboard exactly).
             // DB column is unreliable — use it only for display reference, not for totals.
