@@ -721,26 +721,45 @@ export default function AdminPaymentsPage() {
       showToast("אין תשלומים לייבוא", "error");
       return;
     }
-    if (unmatchedSuppliers.length > 0) {
-      showToast(`יש ${unmatchedSuppliers.length} ספקים שלא נמצאו בעסק. יש לייבא ספקים קודם.`, "error");
-      return;
-    }
-
     setIsImporting(true);
     setImportProgress("מכין רשומות...");
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
+      // Auto-create missing suppliers
+      const missingNames = new Set<string>();
+      for (const p of mergedPayments) {
+        if (!findSupplierByName(p.supplier_name)) missingNames.add(p.supplier_name);
+      }
+      const createdSupplierMap = new Map<string, string>(); // name -> id
+      if (missingNames.size > 0) {
+        setImportProgress(`יוצר ${missingNames.size} ספקים חסרים...`);
+        for (const name of missingNames) {
+          const { data: newSup, error: supErr } = await supabase
+            .from("suppliers")
+            .insert({ business_id: selectedBusinessId, name, is_active: false, expense_type: "current_expenses" })
+            .select("id")
+            .single();
+          if (!supErr && newSup) {
+            createdSupplierMap.set(name.toLowerCase().trim(), newSup.id);
+          }
+        }
+      }
+
       let inserted = 0;
       let skipped = 0;
 
       for (const payment of mergedPayments) {
-        const supplier = findSupplierByName(payment.supplier_name);
-        if (!supplier) {
+        let supplierId: string | null = null;
+        const existing = findSupplierByName(payment.supplier_name);
+        if (existing) supplierId = existing.id;
+        else supplierId = createdSupplierMap.get(payment.supplier_name.toLowerCase().trim()) || null;
+        if (!supplierId) {
           skipped++;
           continue;
         }
+        const supplier = { id: supplierId } as { id: string };
 
         setImportProgress(`נשמר ${inserted}/${mergedPayments.length} | דולגו ${skipped} | מעבד: ${payment.supplier_name}`);
         if (inserted % 5 === 0) await new Promise(r => setTimeout(r, 0));
