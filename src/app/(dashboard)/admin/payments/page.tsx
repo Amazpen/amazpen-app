@@ -97,14 +97,25 @@ const paymentMethodColors: Record<string, string> = {
 
 function parseDate(raw: string): string | null {
   if (!raw) return null;
-  // Strip time part like "22:12" or "00:00"
-  const dateOnly = raw.replace(/\s+\d{1,2}:\d{2}(:\d{2})?$/, "").trim();
+  const trimmed = raw.trim();
+  // Strip time part like "22:12" or "3:00 am"
+  const dateOnly = trimmed.replace(/\s+\d{1,2}:\d{2}(:\d{2})?(\s*(am|pm))?$/i, "").trim();
   const ddmmyyyy = dateOnly.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
   const yyyymmdd = dateOnly.match(/^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/);
   if (ddmmyyyy) {
     return `${ddmmyyyy[3]}-${ddmmyyyy[2].padStart(2, "0")}-${ddmmyyyy[1].padStart(2, "0")}`;
   } else if (yyyymmdd) {
     return `${yyyymmdd[1]}-${yyyymmdd[2].padStart(2, "0")}-${yyyymmdd[3].padStart(2, "0")}`;
+  }
+  // Bubble format: "Apr 1, 2025 3:00 am" or "Apr 1, 2025"
+  const MONTHS: Record<string, string> = {
+    jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+    jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+  };
+  const bubble = trimmed.match(/^([A-Za-z]{3})\s+(\d{1,2}),\s+(\d{4})/);
+  if (bubble) {
+    const m = MONTHS[bubble[1].toLowerCase()];
+    if (m) return `${bubble[3]}-${m}-${bubble[2].padStart(2, "0")}`;
   }
   return null;
 }

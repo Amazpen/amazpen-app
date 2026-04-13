@@ -42,9 +42,20 @@ function parseNum(v: string | number | undefined | null): number | null {
 
 function parseDate(raw: string): string {
   if (!raw) return "";
-  const cleaned = raw.trim().replace(/\s+\d{1,2}:\d{2}(:\d{2})?(\s*(am|pm))?$/i, "").trim();
+  const trimmed = raw.trim();
+  const cleaned = trimmed.replace(/\s+\d{1,2}:\d{2}(:\d{2})?(\s*(am|pm))?$/i, "").trim();
   const ddmm = cleaned.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/);
   if (ddmm) return `${ddmm[3]}-${ddmm[2].padStart(2, "0")}-${ddmm[1].padStart(2, "0")}`;
+  if (cleaned.match(/^\d{4}-\d{2}-\d{2}$/)) return cleaned;
+  const MONTHS: Record<string, string> = {
+    jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+    jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+  };
+  const b = trimmed.match(/^([A-Za-z]{3})\s+(\d{1,2}),\s+(\d{4})/);
+  if (b) {
+    const m = MONTHS[b[1].toLowerCase()];
+    if (m) return `${b[3]}-${m}-${b[2].padStart(2, "0")}`;
+  }
   return "";
 }
 
