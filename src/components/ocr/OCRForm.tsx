@@ -1069,12 +1069,10 @@ export default function OCRForm({
       }
       if (data.vat_amount !== undefined) {
         setVatAmount(data.vat_amount.toString());
-        const expectedVat = (data.subtotal || 0) * businessVatRate;
-        // Only mark as partial VAT when the difference is significant (>1% of expected
-        // or > ₪2). Small rounding differences from OCR shouldn't flip this flag.
-        const diff = Math.abs((data.vat_amount || 0) - expectedVat);
-        const significantDiff = diff > Math.max(2, expectedVat * 0.01);
-        setPartialVat(significantDiff);
+        // Default: partial VAT toggle is OFF (regular VAT). The user must
+        // explicitly toggle it ON if they want to override the calculated VAT.
+        // Never auto-enable based on OCR data — it always defaulted to ON
+        // for legitimate invoices and confused users.
       }
 
       // Pre-select supplier: prefer matched_supplier_id from AI, fallback to name matching
@@ -3366,11 +3364,11 @@ export default function OCRForm({
 
       {/* Merge picker Sheet */}
       <Sheet open={showMergePicker} onOpenChange={setShowMergePicker}>
-        <SheetContent side="right" className="w-[340px] bg-[#0F1535] border-l border-[#4C526B] p-0 flex flex-col">
+        <SheetContent side="right" className="w-full sm:max-w-full bg-[#0F1535] border-l border-[#4C526B] p-0 flex flex-col">
           <SheetHeader className="px-4 py-3 border-b border-[#4C526B]">
             <SheetTitle className="text-white text-[15px] text-right">בחר מסמכים לצירוף</SheetTitle>
           </SheetHeader>
-          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2" dir="rtl">
+          <div className="flex-1 overflow-y-auto p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 content-start" dir="rtl">
             {pendingDocuments.filter(d => d.id !== document?.id && !mergedDocuments.some(m => m.id === d.id)).length === 0 ? (
               <p className="text-white/50 text-[13px] text-center py-8">אין מסמכים ממתינים נוספים</p>
             ) : (

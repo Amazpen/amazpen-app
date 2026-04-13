@@ -275,8 +275,12 @@ export default function OCRPage() {
         let createdPaymentId: string | null = null;
         let createdDeliveryNoteId: string | null = null;
 
-        // The OCR document's image_url should be linked as attachment on created records
-        const ocrImageUrl = currentDocument.image_url || null;
+        // The OCR document's image_url + all merged document URLs should be linked
+        // as attachments on the created records. Single URL = string; multiple = JSON array.
+        const allImageUrls = [currentDocument.image_url, ...mergedDocuments.map(d => d.image_url)].filter(Boolean) as string[];
+        const ocrImageUrl = allImageUrls.length === 0 ? null
+          : allImageUrls.length === 1 ? allImageUrls[0]
+          : JSON.stringify(allImageUrls);
 
         if (formData.document_type === 'invoice' || formData.document_type === 'credit_note') {
           // --- INVOICE / CREDIT NOTE ---
