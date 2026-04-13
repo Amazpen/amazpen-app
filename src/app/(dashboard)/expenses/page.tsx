@@ -618,6 +618,7 @@ function ExpensesPageInner() {
   const [statusConfirm, setStatusConfirm] = useState<{ invoiceId: string; newStatus: string; label: string } | null>(null);
   const [duplicateInvoicePrompt, setDuplicateInvoicePrompt] = useState<{ invoiceNumber: string } | null>(null);
   const duplicateProceedRef = useRef<(() => void) | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
   // Clarification popup state (when changing status to "בבירור")
   const [showClarificationPopup, setShowClarificationPopup] = useState(false);
@@ -1465,6 +1466,29 @@ function ExpensesPageInner() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showStatusMenu, showFilterMenu]);
+
+  // Live duplicate-invoice detection (same business + supplier + invoice_number)
+  useEffect(() => {
+    setDuplicateWarning(null);
+    const num = invoiceNumber.trim();
+    if (!num || !selectedSupplier || selectedBusinesses.length === 0) return;
+    if (linkToCoordinator || linkToFixedInvoiceId) return;
+    const timer = setTimeout(async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("invoices")
+        .select("id")
+        .eq("business_id", selectedBusinesses[0])
+        .eq("supplier_id", selectedSupplier)
+        .eq("invoice_number", num)
+        .limit(1);
+      if (data && data.length > 0) {
+        const supplierName = suppliers.find(s => s.id === selectedSupplier)?.name || "הספק";
+        setDuplicateWarning(`כבר קיימת חשבונית עם מספר ${num} לספק ${supplierName}`);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [invoiceNumber, selectedSupplier, selectedBusinesses, linkToCoordinator, linkToFixedInvoiceId, suppliers]);
 
   // Calculate VAT and total
   // Save expense form draft
@@ -4405,7 +4429,7 @@ function ExpensesPageInner() {
               {/* Invoice Number */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-normal text-white text-right">מספר חשבונית / תעודת משלוח</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className={`border rounded-[10px] h-[50px] ${duplicateWarning ? "border-[#F59E0B]" : "border-[#4C526B]"}`}>
                   <Input
                     type="text"
                     value={invoiceNumber}
@@ -4414,6 +4438,11 @@ function ExpensesPageInner() {
                     className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
                   />
                 </div>
+                {duplicateWarning && (
+                  <div className="p-[8px_12px] bg-[#F59E0B]/15 border border-[#F59E0B]/40 rounded-[8px] text-[#F59E0B] text-[13px] font-medium text-right" dir="rtl">
+                    ⚠️ {duplicateWarning}
+                  </div>
+                )}
               </div>
 
               {/* Amount Before VAT */}
@@ -5180,7 +5209,7 @@ function ExpensesPageInner() {
               {/* Invoice Number */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-normal text-white text-right">מספר חשבונית / תעודת משלוח</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className={`border rounded-[10px] h-[50px] ${duplicateWarning ? "border-[#F59E0B]" : "border-[#4C526B]"}`}>
                   <Input
                     type="text"
                     value={invoiceNumber}
@@ -5189,6 +5218,11 @@ function ExpensesPageInner() {
                     className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
                   />
                 </div>
+                {duplicateWarning && (
+                  <div className="p-[8px_12px] bg-[#F59E0B]/15 border border-[#F59E0B]/40 rounded-[8px] text-[#F59E0B] text-[13px] font-medium text-right" dir="rtl">
+                    ⚠️ {duplicateWarning}
+                  </div>
+                )}
               </div>
 
               {/* Amount Before VAT */}
