@@ -1265,14 +1265,43 @@ export default function SuppliersPage() {
         monthlyData,
       });
 
-      // Fetch invoices list for this supplier
-      const { data: invoicesList } = await supabase
-        .from("invoices")
-        .select("id, invoice_date, invoice_number, subtotal, total_amount, vat_amount, status, notes, clarification_reason, attachment_url, created_by, created_at, creator:profiles!invoices_created_by_fkey(full_name)")
-        .eq("supplier_id", supplier.id)
-        .is("deleted_at", null)
-        .order("invoice_date", { ascending: false })
-        .limit(20);
+      // Fetch invoices list + unlinked delivery notes for this supplier
+      const [{ data: invoicesRaw }, { data: deliveryNotesRaw }] = await Promise.all([
+        supabase
+          .from("invoices")
+          .select("id, invoice_date, invoice_number, subtotal, total_amount, vat_amount, status, notes, clarification_reason, attachment_url, created_by, created_at, creator:profiles!invoices_created_by_fkey(full_name)")
+          .eq("supplier_id", supplier.id)
+          .is("deleted_at", null)
+          .order("invoice_date", { ascending: false })
+          .limit(20),
+        supabase
+          .from("delivery_notes")
+          .select("id, delivery_date, delivery_note_number, subtotal, total_amount, vat_amount, notes, attachment_url, created_by, created_at, creator:profiles!delivery_notes_created_by_fkey(full_name)")
+          .eq("supplier_id", supplier.id)
+          .is("invoice_id", null)
+          .order("delivery_date", { ascending: false })
+          .limit(20),
+      ]);
+      // Map delivery notes to look like invoices (status='ת. משלוח')
+      const dnAsInvoices = (deliveryNotesRaw || []).map((dn: Record<string, unknown>) => ({
+        id: dn.id,
+        invoice_date: dn.delivery_date,
+        invoice_number: dn.delivery_note_number,
+        subtotal: dn.subtotal,
+        total_amount: dn.total_amount,
+        vat_amount: dn.vat_amount,
+        status: 'delivery_note',
+        notes: dn.notes,
+        clarification_reason: null,
+        attachment_url: dn.attachment_url,
+        created_by: dn.created_by,
+        created_at: dn.created_at,
+        creator: dn.creator,
+      }));
+      const invoicesList = [...(invoicesRaw || []), ...dnAsInvoices]
+        .sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
+          String(b.invoice_date || '').localeCompare(String(a.invoice_date || '')))
+        .slice(0, 40);
 
       if (invoicesList) {
         // Fetch linked payments for all invoices
@@ -1331,7 +1360,7 @@ export default function SuppliersPage() {
           amount: Number(inv.subtotal),
           amountWithVat: Number(inv.total_amount || inv.subtotal),
           amountBeforeVat: Number(inv.subtotal),
-          status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : "ממתין",
+          status: inv.status === "paid" ? "שולם" : inv.status === "clarification" ? "בבירור" : inv.status === "delivery_note" ? "ת. משלוח" : "ממתין",
           notes: (inv.notes as string) || "",
           clarificationReason: (inv.clarification_reason as string) || null,
           attachmentUrls: parseAttachmentUrls(inv.attachment_url as string | null),
