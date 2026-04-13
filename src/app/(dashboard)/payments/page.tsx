@@ -83,7 +83,7 @@ interface RecentPaymentDisplay {
   linkedInvoice: LinkedInvoice | null;
   linkedInvoices: LinkedInvoice[]; // All linked invoices (when payment covers multiple)
   linkedInvoiceId: string | null;
-  rawSplits: Array<{ id: string; payment_method: string; amount: number; installments_count: number | null; installment_number: number | null; due_date: string | null; check_number: string | null; reference_number: string | null }>;
+  rawSplits: Array<{ id: string; payment_method: string; amount: number; installments_count: number | null; installment_number: number | null; due_date: string | null; check_number: string | null; reference_number: string | null; credit_card_id: string | null }>;
 }
 
 // Open invoice from database
@@ -380,6 +380,29 @@ function PaymentsPageInner() {
           query = query.in("supplier_id", matchedSuppliers.map(s => s.id));
         } else if (filterBy === "notes") {
           query = query.ilike("notes", `%${searchVal}%`);
+        } else if (filterBy === "creditCard") {
+          const { data: matchedCards } = await supabase
+            .from("business_credit_cards")
+            .select("id")
+            .in("business_id", selectedBusinesses)
+            .ilike("card_name", `%${searchVal}%`);
+          if (!matchedCards || matchedCards.length === 0) {
+            setGlobalPaymentResults([]);
+            setIsGlobalPaymentSearching(false);
+            return;
+          }
+          const cardIds = matchedCards.map(c => c.id);
+          const { data: matchedSplits } = await supabase
+            .from("payment_splits")
+            .select("payment_id")
+            .in("credit_card_id", cardIds);
+          if (!matchedSplits || matchedSplits.length === 0) {
+            setGlobalPaymentResults([]);
+            setIsGlobalPaymentSearching(false);
+            return;
+          }
+          const paymentIds = [...new Set(matchedSplits.map(s => s.payment_id))];
+          query = query.in("id", paymentIds);
         }
 
         const { data } = await query;
@@ -996,7 +1019,7 @@ function PaymentsPageInner() {
         return "expenses";
       })();
       const linkedInvoice = allLinkedInvoices[0] || null;
-      const allSplitsRaw = splits.map((s: { id: string; payment_method: string; amount: number; installments_count: number | null; installment_number: number | null; due_date: string | null; check_number: string | null; reference_number: string | null }) => ({
+      const allSplitsRaw = splits.map((s: { id: string; payment_method: string; amount: number; installments_count: number | null; installment_number: number | null; due_date: string | null; check_number: string | null; reference_number: string | null; credit_card_id?: string | null }) => ({
         id: s.id,
         payment_method: s.payment_method,
         amount: Number(s.amount),
@@ -1005,6 +1028,7 @@ function PaymentsPageInner() {
         due_date: s.due_date,
         check_number: s.check_number,
         reference_number: s.reference_number,
+        credit_card_id: s.credit_card_id || null,
       }));
 
       if (splits.length > 0) {
@@ -2072,8 +2096,18 @@ function PaymentsPageInner() {
     try {
       const payment = recentPaymentsData.find(p => p.id === paymentId);
 
-      // Hard delete - remove payment_splits (FK) first, then payment
+      // Collect all invoice IDs linked to this payment (both direct FK and N:M links)
+      const invoiceIdsToRevert = new Set<string>();
+      if (payment?.linkedInvoiceId) invoiceIdsToRevert.add(payment.linkedInvoiceId);
+      const { data: links } = await supabase
+        .from("payment_invoice_links")
+        .select("invoice_id")
+        .eq("payment_id", paymentId);
+      if (links) for (const l of links) if (l.invoice_id) invoiceIdsToRevert.add(l.invoice_id);
+
+      // Hard delete - remove FK children first, then payment
       await supabase.from("payment_splits").delete().eq("payment_id", paymentId);
+      await supabase.from("payment_invoice_links").delete().eq("payment_id", paymentId);
       const { error } = await supabase
         .from("payments")
         .delete()
@@ -2081,12 +2115,15 @@ function PaymentsPageInner() {
 
       if (error) throw error;
 
-      // Revert linked invoice status
-      if (payment?.linkedInvoiceId) {
-        await supabase
-          .from("invoices")
-          .update({ status: "pending" })
-          .eq("id", payment.linkedInvoiceId);
+      // Revert all linked invoices to "pending" only if they have no other active payments
+      for (const invId of invoiceIdsToRevert) {
+        const [{ count: directCount }, { count: linkCount }] = await Promise.all([
+          supabase.from("payments").select("id", { count: "exact", head: true }).eq("invoice_id", invId).is("deleted_at", null),
+          supabase.from("payment_invoice_links").select("payment_id", { count: "exact", head: true }).eq("invoice_id", invId),
+        ]);
+        if ((directCount || 0) === 0 && (linkCount || 0) === 0) {
+          await supabase.from("invoices").update({ status: "pending" }).eq("id", invId);
+        }
       }
 
       showToast("התשלום נמחק בהצלחה", "success");
@@ -3311,6 +3348,7 @@ function PaymentsPageInner() {
                   { value: "installments", label: "כמות תשלומים" },
                   { value: "amount", label: "סכום התשלום" },
                   { value: "totalPaid", label: "סך התשלום שבוצע" },
+                  { value: "creditCard", label: "כרטיס אשראי" },
                   { value: "notes", label: "הערות" },
                 ].map((option) => (
                   <Button
@@ -3352,6 +3390,12 @@ function PaymentsPageInner() {
                   case "installments": return payment.installments.includes(searchVal);
                   case "amount": return payment.totalAmount.toLocaleString().includes(searchVal) || payment.totalAmount.toString().includes(searchVal) || payment.rawSplits.some(s => s.amount.toString().includes(searchVal));
                   case "totalPaid": return payment.totalAmount.toLocaleString().includes(searchVal) || payment.totalAmount.toString().includes(searchVal);
+                  case "creditCard": {
+                    const cardNames = payment.rawSplits
+                      .filter(s => s.payment_method === "credit_card" && s.credit_card_id)
+                      .map(s => (businessCreditCards.find(c => c.id === s.credit_card_id)?.card_name || "").toLowerCase());
+                    return cardNames.some(n => n.includes(searchVal));
+                  }
                   case "notes": return (payment.notes || "").toLowerCase().includes(searchVal);
                   default: return true;
                 }
@@ -3413,7 +3457,7 @@ function PaymentsPageInner() {
         {filterBy && (
           <div className="flex items-center gap-[10px] px-[10px]">
             <span className="text-[13px] text-white/60 whitespace-nowrap">
-              {filterBy === "date" ? "תאריך:" : filterBy === "supplier" ? "ספק:" : filterBy === "paymentNumber" ? "מספר תשלום:" : filterBy === "reference" ? "אסמכתא:" : filterBy === "installments" ? "תשלומים:" : filterBy === "amount" ? "סכום:" : filterBy === "totalPaid" ? "סך תשלום:" : "הערות:"}
+              {filterBy === "date" ? "תאריך:" : filterBy === "supplier" ? "ספק:" : filterBy === "paymentNumber" ? "מספר תשלום:" : filterBy === "reference" ? "אסמכתא:" : filterBy === "installments" ? "תשלומים:" : filterBy === "amount" ? "סכום:" : filterBy === "totalPaid" ? "סך תשלום:" : filterBy === "creditCard" ? "כרטיס אשראי:" : "הערות:"}
             </span>
             <Input
               type="text"
@@ -3424,6 +3468,7 @@ function PaymentsPageInner() {
                 filterBy === "supplier" ? "הקלד שם ספק..." :
                 filterBy === "amount" ? "הקלד סכום..." :
                 filterBy === "reference" ? "הקלד אסמכתא..." :
+                filterBy === "creditCard" ? "הקלד שם/מספר כרטיס..." :
                 "הקלד טקסט..."
               }
               className="flex-1 bg-white/10 text-white text-[13px] rounded-[7px] px-[10px] py-[6px] outline-none placeholder:text-white/30"
@@ -3480,6 +3525,12 @@ function PaymentsPageInner() {
                   case "installments": return payment.installments.includes(searchVal);
                   case "amount": return payment.totalAmount.toLocaleString().includes(searchVal) || payment.totalAmount.toString().includes(searchVal) || payment.rawSplits.some(s => s.amount.toString().includes(searchVal));
                   case "totalPaid": return payment.totalAmount.toLocaleString().includes(searchVal) || payment.totalAmount.toString().includes(searchVal);
+                  case "creditCard": {
+                    const cardNames = payment.rawSplits
+                      .filter(s => s.payment_method === "credit_card" && s.credit_card_id)
+                      .map(s => (businessCreditCards.find(c => c.id === s.credit_card_id)?.card_name || "").toLowerCase());
+                    return cardNames.some(n => n.includes(searchVal));
+                  }
                   case "notes": return (payment.notes || "").toLowerCase().includes(searchVal);
                   default: return true;
                 }

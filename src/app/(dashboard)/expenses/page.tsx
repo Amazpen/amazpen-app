@@ -130,7 +130,7 @@ interface InvoiceDisplay {
   isFixed: boolean;
   approval_status: string | null;
   referenceDate: string | null;
-  linkedPayments: { id: string; paymentId: string; amount: number; method: string; date: string; checkNumber: string; installmentNumber: number | null; installmentsCount: number | null; referenceNumber: string }[];
+  linkedPayments: { id: string; paymentId: string; amount: number; method: string; date: string; checkNumber: string; installmentNumber: number | null; installmentsCount: number | null; referenceNumber: string; creditCardId: string | null }[];
   documentType: "invoice" | "delivery_note";
   invoiceType?: string;
   statusRaw?: string;
@@ -370,8 +370,8 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)),
-          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
         `)
         .eq("id", highlightInvoiceId)
         .in("business_id", selectedBusinesses)
@@ -482,8 +482,8 @@ function ExpensesPageInner() {
             *,
             supplier:suppliers(id, name, expense_category_id, is_fixed_expense, is_active, deleted_at),
             creator:profiles!invoices_created_by_fkey(full_name),
-            payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)),
-          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)))
+            payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
           `)
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
@@ -518,6 +518,41 @@ function ExpensesPageInner() {
           // Just fetch without date range restriction
         } else if (filterBy === "reference_date") {
           // Same — fetch all, filter client-side by formatted date
+        } else if (filterBy === "creditCard") {
+          const { data: matchedCards } = await supabase
+            .from("business_credit_cards")
+            .select("id")
+            .in("business_id", selectedBusinesses)
+            .ilike("card_name", `%${searchVal}%`);
+          if (!matchedCards || matchedCards.length === 0) {
+            setGlobalSearchResults([]);
+            setIsGlobalSearching(false);
+            return;
+          }
+          const cardIds = matchedCards.map(c => c.id);
+          const { data: matchedSplits } = await supabase
+            .from("payment_splits")
+            .select("payment_id")
+            .in("credit_card_id", cardIds);
+          if (!matchedSplits || matchedSplits.length === 0) {
+            setGlobalSearchResults([]);
+            setIsGlobalSearching(false);
+            return;
+          }
+          const paymentIds = [...new Set(matchedSplits.map(s => s.payment_id))];
+          const [{ data: directInvs }, { data: linkedRows }] = await Promise.all([
+            supabase.from("payments").select("invoice_id").in("id", paymentIds).not("invoice_id", "is", null),
+            supabase.from("payment_invoice_links").select("invoice_id").in("payment_id", paymentIds),
+          ]);
+          const invoiceIds = new Set<string>();
+          if (directInvs) for (const p of directInvs) if (p.invoice_id) invoiceIds.add(p.invoice_id);
+          if (linkedRows) for (const l of linkedRows) if (l.invoice_id) invoiceIds.add(l.invoice_id);
+          if (invoiceIds.size === 0) {
+            setGlobalSearchResults([]);
+            setIsGlobalSearching(false);
+            return;
+          }
+          query = query.in("id", [...invoiceIds]);
         }
 
         const { data } = await query;
@@ -551,6 +586,7 @@ function ExpensesPageInner() {
                     installmentNumber: split.installment_number || null,
                     installmentsCount: split.installments_count || null,
                     referenceNumber: split.reference_number || "",
+                    creditCardId: (split as { credit_card_id?: string | null }).credit_card_id || null,
                   });
                 }
               }
@@ -1059,8 +1095,8 @@ function ExpensesPageInner() {
               *,
               supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
               creator:profiles!invoices_created_by_fkey(full_name),
-              payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)),
-          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)))
+              payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
             `)
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
@@ -1375,6 +1411,7 @@ function ExpensesPageInner() {
                 installmentNumber: split.installment_number || null,
                 installmentsCount: split.installments_count || null,
                 referenceNumber: split.reference_number || "",
+                creditCardId: split.credit_card_id || null,
               });
             }
           }
@@ -1421,8 +1458,8 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)),
-          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
         `)
         .in("business_id", selectedBusinesses)
         .is("deleted_at", null)
@@ -2614,8 +2651,8 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)),
-          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
         `)
         .eq("id", editId)
         .maybeSingle();
@@ -3000,8 +3037,8 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)),
-          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number)))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
         `)
         .in("business_id", selectedBusinesses)
         .eq("supplier_id", supplierId)
@@ -3403,6 +3440,7 @@ function ExpensesPageInner() {
                   { value: "supplier", label: "ספק" },
                   { value: "reference", label: "מספר תעודה" },
                   { value: "amount", label: "סכום לפני מע\"מ" },
+                  { value: "creditCard", label: "כרטיס אשראי" },
                   { value: "notes", label: "הערות" },
                   { value: "fixed", label: "הוצאות קבועות" },
                 ].map((option) => (
@@ -3456,6 +3494,12 @@ function ExpensesPageInner() {
                   case "supplier": return inv.supplier.toLowerCase().includes(searchVal);
                   case "reference": return inv.reference.toLowerCase().includes(searchVal) || matchedParentIds.has(inv.id) || (inv.consolidatedReference?.toLowerCase().includes(searchVal) ?? false);
                   case "amount": return inv.amountBeforeVat.toLocaleString().includes(searchVal) || inv.amountBeforeVat.toString().includes(searchVal);
+                  case "creditCard": {
+                    const names = inv.linkedPayments
+                      .filter(p => p.creditCardId)
+                      .map(p => (businessCreditCards.find(c => c.id === p.creditCardId)?.card_name || "").toLowerCase());
+                    return names.some(n => n.includes(searchVal));
+                  }
                   case "notes": return inv.notes.toLowerCase().includes(searchVal);
                   default: return true;
                 }
@@ -3513,7 +3557,7 @@ function ExpensesPageInner() {
         {filterBy && filterBy !== "fixed" && (
           <div className="flex items-center gap-[10px] px-[10px]">
             <span className="text-[13px] text-white/60 whitespace-nowrap">
-              {filterBy === "date" ? "תאריך:" : filterBy === "reference_date" ? "תאריך אסמכתא:" : filterBy === "supplier" ? "ספק:" : filterBy === "reference" ? "אסמכתא:" : filterBy === "amount" ? "סכום:" : "הערות:"}
+              {filterBy === "date" ? "תאריך:" : filterBy === "reference_date" ? "תאריך אסמכתא:" : filterBy === "supplier" ? "ספק:" : filterBy === "reference" ? "אסמכתא:" : filterBy === "amount" ? "סכום:" : filterBy === "creditCard" ? "כרטיס אשראי:" : "הערות:"}
             </span>
             <Input
               type="text"
@@ -3524,6 +3568,7 @@ function ExpensesPageInner() {
                 filterBy === "supplier" ? "הקלד שם ספק..." :
                 filterBy === "reference" ? "הקלד מספר תעודה..." :
                 filterBy === "amount" ? "הקלד סכום..." :
+                filterBy === "creditCard" ? "הקלד שם/מספר כרטיס..." :
                 "הקלד טקסט..."
               }
               className="flex-1 bg-white/10 text-white text-[13px] rounded-[7px] px-[10px] py-[6px] outline-none placeholder:text-white/30"
@@ -3595,6 +3640,12 @@ function ExpensesPageInner() {
                   case "supplier": return inv.supplier.toLowerCase().includes(searchVal);
                   case "reference": return inv.reference.toLowerCase().includes(searchVal) || matchedParentIds.has(inv.id) || (inv.consolidatedReference?.toLowerCase().includes(searchVal) ?? false);
                   case "amount": return inv.amountBeforeVat.toLocaleString().includes(searchVal) || inv.amountBeforeVat.toString().includes(searchVal);
+                  case "creditCard": {
+                    const names = inv.linkedPayments
+                      .filter(p => p.creditCardId)
+                      .map(p => (businessCreditCards.find(c => c.id === p.creditCardId)?.card_name || "").toLowerCase());
+                    return names.some(n => n.includes(searchVal));
+                  }
                   case "notes": return inv.notes.toLowerCase().includes(searchVal);
                   default: return true;
                 }
@@ -3976,11 +4027,16 @@ function ExpensesPageInner() {
                               <div
                                 key={payment.id}
                                 dir="rtl"
-                                className="flex items-center justify-between gap-[3px] min-h-[40px] px-[3px] rounded-[7px] hover:bg-white/10 cursor-pointer transition-colors"
-                                onClick={() => router.push(`/payments?paymentId=${payment.paymentId}`)}
+                                className="flex items-center justify-between gap-[3px] min-h-[40px] px-[3px] rounded-[7px]"
                               >
                                 <span className="text-[13px] min-w-[50px] text-center ltr-num">{payment.date}</span>
-                                <span className="text-[13px] flex-1 text-center">{payment.method}</span>
+                                <span className="text-[13px] flex-1 text-center">
+                                  {payment.method}
+                                  {payment.creditCardId && (() => {
+                                    const card = businessCreditCards.find(c => c.id === payment.creditCardId);
+                                    return card ? ` ${card.card_name}` : "";
+                                  })()}
+                                </span>
                                 <span className="text-[13px] min-w-[55px] text-center ltr-num">{payment.checkNumber || payment.referenceNumber || "-"}</span>
                                 <span className="text-[13px] min-w-[45px] text-center ltr-num">{payment.installmentsCount && payment.installmentsCount > 1 ? `${payment.installmentNumber}/${payment.installmentsCount}` : "-"}</span>
                                 <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.amount % 1 === 0 ? payment.amount.toLocaleString("he-IL") : payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
