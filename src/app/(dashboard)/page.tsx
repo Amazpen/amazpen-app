@@ -519,26 +519,27 @@ export default function DashboardPage() {
       // Fetch additional info: open payments, open suppliers, open commitments
       const businessId = selectedBusinesses[0];
       const [openPaymentSplitsResult, allInvoicesTotalResult, allPaymentsTotalResult, priorCommitmentsResult] = await Promise.all([
-        // Open payments - payment splits with due_date > today
+        // Open payments - payment splits with due_date >= today (matches payments page forecast)
         supabase
           .from("payment_splits")
           .select("amount, payments!inner(business_id, deleted_at)")
           .eq("payments.business_id", businessId)
           .is("payments.deleted_at", null)
-          .gt("due_date", todayStr),
+          .gte("due_date", todayStr),
         // All invoices total
         supabase
           .from("invoices")
           .select("total_amount")
           .eq("business_id", businessId)
           .is("deleted_at", null),
-        // Paid splits total - only splits with due_date up to today count as "paid"
+        // Paid splits total - only splits with due_date BEFORE today count as "paid"
+        // (today's splits are counted as 'open' to match payments page logic).
         supabase
           .from("payment_splits")
           .select("amount, payments!inner(business_id, deleted_at)")
           .eq("payments.business_id", businessId)
           .is("payments.deleted_at", null)
-          .lte("due_date", todayStr),
+          .lt("due_date", todayStr),
         // All prior commitments (from prior_commitments table)
         supabase
           .from("prior_commitments")
@@ -553,7 +554,8 @@ export default function DashboardPage() {
       const totalInvoicesAmount = (allInvoicesTotalResult.data || []).reduce(
         (sum: number, inv: Record<string, unknown>) => sum + (Number(inv.total_amount) || 0), 0
       );
-      // Only splits that were already due/paid (due_date <= today) count as payments made
+      // Only splits that were already due (due_date < today) count as payments made.
+      // Today's splits are still 'open' to match the payments-page forecast.
       const paidSplitsAmount = (allPaymentsTotalResult.data || []).reduce(
         (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
       );

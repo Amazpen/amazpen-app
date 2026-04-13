@@ -4009,29 +4009,35 @@ function ExpensesPageInner() {
                               </svg>
                             </Button>
                           )}
-                          {/* Download Icon - only show if has attachments */}
+                          {/* Download Icon - downloads ALL attachments */}
                           {invoice.attachmentUrls.length > 0 && (
                             <Button
                               type="button"
-                              title="הורדה"
+                              title={invoice.attachmentUrls.length > 1 ? `הורדת ${invoice.attachmentUrls.length} מסמכים` : "הורדה"}
                               className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors cursor-pointer"
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                try {
-                                  const url = invoice.attachmentUrls[0];
-                                  const res = await fetch(url);
-                                  const blob = await res.blob();
-                                  const blobUrl = URL.createObjectURL(blob);
-                                  const a = document.createElement("a");
-                                  a.href = blobUrl;
-                                  const filename = url.split("/").pop() || "invoice";
-                                  a.download = filename;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  document.body.removeChild(a);
-                                  URL.revokeObjectURL(blobUrl);
-                                } catch {
-                                  window.open(invoice.attachmentUrls[0], "_blank");
+                                for (let i = 0; i < invoice.attachmentUrls.length; i++) {
+                                  const url = invoice.attachmentUrls[i];
+                                  try {
+                                    const res = await fetch(url);
+                                    const blob = await res.blob();
+                                    const blobUrl = URL.createObjectURL(blob);
+                                    const a = document.createElement("a");
+                                    a.href = blobUrl;
+                                    const baseName = url.split("/").pop() || `invoice-${i + 1}`;
+                                    a.download = invoice.attachmentUrls.length > 1 ? `${i + 1}-${baseName}` : baseName;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(blobUrl);
+                                    // small delay so the browser doesn't block multiple downloads
+                                    if (i < invoice.attachmentUrls.length - 1) {
+                                      await new Promise(resolve => setTimeout(resolve, 200));
+                                    }
+                                  } catch {
+                                    window.open(url, "_blank");
+                                  }
                                 }
                               }}
                             >
