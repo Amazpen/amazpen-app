@@ -912,14 +912,17 @@ export function DailyEntriesModal({
       markupPercentage: markupPct,
     });
 
-    // Build monthly cumulative (Section 3) — exclude the current day (matches Bubble behavior)
-    const allMonthEntries = (monthlyEntries || []).filter((e) => e.id !== currentEntry?.id);
+    // Build monthly cumulative (Section 3) — INCLUDE all days of the month so the
+    // numbers match the dashboard exactly (the dashboard sums the full month).
+    const allMonthEntries = (monthlyEntries || []);
     const monthTotalIncome = allMonthEntries.reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
     const vatDivisor = vatPct > 0 ? 1 + vatPct : 1;
     const monthIncomeBeforeVat = monthTotalIncome / vatDivisor;
-    const monthLaborCost = allMonthEntries.reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
-    const monthLaborCostWithMarkup = monthLaborCost * markupPct;
-    const monthLaborCostPct = monthIncomeBeforeVat > 0 ? (monthLaborCostWithMarkup / monthIncomeBeforeVat) * 100 : 0;
+    const monthRawLaborCost = allMonthEntries.reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
+    const monthActualWorkDays = allMonthEntries.reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
+    // Labor cost = (raw labor + manager_daily_cost × actual_work_days) × markup — matches dashboard exactly
+    const monthLaborCostFull = (monthRawLaborCost + managerDailyCost * monthActualWorkDays) * markupPct;
+    const monthLaborCostPct = monthIncomeBeforeVat > 0 ? (monthLaborCostFull / monthIncomeBeforeVat) * 100 : 0;
 
     // Aggregate income sources for month
     const monthEntryIds = new Set(allMonthEntries.map(e => e.id));
@@ -959,19 +962,17 @@ export function DailyEntriesModal({
     const foodCostPct = monthIncomeBeforeVat > 0 ? (monthFoodCost / monthIncomeBeforeVat) * 100 : 0;
     const currentExpensesPct = monthIncomeBeforeVat > 0 ? (monthCurrentExpenses / monthIncomeBeforeVat) * 100 : 0;
 
-    const actualWorkDays = allMonthEntries.reduce((sum, e) => sum + (Number(e.day_factor) || 0), 0);
-
     setMonthlyCumulative({
       totalIncome: monthTotalIncome,
       incomeBeforeVat: monthIncomeBeforeVat,
-      laborCost: monthLaborCost,
+      laborCost: monthLaborCostFull,
       laborCostPct: monthLaborCostPct,
       incomeSourceTotals,
       productCosts,
       foodCostPct,
       currentExpenses: monthCurrentExpenses,
       currentExpensesPct,
-      actualWorkDays,
+      actualWorkDays: monthActualWorkDays,
     });
 
     // Calculate open payments total (splits with due_date > entry date)
