@@ -6133,8 +6133,20 @@ function ExpensesPageInner() {
 
       {/* Duplicate Invoice Number Confirmation */}
       {duplicateInvoicePrompt && typeof window !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50" onClick={() => setDuplicateInvoicePrompt(null)}>
-          <div dir="rtl" className="bg-[#1A1F4E] rounded-[14px] border border-white/20 shadow-2xl p-[20px] w-[340px]" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/60"
+          style={{ pointerEvents: 'auto' }}
+          onPointerDownCapture={(e) => e.stopPropagation()}
+          onMouseDownCapture={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); setDuplicateInvoicePrompt(null); }}
+        >
+          <div
+            dir="rtl"
+            className="bg-[#1A1F4E] rounded-[14px] border border-white/20 shadow-2xl p-[20px] w-[340px]"
+            onPointerDownCapture={(e) => e.stopPropagation()}
+            onMouseDownCapture={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-[16px] font-bold text-white text-center mb-[12px]">חשבונית כפולה</h3>
             <p className="text-[14px] text-white/80 text-center mb-[20px]">
               כבר קיימת חשבונית עם מספר <span className="font-bold text-white ltr-num">{duplicateInvoicePrompt.invoiceNumber}</span> עבור ספק זה.
@@ -6143,7 +6155,9 @@ function ExpensesPageInner() {
             <div className="flex gap-[10px]">
               <Button
                 type="button"
-                onClick={() => {
+                onPointerDownCapture={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
                   setDuplicateInvoicePrompt(null);
                   duplicateProceedRef.current = () => {};
                   handleSaveExpense();
@@ -6154,7 +6168,8 @@ function ExpensesPageInner() {
               </Button>
               <Button
                 type="button"
-                onClick={() => setDuplicateInvoicePrompt(null)}
+                onPointerDownCapture={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); setDuplicateInvoicePrompt(null); }}
                 className="flex-1 bg-white/10 hover:bg-white/20 text-white text-[14px] py-[10px] rounded-[8px] transition-colors"
               >
                 ביטול
