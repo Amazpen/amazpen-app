@@ -429,7 +429,12 @@ export default function AdminPaymentsPage() {
           const method = resolveMethod(getSubs(subRow, "payment_method"));
           const amount = parseAmount(getSubs(subRow, "amount"));
           const dueDate = parseDate(getSubs(subRow, "payment_date"));
-          const installmentNumber = parseInt(getSubs(subRow, "installment_number")) || 1;
+          const rawInstallmentNumber = parseInt(getSubs(subRow, "installment_number")) || 1;
+          // When there's only one split (no real installment plan), force
+          // installment_number to 1. Bubble sometimes stores arbitrary numbers
+          // ('2', '3', etc.) in 'מספר תשלום' even for single-charge payments.
+          const installmentsCount = subRows.length;
+          const installmentNumber = installmentsCount > 1 ? rawInstallmentNumber : 1;
 
           if (amount <= 0) continue;
 
@@ -437,7 +442,7 @@ export default function AdminPaymentsPage() {
             payment_method: method,
             amount,
             installment_number: installmentNumber,
-            installments_count: subRows.length,
+            installments_count: installmentsCount,
             reference_number: getSubs(subRow, "reference_number"),
             check_number: getSubs(subRow, "check_number"),
             due_date: dueDate || "",
@@ -489,8 +494,12 @@ export default function AdminPaymentsPage() {
             const method = resolveMethod(getMain(row, "payment_method"));
             const amount = parseAmount(getMain(row, "split_amount"));
             const dueDate = parseDate(getMain(row, "payment_date"));
-            const installmentNumber = parseInt(getMain(row, "installment_number")) || 1;
+            const rawInstallmentNumber = parseInt(getMain(row, "installment_number")) || 1;
             const installmentsCount = parseInt(getMain(row, "installments_count")) || group.rows.length;
+            // Same protection as in subs-CSV path: force 1/1 when there's no
+            // real installment plan (Bubble often keeps a stale '2' in the
+            // 'מספר תשלום' column).
+            const installmentNumber = installmentsCount > 1 ? rawInstallmentNumber : 1;
 
             if (amount <= 0) continue;
 
@@ -568,17 +577,22 @@ export default function AdminPaymentsPage() {
               expense_type: expenseType,
               notes,
               receipt_url: images,
-              splits: [{
-                payment_method: method,
-                amount: splitAmount,
-                installment_number: parseInt(getMain(firstRow, "installment_number")) || 1,
-                installments_count: parseInt(getMain(firstRow, "installments_count")) || 1,
-                reference_number: getMain(firstRow, "reference_number"),
-                check_number: getMain(firstRow, "check_number"),
-                due_date: payDate,
-                notes: "",
-                credit_card_id: "",
-              }],
+              splits: [(() => {
+                const installmentsCount = parseInt(getMain(firstRow, "installments_count")) || 1;
+                const rawInstallmentNumber = parseInt(getMain(firstRow, "installment_number")) || 1;
+                const installmentNumber = installmentsCount > 1 ? rawInstallmentNumber : 1;
+                return {
+                  payment_method: method,
+                  amount: splitAmount,
+                  installment_number: installmentNumber,
+                  installments_count: installmentsCount,
+                  reference_number: getMain(firstRow, "reference_number"),
+                  check_number: getMain(firstRow, "check_number"),
+                  due_date: payDate,
+                  notes: "",
+                  credit_card_id: "",
+                };
+              })()],
               unique_id: uid,
               invoice_id: singleMatchedInvoice?.id || null,
               linked_invoice_ids: singleLinkedIds,
@@ -633,7 +647,10 @@ export default function AdminPaymentsPage() {
         const method = resolveMethod(getSubs(row, "payment_method"));
         const amount = parseAmount(getSubs(row, "amount"));
         const dueDate = parseDate(getSubs(row, "payment_date"));
-        const installmentNumber = parseInt(getSubs(row, "installment_number")) || 1;
+        const rawInstallmentNumber = parseInt(getSubs(row, "installment_number")) || 1;
+        const installmentsCount = rows.length;
+        // Single split → installment_number must be 1 regardless of CSV value.
+        const installmentNumber = installmentsCount > 1 ? rawInstallmentNumber : 1;
 
         if (amount <= 0) continue;
 
@@ -641,7 +658,7 @@ export default function AdminPaymentsPage() {
           payment_method: method,
           amount,
           installment_number: installmentNumber,
-          installments_count: rows.length,
+          installments_count: installmentsCount,
           reference_number: getSubs(row, "reference_number"),
           check_number: getSubs(row, "check_number"),
           due_date: dueDate || "",
