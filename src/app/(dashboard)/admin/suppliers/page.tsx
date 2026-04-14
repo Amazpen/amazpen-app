@@ -346,12 +346,16 @@ export default function AdminSuppliersPage() {
         .select("id, name, parent_id")
         .eq("business_id", selectedBusinessId);
 
-      const existingCatMap = new Map<string, string>(); // name -> id
+      // The unique index is (business_id, name) WHERE deleted_at IS NULL — it
+      // does not look at parent_id. So track ALL existing names, not just roots.
+      const existingCatMap = new Map<string, string>(); // name -> id (any category with that name)
       const existingChildMap = new Map<string, string>(); // "parentId|childName" -> id
       for (const cat of existingCategories || []) {
-        if (!cat.parent_id) {
+        // Prefer the root record if there are multiples (unlikely due to index).
+        if (!existingCatMap.has(cat.name) || !cat.parent_id) {
           existingCatMap.set(cat.name, cat.id);
-        } else {
+        }
+        if (cat.parent_id) {
           existingChildMap.set(`${cat.parent_id}|${cat.name}`, cat.id);
         }
       }
@@ -360,6 +364,9 @@ export default function AdminSuppliersPage() {
       const parentCatIdMap = new Map<string, string>(); // name -> uuid
       for (const parentName of parentCategoryNames) {
         if (existingCatMap.has(parentName)) {
+          // Reuse whatever exists with that name (root OR child) — the user's
+          // CSV treats it as a parent, and the unique index prevents creating
+          // a second row with the same name anyway.
           parentCatIdMap.set(parentName, existingCatMap.get(parentName)!);
         } else {
           const { data, error } = await supabase
@@ -380,6 +387,8 @@ export default function AdminSuppliersPage() {
             return;
           }
           parentCatIdMap.set(parentName, data.id);
+          // Register in existingCatMap so subsequent child-insert checks see it.
+          existingCatMap.set(parentName, data.id);
         }
       }
 
