@@ -821,9 +821,22 @@ export default function ReportsPage() {
         // (pension, delivery co, etc.) are already counted in totalCurrentExpenses because
         // their suppliers have expense_type="current_expenses" — they are NOT double-counted.
         const allExpensesActual = totalGoodsExpenses + totalCurrentExpenses + totalLaborCost;
-        // Total expenses target = food cost target + current expenses target + labor cost target (incl supplier budgets)
+        // Total expenses target = sum of all displayed category targets. Previously
+        // only goal.current_expenses_target (a single aggregate field) was used for
+        // the non-food/non-labor bucket, which was often NULL — leaving the
+        // supplier_budgets of categories like 'שיווק ופרסום'/'עמלות'/'רשויות'
+        // unaccounted for even though the same targets WERE shown in the category
+        // breakdown. Now: sum the per-category targetRaw values from what we
+        // already display, so 'סה"כ הוצאות' matches the sum of the category rows.
+        const currentExpensesTargetFromBudgets = displayCategories
+          .filter(cat => cat.name !== "עלות מכר" && !laborCostNames.has(cat.name))
+          .reduce((sum, cat) => sum + (cat.targetRaw || 0), 0);
         const laborCostTargetPctSummary = Number(goal?.labor_cost_target_pct || 0);
-        const allExpensesTarget = foodCostTarget + expensesTarget + (laborCostTargetPctSummary / 100) * revenueTargetBeforeVat;
+        // Prefer the larger of: sum-of-budgets or the legacy single expensesTarget
+        // field (in case a business only uses the single aggregate and no per-
+        // supplier budgets).
+        const currentExpensesTarget = Math.max(currentExpensesTargetFromBudgets, expensesTarget);
+        const allExpensesTarget = foodCostTarget + currentExpensesTarget + (laborCostTargetPctSummary / 100) * revenueTargetBeforeVat;
         // Operating profit = revenue - all expenses
         const operatingProfit = totalRevenue - allExpensesActual;
         const operatingProfitPct = totalRevenue > 0 ? (operatingProfit / totalRevenue) * 100 : 0;
