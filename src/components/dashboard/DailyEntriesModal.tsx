@@ -1827,14 +1827,20 @@ export function DailyEntriesModal({
                                 <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{formatCurrency(monthlyCumulative?.totalIncome || 0)}</span>
                                 </div>
-                                {entryDetails?.incomeBreakdown.map((source) => (
-                                  <div
-                                    key={source.income_source_id}
-                                    className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
-                                  >
-                                    <span className="ltr-num">{formatCurrency(monthlyCumulative?.incomeSourceTotals[source.income_source_id]?.avgTicket || 0)}</span>
-                                  </div>
-                                ))}
+                                {entryDetails?.incomeBreakdown.map((source) => {
+                                  const totals = monthlyCumulative?.incomeSourceTotals[source.income_source_id];
+                                  // Coupon-like: no orders but has amount → show total instead of avg/order
+                                  const isCouponLike = totals && totals.ordersCount === 0 && totals.amount > 0;
+                                  const displayValue = isCouponLike ? totals.amount : (totals?.avgTicket || 0);
+                                  return (
+                                    <div
+                                      key={source.income_source_id}
+                                      className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
+                                    >
+                                      <span className="ltr-num">{formatCurrency(displayValue)}</span>
+                                    </div>
+                                  );
+                                })}
                                 <div className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10">
                                   <span className="ltr-num">{formatPercent(monthlyCumulative?.laborCostPct || 0)}</span>
                                 </div>
@@ -1881,14 +1887,16 @@ export function DailyEntriesModal({
                                 })()}
                                 {entryDetails?.incomeBreakdown.map((source) => {
                                   const target = goalsData?.incomeSourceTargets[source.income_source_id] || 0;
-                                  const avg = monthlyCumulative?.incomeSourceTotals[source.income_source_id]?.avgTicket || 0;
+                                  const totals = monthlyCumulative?.incomeSourceTotals[source.income_source_id];
+                                  const isCouponLike = totals && totals.ordersCount === 0 && totals.amount > 0;
+                                  const avg = totals?.avgTicket || 0;
                                   const diff = target > 0 ? avg - target : 0;
                                   return (
                                     <div
                                       key={source.income_source_id}
-                                      className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
+                                      className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${!isCouponLike && target > 0 ? (diff >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
                                     >
-                                      <span className="ltr-num">{target > 0 ? `${diff < 0 ? "-" : ""}₪${Math.abs(diff).toFixed(1)}` : "-"}</span>
+                                      <span className="ltr-num">{isCouponLike || target <= 0 ? "-" : `${diff < 0 ? "-" : ""}₪${Math.abs(diff).toFixed(1)}`}</span>
                                     </div>
                                   );
                                 })}
