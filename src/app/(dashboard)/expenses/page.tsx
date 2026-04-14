@@ -626,6 +626,43 @@ function ExpensesPageInner() {
           } else if (filterBy === "reference_date") {
             results = results.filter(inv => inv.referenceDate?.includes(searchVal) || false);
           }
+
+          // Load linked delivery notes for any markezet (is_consolidated=true) in results
+          const markezetIds = results
+            .filter(inv => {
+              const raw = (data as Array<Record<string, unknown>>).find(d => d.id === inv.id);
+              return raw?.is_consolidated === true;
+            })
+            .map(inv => inv.id);
+          if (markezetIds.length > 0) {
+            const { data: childDNs } = await supabase
+              .from("delivery_notes")
+              .select("id, invoice_id, delivery_note_number, delivery_date, subtotal, total_amount, attachment_url, notes")
+              .in("invoice_id", markezetIds);
+            if (childDNs && childDNs.length > 0) {
+              const byParent = new Map<string, InvoiceDisplay["linkedDeliveryNotes"]>();
+              for (const dn of childDNs) {
+                const parentId = dn.invoice_id as string;
+                const list = byParent.get(parentId) || [];
+                list.push({
+                  id: dn.id as string,
+                  deliveryNoteNumber: (dn.delivery_note_number as string) || "",
+                  date: formatDateString(dn.delivery_date as string),
+                  amount: Number(dn.total_amount),
+                  subtotal: Number(dn.subtotal),
+                  attachmentUrl: (dn.attachment_url as string) || null,
+                  attachmentUrls: parseAttachmentUrls(dn.attachment_url as string),
+                  notes: (dn.notes as string) || "",
+                });
+                byParent.set(parentId, list);
+              }
+              for (const inv of results) {
+                const children = byParent.get(inv.id);
+                if (children) inv.linkedDeliveryNotes = children;
+              }
+            }
+          }
+
           setGlobalSearchResults(results);
         } else {
           setGlobalSearchResults([]);
