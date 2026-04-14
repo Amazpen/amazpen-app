@@ -1152,9 +1152,21 @@ function ExpensesPageInner() {
         // Merge and sort by date descending
         const allInvoices = transformInvoicesData(invoicesListData || []);
 
-        // For each consolidated (markezet) invoice, load its linked delivery notes
+        // For each consolidated (markezet) invoice, load its linked delivery notes.
+        // A markezet is an invoice with is_consolidated=true; the child invoices
+        // and delivery notes also carry consolidated_reference (pointing to the
+        // parent), so filter on is_consolidated from the raw data — not on
+        // consolidatedReference alone, which would catch children too.
+        const rawById = new Map<string, Record<string, unknown>>();
+        for (const inv of (invoicesListData || []) as Array<Record<string, unknown>>) {
+          if (inv && typeof inv.id === "string") rawById.set(inv.id, inv);
+        }
         const markezetIds = allInvoices
-          .filter(inv => inv.consolidatedReference && inv.documentType === "invoice")
+          .filter(inv => {
+            if (inv.documentType !== "invoice") return false;
+            const raw = rawById.get(inv.id);
+            return raw?.is_consolidated === true;
+          })
           .map(inv => inv.id);
         if (markezetIds.length > 0) {
           const { data: childDNs } = await supabase
