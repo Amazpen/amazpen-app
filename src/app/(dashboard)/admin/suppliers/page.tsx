@@ -393,7 +393,26 @@ export default function AdminSuppliersPage() {
         const existingKey = `${parentId}|${childName}`;
         if (existingChildMap.has(existingKey)) {
           childCatIdMap.set(pair, existingChildMap.get(existingKey)!);
-        } else {
+          continue;
+        }
+
+        // A category with this same name may already exist for the business as
+        // a root-level (parent) category — the unique index (business_id, name)
+        // doesn't differentiate by parent_id, so inserting a duplicate name
+        // fails. Reuse the existing root in that case.
+        if (existingCatMap.has(childName)) {
+          childCatIdMap.set(pair, existingCatMap.get(childName)!);
+          continue;
+        }
+
+        // Also avoid inserting a child whose name we've already created as a
+        // parent in this same run.
+        if (parentCatIdMap.has(childName)) {
+          childCatIdMap.set(pair, parentCatIdMap.get(childName)!);
+          continue;
+        }
+
+        {
           const { data, error } = await supabase
             .from("expense_categories")
             .insert({
