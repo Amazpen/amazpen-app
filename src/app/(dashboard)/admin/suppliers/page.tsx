@@ -380,6 +380,23 @@ export default function AdminSuppliersPage() {
             .single();
 
           if (error) {
+            // Duplicate-key race: category was created between our fetch and
+            // our insert (either by a parallel import run or by a previous
+            // attempt that partially succeeded). Re-fetch from DB and reuse.
+            if (error.code === "23505") {
+              const { data: existingRow } = await supabase
+                .from("expense_categories")
+                .select("id")
+                .eq("business_id", selectedBusinessId)
+                .eq("name", parentName)
+                .is("deleted_at", null)
+                .maybeSingle();
+              if (existingRow?.id) {
+                parentCatIdMap.set(parentName, existingRow.id);
+                existingCatMap.set(parentName, existingRow.id);
+                continue;
+              }
+            }
             showToast(`שגיאה ביצירת קטגוריה "${parentName}": ${error.message}`, "error");
             importingRef.current = false;
             setIsImporting(false);
@@ -433,6 +450,21 @@ export default function AdminSuppliersPage() {
             .single();
 
           if (error) {
+            // Duplicate-key race: reuse whatever already exists under that name.
+            if (error.code === "23505") {
+              const { data: existingRow } = await supabase
+                .from("expense_categories")
+                .select("id")
+                .eq("business_id", selectedBusinessId)
+                .eq("name", childName)
+                .is("deleted_at", null)
+                .maybeSingle();
+              if (existingRow?.id) {
+                childCatIdMap.set(pair, existingRow.id);
+                existingCatMap.set(childName, existingRow.id);
+                continue;
+              }
+            }
             showToast(`שגיאה ביצירת קטגוריה "${childName}": ${error.message}`, "error");
             importingRef.current = false;
             setIsImporting(false);
@@ -440,6 +472,7 @@ export default function AdminSuppliersPage() {
             return;
           }
           childCatIdMap.set(pair, data.id);
+          existingCatMap.set(childName, data.id);
         }
       }
 
