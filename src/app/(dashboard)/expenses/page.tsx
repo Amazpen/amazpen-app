@@ -492,6 +492,75 @@ function ExpensesPageInner() {
           .order("invoice_date", { ascending: false })
           .limit(50);
 
+        // Also query delivery_notes in parallel for reference/supplier searches —
+        // the main query only hits invoices, so delivery notes (like תעודת משלוח
+        // for הקצב- סלמון) were invisible in global search. We merge results below.
+        let deliveryNoteResults: InvoiceDisplay[] = [];
+        const fetchMatchingDeliveryNotes = async () => {
+          let dnQuery = supabase
+            .from("delivery_notes")
+            .select(`
+              *,
+              supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
+              creator:profiles!delivery_notes_created_by_fkey(full_name)
+            `)
+            .in("business_id", selectedBusinesses)
+            .is("invoice_id", null)
+            .order("delivery_date", { ascending: false })
+            .limit(50);
+          if (filterBy === "reference") {
+            dnQuery = dnQuery.ilike("delivery_note_number", `%${searchVal}%`);
+          } else if (filterBy === "supplier") {
+            const { data: matchedSuppliersDn } = await supabase
+              .from("suppliers")
+              .select("id")
+              .in("business_id", selectedBusinesses)
+              .ilike("name", `%${searchVal}%`)
+              .is("deleted_at", null);
+            if (!matchedSuppliersDn || matchedSuppliersDn.length === 0) return;
+            dnQuery = dnQuery.in("supplier_id", matchedSuppliersDn.map(s => s.id));
+          } else if (filterBy === "notes") {
+            dnQuery = dnQuery.ilike("notes", `%${searchVal}%`);
+          } else if (filterBy === "amount") {
+            const num = parseFloat(searchVal.replace(/[^\d.-]/g, ""));
+            if (!isNaN(num)) dnQuery = dnQuery.eq("subtotal", num);
+          } else {
+            // date/reference_date/creditCard — not directly supported here; skip DN fetch
+            return;
+          }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: dnData } = await dnQuery;
+          deliveryNoteResults = (dnData || []).map((dn: Record<string, unknown>) => {
+            const supplier = dn.supplier as { name?: string; is_fixed_expense?: boolean } | null;
+            const creator = dn.creator as { full_name?: string } | null;
+            return {
+              id: dn.id as string,
+              date: formatDateString(dn.delivery_date as string),
+              rawDate: dn.delivery_date ? toLocalDateStr(new Date(dn.delivery_date as string)) : "",
+              supplier: supplier?.name || "לא ידוע",
+              reference: (dn.delivery_note_number as string) || "",
+              amount: Number(dn.total_amount),
+              amountWithVat: Number(dn.total_amount),
+              amountBeforeVat: Number(dn.subtotal),
+              status: "ת. משלוח",
+              statusRaw: "delivery_note",
+              enteredBy: creator?.full_name || "מערכת",
+              entryDate: formatDateString(dn.created_at as string),
+              notes: (dn.notes as string) || "",
+              attachmentUrl: (dn.attachment_url as string) || null,
+              attachmentUrls: parseAttachmentUrls(dn.attachment_url as string),
+              clarificationReason: null,
+              isFixed: supplier?.is_fixed_expense || false,
+              approval_status: null,
+              referenceDate: null,
+              linkedPayments: [],
+              linkedDeliveryNotes: [],
+              documentType: "delivery_note" as const,
+              parentInvoiceId: null,
+            };
+          });
+        };
+
         // Apply filter to DB query based on filter type
         if (filterBy === "reference") {
           query = query.or(`invoice_number.ilike.%${searchVal}%,consolidated_reference.ilike.%${searchVal}%`);
@@ -665,9 +734,15 @@ function ExpensesPageInner() {
             }
           }
 
-          setGlobalSearchResults(results);
+          // Merge delivery_notes that also match the search
+          await fetchMatchingDeliveryNotes();
+          const mergedResults = [...results, ...deliveryNoteResults]
+            .sort((a, b) => (b.rawDate || "").localeCompare(a.rawDate || ""));
+          setGlobalSearchResults(mergedResults);
         } else {
-          setGlobalSearchResults([]);
+          // No invoices matched — still check delivery_notes.
+          await fetchMatchingDeliveryNotes();
+          setGlobalSearchResults(deliveryNoteResults);
         }
       } catch {
         setGlobalSearchResults([]);
