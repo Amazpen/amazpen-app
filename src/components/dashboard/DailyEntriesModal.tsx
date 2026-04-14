@@ -1245,7 +1245,7 @@ export function DailyEntriesModal({
                   const displayDayFactor = parseFloat(editFormData.day_factor) || 1;
                   const displayWorkDaysInMonth = freshWorkDaysInMonth ?? goalsData?.workDaysInMonth ?? 26;
                   const dailyManagerWithMarkup = displayWorkDaysInMonth > 0
-                    ? (managerMonthlySalary / displayWorkDaysInMonth) * displayDayFactor
+                    ? (managerMonthlySalary / displayWorkDaysInMonth) * displayDayFactor * monthlyMarkup
                     : 0;
 
                   return (

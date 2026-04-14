@@ -449,9 +449,9 @@ function ExpensesPageInner() {
   const [isGlobalSearching, setIsGlobalSearching] = useState(false);
   const [sortColumn, setSortColumn] = useState<"date" | "supplier" | "reference" | "amount" | "status" | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
-  const [laborSortCol, setLaborSortCol] = useState<"date" | "labor_cost" | "labor_hours" | "manager_daily_cost" | "manager_daily_cost_with_markup" | "total" | "total_with_markup" | null>(null);
+  const [laborSortCol, setLaborSortCol] = useState<"date" | "labor_cost" | "labor_hours" | "manager_daily_cost" | "total" | "total_with_markup" | null>(null);
   const [laborSortOrder, setLaborSortOrder] = useState<"asc" | "desc" | null>(null);
-  const handleLaborSort = (col: "date" | "labor_cost" | "labor_hours" | "manager_daily_cost" | "manager_daily_cost_with_markup" | "total" | "total_with_markup") => {
+  const handleLaborSort = (col: "date" | "labor_cost" | "labor_hours" | "manager_daily_cost" | "total" | "total_with_markup") => {
     if (laborSortCol !== col) { setLaborSortCol(col); setLaborSortOrder("asc"); }
     else if (laborSortOrder === "asc") { setLaborSortOrder("desc"); }
     else { setLaborSortCol(null); setLaborSortOrder(null); }
@@ -4476,8 +4476,8 @@ function ExpensesPageInner() {
           <h2 className="text-[18px] font-bold text-center">מילוי יומי — עלות עובדים</h2>
           <div className="w-full max-h-[500px] overflow-y-scroll">
             {/* Header with sortable columns */}
-            <div className="grid grid-cols-[0.7fr_1.2fr_0.7fr_0.8fr_1fr_0.8fr_1fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] items-center sticky top-0 z-10">
-              {([ ["date", "תאריך"], ["labor_cost", "עובדים שעתיים"], ["labor_hours", "שעות"], ["manager_daily_cost", "עלות מנהל"], ["manager_daily_cost_with_markup", "מנהל כולל העמסה"], ["total", "סה\"כ"], ["total_with_markup", "כולל העמסה"] ] as const).map(([col, label]) => (
+            <div className="grid grid-cols-[0.7fr_1.2fr_0.7fr_0.8fr_0.8fr_1fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] items-center sticky top-0 z-10">
+              {([ ["date", "תאריך"], ["labor_cost", "עובדים שעתיים"], ["labor_hours", "שעות"], ["manager_daily_cost", "עלות מנהל"], ["total", "סה\"כ"], ["total_with_markup", "כולל העמסה"] ] as const).map(([col, label]) => (
                 <Button key={col} type="button" onClick={() => handleLaborSort(col)}
                   className="text-[13px] font-medium text-center cursor-pointer hover:text-white/80 transition-colors flex items-center justify-center gap-[3px]">
                   {label}
@@ -4496,7 +4496,6 @@ function ExpensesPageInner() {
                 else if (laborSortCol === "labor_cost") cmp = a.labor_cost - b.labor_cost;
                 else if (laborSortCol === "labor_hours") cmp = a.labor_hours - b.labor_hours;
                 else if (laborSortCol === "manager_daily_cost") cmp = a.manager_daily_cost - b.manager_daily_cost;
-                else if (laborSortCol === "manager_daily_cost_with_markup") cmp = (a.manager_daily_cost * laborMarkupMultiplier) - (b.manager_daily_cost * laborMarkupMultiplier);
                 else if (laborSortCol === "total") cmp = (a.labor_cost + a.manager_daily_cost) - (b.labor_cost + b.manager_daily_cost);
                 else if (laborSortCol === "total_with_markup") cmp = ((a.labor_cost + a.manager_daily_cost) * laborMarkupMultiplier) - ((b.labor_cost + b.manager_daily_cost) * laborMarkupMultiplier);
                 return laborSortOrder === "asc" ? cmp : -cmp;
@@ -4505,15 +4504,13 @@ function ExpensesPageInner() {
                 const dateStr = `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}.${String(dateObj.getFullYear()).slice(2)}`;
                 const rowTotal = entry.labor_cost + entry.manager_daily_cost;
                 const rowTotalWithMarkup = Math.round((entry.labor_cost + entry.manager_daily_cost) * laborMarkupMultiplier);
-                const managerWithMarkup = Math.round(entry.manager_daily_cost * laborMarkupMultiplier);
                 return (
                   <div key={entry.entry_date} className="rounded-[7px] p-[7px_3px] border border-transparent">
-                    <div className="grid grid-cols-[0.7fr_1.2fr_0.7fr_0.8fr_1fr_0.8fr_1fr] w-full p-[5px_5px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] items-center">
+                    <div className="grid grid-cols-[0.7fr_1.2fr_0.7fr_0.8fr_0.8fr_1fr] w-full p-[5px_5px] hover:bg-[#29318A]/30 transition-colors rounded-[7px] items-center">
                       <span className="text-[12px] ltr-num text-center">{dateStr}</span>
                       <span className="text-[12px] ltr-num text-center">{entry.labor_cost > 0 ? `₪${entry.labor_cost.toLocaleString()}` : "—"}</span>
                       <span className="text-[12px] ltr-num text-center text-white/60">{entry.labor_hours > 0 ? entry.labor_hours : "—"}</span>
                       <span className="text-[12px] ltr-num text-center">{entry.manager_daily_cost > 0 ? `₪${entry.manager_daily_cost.toLocaleString()}` : "—"}</span>
-                      <span className="text-[12px] ltr-num text-center text-indigo-400">{entry.manager_daily_cost > 0 ? `₪${managerWithMarkup.toLocaleString()}` : "—"}</span>
                       <span className="text-[12px] ltr-num text-center font-medium">₪{rowTotal.toLocaleString()}</span>
                       <span className="text-[12px] ltr-num text-center font-medium text-indigo-400">₪{rowTotalWithMarkup.toLocaleString()}</span>
                     </div>

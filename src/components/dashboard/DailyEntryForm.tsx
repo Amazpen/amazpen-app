@@ -38,6 +38,7 @@ interface EditingEntry {
   labor_hours: number;
   discounts: number;
   day_factor: number;
+  manager_daily_cost?: number;
 }
 
 interface DailyEntryFormProps {
@@ -1353,25 +1354,10 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                           {isAdmin && isEditMode && (() => {
                             const laborCost = parseFloat(formData.labor_cost) || 0;
                             const laborWithMarkup = laborCost * monthlyMarkup;
-                            const entryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
-                            const dayFactor = parseFloat(formData.day_factor) || 1;
-                            // Calculate work days from schedule + exceptions
-                            let displayWorkDays = 0;
-                            const dYear = entryDate.getFullYear();
-                            const dMonth = entryDate.getMonth();
-                            const dLastDay = new Date(dYear, dMonth + 1, 0).getDate();
-                            for (let dd = 1; dd <= dLastDay; dd++) {
-                              const dk = `${dYear}-${String(dMonth + 1).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
-                              if (dayExceptions[dk] !== undefined) {
-                                displayWorkDays += dayExceptions[dk];
-                              } else {
-                                displayWorkDays += businessSchedule[new Date(dYear, dMonth, dd).getDay()] || 0;
-                              }
-                            }
-                            if (displayWorkDays === 0) displayWorkDays = 26;
-                            const dailyManagerCost = displayWorkDays > 0
-                              ? (managerMonthlySalary / displayWorkDays) * dayFactor * monthlyMarkup
-                              : 0;
+                            // Use the saved manager_daily_cost from DB (already accounts for day exceptions)
+                            // and multiply by markup — matches the expenses page calculation.
+                            const savedManagerDailyCost = Number(editingEntry?.manager_daily_cost) || 0;
+                            const dailyManagerCost = savedManagerDailyCost * monthlyMarkup;
 
                             return (
                               <>
