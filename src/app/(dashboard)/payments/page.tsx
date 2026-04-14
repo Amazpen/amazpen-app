@@ -1665,7 +1665,11 @@ function PaymentsPageInner() {
     const correctExpenseType: "expenses" | "purchases" | "employees" = supplierData?.expense_type === "goods_purchases" ? "purchases" : supplierData?.expense_type === "employee_costs" ? "employees" : "expenses";
     setExpenseType(correctExpenseType);
     // Store linked invoice IDs before setting supplier — the supplier-change useEffect should preserve them (#26)
-    if (payment.linkedInvoiceId) {
+    // A payment can cover multiple invoices via payment_invoice_links — use the full list.
+    const allLinkedIds = (payment.linkedInvoices || []).map(li => li.id);
+    if (allLinkedIds.length > 0) {
+      editLinkedInvoiceIds.current = new Set(allLinkedIds);
+    } else if (payment.linkedInvoiceId) {
       editLinkedInvoiceIds.current = new Set([payment.linkedInvoiceId]);
     }
     setSelectedSupplier(payment.supplierId);
@@ -1733,8 +1737,11 @@ function PaymentsPageInner() {
       setPaymentMethods([{ id: 1, method: "", amount: payment.totalAmount.toString(), installments: "1", checkNumber: "", creditCardId: "", customInstallments: generateInstallments(1, payment.totalAmount, payment.rawDate) }]);
     }
 
-    // Set linked invoices
-    if (payment.linkedInvoiceId) {
+    // Set linked invoices — include ALL linked invoices (a payment can cover
+    // many via payment_invoice_links, not just the single invoice_id FK).
+    if (allLinkedIds.length > 0) {
+      setSelectedInvoiceIds(new Set(allLinkedIds));
+    } else if (payment.linkedInvoiceId) {
       setSelectedInvoiceIds(new Set([payment.linkedInvoiceId]));
     } else {
       setSelectedInvoiceIds(new Set());
