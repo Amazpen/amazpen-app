@@ -43,6 +43,7 @@ interface Supplier {
   id: string;
   name: string;
   expense_type: string;
+  is_fixed_expense: boolean;
 }
 
 export default function AdminExpensesPage() {
@@ -102,7 +103,7 @@ export default function AdminExpensesPage() {
       setIsLoadingSuppliers(true);
       const { data, error } = await supabase
         .from("suppliers")
-        .select("id, name, expense_type")
+        .select("id, name, expense_type, is_fixed_expense")
         .eq("business_id", selectedBusinessId)
         .is("deleted_at", null)
         .order("name");
@@ -598,7 +599,7 @@ export default function AdminExpensesPage() {
       // Reload suppliers list
       const { data: updatedSuppliers } = await supabase
         .from("suppliers")
-        .select("id, name, expense_type")
+        .select("id, name, expense_type, is_fixed_expense")
         .eq("business_id", selectedBusinessId)
         .is("deleted_at", null)
         .order("name");
@@ -632,18 +633,31 @@ export default function AdminExpensesPage() {
     setImportProgress("בודק חשבוניות קיימות...");
 
     try {
-      // 1. Check for existing invoices
+      // 1. Check for existing invoices (numbered + fixed-expense placeholders)
       const { data: existingInvoices } = await supabase
         .from("invoices")
-        .select("invoice_number, supplier_id")
+        .select("invoice_number, supplier_id, invoice_date, attachment_url")
         .eq("business_id", selectedBusinessId)
         .is("deleted_at", null);
 
-      const existingSet = new Set(
-        (existingInvoices || [])
-          .filter(inv => inv.invoice_number)
-          .map(inv => `${inv.supplier_id}|${inv.invoice_number}`)
+      const existingSet = new Set<string>();
+      const fixedSupplierIds = new Set(
+        suppliers.filter(s => s.is_fixed_expense).map(s => s.id)
       );
+      for (const inv of existingInvoices || []) {
+        if (inv.invoice_number) {
+          existingSet.add(`${inv.supplier_id}|${inv.invoice_number}`);
+        }
+        // Also register any existing placeholder (empty number + no attachment)
+        // for a fixed-expense supplier, keyed by supplier+month, so subsequent
+        // CSV rows for the same supplier+month don't create another one.
+        if (!inv.invoice_number && !inv.attachment_url
+            && inv.supplier_id && fixedSupplierIds.has(inv.supplier_id)
+            && inv.invoice_date) {
+          const monthKey = String(inv.invoice_date).substring(0, 7);
+          existingSet.add(`fixed|${inv.supplier_id}|${monthKey}`);
+        }
+      }
 
       // 2. Get current user
       const { data: { user } } = await supabase.auth.getUser();
@@ -702,6 +716,21 @@ export default function AdminExpensesPage() {
             skippedCount++;
             continue;
           }
+        }
+
+        // For fixed-expense suppliers WITHOUT an invoice number (i.e. Bubble
+        // placeholders): skip if any placeholder already exists for the same
+        // (supplier, month). This prevents importing multiple empty rows for
+        // the same fixed charge into the same month — the cause of the ~55
+        // duplicates seen in the Oshi Oshi migration.
+        if (!expense.invoice_number && supplier?.is_fixed_expense && expense.invoice_date) {
+          const monthKey = expense.invoice_date.substring(0, 7); // YYYY-MM
+          const placeholderKey = `fixed|${supplier.id}|${monthKey}`;
+          if (existingSet.has(placeholderKey)) {
+            skippedCount++;
+            continue;
+          }
+          existingSet.add(placeholderKey); // so the next row in the same batch is also skipped
         }
 
         // Map payment_status to invoice status (DB: pending/clarification/paid)
