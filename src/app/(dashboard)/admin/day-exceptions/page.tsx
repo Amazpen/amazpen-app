@@ -247,6 +247,18 @@ export default function DayExceptionsPage() {
         showToast("שגיאה ביצירת חריגה", "error");
       }
     } else {
+      // Exception overrides the day — sync matching daily_entries.day_factor so
+      // manager-cost / labor-cost calculations downstream honour the new factor.
+      // (entry keeps total_register/labor_cost/etc; only day_factor is re-set.)
+      const updatePayload: Record<string, unknown> = { day_factor: factorNum };
+      if (factorNum === 0) updatePayload.manager_daily_cost = 0;
+      await supabase
+        .from("daily_entries")
+        .update(updatePayload)
+        .eq("business_id", selectedBusinessId)
+        .eq("entry_date", newDate)
+        .is("deleted_at", null);
+
       showToast("החריגה נוצרה בהצלחה", "success");
       setNewDate("");
       setNewNote("");
@@ -269,6 +281,25 @@ export default function DayExceptionsPage() {
         if (error) {
           showToast("שגיאה במחיקת החריגה", "error");
         } else {
+          // Exception removed — restore the daily_entry's day_factor from the
+          // weekly business_schedule for that weekday (falls back to 1).
+          if (selectedBusinessId) {
+            const dow = new Date(date + "T00:00:00").getDay();
+            const { data: sched } = await supabase
+              .from("business_schedule")
+              .select("day_factor")
+              .eq("business_id", selectedBusinessId)
+              .eq("day_of_week", dow)
+              .maybeSingle();
+            const restoredFactor = sched?.day_factor != null ? Number(sched.day_factor) : 1;
+            await supabase
+              .from("daily_entries")
+              .update({ day_factor: restoredFactor })
+              .eq("business_id", selectedBusinessId)
+              .eq("entry_date", date)
+              .is("deleted_at", null);
+          }
+
           showToast("החריגה נמחקה", "success");
           await fetchExceptions();
         }
