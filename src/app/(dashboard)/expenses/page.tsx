@@ -509,7 +509,7 @@ function ExpensesPageInner() {
         } else if (filterBy === "notes") {
           query = query.ilike("notes", `%${searchVal}%`);
         } else if (filterBy === "amount") {
-          const numVal = parseFloat(searchVal.replace(/[^\d.]/g, ""));
+          const numVal = parseFloat(searchVal.replace(/[^\d.-]/g, ""));
           if (!isNaN(numVal)) {
             query = query.eq("subtotal", numVal);
           }
@@ -822,7 +822,7 @@ function ExpensesPageInner() {
   const addPopupPaymentMethodEntry = () => {
     const newId = Math.max(...popupPaymentMethods.map(p => p.id)) + 1;
     const totalInvoice = paymentInvoice ? paymentInvoice.amountWithVat : 0;
-    const allocatedSoFar = popupPaymentMethods.reduce((sum, p) => sum + (parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0), 0);
+    const allocatedSoFar = popupPaymentMethods.reduce((sum, p) => sum + (parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0), 0);
     const remaining = Math.max(0, Math.round((totalInvoice - allocatedSoFar) * 100) / 100);
     setPopupPaymentMethods(prev => [
       ...prev,
@@ -864,7 +864,7 @@ function ExpensesPageInner() {
 
       // Auto-generate 1 installment row when check is selected (to show check number field)
       if (field === "method" && value === "check") {
-        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+        const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
         const startDate = getPopupEffectiveStartDate();
         const date = startDate ? new Date(startDate) : new Date();
         updated.customInstallments = [{
@@ -879,7 +879,7 @@ function ExpensesPageInner() {
       // Update installments when installments count changes - preserve existing dates
       if (field === "installments") {
         const numInstallments = parseInt(value) || 1;
-        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+        const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
 
         if (numInstallments <= 1 || totalAmount === 0) {
           updated.customInstallments = [];
@@ -930,7 +930,7 @@ function ExpensesPageInner() {
       // When amount changes, recalculate installment amounts but keep dates
       if (field === "amount") {
         const numInstallments = parseInt(p.installments) || 1;
-        const totalAmount = parseFloat(value.replace(/[^\d.]/g, "")) || 0;
+        const totalAmount = parseFloat(value.replace(/[^\d.-]/g, "")) || 0;
         if (p.customInstallments.length > 0 && totalAmount > 0) {
           const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
           const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
@@ -974,10 +974,10 @@ function ExpensesPageInner() {
 
   // Handle installment amount change for popup
   const handlePopupInstallmentAmountChange = (paymentMethodId: number, installmentIndex: number, newAmount: string) => {
-    const amount = parseFloat(newAmount.replace(/[^\d.]/g, "")) || 0;
+    const amount = parseFloat(newAmount.replace(/[^\d.-]/g, "")) || 0;
     setPopupPaymentMethods(prev => prev.map(p => {
       if (p.id !== paymentMethodId) return p;
-      const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+      const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
       const updatedInstallments = [...p.customInstallments];
       if (updatedInstallments[installmentIndex]) {
         const cappedAmount = Math.min(Math.round(amount * 100) / 100, totalAmount);
@@ -2199,7 +2199,7 @@ function ExpensesPageInner() {
         // If paid in full, create payment record
         if (isPaidInFull && newInvoice) {
           const paymentTotal = popupPaymentMethods.reduce((sum, pm) => {
-            return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
+            return sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0);
           }, 0);
 
           let newExpReceiptUrl: string | null = null;
@@ -2232,7 +2232,7 @@ function ExpensesPageInner() {
 
           if (!paymentError && newPayment) {
             for (const pm of popupPaymentMethods) {
-              const pmAmount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+              const pmAmount = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
               if (pmAmount > 0 && pm.method) {
                 const installmentsCount = parseInt(pm.installments) || 1;
                 if (pm.customInstallments.length > 0) {
@@ -2321,7 +2321,7 @@ function ExpensesPageInner() {
         // If paid in full, create payment record with all payment methods
         if (isPaidInFull && newInvoice) {
           const paymentTotal = popupPaymentMethods.reduce((sum, pm) => {
-            return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
+            return sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0);
           }, 0);
 
           // Upload receipt if selected
@@ -2357,7 +2357,7 @@ function ExpensesPageInner() {
 
           if (newPayment) {
             for (const pm of popupPaymentMethods) {
-              const amount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+              const amount = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
               if (amount > 0 && pm.method) {
                 const installmentsCount = parseInt(pm.installments) || 1;
 
@@ -3016,7 +3016,7 @@ function ExpensesPageInner() {
     // Validate installments sum matches payment amount
     for (const pm of popupPaymentMethods) {
       if (pm.customInstallments.length > 0) {
-        const pmTotal = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+        const pmTotal = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
         const installmentsTotal = getPopupInstallmentsTotal(pm.customInstallments);
         if (Math.abs(installmentsTotal - pmTotal) > 0.01) {
           showToast(`סכום התשלומים (${installmentsTotal.toFixed(2)}) לא תואם לסכום לתשלום (${pmTotal.toFixed(2)})`, "warning");
@@ -3036,7 +3036,7 @@ function ExpensesPageInner() {
 
       // Calculate total amount from all payment methods
       const totalAmount = popupPaymentMethods.reduce((sum, pm) => {
-        return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
+        return sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0);
       }, 0);
 
       // Upload receipt if selected
@@ -3074,7 +3074,7 @@ function ExpensesPageInner() {
       // Create payment splits for each payment method
       if (newPayment) {
         for (const pm of popupPaymentMethods) {
-          const amount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+          const amount = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
           if (amount > 0 && pm.method) {
             const installmentsCount = parseInt(pm.installments) || 1;
             const creditCardId = pm.method === "credit_card" && pm.creditCardId ? pm.creditCardId : null;
@@ -4959,7 +4959,7 @@ function ExpensesPageInner() {
                             setPaymentDate(val);
                             setPopupPaymentMethods(prev => prev.map(p => {
                               const numInstallments = parseInt(p.installments) || 1;
-                              const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+                              const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
                               if (numInstallments >= 1 && totalAmount > 0) {
                                 const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
                                 if (card) {
@@ -5024,7 +5024,7 @@ function ExpensesPageInner() {
                                   const effectiveDate = paymentDate || expenseDate;
                                   if (card && effectiveDate) {
                                     const numInstallments = parseInt(p.installments) || 1;
-                                    const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+                                    const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
                                     if (numInstallments > 1 && totalAmount > 0) {
                                       updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, effectiveDate, card.billing_day);
                                     }
@@ -5053,7 +5053,7 @@ function ExpensesPageInner() {
                                 value={pm.amount}
                                 onFocus={(e) => e.target.select()}
                                 onChange={(e) => {
-                                  const val = e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+                                  const val = e.target.value.replace(/[^\d.-]/g, "").replace(/(\..*)\./g, "$1");
                                   updatePopupPaymentMethodField(pm.id, "amount", val);
                                 }}
                                 placeholder="סכום"
@@ -5138,7 +5138,7 @@ function ExpensesPageInner() {
                                   </div>
                                   {(() => {
                                     const installmentsTotal = getPopupInstallmentsTotal(pm.customInstallments);
-                                    const pmTotal = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+                                    const pmTotal = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
                                     const isMismatch = Math.abs(installmentsTotal - pmTotal) > 0.01;
                                     return (
                                       <div className="flex items-center gap-[8px] border-t border-[#4C526B] pt-[8px] mt-[8px]">
@@ -5718,7 +5718,7 @@ function ExpensesPageInner() {
                     // Recalculate all installment dates based on new date
                     setPopupPaymentMethods(prev => prev.map(p => {
                       const numInstallments = parseInt(p.installments) || 1;
-                      const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+                      const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
                       if (numInstallments > 1 && totalAmount > 0) {
                         const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
                         if (card) {
@@ -5784,7 +5784,7 @@ function ExpensesPageInner() {
                           const card = businessCreditCards.find(c => c.id === val);
                           if (card && paymentDate) {
                             const numInstallments = parseInt(p.installments) || 1;
-                            const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+                            const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
                             if (numInstallments > 1 && totalAmount > 0) {
                               updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, paymentDate, card.billing_day);
                             }
@@ -5814,7 +5814,7 @@ function ExpensesPageInner() {
                         value={pm.amount}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => {
-                          const val = e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+                          const val = e.target.value.replace(/[^\d.-]/g, "").replace(/(\..*)\./g, "$1");
                           updatePopupPaymentMethodField(pm.id, "amount", val);
                         }}
                         placeholder="סכום"
@@ -5901,7 +5901,7 @@ function ExpensesPageInner() {
                           </div>
                           {(() => {
                             const installmentsTotal = getPopupInstallmentsTotal(pm.customInstallments);
-                            const pmTotal = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+                            const pmTotal = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
                             const isMismatch = Math.abs(installmentsTotal - pmTotal) > 0.01;
                             return (
                               <div className="flex items-center border-t border-[#4C526B] pt-[8px] mt-[8px]">
