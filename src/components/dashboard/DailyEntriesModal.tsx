@@ -1604,13 +1604,17 @@ export function DailyEntriesModal({
                                   <span className="ltr-num">{formatCurrency(entry.total_register)}</span>
                                 </div>
                                 {entryDetails?.incomeBreakdown.map((source) => {
-                                  const avgPerOrder = source.orders_count > 0 ? source.amount / source.orders_count : 0;
+                                  // For coupon-like sources (no orders), show total amount instead of avg-per-order
+                                  const isCouponLike = source.orders_count === 0 && source.amount > 0;
+                                  const displayValue = isCouponLike
+                                    ? source.amount
+                                    : (source.orders_count > 0 ? source.amount / source.orders_count : 0);
                                   return (
                                     <div
                                       key={source.income_source_id}
                                       className="text-white text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10"
                                     >
-                                      <span className="ltr-num">{formatCurrency(avgPerOrder)}</span>
+                                      <span className="ltr-num">{formatCurrency(displayValue)}</span>
                                     </div>
                                   );
                                 })}
@@ -1673,14 +1677,15 @@ export function DailyEntriesModal({
                                 {/* מקורות הכנסה - הפרש ממוצע מהיעד */}
                                 {entryDetails?.incomeBreakdown.map((source) => {
                                   const target = goalsData?.incomeSourceTargets[source.income_source_id] || 0;
+                                  const isCouponLike = source.orders_count === 0 && source.amount > 0;
                                   const avg = source.orders_count > 0 ? source.amount / source.orders_count : 0;
                                   const diff = target > 0 ? avg - target : 0;
                                   return (
                                     <div
                                       key={source.income_source_id}
-                                      className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${target > 0 ? (diff >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
+                                      className={`text-[12px] md:text-[14px] h-[24px] md:h-[30px] flex items-center justify-center border-b border-white/10 ${!isCouponLike && target > 0 ? (diff >= 0 ? "text-green-400" : "text-red-400") : "text-white"}`}
                                     >
-                                      <span className="ltr-num">{target > 0 ? `${diff < 0 ? "-" : ""}₪${Math.abs(diff).toFixed(1)}` : "-"}</span>
+                                      <span className="ltr-num">{isCouponLike || target <= 0 ? "-" : `${diff < 0 ? "-" : ""}₪${Math.abs(diff).toFixed(1)}`}</span>
                                     </div>
                                   );
                                 })}
