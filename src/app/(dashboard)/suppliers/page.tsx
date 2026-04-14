@@ -1377,7 +1377,6 @@ export default function SuppliersPage() {
           id,
           payment_date,
           total_amount,
-          subtotal,
           notes,
           receipt_url,
           invoice_id,
