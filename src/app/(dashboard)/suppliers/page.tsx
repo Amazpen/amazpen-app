@@ -2618,33 +2618,27 @@ export default function SuppliersPage() {
                 </div>
                 <div className="flex flex-col items-center text-center">
                   <span className="text-[12px] text-white/60">ה. חודשית קבועה</span>
-                  <span className="text-[14px] text-white font-medium">{selectedSupplier.is_fixed_expense ? "כן" : "לא"}</span>
+                  <span className="text-[14px] text-white font-medium">
+                    {selectedSupplier.is_fixed_expense ? (
+                      <>
+                        כן
+                        {(selectedSupplier.charge_day || (selectedSupplier.monthly_expense_amount && Number(selectedSupplier.monthly_expense_amount) > 0)) && (
+                          <span className="text-[12px] text-white/70 ltr-num">
+                            {" · "}
+                            {selectedSupplier.charge_day ? `יום ${selectedSupplier.charge_day}` : ""}
+                            {selectedSupplier.charge_day && selectedSupplier.monthly_expense_amount && Number(selectedSupplier.monthly_expense_amount) > 0 ? " · " : ""}
+                            {selectedSupplier.monthly_expense_amount && Number(selectedSupplier.monthly_expense_amount) > 0 ? `₪${Number(selectedSupplier.monthly_expense_amount).toLocaleString("he-IL")}` : ""}
+                          </span>
+                        )}
+                      </>
+                    ) : "לא"}
+                  </span>
                 </div>
                 <div className="flex flex-col items-center text-center">
                   <span className="text-[12px] text-white/60">הלוואה</span>
                   <span className="text-[14px] text-white font-medium">{selectedSupplier.has_previous_obligations ? "כן" : "לא"}</span>
                 </div>
               </div>
-
-              {/* Row 4 — fixed-expense details (only when relevant) */}
-              {selectedSupplier.is_fixed_expense && (
-                <div className="grid grid-cols-2 gap-[10px] mt-[15px]">
-                  <div className="flex flex-col items-center text-center">
-                    <span className="text-[12px] text-white/60">יום חיוב בחודש</span>
-                    <span className="text-[14px] text-white font-medium ltr-num">
-                      {selectedSupplier.charge_day ? selectedSupplier.charge_day : "-"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-center text-center">
-                    <span className="text-[12px] text-white/60">סכום חודשי קבוע</span>
-                    <span className="text-[14px] text-white font-medium ltr-num">
-                      {selectedSupplier.monthly_expense_amount && Number(selectedSupplier.monthly_expense_amount) > 0
-                        ? `₪${Number(selectedSupplier.monthly_expense_amount).toLocaleString("he-IL")}`
-                        : "-"}
-                    </span>
-                  </div>
-                </div>
-              )}
 
               {/* Notes - only show if exists */}
               {selectedSupplier.notes && (
