@@ -131,6 +131,7 @@ interface InvoiceDisplay {
   approval_status: string | null;
   referenceDate: string | null;
   linkedPayments: { id: string; paymentId: string; amount: number; method: string; date: string; checkNumber: string; installmentNumber: number | null; installmentsCount: number | null; referenceNumber: string; creditCardId: string | null }[];
+  linkedDeliveryNotes: { id: string; deliveryNoteNumber: string; date: string; amount: number; subtotal: number; attachmentUrl: string | null; attachmentUrls: string[]; notes: string }[];
   documentType: "invoice" | "delivery_note";
   invoiceType?: string;
   statusRaw?: string;
@@ -343,6 +344,7 @@ function ExpensesPageInner() {
   // Expanded invoice row state
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
   const [showLinkedPayments, setShowLinkedPayments] = useState<string | null>(null);
+  const [showLinkedDeliveryNotes, setShowLinkedDeliveryNotes] = useState<string | null>(null);
 
   // Auto-expand invoice from URL param (e.g. /expenses?invoiceId=xxx)
   const highlightedRef = useRef(false);
@@ -612,6 +614,7 @@ function ExpensesPageInner() {
               approval_status: inv.approval_status || null,
               referenceDate: inv.reference_date ? formatDateString(inv.reference_date) : null,
               linkedPayments,
+              linkedDeliveryNotes: [],
               documentType: "invoice" as const,
               invoiceType: inv.invoice_type || undefined,
               consolidatedReference: (inv as unknown as { consolidated_reference?: string | null }).consolidated_reference || null,
@@ -1141,12 +1144,47 @@ function ExpensesPageInner() {
           approval_status: null,
           referenceDate: null,
           linkedPayments: [],
+          linkedDeliveryNotes: [],
           documentType: "delivery_note" as const,
           parentInvoiceId: dn.invoice_id || null,
         }));
 
         // Merge and sort by date descending
         const allInvoices = transformInvoicesData(invoicesListData || []);
+
+        // For each consolidated (markezet) invoice, load its linked delivery notes
+        const markezetIds = allInvoices
+          .filter(inv => inv.consolidatedReference && inv.documentType === "invoice")
+          .map(inv => inv.id);
+        if (markezetIds.length > 0) {
+          const { data: childDNs } = await supabase
+            .from("delivery_notes")
+            .select("id, invoice_id, delivery_note_number, delivery_date, subtotal, total_amount, attachment_url, notes")
+            .in("invoice_id", markezetIds);
+          if (childDNs && childDNs.length > 0) {
+            const byParent = new Map<string, InvoiceDisplay["linkedDeliveryNotes"]>();
+            for (const dn of childDNs) {
+              const parentId = dn.invoice_id as string;
+              const list = byParent.get(parentId) || [];
+              list.push({
+                id: dn.id as string,
+                deliveryNoteNumber: (dn.delivery_note_number as string) || "",
+                date: formatDateString(dn.delivery_date as string),
+                amount: Number(dn.total_amount),
+                subtotal: Number(dn.subtotal),
+                attachmentUrl: (dn.attachment_url as string) || null,
+                attachmentUrls: parseAttachmentUrls(dn.attachment_url as string),
+                notes: (dn.notes as string) || "",
+              });
+              byParent.set(parentId, list);
+            }
+            for (const inv of allInvoices) {
+              const children = byParent.get(inv.id);
+              if (children) inv.linkedDeliveryNotes = children;
+            }
+          }
+        }
+
         const merged = [...allInvoices, ...transformedDeliveryNotes]
           .sort((a, b) => (b.rawDate || "").localeCompare(a.rawDate || ""))
           .slice(0, INVOICES_PAGE_SIZE);
@@ -1521,6 +1559,7 @@ function ExpensesPageInner() {
         approval_status: inv.approval_status || null,
         referenceDate: inv.reference_date ? formatDateString(inv.reference_date) : null,
         linkedPayments,
+        linkedDeliveryNotes: [],
         documentType: inv._documentType || "invoice",
         invoiceType: inv.invoice_type || undefined,
         consolidatedReference: inv.consolidated_reference || null,
@@ -3227,6 +3266,7 @@ function ExpensesPageInner() {
         approval_status: inv.approval_status || null,
         referenceDate: inv.reference_date ? formatDateString(inv.reference_date) : null,
         linkedPayments: [],
+        linkedDeliveryNotes: [],
         documentType: "invoice",
         invoiceType: inv.invoice_type || undefined,
         consolidatedReference: (inv as { consolidated_reference?: string | null }).consolidated_reference || null,
@@ -3254,6 +3294,7 @@ function ExpensesPageInner() {
         approval_status: null,
         referenceDate: null,
         linkedPayments: [],
+        linkedDeliveryNotes: [],
         documentType: "delivery_note",
         parentInvoiceId: null,
       }));
@@ -4185,6 +4226,62 @@ function ExpensesPageInner() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Linked Delivery Notes (markezet children) */}
+                    {invoice.linkedDeliveryNotes.length > 0 && (
+                      <div className="flex flex-col gap-[8px] border border-white/30 rounded-[7px] p-[3px] mx-[3px]">
+                        <Button
+                          type="button"
+                          onClick={() => setShowLinkedDeliveryNotes(showLinkedDeliveryNotes === invoice.id ? null : invoice.id)}
+                          className="bg-[#29318A] text-white text-[15px] font-medium py-[5px] px-[14px] rounded-[7px] self-start cursor-pointer hover:bg-[#3D44A0] transition-colors"
+                        >
+                          הצגת תעודות משלוח מקושרות ({invoice.linkedDeliveryNotes.length})
+                        </Button>
+
+                        {showLinkedDeliveryNotes === invoice.id && (
+                          <div className="flex flex-col gap-[4px]">
+                            <span className="text-[13px] font-bold text-right px-[5px]">
+                              סה&quot;כ תעודות משלוח: ₪{invoice.linkedDeliveryNotes.reduce((sum, d) => sum + d.amount, 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <div dir="rtl" className="flex items-center justify-between gap-[3px] border-b border-white/20 min-h-[40px] px-[3px]">
+                              <span className="text-[13px] min-w-[55px] text-center">תאריך</span>
+                              <span className="text-[13px] flex-1 text-center">מספר</span>
+                              <span className="text-[13px] w-[80px] text-center">לפני מע&quot;מ</span>
+                              <span className="text-[13px] w-[80px] text-center">כולל מע&quot;מ</span>
+                              <span className="text-[13px] w-[30px] text-center">צפייה</span>
+                            </div>
+                            {invoice.linkedDeliveryNotes.map((dn) => (
+                              <div
+                                key={dn.id}
+                                dir="rtl"
+                                className="flex items-center justify-between gap-[3px] min-h-[40px] px-[3px] rounded-[7px]"
+                              >
+                                <span className="text-[13px] min-w-[55px] text-center ltr-num">{dn.date}</span>
+                                <span className="text-[13px] flex-1 text-center ltr-num">{dn.deliveryNoteNumber || "-"}</span>
+                                <span className="text-[13px] w-[80px] text-center ltr-num">₪{dn.subtotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="text-[13px] w-[80px] text-center ltr-num">₪{dn.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <div className="w-[30px] flex items-center justify-center">
+                                  {dn.attachmentUrls.length > 0 && (
+                                    <Button
+                                      type="button"
+                                      title="צפייה בתעודת משלוח"
+                                      onClick={() => setViewerDocUrl(dn.attachmentUrls[0])}
+                                      className="text-white/70 hover:text-white transition-colors p-0 h-auto bg-transparent"
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                      </svg>
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Linked Payments Section - only show if has payments */}
                     {invoice.linkedPayments.length > 0 && (
