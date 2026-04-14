@@ -405,8 +405,11 @@ export default function AdminExpensesPage() {
               } else if (paymentStatusRaw.includes("ממתין") || paymentStatusRaw.includes("טרם")) {
                 payment_status = "pending";
               } else if (paymentStatusRaw === "זיכוי") {
-                // No 'credited' in DB - use 'paid' as closest match
-                payment_status = "paid";
+                // A credit note (negative invoice) isn't automatically 'paid' —
+                // a refund payment is still needed. Keep as 'pending' until the
+                // user links a (negative) payment. Otherwise the invoice shows
+                // green 'שולם' while no payment actually exists.
+                payment_status = "pending";
               }
             }
 
