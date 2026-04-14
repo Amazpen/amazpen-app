@@ -6206,8 +6206,8 @@ function ExpensesPageInner() {
                 <span className="text-[20px] font-bold text-white">{breakdownSupplierCategory}</span>
               </div>
               <div className="flex flex-col items-center">
-                <span className="text-[20px] font-bold text-white ltr-num">₪{breakdownSupplierInvoices.reduce((sum, inv) => sum + (Number(inv.amountWithVat) || 0), 0).toLocaleString()}</span>
-                <span className="text-[14px] text-white/70">כולל מע&quot;מ · {breakdownSupplierInvoices.length} חשבוניות</span>
+                <span className="text-[20px] font-bold text-white ltr-num">₪{breakdownSupplierInvoices.reduce((sum, inv) => sum + (Number(inv.amountBeforeVat) || 0), 0).toLocaleString()}</span>
+                <span className="text-[14px] text-white/70">לפני מע&quot;מ · {breakdownSupplierInvoices.length} חשבוניות</span>
               </div>
             </div>
 
@@ -6217,7 +6217,7 @@ function ExpensesPageInner() {
               <div className="flex items-center justify-between border-b border-white/25 pb-[8px] px-[5px]">
                 <span className="text-[14px] font-medium text-white text-right" style={{ width: 81, maxWidth: 81 }}>תאריך</span>
                 <span className="text-[14px] font-medium text-white text-center" style={{ width: 66, maxWidth: 66 }}>מספר חשבונית</span>
-                <span className="text-[14px] font-medium text-white text-center" style={{ width: 65, maxWidth: 65 }}>סכום כולל מע&quot;מ</span>
+                <span className="text-[14px] font-medium text-white text-center" style={{ width: 65, maxWidth: 65 }}>סכום לפני מע&quot;מ</span>
                 <span className="text-[14px] font-medium text-white text-center" style={{ width: 60, maxWidth: 60 }}>סטטוס</span>
                 <span className="text-[14px] font-medium text-white text-center" style={{ width: 76, maxWidth: 76 }}>אפשרויות</span>
               </div>
@@ -6239,7 +6239,7 @@ function ExpensesPageInner() {
                       {inv.referenceDate && <span className="text-[10px] text-white/40 ltr-num">אסמכתא: {inv.referenceDate}</span>}
                     </div>
                     <span className="text-[14px] text-white text-center ltr-num" style={{ width: 66, maxWidth: 66 }}>{inv.reference || "-"}</span>
-                    <span className="text-[14px] text-white text-center ltr-num" style={{ width: 65, maxWidth: 65 }}>₪{inv.amountWithVat.toLocaleString()}</span>
+                    <span className="text-[14px] text-white text-center ltr-num" style={{ width: 65, maxWidth: 65 }}>₪{inv.amountBeforeVat.toLocaleString()}</span>
                     <span className="text-[12px] text-center ltr-num" style={{ width: 60, maxWidth: 60 }}>
                       {inv.approval_status === 'pending_review' ? (
                         <button
