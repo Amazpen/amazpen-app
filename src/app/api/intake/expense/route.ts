@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     // invoice defaults to something the expenses filter ignores.
     const { data: sup } = await supabase
       .from('suppliers')
-      .select('expense_type')
+      .select('expense_type, is_fixed_expense')
       .eq('id', supplier_id)
       .maybeSingle();
     const invoiceType = sup?.expense_type === 'goods_purchases'
@@ -65,31 +65,85 @@ export async function POST(request: NextRequest) {
       ? 'employees'
       : 'current';
 
-    // Create invoice with pending_review status
-    const { data: invoice, error: invoiceError } = await supabase
-      .from('invoices')
-      .insert({
-        business_id,
-        supplier_id,
-        invoice_date: fixedInvoiceDate,
-        total_amount,
-        invoice_number: invoice_number || null,
-        due_date: due_date || null,
-        reference_date: reference_date || fixedInvoiceDate,
-        notes: notes || null,
-        status: 'pending',
-        invoice_type: invoiceType,
-        approval_status: 'pending_review',
-        data_source: data_source,
-        amount_paid: 0,
-      })
-      .select('id')
-      .single();
+    // For fixed-expense suppliers: avoid creating a duplicate placeholder for
+    // the same month. If an empty placeholder (no invoice_number, no
+    // attachment) already exists for the same business+supplier+month, update
+    // it instead of inserting a new row. This prevents the same behavior that
+    // produced ~55 duplicates during the Bubble import.
+    let invoice: { id: string } | null = null;
+    let invoiceError: unknown = null;
+
+    if (sup?.is_fixed_expense && fixedInvoiceDate) {
+      const monthStart = fixedInvoiceDate.substring(0, 7) + '-01';
+      const [year, month] = fixedInvoiceDate.substring(0, 7).split('-').map(Number);
+      const lastDay = new Date(year, month, 0).getDate();
+      const monthEnd = `${fixedInvoiceDate.substring(0, 7)}-${String(lastDay).padStart(2, '0')}`;
+
+      const { data: existingPlaceholder } = await supabase
+        .from('invoices')
+        .select('id')
+        .eq('business_id', business_id)
+        .eq('supplier_id', supplier_id)
+        .is('deleted_at', null)
+        .is('invoice_number', null)
+        .is('attachment_url', null)
+        .gte('invoice_date', monthStart)
+        .lte('invoice_date', monthEnd)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingPlaceholder?.id) {
+        const { data, error } = await supabase
+          .from('invoices')
+          .update({
+            invoice_date: fixedInvoiceDate,
+            reference_date: reference_date || fixedInvoiceDate,
+            total_amount,
+            invoice_number: invoice_number || null,
+            due_date: due_date || null,
+            notes: notes || null,
+            invoice_type: invoiceType,
+            data_source: data_source,
+          })
+          .eq('id', existingPlaceholder.id)
+          .select('id')
+          .single();
+        invoice = data;
+        invoiceError = error;
+      }
+    }
+
+    if (!invoice && !invoiceError) {
+      const res = await supabase
+        .from('invoices')
+        .insert({
+          business_id,
+          supplier_id,
+          invoice_date: fixedInvoiceDate,
+          total_amount,
+          invoice_number: invoice_number || null,
+          due_date: due_date || null,
+          reference_date: reference_date || fixedInvoiceDate,
+          notes: notes || null,
+          status: 'pending',
+          invoice_type: invoiceType,
+          approval_status: 'pending_review',
+          data_source: data_source,
+          amount_paid: 0,
+        })
+        .select('id')
+        .single();
+      invoice = res.data;
+      invoiceError = res.error;
+    }
 
     if (invoiceError || !invoice) {
       console.error('Error creating invoice:', invoiceError);
+      const errMsg = invoiceError && typeof invoiceError === 'object' && 'message' in invoiceError
+        ? String((invoiceError as { message: unknown }).message)
+        : 'Failed to create invoice';
       return NextResponse.json(
-        { error: invoiceError?.message || 'Failed to create invoice' },
+        { error: errMsg },
         { status: 500 }
       );
     }
