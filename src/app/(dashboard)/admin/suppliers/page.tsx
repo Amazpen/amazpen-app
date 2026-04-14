@@ -108,6 +108,8 @@ export default function AdminSuppliersPage() {
             "הוצאה חודשית קבועה": "is_fixed",
             "סכום לכל תשלום קבוע (במידה וידוע)": "monthly_amount", "סכום לכל תשלום קבוע": "monthly_amount",
             "מתי יורד כל חודש?": "charge_day", "מתי יורד כל חודש": "charge_day",
+            // Fallback for Bubble CSVs that only have the first-charge day
+            "יום (מספר)": "charge_day_fallback", "יום": "charge_day_fallback",
             "תנאי תשלום": "payment_terms", "payment_terms_days": "payment_terms", "ימי תשלום": "payment_terms",
             "הערות": "notes", "notes": "notes",
             "קטגורית אב": "parent_category",
@@ -185,8 +187,10 @@ export default function AdminSuppliersPage() {
             const monthlyRaw = getField(row, "monthly_amount");
             const monthly_expense_amount = monthlyRaw ? parseFloat(monthlyRaw) || null : null;
 
-            // Map charge_day
-            const chargeDayRaw = getField(row, "charge_day");
+            // Map charge_day — prefer 'מתי יורד כל חודש?'; fall back to
+            // 'יום (מספר)' (Bubble sometimes splits first-charge day into
+            // separate month/day columns instead of a single charge-day field).
+            const chargeDayRaw = getField(row, "charge_day") || getField(row, "charge_day_fallback");
             let charge_day: number | null = chargeDayRaw ? parseInt(chargeDayRaw) || null : null;
             if (charge_day !== null && (charge_day < 1 || charge_day > 31)) {
               charge_day = null;
