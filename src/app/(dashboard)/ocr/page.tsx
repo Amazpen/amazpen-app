@@ -341,7 +341,7 @@ export default function OCRPage() {
           // If paid, create payment + payment splits
           if (formData.is_paid && newInvoice && formData.payment_methods) {
             const paymentTotal = formData.payment_methods.reduce((sum, pm) => {
-              return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0);
+              return sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0);
             }, 0);
 
             const { data: newPayment, error: paymentError } = await supabase
@@ -364,7 +364,7 @@ export default function OCRPage() {
 
             if (newPayment) {
               for (const pm of formData.payment_methods) {
-                const amount = parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0;
+                const amount = parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0;
                 if (amount > 0 && pm.method) {
                   const installmentsCount = parseInt(pm.installments) || 1;
                   const creditCardId = pm.method === 'credit_card' && pm.creditCardId ? pm.creditCardId : null;
@@ -436,7 +436,7 @@ export default function OCRPage() {
         } else if (formData.document_type === 'payment') {
           // --- PAYMENT ---
           const totalAmount = formData.payment_methods
-            ? formData.payment_methods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0), 0)
+            ? formData.payment_methods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0), 0)
             : parseFloat(formData.total_amount);
 
           // Create ONE payment that aggregates all selected invoices, then
@@ -469,7 +469,7 @@ export default function OCRPage() {
           // Create splits once for the single payment
           if (formData.payment_methods) {
             for (const pm of formData.payment_methods) {
-              const amount = parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0;
+              const amount = parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0;
               if (amount > 0 && pm.method) {
                 const installmentsCount = parseInt(pm.installments) || 1;
                 const creditCardId = pm.method === 'credit_card' && pm.creditCardId ? pm.creditCardId : null;

@@ -633,7 +633,7 @@ function PaymentsPageInner() {
     if (showAddPaymentPopup && !editingPaymentId) {
       setPaymentMethods(prev => prev.map(pm => {
         if (pm.customInstallments.length === 0) {
-          return { ...pm, customInstallments: generateInstallments(parseInt(pm.installments) || 1, parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0, paymentDate || toLocalDateStr(new Date())) };
+          return { ...pm, customInstallments: generateInstallments(parseInt(pm.installments) || 1, parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0, paymentDate || toLocalDateStr(new Date())) };
         }
         return pm;
       }));
@@ -1434,7 +1434,7 @@ function PaymentsPageInner() {
       return;
     }
 
-    if (paymentMethods.some(pm => parseFloat(pm.amount.replace(/[^\d.]/g, "")) > 0 && !pm.method)) {
+    if (paymentMethods.some(pm => parseFloat(pm.amount.replace(/[^\d.-]/g, "")) > 0 && !pm.method)) {
       showToast("נא לבחור אמצעי תשלום", "warning");
       savingPaymentRef.current = false;
       return;
@@ -1449,7 +1449,7 @@ function PaymentsPageInner() {
     // Validate installments sum matches payment amount
     for (const pm of paymentMethods) {
       if (pm.customInstallments.length > 0) {
-        const pmTotal = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+        const pmTotal = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
         const installmentsTotal = getInstallmentsTotal(pm.customInstallments);
         if (Math.abs(installmentsTotal - pmTotal) > 0.01) {
           showToast(`סכום התשלומים (${installmentsTotal.toFixed(2)}) לא תואם לסכום לתשלום (${pmTotal.toFixed(2)})`, "warning");
@@ -1460,7 +1460,7 @@ function PaymentsPageInner() {
 
     // Block partial payments - if invoices selected, total must match within ₪5
     if (selectedInvoiceIds.size > 0) {
-      const paymentTotal = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0), 0);
+      const paymentTotal = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0), 0);
       const invoicesTotal = openInvoices
         .filter(inv => selectedInvoiceIds.has(inv.id))
         .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
@@ -1488,7 +1488,7 @@ function PaymentsPageInner() {
 
       // Calculate total amount
       const totalAmount = paymentMethods.reduce((sum, pm) => {
-        return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
+        return sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0);
       }, 0);
 
       // Upload receipts if selected
@@ -1547,7 +1547,7 @@ function PaymentsPageInner() {
 
       // Create splits for the single payment
       for (const pm of paymentMethods) {
-        const amount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+        const amount = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
         if (amount <= 0) continue;
         const installmentsCount = parseInt(pm.installments) || 1;
         const creditCardId = pm.method === "credit_card" && pm.creditCardId ? pm.creditCardId : null;
@@ -1833,7 +1833,7 @@ function PaymentsPageInner() {
     }
 
     // Check total amount change
-    const newTotal = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0), 0);
+    const newTotal = paymentMethods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0), 0);
     if (Math.abs(newTotal - originalPaymentSnapshot.totalAmount) > 0.01) {
       changes.push({ label: "סכום כולל", before: formatAmount(originalPaymentSnapshot.totalAmount), after: formatAmount(newTotal) });
     }
@@ -1846,7 +1846,7 @@ function PaymentsPageInner() {
           newSplits.push({ method: pm.method, amount: inst.amount, dueDate: inst.dateForInput || null, installmentNumber: inst.number });
         }
       } else {
-        const amount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+        const amount = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
         if (amount > 0) newSplits.push({ method: pm.method, amount, dueDate: paymentDate, installmentNumber: 1 });
       }
     }
@@ -1883,7 +1883,7 @@ function PaymentsPageInner() {
       return;
     }
 
-    if (paymentMethods.some(pm => parseFloat(pm.amount.replace(/[^\d.]/g, "")) > 0 && !pm.method)) {
+    if (paymentMethods.some(pm => parseFloat(pm.amount.replace(/[^\d.-]/g, "")) > 0 && !pm.method)) {
       showToast("נא לבחור אמצעי תשלום", "warning");
       return;
     }
@@ -1891,7 +1891,7 @@ function PaymentsPageInner() {
     // Validate installments sum
     for (const pm of paymentMethods) {
       if (pm.customInstallments.length > 0) {
-        const pmTotal = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+        const pmTotal = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
         const installmentsTotal = getInstallmentsTotal(pm.customInstallments);
         if (Math.abs(installmentsTotal - pmTotal) > 0.01) {
           showToast(`סכום התשלומים (${installmentsTotal.toFixed(2)}) לא תואם לסכום לתשלום (${pmTotal.toFixed(2)})`, "warning");
@@ -1919,7 +1919,7 @@ function PaymentsPageInner() {
 
     try {
       const totalAmount = paymentMethods.reduce((sum, pm) => {
-        return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
+        return sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0);
       }, 0);
 
       // Upload new receipts if selected
@@ -1979,7 +1979,7 @@ function PaymentsPageInner() {
 
       // Create new splits
       for (const pm of paymentMethods) {
-        const amount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+        const amount = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
         if (amount > 0) {
           const installmentsCount = parseInt(pm.installments) || 1;
           const creditCardId = pm.method === "credit_card" && pm.creditCardId ? pm.creditCardId : null;
@@ -2361,7 +2361,7 @@ function PaymentsPageInner() {
       if (p.customInstallments.length > 0) {
         return sum + p.customInstallments.reduce((s, inst) => s + (Number(inst.amount) || 0), 0);
       }
-      return sum + (parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0);
+      return sum + (parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0);
     }, 0);
     const remaining = Math.max(0, Math.round((totalInvoice - allocatedSoFar) * 100) / 100);
     setPaymentMethods(prev => [
@@ -2391,7 +2391,7 @@ function PaymentsPageInner() {
         const smartDate = getSmartPaymentDate("credit_card", invoiceDate, value);
         const entry = paymentMethods.find(p => p.id === id);
         if (entry && smartDate) {
-          const totalAmount = parseFloat(entry.amount.replace(/[^\d.]/g, "")) || 0;
+          const totalAmount = parseFloat(entry.amount.replace(/[^\d.-]/g, "")) || 0;
           const numInstallments = parseInt(entry.installments) || 1;
           // Will be applied inside the setPaymentMethods below via the installments regeneration
           setTimeout(() => {
@@ -2416,7 +2416,7 @@ function PaymentsPageInner() {
 
       // Auto-generate 1 installment row when check is selected (to show check number field)
       if (field === "method" && value === "check") {
-        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+        const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
         const startDate = getEffectiveStartDate();
         const date = startDate ? new Date(startDate) : new Date();
         updated.customInstallments = [{
@@ -2431,7 +2431,7 @@ function PaymentsPageInner() {
       // Regenerate installments when installments count changes
       if (field === "installments") {
         const numInstallments = parseInt(value) || 1;
-        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+        const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
         const startDate = p.customInstallments.length > 0 ? p.customInstallments[0].dateForInput : getEffectiveStartDate();
         const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
         if (card && startDate) {
@@ -2459,7 +2459,7 @@ function PaymentsPageInner() {
       // When amount changes, recalculate installment amounts but keep dates
       if (field === "amount") {
         const numInstallments = parseInt(p.installments) || 1;
-        const totalAmount = parseFloat(value.replace(/[^\d.]/g, "")) || 0;
+        const totalAmount = parseFloat(value.replace(/[^\d.-]/g, "")) || 0;
         if (p.customInstallments.length > 0 && totalAmount > 0) {
           const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
           const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
@@ -2506,10 +2506,10 @@ function PaymentsPageInner() {
 
   // Handle installment amount change for a specific payment method
   const handleInstallmentAmountChange = (paymentMethodId: number, installmentIndex: number, newAmount: string) => {
-    const amount = parseFloat(newAmount.replace(/[^\d.]/g, "")) || 0;
+    const amount = parseFloat(newAmount.replace(/[^\d.-]/g, "")) || 0;
     setPaymentMethods(prev => prev.map(p => {
       if (p.id !== paymentMethodId) return p;
-      const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+      const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
       const updatedInstallments = [...p.customInstallments];
       if (updatedInstallments[installmentIndex]) {
         // Cap the amount to the total so a single installment can't exceed it
@@ -2595,7 +2595,7 @@ function PaymentsPageInner() {
     }
     setPaymentMethods(prev => prev.map(p => {
       const numInstallments = parseInt(p.installments) || 1;
-      const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+      const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
       if (numInstallments >= 1 && totalAmount > 0) {
         const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
         if (card && paymentDate) {
@@ -4367,7 +4367,7 @@ function PaymentsPageInner() {
                           const card = businessCreditCards.find(c => c.id === val);
                           if (card && paymentDate) {
                             const numInstallments = parseInt(p.installments) || 1;
-                            const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, "")) || 0;
+                            const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
                             if (numInstallments >= 1 && totalAmount > 0) {
                               updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, paymentDate, card.billing_day);
                             }
@@ -4405,7 +4405,7 @@ function PaymentsPageInner() {
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => {
                           // Allow only numbers and a single decimal point
-                          const val = e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+                          const val = e.target.value.replace(/[^\d.-]/g, "").replace(/(\..*)\./g, "$1");
                           updatePaymentMethodField(pm.id, "amount", val);
                         }}
                         placeholder="סכום"
@@ -4498,7 +4498,7 @@ function PaymentsPageInner() {
                           </div>
                           {pm.customInstallments.length > 1 && (() => {
                             const installmentsTotal = getInstallmentsTotal(pm.customInstallments);
-                            const pmTotal = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+                            const pmTotal = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
                             const isMismatch = Math.abs(installmentsTotal - pmTotal) > 0.01;
                             return (
                               <div className="flex items-center gap-[8px] border-t border-[#4C526B] pt-[8px] mt-[8px]">
@@ -4684,7 +4684,7 @@ function PaymentsPageInner() {
                 // Per-PM: check installments sum vs amount
                 paymentMethods.forEach((pm, idx) => {
                   if (pm.customInstallments.length > 0) {
-                    const pmAmount = parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0;
+                    const pmAmount = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
                     const instTotal = pm.customInstallments.reduce((s, inst) => s + (Number(inst.amount) || 0), 0);
                     if (pmAmount > 0 && Math.abs(instTotal - pmAmount) > 0.01) {
                       warnings.push(`אמצעי תשלום ${idx + 1}: סכום תשלומים (₪${instTotal.toFixed(2)}) לא תואם לסכום (₪${pmAmount.toFixed(2)})`);
@@ -4697,7 +4697,7 @@ function PaymentsPageInner() {
                     if (pm.customInstallments.length > 0) {
                       return sum + pm.customInstallments.reduce((s, inst) => s + (Number(inst.amount) || 0), 0);
                     }
-                    return sum + (parseFloat(pm.amount.replace(/[^\d.]/g, "")) || 0);
+                    return sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0);
                   }, 0);
                   const invoicesTotal = openInvoices
                     .filter(inv => selectedInvoiceIds.has(inv.id))
