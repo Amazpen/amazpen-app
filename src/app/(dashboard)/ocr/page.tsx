@@ -282,7 +282,7 @@ export default function OCRPage() {
           : allImageUrls.length === 1 ? allImageUrls[0]
           : JSON.stringify(allImageUrls);
 
-        if (formData.document_type === 'invoice' || formData.document_type === 'credit_note') {
+        if (formData.document_type === 'invoice' || formData.document_type === 'credit_note' || formData.document_type === 'disputed_invoice') {
           // --- INVOICE / CREDIT NOTE ---
           // If this document should be linked to an existing pending fixed-expense
           // invoice, UPDATE that placeholder instead of creating a duplicate.
@@ -310,6 +310,7 @@ export default function OCRPage() {
             newInvoice = data;
             invoiceError = error;
           } else {
+            const isDisputed = formData.document_type === 'disputed_invoice';
             const { data, error } = await supabase
               .from('invoices')
               .insert({
@@ -323,7 +324,8 @@ export default function OCRPage() {
                 subtotal: parseFloat(formData.amount_before_vat),
                 vat_amount: parseFloat(formData.vat_amount),
                 total_amount: parseFloat(formData.total_amount),
-                status: formData.is_paid ? 'paid' : 'pending',
+                status: isDisputed ? 'clarification' : (formData.is_paid ? 'paid' : 'pending'),
+                clarification_reason: isDisputed ? (formData.dispute_reason || null) : null,
                 notes: formData.notes || null,
                 created_by: user?.id || null,
                 invoice_type: formData.expense_type === 'goods' ? 'goods' : 'current',
