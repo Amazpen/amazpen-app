@@ -784,7 +784,7 @@ export default function OCRForm({
 
       // Auto-generate 1 installment row when check is selected (to show check number field)
       if (field === 'method' && value === 'check') {
-        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
+        const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
         const startDate = getEffectiveStartDate(methods, dateStr);
         const date = startDate ? new Date(startDate) : new Date();
         updated.customInstallments = [{
@@ -799,7 +799,7 @@ export default function OCRForm({
       // Regenerate installments when installments count changes
       if (field === 'installments') {
         const numInstallments = parseInt(value) || 1;
-        const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
+        const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
         const startDate = p.customInstallments.length > 0 ? p.customInstallments[0].dateForInput : getEffectiveStartDate(methods, dateStr);
         const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
         if (card && startDate) {
@@ -812,7 +812,7 @@ export default function OCRForm({
       // When amount changes, recalculate installment amounts but keep dates
       if (field === 'amount') {
         const numInstallments = parseInt(p.installments) || 1;
-        const totalAmount = parseFloat(value.replace(/[^\d.]/g, '')) || 0;
+        const totalAmount = parseFloat(value.replace(/[^\d.-]/g, '')) || 0;
         if (p.customInstallments.length > 0 && totalAmount > 0) {
           const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
           const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
@@ -865,10 +865,10 @@ export default function OCRForm({
   };
 
   const handleInstallmentAmountChange = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, paymentMethodId: number, installmentIndex: number, newAmount: string) => {
-    const amount = parseFloat(newAmount.replace(/[^\d.]/g, '')) || 0;
+    const amount = parseFloat(newAmount.replace(/[^\d.-]/g, '')) || 0;
     setter(prev => prev.map(p => {
       if (p.id !== paymentMethodId) return p;
-      const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
+      const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
       const updatedInstallments = [...p.customInstallments];
       if (updatedInstallments[installmentIndex]) {
         const cappedAmount = Math.min(Math.round(amount * 100) / 100, totalAmount);
@@ -1354,7 +1354,7 @@ export default function OCRForm({
       // Validate installments sum matches payment amount
       for (const pm of paymentMethods) {
         if (pm.customInstallments.length > 0) {
-          const pmTotal = parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0;
+          const pmTotal = parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0;
           const installmentsTotal = getInstallmentsTotal(pm.customInstallments);
           if (Math.abs(installmentsTotal - pmTotal) > 0.01) {
             alert(`סכום התשלומים (${installmentsTotal.toFixed(2)}) לא תואם לסכום לתשלום (${pmTotal.toFixed(2)})`);
@@ -1371,7 +1371,7 @@ export default function OCRForm({
         document_number: '',
         amount_before_vat: '0',
         vat_amount: '0',
-        total_amount: paymentMethods.reduce((s, p) => s + (parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0), 0).toFixed(2),
+        total_amount: paymentMethods.reduce((s, p) => s + (parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0), 0).toFixed(2),
         notes: paymentTabNotes,
         is_paid: true,
         payment_method: paymentMethods[0]?.method || '',
@@ -1447,7 +1447,7 @@ export default function OCRForm({
       if (isPaid) {
         for (const pm of inlinePaymentMethods) {
           if (pm.customInstallments.length > 0) {
-            const pmTotal = parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0;
+            const pmTotal = parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0;
             const installmentsTotal = getInstallmentsTotal(pm.customInstallments);
             if (Math.abs(installmentsTotal - pmTotal) > 0.01) {
               alert(`סכום התשלומים (${installmentsTotal.toFixed(2)}) לא תואם לסכום לתשלום (${pmTotal.toFixed(2)})`);
@@ -1565,7 +1565,7 @@ export default function OCRForm({
                   const card = businessCreditCards.find(c => c.id === cardId);
                   if (card && dateStr) {
                     const numInstallments = parseInt(p.installments) || 1;
-                    const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
+                    const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
                     if (numInstallments > 1 && totalAmount > 0) {
                       updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, dateStr, card.billing_day);
                     }
@@ -1595,7 +1595,7 @@ export default function OCRForm({
               value={pm.amount}
               onFocus={(e) => e.target.select()}
               onChange={(e) => {
-                const val = e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+                const val = e.target.value.replace(/[^\d.-]/g, '').replace(/(\..*)\./g, '$1');
                 updatePaymentMethodField(setter, methods, pm.id, 'amount', val, dateStr);
               }}
               placeholder="סכום"
@@ -1686,7 +1686,7 @@ export default function OCRForm({
                 </div>
                 {(() => {
                   const installmentsTotal = getInstallmentsTotal(pm.customInstallments);
-                  const pmTotal = parseFloat(pm.amount.replace(/[^\d.]/g, '')) || 0;
+                  const pmTotal = parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0;
                   const isMismatch = Math.abs(installmentsTotal - pmTotal) > 0.01;
                   return (
                     <div className="flex items-center gap-[8px] border-t border-[#4C526B] pt-[8px] mt-[8px]">
@@ -1971,7 +1971,7 @@ export default function OCRForm({
               title="הנחה באחוזים"
               value={discountPercentage}
               onChange={(e) => {
-                const val = e.target.value.replace(/[^\d.]/g, '');
+                const val = e.target.value.replace(/[^\d.-]/g, '');
                 setDiscountPercentage(val);
                 const baseAmount = parseFloat(amountBeforeVat) || 0;
                 const pct = parseFloat(val) || 0;
@@ -2364,7 +2364,7 @@ export default function OCRForm({
                     setInlinePaymentDate(val);
                     setInlinePaymentMethods(prev => prev.map(p => {
                       const numInstallments = parseInt(p.installments) || 1;
-                      const totalAmount = parseFloat(p.amount.replace(/[^\d.]/g, '')) || 0;
+                      const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
                       if (numInstallments >= 1 && totalAmount > 0) {
                         return { ...p, customInstallments: generateInstallments(numInstallments, totalAmount, val) };
                       }
