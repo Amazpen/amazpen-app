@@ -276,8 +276,26 @@ export default function OCRPage() {
         let createdDeliveryNoteId: string | null = null;
 
         // The OCR document's image_url + all merged document URLs should be linked
-        // as attachments on the created records. Single URL = string; multiple = JSON array.
-        const allImageUrls = [currentDocument.image_url, ...mergedDocuments.map(d => d.image_url)].filter(Boolean) as string[];
+        // as attachments on the created records. Prefer formData.merged_document_ids
+        // (authoritative — survives re-renders) and fall back to the
+        // mergedDocuments state. Look up image_urls directly from the DB so the
+        // saved attachment_url is always complete, even if state was stale.
+        const mergedIdsForAttach = (formData.merged_document_ids || []).filter(Boolean);
+        let mergedImageUrls: string[] = mergedDocuments
+          .filter(d => d && d.image_url)
+          .map(d => d.image_url as string);
+        if (mergedIdsForAttach.length > 0 && mergedImageUrls.length !== mergedIdsForAttach.length) {
+          const { data: mergedDocsFromDb } = await supabase
+            .from('ocr_documents')
+            .select('id, image_url')
+            .in('id', mergedIdsForAttach);
+          if (mergedDocsFromDb && mergedDocsFromDb.length > 0) {
+            mergedImageUrls = mergedDocsFromDb
+              .map(d => (d.image_url as string) || '')
+              .filter(Boolean);
+          }
+        }
+        const allImageUrls = [currentDocument.image_url, ...mergedImageUrls].filter(Boolean) as string[];
         const ocrImageUrl = allImageUrls.length === 0 ? null
           : allImageUrls.length === 1 ? allImageUrls[0]
           : JSON.stringify(allImageUrls);
