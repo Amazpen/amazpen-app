@@ -36,6 +36,7 @@ export interface Business {
   documents_email?: string;
   documents_send_frequency?: "daily" | "weekly" | "monthly";
   documents_send_mode?: "individual" | "zip";
+  documents_send_types?: Array<"invoice" | "payment" | "delivery_note">;
   documents_last_sent_at?: string;
   created_at: string;
   updated_at: string;

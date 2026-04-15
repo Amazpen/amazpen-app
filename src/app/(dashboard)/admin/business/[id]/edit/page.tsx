@@ -84,6 +84,7 @@ export default function EditBusinessPage({ params }: PageProps) {
   const [documentsEmail, setDocumentsEmail] = useState("");
   const [documentsSendFrequency, setDocumentsSendFrequency] = useState<"daily" | "weekly" | "monthly">("daily");
   const [documentsSendMode, setDocumentsSendMode] = useState<"individual" | "zip">("individual");
+  const [documentsSendTypes, setDocumentsSendTypes] = useState<Array<"invoice" | "payment" | "delivery_note">>(["invoice", "payment", "delivery_note"]);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [existingLogoUrl, setExistingLogoUrl] = useState<string | null>(null);
@@ -239,6 +240,11 @@ export default function EditBusinessPage({ params }: PageProps) {
       setDocumentsEmail(business.documents_email || "");
       setDocumentsSendFrequency((business.documents_send_frequency as "daily" | "weekly" | "monthly") || "daily");
       setDocumentsSendMode((business.documents_send_mode as "individual" | "zip") || "individual");
+      setDocumentsSendTypes(
+        (business.documents_send_types && Array.isArray(business.documents_send_types) && business.documents_send_types.length > 0)
+          ? business.documents_send_types as Array<"invoice" | "payment" | "delivery_note">
+          : ["invoice", "payment", "delivery_note"]
+      );
       setExistingLogoUrl(business.logo_url || null);
       setLogoPreview(business.logo_url || null);
       setManagerSalary(business.manager_monthly_salary || 0);
@@ -666,6 +672,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           documents_email: documentsEmail.trim() || null,
           documents_send_frequency: documentsSendFrequency,
           documents_send_mode: documentsSendFrequency === "daily" ? "individual" : documentsSendMode,
+          documents_send_types: documentsSendTypes.length > 0 ? documentsSendTypes : ["invoice", "payment", "delivery_note"],
           logo_url: logoUrl,
           manager_monthly_salary: managerSalary,
           markup_percentage: 1 + markupPercentage / 100,
@@ -1139,8 +1146,26 @@ export default function EditBusinessPage({ params }: PageProps) {
                 </div>
               </>
             )}
+            <label className="text-[13px] font-medium text-white/70 text-right mt-[5px]">סוגי מסמכים לשליחה</label>
+            <div className="grid grid-cols-3 gap-[8px]">
+              {([["invoice","חשבוניות"],["payment","תשלומים"],["delivery_note","תעודות משלוח"]] as const).map(([val, label]) => {
+                const active = documentsSendTypes.includes(val);
+                return (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => {
+                      setDocumentsSendTypes(active ? documentsSendTypes.filter(t => t !== val) : [...documentsSendTypes, val]);
+                    }}
+                    className={`h-[45px] rounded-[10px] border text-[13px] text-white transition ${active ? "bg-[#29318A] border-white" : "bg-transparent border-[#4C526B] hover:border-white/50"}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
             <p className="text-[11px] text-white/40 text-right mt-[3px]">
-              המסמכים שיישמרו בעמוד OCR יישלחו אוטומטית לכתובת זו לפי התדירות שנבחרה.
+              המסמכים שיישמרו בעמוד OCR (מהסוגים שנבחרו) יישלחו אוטומטית לכתובת זו לפי התדירות שנבחרה. ברירת מחדל: כל הסוגים.
             </p>
           </>
         )}

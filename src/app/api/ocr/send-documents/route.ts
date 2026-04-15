@@ -37,6 +37,7 @@ interface BusinessRow {
   documents_email: string
   documents_send_frequency: 'daily' | 'weekly' | 'monthly'
   documents_send_mode: 'individual' | 'zip'
+  documents_send_types: Array<'invoice' | 'payment' | 'delivery_note'> | null
 }
 
 export async function POST(request: NextRequest) {
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
   // Fetch businesses with documents_email
   const { data: businesses, error: bizErr } = await supabase
     .from('businesses')
-    .select('id, name, documents_email, documents_send_frequency, documents_send_mode')
+    .select('id, name, documents_email, documents_send_frequency, documents_send_mode, documents_send_types')
     .not('documents_email', 'is', null)
     .neq('documents_email', '')
     .is('deleted_at', null)
@@ -94,14 +95,28 @@ export async function POST(request: NextRequest) {
       sinceDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     }
 
-    // Fetch reviewed OCR docs for this business that resulted in a saved entity
+    // Determine which entity types are enabled (default: all)
+    const enabledTypes = (biz.documents_send_types && biz.documents_send_types.length > 0)
+      ? biz.documents_send_types
+      : ['invoice', 'payment', 'delivery_note']
+    const orParts: string[] = []
+    if (enabledTypes.includes('invoice')) orParts.push('created_invoice_id.not.is.null')
+    if (enabledTypes.includes('payment')) orParts.push('created_payment_id.not.is.null')
+    if (enabledTypes.includes('delivery_note')) orParts.push('created_delivery_note_id.not.is.null')
+
+    if (orParts.length === 0) {
+      results.push({ businessId: biz.id, sent: 0, skipped: 'no-enabled-types' })
+      continue
+    }
+
+    // Fetch approved OCR docs for this business that resulted in a saved entity of an enabled type
     const { data: docs, error: docsErr } = await supabase
       .from('ocr_documents')
       .select('id, business_id, image_url, original_filename, created_invoice_id, created_payment_id, created_delivery_note_id')
       .eq('business_id', biz.id)
       .eq('status', 'approved')
       .gte('reviewed_at', sinceDate.toISOString())
-      .or('created_invoice_id.not.is.null,created_payment_id.not.is.null,created_delivery_note_id.not.is.null')
+      .or(orParts.join(','))
 
     if (docsErr || !docs || docs.length === 0) {
       results.push({ businessId: biz.id, sent: 0, skipped: 'no-docs' })
