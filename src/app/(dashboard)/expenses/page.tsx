@@ -6309,8 +6309,8 @@ function ExpensesPageInner() {
                 <span className="text-[20px] font-bold text-white">{breakdownSupplierCategory}</span>
               </div>
               <div className="flex flex-col items-center">
-                <span className="text-[20px] font-bold text-white ltr-num">₪{breakdownSupplierInvoices.reduce((sum, inv) => sum + (Number(inv.amountBeforeVat) || 0), 0).toLocaleString()}</span>
-                <span className="text-[14px] text-white/70">לפני מע&quot;מ · {breakdownSupplierInvoices.length} חשבוניות</span>
+                <span className="text-[20px] font-bold text-white ltr-num">₪{breakdownSupplierInvoices.reduce((sum, inv) => sum + (Number(inv.amountWithVat) || 0), 0).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-[14px] text-white/70">כולל מע&quot;מ · {breakdownSupplierInvoices.length} חשבוניות</span>
               </div>
             </div>
 
