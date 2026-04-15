@@ -1221,6 +1221,12 @@ export default function SuppliersPage() {
 
       const totalPurchases = invoicesData?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
 
+      // Open invoices total = same logic as payments page (pending + clarification only)
+      // This makes "יתרה לתשלום" match the payments page selection total exactly
+      const openInvoicesTotal = invoicesData
+        ?.filter((inv) => inv.status === "pending" || inv.status === "clarification")
+        .reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+
       // Fetch total payments for this supplier
       const { data: paymentsData } = await supabase
         .from("payments")
@@ -1249,9 +1255,9 @@ export default function SuppliersPage() {
       }
       setMonthlyBreakdown(breakdownMonths);
 
-      // Remaining balance = total invoiced - total paid (matches Bubble formula)
+      // Remaining balance = sum of open invoices (pending + clarification) — matches payments page
       let displayTotalPurchases = totalPurchases;
-      let displayRemainingBalance = Math.max(totalPurchases - totalPaid, 0);
+      let displayRemainingBalance = openInvoicesTotal;
 
       if (supplier.has_previous_obligations && supplier.obligation_total_amount) {
         displayTotalPurchases = supplier.obligation_total_amount;

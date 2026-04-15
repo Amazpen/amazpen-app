@@ -93,6 +93,7 @@ interface OpenInvoice {
   invoice_date: string;
   total_amount: number;
   status: string;
+  approval_status: string | null;
   attachment_url: string | null;
   notes: string | null;
 }
@@ -718,9 +719,10 @@ function PaymentsPageInner() {
   };
 
   const toggleInvoiceSelection = (invoiceId: string) => {
-    // Block selection of invoices in clarification status
+    // Block selection of invoices in clarification or pending_review (awaiting approval)
     const inv = openInvoices.find(i => i.id === invoiceId);
     if (inv?.status === "clarification") return;
+    if (inv?.approval_status === "pending_review") return;
 
     setSelectedInvoiceIds(prev => {
       const newSet = new Set(prev);
@@ -747,7 +749,7 @@ function PaymentsPageInner() {
   };
 
   const toggleAllInvoices = (monthInvoices?: typeof openInvoices) => {
-    const invoicesToToggle = (monthInvoices ?? openInvoices).filter(inv => inv.status !== "clarification");
+    const invoicesToToggle = (monthInvoices ?? openInvoices).filter(inv => inv.status !== "clarification" && inv.approval_status !== "pending_review");
     const allIds = invoicesToToggle.map(inv => inv.id);
     const allSelected = allIds.length > 0 && allIds.every(id => selectedInvoiceIds.has(id));
 
@@ -2031,12 +2033,43 @@ function PaymentsPageInner() {
         }
       }
 
-      // If old invoice was linked and now different/removed, revert old invoice status
-      if (oldPayment?.linkedInvoiceId && !selectedInvoiceIds.has(oldPayment.linkedInvoiceId)) {
+      // Rebuild payment_invoice_links: fetch previously linked invoice ids, delete all links, revert statuses for dropped ones
+      const { data: oldLinks } = await supabase
+        .from("payment_invoice_links")
+        .select("invoice_id")
+        .eq("payment_id", editingPaymentId);
+
+      const previouslyLinkedIds = new Set<string>((oldLinks || []).map((l) => l.invoice_id as string));
+      if (oldPayment?.linkedInvoiceId) previouslyLinkedIds.add(oldPayment.linkedInvoiceId);
+
+      // Revert status for invoices that were linked before but are no longer selected
+      const droppedInvoiceIds = Array.from(previouslyLinkedIds).filter((id) => !selectedInvoiceIds.has(id));
+      if (droppedInvoiceIds.length > 0) {
         await supabase
           .from("invoices")
           .update({ status: "pending" })
-          .eq("id", oldPayment.linkedInvoiceId);
+          .in("id", droppedInvoiceIds);
+      }
+
+      // Delete existing N:M links for this payment (we'll recreate below if needed)
+      await supabase
+        .from("payment_invoice_links")
+        .delete()
+        .eq("payment_id", editingPaymentId);
+
+      // Recreate N:M links when more than one invoice is linked (matches create-path behavior)
+      if (selectedInvoiceIds.size > 1) {
+        const selectedInvObjs = openInvoices.filter((inv) => selectedInvoiceIds.has(inv.id));
+        let remaining = totalAmount;
+        for (const inv of selectedInvObjs) {
+          const allocated = Math.min(Number(inv.total_amount), remaining);
+          remaining -= allocated;
+          await supabase.from("payment_invoice_links").insert({
+            payment_id: editingPaymentId,
+            invoice_id: inv.id,
+            amount_allocated: allocated,
+          });
+        }
       }
 
       // Mark newly selected invoices as paid (with ₪5 tolerance for rounding)
@@ -2636,7 +2669,7 @@ function PaymentsPageInner() {
       try {
         const { data, error } = await supabase
           .from("invoices")
-          .select("id, invoice_number, invoice_date, total_amount, status, attachment_url, notes")
+          .select("id, invoice_number, invoice_date, total_amount, status, approval_status, attachment_url, notes")
           .eq("supplier_id", selectedSupplier)
           .in("business_id", selectedBusinesses)
           .in("status", ["pending", "clarification"])
@@ -2656,7 +2689,7 @@ function PaymentsPageInner() {
             if (!alreadyInList) {
               const { data: linkedData } = await supabase
                 .from("invoices")
-                .select("id, invoice_number, invoice_date, total_amount, status, attachment_url, notes")
+                .select("id, invoice_number, invoice_date, total_amount, status, approval_status, attachment_url, notes")
                 .in("id", linkedIdsArr)
                 .is("deleted_at", null);
               if (linkedData && linkedData.length > 0) {
@@ -4138,7 +4171,7 @@ function PaymentsPageInner() {
                                 <div className="grid grid-cols-[24px_1fr_1fr_1fr_50px] gap-[3px] px-[3px] py-[3px] border-b border-white/20 items-center">
                                   <Button type="button" onClick={() => toggleAllInvoices(monthInvoices)} className="flex items-center justify-center">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                      {monthInvoices.length > 0 && monthInvoices.filter(inv => inv.status !== "clarification").every(inv => selectedInvoiceIds.has(inv.id)) && monthInvoices.some(inv => inv.status !== "clarification") ? (
+                                      {monthInvoices.length > 0 && monthInvoices.filter(inv => inv.status !== "clarification" && inv.approval_status !== "pending_review").every(inv => selectedInvoiceIds.has(inv.id)) && monthInvoices.some(inv => inv.status !== "clarification" && inv.approval_status !== "pending_review") ? (
                                         <>
                                           <rect x="3" y="3" width="18" height="18" rx="3" fill="#29318A" stroke="white" strokeWidth="1.5"/>
                                           <path d="M8 12L11 15L16 9" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -4162,7 +4195,9 @@ function PaymentsPageInner() {
                                   <div key={inv.id} className="flex flex-col">
                                     <div
                                       className={`grid grid-cols-[24px_1fr_1fr_1fr_50px] gap-[3px] px-[3px] py-[8px] rounded-[10px] transition-colors items-center ${
-                                        inv.status === "clarification" ? "border border-[#FFA500]/50 bg-[#FFA500]/5 opacity-60 cursor-not-allowed" : "hover:bg-white/5 cursor-pointer"
+                                        inv.status === "clarification" ? "border border-[#FFA500]/50 bg-[#FFA500]/5 opacity-60 cursor-not-allowed"
+                                        : inv.approval_status === "pending_review" ? "border border-[#bc76ff]/50 bg-[#bc76ff]/5 opacity-60 cursor-not-allowed"
+                                        : "hover:bg-white/5 cursor-pointer"
                                       } ${selectedInvoiceIds.has(inv.id) ? "bg-[#29318A]/30" : ""}`}
                                       onClick={() => toggleInvoiceSelection(inv.id)}
                                     >
@@ -4173,6 +4208,12 @@ function PaymentsPageInner() {
                                               <rect x="3" y="3" width="18" height="18" rx="3" stroke="rgba(255,165,0,0.5)" strokeWidth="1.5" fill="none"/>
                                               <line x1="7" y1="7" x2="17" y2="17" stroke="rgba(255,165,0,0.5)" strokeWidth="1.5"/>
                                               <line x1="17" y1="7" x2="7" y2="17" stroke="rgba(255,165,0,0.5)" strokeWidth="1.5"/>
+                                            </svg>
+                                          ) : inv.approval_status === "pending_review" ? (
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                              <rect x="3" y="3" width="18" height="18" rx="3" stroke="rgba(188,118,255,0.5)" strokeWidth="1.5" fill="none"/>
+                                              <line x1="7" y1="7" x2="17" y2="17" stroke="rgba(188,118,255,0.5)" strokeWidth="1.5"/>
+                                              <line x1="17" y1="7" x2="7" y2="17" stroke="rgba(188,118,255,0.5)" strokeWidth="1.5"/>
                                             </svg>
                                           ) : (
                                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -4197,6 +4238,7 @@ function PaymentsPageInner() {
                                           ₪{Number(inv.total_amount).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                           {inv.status === "paid" && <span className="text-[10px] text-green-400 mr-[3px]">(שולם)</span>}
                                           {inv.status === "clarification" && <span className="text-[10px] text-[#FFA500] mr-[3px]">(בבירור)</span>}
+                                          {inv.approval_status === "pending_review" && inv.status !== "clarification" && <span className="text-[10px] text-[#bc76ff] mr-[3px]">(בבדיקה)</span>}
                                         </span>
                                       <div className="flex items-center justify-center gap-[5px]" onClick={(e) => e.stopPropagation()}>
                                         {attachmentUrls.length > 0 && (
