@@ -33,6 +33,10 @@ export interface Business {
   vat_percentage: number;
   manager_monthly_salary: number;
   send_to_accountant: boolean;
+  documents_email?: string;
+  documents_send_frequency?: "daily" | "weekly" | "monthly";
+  documents_send_mode?: "individual" | "zip";
+  documents_last_sent_at?: string;
   created_at: string;
   updated_at: string;
   deleted_at?: string;

@@ -103,6 +103,9 @@ function NewBusinessPage() {
   const [city, setCity] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [documentsEmail, setDocumentsEmail] = useState("");
+  const [documentsSendFrequency, setDocumentsSendFrequency] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [documentsSendMode, setDocumentsSendMode] = useState<"individual" | "zip">("individual");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [managerSalary, setManagerSalary] = useState<number>(0);
@@ -676,6 +679,9 @@ function NewBusinessPage() {
           city: city || null,
           phone: phone || null,
           email: email || null,
+          documents_email: documentsEmail.trim() || null,
+          documents_send_frequency: documentsSendFrequency,
+          documents_send_mode: documentsSendFrequency === "daily" ? "individual" : documentsSendMode,
           logo_url: logoUrl,
           status: "active",
           send_to_accountant: sendToAccountant,
@@ -1060,6 +1066,57 @@ function NewBusinessPage() {
             />
           </div>
         </div>
+      </div>
+
+      {/* Documents Email Settings */}
+      <div className="flex flex-col gap-[10px] p-[15px] border border-[#4C526B] rounded-[10px] bg-[#1a1f3a]/30">
+        <label className="text-[15px] font-medium text-white text-right">שליחת מסמכי OCR למייל (אופציונלי)</label>
+        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+          <Input
+            type="email"
+            value={documentsEmail}
+            onChange={(e) => setDocumentsEmail(e.target.value)}
+            placeholder="accountant@example.com"
+            className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+          />
+        </div>
+        {documentsEmail.trim() && (
+          <>
+            <label className="text-[13px] font-medium text-white/70 text-right mt-[5px]">תדירות שליחה</label>
+            <div className="grid grid-cols-3 gap-[8px]">
+              {([["daily","יומי"],["weekly","שבועי"],["monthly","חודשי"]] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setDocumentsSendFrequency(val)}
+                  className={`h-[45px] rounded-[10px] border text-[13px] text-white transition ${documentsSendFrequency === val ? "bg-[#29318A] border-white" : "bg-transparent border-[#4C526B] hover:border-white/50"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {documentsSendFrequency !== "daily" && (
+              <>
+                <label className="text-[13px] font-medium text-white/70 text-right mt-[5px]">מצב שליחה</label>
+                <div className="grid grid-cols-2 gap-[8px]">
+                  {([["individual","כל מסמך בנפרד"],["zip","קובץ ZIP מאוחד"]] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setDocumentsSendMode(val)}
+                      className={`h-[45px] rounded-[10px] border text-[13px] text-white transition ${documentsSendMode === val ? "bg-[#29318A] border-white" : "bg-transparent border-[#4C526B] hover:border-white/50"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <p className="text-[11px] text-white/40 text-right mt-[3px]">
+              המסמכים שיישמרו בעמוד OCR יישלחו אוטומטית לכתובת זו לפי התדירות שנבחרה.
+            </p>
+          </>
+        )}
       </div>
 
       {/* Manager Salary */}
