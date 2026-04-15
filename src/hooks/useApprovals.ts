@@ -176,11 +176,15 @@ export function useApprovals(businessIds: string[]): UseApprovalsReturn {
 
   const approveInvoice = useCallback(
     async (invoiceId: string): Promise<void> => {
-      await fetch('/api/approvals/invoice', {
+      const res = await fetch('/api/approvals/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ invoice_id: invoiceId }),
       });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: 'שגיאה באישור החשבונית' }));
+        throw new Error(error || 'שגיאה באישור החשבונית');
+      }
       await fetchPending();
     },
     [fetchPending]
@@ -188,11 +192,15 @@ export function useApprovals(businessIds: string[]): UseApprovalsReturn {
 
   const approvePayment = useCallback(
     async (paymentId: string): Promise<void> => {
-      await fetch('/api/approvals/payment', {
+      const res = await fetch('/api/approvals/payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ payment_id: paymentId }),
       });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: 'שגיאה באישור התשלום' }));
+        throw new Error(error || 'שגיאה באישור התשלום');
+      }
       await fetchPending();
     },
     [fetchPending]

@@ -4124,9 +4124,14 @@ function ExpensesPageInner() {
                         )}
                         <button
                           className="text-[12px] font-bold px-[14px] py-[5px] rounded-full bg-white/20 text-white/60 hover:bg-green-500 hover:text-white transition-colors whitespace-nowrap min-w-[70px] text-center"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            approveInvoice(invoice.id);
+                            try {
+                              await approveInvoice(invoice.id);
+                              showToast("החשבונית אושרה", "success");
+                            } catch (err) {
+                              showToast(err instanceof Error ? err.message : "שגיאה באישור החשבונית", "error");
+                            }
                           }}
                         >
                           ממתין לבדיקה ✓
@@ -6342,9 +6347,14 @@ function ExpensesPageInner() {
                       {inv.approval_status === 'pending_review' ? (
                         <button
                           className="text-[10px] font-bold px-[7px] py-[3px] rounded-full bg-white/20 text-white/60 hover:bg-green-500 hover:text-white transition-colors whitespace-nowrap"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            approveInvoice(inv.id);
+                            try {
+                              await approveInvoice(inv.id);
+                              showToast("החשבונית אושרה", "success");
+                            } catch (err) {
+                              showToast(err instanceof Error ? err.message : "שגיאה באישור החשבונית", "error");
+                            }
                           }}
                         >
                           ממתין ✓

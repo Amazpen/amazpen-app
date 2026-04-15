@@ -11,17 +11,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'לא מחובר' }, { status: 401 });
     }
 
-    // Check admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (!profile?.is_admin) {
-      return NextResponse.json({ error: 'אין הרשאת אדמין' }, { status: 403 });
-    }
-
     const body = await request.json();
     const { invoice_id } = body;
 
@@ -30,6 +19,41 @@ export async function POST(request: NextRequest) {
         { error: 'Missing required field: invoice_id' },
         { status: 400 }
       );
+    }
+
+    // Check authorization: system admin OR business admin/owner for this invoice's business
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    let authorized = profile?.is_admin === true;
+
+    if (!authorized) {
+      const { data: invoiceRow } = await supabase
+        .from('invoices')
+        .select('business_id')
+        .eq('id', invoice_id)
+        .maybeSingle();
+
+      if (invoiceRow?.business_id) {
+        const { data: membership } = await supabase
+          .from('business_members')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('business_id', invoiceRow.business_id)
+          .is('deleted_at', null)
+          .maybeSingle();
+
+        if (membership?.role === 'admin' || membership?.role === 'owner') {
+          authorized = true;
+        }
+      }
+    }
+
+    if (!authorized) {
+      return NextResponse.json({ error: 'אין הרשאה לאישור חשבוניות' }, { status: 403 });
     }
 
     const now = new Date().toISOString();

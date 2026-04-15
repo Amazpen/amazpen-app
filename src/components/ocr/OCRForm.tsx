@@ -2118,7 +2118,7 @@ export default function OCRForm({
                     onChange={(e) => {
                       setLineItems(prev => prev.map((item, i) => i !== idx ? item : { ...item, description: e.target.value }));
                     }}
-                    className="w-full bg-transparent border border-transparent hover:border-[#4C526B]/50 focus:border-[#29318A] rounded-[4px] text-right text-white text-[13px] h-[28px] px-[3px] outline-none overflow-hidden text-ellipsis"
+                    className="w-full bg-transparent border border-[#4C526B]/50 focus:border-[#29318A] rounded-[4px] text-right text-white text-[13px] h-[28px] px-[3px] outline-none overflow-hidden text-ellipsis"
                     title={li.description || '-'}
                     dir="rtl"
                   />
