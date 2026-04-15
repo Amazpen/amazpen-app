@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       .from('ocr_documents')
       .select('id, business_id, image_url, original_filename, created_invoice_id, created_payment_id, created_delivery_note_id')
       .eq('business_id', biz.id)
-      .eq('status', 'reviewed')
+      .eq('status', 'approved')
       .gte('reviewed_at', sinceDate.toISOString())
       .or('created_invoice_id.not.is.null,created_payment_id.not.is.null,created_delivery_note_id.not.is.null')
 
