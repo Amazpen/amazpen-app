@@ -126,7 +126,7 @@ export default function AdminGoalsPage() {
   const [managedProducts, setManagedProducts] = useState<ManagedProduct[]>([]);
 
   // Tabs
-  const [activeTab, setActiveTab] = usePersistedState<"kpi" | "suppliers">("admin-goals:tab", "kpi");
+  const [activeTab, setActiveTab] = usePersistedState<"kpi" | "suppliers" | "goods">("admin-goals:tab", "kpi");
   const [supplierSearch, setSupplierSearch] = useState("");
 
   // Redirect if not admin
@@ -685,8 +685,19 @@ export default function AdminGoalsPage() {
     .filter((b) => b.expense_type === "current_expenses")
     .reduce((sum, b) => sum + b.budget_amount, 0);
 
+  // Goods purchases helpers
+  const getGoodsMonthTotal = (month: number) => {
+    return supplierBudgets
+      .filter((b) => b.expense_type === "goods_purchases" && b.month === month)
+      .reduce((sum, b) => sum + b.budget_amount, 0);
+  };
+  const goodsGrandTotal = supplierBudgets
+    .filter((b) => b.expense_type === "goods_purchases")
+    .reduce((sum, b) => sum + b.budget_amount, 0);
+
   // Current expenses suppliers only
   const currentExpensesSuppliers = suppliers.filter((s) => s.expense_type === "current_expenses");
+  const goodsSuppliers = suppliers.filter((s) => s.expense_type === "goods_purchases");
 
   if (!isAdmin) {
     return null;
@@ -792,10 +803,11 @@ export default function AdminGoalsPage() {
       ) : (
         <>
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "kpi" | "suppliers")} dir="rtl">
+          <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "kpi" | "suppliers" | "goods")} dir="rtl">
             <TabsList className="w-full bg-transparent rounded-[7px] p-0 h-[50px] sm:h-[60px] mb-6 gap-0 border border-[#6B6B6B]">
               <TabsTrigger value="kpi" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-r-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">יעדי KPI</TabsTrigger>
-              <TabsTrigger value="suppliers" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">תקציב הוצאות שוטפות</TabsTrigger>
+              <TabsTrigger value="suppliers" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">תקציב הוצאות שוטפות</TabsTrigger>
+              <TabsTrigger value="goods" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">תקציב קניות סחורה</TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -946,7 +958,7 @@ export default function AdminGoalsPage() {
               </div>
               )}
             </div>
-          ) : (
+          ) : activeTab === "suppliers" ? (
             /* Supplier Budgets Tab - 12 Month Table */
             <div className="bg-[#1A1F37] rounded-xl overflow-hidden">
               {/* Search bar */}
@@ -1018,6 +1030,86 @@ export default function AdminGoalsPage() {
                       ))}
                       <TableCell className="px-2 py-3 text-center text-sm font-bold text-[#17DB4E]">
                         ₪{grandTotal.toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
+              </div>
+            </div>
+          ) : (
+            /* Goods Purchases Tab - 12 Month Table */
+            <div className="bg-[#1A1F37] rounded-xl overflow-hidden">
+              <div className="px-4 pt-4 pb-2">
+                <p className="text-[12px] text-white/50 text-right mb-2">
+                  קבע תקציב חודשי מרבי לכל ספק קניות סחורה. כשהספק יחרוג — תישלח התראה אוטומטית למייל.
+                </p>
+                <Input
+                  type="text"
+                  placeholder="חיפוש ספק..."
+                  value={supplierSearch}
+                  onChange={(e) => setSupplierSearch(e.target.value)}
+                  className="w-full bg-[#0F1535] border border-[#29318A] rounded-lg px-4 py-3 text-white text-right focus:outline-none focus:border-[#4956D4] placeholder:text-white/30"
+                />
+              </div>
+              <div className="overflow-x-auto">
+                <Table className="w-full min-w-[900px] border-collapse">
+                  <TableHeader>
+                    <TableRow className="bg-[#0F1535]">
+                      <TableHead className="sticky right-0 z-10 bg-[#0F1535] text-right px-4 py-3 text-sm font-semibold border-b border-white/10 min-w-[140px]">שם ספק</TableHead>
+                      <TableHead className="text-right px-2 py-3 text-sm font-semibold border-b border-white/10 text-white/60 min-w-[70px]">סוג</TableHead>
+                      {hebrewMonths.map((m) => (
+                        <TableHead key={m.value} className="text-center px-1 py-3 text-xs font-semibold border-b border-white/10 text-white/70 min-w-[80px]">
+                          {m.label}
+                        </TableHead>
+                      ))}
+                      <TableHead className="text-center px-2 py-3 text-sm font-semibold border-b border-white/10 text-[#17DB4E] min-w-[90px]">סה״כ</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {goodsSuppliers
+                      .filter(s => !supplierSearch || s.name.toLowerCase().includes(supplierSearch.toLowerCase()))
+                      .sort((a, b) => (a.is_fixed_expense === b.is_fixed_expense ? 0 : a.is_fixed_expense ? -1 : 1))
+                      .map((supplier) => (
+                      <TableRow key={supplier.id} className={`border-b border-white/5 hover:bg-white/[0.02] ${supplier.is_fixed_expense ? "bg-[#7C3AED]/10" : ""}`}>
+                        <TableCell className={`sticky right-0 z-10 px-4 py-2 text-sm font-medium ${supplier.is_fixed_expense ? "bg-[#7C3AED]/15 text-[#C084FC]" : "bg-[#1A1F37] text-white/90"}`}>{supplier.name}</TableCell>
+                        <TableCell className={`px-2 py-2 text-xs ${supplier.is_fixed_expense ? "text-[#C084FC] font-medium" : "text-white/40"}`}>{supplier.is_fixed_expense ? "קבוע" : "משתנה"}</TableCell>
+                        {hebrewMonths.map((m) => {
+                          const budget = getBudget(supplier.id, m.value);
+                          return (
+                            <TableCell key={m.value} className="px-1 py-1">
+                              <Input
+                                type="number"
+                                value={budget?.budget_amount || ""}
+                                onChange={(e) =>
+                                  updateSupplierBudget(
+                                    supplier.id,
+                                    m.value,
+                                    e.target.value ? parseFloat(e.target.value) : 0
+                                  )
+                                }
+                                className="w-full bg-[#0F1535] border border-[#29318A]/50 rounded px-2 py-1.5 text-white text-center text-sm focus:outline-none focus:border-[#4956D4] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                placeholder="0"
+                              />
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell className="px-2 py-2 text-center text-sm font-semibold text-white/80">
+                          ₪{getSupplierTotal(supplier.id).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow className="bg-[#0F1535]/60 border-t border-white/10">
+                      <TableCell className="sticky right-0 z-10 bg-[#0F1535] px-4 py-3 text-sm font-bold">סה״כ</TableCell>
+                      <TableCell></TableCell>
+                      {hebrewMonths.map((m) => (
+                        <TableCell key={m.value} className="px-1 py-3 text-center text-xs font-semibold text-white">
+                          ₪{getGoodsMonthTotal(m.value).toLocaleString()}
+                        </TableCell>
+                      ))}
+                      <TableCell className="px-2 py-3 text-center text-sm font-bold text-[#17DB4E]">
+                        ₪{goodsGrandTotal.toLocaleString()}
                       </TableCell>
                     </TableRow>
                   </TableFooter>
