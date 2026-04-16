@@ -29,6 +29,8 @@ export async function POST(request: NextRequest) {
   const now = new Date();
   const year = parseInt(searchParams.get("year") || "") || now.getFullYear();
   const month = parseInt(searchParams.get("month") || "") || (now.getMonth() + 1);
+  const testMode = searchParams.get("test") === "1" || process.env.BUDGET_ALERT_TEST_MODE === "true";
+  const TEST_EMAIL = "david@amazpen.co.il";
 
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const monthEnd =
@@ -175,7 +177,8 @@ export async function POST(request: NextRequest) {
   for (const alert of newAlerts) {
     const businessName = businessMap.get(alert.business_id) || "עסק";
     const supplierName = supplierMap.get(alert.supplier_id) || "ספק";
-    const emails = (emailsByBusiness.get(alert.business_id) || []).join(", ");
+    const realEmails = (emailsByBusiness.get(alert.business_id) || []).join(", ");
+    const emails = testMode ? TEST_EMAIL : realEmails;
 
     if (!emails) continue;
 
