@@ -6,6 +6,179 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
+interface ActivityRow {
+  id: string;
+  session_id: string;
+  page_path: string;
+  page_name: string | null;
+  entered_at: string;
+  left_at: string | null;
+  duration_seconds: number | null;
+  device_type: string | null;
+  browser: string | null;
+  screen_size: string | null;
+  user_agent: string | null;
+}
+
+interface ActivityStats {
+  totalSeconds: number;
+  totalMinutes: number;
+  sessionsCount: number;
+  pagesVisited: number;
+  uniquePages: number;
+  firstSeen: string | null;
+  lastSeen: string | null;
+  topPages: Array<{ path: string; name: string; visits: number; totalSeconds: number }>;
+}
+
+function formatDuration(seconds: number | null): string {
+  if (!seconds || seconds < 1) return "—";
+  if (seconds < 60) return `${seconds} שניות`;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins < 60) return secs > 0 ? `${mins}:${String(secs).padStart(2, "0")} דק'` : `${mins} דקות`;
+  const hours = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return `${hours}:${String(remMins).padStart(2, "0")} שעות`;
+}
+
+function formatFullDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function UserHistoryModal({ user, onClose }: { user: PresenceUser; onClose: () => void }) {
+  const [activities, setActivities] = useState<ActivityRow[]>([]);
+  const [stats, setStats] = useState<ActivityStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [days, setDays] = useState(30);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/user-activity?user_id=${user.user_id}&days=${days}`);
+        if (res.ok) {
+          const data = await res.json();
+          setActivities(data.activities || []);
+          setStats(data.stats || null);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [user.user_id, days]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <div className="bg-[#0F1535] border border-white/10 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-white/10">
+          <div>
+            <h2 className="text-white text-lg font-bold">{user.full_name || user.email}</h2>
+            <p className="text-white/50 text-xs">{user.email}</p>
+          </div>
+          <button onClick={onClose} className="text-white/50 hover:text-white text-2xl leading-none">×</button>
+        </div>
+
+        {/* Filter */}
+        <div className="flex gap-2 p-4 border-b border-white/10">
+          {([["יום", 1], ["שבוע", 7], ["חודש", 30], ["3 חודשים", 90]] as const).map(([label, d]) => (
+            <button
+              key={d}
+              onClick={() => setDays(d)}
+              className={`px-3 py-1.5 rounded-lg text-[13px] transition ${days === d ? "bg-[#29318A] text-white border border-white" : "bg-transparent text-white/60 border border-[#4C526B] hover:border-white/50"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {loading ? (
+            <div className="text-white/50 text-center py-10">טוען...</div>
+          ) : (
+            <>
+              {/* Stats grid */}
+              {stats && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                  <StatCard label="סה״כ זמן" value={formatDuration(stats.totalSeconds)} />
+                  <StatCard label="מספר סשנים" value={String(stats.sessionsCount)} />
+                  <StatCard label="דפים שנצפו" value={String(stats.pagesVisited)} />
+                  <StatCard label="דפים ייחודיים" value={String(stats.uniquePages)} />
+                  {stats.firstSeen && (
+                    <StatCard label="כניסה ראשונה" value={formatFullDate(stats.firstSeen)} />
+                  )}
+                  {stats.lastSeen && (
+                    <StatCard label="כניסה אחרונה" value={formatFullDate(stats.lastSeen)} />
+                  )}
+                </div>
+              )}
+
+              {/* Top pages */}
+              {stats && stats.topPages.length > 0 && (
+                <div className="mb-5">
+                  <h3 className="text-white font-semibold text-sm mb-2">דפים מובילים</h3>
+                  <div className="bg-[#111056]/60 border border-white/10 rounded-xl overflow-hidden">
+                    {stats.topPages.map((p, i) => (
+                      <div key={p.path} className={`flex justify-between px-4 py-2 text-[13px] ${i > 0 ? "border-t border-white/5" : ""}`}>
+                        <div className="text-white truncate">{p.name}</div>
+                        <div className="text-white/60 shrink-0 ms-3">
+                          {p.visits} כניסות · {formatDuration(p.totalSeconds)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Activity timeline */}
+              <h3 className="text-white font-semibold text-sm mb-2">היסטוריה מלאה</h3>
+              {activities.length === 0 ? (
+                <p className="text-white/50 text-center py-6">אין פעילות בתקופה זו</p>
+              ) : (
+                <div className="space-y-2">
+                  {activities.map((a) => (
+                    <div key={a.id} className="bg-[#111056]/60 border border-white/10 rounded-xl p-3 text-[13px]">
+                      <div className="flex justify-between items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white font-medium">{a.page_name || a.page_path}</div>
+                          <div className="text-white/40 text-xs mt-0.5">{formatFullDate(a.entered_at)}</div>
+                        </div>
+                        <div className="text-white/70 text-xs shrink-0">
+                          {formatDuration(a.duration_seconds)}
+                        </div>
+                      </div>
+                      {(a.device_type || a.browser || a.screen_size) && (
+                        <div className="flex gap-3 mt-2 text-white/40 text-[11px]">
+                          {a.device_type && <span>📱 {a.device_type}</span>}
+                          {a.browser && <span>🌐 {a.browser}</span>}
+                          {a.screen_size && <span>🖥 {a.screen_size}</span>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-[#111056]/60 border border-white/10 rounded-xl p-3">
+      <div className="text-white/40 text-[11px] mb-1">{label}</div>
+      <div className="text-white font-bold text-[15px]">{value}</div>
+    </div>
+  );
+}
+
 // Map pathnames to Hebrew page names
 const pageNames: Record<string, string> = {
   "/": "דשבורד ראשי",
@@ -55,7 +228,7 @@ function getInitials(name: string | null, email: string): string {
   return email[0].toUpperCase();
 }
 
-function UserCard({ user }: { user: PresenceUser }) {
+function UserCard({ user, onClick }: { user: PresenceUser; onClick: () => void }) {
   const [timeAgo, setTimeAgo] = useState(() => formatTimeAgo(user.online_at));
 
   // Update time display every minute
@@ -69,7 +242,11 @@ function UserCard({ user }: { user: PresenceUser }) {
   const pageName = pageNames[user.current_page] || user.current_page;
 
   return (
-    <div className="bg-[#111056]/60 border border-white/10 rounded-xl p-4 flex items-center gap-4 transition-all duration-300">
+    <button
+      type="button"
+      onClick={onClick}
+      className="bg-[#111056]/60 border border-white/10 rounded-xl p-4 flex items-center gap-4 transition-all duration-300 text-right w-full hover:border-white/30 hover:bg-[#111056]/80 cursor-pointer"
+    >
       {/* Avatar with online dot */}
       <div className="relative flex-shrink-0">
         {user.avatar_url ? (
@@ -101,13 +278,14 @@ function UserCard({ user }: { user: PresenceUser }) {
           <span className="text-[#3CD856] text-xs">{timeAgo}</span>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
 export default function OnlineUsersPage() {
   const { isAdmin, onlineUsers } = useDashboard();
   const router = useRouter();
+  const [selectedUser, setSelectedUser] = useState<PresenceUser | null>(null);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -144,9 +322,13 @@ export default function OnlineUsersPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {onlineUsers.map((user) => (
-            <UserCard key={user.user_id} user={user} />
+            <UserCard key={user.user_id} user={user} onClick={() => setSelectedUser(user)} />
           ))}
         </div>
+      )}
+
+      {selectedUser && (
+        <UserHistoryModal user={selectedUser} onClose={() => setSelectedUser(null)} />
       )}
     </div>
   );
