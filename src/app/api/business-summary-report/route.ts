@@ -70,6 +70,8 @@ export async function GET(request: NextRequest) {
       incomeSourceGoalsRes,
       invoicesRes,
       membersRes,
+      priorCommitmentsRes,
+      supplierBudgetsRes,
     ] = await Promise.all([
       supabase
         .from("businesses")
@@ -124,6 +126,20 @@ export async function GET(request: NextRequest) {
         .select("profiles(email)")
         .eq("business_id", businessId)
         .in("role", ["admin", "owner"]),
+      supabase
+        .from("prior_commitments")
+        .select("name, monthly_amount, start_date, end_date")
+        .eq("business_id", businessId)
+        .is("deleted_at", null)
+        .lte("start_date", fmtLocal(lastDayOfMonth))
+        .or(`end_date.is.null,end_date.gte.${fmtLocal(monthStartDate)}`),
+      supabase
+        .from("supplier_budgets")
+        .select("budget_amount, supplier_id, supplier:suppliers(name, expense_category_id, expense_type, is_fixed_expense, parent_category_id)")
+        .eq("business_id", businessId)
+        .eq("year", year)
+        .eq("month", month)
+        .is("deleted_at", null),
     ]);
 
     const business = businessRes.data;
@@ -284,6 +300,74 @@ export async function GET(request: NextRequest) {
     const profitTargetPct = revenueTarget > 0 ? (profitTarget / revenueTarget) * 100 : 0;
     const profitDiffPct = profitActualPct - profitTargetPct;
 
+    // ===== Prior commitments (loans/installments for this month) =====
+    const priorCommitments = (priorCommitmentsRes.data || []) as Array<{
+      name: string;
+      monthly_amount: number;
+      start_date: string;
+      end_date: string | null;
+    }>;
+    const priorCommitmentsTotal = priorCommitments.reduce(
+      (s, c) => s + (Number(c.monthly_amount) || 0),
+      0
+    );
+
+    // ===== Category budget breakdown (from supplier_budgets) =====
+    const supplierBudgets = (supplierBudgetsRes.data || []) as unknown as Array<{
+      budget_amount: number | null;
+      supplier:
+        | {
+            name: string | null;
+            expense_category_id: string | null;
+            parent_category_id: string | null;
+          }
+        | Array<{
+            name: string | null;
+            expense_category_id: string | null;
+            parent_category_id: string | null;
+          }>
+        | null;
+    }>;
+    // Fetch all expense categories for this business to map ids → names
+    const { data: allCategories } = await supabase
+      .from("expense_categories")
+      .select("id, name, parent_id")
+      .eq("business_id", businessId)
+      .eq("is_active", true)
+      .is("deleted_at", null);
+    const categoryNameById: Record<string, string> = {};
+    const categoryParentById: Record<string, string | null> = {};
+    for (const c of allCategories || []) {
+      categoryNameById[c.id] = c.name;
+      categoryParentById[c.id] = c.parent_id || null;
+    }
+
+    // Aggregate budgets by top-level category (walk up parent chain)
+    const categoryTotals: Record<string, number> = {};
+    for (const sb of supplierBudgets) {
+      const amount = Number(sb.budget_amount || 0);
+      if (amount <= 0 || !sb.supplier) continue;
+      const supplierObj = Array.isArray(sb.supplier) ? sb.supplier[0] : sb.supplier;
+      if (!supplierObj) continue;
+      // Prefer parent_category_id from supplier; fallback to walking expense_category_id parents
+      let catId: string | null =
+        supplierObj.parent_category_id || supplierObj.expense_category_id || null;
+      // Walk up to top-level
+      const safetyCap = 6;
+      let depth = 0;
+      while (catId && categoryParentById[catId] && depth < safetyCap) {
+        catId = categoryParentById[catId];
+        depth++;
+      }
+      if (!catId) continue;
+      const name = categoryNameById[catId] || "אחר";
+      categoryTotals[name] = (categoryTotals[name] || 0) + amount;
+    }
+    const expenseCategories = Object.entries(categoryTotals)
+      .map(([name, amount]) => ({ name, amount: Math.round(amount) }))
+      .filter((x) => x.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+
     // ===== Emails =====
     const emails = (membersRes.data || [])
       .map((m) => (m.profiles as unknown as { email: string })?.email)
@@ -348,6 +432,16 @@ export async function GET(request: NextRequest) {
 
       // Income sources
       incomeSources: incomeSourcesReport,
+
+      // Prior commitments (loans)
+      priorCommitmentsTotal: Math.round(priorCommitmentsTotal),
+      priorCommitments: priorCommitments.map((c) => ({
+        name: c.name,
+        monthly_amount: Math.round(Number(c.monthly_amount) || 0),
+      })),
+
+      // Expense categories (from budgets)
+      expenseCategories,
     });
   } catch (error) {
     console.error("[Business Summary Report] Error:", error);
