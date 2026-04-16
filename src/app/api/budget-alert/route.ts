@@ -75,14 +75,9 @@ export async function POST(request: NextRequest) {
 
     const businessName = businessRes.data?.name || "עסק";
     const supplierName = supplierRes.data?.name || "ספק";
-    const emails = (membersRes.data || [])
-      .map((m) => (m.profiles as unknown as { email: string })?.email)
-      .filter(Boolean)
-      .join(", ");
-
-    if (!emails) {
-      return Response.json({ sent: false, reason: "no_emails" });
-    }
+    // TEMP: all alerts routed to david only (business owners will NOT receive)
+    const emails = "david@amazpen.co.il";
+    void membersRes;
 
     // 5. Send webhook to n8n
     const webhookPayload = {
