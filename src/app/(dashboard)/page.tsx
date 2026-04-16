@@ -3376,8 +3376,10 @@ export default function DashboardPage() {
                 </>
               )}
 
-              {/* Dynamic Income Sources Cards — regular businesses only */}
-              {selectedBusinessModel !== "service" && incomeSourcesSummary.map((source, index) => {
+              {/* Dynamic Income Sources Cards — regular businesses only. Hide sources with no data this month. */}
+              {selectedBusinessModel !== "service" && incomeSourcesSummary
+                .filter(source => source.totalAmount !== 0 || source.ordersCount !== 0 || source.entriesCount !== 0)
+                .map((source, index) => {
                 // Dynamic color: offset by 1 (totalIncome is index 0)
                 const iconBgClass = getIconBgColor(1 + index);
                 const currentBusinessName = businessCards.find(b => b.id === realBusinessId)?.name || "";
@@ -3846,8 +3848,10 @@ export default function DashboardPage() {
                 );
               })()}
 
-              {/* Dynamic Managed Products Cards */}
-              {managedProductsSummary.map((product, index) => {
+              {/* Dynamic Managed Products Cards — hide products with no data this month. */}
+              {managedProductsSummary
+                .filter(product => product.totalQuantity !== 0 || product.totalCost !== 0)
+                .map((product, index) => {
                 // Dynamic color: offset by fixed cards (totalIncome + incomeSources + laborCost + foodCost)
                 const iconBgClass = getIconBgColor(3 + incomeSourcesSummary.length + index);
 
