@@ -1075,16 +1075,58 @@ export default function OCRForm({
         // for legitimate invoices and confused users.
       }
 
-      // Pre-select supplier: prefer matched_supplier_id from AI, fallback to name matching
+      // Pre-select supplier: prefer matched_supplier_id from AI, fallback to smart name matching
       let matchedId = '';
       if (data.matched_supplier_id && suppliers.some(s => s.id === data.matched_supplier_id)) {
         matchedId = data.matched_supplier_id;
       } else if (data.supplier_name && suppliers.length > 0) {
-        const matchedSupplier = suppliers.find(
-          (s) => s.name.includes(data.supplier_name!) || data.supplier_name!.includes(s.name)
-        );
-        if (matchedSupplier) {
-          matchedId = matchedSupplier.id;
+        // Normalize: remove double-quotes, geresh, periods, extra whitespace; normalize בעמ variations
+        const normalize = (s: string) =>
+          s
+            .replace(/[\u0022\u0027\u05F4\u05F3"'`]/g, '') // all quote types incl. Hebrew gershayim
+            .replace(/[.,]/g, '')
+            .replace(/\u00A0/g, ' ')
+            .replace(/\s+/g, ' ')
+            .replace(/בע\s*מ/g, 'בעמ')
+            .trim()
+            .toLowerCase();
+
+        const ocrName = normalize(data.supplier_name!);
+
+        // Skip if OCR name is too short to be meaningful
+        if (ocrName.length >= 2) {
+          const scored: { supplier: (typeof suppliers)[number]; score: number }[] = [];
+          for (const s of suppliers) {
+            const sName = normalize(s.name);
+            if (!sName) continue;
+
+            let score = 0;
+            // Exact match
+            if (sName === ocrName) score = 1000;
+            // Full substring (either direction)
+            else if (sName.includes(ocrName)) score = 800 - Math.abs(sName.length - ocrName.length);
+            else if (ocrName.includes(sName) && sName.length >= 3) score = 700 - Math.abs(sName.length - ocrName.length);
+            else {
+              // Word-level match: count matching tokens of length >= 2
+              const ocrTokens = ocrName.split(' ').filter(t => t.length >= 2);
+              const sTokens = sName.split(' ').filter(t => t.length >= 2);
+              if (ocrTokens.length > 0 && sTokens.length > 0) {
+                const matched = ocrTokens.filter(t =>
+                  sTokens.some(st => st === t || st.includes(t) || t.includes(st))
+                ).length;
+                if (matched > 0) {
+                  // Score based on ratio of matched tokens
+                  score = 400 + (matched / Math.max(ocrTokens.length, sTokens.length)) * 200;
+                }
+              }
+            }
+            if (score > 0) scored.push({ supplier: s, score });
+          }
+          scored.sort((a, b) => b.score - a.score);
+          // Require at least a token-level match (score >= 400)
+          if (scored.length > 0 && scored[0].score >= 400) {
+            matchedId = scored[0].supplier.id;
+          }
         }
       }
       setSupplierId(matchedId);
