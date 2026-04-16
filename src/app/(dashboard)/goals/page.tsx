@@ -1315,8 +1315,8 @@ export default function GoalsPage() {
                         {item.unit === "%" ? formatPercent(item.actual) : formatCurrency(item.actual)}
                       </span>
 
-                      {/* Target - editable for KPI only; vs-current/goods categories are read-only (sum of supplier budgets) */}
-                      {(isKpi && item.editable && !hasChildren) ? (
+                      {/* Target - editable for KPI items with editable flag, and for vs-goods supplier rows */}
+                      {((isKpi || isGoods || isFlatEditable) && item.editable && !hasChildren) ? (
                         <div className="w-[80px] flex items-center justify-center gap-0" onClick={(e) => e.stopPropagation()}>
                           {item.unit === "₪" && focusedInputId !== item.id && <span className="text-[14px] font-bold text-white ltr-num">₪</span>}
                           <Input
