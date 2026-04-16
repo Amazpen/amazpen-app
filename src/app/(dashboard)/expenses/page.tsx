@@ -2708,10 +2708,14 @@ function ExpensesPageInner() {
     if (supplier?.expense_type === "goods_purchases") setExpenseType("goods");
     else if (supplier?.expense_type === "employee_costs") setExpenseType("employees");
     else setExpenseType("current");
-    if (supplier?.vat_type === "none") {
+    // Pre-fill VAT from the existing invoice; enable manual mode when the saved VAT differs from auto-calc.
+    const existingVat = Math.max(0, (invoice.amountWithVat || 0) - (invoice.amountBeforeVat || 0));
+    const autoCalcVat = (invoice.amountBeforeVat || 0) * businessVatRate;
+    const vatMismatch = Math.abs(existingVat - autoCalcVat) > 0.01;
+    if (supplier?.vat_type === "none" || vatMismatch) {
       setPartialVat(true);
-      setVatAmount("0");
-    } else if (supplier?.vat_type === "full" || !supplier?.vat_type) {
+      setVatAmount(existingVat.toFixed(2));
+    } else {
       setPartialVat(false);
       setVatAmount("");
     }
@@ -5662,6 +5666,58 @@ function ExpensesPageInner() {
                     value={amountBeforeVat && !isNaN(parseFloat(amountBeforeVat)) ? (amountBeforeVat.endsWith(".") ? parseFloat(amountBeforeVat).toLocaleString("en-US", { maximumFractionDigits: 0 }) + "." : parseFloat(amountBeforeVat).toLocaleString("en-US", { maximumFractionDigits: 2 })) : amountBeforeVat}
                     onChange={(e) => setAmountBeforeVat(e.target.value.replace(/,/g, ""))}
                     placeholder="0.00"
+                    className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+                  />
+                </div>
+              </div>
+
+              {/* Partial VAT Checkbox and VAT Amount */}
+              <div className="flex items-center justify-between gap-[15px]">
+                <div className="flex flex-col gap-[5px]">
+                  <label className="text-[15px] font-medium text-white text-right">מע&quot;מ</label>
+                  <div className="border border-[#4C526B] rounded-[10px] h-[50px] w-[148px]">
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      title="סכום מע״מ"
+                      placeholder="0.00"
+                      value={partialVat ? vatAmount : calculatedVat.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      onChange={(e) => setVatAmount(e.target.value.replace(/,/g, ""))}
+                      disabled={!partialVat}
+                      className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] disabled:text-white/50"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col items-center gap-[5px]">
+                  <Button
+                    type="button"
+                    title="הזנת סכום מע״מ חלקי"
+                    onClick={() => setPartialVat(!partialVat)}
+                    className="text-[#979797]"
+                  >
+                    <svg width="21" height="21" viewBox="0 0 32 32" fill="none">
+                      {partialVat ? (
+                        <>
+                          <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                          <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </>
+                      ) : (
+                        <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                  </Button>
+                  <span className="text-[15px] font-medium text-white">הזנת סכום מע&quot;מ ידני</span>
+                </div>
+              </div>
+
+              {/* Total with VAT (read-only) */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
+                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                  <Input
+                    type="text"
+                    readOnly
+                    value={((parseFloat(amountBeforeVat) || 0) + (partialVat ? (parseFloat(vatAmount) || 0) : calculatedVat)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
                   />
                 </div>
