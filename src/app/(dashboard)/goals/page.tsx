@@ -1285,8 +1285,9 @@ export default function GoalsPage() {
                 // For vs-current and vs-goods tabs, everything is an expense
                 // For KPI tab, use the item's isExpense flag
                 const isExpense = (isCurrent || isGoods) ? true : (item.isExpense !== false);
-                // Always: actual - target
-                const diff = item.actual - item.target;
+                // For expenses: target - actual (positive = under budget / saving, negative = over budget)
+                // For income KPIs: actual - target (positive = above goal, negative = below)
+                const diff = isExpense ? (item.target - item.actual) : (item.actual - item.target);
                 const statusColor = getStatusColor(percentage, isExpense, item.actual, item.target);
                 const hasChildren = item.children && item.children.length > 0;
                 const hasSuppliers = item.supplierIds && item.supplierIds.length > 0;
@@ -1381,7 +1382,8 @@ export default function GoalsPage() {
                           const sTarget = supplierBudgetState.get(sId) || 0;
                           const sActual = (isGoods ? supplierActualGoodsState : supplierActualCurrentState).get(sId) || 0;
                           const sPct = sTarget > 0 ? (sActual / sTarget) * 100 : 0;
-                          const sDiff = sActual - sTarget;
+                          // Expense: target - actual (positive = under budget)
+                          const sDiff = sTarget - sActual;
                           const sColor = getStatusColor(sPct, true, sActual, sTarget);
                           const isFixedSupplier = supplierFixedInfoMap.get(sId)?.isFixed;
                           // Paint purple only while we're still waiting for the
