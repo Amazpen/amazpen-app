@@ -29,6 +29,24 @@ interface ActivityStats {
   firstSeen: string | null;
   lastSeen: string | null;
   topPages: Array<{ path: string; name: string; visits: number; totalSeconds: number }>;
+  engagementScore: number;
+  engagementLevel: "high" | "medium" | "low";
+  activeDays: number;
+  streak: number;
+  daysSinceLastSeen: number;
+  churnRisk: "low" | "medium" | "high";
+  avgSessionDepth: number;
+  bounceRate: number;
+  mostActiveHour: number;
+  avgDailyMinutes: number;
+  lastDataActivity: string | null;
+  totalActions: number;
+  actionsThisWeek: { invoices: number; payments: number; entries: number };
+  actionsAll: { invoices: number; payments: number; entries: number };
+  deviceSplit: Array<{ device: string; count: number; percentage: number }>;
+  dropOffPages: Array<{ path: string; name: string; count: number }>;
+  dailyActivity: Array<{ date: string; seconds: number }>;
+  heatmap: number[][];
 }
 
 function formatDuration(seconds: number | null): string {
@@ -101,19 +119,96 @@ function UserHistoryModal({ user, onClose }: { user: PresenceUser; onClose: () =
             <div className="text-white/50 text-center py-10">טוען...</div>
           ) : (
             <>
-              {/* Stats grid */}
+              {/* 1 + 10. Engagement score + churn risk (hero cards) */}
+              {stats && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+                  <EngagementCard score={stats.engagementScore} level={stats.engagementLevel} />
+                  <ChurnCard risk={stats.churnRisk} daysSinceLastSeen={stats.daysSinceLastSeen} />
+                  <StreakCard streak={stats.streak} activeDays={stats.activeDays} totalDays={days} />
+                </div>
+              )}
+
+              {/* Core stats */}
               {stats && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
                   <StatCard label="סה״כ זמן" value={formatDuration(stats.totalSeconds)} />
+                  <StatCard label="ממוצע יומי" value={`${stats.avgDailyMinutes} דק'`} />
+                  <StatCard label="שעת שיא" value={`${String(stats.mostActiveHour).padStart(2, "0")}:00`} />
+                  <StatCard label="עומק סשן ממוצע" value={`${stats.avgSessionDepth} דפים`} />
                   <StatCard label="מספר סשנים" value={String(stats.sessionsCount)} />
                   <StatCard label="דפים שנצפו" value={String(stats.pagesVisited)} />
+                  <StatCard label="Bounce Rate" value={`${stats.bounceRate}%`} />
                   <StatCard label="דפים ייחודיים" value={String(stats.uniquePages)} />
-                  {stats.firstSeen && (
-                    <StatCard label="כניסה ראשונה" value={formatFullDate(stats.firstSeen)} />
+                </div>
+              )}
+
+              {/* 7. Actions this week */}
+              {stats && (
+                <div className="mb-5">
+                  <h3 className="text-white font-semibold text-sm mb-2">פעולות בפועל (השבוע)</h3>
+                  <div className="grid grid-cols-3 gap-3">
+                    <StatCard label="חשבוניות" value={`${stats.actionsThisWeek.invoices} / ${stats.actionsAll.invoices}`} />
+                    <StatCard label="תשלומים" value={`${stats.actionsThisWeek.payments} / ${stats.actionsAll.payments}`} />
+                    <StatCard label="מילוי יומי" value={`${stats.actionsThisWeek.entries} / ${stats.actionsAll.entries}`} />
+                  </div>
+                  {stats.lastDataActivity && (
+                    <p className="text-white/40 text-[11px] mt-2 text-right">
+                      פעולה אחרונה: {formatFullDate(stats.lastDataActivity)}
+                    </p>
                   )}
-                  {stats.lastSeen && (
-                    <StatCard label="כניסה אחרונה" value={formatFullDate(stats.lastSeen)} />
-                  )}
+                </div>
+              )}
+
+              {/* 2. Heatmap */}
+              {stats && (
+                <div className="mb-5">
+                  <h3 className="text-white font-semibold text-sm mb-2">מפת חום — יום בשבוע × שעה</h3>
+                  <HeatmapGrid heatmap={stats.heatmap} />
+                </div>
+              )}
+
+              {/* Daily activity chart */}
+              {stats && stats.dailyActivity.length > 0 && (
+                <div className="mb-5">
+                  <h3 className="text-white font-semibold text-sm mb-2">פעילות יומית</h3>
+                  <DailyActivityChart data={stats.dailyActivity} />
+                </div>
+              )}
+
+              {/* 5. Device split */}
+              {stats && stats.deviceSplit.length > 0 && (
+                <div className="mb-5">
+                  <h3 className="text-white font-semibold text-sm mb-2">פיצול מכשירים</h3>
+                  <div className="bg-[#111056]/60 border border-white/10 rounded-xl p-3">
+                    {stats.deviceSplit.map((d) => (
+                      <div key={d.device} className="flex items-center gap-3 py-1.5">
+                        <div className="text-white text-[13px] w-20 shrink-0">{d.device}</div>
+                        <div className="flex-1 h-3 bg-[#0F1535] rounded-full overflow-hidden">
+                          <div className="h-full bg-[#8328f8]" style={{ width: `${d.percentage}%` }} />
+                        </div>
+                        <div className="text-white/60 text-xs w-16 shrink-0 text-right">
+                          {d.percentage}% ({d.count})
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 6. Drop-off pages */}
+              {stats && stats.dropOffPages.length > 0 && (
+                <div className="mb-5">
+                  <h3 className="text-white font-semibold text-sm mb-2">
+                    דפי נטישה מהירה <span className="text-white/40 text-[11px]">(פחות מ-10 שניות)</span>
+                  </h3>
+                  <div className="bg-[#111056]/60 border border-[#F64E60]/30 rounded-xl overflow-hidden">
+                    {stats.dropOffPages.map((p, i) => (
+                      <div key={p.path} className={`flex justify-between px-4 py-2 text-[13px] ${i > 0 ? "border-t border-white/5" : ""}`}>
+                        <div className="text-white truncate">{p.name}</div>
+                        <div className="text-[#F64E60] shrink-0 ms-3 font-semibold">{p.count} נטישות</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -175,6 +270,115 @@ function StatCard({ label, value }: { label: string; value: string }) {
     <div className="bg-[#111056]/60 border border-white/10 rounded-xl p-3">
       <div className="text-white/40 text-[11px] mb-1">{label}</div>
       <div className="text-white font-bold text-[15px]">{value}</div>
+    </div>
+  );
+}
+
+function EngagementCard({ score, level }: { score: number; level: "high" | "medium" | "low" }) {
+  const color = level === "high" ? "#3CD856" : level === "medium" ? "#FFA412" : "#F64E60";
+  const label = level === "high" ? "גבוה" : level === "medium" ? "בינוני" : "נמוך";
+  return (
+    <div className="bg-[#111056]/60 border border-white/10 rounded-xl p-4 text-center">
+      <div className="text-white/40 text-[11px] mb-1">Engagement Score</div>
+      <div className="text-3xl font-bold" style={{ color }}>{score}<span className="text-white/30 text-lg">/100</span></div>
+      <div className="text-[11px] mt-1" style={{ color }}>{label}</div>
+    </div>
+  );
+}
+
+function ChurnCard({ risk, daysSinceLastSeen }: { risk: "low" | "medium" | "high"; daysSinceLastSeen: number }) {
+  const color = risk === "low" ? "#3CD856" : risk === "medium" ? "#FFA412" : "#F64E60";
+  const label = risk === "low" ? "נמוך" : risk === "medium" ? "בינוני" : "גבוה";
+  const icon = risk === "low" ? "✓" : risk === "medium" ? "⚠" : "✕";
+  return (
+    <div className="bg-[#111056]/60 border border-white/10 rounded-xl p-4 text-center">
+      <div className="text-white/40 text-[11px] mb-1">סיכון נטישה</div>
+      <div className="text-3xl font-bold" style={{ color }}>{icon} {label}</div>
+      <div className="text-white/50 text-[11px] mt-1">
+        {daysSinceLastSeen === 0 ? "היה היום" : `לפני ${daysSinceLastSeen} ימים`}
+      </div>
+    </div>
+  );
+}
+
+function StreakCard({ streak, activeDays, totalDays }: { streak: number; activeDays: number; totalDays: number }) {
+  return (
+    <div className="bg-[#111056]/60 border border-white/10 rounded-xl p-4 text-center">
+      <div className="text-white/40 text-[11px] mb-1">רצף ימים פעילים</div>
+      <div className="text-3xl font-bold text-[#FFA412]">🔥 {streak}</div>
+      <div className="text-white/50 text-[11px] mt-1">
+        {activeDays}/{totalDays} ימים פעילים בתקופה
+      </div>
+    </div>
+  );
+}
+
+function HeatmapGrid({ heatmap }: { heatmap: number[][] }) {
+  const dayLabels = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"];
+  const max = Math.max(1, ...heatmap.flat());
+  return (
+    <div className="bg-[#111056]/60 border border-white/10 rounded-xl p-3 overflow-x-auto">
+      <div className="min-w-[600px]">
+        <div className="flex">
+          <div className="w-8 shrink-0" />
+          {Array.from({ length: 24 }, (_, h) => (
+            <div key={h} className="flex-1 text-[9px] text-white/40 text-center">
+              {h % 3 === 0 ? String(h).padStart(2, "0") : ""}
+            </div>
+          ))}
+        </div>
+        {heatmap.map((row, dow) => (
+          <div key={dow} className="flex items-center mt-0.5">
+            <div className="w-8 shrink-0 text-[11px] text-white/60">{dayLabels[dow]}</div>
+            {row.map((val, h) => {
+              const intensity = val / max;
+              const bg = val === 0
+                ? "rgba(255,255,255,0.04)"
+                : `rgba(131, 40, 248, ${0.25 + intensity * 0.75})`;
+              return (
+                <div
+                  key={h}
+                  className="flex-1 aspect-square border border-[#0F1535] rounded-sm"
+                  style={{ background: bg }}
+                  title={val > 0 ? `יום ${dayLabels[dow]} שעה ${h}:00 — ${Math.round(val / 60)} דקות` : ""}
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DailyActivityChart({ data }: { data: Array<{ date: string; seconds: number }> }) {
+  const max = Math.max(1, ...data.map((d) => d.seconds));
+  return (
+    <div className="bg-[#111056]/60 border border-white/10 rounded-xl p-3 overflow-x-auto">
+      <div className="flex items-end gap-1 min-w-full h-[100px]" style={{ minWidth: data.length * 16 }}>
+        {data.map((d) => {
+          const height = d.seconds > 0 ? Math.max(4, (d.seconds / max) * 100) : 0;
+          return (
+            <div
+              key={d.date}
+              className="flex-1 bg-[#8328f8] rounded-t-sm relative group"
+              style={{ height: `${height}%`, minHeight: d.seconds > 0 ? "2px" : "0", minWidth: "8px" }}
+              title={`${d.date}: ${Math.round(d.seconds / 60)} דקות`}
+            />
+          );
+        })}
+      </div>
+      <div className="flex gap-1 mt-1 overflow-hidden" style={{ minWidth: data.length * 16 }}>
+        {data.map((d, i) => (
+          <div
+            key={d.date}
+            className="flex-1 text-[9px] text-white/40 text-center"
+            style={{ minWidth: "8px" }}
+          >
+            {i % 3 === 0 ? d.date : ""}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
