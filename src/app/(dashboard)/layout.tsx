@@ -75,29 +75,55 @@ const menuItems = [
   { id: 11, label: "התנתקות", href: "#logout", key: "logout", isLogout: true },
 ];
 
-// Admin menu items - only for admin users
-const adminMenuItems = [
-  { id: 100, label: "יצירת עסק חדש", href: "/admin/business/new", key: "admin-new-business" },
-  { id: 101, label: "עריכת עסק", href: "/admin/business/edit", key: "admin-edit-business" },
-  { id: 102, label: "ניהול משתמשים", href: "/admin/users", key: "admin-users" },
-  { id: 103, label: "ניהול יעדים ותקציבים", href: "/admin/goals", key: "admin-goals" },
-  { id: 104, label: "קליטת מסמכים OCR", href: "/ocr", key: "admin-ocr" },
-  { id: 108, label: "מעקב מחירי ספקים", href: "/price-tracking", key: "admin-price-tracking" },
-  { id: 105, label: "ייבוא ספקים", href: "/admin/suppliers", key: "admin-suppliers" },
-  { id: 106, label: "ייבוא הוצאות", href: "/admin/expenses", key: "admin-expenses" },
-  { id: 116, label: "ייבוא מרכזות", href: "/admin/markezet-import", key: "admin-markezet-import" },
-  { id: 107, label: "ייבוא תשלומים", href: "/admin/payments", key: "admin-payments" },
-  { id: 108, label: "ייבוא התחייבויות", href: "/admin/commitments", key: "admin-commitments" },
-  { id: 109, label: "ייבוא מילוי יומי", href: "/admin/daily-entries", key: "admin-daily-entries" },
-  { id: 110, label: "ייבוא נתוני עבר", href: "/admin/historical-data", key: "admin-historical-data" },
-  { id: 115, label: "ייבוא יעדים וכוונות", href: "/admin/goals-import", key: "admin-goals-import" },
-  { id: 116, label: "ייבוא תקציבי ספקים", href: "/admin/supplier-budgets", key: "admin-supplier-budgets" },
-  { id: 111, label: "בדיקה ורישום בהנה\"ח", href: "/admin/accounting-review", key: "admin-accounting-review" },
-  { id: 112, label: "משתמשים מחוברים", href: "/admin/online-users", key: "admin-online-users" },
-  { id: 114, label: "תכניות בונוסים", href: "/admin/bonus-plans", key: "admin-bonus-plans" },
-  { id: 113, label: "חריגות ימי עסקים", href: "/admin/day-exceptions", key: "admin-day-exceptions" },
-  { id: 117, label: "שיחות AI", href: "/admin/ai-conversations", key: "admin-ai-conversations" },
+// Admin menu items grouped by category for cleaner navigation
+const adminMenuGroups: Array<{
+  title: string;
+  items: Array<{ id: number; label: string; href: string; key: string }>;
+}> = [
+  {
+    title: "עסקים ומשתמשים",
+    items: [
+      { id: 100, label: "יצירת עסק חדש", href: "/admin/business/new", key: "admin-new-business" },
+      { id: 101, label: "עריכת עסק", href: "/admin/business/edit", key: "admin-edit-business" },
+      { id: 102, label: "ניהול משתמשים", href: "/admin/users", key: "admin-users" },
+      { id: 112, label: "משתמשים מחוברים", href: "/admin/online-users", key: "admin-online-users" },
+      { id: 117, label: "שיחות AI", href: "/admin/ai-conversations", key: "admin-ai-conversations" },
+    ],
+  },
+  {
+    title: "יעדים ותקציבים",
+    items: [
+      { id: 103, label: "ניהול יעדים ותקציבים", href: "/admin/goals", key: "admin-goals" },
+      { id: 115, label: "ייבוא יעדים וכוונות", href: "/admin/goals-import", key: "admin-goals-import" },
+      { id: 116, label: "ייבוא תקציבי ספקים", href: "/admin/supplier-budgets", key: "admin-supplier-budgets" },
+      { id: 114, label: "תכניות בונוסים", href: "/admin/bonus-plans", key: "admin-bonus-plans" },
+    ],
+  },
+  {
+    title: "תפעול יומיומי",
+    items: [
+      { id: 104, label: "קליטת מסמכים OCR", href: "/ocr", key: "admin-ocr" },
+      { id: 120, label: "מעקב מחירי ספקים", href: "/price-tracking", key: "admin-price-tracking" },
+      { id: 111, label: "בדיקה ורישום בהנה\"ח", href: "/admin/accounting-review", key: "admin-accounting-review" },
+      { id: 113, label: "חריגות ימי עסקים", href: "/admin/day-exceptions", key: "admin-day-exceptions" },
+    ],
+  },
+  {
+    title: "ייבוא נתונים",
+    items: [
+      { id: 105, label: "ייבוא ספקים", href: "/admin/suppliers", key: "admin-suppliers" },
+      { id: 106, label: "ייבוא הוצאות", href: "/admin/expenses", key: "admin-expenses" },
+      { id: 118, label: "ייבוא מרכזות", href: "/admin/markezet-import", key: "admin-markezet-import" },
+      { id: 107, label: "ייבוא תשלומים", href: "/admin/payments", key: "admin-payments" },
+      { id: 119, label: "ייבוא התחייבויות", href: "/admin/commitments", key: "admin-commitments" },
+      { id: 109, label: "ייבוא מילוי יומי", href: "/admin/daily-entries", key: "admin-daily-entries" },
+      { id: 110, label: "ייבוא נתוני עבר", href: "/admin/historical-data", key: "admin-historical-data" },
+    ],
+  },
 ];
+
+// Flat list for isAdminPage check
+const adminMenuItems = adminMenuGroups.flatMap((g) => g.items);
 
 // Page titles mapping
 const pageTitles: Record<string, string> = {
@@ -764,46 +790,53 @@ export default function DashboardLayout({
                   <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </Button>
-              <div className={`overflow-hidden transition-all duration-200 ${isAdminMenuOpen || isAdminPage ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              {adminMenuItems.map((item) => {
-                const pageExists = existingPages.includes(item.href);
+              <div className={`overflow-hidden transition-all duration-200 ${isAdminMenuOpen || isAdminPage ? 'max-h-[1500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              {adminMenuGroups.map((group, groupIdx) => (
+                <div key={group.title} className={groupIdx > 0 ? "mt-[12px]" : ""}>
+                  <div className="px-[10px] pt-[6px] pb-[4px] text-[10px] font-semibold text-white/40 tracking-wide">
+                    {group.title}
+                  </div>
+                  {group.items.map((item) => {
+                    const pageExists = existingPages.includes(item.href);
 
-                if (!pageExists) {
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-[10px] p-[7px] rounded-[10px] opacity-30 cursor-not-allowed"
-                    >
-                      <div className="w-[21px] h-[21px] flex items-center justify-center flex-shrink-0">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white/70">
-                          <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                        </svg>
-                      </div>
-                      <span className="text-white text-[14px] font-medium text-right flex-1">{item.label}</span>
-                    </div>
-                  );
-                }
+                    if (!pageExists) {
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-[10px] p-[7px] rounded-[10px] opacity-30 cursor-not-allowed"
+                        >
+                          <div className="w-[21px] h-[21px] flex items-center justify-center flex-shrink-0">
+                            <svg width="6" height="6" viewBox="0 0 6 6" fill="none" className="text-white/50">
+                              <circle cx="3" cy="3" r="2" fill="currentColor"/>
+                            </svg>
+                          </div>
+                          <span className="text-white text-[14px] font-medium text-right flex-1">{item.label}</span>
+                        </div>
+                      );
+                    }
 
-                return (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    onClick={() => setIsMenuOpen(false)}
-                    className={`flex items-center gap-[10px] p-[7px] rounded-[10px] cursor-pointer transition-all duration-200 ${
-                      activeKey === item.key
-                        ? 'bg-[#FFA412]/20 opacity-100'
-                        : 'opacity-75 hover:bg-[#FFA412]/10 hover:opacity-100'
-                    }`}
-                  >
-                    <div className="w-[21px] h-[21px] flex items-center justify-center flex-shrink-0">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={activeKey === item.key ? "text-[#FFA412]" : "text-white/70"}>
-                        <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                    </div>
-                    <span className={`text-[14px] font-medium text-right flex-1 ${activeKey === item.key ? "text-[#FFA412]" : "text-white"}`}>{item.label}</span>
-                  </Link>
-                );
-              })}
+                    return (
+                      <Link
+                        key={item.id}
+                        href={item.href}
+                        onClick={() => setIsMenuOpen(false)}
+                        className={`flex items-center gap-[10px] p-[7px] rounded-[10px] cursor-pointer transition-all duration-200 ${
+                          activeKey === item.key
+                            ? 'bg-[#FFA412]/20 opacity-100'
+                            : 'opacity-75 hover:bg-[#FFA412]/10 hover:opacity-100'
+                        }`}
+                      >
+                        <div className="w-[21px] h-[21px] flex items-center justify-center flex-shrink-0">
+                          <svg width="6" height="6" viewBox="0 0 6 6" fill="none" className={activeKey === item.key ? "text-[#FFA412]" : "text-white/50"}>
+                            <circle cx="3" cy="3" r="2" fill="currentColor"/>
+                          </svg>
+                        </div>
+                        <span className={`text-[14px] font-medium text-right flex-1 ${activeKey === item.key ? "text-[#FFA412]" : "text-white"}`}>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
               </div>
             </div>
             )}
