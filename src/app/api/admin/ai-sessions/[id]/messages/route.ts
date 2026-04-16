@@ -1,4 +1,5 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/admin/ai-sessions/[id]/messages — Load messages for admin viewing
@@ -25,7 +26,14 @@ export async function GET(
 
   const { id: sessionId } = await params;
 
-  const { data: messages } = await serverSupabase
+  // Use admin client to bypass RLS (auth already verified above)
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
+  const { data: messages } = await admin
     .from("ai_chat_messages")
     .select("id, role, content, created_at")
     .eq("session_id", sessionId)

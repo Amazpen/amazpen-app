@@ -1,4 +1,5 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/admin/ai-sessions — List AI chat sessions for admin viewing
@@ -21,15 +22,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "אין הרשאת אדמין" }, { status: 403 });
   }
 
+  // Use admin client to bypass RLS (auth already verified above)
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
   const { searchParams } = request.nextUrl;
   const businessId = searchParams.get("businessId");
   const userId = searchParams.get("userId");
 
-  // If no filters, return businesses list with user counts
+  // If no filters, return businesses list
   if (!businessId) {
-    const { data: businesses } = await serverSupabase
+    const { data: businesses } = await admin
       .from("businesses")
       .select("id, name")
+      .is("deleted_at", null)
       .order("name");
 
     return NextResponse.json({ businesses: businesses || [] });
@@ -37,7 +46,7 @@ export async function GET(request: NextRequest) {
 
   // If businessId but no userId, return users for that business
   if (!userId) {
-    const { data: members } = await serverSupabase
+    const { data: members } = await admin
       .from("business_members")
       .select("user_id, role, profiles!inner(full_name, email)")
       .eq("business_id", businessId);
@@ -55,7 +64,7 @@ export async function GET(request: NextRequest) {
   }
 
   // If both, return sessions for that user+business
-  const { data: sessions } = await serverSupabase
+  const { data: sessions } = await admin
     .from("ai_chat_sessions")
     .select("id, title, created_at, updated_at")
     .eq("user_id", userId)
