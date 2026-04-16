@@ -233,6 +233,7 @@ export default function DashboardLayout({
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
+  const [openAdminGroups, setOpenAdminGroups] = useState<Record<string, boolean>>({});
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [businessName, setBusinessName] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -790,53 +791,74 @@ export default function DashboardLayout({
                   <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </Button>
-              <div className={`overflow-hidden transition-all duration-200 ${isAdminMenuOpen || isAdminPage ? 'max-h-[1500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              {adminMenuGroups.map((group, groupIdx) => (
-                <div key={group.title} className={groupIdx > 0 ? "mt-[12px]" : ""}>
-                  <div className="px-[10px] pt-[6px] pb-[4px] text-[10px] font-semibold text-white/40 tracking-wide">
-                    {group.title}
-                  </div>
-                  {group.items.map((item) => {
-                    const pageExists = existingPages.includes(item.href);
-
-                    if (!pageExists) {
-                      return (
-                        <div
-                          key={item.id}
-                          className="flex items-center gap-[10px] p-[7px] rounded-[10px] opacity-30 cursor-not-allowed"
-                        >
-                          <div className="w-[21px] h-[21px] flex items-center justify-center flex-shrink-0">
-                            <svg width="6" height="6" viewBox="0 0 6 6" fill="none" className="text-white/50">
-                              <circle cx="3" cy="3" r="2" fill="currentColor"/>
-                            </svg>
-                          </div>
-                          <span className="text-white text-[14px] font-medium text-right flex-1">{item.label}</span>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <Link
-                        key={item.id}
-                        href={item.href}
-                        onClick={() => setIsMenuOpen(false)}
-                        className={`flex items-center gap-[10px] p-[7px] rounded-[10px] cursor-pointer transition-all duration-200 ${
-                          activeKey === item.key
-                            ? 'bg-[#FFA412]/20 opacity-100'
-                            : 'opacity-75 hover:bg-[#FFA412]/10 hover:opacity-100'
-                        }`}
+              <div className={`overflow-hidden transition-all duration-200 ${isAdminMenuOpen || isAdminPage ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              {adminMenuGroups.map((group, groupIdx) => {
+                const groupContainsActive = group.items.some(i => i.key === activeKey);
+                const isGroupOpen = openAdminGroups[group.title] ?? groupContainsActive;
+                return (
+                  <div key={group.title} className={groupIdx > 0 ? "mt-[8px]" : ""}>
+                    <Button
+                      type="button"
+                      onClick={() => setOpenAdminGroups(prev => ({ ...prev, [group.title]: !isGroupOpen }))}
+                      className="flex items-center justify-between w-full px-[10px] py-[6px] rounded-[8px] cursor-pointer hover:bg-[#FFA412]/5 transition-colors"
+                    >
+                      <span className="text-[11px] font-semibold text-white/60 tracking-wide">
+                        {group.title}
+                      </span>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className={`text-white/40 transition-transform duration-200 ${isGroupOpen ? 'rotate-180' : ''}`}
                       >
-                        <div className="w-[21px] h-[21px] flex items-center justify-center flex-shrink-0">
-                          <svg width="6" height="6" viewBox="0 0 6 6" fill="none" className={activeKey === item.key ? "text-[#FFA412]" : "text-white/50"}>
-                            <circle cx="3" cy="3" r="2" fill="currentColor"/>
-                          </svg>
-                        </div>
-                        <span className={`text-[14px] font-medium text-right flex-1 ${activeKey === item.key ? "text-[#FFA412]" : "text-white"}`}>{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              ))}
+                        <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </Button>
+                    <div className={`overflow-hidden transition-all duration-200 ${isGroupOpen ? 'max-h-[600px] opacity-100 mt-[2px]' : 'max-h-0 opacity-0'}`}>
+                      {group.items.map((item) => {
+                        const pageExists = existingPages.includes(item.href);
+
+                        if (!pageExists) {
+                          return (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-[10px] p-[7px] rounded-[10px] opacity-30 cursor-not-allowed"
+                            >
+                              <div className="w-[21px] h-[21px] flex items-center justify-center flex-shrink-0">
+                                <svg width="6" height="6" viewBox="0 0 6 6" fill="none" className="text-white/50">
+                                  <circle cx="3" cy="3" r="2" fill="currentColor"/>
+                                </svg>
+                              </div>
+                              <span className="text-white text-[14px] font-medium text-right flex-1">{item.label}</span>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <Link
+                            key={item.id}
+                            href={item.href}
+                            onClick={() => setIsMenuOpen(false)}
+                            className={`flex items-center gap-[10px] p-[7px] rounded-[10px] cursor-pointer transition-all duration-200 ${
+                              activeKey === item.key
+                                ? 'bg-[#FFA412]/20 opacity-100'
+                                : 'opacity-75 hover:bg-[#FFA412]/10 hover:opacity-100'
+                            }`}
+                          >
+                            <div className="w-[21px] h-[21px] flex items-center justify-center flex-shrink-0">
+                              <svg width="6" height="6" viewBox="0 0 6 6" fill="none" className={activeKey === item.key ? "text-[#FFA412]" : "text-white/50"}>
+                                <circle cx="3" cy="3" r="2" fill="currentColor"/>
+                              </svg>
+                            </div>
+                            <span className={`text-[14px] font-medium text-right flex-1 ${activeKey === item.key ? "text-[#FFA412]" : "text-white"}`}>{item.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
               </div>
             </div>
             )}
