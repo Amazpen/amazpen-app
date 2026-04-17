@@ -457,13 +457,13 @@ export default function OCRForm({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierId, selectedBusinessId, lineItems.length]);
 
-  // Calculate line item total considering discount type
+  // Calculate line item total considering discount type (default: percent).
   const calcLineTotal = (qty: number | undefined, price: number | undefined, discountAmt: number | undefined, discountType: 'amount' | 'percent' | undefined) => {
     if (qty == null || price == null) return 0;
     const gross = qty * price;
     if (!discountAmt) return gross;
-    if (discountType === 'percent') return gross * (1 - discountAmt / 100);
-    return gross - discountAmt;
+    if (discountType === 'amount') return gross - discountAmt;
+    return gross * (1 - discountAmt / 100);
   };
 
   // Count price alerts
@@ -2218,7 +2218,7 @@ export default function OCRForm({
                       value={li.discount_amount ?? ''}
                       onChange={(e) => {
                         const disc = e.target.value === '' ? undefined : Number(e.target.value);
-                        const dType = li.discount_type || 'amount';
+                        const dType = li.discount_type || 'percent'; // default: percent (most discounts are %)
                         setLineItems(prev => prev.map((item, i) => i !== idx ? item : {
                           ...item,
                           discount_amount: disc,
@@ -2232,7 +2232,7 @@ export default function OCRForm({
                     <button
                       type="button"
                       onClick={() => {
-                        const newType = (li.discount_type || 'amount') === 'amount' ? 'percent' : 'amount';
+                        const newType = (li.discount_type || 'percent') === 'amount' ? 'percent' : 'amount';
                         setLineItems(prev => prev.map((item, i) => i !== idx ? item : {
                           ...item,
                           discount_type: newType,
@@ -2240,9 +2240,9 @@ export default function OCRForm({
                         }));
                       }}
                       className="h-[28px] w-[28px] flex items-center justify-center bg-[#29318A]/50 hover:bg-[#29318A] border border-[#4C526B]/50 rounded-l-[4px] rounded-r-none text-[10px] text-white/70 hover:text-white transition-colors flex-shrink-0"
-                      title={`לחץ להחלפה: ${(li.discount_type || 'amount') === 'amount' ? '₪ → %' : '% → ₪'}`}
+                      title={`לחץ להחלפה: ${(li.discount_type || 'percent') === 'amount' ? '₪ → %' : '% → ₪'}`}
                     >
-                      {(li.discount_type || 'amount') === 'amount' ? '₪' : '%'}
+                      {(li.discount_type || 'percent') === 'amount' ? '₪' : '%'}
                     </button>
                   </div>
                 </span>
@@ -2279,7 +2279,7 @@ export default function OCRForm({
             <Button
               type="button"
               variant="ghost"
-              onClick={() => setLineItems(prev => [...prev, { description: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_type: 'amount', total: 0 }])}
+              onClick={() => setLineItems(prev => [...prev, { description: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_type: 'percent', total: 0 }])}
               className="w-full mt-[4px] text-[13px] text-[#00D4FF] hover:text-white hover:bg-[#29318A]/30 h-[32px] rounded-[6px] border border-dashed border-[#4C526B]/50"
             >
               + הוסף פריט
