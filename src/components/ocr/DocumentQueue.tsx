@@ -590,6 +590,7 @@ function DocumentCardVertical({ document, isSelected, onClick, businessName, ser
     ? getDocumentTypeLabel(document.document_type)
     : '';
   const totalAmount = document.ocr_data?.total_amount;
+  const documentNumber = document.ocr_data?.document_number;
   const bizLabel = businessName || 'עסק לא ידוע';
   const uploadedAt = formatUploadedAt(document.created_at);
 
@@ -660,6 +661,16 @@ function DocumentCardVertical({ document, isSelected, onClick, businessName, ser
           </span>
         )}
       </div>
+
+      {/* Document number (if detected) */}
+      {documentNumber && (
+        <div
+          title={`מספר מסמך: ${documentNumber}`}
+          style={{ color: '#9ca3af', fontSize: '10px', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'ltr', textAlign: 'right' }}
+        >
+          #{documentNumber}
+        </div>
+      )}
 
       {/* Source */}
       <div style={{ color: '#7B91B0', fontSize: '10px', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '3px' }}>
