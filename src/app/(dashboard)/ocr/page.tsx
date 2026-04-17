@@ -12,6 +12,8 @@ import { usePersistedState } from '@/hooks/usePersistedState';
 import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
 import { Button } from "@/components/ui/button";
 import { savePriceTrackingForLineItems } from '@/lib/priceTracking';
+import { uploadFile } from '@/lib/uploadFile';
+import { useToast } from "@/components/ui/toast";
 
 interface Business {
   id: string;
@@ -31,6 +33,7 @@ interface Supplier {
 export default function OCRPage() {
   const router = useRouter();
   const { isAdmin } = useDashboard();
+  const { showToast } = useToast();
 
   // State - ALL hooks must be declared before any conditional returns
   const [documents, setDocuments] = useState<OCRDocument[]>([]);
@@ -906,18 +909,80 @@ export default function OCRPage() {
     }
   }, [currentDocument, documents]);
 
-  // Handle crop
-  const handleCrop = useCallback((croppedImageUrl: string) => {
+  // Handle crop — persist cropped image to Supabase Storage, re-run OCR, refresh state
+  const handleCrop = useCallback(async (croppedImageDataUrl: string) => {
     if (!currentDocument) return;
+    showToast("שומר חיתוך ומריץ OCR מחדש...", "info");
 
-    setDocuments((prev) =>
-      prev.map((doc) =>
-        doc.id === currentDocument.id ? { ...doc, image_url: croppedImageUrl } : doc
-      )
-    );
+    try {
+      // 1) Convert data URL → File
+      const blobRes = await fetch(croppedImageDataUrl);
+      const blob = await blobRes.blob();
+      const fileName = `cropped-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+      const storagePath = `cropped/${fileName}`;
+      const file = new File([blob], fileName, { type: "image/jpeg" });
 
-    setCurrentDocument((prev) => (prev ? { ...prev, image_url: croppedImageUrl } : null));
-  }, [currentDocument]);
+      // 2) Upload to Supabase Storage (ocr-documents bucket)
+      const uploadRes = await uploadFile(file, storagePath, "ocr-documents");
+      if (!uploadRes.success || !uploadRes.publicUrl) {
+        throw new Error(uploadRes.error || "שגיאה בהעלאת הקובץ החתוך");
+      }
+      const newImageUrl = uploadRes.publicUrl;
+
+      // 3) Re-run OCR on the cropped image
+      let newRawText: string | null = null;
+      try {
+        const ocrFormData = new FormData();
+        ocrFormData.append("file", file);
+        const ocrRes = await fetch("/api/ai/ocr", { method: "POST", body: ocrFormData });
+        if (ocrRes.ok) {
+          const ocrData = await ocrRes.json();
+          newRawText = typeof ocrData.text === "string" ? ocrData.text : null;
+        }
+      } catch (ocrErr) {
+        console.error("[Crop] Re-OCR failed (non-fatal):", ocrErr);
+      }
+
+      // 4) Persist new image_url + image_storage_path to ocr_documents
+      const supabase = createClient();
+      const { error: updateErr } = await supabase
+        .from("ocr_documents")
+        .update({ image_url: newImageUrl, image_storage_path: storagePath, file_type: "image", updated_at: new Date().toISOString() })
+        .eq("id", currentDocument.id);
+      if (updateErr) throw updateErr;
+
+      // 5) If we got new OCR text, update ocr_extracted_data.raw_text
+      if (newRawText) {
+        const { data: existing } = await supabase
+          .from("ocr_extracted_data")
+          .select("id")
+          .eq("document_id", currentDocument.id)
+          .maybeSingle();
+        if (existing?.id) {
+          await supabase.from("ocr_extracted_data").update({ raw_text: newRawText }).eq("id", existing.id);
+        } else {
+          await supabase.from("ocr_extracted_data").insert({ document_id: currentDocument.id, raw_text: newRawText });
+        }
+      }
+
+      // 6) Update local state so UI reflects the crop immediately
+      setDocuments((prev) => prev.map((doc) => doc.id === currentDocument.id ? {
+        ...doc,
+        image_url: newImageUrl,
+        ocr_data: { ...(doc.ocr_data || {}), ...(newRawText ? { raw_text: newRawText } : {}) },
+      } : doc));
+      setCurrentDocument((prev) => prev ? {
+        ...prev,
+        image_url: newImageUrl,
+        ocr_data: { ...(prev.ocr_data || {}), ...(newRawText ? { raw_text: newRawText } : {}) },
+      } : null);
+
+      showToast(newRawText ? "חיתוך נשמר ו-OCR חודש בהצלחה" : "חיתוך נשמר (OCR נכשל — נסה ידנית)", newRawText ? "success" : "warning");
+    } catch (err) {
+      console.error("[Crop] Save failed:", err);
+      showToast(err instanceof Error ? err.message : "שגיאה בשמירת החיתוך", "error");
+    }
+  }, [currentDocument, showToast]);
 
   // Count pending documents
   const pendingCount = documents.filter((doc) => doc.status === 'pending').length;

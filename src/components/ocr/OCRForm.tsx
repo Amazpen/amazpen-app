@@ -2198,14 +2198,16 @@ export default function OCRForm({
                       className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[12px] h-[28px] px-[2px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       dir="ltr"
                     />
-                    {priceCheckDone && li.price_change_pct != null && li.price_change_pct !== 0 && (
-                      <span className={`block text-[9px] text-center ${(li.price_change_pct || 0) > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
-                        {li.price_change_pct > 0 ? '▲' : '▼'}{Math.abs(li.price_change_pct).toFixed(1)}%
-                      </span>
-                    )}
-                    {priceCheckDone && li.is_new_item && (
-                      <span className="block text-[9px] text-center text-[#00D4FF]">חדש</span>
-                    )}
+                    {/* Always-rendered badge slot keeps the cell a stable 40px tall so toggling the badge doesn't jitter the row. */}
+                    <span className="block h-[12px] leading-[12px] text-[9px] text-center">
+                      {priceCheckDone && li.price_change_pct != null && li.price_change_pct !== 0 ? (
+                        <span className={(li.price_change_pct || 0) > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}>
+                          {li.price_change_pct > 0 ? '▲' : '▼'}{Math.abs(li.price_change_pct).toFixed(1)}%
+                        </span>
+                      ) : priceCheckDone && li.is_new_item ? (
+                        <span className="text-[#00D4FF]">חדש</span>
+                      ) : ''}
+                    </span>
                   </div>
                 </span>
                 <span className="px-[1px]">
