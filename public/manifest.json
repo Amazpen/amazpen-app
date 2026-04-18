@@ -32,7 +32,7 @@
     }
   ],
   "categories": ["business", "productivity", "finance"],
-  "prefer_related_applications": true,
+  "prefer_related_applications": false,
   "related_applications": [
     {
       "platform": "play",
