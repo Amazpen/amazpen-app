@@ -1,8 +1,7 @@
 // BUILD_TIME=1775854904583
-const CACHE_NAME = 'amazpen-v1';
+const CACHE_NAME = 'amazpen-v2';
 const STATIC_ASSETS = [
   '/',
-  '/manifest.json',
   '/icon.svg',
 ];
 
@@ -101,9 +100,11 @@ self.addEventListener('fetch', (event) => {
   // Next.js chunks (_next/) — never cache (hashed filenames change per deploy)
   if (event.request.url.includes('/_next/')) return;
 
-  // Only cache safe static assets (images, icons, manifest)
-  var isSafeStatic = event.request.url.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2?)(\?|$)/)
-    || event.request.url.includes('/manifest.json');
+  // Never cache manifest.json — it controls PWA install behavior and must stay fresh.
+  if (event.request.url.includes('/manifest.json')) return;
+
+  // Only cache safe static assets (images, icons, fonts)
+  var isSafeStatic = event.request.url.match(/\.(png|jpg|jpeg|svg|ico|webp|woff2?)(\?|$)/);
 
   event.respondWith(
     fetch(event.request)
