@@ -137,6 +137,7 @@ interface InvoiceDisplay {
   statusRaw?: string;
   parentInvoiceId?: string | null;
   consolidatedReference?: string | null;
+  isConsolidated?: boolean;
 }
 
 const paymentMethodNames: Record<string, string> = {
@@ -690,6 +691,7 @@ function ExpensesPageInner() {
               documentType: "invoice" as const,
               invoiceType: inv.invoice_type || undefined,
               consolidatedReference: (inv as unknown as { consolidated_reference?: string | null }).consolidated_reference || null,
+              isConsolidated: !!(inv as unknown as { is_consolidated?: boolean }).is_consolidated,
             };
           });
           // Client-side filter for date/reference_date (formatted string match)
@@ -1205,7 +1207,9 @@ function ExpensesPageInner() {
         const startDate = formatLocalDate(dateRange.start);
         const endDate = formatLocalDate(dateRange.end);
 
-        // Fetch all invoices (all types) + delivery notes for the combined list
+        // Fetch all invoices (all types) + delivery notes for the combined list.
+        // Children of a markezet (consolidated_reference set but not is_consolidated themselves) are
+        // hidden from the main list — they'll be shown inside the parent's expanded view.
         const [{ data: invoicesListData }, { data: deliveryNotesData }] = await Promise.all([
           supabase
             .from("invoices")
@@ -1220,6 +1224,7 @@ function ExpensesPageInner() {
             .is("deleted_at", null)
             .gte("reference_date", startDate)
             .lte("reference_date", endDate)
+            .or("consolidated_reference.is.null,is_consolidated.eq.true")
             .order("reference_date", { ascending: false })
             .range(0, INVOICES_PAGE_SIZE - 1),
           supabase
@@ -1345,6 +1350,8 @@ function ExpensesPageInner() {
             // or NULL when created via intake/import/placeholder flows, which
             // would otherwise hide real fixed-expense invoices from this page.
             .eq("supplier.expense_type", activeTab === "expenses" ? "current_expenses" : activeTab === "employees" ? "employee_costs" : "goods_purchases")
+            // Hide children of a markezet — only show orphans or the markezet parent itself.
+            .or("consolidated_reference.is.null,is_consolidated.eq.true")
             .order("reference_date", { ascending: false }),
           supabase
             .from("expense_categories")
@@ -1692,6 +1699,7 @@ function ExpensesPageInner() {
         documentType: inv._documentType || "invoice",
         invoiceType: inv.invoice_type || undefined,
         consolidatedReference: inv.consolidated_reference || null,
+        isConsolidated: !!inv.is_consolidated,
       };
     });
   };
@@ -3403,6 +3411,7 @@ function ExpensesPageInner() {
         documentType: "invoice",
         invoiceType: inv.invoice_type || undefined,
         consolidatedReference: (inv as { consolidated_reference?: string | null }).consolidated_reference || null,
+        isConsolidated: !!(inv as { is_consolidated?: boolean }).is_consolidated,
       }));
       // Add unlinked delivery notes (status='ת. משלוח')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -4114,7 +4123,7 @@ function ExpensesPageInner() {
                   </Button>
                   {/* Status - Clickable with dropdown */}
                   <div className="flex flex-col items-center justify-center min-w-0 gap-[3px]" data-status-menu>
-                    {invoice.consolidatedReference && (
+                    {invoice.isConsolidated && (
                       <span className="text-[9px] font-bold px-[8px] py-[1px] rounded-full bg-[#FFB84D] text-black whitespace-nowrap leading-tight">
                         מרכזת
                       </span>
