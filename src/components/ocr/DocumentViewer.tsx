@@ -260,30 +260,46 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
   }, []);
 
   const confirmCrop = useCallback(() => {
-    if (cropArea.width > 10 && cropArea.height > 10 && imageRef.current && onCrop) {
-      // Create canvas and crop image
+    if (cropArea.width > 10 && cropArea.height > 10 && imageRef.current && containerRef.current && onCrop) {
+      const img = imageRef.current;
+      // cropArea is in container-local coordinates. But the image might be letterboxed
+      // (objectFit: contain) and/or transformed (zoom/pan/rotate), so the container rect
+      // is NOT the same as the image's rendered rect. Use the image's post-transform
+      // bounding rect to translate crop rect → image pixels.
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const imgRect = img.getBoundingClientRect();
+      // Absolute viewport coords of the crop rect
+      const cropAbsX = containerRect.left + cropArea.x;
+      const cropAbsY = containerRect.top + cropArea.y;
+      // Intersect with image rect so we only crop the visible image portion
+      const clampedLeft = Math.max(cropAbsX, imgRect.left);
+      const clampedTop = Math.max(cropAbsY, imgRect.top);
+      const clampedRight = Math.min(cropAbsX + cropArea.width, imgRect.right);
+      const clampedBottom = Math.min(cropAbsY + cropArea.height, imgRect.bottom);
+      const visibleW = Math.max(0, clampedRight - clampedLeft);
+      const visibleH = Math.max(0, clampedBottom - clampedTop);
+      if (visibleW <= 0 || visibleH <= 0 || imgRect.width <= 0 || imgRect.height <= 0) {
+        setIsCropping(false);
+        setCropArea({ x: 0, y: 0, width: 0, height: 0 });
+        return;
+      }
+      // Position INSIDE the rendered image (post-transform pixels)
+      const xInImg = clampedLeft - imgRect.left;
+      const yInImg = clampedTop - imgRect.top;
+      // Scale to natural pixels
+      const scaleX = img.naturalWidth / imgRect.width;
+      const scaleY = img.naturalHeight / imgRect.height;
+      const srcX = xInImg * scaleX;
+      const srcY = yInImg * scaleY;
+      const srcW = visibleW * scaleX;
+      const srcH = visibleH * scaleY;
+
       const canvas = document.createElement('canvas');
+      canvas.width = Math.round(srcW);
+      canvas.height = Math.round(srcH);
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        const img = imageRef.current;
-        const scaleX = img.naturalWidth / img.width;
-        const scaleY = img.naturalHeight / img.height;
-
-        canvas.width = cropArea.width * scaleX;
-        canvas.height = cropArea.height * scaleY;
-
-        ctx.drawImage(
-          img,
-          cropArea.x * scaleX,
-          cropArea.y * scaleY,
-          cropArea.width * scaleX,
-          cropArea.height * scaleY,
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
-
+        ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
         onCrop(canvas.toDataURL('image/jpeg', 0.9));
       }
     }
