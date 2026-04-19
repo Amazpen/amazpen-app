@@ -739,8 +739,23 @@ function ExpensesPageInner() {
 
           // Merge delivery_notes that also match the search
           await fetchMatchingDeliveryNotes();
+          const lowerSearch = searchVal.toLowerCase();
+          const isExactMatch = (inv: InvoiceDisplay): boolean => {
+            if (filterBy === "reference") {
+              return inv.reference.toLowerCase() === lowerSearch
+                || (inv.consolidatedReference?.toLowerCase() === lowerSearch);
+            }
+            if (filterBy === "supplier") return inv.supplier.toLowerCase() === lowerSearch;
+            if (filterBy === "notes") return inv.notes.toLowerCase() === lowerSearch;
+            return false;
+          };
           const mergedResults = [...results, ...deliveryNoteResults]
-            .sort((a, b) => (b.rawDate || "").localeCompare(a.rawDate || ""));
+            .sort((a, b) => {
+              const aExact = isExactMatch(a) ? 1 : 0;
+              const bExact = isExactMatch(b) ? 1 : 0;
+              if (aExact !== bExact) return bExact - aExact;
+              return (b.rawDate || "").localeCompare(a.rawDate || "");
+            });
           setGlobalSearchResults(mergedResults);
         } else {
           // No invoices matched — still check delivery_notes.
