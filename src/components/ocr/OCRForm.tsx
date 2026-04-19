@@ -475,13 +475,42 @@ export default function OCRForm({
   useEffect(() => {
     setDuplicateWarning(null);
     duplicateConfirmedRef.current = false;
-    const docNum = documentType === 'summary' ? summaryInvoiceNumber.trim() : documentNumber.trim();
-    const supId = documentType === 'summary' ? summarySupplierId : supplierId;
+    if (documentType === 'daily_entry') return;
+
+    // Resolve (docNum, supId) for each tab — payments live on their own sub-form.
+    const isPaymentTab = documentType === 'payment';
+    const docNum = documentType === 'summary'
+      ? summaryInvoiceNumber.trim()
+      : isPaymentTab
+        ? paymentTabReference.trim()
+        : documentNumber.trim();
+    const supId = documentType === 'summary'
+      ? summarySupplierId
+      : isPaymentTab
+        ? paymentTabSupplierId
+        : supplierId;
     if (!docNum || !supId || !selectedBusinessId) return;
-    if (documentType === 'payment' || documentType === 'daily_entry') return;
 
     const timer = setTimeout(async () => {
       const supabase = createClient();
+      if (isPaymentTab) {
+        // For payments the reference_number lives on payment_splits; join to payments to
+        // scope by business/supplier and skip deleted payments.
+        const { data, error } = await supabase
+          .from('payment_splits')
+          .select('id, payments!inner(id, business_id, supplier_id, deleted_at)')
+          .eq('reference_number', docNum)
+          .eq('payments.business_id', selectedBusinessId)
+          .eq('payments.supplier_id', supId)
+          .is('payments.deleted_at', null)
+          .limit(1);
+        if (!error && data && data.length > 0) {
+          const supplierName = suppliers.find(s => s.id === supId)?.name || 'הספק';
+          setDuplicateWarning(`כבר קיים תשלום עם אסמכתא ${docNum} לספק ${supplierName}`);
+        }
+        return;
+      }
+
       const table = documentType === 'delivery_note' ? 'delivery_notes' : 'invoices';
       const numberCol = documentType === 'delivery_note' ? 'delivery_note_number' : 'invoice_number';
 
@@ -501,7 +530,7 @@ export default function OCRForm({
     }, 500); // debounce
 
     return () => clearTimeout(timer);
-  }, [documentNumber, summaryInvoiceNumber, supplierId, summarySupplierId, selectedBusinessId, documentType, suppliers]);
+  }, [documentNumber, summaryInvoiceNumber, paymentTabReference, supplierId, summarySupplierId, paymentTabSupplierId, selectedBusinessId, documentType, suppliers]);
 
   // Pearla detection for daily entry
   const selectedBusiness = useMemo(() => businesses.find(b => b.id === selectedBusinessId), [businesses, selectedBusinessId]);
