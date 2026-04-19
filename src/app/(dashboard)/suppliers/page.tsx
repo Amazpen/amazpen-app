@@ -1255,9 +1255,12 @@ export default function SuppliersPage() {
       }
       setMonthlyBreakdown(breakdownMonths);
 
-      // Remaining balance = sum of open invoices (pending + clarification) — matches payments page
+      // Remaining balance = sum of open invoices (pending + clarification) minus any advance payments.
+      // Advance = payments in excess of all purchases (e.g. prepayment to a supplier without an invoice yet).
+      // Negative balance means we've overpaid (the supplier effectively owes us the service).
       let displayTotalPurchases = totalPurchases;
-      let displayRemainingBalance = openInvoicesTotal;
+      const advance = Math.max(0, totalPaid - totalPurchases);
+      let displayRemainingBalance = openInvoicesTotal - advance;
 
       if (supplier.has_previous_obligations && supplier.obligation_total_amount) {
         displayTotalPurchases = supplier.obligation_total_amount;
@@ -2683,12 +2686,25 @@ export default function SuppliersPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-white/20 pt-[10px]">
-                  <span className="text-[14px] text-[#F64E60] font-medium">
-                    {selectedSupplier.has_previous_obligations ? "יתרת הלוואה" : "יתרה לתשלום"}
-                  </span>
-                  <span className="text-[18px] text-[#F64E60] font-bold ltr-num">
-                    ₪{(supplierDetailData?.remainingBalance || 0).toLocaleString()}
-                  </span>
+                  {(() => {
+                    const rawBalance = supplierDetailData?.remainingBalance || 0;
+                    // Negative = we paid an advance (supplier owes us). Show as a credit / green.
+                    const isCredit = rawBalance < 0;
+                    const balanceColor = isCredit ? "text-[#3CD856]" : "text-[#F64E60]";
+                    const label = selectedSupplier.has_previous_obligations
+                      ? "יתרת הלוואה"
+                      : isCredit
+                        ? "מקדמה לספק"
+                        : "יתרה לתשלום";
+                    return (
+                      <>
+                        <span className={`text-[14px] font-medium ${balanceColor}`}>{label}</span>
+                        <span className={`text-[18px] font-bold ltr-num ${balanceColor}`}>
+                          ₪{rawBalance.toLocaleString()}
+                        </span>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
