@@ -393,16 +393,20 @@ export default function OCRForm({
   const [lineItems, setLineItems] = useState<OCRLineItem[]>([]);
   const [priceCheckDone, setPriceCheckDone] = useState(false);
 
-  // Fetch price comparisons when supplier changes and we have line items
+  // Fetch price comparisons when supplier or document changes.
+  // Uses a cancellation guard + doc-id gate so rapid document switches (e.g. after
+  // saving one invoice and auto-advancing to the next) don't let a stale request
+  // overwrite the fresh document's line items and cause the items table to "jump".
   useEffect(() => {
     if (!supplierId || !selectedBusinessId || lineItems.length === 0) {
       setPriceCheckDone(false);
       return;
     }
+    let cancelled = false;
+    const activeDocId = document?.id;
 
-    const checkPrices = async () => {
+    (async () => {
       const supabase = createClient();
-      // Fetch all supplier items for this supplier+business
       const { data: supplierItems } = await supabase
         .from('supplier_items')
         .select('id, item_name, item_aliases, current_price')
@@ -410,33 +414,26 @@ export default function OCRForm({
         .eq('supplier_id', supplierId)
         .eq('is_active', true);
 
+      if (cancelled || document?.id !== activeDocId) return;
+
       if (!supplierItems) {
         setPriceCheckDone(true);
         return;
       }
 
-      // Match line items to supplier items and compare prices
-      const updatedItems = lineItems.map((li) => {
+      // Match against the LATEST lineItems via functional setState to avoid stale-closure overwrites.
+      setLineItems(prev => prev.map((li) => {
         const desc = (li.description || '').trim().toLowerCase();
         if (!desc) return li;
-
-        // Find matching supplier item by name or aliases
         const match = supplierItems.find((si) => {
           const nameMatch = si.item_name.toLowerCase() === desc;
-          const aliasMatch = (si.item_aliases || []).some(
-            (a: string) => a.toLowerCase() === desc
-          );
-          // Partial match: item name contains or is contained in description
-          const partialMatch = si.item_name.toLowerCase().includes(desc) ||
-            desc.includes(si.item_name.toLowerCase());
+          const aliasMatch = (si.item_aliases || []).some((a: string) => a.toLowerCase() === desc);
+          const partialMatch = si.item_name.toLowerCase().includes(desc) || desc.includes(si.item_name.toLowerCase());
           return nameMatch || aliasMatch || partialMatch;
         });
-
         if (match && match.current_price != null && li.unit_price != null) {
           const priceDiff = li.unit_price - match.current_price;
-          const changePct = match.current_price > 0
-            ? ((priceDiff / match.current_price) * 100)
-            : 0;
+          const changePct = match.current_price > 0 ? ((priceDiff / match.current_price) * 100) : 0;
           return {
             ...li,
             matched_supplier_item_id: match.id,
@@ -445,17 +442,16 @@ export default function OCRForm({
             is_new_item: false,
           };
         }
-
         return { ...li, is_new_item: true, matched_supplier_item_id: undefined, previous_price: undefined, price_change_pct: undefined };
-      });
-
-      setLineItems(updatedItems);
+      }));
       setPriceCheckDone(true);
-    };
+    })();
 
-    checkPrices();
+    return () => { cancelled = true; };
+  // Intentionally only re-run when the supplier/business/doc changes — NOT on every
+  // lineItems change, which used to re-trigger the fetch and cause jitter.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supplierId, selectedBusinessId, lineItems.length]);
+  }, [supplierId, selectedBusinessId, document?.id]);
 
   // Calculate line item total considering discount type (default: percent).
   const calcLineTotal = (qty: number | undefined, price: number | undefined, discountAmt: number | undefined, discountType: 'amount' | 'percent' | undefined) => {
