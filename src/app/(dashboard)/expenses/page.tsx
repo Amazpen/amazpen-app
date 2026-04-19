@@ -3014,13 +3014,7 @@ function ExpensesPageInner() {
 
   // Handle status change - show confirmation popup first
   const handleStatusChange = (invoiceId: string, newStatus: string) => {
-    // Block status change for recurring fixed expenses
     const invoice = recentInvoices.find(inv => inv.id === invoiceId);
-    if (invoice?.isFixed) {
-      showToast("לא ניתן לשנות סטטוס להוצאה חודשית קבועה – הסטטוס מתעדכן אוטומטית", "warning");
-      setShowStatusMenu(null);
-      return;
-    }
 
     // If changing to "paid", open payment popup directly (it has its own confirmation)
     if (newStatus === 'paid') {
@@ -4202,10 +4196,6 @@ function ExpensesPageInner() {
                       <Button
                         type="button"
                         onClick={(e) => {
-                          if (invoice.isFixed) {
-                            showToast("לא ניתן לשנות סטטוס להוצאה חודשית קבועה – הסטטוס מתעדכן אוטומטית", "warning");
-                            return;
-                          }
                           if (showStatusMenu === invoice.id) {
                             setShowStatusMenu(null);
                           } else {
@@ -4221,12 +4211,12 @@ function ExpensesPageInner() {
                           }
                         }}
                         className={`text-[12px] font-bold px-[14px] py-[5px] rounded-full cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap min-w-[70px] text-center ${
-                          isFixedPending ? 'bg-[#bc76ff]' :
                           invoice.status === 'שולם' ? 'bg-[#00E096]' :
-                          invoice.status === 'בבירור' ? 'bg-[#FFA500]' : 'bg-[#29318A]'
+                          invoice.status === 'בבירור' ? 'bg-[#FFA500]' :
+                          isFixedPending ? 'bg-[#bc76ff]' : 'bg-[#29318A]'
                         }`}
                       >
-                        {isFixedPending ? 'ה.קבועה' : invoice.status}
+                        {invoice.status === 'שולם' || invoice.status === 'בבירור' ? invoice.status : isFixedPending ? 'ה.קבועה' : invoice.status}
                       </Button>
                     )}
                   </div>
