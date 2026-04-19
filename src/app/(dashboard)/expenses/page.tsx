@@ -425,6 +425,7 @@ function ExpensesPageInner() {
 
   // Delete confirmation state
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
+  const [deletingDocumentType, setDeletingDocumentType] = useState<"invoice" | "delivery_note">("invoice");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -3453,16 +3454,17 @@ function ExpensesPageInner() {
   };
 
   // Handle delete confirmation
-  const handleDeleteClick = (invoiceId: string) => {
+  const handleDeleteClick = (invoiceId: string, documentType: "invoice" | "delivery_note" = "invoice") => {
     if (showSupplierBreakdownPopup) {
       returnToBreakdownRef.current = true;
       setShowSupplierBreakdownPopup(false);
     }
     setDeletingInvoiceId(invoiceId);
+    setDeletingDocumentType(documentType);
     setShowDeleteConfirm(true);
   };
 
-  // Handle actual deletion
+  // Handle actual deletion — routes to the correct table based on documentType.
   const handleConfirmDelete = async () => {
     if (!deletingInvoiceId) return;
 
@@ -3470,14 +3472,22 @@ function ExpensesPageInner() {
     const supabase = createClient();
 
     try {
-      // Hard delete - remove linked payments first (FK), then invoice
-      await supabase.from("payments").delete().eq("invoice_id", deletingInvoiceId);
-      const { error } = await supabase
-        .from("invoices")
-        .delete()
-        .eq("id", deletingInvoiceId);
-
-      if (error) throw error;
+      if (deletingDocumentType === "delivery_note") {
+        // Delivery notes: hard delete from delivery_notes table (no deleted_at column).
+        const { error } = await supabase
+          .from("delivery_notes")
+          .delete()
+          .eq("id", deletingInvoiceId);
+        if (error) throw error;
+      } else {
+        // Invoices: remove linked payments first (FK), then the invoice.
+        await supabase.from("payments").delete().eq("invoice_id", deletingInvoiceId);
+        const { error } = await supabase
+          .from("invoices")
+          .delete()
+          .eq("id", deletingInvoiceId);
+        if (error) throw error;
+      }
 
       showToast("ההוצאה נמחקה בהצלחה", "success");
       const deletedId = deletingInvoiceId;
@@ -4309,7 +4319,7 @@ function ExpensesPageInner() {
                             <Button
                               type="button"
                               title="מחיקה"
-                              onClick={() => handleDeleteClick(invoice.id)}
+                              onClick={() => handleDeleteClick(invoice.id, invoice.documentType)}
                               className="w-[18px] h-[18px] text-white/70 hover:text-[#F64E60] transition-colors"
                             >
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
@@ -6383,7 +6393,7 @@ function ExpensesPageInner() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteClick(inv.id);
+                            handleDeleteClick(inv.id, inv.documentType);
                           }}
                           className="w-[25px] h-[25px] flex items-center justify-center text-white/50 hover:text-white transition-colors"
                           title="מחק"
