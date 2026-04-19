@@ -4277,7 +4277,7 @@ function PaymentsPageInner() {
                                           <Button
                                             type="button"
                                             title="צפייה בחשבונית"
-                                            onClick={(e) => { e.stopPropagation(); setViewerDocUrl(attachmentUrls[0]); }}
+                                            onClick={(e) => { e.stopPropagation(); openViewer(attachmentUrls[0], attachmentUrls); }}
                                             className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
                                           >
                                             <svg viewBox="0 0 24 24" className="w-full h-full" fill="none" stroke="currentColor" strokeWidth="2">
@@ -4354,7 +4354,7 @@ function PaymentsPageInner() {
                                               <Button
                                                 key={`attachment-${url}`}
                                                 type="button"
-                                                onClick={() => setViewerDocUrl(url)}
+                                                onClick={() => openViewer(url, attachmentUrls)}
                                                 className="border border-white/20 rounded-[8px] overflow-hidden w-[70px] h-[70px] hover:border-white/50 transition-colors cursor-pointer"
                                               >
                                                 {isPdfUrl(url) ? (
@@ -4867,24 +4867,23 @@ function PaymentsPageInner() {
               פתח בכרטיסייה חדשה
             </Button>
             {/* Document content */}
-            <div
-              className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="max-w-[90vw] max-h-[90vh] flex items-center justify-center">
               {(isPdfUrl(viewerDocUrl) || viewerDocIsPdf) ? (
                 <iframe
                   src={viewerDocUrl}
                   className="w-[90vw] h-[90vh] rounded-[12px] border border-white/20"
                   title="תצוגת מסמך"
+                  onClick={(e) => e.stopPropagation()}
                 />
               ) : (
                 <Image
                   src={viewerDocUrl}
                   alt="תצוגת מסמך"
-                  className="max-w-[90vw] max-h-[90vh] object-contain rounded-[12px]"
+                  className="max-w-[90vw] max-h-[90vh] object-contain rounded-[12px] cursor-zoom-out"
                   width={800}
                   height={600}
                   unoptimized
+                  onClick={(e) => { e.stopPropagation(); closeViewer(); }}
                 />
               )}
             </div>
