@@ -683,6 +683,7 @@ export function DailyEntriesModal({
       { data: incomeSourceGoalsData },
       { data: managedProductsData },
       { data: monthlyInvoices },
+      { data: monthlyDeliveryNotes },
       { data: scheduleData },
       { data: currentExpBudgetData },
       { data: openPaymentsData },
@@ -745,6 +746,14 @@ export function DailyEntriesModal({
         .gte("invoice_date", firstOfMonth)
         .lte("invoice_date", lastOfMonth)
         .is("deleted_at", null),
+      // 10b. Monthly unlinked delivery notes (count toward food cost once, invoice takes over when linked)
+      supabase
+        .from("delivery_notes")
+        .select("subtotal, suppliers!inner(expense_type)")
+        .eq("business_id", businessId)
+        .gte("delivery_date", firstOfMonth)
+        .lte("delivery_date", lastOfMonth)
+        .is("invoice_id", null),
       // 11. Business schedule for working days calculation
       supabase
         .from("business_schedule")
@@ -950,7 +959,7 @@ export function DailyEntriesModal({
       v.costPct = monthIncomeBeforeVat > 0 ? (v.totalCost / monthIncomeBeforeVat) * 100 : 0;
     });
 
-    // Food cost from invoices (goods_purchases)
+    // Food cost from invoices (goods_purchases) + unlinked delivery notes
     let monthFoodCost = 0;
     let monthCurrentExpenses = 0;
     (monthlyInvoices || []).forEach((inv: Record<string, unknown>) => {
@@ -958,6 +967,10 @@ export function DailyEntriesModal({
       const subtotal = Number(inv.subtotal) || 0;
       if (supplier?.expense_type === "goods_purchases") monthFoodCost += subtotal;
       else if (supplier?.expense_type === "current_expenses") monthCurrentExpenses += subtotal;
+    });
+    (monthlyDeliveryNotes || []).forEach((dn: Record<string, unknown>) => {
+      const supplier = dn.suppliers as { expense_type: string } | null;
+      if (supplier?.expense_type === "goods_purchases") monthFoodCost += (Number(dn.subtotal) || 0);
     });
     const foodCostPct = monthIncomeBeforeVat > 0 ? (monthFoodCost / monthIncomeBeforeVat) * 100 : 0;
     const currentExpensesPct = monthIncomeBeforeVat > 0 ? (monthCurrentExpenses / monthIncomeBeforeVat) * 100 : 0;
