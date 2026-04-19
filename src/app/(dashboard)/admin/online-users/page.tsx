@@ -486,10 +486,84 @@ function UserCard({ user, onClick }: { user: PresenceUser; onClick: () => void }
   );
 }
 
+interface AllUserRow {
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  is_admin: boolean;
+  created_at: string;
+  last_seen_at: string | null;
+  last_page_path: string | null;
+  last_page_name: string | null;
+  businesses: { id: string; name: string }[];
+}
+
+function formatLastSeen(iso: string | null): { label: string; color: string } {
+  if (!iso) return { label: "לא נכנס מעולם", color: "text-white/40" };
+  const date = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 5) return { label: "מחובר עכשיו", color: "text-[#3CD856]" };
+  if (diffMins < 60) return { label: `לפני ${diffMins} דקות`, color: "text-[#3CD856]" };
+  if (diffHours < 24) return { label: `לפני ${diffHours} שעות`, color: "text-[#FFA412]" };
+  if (diffDays < 7) return { label: `לפני ${diffDays} ימים`, color: "text-[#FFA412]" };
+  if (diffDays < 30) return { label: `לפני ${diffDays} ימים`, color: "text-[#F64E60]" };
+  return { label: date.toLocaleDateString("he-IL"), color: "text-[#F64E60]" };
+}
+
+function AllUserCard({ user, onClick }: { user: AllUserRow; onClick: () => void }) {
+  const seen = formatLastSeen(user.last_seen_at);
+  const pageName = user.last_page_path ? (pageNames[user.last_page_path] || user.last_page_name || user.last_page_path) : null;
+  const bizNames = user.businesses.map(b => b.name).join(" · ");
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="bg-[#111056]/60 border border-white/10 rounded-xl p-4 flex items-center gap-4 transition-all duration-300 text-right w-full hover:border-white/30 hover:bg-[#111056]/80 cursor-pointer"
+    >
+      <div className="relative flex-shrink-0">
+        {user.avatar_url ? (
+          <Image src={user.avatar_url} alt={user.full_name || user.email} width={48} height={48} className="rounded-full object-cover" />
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-[#29318A] flex items-center justify-center text-white text-lg font-bold">
+            {getInitials(user.full_name, user.email)}
+          </div>
+        )}
+        {user.last_seen_at && (Date.now() - new Date(user.last_seen_at).getTime() < 5 * 60_000) && (
+          <div className="absolute -bottom-0.5 -left-0.5 w-3.5 h-3.5 bg-[#3CD856] rounded-full border-2 border-[#0F1535]" />
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-white font-semibold text-sm truncate">{user.full_name || user.email}</span>
+          {user.is_admin && <span className="text-[10px] text-[#FFA412] bg-[#FFA412]/10 px-1.5 py-0.5 rounded">Admin</span>}
+        </div>
+        <div className="text-white/50 text-xs truncate">{user.email}</div>
+        {bizNames && <div className="text-white/40 text-[11px] truncate mt-0.5">{bizNames}</div>}
+        <div className="flex items-center gap-2 mt-1">
+          {pageName && <span className="text-white/40 text-xs truncate">{pageName}</span>}
+          {pageName && <span className="text-white/20">·</span>}
+          <span className={`text-xs ${seen.color}`}>{seen.label}</span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export default function OnlineUsersPage() {
   const { isAdmin, onlineUsers } = useDashboard();
   const router = useRouter();
   const [selectedUser, setSelectedUser] = useState<PresenceUser | null>(null);
+  const [activeTab, setActiveTab] = useState<"online" | "all">("online");
+  const [allUsers, setAllUsers] = useState<AllUserRow[]>([]);
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [search, setSearch] = useState("");
 
   // Redirect non-admin users
   useEffect(() => {
@@ -498,37 +572,123 @@ export default function OnlineUsersPage() {
     }
   }, [isAdmin, router]);
 
+  // Load the "all users" list when the tab is switched to it.
+  useEffect(() => {
+    if (activeTab !== "all") return;
+    let cancelled = false;
+    setLoadingAll(true);
+    fetch("/api/all-users-activity")
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        const list: AllUserRow[] = data.users || [];
+        // Sort: users who have been seen before, newest first; never-seen at the end.
+        list.sort((a, b) => {
+          if (!a.last_seen_at && !b.last_seen_at) return 0;
+          if (!a.last_seen_at) return 1;
+          if (!b.last_seen_at) return -1;
+          return b.last_seen_at.localeCompare(a.last_seen_at);
+        });
+        setAllUsers(list);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoadingAll(false); });
+    return () => { cancelled = true; };
+  }, [activeTab]);
+
   if (!isAdmin) return null;
+
+  const filteredAll = search.trim()
+    ? allUsers.filter(u => {
+        const q = search.trim().toLowerCase();
+        return (u.full_name || "").toLowerCase().includes(q)
+          || u.email.toLowerCase().includes(q)
+          || u.businesses.some(b => b.name.toLowerCase().includes(q));
+      })
+    : allUsers;
 
   return (
     <div className="p-4 lg:p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-white text-xl lg:text-2xl font-bold">משתמשים מחוברים</h1>
+        <h1 className="text-white text-xl lg:text-2xl font-bold">משתמשים</h1>
         <div className="bg-[#3CD856] text-white text-sm font-bold p-1.5 rounded-full min-w-[28px] text-center leading-none">
           {onlineUsers.length}
         </div>
       </div>
 
-      {/* Users grid or empty state */}
-      {onlineUsers.length === 0 ? (
-        <div className="text-center py-20">
-          <div className="text-white/30 text-6xl mb-4">
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" className="mx-auto text-white/20">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+      {/* Tabs */}
+      <div className="flex gap-2 mb-4">
+        <button
+          type="button"
+          onClick={() => setActiveTab("online")}
+          className={`px-4 py-2 rounded-lg text-[14px] transition ${activeTab === "online" ? "bg-[#29318A] text-white border border-white" : "bg-transparent text-white/60 border border-[#4C526B] hover:border-white/50"}`}
+        >
+          מחוברים עכשיו ({onlineUsers.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("all")}
+          className={`px-4 py-2 rounded-lg text-[14px] transition ${activeTab === "all" ? "bg-[#29318A] text-white border border-white" : "bg-transparent text-white/60 border border-[#4C526B] hover:border-white/50"}`}
+        >
+          כל המשתמשים
+        </button>
+      </div>
+
+      {activeTab === "online" ? (
+        onlineUsers.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="text-white/30 text-6xl mb-4">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" className="mx-auto text-white/20">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <p className="text-white/40 text-lg">אין משתמשים מחוברים כרגע</p>
           </div>
-          <p className="text-white/40 text-lg">אין משתמשים מחוברים כרגע</p>
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {onlineUsers.map((user) => (
+              <UserCard key={user.user_id} user={user} onClick={() => setSelectedUser(user)} />
+            ))}
+          </div>
+        )
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {onlineUsers.map((user) => (
-            <UserCard key={user.user_id} user={user} onClick={() => setSelectedUser(user)} />
-          ))}
-        </div>
+        <>
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="חיפוש לפי שם, אימייל, או שם עסק…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-[#111056]/60 border border-white/10 rounded-xl px-4 py-2 text-white text-sm placeholder:text-white/30 focus:border-white/30 outline-none"
+            />
+          </div>
+          {loadingAll ? (
+            <div className="text-white/50 text-center py-10">טוען…</div>
+          ) : filteredAll.length === 0 ? (
+            <p className="text-white/40 text-center py-10">לא נמצאו משתמשים</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {filteredAll.map((u) => (
+                <AllUserCard
+                  key={u.user_id}
+                  user={u}
+                  onClick={() => setSelectedUser({
+                    user_id: u.user_id,
+                    email: u.email,
+                    full_name: u.full_name,
+                    avatar_url: u.avatar_url,
+                    online_at: u.last_seen_at || new Date(0).toISOString(),
+                    current_page: u.last_page_path || "",
+                  } as PresenceUser)}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {selectedUser && (
