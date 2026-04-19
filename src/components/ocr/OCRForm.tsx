@@ -2185,10 +2185,26 @@ export default function OCRForm({
                       value={li.unit_price ?? ''}
                       onChange={(e) => {
                         const price = e.target.value === '' ? undefined : Number(e.target.value);
-                        setLineItems(prev => prev.map((item, i) => i !== idx ? item : {
-                          ...item,
-                          unit_price: price,
-                          total: calcLineTotal(item.quantity, price, item.discount_amount, item.discount_type),
+                        setLineItems(prev => prev.map((item, i) => {
+                          if (i !== idx) return item;
+                          // Recompute price_change_pct live when the user edits the unit price — so the
+                          // inline ▲/▼ badge and the "התראות שינוי מחיר" banner stay in sync with the
+                          // value the user just typed. Only recalculates when we have a matched
+                          // supplier item with a previous_price to compare against.
+                          const prev = item.previous_price;
+                          let priceChangePct = item.price_change_pct;
+                          if (prev != null && prev > 0 && price != null) {
+                            const changePct = ((price - prev) / prev) * 100;
+                            priceChangePct = Math.abs(changePct) < 0.01 ? 0 : changePct;
+                          } else if (price == null) {
+                            priceChangePct = undefined;
+                          }
+                          return {
+                            ...item,
+                            unit_price: price,
+                            price_change_pct: priceChangePct,
+                            total: calcLineTotal(item.quantity, price, item.discount_amount, item.discount_type),
+                          };
                         }));
                       }}
                       className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[12px] h-[28px] px-[2px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
