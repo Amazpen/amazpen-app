@@ -182,7 +182,7 @@ export default function ReportsPage() {
       const firstStart = `${months[0].year}-${String(months[0].month).padStart(2, "0")}-01`;
       const lastEnd = new Date(months[5].year, months[5].month, 0).toISOString().split("T")[0];
 
-      const [{ data: dailyData }, { data: invoicesData }, { data: bizVatData }, { data: goalsVatData }, { data: scheduleData }] = await Promise.all([
+      const [{ data: dailyData }, { data: invoicesData }, { data: trendDeliveryNotes }, { data: bizVatData }, { data: goalsVatData }, { data: scheduleData }] = await Promise.all([
         supabase
           .from("daily_entries")
           .select("business_id, entry_date, total_register, labor_cost, manager_daily_cost, day_factor")
@@ -198,6 +198,14 @@ export default function ReportsPage() {
           .in("invoice_type", ["current", "goods"])
           .gte("reference_date", firstStart)
           .lte("reference_date", lastEnd),
+        // Unlinked delivery notes also count as expenses in the trends chart.
+        supabase
+          .from("delivery_notes")
+          .select("delivery_date, subtotal")
+          .in("business_id", selectedBusinesses)
+          .is("invoice_id", null)
+          .gte("delivery_date", firstStart)
+          .lte("delivery_date", lastEnd),
         supabase
           .from("businesses")
           .select("id, vat_percentage, markup_percentage, manager_monthly_salary")
@@ -291,6 +299,16 @@ export default function ReportsPage() {
         }
       }
 
+      // Unlinked delivery notes (drop out once linked to their invoice).
+      for (const dn of trendDeliveryNotes || []) {
+        const amount = Number(dn.subtotal || 0);
+        if (amount < 0) continue;
+        const key = dn.delivery_date?.substring(0, 7);
+        if (key && expensesByMonth.has(key)) {
+          expensesByMonth.set(key, (expensesByMonth.get(key) || 0) + amount);
+        }
+      }
+
       setTrendsData(months.map(m => {
         const key = `${m.year}-${String(m.month).padStart(2, "0")}`;
         return {
@@ -344,6 +362,7 @@ export default function ReportsPage() {
           { data: businessData },
           { data: goalsData },
           { data: invoicesData },
+          { data: deliveryNotesData },
           { data: supplierBudgetsData },
           { data: dailyEntries },
         ] = await Promise.all([
@@ -372,6 +391,14 @@ export default function ReportsPage() {
             .in("invoice_type", ["current", "goods", "employees"])
             .gte("reference_date", startDate)
             .lte("reference_date", endDate),
+          // Unlinked delivery notes — count as actual expenses until their invoice arrives.
+          supabase
+            .from("delivery_notes")
+            .select("subtotal, supplier_id, supplier:suppliers(name, expense_category_id, expense_type, is_fixed_expense)")
+            .in("business_id", selectedBusinesses)
+            .is("invoice_id", null)
+            .gte("delivery_date", startDate)
+            .lte("delivery_date", endDate),
           supabase
             .from("supplier_budgets")
             .select("budget_amount, supplier_id, supplier:suppliers(name, expense_category_id, expense_type, is_fixed_expense)")
@@ -540,6 +567,30 @@ export default function ReportsPage() {
             } else if (expType === "current_expenses") {
               totalCurrentExpenses += amount;
             }
+          }
+        }
+
+        // Also include unlinked delivery notes in the per-supplier / per-category actuals.
+        // When a delivery note gets linked to an invoice, it drops out of this query (invoice_id not null).
+        if (deliveryNotesData) {
+          for (const dn of deliveryNotesData) {
+            const supplier = dn.supplier as unknown as { name: string | null; expense_category_id: string | null; expense_type: string | null; is_fixed_expense: boolean | null } | null;
+            const catId = supplier?.expense_category_id;
+            const expType = supplier?.expense_type;
+            const supplierId = (dn as unknown as { supplier_id: string | null }).supplier_id;
+            const amount = Number(dn.subtotal);
+            if (amount < 0) continue;
+            if (catId) {
+              categoryActuals.set(catId, (categoryActuals.get(catId) || 0) + amount);
+            }
+            if (supplierId) {
+              supplierActuals.set(supplierId, (supplierActuals.get(supplierId) || 0) + amount);
+              if (supplier?.name) supplierNames.set(supplierId, supplier.name);
+              if (catId) supplierCategoryMap.set(supplierId, catId);
+              if (expType) supplierExpenseTypes.set(supplierId, expType);
+            }
+            if (expType === "goods_purchases") totalGoodsExpenses += amount;
+            else if (expType === "current_expenses") totalCurrentExpenses += amount;
           }
         }
 
