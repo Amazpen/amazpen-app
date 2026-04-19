@@ -791,6 +791,44 @@ function ExpensesPageInner() {
 
   // Document viewer popup state (fullscreen preview)
   const [viewerDocUrl, setViewerDocUrl] = useState<string | null>(null);
+  const [viewerDocList, setViewerDocList] = useState<string[]>([]);
+  const [viewerDocIndex, setViewerDocIndex] = useState<number>(0);
+  // Open the fullscreen viewer on a specific URL, optionally with the full list so the user can page through siblings.
+  const openViewer = useCallback((url: string, list?: string[]) => {
+    const arr = (list && list.length > 0 ? list : [url]).filter(Boolean);
+    const idx = Math.max(0, arr.indexOf(url));
+    setViewerDocList(arr);
+    setViewerDocIndex(idx);
+    setViewerDocUrl(arr[idx] || url);
+  }, []);
+  const closeViewer = useCallback(() => {
+    setViewerDocUrl(null);
+    setViewerDocList([]);
+    setViewerDocIndex(0);
+  }, []);
+  const viewerNext = useCallback(() => {
+    if (viewerDocList.length < 2) return;
+    const next = (viewerDocIndex + 1) % viewerDocList.length;
+    setViewerDocIndex(next);
+    setViewerDocUrl(viewerDocList[next]);
+  }, [viewerDocList, viewerDocIndex]);
+  const viewerPrev = useCallback(() => {
+    if (viewerDocList.length < 2) return;
+    const prev = (viewerDocIndex - 1 + viewerDocList.length) % viewerDocList.length;
+    setViewerDocIndex(prev);
+    setViewerDocUrl(viewerDocList[prev]);
+  }, [viewerDocList, viewerDocIndex]);
+  // Keyboard shortcuts while the viewer is open: ← next (because layout is RTL), → prev, Esc close.
+  useEffect(() => {
+    if (!viewerDocUrl) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { closeViewer(); }
+      else if (e.key === 'ArrowLeft') { viewerNext(); }
+      else if (e.key === 'ArrowRight') { viewerPrev(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [viewerDocUrl, closeViewer, viewerNext, viewerPrev]);
 
   // Payment popup for existing invoice (when changing status to "paid")
   const [showPaymentPopup, setShowPaymentPopup] = useState(false);
@@ -4138,7 +4176,7 @@ function ExpensesPageInner() {
                           <button
                             className="w-[28px] h-[28px] rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
                             title="צפייה במסמך"
-                            onClick={(e) => { e.stopPropagation(); setViewerDocUrl(invoice.attachmentUrls[0]); }}
+                            onClick={(e) => { e.stopPropagation(); openViewer(invoice.attachmentUrls[0], invoice.attachmentUrls); }}
                           >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/70">
                               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
@@ -4204,7 +4242,7 @@ function ExpensesPageInner() {
                           {invoice.attachmentUrls.length > 0 && (
                             <Button
                               type="button"
-                              onClick={() => setViewerDocUrl(invoice.attachmentUrls[0])}
+                              onClick={() => openViewer(invoice.attachmentUrls[0], invoice.attachmentUrls)}
                               className="h-[34px] px-[12px] bg-white/10 hover:bg-white/20 rounded-[7px] text-white text-[13px] font-medium transition-colors flex items-center gap-[5px]"
                             >
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -4260,7 +4298,7 @@ function ExpensesPageInner() {
                             <Button
                               type="button"
                               title="צפייה בתמונה"
-                              onClick={() => setViewerDocUrl(invoice.attachmentUrls[0])}
+                              onClick={() => openViewer(invoice.attachmentUrls[0], invoice.attachmentUrls)}
                               className="w-[18px] h-[18px] text-white/70 hover:text-white transition-colors"
                             >
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
@@ -4349,7 +4387,7 @@ function ExpensesPageInner() {
                             <Button
                               key={`attachment-${url}`}
                               type="button"
-                              onClick={() => setViewerDocUrl(url)}
+                              onClick={() => openViewer(url, invoice.attachmentUrls)}
                               className="border border-white/20 rounded-[8px] overflow-hidden w-[70px] h-[70px] hover:border-white/50 transition-colors cursor-pointer"
                             >
                               {isPdfUrl(url) ? (
@@ -4421,7 +4459,7 @@ function ExpensesPageInner() {
                                     <Button
                                       type="button"
                                       title="צפייה בתעודת משלוח"
-                                      onClick={() => setViewerDocUrl(dn.attachmentUrls[0])}
+                                      onClick={() => openViewer(dn.attachmentUrls[0], dn.attachmentUrls)}
                                       className="text-white/70 hover:text-white transition-colors p-0 h-auto bg-transparent"
                                     >
                                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -4489,7 +4527,10 @@ function ExpensesPageInner() {
                                     <Button
                                       type="button"
                                       title="צפייה בקבלת התשלום"
-                                      onClick={() => setViewerDocUrl(payment.receiptUrl!)}
+                                      onClick={() => {
+                                        const receipts = parseAttachmentUrls(payment.receiptUrl);
+                                        openViewer(receipts[0] || payment.receiptUrl!, receipts);
+                                      }}
                                       className="text-white/70 hover:text-white transition-colors p-0 h-auto bg-transparent"
                                     >
                                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -6418,7 +6459,7 @@ function ExpensesPageInner() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setViewerDocUrl(inv.attachmentUrls[0]);
+                            openViewer(inv.attachmentUrls[0], inv.attachmentUrls);
                           }}
                           className="w-[25px] h-[25px] flex items-center justify-center text-white/50 hover:text-white transition-colors"
                           title="צפה בקובץ"
@@ -6459,17 +6500,42 @@ function ExpensesPageInner() {
       {viewerDocUrl && typeof window !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80"
-          onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); }}
+          onClick={(e) => { e.stopPropagation(); closeViewer(); }}
           onPointerDown={(e) => e.stopPropagation()}
         >
           {/* Close button */}
           <Button
             type="button"
-            onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); }}
+            onClick={(e) => { e.stopPropagation(); closeViewer(); }}
             className="absolute top-[16px] right-[16px] z-[20] w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer pointer-events-auto"
           >
             <X size={24} className="text-white" />
           </Button>
+          {/* Prev / Next arrows — only when there's more than one attachment */}
+          {viewerDocList.length > 1 && (
+            <>
+              <Button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); viewerPrev(); }}
+                className="absolute top-1/2 right-[16px] -translate-y-1/2 z-[20] w-[44px] h-[44px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer pointer-events-auto"
+                title="הקודם"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </Button>
+              <Button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); viewerNext(); }}
+                className="absolute top-1/2 left-[16px] -translate-y-1/2 z-[20] w-[44px] h-[44px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer pointer-events-auto"
+                title="הבא"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </Button>
+              {/* Position indicator */}
+              <div className="absolute bottom-[20px] left-1/2 -translate-x-1/2 z-[20] px-[14px] py-[6px] rounded-full bg-black/60 text-white text-[13px] pointer-events-none">
+                {viewerDocIndex + 1} / {viewerDocList.length}
+              </div>
+            </>
+          )}
           {/* Open in new tab button */}
           <Button
             type="button"
