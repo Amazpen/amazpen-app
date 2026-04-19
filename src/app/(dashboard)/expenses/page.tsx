@@ -2920,6 +2920,72 @@ function ExpensesPageInner() {
   };
 
   // Handle closing edit popup
+  // Convert a mistakenly-created invoice into a delivery note (תעודת משלוח).
+  // Creates a new delivery_notes row, moves linked payments off, and soft-deletes the invoice.
+  const handleConvertToDeliveryNote = async () => {
+    if (!editingInvoice || editingInvoice.documentType !== "invoice") return;
+    if (!confirm(`להמיר את חשבונית ${editingInvoice.reference || ""} לתעודת משלוח?\nפעולה זו תעביר את המסמך לרשימת תעודות המשלוח. אם יש תשלומים מקושרים הם יבוטלו.`)) return;
+
+    setIsSaving(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const supplier = suppliers.find(s => s.name === editingInvoice.supplier);
+      const supplierId = supplier?.id;
+      if (!supplierId) {
+        showToast("לא נמצא הספק של החשבונית", "error");
+        return;
+      }
+
+      // Convert display date (DD.MM.YY) -> YYYY-MM-DD
+      const dateParts = editingInvoice.date.split('.');
+      let deliveryDate = editingInvoice.rawDate || "";
+      if (!deliveryDate && dateParts.length === 3) {
+        const yr = dateParts[2].length === 2 ? `20${dateParts[2]}` : dateParts[2];
+        deliveryDate = `${yr}-${dateParts[1]}-${dateParts[0]}`;
+      }
+
+      const { data: newDn, error: dnErr } = await supabase
+        .from("delivery_notes")
+        .insert({
+          business_id: selectedBusinesses[0],
+          supplier_id: supplierId,
+          delivery_note_number: editingInvoice.reference || null,
+          delivery_date: deliveryDate,
+          subtotal: editingInvoice.amountBeforeVat,
+          vat_amount: Math.max(0, editingInvoice.amountWithVat - editingInvoice.amountBeforeVat),
+          total_amount: editingInvoice.amountWithVat,
+          notes: editingInvoice.notes || null,
+          attachment_url: editingInvoice.attachmentUrl,
+          is_verified: false,
+          created_by: user?.id || null,
+        })
+        .select()
+        .single();
+      if (dnErr || !newDn) throw dnErr || new Error("יצירת תעודת המשלוח נכשלה");
+
+      // Unlink any direct payments and payment_invoice_links from this invoice.
+      await supabase.from("payments").update({ invoice_id: null }).eq("invoice_id", editingInvoice.id);
+      await supabase.from("payment_invoice_links").delete().eq("invoice_id", editingInvoice.id);
+
+      // Soft-delete the invoice.
+      const { error: delErr } = await supabase
+        .from("invoices")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", editingInvoice.id);
+      if (delErr) throw delErr;
+
+      showToast("החשבונית הומרה לתעודת משלוח", "success");
+      handleCloseEditPopup();
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error("Convert to delivery note error:", err);
+      showToast(err instanceof Error ? err.message : "שגיאה בהמרה לתעודת משלוח", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleCloseEditPopup = () => {
     // Navigate back to source page FIRST if came from deep-link (before closing popup)
     // This prevents the user from briefly seeing the expenses page
@@ -5887,6 +5953,18 @@ function ExpensesPageInner() {
                   </select>
                 </div>
               </div>
+
+              {/* Convert to Delivery Note — only for invoices (not already DN) */}
+              {editingInvoice?.documentType === "invoice" && (
+                <Button
+                  type="button"
+                  onClick={handleConvertToDeliveryNote}
+                  disabled={isSaving || isUploadingAttachment}
+                  className="w-full bg-transparent border border-[#00bcd4] text-[#00bcd4] text-[14px] font-semibold py-[10px] rounded-[10px] transition-colors hover:bg-[#00bcd4]/10 disabled:opacity-50"
+                >
+                  המרה לתעודת משלוח
+                </Button>
+              )}
 
               {/* Submit and Cancel Buttons */}
               <div className="flex gap-[10px] mt-[10px] mb-[10px]">
