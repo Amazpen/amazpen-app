@@ -382,6 +382,8 @@ export default function OCRForm({
   // Duplicate detection
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const duplicateConfirmedRef = useRef(false);
+  // Track confirmation for "this OCR will overwrite a fixed-expense invoice with very different values".
+  const fixedOverwriteConfirmedRef = useRef(false);
 
   // Calculator
   const [calcDisplay, setCalcDisplay] = useState('0');
@@ -1333,6 +1335,29 @@ export default function OCRForm({
       return;
     }
 
+    // Fixed-expense overwrite guard — when the user chose to update an existing fixed-expense
+    // invoice, warn if the OCR values look like a different invoice (different number, or >20%
+    // amount delta). Prevents silently overwriting a legitimate Bubble-imported invoice.
+    if (linkToFixedInvoiceId && !fixedOverwriteConfirmedRef.current && (documentType === 'invoice' || documentType === 'credit_note' || documentType === 'disputed_invoice')) {
+      const target = fixedOpenInvoices.find(f => f.id === linkToFixedInvoiceId);
+      if (target) {
+        const targetTotal = Number(target.total_amount) || 0;
+        const newTotal = parseFloat(totalWithVat.toFixed(2)) || 0;
+        const pctDiff = targetTotal > 0 ? Math.abs((newTotal - targetTotal) / targetTotal) * 100 : 0;
+        const amountMismatch = targetTotal > 0 && pctDiff > 20;
+        if (amountMismatch) {
+          confirm(
+            `⚠️ עדכון חשבונית הוצאה קבועה\n\nסכום החשבונית שנבחרה: ₪${targetTotal.toFixed(2)}\nסכום החדש מה-OCR: ₪${newTotal.toFixed(2)} (שינוי של ${pctDiff.toFixed(1)}%)\n\nנראה ששני הסכומים שונים מהותית — ייתכן שזו חשבונית אחרת ולא עדכון.\n\nלהמשיך ולדרוס את החשבונית הקיימת?`,
+            () => {
+              fixedOverwriteConfirmedRef.current = true;
+              handleSubmit();
+            }
+          );
+          return;
+        }
+      }
+    }
+
     if (documentType === 'daily_entry') {
       // Daily entry validation
       if (!dailyEntryDate) {
@@ -1923,6 +1948,7 @@ export default function OCRForm({
                     type="button"
                     onClick={() => {
                       setLinkToFixedInvoiceId(inv.id);
+                      fixedOverwriteConfirmedRef.current = false;
                       setAmountBeforeVat(String(inv.subtotal));
                       setDocumentDate(inv.invoice_date);
                       if (selectedSupplier.vat_type === 'none') {
