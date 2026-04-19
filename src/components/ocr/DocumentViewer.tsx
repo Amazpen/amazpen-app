@@ -222,6 +222,32 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
     }
   }, []);
 
+  // Download the currently-viewed document (image or PDF) — fetches as blob so the
+  // browser actually saves it instead of navigating away, and preserves the original extension.
+  const handleDownload = useCallback(async () => {
+    if (!activeUrl) return;
+    try {
+      const res = await fetch(activeUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      // Pull the filename from the URL path, fall back to a timestamped default.
+      const urlPath = (() => { try { return new URL(activeUrl).pathname; } catch { return activeUrl; } })();
+      const rawName = urlPath.split('/').pop() || '';
+      const ext = isPdf ? 'pdf' : (rawName.split('.').pop() || 'jpg');
+      link.download = rawName || `document-${Date.now()}.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error('[DocumentViewer] Download failed:', err);
+      // Fallback: open in a new tab so the user can save manually.
+      window.open(activeUrl, '_blank');
+    }
+  }, [activeUrl, isPdf]);
+
   // Crop functionality
   const startCropping = useCallback(() => {
     setIsCropping(true);
@@ -409,6 +435,23 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
           </Button>
 
           <div className="w-px h-6 bg-[#4C526B] mx-1" />
+
+          {/* Download */}
+          {!isCropping && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDownload}
+              className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#29318A]/30 hover:bg-[#29318A]/50 text-white transition-colors"
+              title="הורדה"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </Button>
+          )}
 
           {/* Crop controls */}
           {!isCropping ? (
