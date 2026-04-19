@@ -493,12 +493,16 @@ export default function DashboardPage() {
       const todayEntryIds = todayEntries.map(e => e.id);
 
       // Fetch today's breakdowns, goods invoices, current expenses invoices, managed products in parallel
-      const [todayBreakdownResult, todayGoodsInvoicesResult, todayCurrentExpensesInvoicesResult, todayProductUsageResult, incomeSourcesResult, incomeSourceGoalsResult, managedProductsResult, scheduleResult, dayExceptionsResult] = await Promise.all([
+      const [todayBreakdownResult, todayGoodsInvoicesResult, todayGoodsDeliveryNotesResult, todayCurrentExpensesInvoicesResult, todayProductUsageResult, incomeSourcesResult, incomeSourceGoalsResult, managedProductsResult, scheduleResult, dayExceptionsResult] = await Promise.all([
         todayEntryIds.length > 0
           ? supabase.from("daily_income_breakdown").select("income_source_id, amount, orders_count").in("daily_entry_id", todayEntryIds)
           : Promise.resolve({ data: [] }),
         goodsSupplierIds.length > 0
           ? supabase.from("invoices").select("subtotal").in("supplier_id", goodsSupplierIds).in("business_id", selectedBusinesses).eq("invoice_date", todayStr).is("deleted_at", null)
+          : Promise.resolve({ data: [] }),
+        // Today's unlinked delivery notes from goods suppliers — also count toward today's food cost.
+        goodsSupplierIds.length > 0
+          ? supabase.from("delivery_notes").select("subtotal").in("supplier_id", goodsSupplierIds).in("business_id", selectedBusinesses).eq("delivery_date", todayStr).is("invoice_id", null)
           : Promise.resolve({ data: [] }),
         currentExpensesSupplierIds.length > 0
           ? supabase.from("invoices").select("subtotal").in("supplier_id", currentExpensesSupplierIds).in("business_id", selectedBusinesses).eq("invoice_date", todayStr).is("deleted_at", null)
@@ -673,7 +677,10 @@ export default function DashboardPage() {
       const todayLaborCostDiffPct = todayLaborCostPct - laborCostTargetPct;
 
       // Today's food cost
-      const todayFoodCost = (todayGoodsInvoicesResult.data || []).reduce((sum: number, inv: { subtotal: number }) => sum + (Number(inv.subtotal) || 0), 0);
+      const todayFoodCost = [
+        ...((todayGoodsInvoicesResult.data as Array<{ subtotal: number }>) || []),
+        ...((todayGoodsDeliveryNotesResult.data as Array<{ subtotal: number }>) || []),
+      ].reduce((sum: number, inv: { subtotal: number }) => sum + (Number(inv.subtotal) || 0), 0);
       const todayFoodCostPct = todayIncomeBeforeVat > 0 ? (todayFoodCost / todayIncomeBeforeVat) * 100 : 0;
       const foodCostTargetPct = goalsData.reduce((sum, g) => sum + (Number(g.food_cost_target_pct) || 0), 0) / Math.max(goalsData.length, 1);
       const todayFoodCostDiffPct = todayFoodCostPct - foodCostTargetPct;
@@ -1108,17 +1115,30 @@ export default function DashboardPage() {
         setSelectedBusinesses(validSelectedBusinesses);
       }
 
-      // DEPENDENT QUERY - Invoices
+      // DEPENDENT QUERY - Invoices + unlinked delivery notes (goods cost also counts תעודות משלוח בלי חשבונית)
       const goodsSupplierIdsForCards = (goodsSuppliersForCards || []).map(s => s.id);
-      const { data: goodsInvoicesForCards } = goodsSupplierIdsForCards.length > 0
-        ? await supabase
-            .from("invoices")
-            .select("supplier_id, business_id, subtotal")
-            .in("supplier_id", goodsSupplierIdsForCards)
-            .gte("reference_date", startDateStr)
-            .lte("reference_date", endDateStr)
-            .is("deleted_at", null)
-        : { data: [] };
+      const [goodsInvoicesForCardsResult, goodsDeliveryNotesForCardsResult] = goodsSupplierIdsForCards.length > 0
+        ? await Promise.all([
+            supabase
+              .from("invoices")
+              .select("supplier_id, business_id, subtotal")
+              .in("supplier_id", goodsSupplierIdsForCards)
+              .gte("reference_date", startDateStr)
+              .lte("reference_date", endDateStr)
+              .is("deleted_at", null),
+            supabase
+              .from("delivery_notes")
+              .select("supplier_id, business_id, subtotal")
+              .in("supplier_id", goodsSupplierIdsForCards)
+              .gte("delivery_date", startDateStr)
+              .lte("delivery_date", endDateStr)
+              .is("invoice_id", null),
+          ])
+        : [{ data: [] }, { data: [] }];
+      const goodsInvoicesForCards = [
+        ...((goodsInvoicesForCardsResult.data as Array<{ supplier_id: string; business_id: string; subtotal: number }>) || []),
+        ...((goodsDeliveryNotesForCardsResult.data as Array<{ supplier_id: string; business_id: string; subtotal: number }>) || []),
+      ];
 
       // Calculate business cards data
       const businessCardsData: BusinessCard[] = businesses.map((business) => {
@@ -1378,6 +1398,7 @@ export default function DashboardPage() {
       const [
         incomeSourceGoalsResult,
         goodsInvoicesResult,
+        goodsDeliveryNotesResult,
         currentExpensesInvoicesResult,
         currentExpensesBudgetsResult
       ] = await Promise.all([
@@ -1399,6 +1420,19 @@ export default function DashboardPage() {
               .gte("reference_date", startDateStr)
               .lte("reference_date", endDateStr)
               .is("deleted_at", null)
+          : Promise.resolve({ data: [] }),
+
+        // 2b. Get UNLINKED delivery notes from the same suppliers — they represent goods delivered but not yet invoiced.
+        // (Delivery notes with invoice_id set are already counted via the invoice row.)
+        goodsSupplierIds.length > 0
+          ? supabase
+              .from("delivery_notes")
+              .select("subtotal, delivery_date")
+              .in("supplier_id", goodsSupplierIds)
+              .in("business_id", selectedBusinesses)
+              .gte("delivery_date", startDateStr)
+              .lte("delivery_date", endDateStr)
+              .is("invoice_id", null)
           : Promise.resolve({ data: [] }),
 
         // 3. Get invoices from current_expenses suppliers (depends on currentExpensesSupplierIds)
@@ -1425,7 +1459,17 @@ export default function DashboardPage() {
       ]);
 
       const { data: incomeSourceGoalsData } = incomeSourceGoalsResult;
-      const { data: goodsInvoices } = goodsInvoicesResult;
+      const { data: goodsInvoicesRaw } = goodsInvoicesResult;
+      const { data: goodsDeliveryNotesRaw } = goodsDeliveryNotesResult;
+      // Merge unlinked delivery notes with invoices — both count toward "עלות מכר".
+      // Normalize delivery_date → invoice_date so downstream date-based logic keeps working.
+      const goodsInvoices: Array<{ subtotal: number; invoice_date: string }> = [
+        ...((goodsInvoicesRaw as Array<{ subtotal: number; invoice_date: string }>) || []),
+        ...((goodsDeliveryNotesRaw as Array<{ subtotal: number; delivery_date: string }>) || []).map(dn => ({
+          subtotal: dn.subtotal,
+          invoice_date: dn.delivery_date,
+        })),
+      ];
       const { data: currentExpensesInvoices } = currentExpensesInvoicesResult;
       const { data: currentExpensesBudgets } = currentExpensesBudgetsResult;
 
