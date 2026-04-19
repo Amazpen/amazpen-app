@@ -665,6 +665,38 @@ function PaymentsPageInner() {
   // Document viewer popup state (fullscreen preview)
   const [viewerDocUrl, setViewerDocUrl] = useState<string | null>(null);
   const [viewerDocIsPdf, setViewerDocIsPdf] = useState(false);
+  const [viewerDocList, setViewerDocList] = useState<string[]>([]);
+  const [viewerDocIndex, setViewerDocIndex] = useState<number>(0);
+  // Open the fullscreen viewer. If you pass a receipt_url that might be a JSON array
+  // (multiple receipts), we parse it via parseAttachmentUrls so the navigation works.
+  const openViewer = useCallback((url: string | null | undefined, list?: string[]) => {
+    if (!url) return;
+    const arr = (list && list.length > 0 ? list : parseAttachmentUrls(url)).filter(Boolean);
+    const first = arr[0] || url;
+    const idx = Math.max(0, arr.indexOf(first));
+    setViewerDocList(arr.length > 0 ? arr : [url]);
+    setViewerDocIndex(idx);
+    setViewerDocUrl(first);
+    setViewerDocIsPdf(false);
+  }, []);
+  const closeViewer = useCallback(() => {
+    setViewerDocUrl(null);
+    setViewerDocIsPdf(false);
+    setViewerDocList([]);
+    setViewerDocIndex(0);
+  }, []);
+  const viewerNext = useCallback(() => {
+    if (viewerDocList.length < 2) return;
+    const next = (viewerDocIndex + 1) % viewerDocList.length;
+    setViewerDocIndex(next);
+    setViewerDocUrl(viewerDocList[next]);
+  }, [viewerDocList, viewerDocIndex]);
+  const viewerPrev = useCallback(() => {
+    if (viewerDocList.length < 2) return;
+    const prev = (viewerDocIndex - 1 + viewerDocList.length) % viewerDocList.length;
+    setViewerDocIndex(prev);
+    setViewerDocUrl(viewerDocList[prev]);
+  }, [viewerDocList, viewerDocIndex]);
 
   // Forecast state
   const [showForecast, setShowForecast] = useState(false);
@@ -3138,7 +3170,7 @@ function PaymentsPageInner() {
                                         {paymentMethodNames[split.payment_method] || "אחר"}
                                       </span>
                                       {split.receipt_url && /^https?:\/\//.test(split.receipt_url) && (
-                                        <Button type="button" onClick={() => setViewerDocUrl(split.receipt_url!)} className="flex-shrink-0 text-white opacity-70 hover:opacity-100 cursor-pointer">
+                                        <Button type="button" onClick={() => openViewer(split.receipt_url!)} className="flex-shrink-0 text-white opacity-70 hover:opacity-100 cursor-pointer">
                                           <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
                                             <rect x="4" y="4" width="24" height="24" rx="4" stroke="currentColor" strokeWidth="2"/>
                                             <circle cx="12" cy="13" r="3" stroke="currentColor" strokeWidth="1.5"/>
@@ -3296,7 +3328,7 @@ function PaymentsPageInner() {
                                         {paymentMethodNames[split.payment_method] || "אחר"}
                                       </span>
                                       {split.receipt_url && /^https?:\/\//.test(split.receipt_url) && (
-                                        <Button type="button" onClick={() => setViewerDocUrl(split.receipt_url!)} className="flex-shrink-0 text-white opacity-70 hover:opacity-100 cursor-pointer">
+                                        <Button type="button" onClick={() => openViewer(split.receipt_url!)} className="flex-shrink-0 text-white opacity-70 hover:opacity-100 cursor-pointer">
                                           <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
                                             <rect x="4" y="4" width="24" height="24" rx="4" stroke="currentColor" strokeWidth="2"/>
                                             <circle cx="12" cy="13" r="3" stroke="currentColor" strokeWidth="1.5"/>
@@ -3695,7 +3727,7 @@ function PaymentsPageInner() {
                         {payment.receiptUrl && !(payment.linkedInvoice?.attachmentUrl && payment.receiptUrl === payment.linkedInvoice.attachmentUrl) && (
                           <Button
                             type="button"
-                            onClick={() => setViewerDocUrl(payment.receiptUrl!)}
+                            onClick={() => openViewer(payment.receiptUrl!)}
                             className="w-[20px] h-[20px] text-white opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
                             title="צפייה בקבלה"
                           >
@@ -4610,7 +4642,10 @@ function PaymentsPageInner() {
                           if (dedupedArr.length === 0) { e.target.value = ""; return; }
                           const newEntries = dedupedArr.map(file => ({ file, preview: URL.createObjectURL(file) }));
                           setReceiptFiles(prev => [...prev, ...newEntries]);
-                          if (!ocrApplied && arr.length > 0) {
+                          // Only run OCR on NEW payments — in edit mode it would overwrite the
+                          // user's manual edits (reference/date/supplier) with whatever the
+                          // freshly-uploaded file shows, which is usually not what they want.
+                          if (!editingPaymentId && !ocrApplied && arr.length > 0) {
                             processReceiptOcr(arr[0]);
                           }
                         }
@@ -4793,17 +4828,31 @@ function PaymentsPageInner() {
         {viewerDocUrl && (
           <div
             className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80"
-            onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); setViewerDocIsPdf(false); }}
+            onClick={(e) => { e.stopPropagation(); closeViewer(); }}
             onPointerDown={(e) => e.stopPropagation()}
           >
             {/* Close button */}
             <Button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); setViewerDocIsPdf(false); }}
+              onClick={(e) => { e.stopPropagation(); closeViewer(); }}
               className="absolute top-[16px] right-[16px] z-[20] w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer pointer-events-auto"
             >
               <X size={24} className="text-white" />
             </Button>
+            {/* Prev / Next — only when multiple docs */}
+            {viewerDocList.length > 1 && (
+              <>
+                <Button type="button" onClick={(e) => { e.stopPropagation(); viewerPrev(); }} className="absolute top-1/2 right-[16px] -translate-y-1/2 z-[20] w-[44px] h-[44px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 cursor-pointer pointer-events-auto" title="הקודם">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </Button>
+                <Button type="button" onClick={(e) => { e.stopPropagation(); viewerNext(); }} className="absolute top-1/2 left-[16px] -translate-y-1/2 z-[20] w-[44px] h-[44px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 cursor-pointer pointer-events-auto" title="הבא">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </Button>
+                <div className="absolute bottom-[20px] left-1/2 -translate-x-1/2 z-[20] px-[14px] py-[6px] rounded-full bg-black/60 text-white text-[13px] pointer-events-none">
+                  {viewerDocIndex + 1} / {viewerDocList.length}
+                </div>
+              </>
+            )}
             {/* Open in new tab button */}
             <Button
               type="button"
@@ -4889,15 +4938,28 @@ function PaymentsPageInner() {
       {!showAddPaymentPopup && viewerDocUrl && (
         <div
           className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80"
-          onClick={() => { setViewerDocUrl(null); setViewerDocIsPdf(false); }}
+          onClick={() => { closeViewer(); }}
         >
           <Button
             type="button"
-            onClick={(e) => { e.stopPropagation(); setViewerDocUrl(null); setViewerDocIsPdf(false); }}
+            onClick={(e) => { e.stopPropagation(); closeViewer(); }}
             className="absolute top-[16px] right-[16px] z-[20] w-[40px] h-[40px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 transition-colors cursor-pointer pointer-events-auto"
           >
             <X size={24} className="text-white" />
           </Button>
+          {viewerDocList.length > 1 && (
+            <>
+              <Button type="button" onClick={(e) => { e.stopPropagation(); viewerPrev(); }} className="absolute top-1/2 right-[16px] -translate-y-1/2 z-[20] w-[44px] h-[44px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 cursor-pointer pointer-events-auto" title="הקודם">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </Button>
+              <Button type="button" onClick={(e) => { e.stopPropagation(); viewerNext(); }} className="absolute top-1/2 left-[16px] -translate-y-1/2 z-[20] w-[44px] h-[44px] flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 cursor-pointer pointer-events-auto" title="הבא">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </Button>
+              <div className="absolute bottom-[20px] left-1/2 -translate-x-1/2 z-[20] px-[14px] py-[6px] rounded-full bg-black/60 text-white text-[13px] pointer-events-none">
+                {viewerDocIndex + 1} / {viewerDocList.length}
+              </div>
+            </>
+          )}
           <Button
             type="button"
             onClick={(e) => { e.stopPropagation(); window.open(viewerDocUrl, '_blank'); }}
