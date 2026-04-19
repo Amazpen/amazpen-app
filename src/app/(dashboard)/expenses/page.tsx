@@ -4509,7 +4509,7 @@ function ExpensesPageInner() {
                                     return card ? ` ${card.card_name}` : "";
                                   })()}
                                 </span>
-                                <span className="text-[13px] min-w-[55px] text-center ltr-num">{payment.checkNumber || payment.referenceNumber || "-"}</span>
+                                <span className="text-[13px] min-w-[55px] text-center ltr-num">{payment.referenceNumber || payment.checkNumber || "-"}</span>
                                 <span className="text-[13px] min-w-[45px] text-center ltr-num">{payment.installmentsCount && payment.installmentsCount > 1 ? `${payment.installmentNumber}/${payment.installmentsCount}` : "-"}</span>
                                 <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.amount % 1 === 0 ? payment.amount.toLocaleString("he-IL") : payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 <div className="w-[30px] flex items-center justify-center">
