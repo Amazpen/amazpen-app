@@ -289,10 +289,10 @@ export default function ReportsPage() {
         }
       }
 
-      // Invoice expenses (goods + current, NOT employees — those come from daily_entries above)
+      // Invoice expenses (goods + current, NOT employees — those come from daily_entries above).
+      // Credit notes (negative subtotals) reduce the monthly total — they represent refunds.
       for (const inv of invoicesData || []) {
         const amount = Number(inv.subtotal || 0);
-        if (amount < 0) continue; // Skip credit notes
         const key = (inv.reference_date || inv.invoice_date)?.substring(0, 7);
         if (key && expensesByMonth.has(key)) {
           expensesByMonth.set(key, (expensesByMonth.get(key) || 0) + amount);
@@ -302,7 +302,6 @@ export default function ReportsPage() {
       // Unlinked delivery notes (drop out once linked to their invoice).
       for (const dn of trendDeliveryNotes || []) {
         const amount = Number(dn.subtotal || 0);
-        if (amount < 0) continue;
         const key = dn.delivery_date?.substring(0, 7);
         if (key && expensesByMonth.has(key)) {
           expensesByMonth.set(key, (expensesByMonth.get(key) || 0) + amount);
@@ -533,11 +532,10 @@ export default function ReportsPage() {
             const expType = supplier?.expense_type;
             const supplierId = (inv as unknown as { supplier_id: string | null }).supplier_id;
             const amount = Number(inv.subtotal);
-            // Skip credit notes / cancellations — don't count in expenses
-            if (amount < 0) {
-              totalCredits += amount;
-              continue;
-            }
+            // Track credits for reporting, but STILL include them in expense totals so
+            // they reduce the corresponding category/supplier/global totals — a credit
+            // note means the supplier refunded money, so it must lower the net expense.
+            if (amount < 0) totalCredits += amount;
             if (catId) {
               const current = categoryActuals.get(catId) || 0;
               categoryActuals.set(catId, current + amount);
@@ -579,7 +577,7 @@ export default function ReportsPage() {
             const expType = supplier?.expense_type;
             const supplierId = (dn as unknown as { supplier_id: string | null }).supplier_id;
             const amount = Number(dn.subtotal);
-            if (amount < 0) continue;
+            // Negative DN subtotals (rare — returns) reduce the totals, matching daily-modal/dashboard semantics.
             if (catId) {
               categoryActuals.set(catId, (categoryActuals.get(catId) || 0) + amount);
             }
