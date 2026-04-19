@@ -1051,35 +1051,28 @@ export default function SuppliersPage() {
         }
       }
 
-      // 5. Create recurring expense invoice for current month (for fixed expense suppliers)
+      // 5. Create recurring expense invoice for current month (for fixed expense suppliers).
+      // Call the server-side API (service role) so the insert bypasses RLS — direct client inserts
+      // were silently failing when the supplier was the first fixed-expense added mid-month.
       if (isFixedExpense && monthlyExpenseAmount && !hasPreviousObligations) {
         try {
           const now = new Date();
-          const subtotal = parseFloat(monthlyExpenseAmount);
-          const vatTypeMap2: Record<string, string> = { yes: "full", no: "none", partial: "partial" };
-          const supplierVatType = vatTypeMap2[vatRequired] || "none";
-          const vatAmount = supplierVatType === "full" ? subtotal * 0.18 : 0;
-          const totalAmount = subtotal + vatAmount;
-          const day = chargeDay ? Math.min(parseInt(chargeDay), new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()) : 1;
-          const invoiceDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          const invoiceTypeMap: Record<string, string> = {
-            current: "current",
-            goods: "goods",
-            employees: "employees",
-          };
-
-          await supabase.from("invoices").insert({
-            business_id: selectedBusinesses[0],
-            supplier_id: newSupplier.id,
-            invoice_date: invoiceDate,
-            reference_date: invoiceDate,
-            subtotal,
-            vat_amount: vatAmount,
-            total_amount: totalAmount,
-            status: "pending",
-            invoice_type: invoiceTypeMap[expenseType] || "current",
-            notes: "הוצאה קבועה - נוצרה אוטומטית",
+          await fetch("/api/recurring-expenses/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              business_id: selectedBusinesses[0],
+              year: now.getFullYear(),
+              month: now.getMonth() + 1,
+            }),
           });
+          // Also reset the layout.tsx "already generated this month" localStorage flag so the
+          // auto-generator would re-fire if the user refreshes the page (covers other suppliers
+          // that might have been added after the initial monthly run).
+          try {
+            const key = `recurring-expenses-generated-${selectedBusinesses[0]}-${now.getFullYear()}-${now.getMonth() + 1}`;
+            localStorage.removeItem(key);
+          } catch {}
         } catch (invoiceError) {
           console.error("Error creating fixed expense invoice:", invoiceError);
           // Don't throw - supplier was created successfully
