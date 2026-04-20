@@ -4178,24 +4178,35 @@ function PaymentsPageInner() {
                       {isLoadingInvoices ? (
                         <div className="text-center text-white/70 py-[20px]">טוען חשבוניות...</div>
                       ) : (
-                        groupInvoicesByMonth(openInvoices).map(([monthKey, monthInvoices]) => (
+                        groupInvoicesByMonth(openInvoices).map(([monthKey, monthInvoices]) => {
+                          const monthTotal = monthInvoices.reduce((s, inv) => s + Number(inv.total_amount || 0), 0);
+                          return (
                           <div key={monthKey} className="flex flex-col">
-                            {/* Month Header */}
+                            {/* Month Header — shows month label + total amount + invoice count,
+                                mirroring the OCR payment tab so users see the magnitude before expanding. */}
                             <Button
                               type="button"
                               onClick={() => toggleMonthExpanded(monthKey)}
-                              className="flex items-center gap-[5px] py-[10px] hover:bg-white/5 rounded-[7px] px-[10px] transition-colors"
+                              className="flex items-center justify-between py-[10px] hover:bg-white/5 rounded-[7px] px-[10px] transition-colors"
                             >
-                              <span className="text-[16px] font-bold text-white">{getMonthYearLabel(monthKey)}</span>
-                              <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 32 32"
-                                fill="none"
-                                className={`transition-transform ${expandedMonths.has(monthKey) ? "rotate-180" : ""}`}
-                              >
-                                <path d="M10 14L16 20L22 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
+                              <div className="flex items-center gap-[8px]">
+                                <span className="text-[13px] text-white/80 font-semibold ltr-num">
+                                  ₪{monthTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                                <span className="text-[11px] text-white/40">({monthInvoices.length})</span>
+                              </div>
+                              <div className="flex items-center gap-[5px]">
+                                <span className="text-[16px] font-bold text-white">{getMonthYearLabel(monthKey)}</span>
+                                <svg
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 32 32"
+                                  fill="none"
+                                  className={`transition-transform ${expandedMonths.has(monthKey) ? "rotate-180" : ""}`}
+                                >
+                                  <path d="M10 14L16 20L22 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </div>
                             </Button>
 
                             {/* Month Invoices */}
@@ -4382,7 +4393,7 @@ function PaymentsPageInner() {
                               </div>
                             )}
                           </div>
-                        ))
+                        );})
                       )}
 
                       {/* Selected Summary */}
