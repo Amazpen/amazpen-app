@@ -205,6 +205,11 @@ export default function SuppliersPage() {
   }>>([]);
   const [expandedSupplierInvoiceId, setExpandedSupplierInvoiceId] = useState<string | null>(null);
   const [expandedSupplierPaymentId, setExpandedSupplierPaymentId] = useState<string | null>(null);
+  const [supplierInvoicesLimit, setSupplierInvoicesLimit] = useState<number>(20);
+  const [supplierInvoicesHasMore, setSupplierInvoicesHasMore] = useState<boolean>(false);
+  const [isLoadingMoreInvoices, setIsLoadingMoreInvoices] = useState<boolean>(false);
+  const supplierInvoicesLimitRef = useRef<number>(20);
+  useEffect(() => { supplierInvoicesLimitRef.current = supplierInvoicesLimit; }, [supplierInvoicesLimit]);
   const [showLinkedPayments, setShowLinkedPayments] = useState<string | null>(null);
   const [supplierPayments, setSupplierPayments] = useState<Array<{
     id: string;
@@ -1212,6 +1217,9 @@ export default function SuppliersPage() {
     // Reset to current month
     const now = new Date();
     setDetailMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+    // Reset invoice pagination for the new supplier
+    setSupplierInvoicesLimit(20);
+    setSupplierInvoicesHasMore(false);
 
     // Fetch supplier documents
     fetchSupplierDocuments(supplier.id);
@@ -1291,7 +1299,9 @@ export default function SuppliersPage() {
         monthlyData,
       });
 
-      // Fetch invoices list + unlinked delivery notes for this supplier
+      // Fetch invoices list + unlinked delivery notes for this supplier.
+      // We fetch one row beyond the current limit to know whether more exist.
+      const invLimit = supplierInvoicesLimitRef.current;
       const [{ data: invoicesRaw }, { data: deliveryNotesRaw }] = await Promise.all([
         supabase
           .from("invoices")
@@ -1299,15 +1309,18 @@ export default function SuppliersPage() {
           .eq("supplier_id", supplier.id)
           .is("deleted_at", null)
           .order("invoice_date", { ascending: false })
-          .limit(20),
+          .limit(invLimit + 1),
         supabase
           .from("delivery_notes")
           .select("id, delivery_date, delivery_note_number, subtotal, total_amount, vat_amount, notes, attachment_url, created_by, created_at, creator:profiles!delivery_notes_created_by_fkey(full_name)")
           .eq("supplier_id", supplier.id)
           .is("invoice_id", null)
           .order("delivery_date", { ascending: false })
-          .limit(20),
+          .limit(invLimit + 1),
       ]);
+      const hasMoreInvoices = (invoicesRaw?.length || 0) > invLimit;
+      const hasMoreDns = (deliveryNotesRaw?.length || 0) > invLimit;
+      setSupplierInvoicesHasMore(hasMoreInvoices || hasMoreDns);
       // Map delivery notes to look like invoices (status='ת. משלוח')
       const dnAsInvoices = (deliveryNotesRaw || []).map((dn: Record<string, unknown>) => ({
         id: dn.id,
@@ -1324,10 +1337,14 @@ export default function SuppliersPage() {
         created_at: dn.created_at,
         creator: dn.creator,
       }));
-      const invoicesList = [...(invoicesRaw || []), ...dnAsInvoices]
+      // Trim each source back to invLimit before merging, then slice to 2*invLimit
+      // so the combined list honors the current page size.
+      const trimmedInvoices = (invoicesRaw || []).slice(0, invLimit);
+      const trimmedDns = dnAsInvoices.slice(0, invLimit);
+      const invoicesList = [...trimmedInvoices, ...trimmedDns]
         .sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
           String(b.invoice_date || '').localeCompare(String(a.invoice_date || '')))
-        .slice(0, 40);
+        .slice(0, invLimit * 2);
 
       if (invoicesList) {
         // Fetch linked payments for all invoices
@@ -1476,6 +1493,20 @@ export default function SuppliersPage() {
     setExpandedSupplierInvoiceId(null);
     setShowLinkedPayments(null);
     setSupplierDocuments([]);
+  };
+
+  // Load another page of invoices for the currently-open supplier detail popup.
+  const handleLoadMoreSupplierInvoices = async () => {
+    if (!selectedSupplier || isLoadingMoreInvoices) return;
+    setIsLoadingMoreInvoices(true);
+    try {
+      const nextLimit = supplierInvoicesLimitRef.current + 20;
+      supplierInvoicesLimitRef.current = nextLimit;
+      setSupplierInvoicesLimit(nextLimit);
+      await handleOpenSupplierDetail(selectedSupplier);
+    } finally {
+      setIsLoadingMoreInvoices(false);
+    }
   };
 
   // Fetch supplier documents
@@ -3155,6 +3186,18 @@ export default function SuppliersPage() {
                           )}
                         </div>
                       ))
+                    )}
+                    {supplierInvoicesHasMore && (
+                      <div className="flex justify-center py-[10px]">
+                        <Button
+                          type="button"
+                          onClick={handleLoadMoreSupplierInvoices}
+                          disabled={isLoadingMoreInvoices}
+                          className="bg-[#29318A] text-white text-[13px] font-medium py-[8px] px-[20px] rounded-[7px] hover:bg-[#3D44A0] transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {isLoadingMoreInvoices ? "טוען..." : "הצג עוד חשבוניות"}
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
