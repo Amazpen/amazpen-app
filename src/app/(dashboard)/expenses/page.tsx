@@ -130,7 +130,7 @@ interface InvoiceDisplay {
   isFixed: boolean;
   approval_status: string | null;
   referenceDate: string | null;
-  linkedPayments: { id: string; paymentId: string; amount: number; method: string; date: string; checkNumber: string; installmentNumber: number | null; installmentsCount: number | null; referenceNumber: string; creditCardId: string | null; receiptUrl: string | null }[];
+  linkedPayments: { id: string; paymentId: string; amount: number; method: string; date: string; checkNumber: string; installmentNumber: number | null; installmentsCount: number | null; referenceNumber: string; creditCardId: string | null; receiptUrl: string | null; notes: string | null }[];
   linkedDeliveryNotes: { id: string; deliveryNoteNumber: string; date: string; amount: number; subtotal: number; attachmentUrl: string | null; attachmentUrls: string[]; notes: string }[];
   documentType: "invoice" | "delivery_note";
   invoiceType?: string;
@@ -373,8 +373,8 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
-          payment_invoice_links(payment:payments(id, payment_date, total_amount, receipt_url, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
         `)
         .eq("id", highlightInvoiceId)
         .in("business_id", selectedBusinesses)
@@ -486,8 +486,8 @@ function ExpensesPageInner() {
             *,
             supplier:suppliers(id, name, expense_category_id, is_fixed_expense, is_active, deleted_at),
             creator:profiles!invoices_created_by_fkey(full_name),
-            payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
-          payment_invoice_links(payment:payments(id, payment_date, total_amount, receipt_url, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
+            payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
           `)
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
@@ -648,6 +648,7 @@ function ExpensesPageInner() {
             }
             for (const payment of allPayments) {
               const paymentReceipt = (payment as unknown as { receipt_url?: string | null }).receipt_url || null;
+              const paymentNotes = (payment as unknown as { notes?: string | null }).notes || null;
               if (payment.payment_splits && Array.isArray(payment.payment_splits)) {
                 for (const split of payment.payment_splits) {
                   linkedPayments.push({
@@ -662,6 +663,7 @@ function ExpensesPageInner() {
                     referenceNumber: split.reference_number || "",
                     creditCardId: (split as { credit_card_id?: string | null }).credit_card_id || null,
                     receiptUrl: paymentReceipt,
+                    notes: paymentNotes,
                   });
                 }
               }
@@ -1271,8 +1273,8 @@ function ExpensesPageInner() {
               *,
               supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
               creator:profiles!invoices_created_by_fkey(full_name),
-              payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
-          payment_invoice_links(payment:payments(id, payment_date, total_amount, receipt_url, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
+              payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
             `)
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
@@ -1708,6 +1710,7 @@ function ExpensesPageInner() {
       if (allPays.length > 0) {
         for (const payment of allPays) {
           const paymentReceipt = payment.receipt_url || null;
+          const paymentNotes = payment.notes || null;
           if (payment.payment_splits && Array.isArray(payment.payment_splits)) {
             for (const split of payment.payment_splits) {
               linkedPayments.push({
@@ -1722,6 +1725,7 @@ function ExpensesPageInner() {
                 referenceNumber: split.reference_number || "",
                 creditCardId: split.credit_card_id || null,
                 receiptUrl: paymentReceipt,
+                notes: paymentNotes,
               });
             }
           }
@@ -1773,8 +1777,8 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
-          payment_invoice_links(payment:payments(id, payment_date, total_amount, receipt_url, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
         `)
         .in("business_id", selectedBusinesses)
         .is("deleted_at", null)
@@ -3080,8 +3084,8 @@ function ExpensesPageInner() {
           *,
           supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
           creator:profiles!invoices_created_by_fkey(full_name),
-          payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
-          payment_invoice_links(payment:payments(id, payment_date, total_amount, receipt_url, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
+          payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+          payment_invoice_links(payment:payments(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
         `)
         .eq("id", editId)
         .maybeSingle();
@@ -3549,8 +3553,8 @@ function ExpensesPageInner() {
             *,
             supplier:suppliers(id, name, expense_category_id, is_fixed_expense),
             creator:profiles!invoices_created_by_fkey(full_name),
-            payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
-            payment_invoice_links(payment:payments(id, payment_date, total_amount, receipt_url, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
+            payments!payments_invoice_id_fkey(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)),
+            payment_invoice_links(payment:payments(id, payment_date, total_amount, receipt_url, notes, payment_splits(id, payment_method, amount, installments_count, installment_number, due_date, check_number, reference_number, credit_card_id)))
           `)
           .in("business_id", selectedBusinesses)
           .eq("supplier_id", supplierId)
@@ -4679,43 +4683,51 @@ function ExpensesPageInner() {
                             </div>
                             {/* Payment rows - one per payment */}
                             {invoice.linkedPayments.map((payment) => (
-                              <div
-                                key={payment.id}
-                                dir="rtl"
-                                className="flex items-center justify-between gap-[3px] min-h-[40px] px-[3px] rounded-[7px]"
-                              >
-                                <span className="text-[13px] min-w-[50px] text-center ltr-num">{payment.date}</span>
-                                <span className="text-[13px] flex-1 text-center">
-                                  {payment.method}
-                                  {payment.creditCardId && (() => {
-                                    const card = businessCreditCards.find(c => c.id === payment.creditCardId);
-                                    return card ? ` ${card.card_name}` : "";
-                                  })()}
-                                </span>
-                                <span className="text-[13px] min-w-[55px] text-center ltr-num">{payment.referenceNumber || payment.checkNumber || "-"}</span>
-                                <span className="text-[13px] min-w-[45px] text-center ltr-num">{payment.installmentsCount && payment.installmentsCount > 1 ? `${payment.installmentNumber}/${payment.installmentsCount}` : "-"}</span>
-                                <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.amount % 1 === 0 ? payment.amount.toLocaleString("he-IL") : payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                <div className="w-[30px] flex items-center justify-center">
-                                  {payment.receiptUrl ? (
-                                    <Button
-                                      type="button"
-                                      title="צפייה בקבלת התשלום"
-                                      onClick={() => {
-                                        const receipts = parseAttachmentUrls(payment.receiptUrl);
-                                        openViewer(receipts[0] || payment.receiptUrl!, receipts);
-                                      }}
-                                      className="text-white/70 hover:text-white transition-colors p-0 h-auto bg-transparent"
-                                    >
-                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                                        <polyline points="21 15 16 10 5 21"/>
-                                      </svg>
-                                    </Button>
-                                  ) : (
-                                    <span className="text-[13px] text-white/30">-</span>
-                                  )}
+                              <div key={payment.id} className="flex flex-col">
+                                <div
+                                  dir="rtl"
+                                  className="flex items-center justify-between gap-[3px] min-h-[40px] px-[3px] rounded-[7px]"
+                                >
+                                  <span className="text-[13px] min-w-[50px] text-center ltr-num">{payment.date}</span>
+                                  <span className="text-[13px] flex-1 text-center">
+                                    {payment.method}
+                                    {payment.creditCardId && (() => {
+                                      const card = businessCreditCards.find(c => c.id === payment.creditCardId);
+                                      return card ? ` ${card.card_name}` : "";
+                                    })()}
+                                  </span>
+                                  <span className="text-[13px] min-w-[55px] text-center ltr-num">{payment.referenceNumber || payment.checkNumber || "-"}</span>
+                                  <span className="text-[13px] min-w-[45px] text-center ltr-num">{payment.installmentsCount && payment.installmentsCount > 1 ? `${payment.installmentNumber}/${payment.installmentsCount}` : "-"}</span>
+                                  <span className="text-[13px] w-[65px] text-center ltr-num">₪{payment.amount % 1 === 0 ? payment.amount.toLocaleString("he-IL") : payment.amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  <div className="w-[30px] flex items-center justify-center">
+                                    {payment.receiptUrl ? (
+                                      <Button
+                                        type="button"
+                                        title="צפייה בקבלת התשלום"
+                                        onClick={() => {
+                                          const receipts = parseAttachmentUrls(payment.receiptUrl);
+                                          openViewer(receipts[0] || payment.receiptUrl!, receipts);
+                                        }}
+                                        className="text-white/70 hover:text-white transition-colors p-0 h-auto bg-transparent"
+                                      >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                          <circle cx="8.5" cy="8.5" r="1.5"/>
+                                          <polyline points="21 15 16 10 5 21"/>
+                                        </svg>
+                                      </Button>
+                                    ) : (
+                                      <span className="text-[13px] text-white/30">-</span>
+                                    )}
+                                  </div>
                                 </div>
+                                {/* Payment notes — shown beneath the row if present */}
+                                {payment.notes && (
+                                  <div dir="rtl" className="px-[8px] pb-[6px] flex items-start gap-[5px]">
+                                    <span className="text-[11px] text-[#FFA412] flex-shrink-0 font-medium">הערות:</span>
+                                    <span className="text-[11px] text-white/80 leading-[1.4]">{payment.notes}</span>
+                                  </div>
+                                )}
                               </div>
                             ))}
 
