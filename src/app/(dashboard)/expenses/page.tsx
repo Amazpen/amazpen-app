@@ -4037,42 +4037,56 @@ function ExpensesPageInner() {
           {/* Title - Center */}
           <h2 className="text-[18px] font-bold text-center">חשבוניות אחרונות שהוזנו</h2>
 
-          {/* Download Button - Left side */}
+          {/* CSV Export Button — exports *exactly* what the user sees on screen.
+              When a global search is active (reference/supplier/amount/notes/creditCard)
+              we export the full global result set, not just the locally-loaded
+              recentInvoices — otherwise the CSV silently drops rows that the
+              search surfaced. */}
           <Button
             type="button"
             className="flex flex-col items-center gap-[5px] cursor-pointer"
             onClick={() => {
               const searchVal = filterValue.trim().toLowerCase();
-              // For "reference" filter: include parent consolidated invoices when a delivery note matches
-              const matchedParentIds = new Set<string>();
-              if (filterBy === "reference" && searchVal) {
-                for (const inv of recentInvoices) {
-                  if (inv.documentType === "delivery_note" && inv.parentInvoiceId &&
-                      inv.reference.toLowerCase().includes(searchVal)) {
-                    matchedParentIds.add(inv.parentInvoiceId);
+              // Decide which dataset backs the CSV. If a text filter is active
+              // AND the global search produced results, export those; otherwise
+              // fall back to filtering the currently-loaded recentInvoices.
+              const hasActiveFilter = filterBy && filterBy !== "fixed" && filterValue.trim();
+              const useGlobal = hasActiveFilter && globalSearchResults && globalSearchResults.length > 0;
+              let source: InvoiceDisplay[];
+              if (useGlobal) {
+                source = globalSearchResults!;
+              } else {
+                const matchedParentIds = new Set<string>();
+                if (filterBy === "reference" && searchVal) {
+                  for (const inv of recentInvoices) {
+                    if (inv.documentType === "delivery_note" && inv.parentInvoiceId &&
+                        inv.reference.toLowerCase().includes(searchVal)) {
+                      matchedParentIds.add(inv.parentInvoiceId);
+                    }
                   }
                 }
+                source = recentInvoices.filter((inv) => {
+                  if (!filterBy) return true;
+                  if (filterBy === "fixed") return inv.isFixed;
+                  if (!searchVal) return true;
+                  switch (filterBy) {
+                    case "date": return inv.date.includes(searchVal);
+                    case "reference_date": return inv.referenceDate?.includes(searchVal) || false;
+                    case "supplier": return inv.supplier.toLowerCase().includes(searchVal);
+                    case "reference": return inv.reference.toLowerCase().includes(searchVal) || matchedParentIds.has(inv.id) || (inv.consolidatedReference?.toLowerCase().includes(searchVal) ?? false);
+                    case "amount": return inv.amountBeforeVat.toLocaleString().includes(searchVal) || inv.amountBeforeVat.toString().includes(searchVal);
+                    case "creditCard": {
+                      const names = inv.linkedPayments
+                        .filter(p => p.creditCardId)
+                        .map(p => (businessCreditCards.find(c => c.id === p.creditCardId)?.card_name || "").toLowerCase());
+                      return names.some(n => n.includes(searchVal));
+                    }
+                    case "notes": return inv.notes.toLowerCase().includes(searchVal);
+                    default: return true;
+                  }
+                });
               }
-              let filtered = recentInvoices.filter((inv) => {
-                if (!filterBy) return true;
-                if (filterBy === "fixed") return inv.isFixed;
-                if (!searchVal) return true;
-                switch (filterBy) {
-                  case "date": return inv.date.includes(searchVal);
-                  case "reference_date": return inv.referenceDate?.includes(searchVal) || false;
-                  case "supplier": return inv.supplier.toLowerCase().includes(searchVal);
-                  case "reference": return inv.reference.toLowerCase().includes(searchVal) || matchedParentIds.has(inv.id) || (inv.consolidatedReference?.toLowerCase().includes(searchVal) ?? false);
-                  case "amount": return inv.amountBeforeVat.toLocaleString().includes(searchVal) || inv.amountBeforeVat.toString().includes(searchVal);
-                  case "creditCard": {
-                    const names = inv.linkedPayments
-                      .filter(p => p.creditCardId)
-                      .map(p => (businessCreditCards.find(c => c.id === p.creditCardId)?.card_name || "").toLowerCase());
-                    return names.some(n => n.includes(searchVal));
-                  }
-                  case "notes": return inv.notes.toLowerCase().includes(searchVal);
-                  default: return true;
-                }
-              });
+              let filtered = source;
               if (sortColumn && sortOrder) {
                 filtered = [...filtered].sort((a, b) => {
                   let cmp = 0;
@@ -4113,12 +4127,15 @@ function ExpensesPageInner() {
               link.click();
               URL.revokeObjectURL(url);
             }}
+            title="ייצוא לקובץ CSV"
           >
+            {/* CSV file icon */}
             <svg width="30" height="30" viewBox="0 0 32 32" fill="none" className="text-white">
-              <path d="M16 4V22M16 22L10 16M16 22L22 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M6 28H26" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M19 4H8a2 2 0 0 0-2 2v20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V11l-7-7z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+              <path d="M19 4v7h7" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+              <text x="16" y="23" textAnchor="middle" fill="currentColor" fontSize="7" fontWeight="bold" fontFamily="sans-serif">CSV</text>
             </svg>
-            <span className="text-[12px] text-white text-center">הורדת חשבוניות</span>
+            <span className="text-[12px] text-white text-center">ייצוא CSV</span>
           </Button>
         </div>
 
