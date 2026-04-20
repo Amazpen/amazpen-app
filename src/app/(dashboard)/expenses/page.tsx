@@ -4166,12 +4166,33 @@ function ExpensesPageInner() {
                   return sortOrder === "asc" ? cmp : -cmp;
                 });
               }
-              // When filter is active, prefer global search results (all dates)
+              // When filter is active, prefer global search results (all dates).
+              // Defensive post-filter: the DB query returns rows matching the
+              // CURRENT `searchVal`, but stale results from an earlier keystroke
+              // can linger in state until the debounce fires again. Re-apply the
+              // same text match the local filter uses so nothing unrelated slips
+              // through regardless of state timing.
               const hasActiveFilter = filterBy && filterBy !== "fixed" && filterValue.trim();
-              const displayInvoices = hasActiveFilter && globalSearchResults && globalSearchResults.length > 0
-                ? globalSearchResults
+              const globalMatches = (globalSearchResults || []).filter((inv) => {
+                if (!searchVal) return true;
+                switch (filterBy) {
+                  case "date": return inv.date.includes(searchVal);
+                  case "reference_date": return inv.referenceDate?.includes(searchVal) || false;
+                  case "supplier": return inv.supplier.toLowerCase().includes(searchVal);
+                  case "reference": return inv.reference.toLowerCase().includes(searchVal)
+                    || (inv.consolidatedReference?.toLowerCase().includes(searchVal) ?? false);
+                  case "amount": return inv.amountBeforeVat.toLocaleString().includes(searchVal)
+                    || inv.amountBeforeVat.toString().includes(searchVal);
+                  case "notes": return inv.notes.toLowerCase().includes(searchVal);
+                  // creditCard search is built server-side from card->payment->invoice; trust DB.
+                  case "creditCard": return true;
+                  default: return true;
+                }
+              });
+              const displayInvoices = hasActiveFilter && globalMatches.length > 0
+                ? globalMatches
                 : filtered;
-              const isShowingGlobal = hasActiveFilter && globalSearchResults && globalSearchResults.length > 0;
+              const isShowingGlobal = hasActiveFilter && globalMatches.length > 0;
 
               return displayInvoices.length === 0 ? (
               <div className="flex items-center justify-center py-[40px]">
@@ -4181,7 +4202,7 @@ function ExpensesPageInner() {
               <>
               {isShowingGlobal && (
                 <div className="bg-[#29318A]/30 border border-[#29318A]/50 rounded-[7px] px-[10px] py-[6px] mb-[5px]">
-                  <span className="text-[12px] text-[#00D4FF]">נמצאו {globalSearchResults!.length} תוצאות מחוץ לטווח הנוכחי (טאב/תאריכים)</span>
+                  <span className="text-[12px] text-[#00D4FF]">נמצאו {globalMatches.length} תוצאות מחוץ לטווח הנוכחי (טאב/תאריכים)</span>
                 </div>
               )}
               {displayInvoices.map((invoice) => {
