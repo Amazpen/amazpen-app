@@ -27,8 +27,10 @@ interface DashboardContextType {
   toggleBusiness: (id: string) => void;
   isAdmin: boolean;
   // True when the user can edit/delete financial records (invoices, payments) —
-  // platform admins OR business owners. Use this to gate edit/delete buttons
-  // instead of `isAdmin` alone, otherwise owners have no way to manage their own data.
+  // platform admins OR any business member of all selected businesses. Mirrors
+  // the RLS policy which allows any member to update/delete. Use this to gate
+  // edit/delete buttons instead of `isAdmin`, otherwise regular users see no
+  // controls even though the DB would accept their writes.
   canManage: boolean;
   refreshProfile: () => Promise<void>;
   onlineUsers: PresenceUser[];
@@ -237,7 +239,7 @@ export default function DashboardLayout({
   const [selectedBusinesses, setSelectedBusinesses] = usePersistedState<string[]>("selectedBusinesses", []);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [ownerBusinessIds, setOwnerBusinessIds] = useState<Set<string>>(new Set());
+  const [memberBusinessIds, setMemberBusinessIds] = useState<Set<string>>(new Set());
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [openAdminGroups, setOpenAdminGroups] = useState<Record<string, boolean>>({});
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -328,15 +330,15 @@ export default function DashboardLayout({
         const adminStatus = profile.is_admin === true;
         setIsAdmin(adminStatus);
 
-        // Fetch the list of businesses where the user is an owner. Used for
-        // canManage gating (edit/delete buttons on expenses & payments).
-        const { data: ownerRows } = await supabase
+        // Fetch the list of businesses where the user is a member (any role).
+        // Used for canManage gating — every business member has DB-level edit
+        // rights via RLS, so the UI should expose edit/delete to all of them.
+        const { data: memberRows } = await supabase
           .from("business_members")
-          .select("business_id, role")
+          .select("business_id")
           .eq("user_id", user.id)
-          .eq("role", "owner")
           .is("deleted_at", null);
-        setOwnerBusinessIds(new Set((ownerRows || []).map(r => r.business_id as string)));
+        setMemberBusinessIds(new Set((memberRows || []).map(r => r.business_id as string)));
 
         // For non-admin users: check if all their businesses are inactive
         if (!adminStatus) {
@@ -650,12 +652,12 @@ export default function DashboardLayout({
   };
 
   // canManage: can the user perform destructive operations (edit/delete invoices & payments)
-  // on the currently selected businesses? Platform admins always can. For owners, we
-  // require them to be an owner of every selected business so a multi-business selection
-  // doesn't let them accidentally edit a business they don't own.
+  // on the currently selected businesses? Platform admins always can. For everyone else,
+  // they must be a member (any role) of every currently-selected business. This mirrors
+  // what the RLS policies already allow at the DB level.
   const canManage = isAdmin || (
     selectedBusinesses.length > 0 &&
-    selectedBusinesses.every(id => ownerBusinessIds.has(id))
+    selectedBusinesses.every(id => memberBusinessIds.has(id))
   );
 
   return (
