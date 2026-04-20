@@ -1152,6 +1152,21 @@ export default function SuppliersPage() {
       }
     }
 
+    // Also look at payments whose payment_date is in this month — some months have
+    // no new invoices but include a payment that settled an older invoice (or an
+    // advance / standalone payment). Without this the month would silently disappear
+    // from the breakdown even though the user sees the payment on the card.
+    const { data: paymentsInMonth } = await supabase
+      .from("payments")
+      .select("total_amount")
+      .eq("supplier_id", supplier.id)
+      .eq("business_id", supplier.business_id)
+      .is("deleted_at", null)
+      .gte("payment_date", startStr)
+      .lte("payment_date", endStr);
+    const paymentsInMonthTotal = (paymentsInMonth || [])
+      .reduce((sum, p) => sum + (Number(p.total_amount) || 0), 0);
+
     let expectedPaymentDate: string | null = null;
     if (supplier.payment_terms_days) {
       const expectedDate = new Date(monthEnd);
@@ -1159,7 +1174,7 @@ export default function SuppliersPage() {
       expectedPaymentDate = expectedDate.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
     }
 
-    return { expectedPaymentDate, monthlyPurchases, monthlyPaid, amountToPay: monthlyPurchases - monthlyPaid };
+    return { expectedPaymentDate, monthlyPurchases, monthlyPaid, amountToPay: monthlyPurchases - monthlyPaid, paymentsInMonthTotal };
   }, []);
 
   // Handle opening supplier detail popup
@@ -1232,17 +1247,26 @@ export default function SuppliersPage() {
       // Fetch monthly data for current month
       const monthlyData = await fetchMonthlyData(supplier, new Date(now.getFullYear(), now.getMonth(), 1));
 
-      // Fetch last 6 months breakdown
+      // Fetch last 6 months breakdown. A month is shown if *any* activity happened —
+      // a purchase (including credit notes with negative amounts), a payment linked
+      // to an older invoice, or a standalone payment with payment_date in the month.
       const breakdownMonths: Array<{ month: string; purchases: number; paid: number; amountToPay: number }> = [];
       for (let i = 0; i < 6; i++) {
         const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const mData = await fetchMonthlyData(supplier, mDate);
-        if (mData.monthlyPurchases > 0 || mData.monthlyPaid > 0) {
+        const hasActivity =
+          mData.monthlyPurchases !== 0 ||
+          mData.monthlyPaid !== 0 ||
+          (mData.paymentsInMonthTotal ?? 0) !== 0;
+        if (hasActivity) {
+          // "שולם" for the month reflects cash-flow: what was actually paid during
+          // that calendar month, regardless of which invoice it was linked to.
+          const paidForMonth = mData.paymentsInMonthTotal ?? mData.monthlyPaid;
           breakdownMonths.push({
             month: mDate.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
             purchases: mData.monthlyPurchases,
-            paid: mData.monthlyPaid,
-            amountToPay: mData.amountToPay,
+            paid: paidForMonth,
+            amountToPay: mData.monthlyPurchases - paidForMonth,
           });
         }
       }
