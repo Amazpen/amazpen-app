@@ -251,7 +251,7 @@ function ExpensesPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightInvoiceId = searchParams.get("invoiceId");
-  const { selectedBusinesses, isAdmin, globalDateRange, setGlobalDateRange } = useDashboard();
+  const { selectedBusinesses, canManage, globalDateRange, setGlobalDateRange } = useDashboard();
   const { approveInvoice, approvePayment } = useApprovals(selectedBusinesses);
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = usePersistedState<"expenses" | "purchases" | "employees">("expenses:tab", "expenses");
@@ -4518,8 +4518,8 @@ function ExpensesPageInner() {
                               </svg>
                             </Button>
                           )}
-                          {/* Edit Icon - Admin only */}
-                          {isAdmin && (
+                          {/* Edit Icon - admins + business owners */}
+                          {canManage && (
                             <Button
                               type="button"
                               title="עריכה"
@@ -4532,8 +4532,8 @@ function ExpensesPageInner() {
                               </svg>
                             </Button>
                           )}
-                          {/* Delete Icon - Admin only */}
-                          {isAdmin && (
+                          {/* Delete Icon - admins + business owners */}
+                          {canManage && (
                             <Button
                               type="button"
                               title="מחיקה"
@@ -6621,7 +6621,7 @@ function ExpensesPageInner() {
                           </PopoverContent>
                         </Popover>
                       )}
-                      {isAdmin && (
+                      {canManage && (
                         <Button
                           type="button"
                           onClick={(e) => {

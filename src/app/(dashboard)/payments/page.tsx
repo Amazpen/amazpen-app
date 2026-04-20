@@ -294,7 +294,7 @@ export default function PaymentsPage() {
 
 function PaymentsPageInner() {
   const router = useRouter();
-  const { selectedBusinesses, isAdmin, globalDateRange, setGlobalDateRange } = useDashboard();
+  const { selectedBusinesses, canManage, globalDateRange, setGlobalDateRange } = useDashboard();
   const { showToast } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
   const searchParams = useSearchParams();
@@ -3691,8 +3691,8 @@ function PaymentsPageInner() {
                     <div className="flex items-center justify-between border-b border-white/20 pb-[8px] px-[7px]" dir="rtl">
                       <span className="text-[16px] font-medium">פרטים נוספים</span>
                       <div className="flex items-center gap-[5px]">
-                        {/* Edit button - Admin only */}
-                        {isAdmin && (
+                        {/* Edit button - admins + business owners */}
+                        {canManage && (
                           <Button
                             type="button"
                             onClick={() => handleEditPayment(payment)}
@@ -3705,8 +3705,8 @@ function PaymentsPageInner() {
                             </svg>
                           </Button>
                         )}
-                        {/* Delete button - Admin only */}
-                        {isAdmin && (
+                        {/* Delete button - admins + business owners */}
+                        {canManage && (
                           <Button
                             type="button"
                             onClick={() => {

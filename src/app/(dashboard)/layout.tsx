@@ -26,6 +26,10 @@ interface DashboardContextType {
   setSelectedBusinesses: React.Dispatch<React.SetStateAction<string[]>>;
   toggleBusiness: (id: string) => void;
   isAdmin: boolean;
+  // True when the user can edit/delete financial records (invoices, payments) —
+  // platform admins OR business owners. Use this to gate edit/delete buttons
+  // instead of `isAdmin` alone, otherwise owners have no way to manage their own data.
+  canManage: boolean;
   refreshProfile: () => Promise<void>;
   onlineUsers: PresenceUser[];
   globalDateRange: { start: Date; end: Date };
@@ -42,6 +46,7 @@ const DashboardContext = createContext<DashboardContextType>({
   setSelectedBusinesses: () => {},
   toggleBusiness: () => {},
   isAdmin: false,
+  canManage: false,
   refreshProfile: async () => {},
   onlineUsers: [],
   globalDateRange: { start: new Date(0), end: new Date(0) },
@@ -232,6 +237,7 @@ export default function DashboardLayout({
   const [selectedBusinesses, setSelectedBusinesses] = usePersistedState<string[]>("selectedBusinesses", []);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [ownerBusinessIds, setOwnerBusinessIds] = useState<Set<string>>(new Set());
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [openAdminGroups, setOpenAdminGroups] = useState<Record<string, boolean>>({});
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -321,6 +327,16 @@ export default function DashboardLayout({
         // Check if user is admin from profile
         const adminStatus = profile.is_admin === true;
         setIsAdmin(adminStatus);
+
+        // Fetch the list of businesses where the user is an owner. Used for
+        // canManage gating (edit/delete buttons on expenses & payments).
+        const { data: ownerRows } = await supabase
+          .from("business_members")
+          .select("business_id, role")
+          .eq("user_id", user.id)
+          .eq("role", "owner")
+          .is("deleted_at", null);
+        setOwnerBusinessIds(new Set((ownerRows || []).map(r => r.business_id as string)));
 
         // For non-admin users: check if all their businesses are inactive
         if (!adminStatus) {
@@ -633,9 +649,18 @@ export default function DashboardLayout({
     return date.toLocaleDateString("he-IL");
   };
 
+  // canManage: can the user perform destructive operations (edit/delete invoices & payments)
+  // on the currently selected businesses? Platform admins always can. For owners, we
+  // require them to be an owner of every selected business so a multi-business selection
+  // doesn't let them accidentally edit a business they don't own.
+  const canManage = isAdmin || (
+    selectedBusinesses.length > 0 &&
+    selectedBusinesses.every(id => ownerBusinessIds.has(id))
+  );
+
   return (
     <ToastProvider>
-    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, refreshProfile: fetchUserProfile, onlineUsers, globalDateRange, setGlobalDateRange, globalMonth, setGlobalMonth, globalYear, setGlobalYear, userAvatarUrl: userProfile?.avatar_url || null }}>
+    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, canManage, refreshProfile: fetchUserProfile, onlineUsers, globalDateRange, setGlobalDateRange, globalMonth, setGlobalMonth, globalYear, setGlobalYear, userAvatarUrl: userProfile?.avatar_url || null }}>
       <div className="min-h-screen bg-[#0F1535]">
         {/* Sidebar Overlay - Mobile only */}
         {isMenuOpen && (
