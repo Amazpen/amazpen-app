@@ -2197,6 +2197,8 @@ function PaymentsPageInner() {
         }
       }
 
+      // Optimistic remove so the card vanishes right away.
+      setRecentPaymentsData(prev => prev.filter(p => p.id !== paymentId));
       showToast("התשלום נמחק בהצלחה", "success");
       setExpandedPaymentId(null);
       setRefreshTrigger(t => t + 1);

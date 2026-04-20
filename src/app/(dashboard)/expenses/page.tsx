@@ -785,6 +785,7 @@ function ExpensesPageInner() {
   // Status change state
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [clarificationCloseReason, setClarificationCloseReason] = useState<string>("");
   const statusMenuRef = useRef<HTMLDivElement | null>(null);
   const [statusConfirm, setStatusConfirm] = useState<{ invoiceId: string; newStatus: string; label: string } | null>(null);
   const [duplicateInvoicePrompt, setDuplicateInvoicePrompt] = useState<{ invoiceNumber: string } | null>(null);
@@ -2917,6 +2918,34 @@ function ExpensesPageInner() {
       const autoStatusMsg = editingInvoice.isFixed && attachmentUrl && invoiceNumber
         ? ' – הסטטוס עודכן אוטומטית ל"ממתין"'
         : "";
+      // Optimistic local update so the edited row renders immediately.
+      const supplierRow = suppliers.find(s => s.id === selectedSupplier);
+      const newAttachmentUrls = parseAttachmentUrls(attachmentUrl);
+      const newStatusRaw = (updateData.status as string | undefined) ?? editingInvoice.statusRaw;
+      const newStatusLabel = newStatusRaw === 'paid' ? 'שולם' : newStatusRaw === 'clarification' ? 'בבירור' : 'ממתין';
+      const [yr, mo, dy] = expenseDate.split('-');
+      const displayDate = `${dy}.${mo}.${yr.slice(2)}`;
+      const refDisplayDate = referenceDate ? (() => { const [ry, rm, rd] = referenceDate.split('-'); return `${rd}.${rm}.${ry.slice(2)}`; })() : null;
+      setRecentInvoices(prev => prev.map(i =>
+        i.id === editingInvoice.id
+          ? {
+              ...i,
+              date: displayDate,
+              rawDate: expenseDate,
+              supplier: supplierRow?.name || i.supplier,
+              reference: invoiceNumber || "",
+              amountBeforeVat: parseFloat(amountBeforeVat),
+              amountWithVat: totalWithVatEdit,
+              amount: totalWithVatEdit,
+              notes: notes || "",
+              attachmentUrl,
+              attachmentUrls: newAttachmentUrls,
+              referenceDate: refDisplayDate,
+              status: newStatusLabel,
+              statusRaw: newStatusRaw,
+            }
+          : i
+      ));
       showToast(`ההוצאה עודכנה בהצלחה${autoStatusMsg}`, "success");
       handleCloseEditPopup();
       setRefreshTrigger(prev => prev + 1);
@@ -2984,6 +3013,9 @@ function ExpensesPageInner() {
         .eq("id", editingInvoice.id);
       if (delErr) throw delErr;
 
+      // Optimistic — drop the invoice from recentInvoices so the row vanishes instantly.
+      const removedId = editingInvoice.id;
+      setRecentInvoices(prev => prev.filter(i => i.id !== removedId));
       showToast("החשבונית הומרה לתעודת משלוח", "success");
       handleCloseEditPopup();
       setRefreshTrigger(prev => prev + 1);
@@ -3143,6 +3175,7 @@ function ExpensesPageInner() {
 
     // Show confirmation popup for pending
     setStatusConfirm({ invoiceId, newStatus, label: statusLabels[newStatus] || newStatus });
+    setClarificationCloseReason("");
     setShowStatusMenu(null);
   };
 
@@ -3153,13 +3186,27 @@ function ExpensesPageInner() {
     const supabase = createClient();
 
     try {
+      const invoice = recentInvoices.find(inv => inv.id === statusConfirm.invoiceId);
+      const isClosingClarification = invoice?.status === 'בבירור' && statusConfirm.newStatus === 'pending';
+
+      if (isClosingClarification && !clarificationCloseReason.trim()) {
+        showToast("נא להזין סיבה לסגירת הבירור", "warning");
+        setIsUpdatingStatus(false);
+        return;
+      }
+
       const updateData: Record<string, unknown> = { status: statusConfirm.newStatus };
       // Clear clarification data when moving away from clarification
       if (statusConfirm.newStatus === 'pending') {
         updateData.clarification_reason = null;
       }
-
-      const invoice = recentInvoices.find(inv => inv.id === statusConfirm.invoiceId);
+      // Append the closure reason to notes so it's preserved.
+      if (isClosingClarification) {
+        const stamp = new Date().toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
+        const note = `[סגירת בירור ${stamp}] ${clarificationCloseReason.trim()}`;
+        const existingNotes = (invoice?.notes || "").trim();
+        updateData.notes = existingNotes ? `${existingNotes}\n${note}` : note;
+      }
 
       // If moving away from "paid", hard-delete linked payments
       if (invoice?.status === 'שולם' && statusConfirm.newStatus !== 'paid') {
@@ -3232,6 +3279,22 @@ function ExpensesPageInner() {
         }
       }
 
+      // Optimistic update — reflect the new status locally immediately so the UI
+      // feels instant. A full refresh still runs in the background to pick up any
+      // server-side side effects (linked payments, totals).
+      const newLabel = statusLabels[statusConfirm.newStatus] || statusConfirm.newStatus;
+      const appendedNotes = (updateData.notes as string | undefined) ?? undefined;
+      setRecentInvoices(prev => prev.map(i =>
+        i.id === statusConfirm.invoiceId
+          ? {
+              ...i,
+              status: newLabel,
+              statusRaw: statusConfirm.newStatus,
+              clarificationReason: statusConfirm.newStatus === 'pending' ? null : i.clarificationReason,
+              notes: appendedNotes !== undefined ? appendedNotes : i.notes,
+            }
+          : i
+      ));
       showToast(`הסטטוס עודכן ל"${statusConfirm.label}"`, "success");
       setRefreshTrigger(prev => prev + 1);
     } catch (error) {
@@ -3620,8 +3683,10 @@ function ExpensesPageInner() {
         if (error) throw error;
       }
 
-      showToast("ההוצאה נמחקה בהצלחה", "success");
       const deletedId = deletingInvoiceId;
+      // Optimistic — remove from visible list immediately.
+      setRecentInvoices(prev => prev.filter(i => i.id !== deletedId));
+      showToast("ההוצאה נמחקה בהצלחה", "success");
       setShowDeleteConfirm(false);
       setDeletingInvoiceId(null);
       setExpandedInvoiceId(null);
@@ -4260,12 +4325,17 @@ function ExpensesPageInner() {
                   <Button
                     type="button"
                     onClick={() => setExpandedInvoiceId(expandedInvoiceId === invoice.id ? null : invoice.id)}
-                    className={`text-[12px] text-center ltr-num font-medium cursor-pointer ${isFixedPending ? 'text-[#bc76ff]' : ''}`}
+                    className={`text-[12px] text-center ltr-num font-medium cursor-pointer ${isFixedPending ? 'text-[#bc76ff]' : invoice.amountBeforeVat < 0 ? 'text-[#0BB783]' : ''}`}
                   >
                     ₪{invoice.amountBeforeVat.toLocaleString()}
                   </Button>
                   {/* Status - Clickable with dropdown */}
                   <div className="flex flex-col items-center justify-center min-w-0 gap-[3px]" data-status-menu>
+                    {invoice.amountBeforeVat < 0 && (
+                      <span className="text-[9px] font-bold px-[8px] py-[1px] rounded-full bg-[#0BB783] text-black whitespace-nowrap leading-tight">
+                        זיכוי
+                      </span>
+                    )}
                     {invoice.isConsolidated && (
                       <span className="text-[9px] font-bold px-[8px] py-[1px] rounded-full bg-[#FFB84D] text-black whitespace-nowrap leading-tight">
                         מרכזת
@@ -6867,18 +6937,32 @@ function ExpensesPageInner() {
       )}
 
       {/* Status Change Confirmation Popup */}
-      {statusConfirm && typeof window !== 'undefined' && createPortal(
+      {statusConfirm && typeof window !== 'undefined' && (() => {
+        const inv = recentInvoices.find(i => i.id === statusConfirm.invoiceId);
+        const isClosingClarification = inv?.status === 'בבירור' && statusConfirm.newStatus === 'pending';
+        return createPortal(
         <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/50" onClick={() => setStatusConfirm(null)}>
-          <div dir="rtl" className="bg-[#1A1F4E] rounded-[14px] border border-white/20 shadow-2xl p-[20px] w-[320px]" onClick={(e) => e.stopPropagation()}>
+          <div dir="rtl" className="bg-[#1A1F4E] rounded-[14px] border border-white/20 shadow-2xl p-[20px] w-[360px]" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-[16px] font-bold text-white text-center mb-[12px]">שינוי סטטוס</h3>
-            <p className="text-[14px] text-white/80 text-center mb-[20px]">
+            <p className="text-[14px] text-white/80 text-center mb-[15px]">
               האם לשנות את הסטטוס ל<span className="font-bold text-white">&quot;{statusConfirm.label}&quot;</span>?
             </p>
+            {isClosingClarification && (
+              <div className="flex flex-col gap-[6px] mb-[15px]">
+                <label className="text-[13px] text-white/80">סיבת סגירת הבירור (תתווסף להערות)</label>
+                <Textarea
+                  value={clarificationCloseReason}
+                  onChange={(e) => setClarificationCloseReason(e.target.value)}
+                  placeholder="למשל: התקבל זיכוי 123"
+                  className="bg-white/5 border border-white/20 text-white text-[13px] rounded-[8px] px-[10px] py-[8px] min-h-[60px] resize-none focus:outline-none focus:border-white/50"
+                />
+              </div>
+            )}
             <div className="flex gap-[10px]">
               <Button
                 type="button"
                 onClick={confirmStatusChange}
-                disabled={isUpdatingStatus}
+                disabled={isUpdatingStatus || (isClosingClarification && !clarificationCloseReason.trim())}
                 className="flex-1 bg-[#3CD856] hover:bg-[#2db845] disabled:opacity-50 text-[#0F1535] text-[14px] font-bold py-[10px] rounded-[8px] transition-colors flex items-center justify-center gap-[4px]"
               >
                 {isUpdatingStatus ? (
@@ -6896,7 +6980,8 @@ function ExpensesPageInner() {
           </div>
         </div>,
         document.body
-      )}
+      );
+      })()}
 
       {/* Status Menu Portal */}
       {showStatusMenu && typeof window !== 'undefined' && createPortal(

@@ -19,9 +19,10 @@ const invoiceSchema = z.object({
   document_date: z.string().nullable().describe("תאריך המסמך בפורמט YYYY-MM-DD"),
   discount_amount: z.number().nullable().describe("סכום הנחה כולל על המסמך"),
   discount_percentage: z.number().nullable().describe("אחוז הנחה כולל על המסמך"),
-  subtotal: z.number().nullable().describe("סכום לפני מע״מ (אחרי הנחה)"),
-  vat_amount: z.number().nullable().describe("סכום מע״מ"),
-  total_amount: z.number().nullable().describe("סכום כולל מע״מ (אחרי הנחה)"),
+  subtotal: z.number().nullable().describe("סכום לפני מע״מ (אחרי הנחה). אם זו חשבונית זיכוי, החזר ערך שלילי."),
+  vat_amount: z.number().nullable().describe("סכום מע״מ. אם זו חשבונית זיכוי, החזר ערך שלילי."),
+  total_amount: z.number().nullable().describe("סכום כולל מע״מ (אחרי הנחה). אם זו חשבונית זיכוי, החזר ערך שלילי."),
+  is_credit_note: z.boolean().nullable().describe("true אם המסמך הוא חשבונית זיכוי / credit note / זיכוי — כלומר מסמך המחזיר כסף לקונה"),
   line_items: z.array(lineItemSchema).nullable().describe("פריטים בחשבונית"),
 });
 
@@ -121,7 +122,14 @@ export async function POST(request: NextRequest) {
 - סכום לפני מע״מ (subtotal) - הסכום אחרי הנחה, לפני מע״מ
 - סכום מע״מ (vat_amount)
 - סכום כולל מע״מ (total_amount) - הסכום הסופי אחרי הנחה ומע״מ
+- חשבונית זיכוי (is_credit_note) - האם המסמך הוא חשבונית זיכוי / זיכוי / credit note / הודעת זיכוי
 - פריטים (line_items) - אם ישנם פריטים ברשימה עם כמות ומחיר
+
+חשבונית זיכוי (חובה!):
+- אם במסמך מופיע במפורש "חשבונית זיכוי", "זיכוי", "credit note", "הודעת זיכוי" — is_credit_note=true
+- אם הסכומים במסמך כתובים עם סימן מינוס או בסוגריים (למשל (150) או -150) — is_credit_note=true
+- כאשר is_credit_note=true: subtotal, vat_amount, total_amount חייבים להיות מספרים שליליים (למשל -150.00)
+- אם במסמך כתוב "150 זיכוי" אבל הסכום חיובי, עדיין החזר שליליים.
 
 חשוב מאוד: הנחות!
 - אם יש הנחה על כל המסמך (כגון "הנחה 5%", "הנחה ₪100"), חלץ את discount_amount ו/או discount_percentage
@@ -154,15 +162,31 @@ ${rawText}`,
       }
     }
 
+    // Credit note: enforce negative sign server-side, regardless of whether the model
+    // returned positive or negative numbers. Also auto-detect by keyword if the model
+    // didn't flag it (belt-and-suspenders for older prompts / edge cases).
+    const textLower = rawText.toLowerCase();
+    const keywordCredit = /(חשבונית\s*זיכוי|^|[^א-ת])זיכוי([^א-ת]|$)|credit\s*note/.test(textLower)
+      || textLower.includes("הודעת זיכוי");
+    const isCreditNote = extracted.is_credit_note === true || keywordCredit;
+    const neg = (v: number | null | undefined): number | null => {
+      if (v === null || v === undefined) return null;
+      return v === 0 ? 0 : -Math.abs(v);
+    };
+    const finalSubtotal = isCreditNote ? neg(extracted.subtotal) : extracted.subtotal;
+    const finalVat = isCreditNote ? neg(extracted.vat_amount) : extracted.vat_amount;
+    const finalTotal = isCreditNote ? neg(extracted.total_amount) : extracted.total_amount;
+
     return Response.json({
       supplier_name: extracted.supplier_name,
       document_number: extracted.document_number,
       document_date: extracted.document_date,
       discount_amount: extracted.discount_amount,
       discount_percentage: extracted.discount_percentage,
-      subtotal: extracted.subtotal,
-      vat_amount: extracted.vat_amount,
-      total_amount: extracted.total_amount,
+      subtotal: finalSubtotal,
+      vat_amount: finalVat,
+      total_amount: finalTotal,
+      is_credit_note: isCreditNote,
       line_items: extracted.line_items,
       matched_supplier_id: matchedSupplierId,
       raw_text: rawText,
