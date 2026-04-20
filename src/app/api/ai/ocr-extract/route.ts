@@ -125,11 +125,12 @@ export async function POST(request: NextRequest) {
 - חשבונית זיכוי (is_credit_note) - האם המסמך הוא חשבונית זיכוי / זיכוי / credit note / הודעת זיכוי
 - פריטים (line_items) - אם ישנם פריטים ברשימה עם כמות ומחיר
 
-חשבונית זיכוי (חובה!):
-- אם במסמך מופיע במפורש "חשבונית זיכוי", "זיכוי", "credit note", "הודעת זיכוי" — is_credit_note=true
-- אם הסכומים במסמך כתובים עם סימן מינוס או בסוגריים (למשל (150) או -150) — is_credit_note=true
-- כאשר is_credit_note=true: subtotal, vat_amount, total_amount חייבים להיות מספרים שליליים (למשל -150.00)
-- אם במסמך כתוב "150 זיכוי" אבל הסכום חיובי, עדיין החזר שליליים.
+חשבונית זיכוי (זהירות — זהה רק חשבוניות שהן *באמת* זיכוי):
+- is_credit_note=true רק אם הכותרת הראשית של המסמך היא "חשבונית זיכוי" / "הודעת זיכוי" / "credit note" / "זיכוי".
+- חשוב: חשבוניות רבות מכילות את המילה "זיכוי" בהקשרים אחרים (למשל: "שובר הודעת זיכוי" שמודפס בתחתית חשבון, תרשים עם מקרא "זיכוי/חיוב", וכד'). במקרים כאלה is_credit_note=false.
+- סימן נוסף לזיכוי: הסכום הכולל מוצג כשלילי (-150) או בסוגריים ((150)) בגוף החשבונית. אם גם הסכום חיובי וגם אין כותרת "חשבונית זיכוי" — זו חשבונית רגילה.
+- כאשר is_credit_note=true: subtotal, vat_amount, total_amount חייבים להיות מספרים שליליים.
+- כאשר is_credit_note=false: החזר את הסכומים כפי שהם חיוביים במסמך, גם אם המילה "זיכוי" מופיעה איפשהו.
 
 חשוב מאוד: הנחות!
 - אם יש הנחה על כל המסמך (כגון "הנחה 5%", "הנחה ₪100"), חלץ את discount_amount ו/או discount_percentage
@@ -162,13 +163,15 @@ ${rawText}`,
       }
     }
 
-    // Credit note: enforce negative sign server-side, regardless of whether the model
-    // returned positive or negative numbers. Also auto-detect by keyword if the model
-    // didn't flag it (belt-and-suspenders for older prompts / edge cases).
-    const textLower = rawText.toLowerCase();
-    const keywordCredit = /(חשבונית\s*זיכוי|^|[^א-ת])זיכוי([^א-ת]|$)|credit\s*note/.test(textLower)
-      || textLower.includes("הודעת זיכוי");
-    const isCreditNote = extracted.is_credit_note === true || keywordCredit;
+    // Credit note detection.
+    // Only trust the model's explicit `is_credit_note` flag. Earlier we tried
+    // to add keyword fallbacks ("זיכוי" anywhere in the text), but regular
+    // invoices frequently contain the word in a benign context — e.g. a
+    // tear-off receipt printed below the invoice labelled "הודעת זיכוי", or
+    // a credit-card chart legend that says "זיכוי" — which caused perfectly
+    // normal invoices to be flipped negative. Rely on the model; it reads
+    // context, not just keywords.
+    const isCreditNote = extracted.is_credit_note === true;
     const neg = (v: number | null | undefined): number | null => {
       if (v === null || v === undefined) return null;
       return v === 0 ? 0 : -Math.abs(v);
