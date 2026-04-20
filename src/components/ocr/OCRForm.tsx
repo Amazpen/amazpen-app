@@ -809,8 +809,8 @@ export default function OCRForm({
         updated.creditCardId = '';
       }
 
-      // Auto-generate 1 installment row when check is selected (to show check number field)
-      if (field === 'method' && value === 'check') {
+      // Auto-generate 1 installment row for check or credit_card (shows date/amount inline)
+      if (field === 'method' && (value === 'check' || value === 'credit_card')) {
         const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
         const startDate = getEffectiveStartDate(methods, dateStr);
         const date = startDate ? new Date(startDate) : new Date();
@@ -840,6 +840,7 @@ export default function OCRForm({
       if (field === 'amount') {
         const numInstallments = parseInt(p.installments) || 1;
         const totalAmount = parseFloat(value.replace(/[^\d.-]/g, '')) || 0;
+        const shouldKeepSingleRow = p.method === 'check' || p.method === 'credit_card';
         if (p.customInstallments.length > 0 && totalAmount > 0) {
           const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
           const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
@@ -847,7 +848,7 @@ export default function OCRForm({
             ...inst,
             amount: idx === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
           }));
-        } else if (totalAmount > 0 && numInstallments > 1) {
+        } else if (totalAmount > 0 && (numInstallments > 1 || shouldKeepSingleRow)) {
           const startDate = getEffectiveStartDate(methods, dateStr);
           const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
           if (card && startDate) {
@@ -855,7 +856,7 @@ export default function OCRForm({
           } else {
             updated.customInstallments = generateInstallments(numInstallments, totalAmount, startDate);
           }
-        } else {
+        } else if (!shouldKeepSingleRow) {
           updated.customInstallments = [];
         }
       }
@@ -1658,7 +1659,7 @@ export default function OCRForm({
                   if (card && dateStr) {
                     const numInstallments = parseInt(p.installments) || 1;
                     const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
-                    if (numInstallments > 1 && totalAmount > 0) {
+                    if (totalAmount > 0) {
                       updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, dateStr, card.billing_day);
                     }
                   }
