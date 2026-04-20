@@ -2044,20 +2044,29 @@ function ExpensesPageInner() {
     }
     // For "partial" vat_type, keep current state - user enters manually
 
-    // For fixed expense suppliers - fetch pending invoices to allow linking
+    // For fixed expense suppliers - fetch pending invoices to allow linking.
+    // Only placeholders (no attachment AND no invoice_number) are relevant —
+    // fully-filled invoices already have all the data a user would add now.
     if (supplier.is_fixed_expense && selectedBusinesses.length > 0) {
       const supabase = createClient();
       const { data: openInvs } = await supabase
         .from("invoices")
-        .select("id, invoice_date, subtotal, total_amount")
+        .select("id, invoice_date, subtotal, total_amount, invoice_number, attachment_url")
         .eq("business_id", selectedBusinesses[0])
         .eq("supplier_id", supplierId)
         .eq("status", "pending")
         .is("deleted_at", null)
+        .or("invoice_number.is.null,attachment_url.is.null")
         .order("invoice_date", { ascending: false });
 
       if (openInvs && openInvs.length > 0) {
-        const mapped = openInvs.map(inv => {
+        // Extra client-side guard: exclude rows where both reference and attachment are non-empty.
+        const placeholders = openInvs.filter(inv => {
+          const hasRef = inv.invoice_number && String(inv.invoice_number).trim() !== "";
+          const hasAtt = inv.attachment_url && String(inv.attachment_url).trim() !== "";
+          return !(hasRef && hasAtt);
+        });
+        const mapped = placeholders.map(inv => {
           const d = new Date(inv.invoice_date);
           const monthNames = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
           return {
@@ -2069,7 +2078,7 @@ function ExpensesPageInner() {
           };
         });
         setFixedOpenInvoices(mapped);
-        setShowFixedInvoices(true);
+        if (mapped.length > 0) setShowFixedInvoices(true);
       }
     }
   }, [suppliers, selectedBusinesses]);
