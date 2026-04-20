@@ -54,29 +54,18 @@ export function useApprovals(businessIds: string[]): UseApprovalsReturn {
     try {
       const supabase = createClient();
 
-      const [approvalsResult, invoicesResult, paymentsResult] = await Promise.all([
-        supabase
-          .from('daily_entry_approvals')
-          .select('*')
-          .in('business_id', businessIds)
-          .eq('status', 'pending'),
-        supabase
-          .from('invoices')
-          .select('*', { count: 'exact', head: true })
-          .in('business_id', businessIds)
-          .eq('approval_status', 'pending_review')
-          .is('deleted_at', null),
-        supabase
-          .from('payments')
-          .select('*', { count: 'exact', head: true })
-          .in('business_id', businessIds)
-          .eq('approval_status', 'pending_review')
-          .is('deleted_at', null),
-      ]);
+      // The "אישור נתונים ממתינים" queue for invoices/payments is disabled
+      // by product decision — intake now goes straight into the system. We
+      // still keep the daily-entry approval flow, which is unrelated.
+      const approvalsResult = await supabase
+        .from('daily_entry_approvals')
+        .select('*')
+        .in('business_id', businessIds)
+        .eq('status', 'pending');
 
       const approvals = (approvalsResult.data ?? []) as DailyEntryApproval[];
-      const invoiceCount = invoicesResult.count ?? 0;
-      const paymentCount = paymentsResult.count ?? 0;
+      const invoiceCount = 0;
+      const paymentCount = 0;
       const dailyFieldsCount = approvals.length;
 
       const map: Record<string, boolean> = {};

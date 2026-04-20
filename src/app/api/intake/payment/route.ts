@@ -47,7 +47,8 @@ export async function POST(request: NextRequest) {
         payment_date,
         total_amount,
         notes: notes || null,
-        approval_status: 'pending_review',
+        // approval_status left null — intake goes straight into the system;
+        // the "אישור נתונים ממתינים" queue is disabled by product decision.
         data_source: data_source,
       })
       .select('id')

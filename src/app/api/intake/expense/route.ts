@@ -127,7 +127,8 @@ export async function POST(request: NextRequest) {
           notes: notes || null,
           status: 'pending',
           invoice_type: invoiceType,
-          approval_status: 'pending_review',
+          // approval_status left null — intake goes straight into the system;
+          // the "אישור נתונים ממתינים" queue is disabled by product decision.
           data_source: data_source,
           amount_paid: 0,
         })

@@ -2522,7 +2522,9 @@ function ExpensesPageInner() {
             created_by: user?.id || null,
             invoice_type: expenseType,
             clarification_reason: needsClarification ? clarificationReason : null,
-            ...(ocrApplied ? { approval_status: 'pending_review', data_source: 'ocr' } : {}),
+            // Track that OCR was the data source, but do NOT set approval_status —
+            // the "אישור נתונים ממתינים" queue is disabled; everything enters directly.
+            ...(ocrApplied ? { data_source: 'ocr' } : {}),
           })
           .select()
           .single();
