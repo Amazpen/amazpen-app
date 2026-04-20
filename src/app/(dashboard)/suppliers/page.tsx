@@ -1111,8 +1111,18 @@ export default function SuppliersPage() {
     const supabase = createClient();
     const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
     const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
-    const startStr = monthStart.toISOString().split("T")[0];
-    const endStr = monthEnd.toISOString().split("T")[0];
+    // Format as local YYYY-MM-DD — NEVER use toISOString() here: it converts to
+    // UTC first and in Israel (UTC+2/+3) pushes 1st-of-month to the previous
+    // day and last-of-month back by a day, silently dropping invoices that
+    // land on those boundary dates (e.g. 31.03 missed from March totals).
+    const fmt = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+    const startStr = fmt(monthStart);
+    const endStr = fmt(monthEnd);
 
     // 1. Fetch invoices for this supplier IN THIS BUSINESS for the month (by invoice_date, not reference_date — matches what the user sees)
     const { data: monthlyInvoices } = await supabase
