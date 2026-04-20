@@ -40,7 +40,7 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
   const [cropArea, setCropArea] = useState({ x: 0, y: 0, width: 0, height: 0 });
-  const [cropStart, setCropStart] = useState({ x: 0, y: 0 });
+  const [cropStart, setCropStart] = useState<{ x: number; y: number } | null>(null);
   const [_imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -106,58 +106,62 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
   }, []);
 
   // Pan/Drag functionality (image only — PDF uses its own drag-to-scroll handlers)
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  // Extract client coords from either a mouse or touch event so one set of handlers
+  // works on both desktop and mobile.
+  const pointerCoords = (e: React.MouseEvent | React.TouchEvent) => {
+    if ("touches" in e) {
+      const t = e.touches[0] || e.changedTouches[0];
+      return { clientX: t?.clientX ?? 0, clientY: t?.clientY ?? 0 };
+    }
+    return { clientX: e.clientX, clientY: e.clientY };
+  };
+
+  const handlePointerDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if (isPdf) return;
+    const { clientX, clientY } = pointerCoords(e);
     if (isCropping) {
       const rect = containerRef.current?.getBoundingClientRect();
       if (rect) {
-        setCropStart({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-        });
-        setCropArea({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-          width: 0,
-          height: 0,
-        });
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+        setCropStart({ x, y });
+        setCropArea({ x, y, width: 0, height: 0 });
+        // Prevent the browser from scrolling the page while the user draws
+        // the crop rectangle on touch devices.
+        if ("touches" in e) e.preventDefault();
       }
     } else {
       setIsDragging(true);
-      setDragStart({
-        x: e.clientX - position.x,
-        y: e.clientY - position.y,
-      });
+      setDragStart({ x: clientX - position.x, y: clientY - position.y });
     }
   }, [position, isCropping, isPdf]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+  const handlePointerMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if (isPdf) return;
-    if (isCropping && cropStart.x !== 0) {
+    const { clientX, clientY } = pointerCoords(e);
+    if (isCropping && cropStart) {
       const rect = containerRef.current?.getBoundingClientRect();
       if (rect) {
-        const currentX = e.clientX - rect.left;
-        const currentY = e.clientY - rect.top;
+        const currentX = clientX - rect.left;
+        const currentY = clientY - rect.top;
         setCropArea({
           x: Math.min(cropStart.x, currentX),
           y: Math.min(cropStart.y, currentY),
           width: Math.abs(currentX - cropStart.x),
           height: Math.abs(currentY - cropStart.y),
         });
+        if ("touches" in e) e.preventDefault();
       }
     } else if (isDragging) {
-      setPosition({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y,
-      });
+      setPosition({ x: clientX - dragStart.x, y: clientY - dragStart.y });
     }
   }, [isDragging, dragStart, isCropping, cropStart, isPdf]);
 
-  const handleMouseUp = useCallback(() => {
+  const handlePointerUp = useCallback(() => {
     setIsDragging(false);
-    if (isCropping && cropArea.width > 10 && cropArea.height > 10) {
-      // Keep crop area visible for confirmation
-    } else if (isCropping) {
+    setCropStart(null);
+    if (isCropping && (cropArea.width <= 10 || cropArea.height <= 10)) {
+      // Too small to be intentional — reset so the overlay disappears.
       setCropArea({ x: 0, y: 0, width: 0, height: 0 });
     }
   }, [isCropping, cropArea]);
@@ -590,15 +594,20 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
       {/* Image container - takes remaining height after toolbar (48px) and mobile slider (44px on mobile, 0 on desktop) */}
       <div
         ref={containerRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onMouseDown={handlePointerDown}
+        onMouseMove={handlePointerMove}
+        onMouseUp={handlePointerUp}
+        onMouseLeave={handlePointerUp}
+        onTouchStart={handlePointerDown}
+        onTouchMove={handlePointerMove}
+        onTouchEnd={handlePointerUp}
+        onTouchCancel={handlePointerUp}
         style={{
           position: 'relative',
           height: 'calc(100% - 48px)',
           overflow: 'hidden',
           cursor: isPdf ? 'default' : isCropping ? 'crosshair' : isDragging ? 'grabbing' : 'grab',
+          touchAction: isCropping ? 'none' : 'auto',
         }}
       >
         {/* PDF viewer */}

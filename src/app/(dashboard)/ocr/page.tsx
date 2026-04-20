@@ -929,19 +929,22 @@ export default function OCRPage() {
       }
       const newImageUrl = uploadRes.publicUrl;
 
-      // 3) Re-run OCR on the cropped image
-      let newRawText: string | null = null;
+      // 3) Re-run full OCR + structured extraction on the cropped image.
+      // Using /api/ai/ocr-extract (not /api/ai/ocr) so parsed fields like
+      // subtotal, document_number, supplier_name, line_items all refresh —
+      // otherwise the user sees the image update but form values stay stale.
+      let extracted: Record<string, unknown> | null = null;
       try {
         const ocrFormData = new FormData();
         ocrFormData.append("file", file);
-        const ocrRes = await fetch("/api/ai/ocr", { method: "POST", body: ocrFormData });
+        const ocrRes = await fetch("/api/ai/ocr-extract", { method: "POST", body: ocrFormData });
         if (ocrRes.ok) {
-          const ocrData = await ocrRes.json();
-          newRawText = typeof ocrData.text === "string" ? ocrData.text : null;
+          extracted = await ocrRes.json();
         }
       } catch (ocrErr) {
         console.error("[Crop] Re-OCR failed (non-fatal):", ocrErr);
       }
+      const newRawText = typeof extracted?.raw_text === "string" ? (extracted.raw_text as string) : null;
 
       // 4) Persist new image_url + image_storage_path to ocr_documents
       const supabase = createClient();
@@ -951,33 +954,48 @@ export default function OCRPage() {
         .eq("id", currentDocument.id);
       if (updateErr) throw updateErr;
 
-      // 5) If we got new OCR text, update ocr_extracted_data.raw_text
-      if (newRawText) {
+      // 5) If we got new OCR output, update ocr_extracted_data with the full
+      // structured object so the form re-initializes from the new values.
+      if (extracted) {
         const { data: existing } = await supabase
           .from("ocr_extracted_data")
           .select("id")
           .eq("document_id", currentDocument.id)
           .maybeSingle();
+        const extractedRow: Record<string, unknown> = {
+          raw_text: newRawText,
+          supplier_name: extracted.supplier_name ?? null,
+          document_number: extracted.document_number ?? null,
+          document_date: extracted.document_date ?? null,
+          subtotal: extracted.subtotal ?? null,
+          vat_amount: extracted.vat_amount ?? null,
+          total_amount: extracted.total_amount ?? null,
+          discount_amount: extracted.discount_amount ?? null,
+          discount_percentage: extracted.discount_percentage ?? null,
+          line_items: extracted.line_items ?? null,
+          is_credit_note: extracted.is_credit_note ?? null,
+        };
         if (existing?.id) {
-          await supabase.from("ocr_extracted_data").update({ raw_text: newRawText }).eq("id", existing.id);
+          await supabase.from("ocr_extracted_data").update(extractedRow).eq("id", existing.id);
         } else {
-          await supabase.from("ocr_extracted_data").insert({ document_id: currentDocument.id, raw_text: newRawText });
+          await supabase.from("ocr_extracted_data").insert({ document_id: currentDocument.id, ...extractedRow });
         }
       }
 
       // 6) Update local state so UI reflects the crop immediately
+      const newOcrData = extracted ? { ...(currentDocument.ocr_data || {}), ...extracted } : (currentDocument.ocr_data || {});
       setDocuments((prev) => prev.map((doc) => doc.id === currentDocument.id ? {
         ...doc,
         image_url: newImageUrl,
-        ocr_data: { ...(doc.ocr_data || {}), ...(newRawText ? { raw_text: newRawText } : {}) },
+        ocr_data: newOcrData,
       } : doc));
       setCurrentDocument((prev) => prev ? {
         ...prev,
         image_url: newImageUrl,
-        ocr_data: { ...(prev.ocr_data || {}), ...(newRawText ? { raw_text: newRawText } : {}) },
+        ocr_data: newOcrData,
       } : null);
 
-      showToast(newRawText ? "חיתוך נשמר ו-OCR חודש בהצלחה" : "חיתוך נשמר (OCR נכשל — נסה ידנית)", newRawText ? "success" : "warning");
+      showToast(extracted ? "חיתוך נשמר ו-OCR חודש בהצלחה" : "חיתוך נשמר (OCR נכשל — נסה ידנית)", extracted ? "success" : "warning");
     } catch (err) {
       console.error("[Crop] Save failed:", err);
       showToast(err instanceof Error ? err.message : "שגיאה בשמירת החיתוך", "error");
