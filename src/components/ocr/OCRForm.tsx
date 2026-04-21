@@ -659,16 +659,23 @@ export default function OCRForm({
   }, [selectedBusinessId, dailyManagedProducts.length]);
 
   // Calculate VAT and total (for invoice/delivery_note tabs)
-  const calculatedVat = useMemo(() => {
+  // Net before VAT = (before-VAT subtotal) − (overall invoice discount).
+  // Either the ₪ field or the % field is authoritative; they're kept in sync
+  // by the onChange handlers, so we just read discountAmount.
+  const amountAfterDiscount = useMemo(() => {
     const amount = parseFloat(amountBeforeVat) || 0;
-    return amount * businessVatRate;
-  }, [amountBeforeVat]);
+    const disc = parseFloat(discountAmount) || 0;
+    return Math.max(0, amount - disc);
+  }, [amountBeforeVat, discountAmount]);
+
+  const calculatedVat = useMemo(() => {
+    return amountAfterDiscount * businessVatRate;
+  }, [amountAfterDiscount]);
 
   const totalWithVat = useMemo(() => {
-    const amount = parseFloat(amountBeforeVat) || 0;
     const vat = partialVat ? (parseFloat(vatAmount) || 0) : calculatedVat;
-    return amount + vat;
-  }, [amountBeforeVat, vatAmount, partialVat, calculatedVat]);
+    return amountAfterDiscount + vat;
+  }, [amountAfterDiscount, vatAmount, partialVat, calculatedVat]);
 
   // Generate installments breakdown
   const generateInstallments = (numInstallments: number, totalAmount: number, startDateStr: string) => {
@@ -2050,57 +2057,11 @@ export default function OCRForm({
         </div>
       </div>
 
-      {/* Overall Discount — applies to entire invoice (in addition to per-line discounts) */}
-      <div className="flex flex-col gap-[5px]">
-        <label className="text-[15px] font-medium text-white text-right">הנחה כללית על כל החשבונית</label>
-        <div className="flex items-center gap-[5px]">
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex-1">
-            <Input
-              type="text"
-              inputMode="decimal"
-              title="הנחה על כל הסכום"
-              value={discountAmount}
-              onChange={(e) => {
-                const val = e.target.value.replace(/,/g, '');
-                setDiscountAmount(val);
-                // When user types in ₪ field, auto-compute % from amountBeforeVat
-                const baseAmount = parseFloat(amountBeforeVat) || 0;
-                const discAmt = parseFloat(val) || 0;
-                if (baseAmount > 0 && discAmt > 0) {
-                  setDiscountPercentage(((discAmt / baseAmount) * 100).toFixed(2));
-                } else {
-                  setDiscountPercentage('');
-                }
-              }}
-              placeholder="0.00"
-              className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
-            />
-          </div>
-          <span className="text-white/60 text-[14px]">או</span>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px] w-[100px] flex items-center">
-            <Input
-              type="text"
-              inputMode="decimal"
-              title="הנחה באחוזים"
-              value={discountPercentage}
-              onChange={(e) => {
-                const val = e.target.value.replace(/[^\d.-]/g, '');
-                setDiscountPercentage(val);
-                const baseAmount = parseFloat(amountBeforeVat) || 0;
-                const pct = parseFloat(val) || 0;
-                if (baseAmount > 0 && pct > 0) {
-                  setDiscountAmount((baseAmount * (pct / 100)).toFixed(2));
-                } else if (!val) {
-                  setDiscountAmount('');
-                }
-              }}
-              placeholder="0"
-              className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[5px]"
-            />
-            <span className="text-white/60 text-[14px] pe-[8px]">%</span>
-          </div>
-        </div>
-      </div>
+      {/* Overall invoice discount moved down into the line-items panel —
+          see 'הנחה כללית' there. It used to live here at the top of the form,
+          which made users expect it to affect the header totals even though
+          it was only applied to line items. Now it's next to the items and
+          it DOES reduce the invoice before-VAT / VAT / total. */}
 
       {/* Partial VAT Checkbox and VAT Amount */}
       <div className="flex items-center justify-between gap-[15px]">
@@ -2362,6 +2323,58 @@ export default function OCRForm({
                 </div>
               );
             })()}
+            {/* Overall invoice discount — reduces the before-VAT amount and cascades
+                into VAT and total. Lives next to line items because conceptually it's
+                an items-level discount the supplier granted across the whole invoice. */}
+            <div className="flex flex-col gap-[4px] border-t border-[#4C526B] pt-[8px] mt-[2px]">
+              <label className="text-[13px] font-medium text-white/80 text-right">הנחה כללית</label>
+              <div className="flex items-center gap-[5px]">
+                <div className="border border-[#4C526B] rounded-[8px] h-[40px] flex-1">
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    title="הנחה על כל הסכום"
+                    value={discountAmount}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/,/g, '');
+                      setDiscountAmount(val);
+                      const baseAmount = parseFloat(amountBeforeVat) || 0;
+                      const discAmt = parseFloat(val) || 0;
+                      if (baseAmount > 0 && discAmt > 0) {
+                        setDiscountPercentage(((discAmt / baseAmount) * 100).toFixed(2));
+                      } else {
+                        setDiscountPercentage('');
+                      }
+                    }}
+                    placeholder="0.00"
+                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[8px] border-none outline-none px-[8px]"
+                  />
+                </div>
+                <span className="text-white/60 text-[13px]">או</span>
+                <div className="border border-[#4C526B] rounded-[8px] h-[40px] w-[90px] flex items-center">
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    title="הנחה באחוזים"
+                    value={discountPercentage}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^\d.-]/g, '');
+                      setDiscountPercentage(val);
+                      const baseAmount = parseFloat(amountBeforeVat) || 0;
+                      const pct = parseFloat(val) || 0;
+                      if (baseAmount > 0 && pct > 0) {
+                        setDiscountAmount((baseAmount * (pct / 100)).toFixed(2));
+                      } else if (!val) {
+                        setDiscountAmount('');
+                      }
+                    }}
+                    placeholder="0"
+                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[8px] border-none outline-none px-[5px]"
+                  />
+                  <span className="text-white/60 text-[13px] pe-[6px]">%</span>
+                </div>
+              </div>
+            </div>
             {/* Add item button */}
             <Button
               type="button"
