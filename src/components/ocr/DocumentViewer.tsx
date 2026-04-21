@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
 interface DocumentViewerProps {
@@ -658,11 +657,18 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
               </div>
             )}
 
-            {/* Image - using next/image with ref access needed by crop functionality */}
-            <Image
+            {/* Image — uses a native <img> (not next/image) because the crop
+                functionality needs a direct HTMLImageElement for ctx.drawImage.
+                next/image wraps the img inside a <span>, so imageRef would
+                point to the span and the confirm-crop button would silently
+                do nothing. crossOrigin allows canvas export from Supabase
+                Storage without tainting. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               ref={imageRef}
               src={activeUrl}
               alt="מסמך"
+              crossOrigin="anonymous"
               onLoad={() => setImageLoaded(true)}
               onError={() => setImageError(true)}
               style={{
@@ -676,9 +682,6 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
                 transition: isDragging ? 'none' : 'transform 0.2s ease-out',
               }}
               draggable={false}
-              width={800}
-              height={600}
-              unoptimized
             />
           </>
         )}
