@@ -943,6 +943,26 @@ export default function SuppliersPage() {
     const supabase = createClient();
 
     try {
+      // 0. Duplicate guard — avoid creating another supplier with the exact
+      // same name inside the same business. Case-insensitive, trim-aware. If
+      // a match is found, confirm with the user before creating a second one.
+      const trimmedName = supplierName.trim();
+      const { data: existingMatches } = await supabase
+        .from("suppliers")
+        .select("id, name")
+        .eq("business_id", selectedBusinesses[0])
+        .is("deleted_at", null)
+        .ilike("name", trimmedName);
+      if (existingMatches && existingMatches.length > 0) {
+        const proceed = window.confirm(
+          `ספק בשם "${trimmedName}" כבר קיים בעסק זה. ליצור ספק נוסף באותו שם?`
+        );
+        if (!proceed) {
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       // 1. Upload document if provided
       let documentUrl: string | null = null;
       if (attachedFile) {
