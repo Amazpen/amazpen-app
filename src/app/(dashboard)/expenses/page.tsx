@@ -783,6 +783,12 @@ function ExpensesPageInner() {
   const [breakdownSupplierInvoices, setBreakdownSupplierInvoices] = useState<InvoiceDisplay[]>([]);
   const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
   const returnToBreakdownRef = useRef(false);
+  // Local month override for the popup — lets the user page ← → through months
+  // inside the supplier breakdown without changing the main page's dateRange.
+  // Holds the 1st-of-month Date for the month currently shown in the popup.
+  // Null = use the main page's dateRange as-is.
+  const [breakdownSupplierId, setBreakdownSupplierId] = useState<string>("");
+  const [breakdownMonthOverride, setBreakdownMonthOverride] = useState<Date | null>(null);
 
   // Status change state
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
@@ -3528,23 +3534,13 @@ function ExpensesPageInner() {
     setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }]);
   };
 
-  // Handle opening supplier breakdown popup (from expenses detail table)
-  const handleOpenSupplierBreakdown = async (supplierId: string, supplierName: string, categoryName: string) => {
-    setBreakdownSupplierName(supplierName);
-    setBreakdownSupplierCategory(categoryName);
-    setShowSupplierBreakdownPopup(true);
+  // Fetch supplier breakdown invoices for a given date range. Extracted so the
+  // popup can re-fetch for a different month (via ← → navigation) without
+  // touching the main page dateRange.
+  const fetchBreakdownForRange = async (supplierId: string, startDate: string, endDate: string) => {
     setIsLoadingBreakdown(true);
-
     const supabase = createClient();
     try {
-      const formatLocalDate = (date: Date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
-      const startDate = formatLocalDate(dateRange.start);
-      const endDate = formatLocalDate(dateRange.end);
 
       const [{ data: invoicesData }, { data: deliveryNotesData }] = await Promise.all([
         supabase
@@ -3642,6 +3638,40 @@ function ExpensesPageInner() {
     }
   };
 
+  // Handle opening supplier breakdown popup (from expenses detail table)
+  const handleOpenSupplierBreakdown = async (supplierId: string, supplierName: string, categoryName: string) => {
+    setBreakdownSupplierName(supplierName);
+    setBreakdownSupplierCategory(categoryName);
+    setBreakdownSupplierId(supplierId);
+    setBreakdownMonthOverride(null); // Start with the main page's range.
+    setShowSupplierBreakdownPopup(true);
+
+    const formatLocalDate = (date: Date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+    await fetchBreakdownForRange(
+      supplierId,
+      formatLocalDate(dateRange.start),
+      formatLocalDate(dateRange.end),
+    );
+  };
+
+  // Move the popup's month window by ±N months without touching the page's
+  // dateRange. Re-fetches for the new month on the same selected supplier.
+  const shiftBreakdownMonth = async (delta: number) => {
+    if (!breakdownSupplierId) return;
+    const base = breakdownMonthOverride ?? new Date(dateRange.start.getFullYear(), dateRange.start.getMonth(), 1);
+    const next = new Date(base.getFullYear(), base.getMonth() + delta, 1);
+    setBreakdownMonthOverride(next);
+    const monthStart = new Date(next.getFullYear(), next.getMonth(), 1);
+    const monthEnd = new Date(next.getFullYear(), next.getMonth() + 1, 0);
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    await fetchBreakdownForRange(breakdownSupplierId, fmt(monthStart), fmt(monthEnd));
+  };
+
   const handleCloseSupplierBreakdown = () => {
     setShowSupplierBreakdownPopup(false);
     // Only clear data if we're not returning to breakdown from a sub-popup
@@ -3650,6 +3680,8 @@ function ExpensesPageInner() {
       setBreakdownSupplierName("");
       setBreakdownSupplierCategory("");
       setBreakdownSupplierTotalWithVat(0);
+      setBreakdownSupplierId("");
+      setBreakdownMonthOverride(null);
     }
   };
 
@@ -6574,6 +6606,59 @@ function ExpensesPageInner() {
                 <span className="text-[14px] text-white/70">כולל מע&quot;מ · {breakdownSupplierInvoices.length} חשבוניות</span>
               </div>
             </div>
+
+            {/* Month navigation — local to this popup. Lets the user page through
+                months for the selected supplier WITHOUT changing the page's
+                global month filter. */}
+            {(() => {
+              const shown = breakdownMonthOverride ?? new Date(dateRange.start.getFullYear(), dateRange.start.getMonth(), 1);
+              const label = shown.toLocaleDateString("he-IL", { month: "long", year: "numeric" });
+              const isCurrentPageMonth = breakdownMonthOverride === null;
+              return (
+                <div className="flex items-center justify-center gap-[10px] mb-[12px] px-[10px]" dir="rtl">
+                  <Button
+                    type="button"
+                    onClick={() => shiftBreakdownMonth(-1)}
+                    disabled={isLoadingBreakdown}
+                    className="w-[36px] h-[36px] flex items-center justify-center rounded-[8px] bg-white/5 hover:bg-white/10 text-white transition-colors disabled:opacity-50"
+                    title="חודש קודם"
+                    aria-label="חודש קודם"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                  </Button>
+                  <div className="flex flex-col items-center min-w-[160px]">
+                    <span className="text-[15px] font-semibold text-white">{label}</span>
+                    {!isCurrentPageMonth && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setBreakdownMonthOverride(null);
+                          const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                          await fetchBreakdownForRange(breakdownSupplierId, fmt(dateRange.start), fmt(dateRange.end));
+                        }}
+                        className="text-[11px] text-[#00D4FF] hover:text-white transition-colors mt-[2px]"
+                      >
+                        חזרה לחודש הנבחר
+                      </button>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => shiftBreakdownMonth(1)}
+                    disabled={isLoadingBreakdown}
+                    className="w-[36px] h-[36px] flex items-center justify-center rounded-[8px] bg-white/5 hover:bg-white/10 text-white transition-colors disabled:opacity-50"
+                    title="חודש הבא"
+                    aria-label="חודש הבא"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                  </Button>
+                </div>
+              );
+            })()}
 
             {/* Invoices Table */}
             <div className="flex flex-col">
