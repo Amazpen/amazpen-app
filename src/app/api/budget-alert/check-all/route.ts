@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
   const now = new Date();
   const year = parseInt(searchParams.get("year") || "") || now.getFullYear();
   const month = parseInt(searchParams.get("month") || "") || (now.getMonth() + 1);
-  // TEMP: all alerts routed to david only (business owners will NOT receive)
-  const ALERT_EMAIL = "david@amazpen.co.il";
+  // דוד תמיד ב-CC כדי שיראה התראות על חריגות אצל כל הלקוחות.
+  const CC_EMAIL = "david@amazpen.co.il";
 
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const monthEnd =
@@ -139,11 +139,15 @@ export async function POST(request: NextRequest) {
   const [businessesRes, suppliersRes, membersRes] = await Promise.all([
     supabase.from("businesses").select("id, name").in("id", businessIds),
     supabase.from("suppliers").select("id, name").in("id", supplierIds),
+    // Owners of each business — they're the recipients of the budget alert.
+    // Excludes 'admin' because that's the platform-level admin role (that's
+    // what david is), not a business owner.
     supabase
       .from("business_members")
       .select("business_id, profiles(email)")
       .in("business_id", businessIds)
-      .in("role", ["admin", "owner"]),
+      .eq("role", "owner")
+      .is("deleted_at", null),
   ]);
 
   const businessMap = new Map<string, string>();
@@ -177,15 +181,21 @@ export async function POST(request: NextRequest) {
   for (const alert of newAlerts) {
     const businessName = businessMap.get(alert.business_id) || "עסק";
     const supplierName = supplierMap.get(alert.supplier_id) || "ספק";
-    // Always route to david (temporary — business owners won't get alerts)
-    const emails = ALERT_EMAIL;
-    void emailsByBusiness;
+    // Primary recipients: all owners of this specific business.
+    // CC: david, so he sees every alert across the platform.
+    const ownerEmails = emailsByBusiness.get(alert.business_id) || [];
+    const toField = ownerEmails.join(", ");
 
-    if (!emails) continue;
+    // Skip if this business has no owner to notify — david alone shouldn't
+    // trigger a mail with empty To. Fall back to david-as-primary in that
+    // edge case so the alert isn't silently dropped.
+    const effectiveTo = toField || CC_EMAIL;
+    const effectiveCc = toField ? CC_EMAIL : "";
 
     const payload = {
       "שם העסק": businessName,
-      "אימייל": emails,
+      "אימייל": effectiveTo,
+      "cc": effectiveCc,
       "שם הספק": supplierName,
       "סכום יעד": alert.budget_amount.toFixed(1),
       "סכום חריגה": alert.total_spent.toFixed(1),
@@ -208,7 +218,7 @@ export async function POST(request: NextRequest) {
           budget_amount: alert.budget_amount,
           total_spent: alert.total_spent,
           excess: alert.excess,
-          sent_to: emails,
+          sent_to: [effectiveTo, effectiveCc].filter(Boolean).join(" | "),
         });
       }
     } catch (err) {
