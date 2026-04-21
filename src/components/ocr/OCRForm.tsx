@@ -1102,6 +1102,10 @@ export default function OCRForm({
         // Never auto-enable based on OCR data — it always defaulted to ON
         // for legitimate invoices and confused users.
       }
+      // NOTE: VAT-exempt supplier override happens below, AFTER the supplier
+      // is matched, because the matched supplier's vat_type trumps whatever
+      // OCR pulled from the document (e.g. an OCR scan of a פטור-ממעמ
+      // supplier that still lists a theoretical VAT line).
 
       // Pre-select supplier: prefer matched_supplier_id from AI, fallback to smart name matching
       let matchedId = '';
@@ -1166,6 +1170,21 @@ export default function OCRForm({
         const matched = suppliers.find(s => s.id === matchedId);
         if (matched?.default_discount_percentage && matched.default_discount_percentage > 0) {
           setDiscountPercentage(matched.default_discount_percentage.toString());
+        }
+        // VAT-exempt supplier override. If the supplier is flagged vat_type='none',
+        // the matched supplier's status wins over anything OCR extracted. Use the
+        // invoice's total as the before-VAT amount (OCR may have split a gross
+        // price into subtotal+vat even though the document has no VAT line) and
+        // force the VAT override to 0.
+        if (matched?.vat_type === 'none') {
+          const total = data.total_amount !== undefined && data.total_amount !== null
+            ? Number(data.total_amount)
+            : (data.subtotal !== undefined && data.subtotal !== null ? Number(data.subtotal) : null);
+          if (total !== null && !Number.isNaN(total)) {
+            setAmountBeforeVat(total.toString());
+          }
+          setPartialVat(true);
+          setVatAmount('0');
         }
       }
 
