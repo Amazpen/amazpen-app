@@ -1134,7 +1134,22 @@ export default function SuppliersPage() {
       .gte("invoice_date", startStr)
       .lte("invoice_date", endStr);
 
-    const monthlyPurchases = monthlyInvoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+    // Also include unlinked delivery notes that landed in this month — they
+    // are purchases from the supplier too, just not yet consolidated into an
+    // invoice. Without this, months with only תעודות משלוח show רכישות = 0
+    // even though the user clearly received goods.
+    const { data: monthlyDNs } = await supabase
+      .from("delivery_notes")
+      .select("id, total_amount")
+      .eq("supplier_id", supplier.id)
+      .eq("business_id", supplier.business_id)
+      .is("invoice_id", null)
+      .gte("delivery_date", startStr)
+      .lte("delivery_date", endStr);
+
+    const invoicesSum = monthlyInvoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+    const dnsSum = monthlyDNs?.reduce((sum, dn) => sum + Number(dn.total_amount), 0) || 0;
+    const monthlyPurchases = invoicesSum + dnsSum;
     const invoiceIds = (monthlyInvoices || []).map(inv => inv.id);
 
     // 2. Calculate paid: sum from payment_invoice_links.amount_allocated (the trustworthy
@@ -1238,14 +1253,24 @@ export default function SuppliersPage() {
     const supabase = createClient();
 
     try {
-      // Fetch total purchases (invoices) for this supplier — use total_amount (with VAT) to match payments
-      const { data: invoicesData } = await supabase
-        .from("invoices")
-        .select("subtotal, total_amount, status, amount_paid")
-        .eq("supplier_id", supplier.id)
-        .is("deleted_at", null);
+      // Fetch total purchases (invoices + unlinked delivery notes) for this
+      // supplier — use total_amount (with VAT) so this matches payments.
+      const [{ data: invoicesData }, { data: unlinkedDnData }] = await Promise.all([
+        supabase
+          .from("invoices")
+          .select("subtotal, total_amount, status, amount_paid")
+          .eq("supplier_id", supplier.id)
+          .is("deleted_at", null),
+        supabase
+          .from("delivery_notes")
+          .select("total_amount")
+          .eq("supplier_id", supplier.id)
+          .is("invoice_id", null),
+      ]);
 
-      const totalPurchases = invoicesData?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+      const invoicesPurchasesSum = invoicesData?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+      const dnsPurchasesSum = unlinkedDnData?.reduce((sum, dn) => sum + Number(dn.total_amount), 0) || 0;
+      const totalPurchases = invoicesPurchasesSum + dnsPurchasesSum;
 
       // Open invoices total = same logic as payments page (pending + clarification only)
       // This makes "יתרה לתשלום" match the payments page selection total exactly
@@ -2775,7 +2800,7 @@ export default function SuppliersPage() {
                   {/* Header */}
                   <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] text-[11px] text-white/60 font-medium">
                     <span className="text-right">חודש</span>
-                    <span className="text-center">רכישות</span>
+                    <span className="text-center">רכישות כולל מע&quot;מ</span>
                     <span className="text-center">שולם</span>
                     <span className="text-center">יתרה</span>
                   </div>
@@ -2848,7 +2873,7 @@ export default function SuppliersPage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-white/80">סך הרכישות מהספק (לפני מע&quot;מ)</span>
+                  <span className="text-[13px] text-white/80">סך הרכישות מהספק (כולל מע&quot;מ)</span>
                   <span className="text-[14px] text-white font-medium ltr-num">
                     ₪{(supplierDetailData?.monthlyData.monthlyPurchases || 0).toLocaleString()}
                   </span>
