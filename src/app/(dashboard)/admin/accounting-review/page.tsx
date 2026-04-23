@@ -207,39 +207,59 @@ export default function AccountingReviewPage() {
     }
     setIsLoadingInvoices(true);
 
-    let query = supabase
-      .from("invoices")
-      .select(
-        "id, business_id, supplier_id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes, approval_status, clarification_reason, bookkeeping_registered, bookkeeping_registered_by, bookkeeping_registered_at, supplier:suppliers!inner(name)"
-      )
-      .eq("business_id", selectedBusinessId)
-      .is("deleted_at", null);
+    // PostgREST caps a single response at 1000 rows, so "הצג הכל" on a large
+    // business silently truncated. Paginate through the result with .range()
+    // until we've pulled everything matching the current filters.
+    const PAGE_SIZE = 1000;
+    const buildQuery = () => {
+      let q = supabase
+        .from("invoices")
+        .select(
+          "id, business_id, supplier_id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes, approval_status, clarification_reason, bookkeeping_registered, bookkeeping_registered_by, bookkeeping_registered_at, supplier:suppliers!inner(name)"
+        )
+        .eq("business_id", selectedBusinessId)
+        .is("deleted_at", null);
 
-    // Skip the date window when the user opts into "הצג הכל" or is actively
-    // searching by reference — a reference search must hit all history so
-    // invoices from other months are reachable.
-    if (!dateFilterDisabled) {
-      const startStr = dateRange.start.toISOString().split("T")[0];
-      const endStr = dateRange.end.toISOString().split("T")[0];
-      query = query.gte("invoice_date", startStr).lte("invoice_date", endStr);
-    }
+      // Skip the date window when the user opts into "הצג הכל" or is actively
+      // searching by reference — a reference search must hit all history so
+      // invoices from other months are reachable.
+      if (!dateFilterDisabled) {
+        const startStr = dateRange.start.toISOString().split("T")[0];
+        const endStr = dateRange.end.toISOString().split("T")[0];
+        q = q.gte("invoice_date", startStr).lte("invoice_date", endStr);
+      }
 
-    // Push the reference filter to the server so we don't pull every invoice
-    // ever when the user has no date bound — ilike is indexable via trigram.
-    if (debouncedReference) {
-      query = query.ilike("invoice_number", `%${debouncedReference}%`);
-    }
+      // Push the reference filter to the server so we don't pull every invoice
+      // ever when the user has no date bound — ilike is indexable via trigram.
+      if (debouncedReference) {
+        q = q.ilike("invoice_number", `%${debouncedReference}%`);
+      }
+      // Tie-break by id so paging is stable even when multiple invoices share
+      // the same invoice_date.
+      return q
+        .order("invoice_date", { ascending: sortAsc })
+        .order("id", { ascending: true });
+    };
 
-    const { data, error } = await query.order("invoice_date", { ascending: sortAsc });
-
-    if (error) {
-      showToast("שגיאה בטעינת חשבוניות", "error");
-      setIsLoadingInvoices(false);
-      return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const all: any[] = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const to = from + PAGE_SIZE - 1;
+      const { data, error } = await buildQuery().range(from, to);
+      if (error) {
+        showToast("שגיאה בטעינת חשבוניות", "error");
+        setIsLoadingInvoices(false);
+        return;
+      }
+      const batch = data || [];
+      all.push(...batch);
+      if (batch.length < PAGE_SIZE) break;
+      // Hard cap so a pathological query can never hang the UI.
+      if (all.length >= 20000) break;
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mapped: InvoiceRow[] = (data || []).map((row: any) => ({
+    const mapped: InvoiceRow[] = all.map((row: any) => ({
       ...row,
       supplier_name: row.supplier?.name || "—",
     }));
