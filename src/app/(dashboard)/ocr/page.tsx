@@ -284,8 +284,23 @@ export default function OCRPage() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
 
-        // Get business VAT rate from already-loaded businesses data
+        // Get business VAT rate from already-loaded businesses data. If the
+        // supplier is flagged vat_type='none' (פטור-ממעמ), the effective rate
+        // for this document is 0 so subtotal = total and vat = 0 — otherwise
+        // a מרכזת/תעודת משלוח for a VAT-exempt supplier gets a phantom VAT
+        // split (seen in the wild: ירקות ופירות שלמה המלך, invoice 103586
+        // arrived with ₪3,502 VAT on a ₪22,960 total despite vat_type='none').
         const bizVatRate = Number(businesses.find(b => b.id === formData.business_id)?.vat_percentage) || 0.18;
+        let supplierVatType: string | null = null;
+        if (formData.supplier_id) {
+          const { data: supRow } = await supabase
+            .from('suppliers')
+            .select('vat_type')
+            .eq('id', formData.supplier_id)
+            .maybeSingle();
+          supplierVatType = supRow?.vat_type ?? null;
+        }
+        const effectiveVatRate = supplierVatType === 'none' ? 0 : bizVatRate;
 
         // NOTE: we intentionally do NOT recompute credit-card due dates
         // on the server any more. OCRForm already applies the
@@ -611,7 +626,7 @@ export default function OCRPage() {
         } else if (formData.document_type === 'summary') {
           // --- SUMMARY (מרכזת) ---
           const total = parseFloat(formData.total_amount);
-          const subtotal = total / (1 + bizVatRate);
+          const subtotal = effectiveVatRate > 0 ? total / (1 + effectiveVatRate) : total;
           const vatAmount = total - subtotal;
           const isClosed = formData.summary_is_closed === 'yes';
 
@@ -652,7 +667,7 @@ export default function OCRPage() {
           if (formData.summary_delivery_notes && formData.summary_delivery_notes.length > 0 && invoice) {
             const deliveryNotesData = formData.summary_delivery_notes.map(note => {
               const noteTotal = parseFloat(note.total_amount);
-              const noteSubtotal = noteTotal / (1 + bizVatRate);
+              const noteSubtotal = effectiveVatRate > 0 ? noteTotal / (1 + effectiveVatRate) : noteTotal;
               const noteVat = noteTotal - noteSubtotal;
               return {
                 invoice_id: invoice.id,
