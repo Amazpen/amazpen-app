@@ -265,50 +265,110 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
   const confirmCrop = useCallback(() => {
     if (cropArea.width > 10 && cropArea.height > 10 && imageRef.current && containerRef.current && onCrop) {
       const img = imageRef.current;
-      // cropArea is in container-local coordinates. But the image might be letterboxed
-      // (objectFit: contain) and/or transformed (zoom/pan/rotate), so the container rect
-      // is NOT the same as the image's rendered rect. Use the image's post-transform
-      // bounding rect to translate crop rect → image pixels.
       const containerRect = containerRef.current.getBoundingClientRect();
-      const imgRect = img.getBoundingClientRect();
-      // Absolute viewport coords of the crop rect
-      const cropAbsX = containerRect.left + cropArea.x;
-      const cropAbsY = containerRect.top + cropArea.y;
-      // Intersect with image rect so we only crop the visible image portion
-      const clampedLeft = Math.max(cropAbsX, imgRect.left);
-      const clampedTop = Math.max(cropAbsY, imgRect.top);
-      const clampedRight = Math.min(cropAbsX + cropArea.width, imgRect.right);
-      const clampedBottom = Math.min(cropAbsY + cropArea.height, imgRect.bottom);
-      const visibleW = Math.max(0, clampedRight - clampedLeft);
-      const visibleH = Math.max(0, clampedBottom - clampedTop);
-      if (visibleW <= 0 || visibleH <= 0 || imgRect.width <= 0 || imgRect.height <= 0) {
+      const imgBoxRect = img.getBoundingClientRect();
+      const naturalW = img.naturalWidth;
+      const naturalH = img.naturalHeight;
+      if (!naturalW || !naturalH || imgBoxRect.width <= 0 || imgBoxRect.height <= 0) {
         setIsCropping(false);
         setCropArea({ x: 0, y: 0, width: 0, height: 0 });
         return;
       }
-      // Position INSIDE the rendered image (post-transform pixels)
-      const xInImg = clampedLeft - imgRect.left;
-      const yInImg = clampedTop - imgRect.top;
-      // Scale to natural pixels
-      const scaleX = img.naturalWidth / imgRect.width;
-      const scaleY = img.naturalHeight / imgRect.height;
-      const srcX = xInImg * scaleX;
-      const srcY = yInImg * scaleY;
-      const srcW = visibleW * scaleX;
-      const srcH = visibleH * scaleY;
 
+      // With objectFit: contain the <img> element fills the container but the
+      // actual pixels are letterboxed inside. getBoundingClientRect returns the
+      // element box — NOT the visible image. Compute the true visible rect so
+      // the crop maps 1:1 to natural pixels instead of getting squashed into a
+      // square.
+      const rot = ((rotation % 360) + 360) % 360;
+      const swapped = rot === 90 || rot === 270;
+      const displayNatW = swapped ? naturalH : naturalW;
+      const displayNatH = swapped ? naturalW : naturalH;
+      const boxAspect = imgBoxRect.width / imgBoxRect.height;
+      const imgAspect = displayNatW / displayNatH;
+      let visW: number;
+      let visH: number;
+      if (imgAspect > boxAspect) {
+        visW = imgBoxRect.width;
+        visH = imgBoxRect.width / imgAspect;
+      } else {
+        visH = imgBoxRect.height;
+        visW = imgBoxRect.height * imgAspect;
+      }
+      const visLeft = imgBoxRect.left + (imgBoxRect.width - visW) / 2;
+      const visTop = imgBoxRect.top + (imgBoxRect.height - visH) / 2;
+      const visRight = visLeft + visW;
+      const visBottom = visTop + visH;
+
+      // Crop rect in absolute viewport coords
+      const cropAbsX = containerRect.left + cropArea.x;
+      const cropAbsY = containerRect.top + cropArea.y;
+      const clampedLeft = Math.max(cropAbsX, visLeft);
+      const clampedTop = Math.max(cropAbsY, visTop);
+      const clampedRight = Math.min(cropAbsX + cropArea.width, visRight);
+      const clampedBottom = Math.min(cropAbsY + cropArea.height, visBottom);
+      const visibleW = Math.max(0, clampedRight - clampedLeft);
+      const visibleH = Math.max(0, clampedBottom - clampedTop);
+      if (visibleW <= 0 || visibleH <= 0) {
+        setIsCropping(false);
+        setCropArea({ x: 0, y: 0, width: 0, height: 0 });
+        return;
+      }
+
+      // Position inside the rendered (possibly rotated) image, in displayed pixels
+      const xInDisplay = clampedLeft - visLeft;
+      const yInDisplay = clampedTop - visTop;
+
+      // Uniform scale (contain preserves aspect ratio → single factor)
+      const scale = displayNatW / visW;
+      const dispX = xInDisplay * scale;
+      const dispY = yInDisplay * scale;
+      const dispW = visibleW * scale;
+      const dispH = visibleH * scale;
+
+      // Map displayed coords → natural image coords (undo rotation)
+      let srcX = dispX;
+      let srcY = dispY;
+      let srcW = dispW;
+      let srcH = dispH;
+      if (rot === 90) {
+        srcX = dispY;
+        srcY = naturalH - (dispX + dispW);
+        srcW = dispH;
+        srcH = dispW;
+      } else if (rot === 180) {
+        srcX = naturalW - (dispX + dispW);
+        srcY = naturalH - (dispY + dispH);
+      } else if (rot === 270) {
+        srcX = naturalW - (dispY + dispH);
+        srcY = dispX;
+        srcW = dispH;
+        srcH = dispW;
+      }
+
+      // Output canvas matches the user's selection aspect (after rotation)
+      const outW = Math.round(rot === 90 || rot === 270 ? srcH : srcW);
+      const outH = Math.round(rot === 90 || rot === 270 ? srcW : srcH);
       const canvas = document.createElement('canvas');
-      canvas.width = Math.round(srcW);
-      canvas.height = Math.round(srcH);
+      canvas.width = outW;
+      canvas.height = outH;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
+        if (rot === 0) {
+          ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, outW, outH);
+        } else {
+          ctx.translate(outW / 2, outH / 2);
+          ctx.rotate((rot * Math.PI) / 180);
+          const dW = rot === 90 || rot === 270 ? outH : outW;
+          const dH = rot === 90 || rot === 270 ? outW : outH;
+          ctx.drawImage(img, srcX, srcY, srcW, srcH, -dW / 2, -dH / 2, dW, dH);
+        }
         onCrop(canvas.toDataURL('image/jpeg', 0.9));
       }
     }
     setIsCropping(false);
     setCropArea({ x: 0, y: 0, width: 0, height: 0 });
-  }, [cropArea, onCrop]);
+  }, [cropArea, onCrop, rotation]);
 
   // Listen for fullscreen changes
   useEffect(() => {
