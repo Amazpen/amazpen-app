@@ -765,20 +765,29 @@ function PaymentsPageInner() {
       if (newSet.has(invoiceId)) newSet.delete(invoiceId);
       else newSet.add(invoiceId);
 
-      // Update the first payment method amount to match selected invoices total
+      // Update the first payment method amount to match selected invoices total.
+      // Also runs when newSet becomes empty so unchecking the last invoice
+      // clears the amount back to empty instead of leaving the previous sum
+      // stuck in the field.
       const selectedTotal = openInvoices
         .filter(inv => newSet.has(inv.id))
         .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
 
-      if (newSet.size > 0) {
-        setPaymentMethods(prev => {
-          const updated = [...prev];
-          const amountStr = selectedTotal.toFixed(2).replace(/\.?0+$/, "") || "0";
-          const startDate = updated[0].customInstallments.length > 0 ? updated[0].customInstallments[0].dateForInput : paymentDate;
-          updated[0] = { ...updated[0], amount: amountStr, customInstallments: generateInstallments(parseInt(updated[0].installments) || 1, selectedTotal, startDate) };
-          return updated;
-        });
-      }
+      setPaymentMethods(prev => {
+        const updated = [...prev];
+        const amountStr = newSet.size > 0
+          ? (selectedTotal.toFixed(2).replace(/\.?0+$/, "") || "0")
+          : "";
+        const startDate = updated[0].customInstallments.length > 0 ? updated[0].customInstallments[0].dateForInput : paymentDate;
+        updated[0] = {
+          ...updated[0],
+          amount: amountStr,
+          customInstallments: newSet.size > 0
+            ? generateInstallments(parseInt(updated[0].installments) || 1, selectedTotal, startDate)
+            : [],
+        };
+        return updated;
+      });
 
       return newSet;
     });
@@ -800,15 +809,21 @@ function PaymentsPageInner() {
       .filter(inv => newSet.has(inv.id))
       .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
 
-    if (newSet.size > 0) {
-      setPaymentMethods(prev => {
-        const updated = [...prev];
-        const amountStr = selectedTotal.toFixed(2).replace(/\.?0+$/, "") || "0";
-        const startDate = updated[0].customInstallments.length > 0 ? updated[0].customInstallments[0].dateForInput : paymentDate;
-        updated[0] = { ...updated[0], amount: amountStr, customInstallments: generateInstallments(parseInt(updated[0].installments) || 1, selectedTotal, startDate) };
-        return updated;
-      });
-    }
+    setPaymentMethods(prev => {
+      const updated = [...prev];
+      const amountStr = newSet.size > 0
+        ? (selectedTotal.toFixed(2).replace(/\.?0+$/, "") || "0")
+        : "";
+      const startDate = updated[0].customInstallments.length > 0 ? updated[0].customInstallments[0].dateForInput : paymentDate;
+      updated[0] = {
+        ...updated[0],
+        amount: amountStr,
+        customInstallments: newSet.size > 0
+          ? generateInstallments(parseInt(updated[0].installments) || 1, selectedTotal, startDate)
+          : [],
+      };
+      return updated;
+    });
 
     setSelectedInvoiceIds(newSet);
   };

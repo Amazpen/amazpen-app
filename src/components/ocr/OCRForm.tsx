@@ -323,10 +323,14 @@ export default function OCRForm({
   }, [paymentOpenInvoices, paymentSelectedInvoiceIds]);
 
   useEffect(() => {
-    if (paymentSelectedInvoiceIds.size === 0) return;
+    // Runs also when size drops to 0 — so unchecking the last invoice clears
+    // the payment amount back to empty instead of leaving the previous total
+    // stuck in the field.
     setPaymentMethods(prev => {
       if (prev.length === 0) return prev;
-      const amountStr = paymentSelectedInvoicesTotal.toFixed(2).replace(/\.?0+$/, '') || '0';
+      const amountStr = paymentSelectedInvoiceIds.size === 0
+        ? ''
+        : (paymentSelectedInvoicesTotal.toFixed(2).replace(/\.?0+$/, '') || '0');
       return prev.map((pm, i) => i === 0 ? { ...pm, amount: amountStr } : pm);
     });
   }, [paymentSelectedInvoicesTotal, paymentSelectedInvoiceIds.size]);
