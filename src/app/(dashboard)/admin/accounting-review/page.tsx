@@ -132,6 +132,22 @@ export default function AccountingReviewPage() {
   const [filterReference, setFilterReference] = useState<string>("");
   const [filterAccounting, setFilterAccounting] = useState<string>("all"); // "all" | "yes" | "no"
 
+  // "הצג הכל" — fetch all invoices regardless of month filter. A reference
+  // search also implicitly disables the date filter so users can find an
+  // invoice from any month by typing its number.
+  const [showAllDates, setShowAllDates] = usePersistedState<boolean>(
+    "admin-accounting-review:showAllDates",
+    false,
+  );
+  // Debounce the reference input so typing doesn't hammer Supabase when it
+  // forces a full-history fetch.
+  const [debouncedReference, setDebouncedReference] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedReference(filterReference.trim()), 300);
+    return () => clearTimeout(id);
+  }, [filterReference]);
+  const dateFilterDisabled = showAllDates || debouncedReference !== "";
+
   // ===== Auth check =====
   useEffect(() => {
     async function checkAdmin() {
@@ -172,32 +188,48 @@ export default function AccountingReviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
-  // ===== Fetch invoices when business or date range changes =====
+  // Reset filters only when the user switches businesses — NOT on every
+  // refetch, otherwise typing in the reference box would wipe itself.
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setDetailInvoice(null);
+    setFilterSupplier("");
+    setFilterReference("");
+    setFilterAccounting("all");
+  }, [selectedBusinessId]);
+
+  // ===== Fetch invoices when business / date range / scope changes =====
   const fetchInvoices = useCallback(async () => {
     if (!selectedBusinessId) {
       setInvoices([]);
       return;
     }
     setIsLoadingInvoices(true);
-    setSelectedIds(new Set());
-    setDetailInvoice(null);
-    setFilterSupplier("");
-    setFilterReference("");
-    setFilterAccounting("all");
 
-    const startStr = dateRange.start.toISOString().split("T")[0];
-    const endStr = dateRange.end.toISOString().split("T")[0];
-
-    const { data, error } = await supabase
+    let query = supabase
       .from("invoices")
       .select(
         "id, business_id, supplier_id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes, approval_status, clarification_reason, review_approved_by, review_approved_at, supplier:suppliers!inner(name)"
       )
       .eq("business_id", selectedBusinessId)
-      .is("deleted_at", null)
-      .gte("invoice_date", startStr)
-      .lte("invoice_date", endStr)
-      .order("invoice_date", { ascending: sortAsc });
+      .is("deleted_at", null);
+
+    // Skip the date window when the user opts into "הצג הכל" or is actively
+    // searching by reference — a reference search must hit all history so
+    // invoices from other months are reachable.
+    if (!dateFilterDisabled) {
+      const startStr = dateRange.start.toISOString().split("T")[0];
+      const endStr = dateRange.end.toISOString().split("T")[0];
+      query = query.gte("invoice_date", startStr).lte("invoice_date", endStr);
+    }
+
+    // Push the reference filter to the server so we don't pull every invoice
+    // ever when the user has no date bound — ilike is indexable via trigram.
+    if (debouncedReference) {
+      query = query.ilike("invoice_number", `%${debouncedReference}%`);
+    }
+
+    const { data, error } = await query.order("invoice_date", { ascending: sortAsc });
 
     if (error) {
       showToast("שגיאה בטעינת חשבוניות", "error");
@@ -213,12 +245,12 @@ export default function AccountingReviewPage() {
 
     setInvoices(mapped);
     setIsLoadingInvoices(false);
-  }, [selectedBusinessId, dateRange, sortAsc, supabase, showToast]);
+  }, [selectedBusinessId, dateRange, sortAsc, supabase, showToast, dateFilterDisabled, debouncedReference]);
 
   useEffect(() => {
     if (isAdmin && selectedBusinessId) fetchInvoices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBusinessId, dateRange, sortAsc, isAdmin]);
+  }, [selectedBusinessId, dateRange, sortAsc, isAdmin, dateFilterDisabled, debouncedReference]);
 
   // Realtime — invoices and linked payments can be updated by others (or by
   // OCR approval flow) while this admin review screen is open. Auto-refresh
@@ -316,11 +348,13 @@ export default function AccountingReviewPage() {
     return names.sort((a, b) => a.localeCompare(b, "he"));
   }, [invoices]);
 
-  // Filtered invoices
+  // Filtered invoices — reference filter here is case-insensitive and gives
+  // instant feedback during the debounce window before the server query fires.
   const filteredInvoices = useMemo(() => {
+    const refLower = filterReference.trim().toLowerCase();
     return invoices.filter((inv) => {
       if (filterSupplier && inv.supplier_name !== filterSupplier) return false;
-      if (filterReference && !(inv.invoice_number || "").includes(filterReference)) return false;
+      if (refLower && !(inv.invoice_number || "").toLowerCase().includes(refLower)) return false;
       if (filterAccounting === "yes" && inv.approval_status !== "accounting_approved") return false;
       if (filterAccounting === "no" && inv.approval_status === "accounting_approved") return false;
       return true;
@@ -524,11 +558,34 @@ export default function AccountingReviewPage() {
           ) : (
             <div />
           )}
-          <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              onClick={() => setShowAllDates((v) => !v)}
+              className={`inline-flex items-center h-9 px-3 rounded-md border text-sm font-medium transition-colors ${
+                showAllDates
+                  ? "border-[#4C9AFF]/60 bg-[#4C9AFF]/15 text-[#4C9AFF] hover:bg-[#4C9AFF]/25"
+                  : "border-white/20 bg-white/5 text-white/90 hover:bg-white/10 hover:border-white/30"
+              }`}
+              title={showAllDates ? "מציג את כל התאריכים — לחץ כדי לחזור לסינון חודש" : "הצג את כל החשבוניות ללא סינון חודש"}
+            >
+              {showAllDates ? "כל התאריכים ✓" : "הצג הכל"}
+            </Button>
+            <div className={dateFilterDisabled ? "opacity-50 pointer-events-none" : ""}>
+              <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
+            </div>
+          </div>
         </div>
+        {dateFilterDisabled && (
+          <div className="flex-shrink-0 text-xs text-white/60 bg-[#4C9AFF]/10 border border-[#4C9AFF]/30 rounded-md px-3 py-1.5">
+            {showAllDates
+              ? "מציג את כל החשבוניות — ללא סינון חודשים"
+              : "חיפוש לפי אסמכתא פעיל — סינון החודש הושבת באופן זמני"}
+          </div>
+        )}
 
         {/* Filters */}
-        {selectedBusinessId && invoices.length > 0 && (
+        {selectedBusinessId && (invoices.length > 0 || filterReference || showAllDates) && (
           <div className="flex items-center gap-3 flex-shrink-0 flex-wrap">
             {/* Supplier filter */}
             <Select value={filterSupplier || "__all__"} onValueChange={(v) => setFilterSupplier(v === "__all__" ? "" : v)}>
