@@ -4734,8 +4734,23 @@ function ExpensesPageInner() {
                               <span className="text-[13px] w-[65px] text-center">סכום</span>
                               <span className="text-[13px] w-[30px] text-center">קבלה</span>
                             </div>
-                            {/* Payment rows - one per payment */}
-                            {invoice.linkedPayments.map((payment) => (
+                            {/* Payment rows — sorted by installment number first
+                                (so 1/12, 2/12, 3/12... appear in order), falling
+                                back to due-date for non-installment payments. The
+                                DB query isn't ordered, so UI sort is what keeps
+                                things visually in sequence. */}
+                            {[...invoice.linkedPayments].sort((a, b) => {
+                              if (a.installmentNumber != null && b.installmentNumber != null) {
+                                return a.installmentNumber - b.installmentNumber;
+                              }
+                              // date is 'DD.MM.YY' — parse to a comparable key
+                              const parseKey = (s: string) => {
+                                const [dd, mm, yy] = s.split('.').map(Number);
+                                if (!yy || !mm || !dd) return 0;
+                                return (2000 + yy) * 10000 + mm * 100 + dd;
+                              };
+                              return parseKey(a.date) - parseKey(b.date);
+                            }).map((payment) => (
                               <div key={payment.id} className="flex flex-col">
                                 <div
                                   dir="rtl"

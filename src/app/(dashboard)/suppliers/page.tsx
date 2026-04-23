@@ -3181,7 +3181,24 @@ export default function SuppliersPage() {
 
                                   {showLinkedPayments === invoice.id && (
                                     <div className="flex flex-col gap-[5px]">
-                                      {invoice.linkedPayments.map((payment) => (
+                                      {/* Sort by installment number (when the
+                                          payment is part of a series like 1/12,
+                                          2/12...) and fall back to date order. */}
+                                      {[...invoice.linkedPayments].sort((a, b) => {
+                                        const parseInst = (s: string) => {
+                                          const m = s.match(/^(\d+)\s*\/\s*(\d+)$/);
+                                          return m ? parseInt(m[1], 10) : NaN;
+                                        };
+                                        const ai = parseInst(a.installments);
+                                        const bi = parseInst(b.installments);
+                                        if (!isNaN(ai) && !isNaN(bi)) return ai - bi;
+                                        const parseDate = (s: string) => {
+                                          const [dd, mm, yy] = s.split('.').map(Number);
+                                          if (!yy || !mm || !dd) return 0;
+                                          return (2000 + yy) * 10000 + mm * 100 + dd;
+                                        };
+                                        return parseDate(a.date) - parseDate(b.date);
+                                      }).map((payment) => (
                                         <div
                                           key={payment.id}
                                           className="flex flex-col gap-[8px] p-[8px] bg-white/5 rounded-[7px] cursor-pointer hover:bg-white/10 transition-colors"
