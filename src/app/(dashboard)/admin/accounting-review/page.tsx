@@ -73,8 +73,9 @@ interface InvoiceRow {
   notes: string | null;
   approval_status: string | null;
   clarification_reason: string | null;
-  review_approved_by: string | null;
-  review_approved_at: string | null;
+  bookkeeping_registered: boolean;
+  bookkeeping_registered_by: string | null;
+  bookkeeping_registered_at: string | null;
   supplier_name: string;
 }
 
@@ -209,7 +210,7 @@ export default function AccountingReviewPage() {
     let query = supabase
       .from("invoices")
       .select(
-        "id, business_id, supplier_id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes, approval_status, clarification_reason, review_approved_by, review_approved_at, supplier:suppliers!inner(name)"
+        "id, business_id, supplier_id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes, approval_status, clarification_reason, bookkeeping_registered, bookkeeping_registered_by, bookkeeping_registered_at, supplier:suppliers!inner(name)"
       )
       .eq("business_id", selectedBusinessId)
       .is("deleted_at", null);
@@ -264,19 +265,20 @@ export default function AccountingReviewPage() {
   // ===== Toggle approval status =====
   const toggleApproval = useCallback(
     async (invoice: InvoiceRow) => {
-      const isApproved = invoice.approval_status === "accounting_approved";
-      const newStatus = isApproved ? null : "accounting_approved";
+      // Bookkeeping registration lives in its own column so it no longer
+      // overwrites the manager-approval signal stored in approval_status.
+      const nextRegistered = !invoice.bookkeeping_registered;
 
-      const updatePayload = isApproved
+      const updatePayload = nextRegistered
         ? {
-            approval_status: null as string | null,
-            review_approved_by: null as string | null,
-            review_approved_at: null as string | null,
+            bookkeeping_registered: true,
+            bookkeeping_registered_by: userId,
+            bookkeeping_registered_at: new Date().toISOString(),
           }
         : {
-            approval_status: "accounting_approved" as string | null,
-            review_approved_by: userId,
-            review_approved_at: new Date().toISOString() as string | null,
+            bookkeeping_registered: false,
+            bookkeeping_registered_by: null as string | null,
+            bookkeeping_registered_at: null as string | null,
           };
 
       const { error } = await supabase
@@ -294,9 +296,9 @@ export default function AccountingReviewPage() {
           inv.id === invoice.id
             ? {
                 ...inv,
-                approval_status: newStatus,
-                review_approved_by: updatePayload.review_approved_by,
-                review_approved_at: updatePayload.review_approved_at,
+                bookkeeping_registered: nextRegistered,
+                bookkeeping_registered_by: updatePayload.bookkeeping_registered_by,
+                bookkeeping_registered_at: updatePayload.bookkeeping_registered_at,
               }
             : inv
         )
@@ -307,18 +309,18 @@ export default function AccountingReviewPage() {
         prev?.id === invoice.id
           ? {
               ...prev,
-              approval_status: newStatus,
-              review_approved_by: updatePayload.review_approved_by,
-              review_approved_at: updatePayload.review_approved_at,
+              bookkeeping_registered: nextRegistered,
+              bookkeeping_registered_by: updatePayload.bookkeeping_registered_by,
+              bookkeeping_registered_at: updatePayload.bookkeeping_registered_at,
             }
           : prev
       );
 
       showToast(
-        newStatus === "accounting_approved"
+        nextRegistered
           ? `חשבונית ${invoice.invoice_number || ""} סומנה כנרשמה בהנה"ח`
           : `חשבונית ${invoice.invoice_number || ""} סומנה כלא נרשמה`,
-        newStatus === "accounting_approved" ? "success" : "info"
+        nextRegistered ? "success" : "info"
       );
     },
     [supabase, userId, showToast]
@@ -355,8 +357,8 @@ export default function AccountingReviewPage() {
     return invoices.filter((inv) => {
       if (filterSupplier && inv.supplier_name !== filterSupplier) return false;
       if (refLower && !(inv.invoice_number || "").toLowerCase().includes(refLower)) return false;
-      if (filterAccounting === "yes" && inv.approval_status !== "accounting_approved") return false;
-      if (filterAccounting === "no" && inv.approval_status === "accounting_approved") return false;
+      if (filterAccounting === "yes" && !inv.bookkeeping_registered) return false;
+      if (filterAccounting === "no" && inv.bookkeeping_registered) return false;
       return true;
     });
   }, [invoices, filterSupplier, filterReference, filterAccounting]);
@@ -368,21 +370,20 @@ export default function AccountingReviewPage() {
 
   // ===== Bulk approve selected invoices =====
   const bulkApprove = useCallback(async () => {
-    const toApprove = selectedInvoices.filter(
-      (inv) => inv.approval_status !== "accounting_approved"
-    );
+    const toApprove = selectedInvoices.filter((inv) => !inv.bookkeeping_registered);
     if (toApprove.length === 0) {
       showToast("כל החשבוניות שנבחרו כבר נרשמו", "info");
       return;
     }
 
     const ids = toApprove.map((inv) => inv.id);
+    const nowIso = new Date().toISOString();
     const { error } = await supabase
       .from("invoices")
       .update({
-        approval_status: "accounting_approved",
-        review_approved_by: userId,
-        review_approved_at: new Date().toISOString(),
+        bookkeeping_registered: true,
+        bookkeeping_registered_by: userId,
+        bookkeeping_registered_at: nowIso,
       })
       .in("id", ids);
 
@@ -396,9 +397,9 @@ export default function AccountingReviewPage() {
         ids.includes(inv.id)
           ? {
               ...inv,
-              approval_status: "accounting_approved",
-              review_approved_by: userId,
-              review_approved_at: new Date().toISOString(),
+              bookkeeping_registered: true,
+              bookkeeping_registered_by: userId,
+              bookkeeping_registered_at: nowIso,
             }
           : inv
       )
@@ -425,7 +426,7 @@ export default function AccountingReviewPage() {
       inv.invoice_number || "-",
       inv.subtotal.toString(),
       inv.total_amount.toString(),
-      inv.approval_status === "accounting_approved" ? "כן" : "לא",
+      inv.bookkeeping_registered ? "כן" : "לא",
       inv.notes || "",
       inv.attachment_url || "",
     ]);
@@ -751,15 +752,13 @@ export default function AccountingReviewPage() {
                     >
                       <button
                         className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                          inv.approval_status === "accounting_approved"
+                          inv.bookkeeping_registered
                             ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
                             : "bg-white/10 text-white/60 hover:bg-white/20"
                         }`}
                         onClick={() => toggleApproval(inv)}
                       >
-                        {inv.approval_status === "accounting_approved"
-                          ? "כן"
-                          : "לא"}
+                        {inv.bookkeeping_registered ? "כן" : "לא"}
                       </button>
                     </TableCell>
                     <TableCell className="text-center">
@@ -876,11 +875,9 @@ export default function AccountingReviewPage() {
               <div>
                 <span className="text-white/50">סטטוס הנה&quot;ח</span>
                 <p
-                  className={`font-medium ${detailInvoice.approval_status === "accounting_approved" ? "text-green-400" : "text-white/60"}`}
+                  className={`font-medium ${detailInvoice.bookkeeping_registered ? "text-green-400" : "text-white/60"}`}
                 >
-                  {detailInvoice.approval_status === "accounting_approved"
-                    ? "נרשם"
-                    : "לא נרשם"}
+                  {detailInvoice.bookkeeping_registered ? "נרשם" : "לא נרשם"}
                 </p>
               </div>
             </div>
