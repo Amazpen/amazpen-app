@@ -1148,10 +1148,10 @@ export default function OCRForm({
       if (data.discount_percentage !== undefined && data.discount_percentage !== null) {
         setDiscountPercentage(data.discount_percentage.toString());
       }
-      if (data.subtotal !== undefined) {
+      if (data.subtotal !== undefined && data.subtotal !== null) {
         setAmountBeforeVat(data.subtotal.toString());
       }
-      if (data.vat_amount !== undefined) {
+      if (data.vat_amount !== undefined && data.vat_amount !== null) {
         setVatAmount(data.vat_amount.toString());
         // Default: partial VAT toggle is OFF (regular VAT). The user must
         // explicitly toggle it ON if they want to override the calculated VAT.
