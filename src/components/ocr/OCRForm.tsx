@@ -6,6 +6,7 @@ import type { OCRDocument, OCRFormData, DocumentType, ExpenseType, OCRLineItem }
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { createClient } from '@/lib/supabase/client';
+import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
 import SupplierSearchSelect from '@/components/ui/SupplierSearchSelect';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -539,20 +540,25 @@ export default function OCRForm({
   const businessVatRate = Number(selectedBusiness?.vat_percentage) || DEFAULT_businessVatRate;
 
   // Load credit cards for all document types (needed for payment methods)
-  useEffect(() => {
+  const loadCreditCards = useCallback(async () => {
     if (!selectedBusinessId) return;
-    const loadCreditCards = async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('business_credit_cards')
-        .select('id, card_name, billing_day')
-        .eq('business_id', selectedBusinessId)
-        .eq('is_active', true)
-        .order('card_name');
-      if (data) setBusinessCreditCards(data);
-    };
-    loadCreditCards();
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('business_credit_cards')
+      .select('id, card_name, billing_day')
+      .eq('business_id', selectedBusinessId)
+      .eq('is_active', true)
+      .order('card_name');
+    if (data) setBusinessCreditCards(data);
   }, [selectedBusinessId]);
+  useEffect(() => { loadCreditCards(); }, [loadCreditCards]);
+  // Realtime — a card added in Settings should appear in the payment dropdown
+  // without a page refresh.
+  useMultiTableRealtime(
+    ['business_credit_cards'],
+    loadCreditCards,
+    !!selectedBusinessId,
+  );
 
   // Load dynamic data for daily entry tab
   useEffect(() => {

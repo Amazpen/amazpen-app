@@ -164,28 +164,30 @@ export default function OCRPage() {
   );
 
   // Fetch businesses (admin sees all active businesses)
-  useEffect(() => {
-    if (!isCheckingAuth && isAdmin) {
-      const fetchBusinesses = async () => {
-        const supabase = createClient();
-        const { data } = await supabase
-          .from('businesses')
-          .select('id, name, vat_percentage')
-          .is('deleted_at', null)
-          .eq('status', 'active')
-          .order('name');
-
-        if (data && data.length > 0) {
-          setBusinesses(data);
-          // Auto-select first business if none selected
-          if (!selectedBusinessId) {
-            setSelectedBusinessId(data[0].id);
-          }
-        }
-      };
-      fetchBusinesses();
+  const fetchBusinesses = useCallback(async () => {
+    if (isCheckingAuth || !isAdmin) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('businesses')
+      .select('id, name, vat_percentage')
+      .is('deleted_at', null)
+      .eq('status', 'active')
+      .order('name');
+    if (data && data.length > 0) {
+      setBusinesses(data);
+      if (!selectedBusinessId) {
+        setSelectedBusinessId(data[0].id);
+      }
     }
   }, [isCheckingAuth, isAdmin, selectedBusinessId, setSelectedBusinessId]);
+  useEffect(() => { fetchBusinesses(); }, [fetchBusinesses]);
+  // Realtime — new business added / business name changed / vat_percentage
+  // edited should show up in the picker immediately.
+  useMultiTableRealtime(
+    ['businesses'],
+    fetchBusinesses,
+    !isCheckingAuth && isAdmin,
+  );
 
   // Fetch suppliers for the selected business. Memoized so the realtime
   // subscription and window-focus handler can call it too.
