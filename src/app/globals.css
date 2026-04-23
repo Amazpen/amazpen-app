@@ -250,6 +250,27 @@
   transition: all 0.3s ease-out;
 }
 
+/* Numeric inputs must render LTR regardless of page direction so the
+   minus sign stays on the left of the digits. Date inputs likewise.
+   Text inputs keep the page's RTL direction by default. */
+input[type="number"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"],
+input[type="week"],
+input[type="tel"],
+input[inputmode="decimal"],
+input[inputmode="numeric"] {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* When the numeric input is placed inside an RTL container and the
+   author wants the digits to appear visually on the right side of the
+   field (matches the label above), keep text-align centered/right by
+   letting the explicit class/attr win. Only the direction is forced. */
+
 /* Status Menu Portal - positioned via CSS custom properties */
 .status-menu-portal {
   position: fixed;

@@ -668,10 +668,16 @@ export default function OCRForm({
   // Net before VAT = (before-VAT subtotal) − (overall invoice discount).
   // Either the ₪ field or the % field is authoritative; they're kept in sync
   // by the onChange handlers, so we just read discountAmount.
+  //
+  // A negative amount is a legitimate use case (credit note — חשבונית זיכוי),
+  // so we must NOT clamp the result to zero. We only clamp on the positive
+  // side when an over-discount would flip a normal invoice negative.
   const amountAfterDiscount = useMemo(() => {
     const amount = parseFloat(amountBeforeVat) || 0;
     const disc = parseFloat(discountAmount) || 0;
-    return Math.max(0, amount - disc);
+    const net = amount - disc;
+    if (amount < 0) return net;          // credit note — keep it negative
+    return Math.max(0, net);             // regular invoice — don't go negative from discount
   }, [amountBeforeVat, discountAmount]);
 
   const calculatedVat = useMemo(() => {
@@ -2047,13 +2053,17 @@ export default function OCRForm({
         </div>
       </div>
 
-      {/* Amount Before VAT */}
+      {/* Amount Before VAT — dir="ltr" keeps the minus sign on the
+          left for negative amounts (credit notes). Without it, the
+          browser puts '-' at the trailing edge of an RTL text-direction
+          input, which looks like it's on the wrong side of the digits. */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
           <Input
             type="text"
             inputMode="decimal"
+            dir="ltr"
             title="סכום לפני מע״מ"
             value={amountBeforeVat}
             onChange={(e) => setAmountBeforeVat(e.target.value)}
