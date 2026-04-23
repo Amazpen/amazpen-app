@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useDashboard } from "../layout";
 import { useToast } from "@/components/ui/toast";
@@ -358,6 +359,17 @@ export default function CustomersPage() {
     }
     fetchData();
   }, [isAdmin, selectedBusinesses, refreshTrigger, showToast]);
+
+  // Realtime — auto-refresh when customers/payments/services/businesses
+  // change in any of the selected businesses (e.g. another tab adds a
+  // customer, or a coworker edits one). Bumps refreshTrigger which the
+  // fetch effect already depends on.
+  const bumpRefresh = useCallback(() => setRefreshTrigger(prev => prev + 1), []);
+  useMultiTableRealtime(
+    ["customers", "customer_payments", "customer_services", "customer_documents", "businesses", "income_sources"],
+    bumpRefresh,
+    isAdmin || selectedBusinesses.length > 0,
+  );
 
   // ─── Detail Fetching ───────────────────────────────────────
 

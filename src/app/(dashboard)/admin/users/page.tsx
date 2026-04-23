@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { uploadFile } from "@/lib/uploadFile";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { generateUUID } from "@/lib/utils";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -250,6 +251,14 @@ export default function AdminUsersPage() {
       fetchUsers();
     }
   }, [fetchUsers, isLoading, isAdmin]);
+
+  // Realtime — profiles and business_members can be edited by another admin
+  // or created via signup; refresh so the user list stays live.
+  useMultiTableRealtime(
+    ["profiles", "business_members"],
+    fetchUsers,
+    !isLoading && isAdmin,
+  );
 
   const handleCreateUser = async () => {
     if (!newUserEmail.trim() || !newUserPassword.trim()) return;

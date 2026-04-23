@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Papa from "papaparse";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -99,52 +100,55 @@ export default function AdminDailyEntriesPage() {
   }, []);
 
   // Load business config when business changes
-  useEffect(() => {
+  const loadConfig = useCallback(async () => {
     if (!selectedBusinessId) {
       setIncomeSources([]);
       setReceiptTypes([]);
       setManagedProducts([]);
       return;
     }
-
-    async function loadConfig() {
-      setIsLoadingConfig(true);
-      const [
-        { data: sources },
-        { data: receipts },
-        { data: products },
-      ] = await Promise.all([
-        supabase
-          .from("income_sources")
-          .select("id, name, display_order")
-          .eq("business_id", selectedBusinessId)
-          .eq("is_active", true)
-          .is("deleted_at", null)
-          .order("display_order"),
-        supabase
-          .from("receipt_types")
-          .select("id, name, display_order")
-          .eq("business_id", selectedBusinessId)
-          .eq("is_active", true)
-          .is("deleted_at", null)
-          .order("display_order"),
-        supabase
-          .from("managed_products")
-          .select("id, name, unit, unit_cost, display_order")
-          .eq("business_id", selectedBusinessId)
-          .eq("is_active", true)
-          .is("deleted_at", null)
-          .order("display_order"),
-      ]);
-
-      setIncomeSources(sources || []);
-      setReceiptTypes(receipts || []);
-      setManagedProducts(products || []);
-      setIsLoadingConfig(false);
-    }
-    loadConfig();
+    setIsLoadingConfig(true);
+    const [
+      { data: sources },
+      { data: receipts },
+      { data: products },
+    ] = await Promise.all([
+      supabase
+        .from("income_sources")
+        .select("id, name, display_order")
+        .eq("business_id", selectedBusinessId)
+        .eq("is_active", true)
+        .is("deleted_at", null)
+        .order("display_order"),
+      supabase
+        .from("receipt_types")
+        .select("id, name, display_order")
+        .eq("business_id", selectedBusinessId)
+        .eq("is_active", true)
+        .is("deleted_at", null)
+        .order("display_order"),
+      supabase
+        .from("managed_products")
+        .select("id, name, unit, unit_cost, display_order")
+        .eq("business_id", selectedBusinessId)
+        .eq("is_active", true)
+        .is("deleted_at", null)
+        .order("display_order"),
+    ]);
+    setIncomeSources(sources || []);
+    setReceiptTypes(receipts || []);
+    setManagedProducts(products || []);
+    setIsLoadingConfig(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBusinessId]);
+  useEffect(() => { loadConfig(); }, [loadConfig]);
+  // Realtime — config tables edited in Settings by another tab/user should
+  // reflect here so the CSV column mapping sees fresh sources/products.
+  useMultiTableRealtime(
+    ["income_sources", "receipt_types", "managed_products"],
+    loadConfig,
+    !!selectedBusinessId,
+  );
 
   // Parse date - support DD/MM/YYYY, YYYY-MM-DD, and "Mon DD, YYYY HH:mm am/pm" (Bubble export)
   const parseDate = (raw: string): string => {

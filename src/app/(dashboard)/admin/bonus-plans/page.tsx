@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { resolveBonusPlanStatus } from "@/lib/bonusPlanResolver";
 import { DATA_SOURCE_OPTIONS } from "@/types/bonus";
 import type { BonusPlan, BonusPlanStatus } from "@/types/bonus";
@@ -250,6 +251,15 @@ export default function BonusPlansPage() {
     if (hasAccess) fetchPlans();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBusinessId, hasAccess, selectedYear, selectedMonth]);
+
+  // Realtime — bonus plans + the tables they reference (income sources and
+  // managed products are used in plan dropdowns, business_members affects
+  // the eligible-employees picker).
+  useMultiTableRealtime(
+    ["bonus_plans", "income_sources", "managed_products", "business_members"],
+    fetchPlans,
+    !!(hasAccess && selectedBusinessId),
+  );
 
   // Reset form when business changes
   useEffect(() => {

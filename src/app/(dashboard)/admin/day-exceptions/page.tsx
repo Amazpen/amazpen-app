@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import {
   Select,
   SelectContent,
@@ -146,6 +147,14 @@ export default function DayExceptionsPage() {
     if (isAdmin) fetchExceptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBusinessId, isAdmin]);
+
+  // Realtime — day-exception rows and the underlying schedule can be edited
+  // elsewhere; refresh here so the list stays in sync.
+  useMultiTableRealtime(
+    ["business_day_exceptions", "business_schedule"],
+    fetchExceptions,
+    !!(isAdmin && selectedBusinessId),
+  );
 
   // ===== Month summary: schedule work days vs effective (with exceptions) =====
   useEffect(() => {

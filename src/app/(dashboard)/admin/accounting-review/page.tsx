@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { useDashboard } from "@/app/(dashboard)/layout";
+import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -218,6 +219,15 @@ export default function AccountingReviewPage() {
     if (isAdmin && selectedBusinessId) fetchInvoices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBusinessId, dateRange, sortAsc, isAdmin]);
+
+  // Realtime — invoices and linked payments can be updated by others (or by
+  // OCR approval flow) while this admin review screen is open. Auto-refresh
+  // so approvals/status changes reflect without a manual reload.
+  useMultiTableRealtime(
+    ["invoices", "payments", "payment_splits"],
+    fetchInvoices,
+    !!(isAdmin && selectedBusinessId),
+  );
 
   // ===== Toggle approval status =====
   const toggleApproval = useCallback(

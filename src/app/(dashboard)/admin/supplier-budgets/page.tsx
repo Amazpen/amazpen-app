@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Papa from "papaparse";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { usePersistedState } from "@/hooks/usePersistedState";
+import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
@@ -65,12 +66,20 @@ export default function SupplierBudgetsImportPage() {
   }, []);
 
   // ── Fetch suppliers when business changes ──────────────────────────────────
-  useEffect(() => {
+  const fetchSuppliersForBiz = useCallback(() => {
     if (!selectedBusinessId) { setSuppliers([]); return; }
     supabase.from("suppliers").select("id, name").eq("business_id", selectedBusinessId).then(({ data }) => {
       setSuppliers(data || []);
     });
   }, [selectedBusinessId, supabase]);
+  useEffect(() => { fetchSuppliersForBiz(); }, [fetchSuppliersForBiz]);
+  // Realtime — pick up suppliers added by others while the budgets CSV is
+  // being prepared, so the name-match doesn't fail on a legit new supplier.
+  useMultiTableRealtime(
+    ["suppliers"],
+    fetchSuppliersForBiz,
+    !!selectedBusinessId,
+  );
 
   // ── Parse CSV ──────────────────────────────────────────────────────────────
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {

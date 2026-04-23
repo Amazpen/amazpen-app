@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
+import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { ChartLineUp, Receipt, UsersThree, Package, ArrowsLeftRight, GearSix, Trophy } from "@phosphor-icons/react";
 
 // ============================================================================
@@ -1022,6 +1023,19 @@ export default function InsightsPage() {
   useEffect(() => {
     fetchInsights();
   }, [fetchInsights]);
+
+  // Realtime — recompute insights when any underlying financial data changes
+  // in the selected businesses. Handles live edits across tabs/users.
+  useMultiTableRealtime(
+    [
+      "daily_entries", "invoices", "payments", "payment_splits",
+      "goals", "suppliers", "daily_income_breakdown", "income_sources",
+      "income_source_goals", "daily_receipts", "daily_product_usage",
+      "managed_products", "prior_commitments",
+    ],
+    fetchInsights,
+    selectedBusinesses.length > 0,
+  );
 
   const filteredInsights = activeFilter === "all" ? insights : insights.filter((i) => i.category === activeFilter);
 
