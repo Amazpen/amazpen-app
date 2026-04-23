@@ -88,6 +88,10 @@ const HEBREW_MONTH_NAMES = [
 ];
 
 function getMonthYearKey(dateStr: string): string {
+  // If we got a clean YYYY-MM-DD already, parse the parts directly to avoid
+  // any timezone conversion that could push a 31.03 value into April locally.
+  const m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${m[1]}-${m[2]}`;
   const date = new Date(dateStr);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
@@ -975,10 +979,27 @@ export default function OCRForm({
         .is('invoice_id', null)
         .order('delivery_date', { ascending: true });
       if (!cancelled && data) {
+        // Normalize delivery_date to a local-calendar YYYY-MM-DD string so
+        // month grouping + display honour the user's timezone. The raw value
+        // arrives either as "2026-03-31T22:00:00.000Z" (which is really
+        // 01.04 in Israel) or as a Date object whose String() isn't ISO.
+        // Converting via local getters keeps the day-of-month stable.
+        const toLocalYMD = (raw: unknown): string => {
+          if (!raw) return '';
+          const s = String(raw);
+          // Plain YYYY-MM-DD stays as-is.
+          if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+          const d = new Date(s);
+          if (isNaN(d.getTime())) return s.substring(0, 10);
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        };
         const mapped = data.map(d => ({
           id: d.id,
           delivery_note_number: d.delivery_note_number || '',
-          delivery_date: String(d.delivery_date || '').substring(0, 10),
+          delivery_date: toLocalYMD(d.delivery_date),
           total_amount: Number(d.total_amount) || 0,
           notes: d.notes,
         }));
