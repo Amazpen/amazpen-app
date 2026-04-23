@@ -54,9 +54,10 @@ export async function POST(request: NextRequest) {
     // shows up in the correct tab on the expenses page (which filters by
     // invoice_type in ['current', 'goods', 'employees']). Without this the
     // invoice defaults to something the expenses filter ignores.
+    // We also pull vat_type to decide how to split subtotal vs VAT below.
     const { data: sup } = await supabase
       .from('suppliers')
-      .select('expense_type, is_fixed_expense')
+      .select('expense_type, is_fixed_expense, vat_type')
       .eq('id', supplier_id)
       .maybeSingle();
     const invoiceType = sup?.expense_type === 'goods_purchases'
@@ -64,6 +65,25 @@ export async function POST(request: NextRequest) {
       : sup?.expense_type === 'employee_costs'
       ? 'employees'
       : 'current';
+
+    // Split total_amount into (subtotal, vat_amount) according to the
+    // supplier's VAT setting. The intake webhook only gives us a gross
+    // total; without this logic, suppliers flagged as פטור-ממעמ still
+    // received phantom VAT (seen in the wild: ירקות ופירות שלמה המלך,
+    // vat_type='none', delivery notes arrived with VAT=426 on a 2892.7
+    // total). vat_type='none' → no VAT at all. Otherwise back-out the
+    // business's VAT rate from the total (default 18% if not configured).
+    const totalNum = Number(total_amount);
+    const { data: biz } = await supabase
+      .from('businesses')
+      .select('vat_percentage')
+      .eq('id', business_id)
+      .maybeSingle();
+    const vatRate = sup?.vat_type === 'none'
+      ? 0
+      : (biz?.vat_percentage != null ? Number(biz.vat_percentage) : 0.18);
+    const subtotalComputed = vatRate > 0 ? totalNum / (1 + vatRate) : totalNum;
+    const vatAmountComputed = totalNum - subtotalComputed;
 
     // For fixed-expense suppliers: avoid creating a duplicate placeholder for
     // the same month. If an empty placeholder (no invoice_number, no
@@ -98,7 +118,9 @@ export async function POST(request: NextRequest) {
           .update({
             invoice_date: fixedInvoiceDate,
             reference_date: reference_date || fixedInvoiceDate,
-            total_amount,
+            total_amount: totalNum,
+            subtotal: subtotalComputed,
+            vat_amount: vatAmountComputed,
             invoice_number: invoice_number || null,
             due_date: due_date || null,
             notes: notes || null,
@@ -120,7 +142,9 @@ export async function POST(request: NextRequest) {
           business_id,
           supplier_id,
           invoice_date: fixedInvoiceDate,
-          total_amount,
+          total_amount: totalNum,
+          subtotal: subtotalComputed,
+          vat_amount: vatAmountComputed,
           invoice_number: invoice_number || null,
           due_date: due_date || null,
           reference_date: reference_date || fixedInvoiceDate,
