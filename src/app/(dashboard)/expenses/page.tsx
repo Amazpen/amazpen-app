@@ -772,8 +772,12 @@ function ExpensesPageInner() {
     }, 600);
 
     return () => clearTimeout(timer);
+  // Including refreshTrigger re-runs the global search when invoices/suppliers/
+  // payments change in the DB (realtime bumps refreshTrigger). Without this,
+  // editing an invoice didn't update the active search results — users had
+  // to clear and re-type the query to see the change.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterBy, filterValue, selectedBusinesses]);
+  }, [filterBy, filterValue, selectedBusinesses, refreshTrigger]);
 
   // Supplier detail popup state (from expenses breakdown)
   const [showSupplierBreakdownPopup, setShowSupplierBreakdownPopup] = useState(false);

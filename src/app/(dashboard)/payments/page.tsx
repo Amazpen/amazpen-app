@@ -430,8 +430,12 @@ function PaymentsPageInner() {
     }, 600);
 
     return () => clearTimeout(timer);
+  // refreshTrigger is bumped by realtime on payments/suppliers etc., so the
+  // active global-search result set re-queries whenever the underlying data
+  // changes. Otherwise a user editing a payment had to clear + retype the
+  // search to see their change.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterBy, filterValue, selectedBusinesses]);
+  }, [filterBy, filterValue, selectedBusinesses, refreshTrigger]);
 
   // Close filter menu on outside click
   useEffect(() => {
