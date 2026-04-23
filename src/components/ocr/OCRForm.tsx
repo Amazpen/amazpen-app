@@ -206,19 +206,31 @@ export default function OCRForm({
     let cancelled = false;
     (async () => {
       const supabase = createClient();
+      // Only placeholder invoices (missing either invoice_number OR attachment)
+      // are actually "open for linking" — a fixed-expense row that already has
+      // both a reference number and a scanned document is fully filled and
+      // shouldn't appear in the linking list.
       const { data: openInvs } = await supabase
         .from('invoices')
-        .select('id, invoice_date, subtotal, total_amount')
+        .select('id, invoice_date, subtotal, total_amount, invoice_number, attachment_url')
         .eq('business_id', selectedBusinessId)
         .eq('supplier_id', supplierId)
         .eq('status', 'pending')
         .is('deleted_at', null)
+        .or('invoice_number.is.null,attachment_url.is.null')
         .order('invoice_date', { ascending: false });
 
       if (cancelled) return;
-      if (openInvs && openInvs.length > 0) {
+      // Belt-and-suspenders: also filter empty strings, since PostgREST's
+      // `.is.null` only matches NULL, not ''.
+      const placeholders = (openInvs || []).filter(inv => {
+        const hasRef = inv.invoice_number && String(inv.invoice_number).trim() !== '';
+        const hasAtt = inv.attachment_url && String(inv.attachment_url).trim() !== '';
+        return !(hasRef && hasAtt);
+      });
+      if (placeholders.length > 0) {
         const monthNames = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
-        const mapped = openInvs.map(inv => {
+        const mapped = placeholders.map(inv => {
           const d = new Date(inv.invoice_date as string);
           return {
             id: inv.id as string,
