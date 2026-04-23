@@ -187,34 +187,54 @@ export default function OCRPage() {
     }
   }, [isCheckingAuth, isAdmin, selectedBusinessId, setSelectedBusinessId]);
 
-  // Fetch suppliers when selected business changes
-  useEffect(() => {
+  // Fetch suppliers for the selected business. Memoized so the realtime
+  // subscription and window-focus handler can call it too.
+  const fetchSuppliers = useCallback(async () => {
     if (!selectedBusinessId) {
       setSuppliers([]);
       setCoordinatorSuppliers([]);
       return;
     }
-
-    const fetchSuppliers = async () => {
-      const supabase = createClient();
-
-      // Fetch all active suppliers
-      const { data } = await supabase
-        .from('suppliers')
-        .select('id, name, waiting_for_coordinator, notes, default_payment_method, default_credit_card_id, default_discount_percentage, is_fixed_expense, vat_type, expense_type')
-        .eq('business_id', selectedBusinessId)
-        .is('deleted_at', null)
-        .eq('is_active', true)
-        .order('name');
-
-      if (data) {
-        setSuppliers(data);
-        // Filter coordinator suppliers separately for summary tab
-        setCoordinatorSuppliers(data.filter(s => s.waiting_for_coordinator === true));
-      }
-    };
-    fetchSuppliers();
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('suppliers')
+      .select('id, name, waiting_for_coordinator, notes, default_payment_method, default_credit_card_id, default_discount_percentage, is_fixed_expense, vat_type, expense_type')
+      .eq('business_id', selectedBusinessId)
+      .is('deleted_at', null)
+      .eq('is_active', true)
+      .order('name');
+    if (data) {
+      setSuppliers(data);
+      setCoordinatorSuppliers(data.filter(s => s.waiting_for_coordinator === true));
+    }
   }, [selectedBusinessId]);
+
+  useEffect(() => {
+    fetchSuppliers();
+  }, [fetchSuppliers]);
+
+  // Realtime: when someone creates/edits/deletes a supplier in the selected
+  // business, refresh the list so the OCR form dropdown stays in sync without
+  // requiring a manual page refresh.
+  useMultiTableRealtime(
+    ['suppliers'],
+    fetchSuppliers,
+    !!selectedBusinessId,
+  );
+
+  // Belt-and-suspenders: refetch when the user returns to the tab. Realtime
+  // covers most cases, but if the websocket dropped while the tab was in the
+  // background, this catches any suppliers created while we were away.
+  useEffect(() => {
+    const onFocus = () => { fetchSuppliers(); };
+    const onVisibility = () => { if (document.visibilityState === 'visible') fetchSuppliers(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [fetchSuppliers]);
 
   // Select first pending document on load
   useEffect(() => {
