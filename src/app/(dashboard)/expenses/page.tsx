@@ -2871,43 +2871,63 @@ function ExpensesPageInner() {
 
       const attachmentUrl = finalUrls.length === 0 ? null : finalUrls.length === 1 ? finalUrls[0] : JSON.stringify(finalUrls);
 
-      // Auto-set status to "pending" for fixed expenses when both attachment and invoice number exist
-      const updateData: Record<string, unknown> = {
-        supplier_id: selectedSupplier,
-        invoice_number: invoiceNumber || null,
-        invoice_date: expenseDate,
-        reference_date: referenceDate || null,
-        subtotal: parseFloat(amountBeforeVat),
-        vat_amount: calculatedVatEdit,
-        total_amount: totalWithVatEdit,
-        notes: notes || null,
-        invoice_type: expenseType,
-        attachment_url: attachmentUrl,
-      };
+      const isDN = editingInvoice.documentType === "delivery_note";
 
-      // Update clarification reason if editing a "בבירור" invoice
-      if (editingInvoice.status === "בבירור" || editStatus === "clarification") {
-        updateData.clarification_reason = clarificationReason || null;
-      }
+      // delivery_notes and invoices share most columns but not all. Build the
+      // right update payload for each table so edits to a ת.משלוח actually
+      // persist (previously this always hit `invoices`, so DN edits silently
+      // did nothing — the user saw the form close but the data didn't change).
+      let updateData: Record<string, unknown>;
+      if (isDN) {
+        updateData = {
+          supplier_id: selectedSupplier,
+          delivery_note_number: invoiceNumber || null,
+          delivery_date: expenseDate,
+          subtotal: parseFloat(amountBeforeVat),
+          vat_amount: calculatedVatEdit,
+          total_amount: totalWithVatEdit,
+          notes: notes || null,
+          attachment_url: attachmentUrl,
+        };
+      } else {
+        updateData = {
+          supplier_id: selectedSupplier,
+          invoice_number: invoiceNumber || null,
+          invoice_date: expenseDate,
+          reference_date: referenceDate || null,
+          subtotal: parseFloat(amountBeforeVat),
+          vat_amount: calculatedVatEdit,
+          total_amount: totalWithVatEdit,
+          notes: notes || null,
+          invoice_type: expenseType,
+          attachment_url: attachmentUrl,
+        };
 
-      // Apply status from edit form
-      if (editStatus) {
-        updateData.status = editStatus;
-      } else if (editingInvoice.isFixed && attachmentUrl && invoiceNumber) {
-        updateData.status = "pending";
+        // Update clarification reason if editing a "בבירור" invoice (invoices only)
+        if (editingInvoice.status === "בבירור" || editStatus === "clarification") {
+          updateData.clarification_reason = clarificationReason || null;
+        }
+
+        // Apply status from edit form (invoices only — DNs don't have status column)
+        if (editStatus) {
+          updateData.status = editStatus;
+        } else if (editingInvoice.isFixed && attachmentUrl && invoiceNumber) {
+          updateData.status = "pending";
+        }
       }
 
       const { error } = await supabase
-        .from("invoices")
+        .from(isDN ? "delivery_notes" : "invoices")
         .update(updateData)
         .eq("id", editingInvoice.id);
 
       if (error) throw error;
 
-      // Sync linked payments: if invoice amount changed, update linked payment status
+      // Sync linked payments only for invoices (DNs don't get directly paid —
+      // they flow through a consolidating invoice).
       const newTotalAmount = parseFloat(amountBeforeVat) * (1 + (calculatedVatEdit / parseFloat(amountBeforeVat) || 0));
       const oldTotalAmount = editingInvoice.amountWithVat;
-      if (Math.abs(newTotalAmount - oldTotalAmount) > 0.01) {
+      if (!isDN && Math.abs(newTotalAmount - oldTotalAmount) > 0.01) {
         // Find payments linked to this invoice
         const { data: linkedPayments } = await supabase
           .from("payments")
