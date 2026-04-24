@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { DatePickerField } from "@/components/ui/date-picker-field";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, Pencil, Check, X } from "lucide-react";
 
 // ===== Types =====
 
@@ -82,6 +82,13 @@ export default function DayExceptionsPage() {
   const [newFactor, setNewFactor] = useState("0");
   const [newNote, setNewNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  // Inline edit state — one row at a time
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState("");
+  const [editFactor, setEditFactor] = useState("0");
+  const [editNote, setEditNote] = useState("");
+  const [isEditSaving, setIsEditSaving] = useState(false);
 
   // ===== Auth check =====
   useEffect(() => {
@@ -277,6 +284,92 @@ export default function DayExceptionsPage() {
     setIsSaving(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBusinessId, newDate, newFactor, newNote, userId, fetchExceptions]);
+
+  // ===== Edit (inline) =====
+  const startEdit = useCallback((ex: DayException) => {
+    setEditingId(ex.id);
+    setEditDate(String(ex.exception_date).substring(0, 10));
+    setEditFactor(String(ex.day_factor));
+    setEditNote(ex.note || "");
+  }, []);
+
+  const cancelEdit = useCallback(() => {
+    setEditingId(null);
+    setEditDate("");
+    setEditFactor("0");
+    setEditNote("");
+  }, []);
+
+  const handleUpdate = useCallback(async (ex: DayException) => {
+    if (!editDate) {
+      showToast("יש לבחור תאריך", "error");
+      return;
+    }
+    const factorNum = parseFloat(editFactor);
+    if (isNaN(factorNum) || factorNum < 0 || factorNum > 1) {
+      showToast("מקדם יום חייב להיות בין 0 ל-1", "error");
+      return;
+    }
+
+    setIsEditSaving(true);
+    const { error } = await supabase
+      .from("business_day_exceptions")
+      .update({
+        exception_date: editDate,
+        day_factor: factorNum,
+        note: editNote.trim() || null,
+      })
+      .eq("id", ex.id);
+
+    if (error) {
+      if (error.code === "23505") {
+        showToast("כבר קיימת חריגה לתאריך זה", "error");
+      } else {
+        showToast("שגיאה בעדכון החריגה", "error");
+      }
+      setIsEditSaving(false);
+      return;
+    }
+
+    // Side effects on daily_entries.
+    // 1) If date changed: restore the OLD date's entry to its weekly schedule
+    //    factor so it isn't left carrying the now-moved exception.
+    const oldDate = String(ex.exception_date).substring(0, 10);
+    if (oldDate !== editDate && selectedBusinessId) {
+      const dow = new Date(oldDate + "T00:00:00").getDay();
+      const { data: sched } = await supabase
+        .from("business_schedule")
+        .select("day_factor")
+        .eq("business_id", selectedBusinessId)
+        .eq("day_of_week", dow)
+        .maybeSingle();
+      const restoredFactor = sched?.day_factor != null ? Number(sched.day_factor) : 1;
+      await supabase
+        .from("daily_entries")
+        .update({ day_factor: restoredFactor })
+        .eq("business_id", selectedBusinessId)
+        .eq("entry_date", oldDate)
+        .is("deleted_at", null);
+    }
+
+    // 2) Apply the new exception's factor to the NEW (or same) date so
+    //    downstream cost calcs pick it up — same logic as handleCreate.
+    if (selectedBusinessId) {
+      const updatePayload: Record<string, unknown> = { day_factor: factorNum };
+      if (factorNum === 0) updatePayload.manager_daily_cost = 0;
+      await supabase
+        .from("daily_entries")
+        .update(updatePayload)
+        .eq("business_id", selectedBusinessId)
+        .eq("entry_date", editDate)
+        .is("deleted_at", null);
+    }
+
+    showToast("החריגה עודכנה בהצלחה", "success");
+    cancelEdit();
+    await fetchExceptions();
+    setIsEditSaving(false);
+  }, [editDate, editFactor, editNote, selectedBusinessId, supabase, showToast, fetchExceptions, cancelEdit]);
 
   // ===== Delete =====
   const handleDelete = useCallback(
@@ -515,35 +608,106 @@ export default function DayExceptionsPage() {
               </p>
             ) : (
               <div className="flex flex-col gap-2">
-                {exceptions.map((ex) => (
-                  <div
-                    key={ex.id}
-                    className="flex items-center justify-between gap-3 bg-[#0F1535]/60 border border-white/10 rounded-[10px] px-4 py-3"
-                  >
-                    <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                      <span className="text-white font-medium text-sm">
-                        {formatDate(ex.exception_date)}
-                      </span>
-                      <span className="text-white/50 text-xs">
-                        {formatFactor(ex.day_factor)}
-                      </span>
-                      {ex.note && (
-                        <span className="text-white/40 text-xs truncate">
-                          {ex.note}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() =>
-                        handleDelete(ex.id, ex.exception_date)
-                      }
-                      className="text-red-400/70 hover:text-red-400 transition-colors p-1.5 rounded-md hover:bg-red-400/10 flex-shrink-0"
-                      title="מחק חריגה"
+                {exceptions.map((ex) => {
+                  const isEditing = editingId === ex.id;
+                  if (isEditing) {
+                    return (
+                      <div
+                        key={ex.id}
+                        className="flex flex-col gap-3 bg-[#0F1535]/60 border border-[#4A56D4]/40 rounded-[10px] p-4"
+                      >
+                        <div>
+                          <label className="text-white/70 text-xs mb-1.5 block">תאריך</label>
+                          <DatePickerField value={editDate} onChange={setEditDate} />
+                        </div>
+                        <div>
+                          <label className="text-white/70 text-xs mb-1.5 block">
+                            מקדם יום (0 = סגור, 1 = יום מלא)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={editFactor}
+                            onChange={(e) => setEditFactor(e.target.value)}
+                            className="h-[42px] w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center"
+                            inputMode="decimal"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-white/70 text-xs mb-1.5 block">הסבר</label>
+                          <textarea
+                            value={editNote}
+                            onChange={(e) => setEditNote(e.target.value)}
+                            rows={2}
+                            className="w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 py-2 outline-none resize-none placeholder:text-white/30 text-right text-sm"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => handleUpdate(ex)}
+                            disabled={isEditSaving || !editDate}
+                            className="flex-1 h-[42px] bg-[#4A56D4] hover:bg-[#5A66E4] text-white rounded-[10px] font-medium gap-2"
+                          >
+                            {isEditSaving ? (
+                              <Loader2 className="animate-spin w-4 h-4" />
+                            ) : (
+                              <>
+                                <Check className="w-4 h-4" />
+                                שמור
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            onClick={cancelEdit}
+                            disabled={isEditSaving}
+                            className="flex-1 h-[42px] bg-white/10 hover:bg-white/20 text-white rounded-[10px] font-medium gap-2"
+                          >
+                            <X className="w-4 h-4" />
+                            ביטול
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div
+                      key={ex.id}
+                      className="flex items-center justify-between gap-3 bg-[#0F1535]/60 border border-white/10 rounded-[10px] px-4 py-3"
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                        <span className="text-white font-medium text-sm">
+                          {formatDate(ex.exception_date)}
+                        </span>
+                        <span className="text-white/50 text-xs">
+                          {formatFactor(ex.day_factor)}
+                        </span>
+                        {ex.note && (
+                          <span className="text-white/40 text-xs truncate">
+                            {ex.note}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button
+                          onClick={() => startEdit(ex)}
+                          className="text-white/60 hover:text-white transition-colors p-1.5 rounded-md hover:bg-white/10"
+                          title="ערוך חריגה"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(ex.id, ex.exception_date)}
+                          className="text-red-400/70 hover:text-red-400 transition-colors p-1.5 rounded-md hover:bg-red-400/10"
+                          title="מחק חריגה"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
