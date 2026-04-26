@@ -2558,6 +2558,9 @@ export default function OCRForm({
             <h3 className="text-[18px] font-semibold text-white text-center mb-[20px]">הוספת הוצאה - קליטת תשלום</h3>
 
             <div className="flex flex-col gap-[15px]">
+              {/* Payment Methods */}
+              {renderPaymentMethodsSection(inlinePaymentMethods, setInlinePaymentMethods, inlinePaymentDate, setInlinePaymentDate)}
+
               {/* Payment Date */}
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
@@ -2576,9 +2579,6 @@ export default function OCRForm({
                   }}
                 />
               </div>
-
-              {/* Payment Methods */}
-              {renderPaymentMethodsSection(inlinePaymentMethods, setInlinePaymentMethods, inlinePaymentDate, setInlinePaymentDate)}
 
               {/* Payment Reference */}
               <div className="flex flex-col gap-[3px]">
