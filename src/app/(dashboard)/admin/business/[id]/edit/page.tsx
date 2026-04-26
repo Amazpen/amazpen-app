@@ -761,24 +761,27 @@ export default function EditBusinessPage({ params }: PageProps) {
       }
 
       // 7. Update credit cards
+      const nowIso = new Date().toISOString();
       const existingCardIds = creditCards.filter(c => c.id && !c.id.startsWith('_new_')).map(c => c.id);
       if (existingCardIds.length > 0) {
         await supabase
           .from("business_credit_cards")
-          .update({ is_active: false })
+          .update({ is_active: false, deleted_at: nowIso })
           .eq("business_id", businessId)
+          .is("deleted_at", null)
           .not("id", "in", `(${existingCardIds.join(",")})`);
       } else {
-        // Deactivate all if none are kept
+        // Soft-delete all if none are kept
         await supabase
           .from("business_credit_cards")
-          .update({ is_active: false })
-          .eq("business_id", businessId);
+          .update({ is_active: false, deleted_at: nowIso })
+          .eq("business_id", businessId)
+          .is("deleted_at", null);
       }
 
       const newCards = creditCards.filter(c => !c.id || c.id.startsWith('_new_'));
       if (newCards.length > 0) {
-        await supabase.from("business_credit_cards").insert(
+        const { error: insertCardsError } = await supabase.from("business_credit_cards").insert(
           newCards.map(c => ({
             business_id: businessId,
             card_name: c.cardName,
@@ -786,6 +789,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             is_active: true,
           }))
         );
+        if (insertCardsError) throw insertCardsError;
       }
 
       // 8. Update managed products
