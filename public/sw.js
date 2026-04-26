@@ -1,5 +1,5 @@
-// BUILD_TIME=1777987200000
-const CACHE_NAME = 'amazpen-v3';
+// BUILD_TIME=1777989000000
+const CACHE_NAME = 'amazpen-v4';
 const STATIC_ASSETS = [
   '/',
   '/icon.svg',
