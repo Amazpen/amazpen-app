@@ -272,7 +272,7 @@ function ExpensesPageInner() {
   }, []);
 
   useMultiTableRealtime(
-    ["invoices", "suppliers", "expense_categories", "payments"],
+    ["invoices", "suppliers", "expense_categories", "payments", "payment_splits", "payment_invoice_links"],
     handleRealtimeChange,
     selectedBusinesses.length > 0
   );

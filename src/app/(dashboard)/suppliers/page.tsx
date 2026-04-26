@@ -132,7 +132,7 @@ export default function SuppliersPage() {
   }, []);
 
   useMultiTableRealtime(
-    ["suppliers", "invoices", "payments"],
+    ["suppliers", "invoices", "payments", "payment_splits", "payment_invoice_links"],
     handleRealtimeChange,
     selectedBusinesses.length > 0
   );
