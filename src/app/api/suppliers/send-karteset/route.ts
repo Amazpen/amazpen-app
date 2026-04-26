@@ -61,7 +61,10 @@ export async function POST(request: NextRequest) {
   const selectedYear = typeof year === 'number' ? year : now.getFullYear()
   const monthName = hebrewMonths[selectedMonth]
 
-  // Call n8n webhook — filter empty ownerEmail to prevent invalid CC
+  // Call n8n webhook — filter empty ownerEmail to prevent invalid CC.
+  // Always include amazpenCc so the Amazpen owner sees every karteset email
+  // (David's explicit request: "every email that goes out, I must be CC'd").
+  const AMAZPEN_OWNER_CC = process.env.BONUS_EMAIL_OWNER_CC || 'david@amazpen.co.il'
   const n8nResponse = await fetch(N8N_WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -70,7 +73,8 @@ export async function POST(request: NextRequest) {
       supplierName: supplier.name,
       businessName: business?.name || 'העסק',
       businessTaxId: business?.tax_id || '',
-      ownerEmail: ownerEmail || 'david@amazpen.co.il',
+      ownerEmail: ownerEmail || AMAZPEN_OWNER_CC,
+      amazpenCc: AMAZPEN_OWNER_CC,
       monthName,
       year: selectedYear,
     }),

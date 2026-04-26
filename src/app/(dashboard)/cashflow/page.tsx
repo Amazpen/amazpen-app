@@ -142,10 +142,24 @@ export default function CashFlowPage() {
     return d;
   });
 
-  // Initialize from persisted
+  // Initialize from persisted — but ignore stale saved end-dates that fall
+  // before today + 1 month (David: "the cashflow is stuck on March even
+  // though we're at the end of April"). The persisted value silently froze
+  // the view to the date the user had saved months earlier.
   useEffect(() => {
     if (savedEndDate) {
-      setEndDate(new Date(savedEndDate));
+      const saved = new Date(savedEndDate);
+      const minAcceptable = new Date();
+      minAcceptable.setMonth(minAcceptable.getMonth() + 1);
+      if (saved.getTime() >= minAcceptable.getTime()) {
+        setEndDate(saved);
+      } else {
+        // Stale → reset to today + 3 months and overwrite the persisted value
+        const fresh = new Date();
+        fresh.setMonth(fresh.getMonth() + 3);
+        setEndDate(fresh);
+        setSavedEndDate(fresh.toISOString());
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

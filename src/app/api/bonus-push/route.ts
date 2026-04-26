@@ -579,11 +579,16 @@ export async function POST(request: NextRequest) {
           ? `🎯 עדכון בונוס — צפי ${new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(totalBonus)}`
           : `🎯 עדכון בונוס יומי — בוא נשפר!`;
 
+        // CC the Amazpen owner (David) on every bonus email so he sees what
+        // employees receive — explicit request, asked twice in the David
+        // review session.
+        const OWNER_CC = process.env.BONUS_EMAIL_OWNER_CC || "david@amazpen.co.il";
         const emailRes = await fetch("https://n8n-lv4j.onrender.com/webhook/daily-push-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: profile.email,
+            cc: OWNER_CC,
             subject: emailSubject,
             html: emailHtml,
           }),
