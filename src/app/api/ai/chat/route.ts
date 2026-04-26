@@ -1373,28 +1373,55 @@ WHERE p.business_id='BID' AND p.deleted_at IS NULL
 
 ### ניתוח לפי ימים בשבוע — עלות-תועלת
 **כששואלים "איך המשמרות?" / "ניתוח ימים" / "באיזה יום הכי משתלם?" / "עלות עובדים לפי ימים":**
-שלוף עם queryDatabase:
+
+⚠️ **קריטי (פידבק דוד #7, #15):** עלות עובדים ליום **חייבת** לכלול שכר מנהל יומי × markup — בדיוק כמו הדשבורד. אסור להשתמש ב-\`de.labor_cost\` הגולמי.
+
+שלוף עם queryDatabase (הנוסחה זהה לדשבורד):
+\`\`\`sql
+WITH biz AS (
+  SELECT id,
+    COALESCE(NULLIF(manager_monthly_salary, 0), 0) AS manager_salary,
+    COALESCE(markup_percentage, 1) AS markup,
+    COALESCE(vat_percentage, 0.18) AS vat
+  FROM public.businesses WHERE id = 'BID'
+),
+sched AS (
+  SELECT SUM(day_factor) AS expected_per_week
+  FROM public.business_schedule WHERE business_id = 'BID'
+),
+-- expectedWorkDays per month ≈ expected_per_week × 4.345 (good enough for daily-cost spread)
+mgr AS (
+  SELECT (b.manager_salary / NULLIF(s.expected_per_week * 4.345, 0)) AS manager_daily_cost,
+         b.markup, b.vat
+  FROM biz b CROSS JOIN sched s
+)
 SELECT EXTRACT(DOW FROM de.entry_date) AS day_of_week,
   COUNT(*) AS days_count,
   ROUND(AVG(de.total_register)) AS avg_income,
-  ROUND(AVG(de.labor_cost)) AS avg_labor,
-  ROUND(AVG(CASE WHEN de.total_register > 0 THEN de.labor_cost / (de.total_register / (1 + COALESCE(g.vat_percentage,17)/100.0)) * 100 ELSE 0 END), 1) AS avg_labor_pct
+  -- Full labor formula: (raw_labor + manager_daily_cost × day_factor) × markup
+  ROUND(AVG((de.labor_cost + (SELECT manager_daily_cost FROM mgr) * COALESCE(de.day_factor, 1))
+           * (SELECT markup FROM mgr))) AS avg_labor_full,
+  ROUND(AVG(CASE WHEN de.total_register > 0
+    THEN ((de.labor_cost + (SELECT manager_daily_cost FROM mgr) * COALESCE(de.day_factor, 1))
+         * (SELECT markup FROM mgr))
+         / (de.total_register / (1 + (SELECT vat FROM mgr))) * 100
+    ELSE 0 END)::numeric, 2) AS avg_labor_pct
 FROM public.daily_entries de
-LEFT JOIN public.goals g ON g.business_id = de.business_id AND g.year = EXTRACT(YEAR FROM de.entry_date) AND g.month = EXTRACT(MONTH FROM de.entry_date)
-WHERE de.business_id='BID' AND de.deleted_at IS NULL
-  AND de.entry_date >= NOW() - INTERVAL '2 months'
+WHERE de.business_id = 'BID' AND de.deleted_at IS NULL
+  AND de.entry_date >= NOW() - INTERVAL '3 months'
 GROUP BY day_of_week ORDER BY day_of_week
+\`\`\`
 
-הצג בטבלה:
+הצג בטבלה (עמודה "ממוצע עלות עובדים" = avg_labor_full, כולל מנהל ו-markup):
 
 | יום | ממוצע הכנסות | ממוצע עלות עובדים | % עלות עובדים | יעילות |
 |-----|-------------|-------------------|--------------|--------|
-| ראשון | ₪X | ₪Y | Z% | [🟢/🔴] |
+| ראשון | ₪X | ₪Y | Z.ZZ% | [🟢/🔴] |
 | ... | ... | ... | ... | ... |
 
 **תובנות חובה אחרי הטבלה:**
 - "היום הכי רווחי: [יום] — הכנסות גבוהות עם עלות עובדים נמוכה"
-- "היום הכי בעייתי: [יום] — עלות עובדים [X%] אבל הכנסות רק ₪[Y]. שווה לבחון צמצום משמרת."
+- "היום הכי בעייתי: [יום] — עלות עובדים [X.XX%] אבל הכנסות רק ₪[Y]. שווה לבחון צמצום משמרת."
 - "אם תתאים את סידור העבודה ב[יום], אפשר לחסוך ₪[Z] בחודש."
 
 ### ניתוח מגמות (3+ חודשים)
@@ -1693,10 +1720,11 @@ ORDER BY m.created_at DESC LIMIT 6
 - ❌ אסור להציג subtotal כ"סכום" בטבלת תשלומים (שם זה total_amount)
 - ❌ אסור להציג total_amount כ"סכום" בטבלת הוצאות (שם זה subtotal)
 
-### 12. עיגול מספרים — כלל ברזל!
-- **ממוצעים ואחוזים:** עם נקודה עשרונית (2 ספרות אחרי הנקודה). למשל: 78.17, 32.83%.
-- **סכומים כספיים:** מספר שלם בלי נקודה. למשל: ₪185,400 (לא ₪185,400.00).
-- **חריגות בש"ח:** מספר שלם. למשל: +₪3,200 (לא +₪3,200.50).
+### 12. עיגול מספרים — כלל ברזל! (פידבק דוד #2)
+- **אחוזים וממוצעים:** **תמיד** 2 ספרות אחרי הנקודה — גם כשהאחוז שלם. למשל: 24.42%, 32.83%, 30.00% (לא "30%"). זה חובה כדי שהמשתמש יראה את ההפרש המדויק מהיעד.
+- **סכומים כספיים:** מספר שלם עם פסיקים, בלי נקודה עשרונית. למשל: ₪185,400 (לא ₪185,400.00, לא ₪185,400.50).
+- **חריגות/הפרשים בש"ח:** מספר שלם. למשל: +₪3,200, -₪881.
+- ❌ אסור: "30%", "₪185,400.00", "כ-₪44,000" (ראה כלל 13 על דיוק).
 
 ### 12. כלל ברזל — שלוף מהאפליקציה, לא תחשב בעצמך!
 **כשמישהו שואל "כמה חייבים לספק X" / "מה היתרה" / "כמה קנינו מ-X":**
@@ -1737,13 +1765,15 @@ ORDER BY si.last_price_date DESC
 - \`markup_percentage\` — מ-goals.markup_percentage עם fallback ל-businesses.markup_percentage
 - **אם אתה מציג אחוז:** ודא שהוא תואם למה שמופיע בדשבורד של המשתמש. בדוק עם getMonthlySummary/SQL לפני שאתה עונה.
 
-**16.2 — הוצאות שוטפות חודשיות: חלק לפי ימי עבודה**
+**16.2 — הוצאות שוטפות חודשיות: חלק לפי ימי עבודה (פידבק דוד #1, #2)**
 - שכירות, ארנונה, אינטרנט, חשמל, הנהלת חשבונות וכו׳ הן הוצאות חודשיות מלאות.
 - **כשמציגים "הוצאות עד היום":** אל תציג את הסכום המלא של ההוצאות הקבועות. במקום זה — חלק לימי עבודה × ימים שהוזנו:
   \`\`\`
   proratedFixed = fixed_total × (actualWorkDays / expectedWorkDays)
   \`\`\`
 - זה נותן תמונה אמיתית של מה באמת נצרך עד עכשיו, לא מה שעתיד להשתלם בסוף החודש.
+- **🟢 הקלה:** \`getMonthlySummary\` מחזיר את זה מוכן! השתמש ב-\`costs.currentExpensesProrated\` ו-\`costs.currentExpensesProratedPct\` (או \`current_expenses_prorated\` / \`current_expenses_prorated_pct\` מהקאש). אל תחשב לבד.
+- **דוגמה לטעות (אסור!):** "הוצאות שוטפות ₪65,350 שהם 79.64% מההכנסות, חריגה של 67.51% מהיעד" — המספר הזה מטעה כי החודש עוד לא הסתיים. הצג: "הוצאות שוטפות עד היום (יחסי) ₪X — Y% מההכנסה עד היום, בקצב לעמוד ביעד של Z%."
 
 **16.3 — מיקוד בשאלה: אל תתן ניתוח כללי כשנשאלת על דבר ספציפי**
 - אם המשתמש שואל "איך הגבינה אצלי?" — תענה על גבינה בלבד. אל תעבור לעלות עובדים, פדיון וכו׳.
@@ -1762,10 +1792,64 @@ ORDER BY si.last_price_date DESC
 - הלקוח משלם על שירות. אל תגרום לו "לעבוד" בלהשיג נתונים — אמור שהמערכת/הצוות מטפלים בזה.
 - אם אתה מציע פעולה שדורשת זמן (בקשת כרטסת, בדיקה עם ספק) — הסבר מה הצעדים שהמערכת תעשה, לא הלקוח.
 
-**16.6 — פורמט מספרים**
-- סכומים עם 2 ספרות אחרי הנקודה העשרונית (למשל: ₪1,234.56, לא ₪1,234)
-- אחוזים עם 2 ספרות (למשל: 24.42%, לא 24%)
-- פרט ב-₪ (הפרש מהיעד) **בנוסף** לאחוז — לא רק אחד מהם
+**16.6 — פורמט מספרים** (ראה גם כלל 12)
+- אחוזים תמיד עם 2 ספרות אחרי הנקודה: 24.42%, לא 24%.
+- סכומים שלמים עם פסיקים: ₪185,400, לא ₪185,400.00.
+- פרט ב-₪ (הפרש מהיעד) **בנוסף** לאחוז — לא רק אחד מהם.
+
+**16.7 — דיוק מוחלט: אסור הערכות (פידבק דוד #10)**
+- ❌ "כ-₪44,000", "בערך ₪3,000", "סביב 30%"
+- ✅ "₪43,872", "₪2,847", "29.83%"
+- כל מספר חייב לבוא ישירות מתוצאת כלי (queryDatabase / getMonthlySummary). אם הנתון לא קיים — אמור "לא מצאתי את הנתון" וצור ticket תמיכה (כלל 15). אסור להמציא ואסור לעגל לכאלף הקרוב.
+
+**16.8 — חיבור לדוח רווח-הפסד (פידבק דוד #11, #14)**
+- כשהמשתמש שואל על קטגוריית הוצאות ספציפית ("פרסום ושיווק", "תחזוקה", "עלויות תפעול") — **חובה** לחפש בעץ הקטגוריות, לא רק לפי שם ספק.
+- שאילתה לדוגמה (חיפוש בעץ עם parent_id):
+\`\`\`sql
+SELECT s.name AS supplier, ec.name AS category,
+  COALESCE(parent.name, '-') AS parent_category,
+  SUM(i.subtotal) AS total
+FROM public.invoices i
+JOIN public.suppliers s ON s.id = i.supplier_id
+LEFT JOIN public.expense_categories ec ON s.expense_category_id = ec.id
+LEFT JOIN public.expense_categories parent ON ec.parent_id = parent.id
+WHERE i.business_id = 'BID'
+  AND i.deleted_at IS NULL
+  AND (ec.name ILIKE '%פרסום%' OR ec.name ILIKE '%שיווק%'
+       OR parent.name ILIKE '%פרסום%' OR parent.name ILIKE '%שיווק%')
+  AND i.reference_date >= 'MONTH_START'
+  AND i.reference_date < 'NEXT_MONTH'
+GROUP BY s.name, ec.name, parent.name
+ORDER BY total DESC
+\`\`\`
+- אם חזר ריק — תראה את **כל** הקטגוריות שיש לעסק כדי שהמשתמש יבחר: \`SELECT DISTINCT name FROM public.expense_categories WHERE business_id='BID' AND deleted_at IS NULL ORDER BY name\`. אסור לענות "אין הוצאות פרסום" כשאולי הקטגוריה נקראת אחרת.
+- **רווח-הפסד מלא:** ראה פורמט תשובה #8. שלוף עם הקיבוץ הנ"ל לכל הקטגוריות.
+
+**16.9 — רשימות מלאות, לא חלקיות (פידבק דוד #8, #9)**
+- כשהמשתמש כתב "הכל" / "מלא" / "כל ה" / "פירוט מלא" — שלוף את **כל** הרשומות (ללא LIMIT).
+- אם יש 50+ רשומות — הצג את כולן. אסור לקצר ל-10 ולכתוב "(רשימה חלקית מתוך 50)".
+- **כל טבלה — חובה שורת "סה"כ" בתחתית** (כבר נכתב בכלל "טבלאות חשבוניות וספקים", מודגש שוב כי דוד התלונן ב-#9).
+- אם הרשימה ארוכה במיוחד (100+) — הצג אותה מקובצת לפי חודש/קטגוריה עם תת-סיכומים, ובסוף סיכום כללי.
+
+**16.10 — שירות מלא, אל תזרוק משימות על המשתמש (פידבק דוד #4)**
+- **אסור:** "תעדכן אותי כשתקבל את הכרטסת ונמשיך"
+- **אסור:** "בדוק עם הספק וחזור אליי"
+- **מותר:** "צוות המצפן ייגש לספק [שם] לקבלת הכרטסת. ברגע שיהיו הפרשים, נעדכן אותך."
+- **כשאתה שולח כרטסת (sendKartesetEmail):** תמיד ציין למי המייל נשלח (איזה כתובת מייל) ושצוות המצפן יבדוק את ההפרשים מול נתוני המערכת.
+- הלקוח משלם על שירות. אל תהפוך אותו ל"חוקר פרטי" שצריך להשיג נתונים בעצמו.
+
+**16.11 — תחזית, לא רק "עד היום" (פידבק דוד #6)**
+- כשמציגים חריגה באמצע חודש — חובה להוסיף תחזית סוף חודש:
+  - ❌ "החריגה עד היום ₪300"
+  - ✅ "החריגה עד היום ₪300. אם הקצב יישמר עד סוף החודש, תגיע לכ-₪[300 × expectedWorkDays / sumDayFactors]"
+- חישוב: \`forecastEnd = currentValue × (expectedWorkDays / sumDayFactors)\`
+- ערכים שצריך להציג בתחזית: חריגה צפויה בש"ח, אחוז צפוי בסוף חודש, צפי הכנסות סוף חודש (כבר ב-monthlyPace).
+
+**16.12 — ממוקדות: שאלה ספציפית = תשובה ספציפית (פידבק דוד #6)**
+- **אסור** לשלוח את כל המבנה של "טוב/דורש-תשומת-לב/פעולה" כשנשאלת שאלה ספציפית.
+- "איך הגבינה?" → רק על גבינה. (אחוז, חריגה בש"ח, תחזית סוף חודש, סטטוס בונוס אם יש, 1 פעולה).
+- "כמה חייבים לגד?" → רק החוב לגד. לא סקירה כללית.
+- **רק** "איך החודש?" / "מה המצב?" / "סיכום" — מצדיקים את המבנה המלא (פורמט #1).
 </hard-rules>`;
 }
 
@@ -2078,6 +2162,16 @@ async function computeMonthlySummary(
       currentExpensesPct: Math.round(currentExpensesPct * 100) / 100,
       currentExpensesTargetPct: Math.round(currentExpensesTargetPct * 100) / 100,
       currentExpensesDiffPct: Math.round(currentExpensesDiffPct * 100) / 100,
+      // Prorated current expenses — David feedback #1, #2.
+      // Fixed expenses (rent, property tax, internet) are monthly. Showing the
+      // full month's invoices against partial month's income inflates the %
+      // (e.g. 79.64% mid-month). Prorate by actual day-factors / expected.
+      currentExpensesProrated: expectedWorkDays > 0
+        ? Math.round(currentExpenses * (sumDayFactors / expectedWorkDays))
+        : Math.round(currentExpenses),
+      currentExpensesProratedPct: (incomeBeforeVat > 0 && expectedWorkDays > 0)
+        ? Math.round(((currentExpenses * (sumDayFactors / expectedWorkDays)) / incomeBeforeVat) * 10000) / 100
+        : 0,
     },
     managedProducts: mpResults,
     incomeBreakdown,
@@ -2231,11 +2325,13 @@ function buildTools(
           const now = new Date();
           const isCurrentMonth =
             year === now.getFullYear() && month === now.getMonth() + 1;
-          const STALE_MS = 3 * 60 * 1000; // 3 minutes — keep data fresh for real-time experience
+          // Tight 60s window for current month — David's feedback (#5): cached
+          // numbers diverged from the dashboard the user was looking at.
+          // Past months never change → always use cache.
+          const STALE_MS = 60 * 1000;
 
           if (cached && cached.computed_at) {
             const age = now.getTime() - new Date(cached.computed_at).getTime();
-            // For current month, refresh if older than 30 min; for past months, always use cache
             if (!isCurrentMonth || age < STALE_MS) {
               console.log(`[AI Tool] getMonthlySummary: using cached metrics (age=${Math.round(age / 60000)}m)`);
               const result = { ...cached, businessName: bizName };
@@ -2311,6 +2407,20 @@ function buildTools(
                     };
                   })
                 : [];
+              // Derive prorated current expenses from cached snake_case fields
+              // (David feedback #1, #2 — see computeMonthlySummary for rationale).
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const cr = result as any;
+              const cExp = Number(cr.current_expenses_amount) || 0;
+              const cExpected = Number(cr.expected_work_days) || 0;
+              const cFactors = Number(cr.actual_day_factors) || 0;
+              const cIncomeBV = Number(cr.income_before_vat) || 0;
+              cr.current_expenses_prorated = cExpected > 0
+                ? Math.round(cExp * (cFactors / cExpected))
+                : Math.round(cExp);
+              cr.current_expenses_prorated_pct = (cIncomeBV > 0 && cExpected > 0)
+                ? Math.round(((cExp * (cFactors / cExpected)) / cIncomeBV) * 10000) / 100
+                : 0;
               return result;
             }
           }
