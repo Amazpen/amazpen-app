@@ -6767,7 +6767,7 @@ function ExpensesPageInner() {
                       )}
                     </span>
                     <div className="flex items-center justify-center gap-[4px]" style={{ width: 76, maxWidth: 76 }}>
-                      {inv.notes && inv.notes.trim() && (
+                      {((inv.notes && inv.notes.trim()) || (inv.clarificationReason && inv.clarificationReason.trim())) && (
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
@@ -6782,8 +6782,18 @@ function ExpensesPageInner() {
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="bg-[#1A1F3D] border border-[#4C526B] rounded-[8px] p-[12px] max-w-[250px] text-right" dir="rtl" side="top">
-                            <p className="text-[12px] text-[#FFA412] font-semibold mb-[4px]">הערות</p>
-                            <p className="text-[13px] text-white leading-[1.5]">{inv.notes}</p>
+                            {inv.clarificationReason && inv.clarificationReason.trim() && (
+                              <>
+                                <p className="text-[12px] text-[#FFA500] font-semibold mb-[4px]">סיבת בירור</p>
+                                <p className="text-[13px] text-white leading-[1.5] mb-[8px]">{inv.clarificationReason}</p>
+                              </>
+                            )}
+                            {inv.notes && inv.notes.trim() && (
+                              <>
+                                <p className="text-[12px] text-[#FFA412] font-semibold mb-[4px]">הערות</p>
+                                <p className="text-[13px] text-white leading-[1.5]">{inv.notes}</p>
+                              </>
+                            )}
                           </PopoverContent>
                         </Popover>
                       )}
