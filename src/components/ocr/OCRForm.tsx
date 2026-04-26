@@ -805,24 +805,33 @@ export default function OCRForm({
     return invoiceDate || new Date().toISOString().split("T")[0];
   };
 
-  // Generate installments with credit card billing day logic
+  // Generate installments with credit card billing day logic.
+  // For 1 installment, returns a single row pinned to the card's billing day so
+  // the user sees the actual charge date instead of the invoice date.
   const generateCreditCardInstallments = (numInstallments: number, totalAmount: number, paymentDateStr: string, billingDay: number) => {
-    if (numInstallments <= 1 || totalAmount === 0) return [];
+    if (numInstallments < 1 || totalAmount === 0) return [];
 
     const installmentAmount = Math.round((totalAmount / numInstallments) * 100) / 100;
     const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
     const firstDueDate = calculateCreditCardDueDate(paymentDateStr, billingDay);
+    // Parse the local YYYY-MM-DD into a local Date (NOT UTC) so subsequent
+    // setMonth/getDate calls and the formatLocalYMD output stay on the same
+    // calendar day in IST (UTC+2/+3). new Date("YYYY-MM-DD") is UTC midnight
+    // and shifts a day back when read with getDate() in IST.
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(firstDueDate);
+    const baseDate = m
+      ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+      : new Date(firstDueDate);
 
     const result = [];
     for (let i = 0; i < numInstallments; i++) {
-      const date = new Date(firstDueDate);
-      date.setMonth(date.getMonth() + i);
+      const date = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, baseDate.getDate());
 
       result.push({
         number: i + 1,
         date: date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
-        dateForInput: date.toISOString().split('T')[0],
-        amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
+        dateForInput: formatLocalYMD(date),
+        amount: numInstallments > 1 && i === numInstallments - 1 ? lastInstallmentAmount : (numInstallments === 1 ? totalAmount : installmentAmount),
       });
     }
     return result;
@@ -852,14 +861,26 @@ export default function OCRForm({
       if (field === 'method' && (value === 'check' || value === 'credit_card')) {
         const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
         const startDate = getEffectiveStartDate(methods, dateStr);
-        const date = startDate ? new Date(startDate) : new Date();
-        updated.customInstallments = [{
-          number: 1,
-          date: date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
-          dateForInput: date.toISOString().split('T')[0],
-          amount: totalAmount,
-          checkNumber: '',
-        }];
+        // For credit_card with a card already selected (e.g. supplier default),
+        // pin the row to the card's billing day; otherwise fall back to startDate.
+        const card = value === 'credit_card' && p.creditCardId
+          ? businessCreditCards.find(c => c.id === p.creditCardId)
+          : null;
+        if (card && startDate) {
+          updated.customInstallments = generateCreditCardInstallments(1, totalAmount, startDate, card.billing_day);
+        } else {
+          const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(startDate || '');
+          const date = m
+            ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+            : startDate ? new Date(startDate) : new Date();
+          updated.customInstallments = [{
+            number: 1,
+            date: date.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+            dateForInput: formatLocalYMD(date),
+            amount: totalAmount,
+            checkNumber: '',
+          }];
+        }
       }
 
       // Regenerate installments when installments count changes
@@ -1743,11 +1764,17 @@ export default function OCRForm({
                   if (p.id !== pm.id) return p;
                   const updated = { ...p, creditCardId: cardId };
                   const card = businessCreditCards.find(c => c.id === cardId);
-                  if (card && dateStr) {
+                  // Pass documentDate (the invoice date) — calculateCreditCardDueDate
+                  // uses it to derive the actual billing day. Using dateStr here
+                  // would mean the previously-set payment date, which is stale
+                  // (this same handler just called dateSetter above and dateStr
+                  // is still the previous render's value).
+                  const baseDate = documentDate || dateStr;
+                  if (card && baseDate) {
                     const numInstallments = parseInt(p.installments) || 1;
                     const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
                     if (totalAmount > 0) {
-                      updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, dateStr, card.billing_day);
+                      updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, baseDate, card.billing_day);
                     }
                   }
                   return updated;
