@@ -166,6 +166,12 @@ export default function OCRForm({
   const draftKey = `ocrForm:draft:${selectedBusinessId}:${document?.id || 'none'}`;
   const { saveDraft, restoreDraft, clearDraft } = useFormDraft(draftKey);
   const draftRestored = useRef(false);
+  // Keep a ref of `suppliers` so the OCR-data populate effect can read the
+  // latest list without depending on `suppliers` (which would re-run the effect
+  // every time the realtime subscription rebuilds the array, wiping out manual
+  // edits like "delete all line items").
+  const suppliersRef = useRef<Supplier[]>(suppliers);
+  useEffect(() => { suppliersRef.current = suppliers; }, [suppliers]);
 
   // Form state
   const [documentType, setDocumentType] = useState<DocumentType>('invoice');
@@ -1206,11 +1212,14 @@ export default function OCRForm({
       // OCR pulled from the document (e.g. an OCR scan of a פטור-ממעמ
       // supplier that still lists a theoretical VAT line).
 
-      // Pre-select supplier: prefer matched_supplier_id from AI, fallback to smart name matching
+      // Pre-select supplier: prefer matched_supplier_id from AI, fallback to smart name matching.
+      // Read suppliers from a ref so realtime updates to the supplier list don't
+      // re-run this effect (which would clobber user edits like "delete all line items").
+      const currentSuppliers = suppliersRef.current;
       let matchedId = '';
-      if (data.matched_supplier_id && suppliers.some(s => s.id === data.matched_supplier_id)) {
+      if (data.matched_supplier_id && currentSuppliers.some(s => s.id === data.matched_supplier_id)) {
         matchedId = data.matched_supplier_id;
-      } else if (data.supplier_name && suppliers.length > 0) {
+      } else if (data.supplier_name && currentSuppliers.length > 0) {
         // Normalize: remove double-quotes, geresh, periods, extra whitespace; normalize בעמ variations
         const normalize = (s: string) =>
           s
@@ -1226,8 +1235,8 @@ export default function OCRForm({
 
         // Skip if OCR name is too short to be meaningful
         if (ocrName.length >= 2) {
-          const scored: { supplier: (typeof suppliers)[number]; score: number }[] = [];
-          for (const s of suppliers) {
+          const scored: { supplier: (typeof currentSuppliers)[number]; score: number }[] = [];
+          for (const s of currentSuppliers) {
             const sName = normalize(s.name);
             if (!sName) continue;
 
@@ -1266,7 +1275,7 @@ export default function OCRForm({
 
       // Auto-fill discount from supplier defaults
       if (matchedId) {
-        const matched = suppliers.find(s => s.id === matchedId);
+        const matched = currentSuppliers.find(s => s.id === matchedId);
         if (matched?.default_discount_percentage && matched.default_discount_percentage > 0) {
           setDiscountPercentage(matched.default_discount_percentage.toString());
         }
@@ -1400,7 +1409,12 @@ export default function OCRForm({
       }
       draftRestored.current = true;
     }, 0);
-  }, [document, suppliers, restoreDraft]);
+    // Re-run only when the document identity changes — NOT when `suppliers` or
+    // `document` (object reference) change. Realtime supplier refreshes used to
+    // re-run this effect and silently restore line items the user had just
+    // deleted. `suppliers` is read via suppliersRef.current inside the effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [document?.id, restoreDraft]);
 
   // Calculator drag handlers
   const handleCalcDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
