@@ -3824,6 +3824,20 @@ function PaymentsPageInner() {
                             }
                             methodGroups.get(key)!.splits.push(split);
                           }
+                          // Sort each group's installments by installment_number,
+                          // falling back to due_date when the number is missing.
+                          for (const group of methodGroups.values()) {
+                            group.splits.sort((a, b) => {
+                              const an = a.installment_number;
+                              const bn = b.installment_number;
+                              if (an != null && bn != null) return an - bn;
+                              if (an != null) return -1;
+                              if (bn != null) return 1;
+                              const ad = a.due_date ? new Date(a.due_date).getTime() : 0;
+                              const bd = b.due_date ? new Date(b.due_date).getTime() : 0;
+                              return ad - bd;
+                            });
+                          }
                           return Array.from(methodGroups.values()).map((group, idx) => (
                             <div key={idx} className="flex flex-col gap-[3px]">
                               <div className="flex items-center justify-between bg-white/5 rounded-[5px] px-[8px] py-[5px]">
