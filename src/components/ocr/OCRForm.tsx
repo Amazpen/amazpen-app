@@ -904,7 +904,7 @@ export default function OCRForm({
     }));
   };
 
-  const handleInstallmentDateChange = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, paymentMethodId: number, installmentIndex: number, newDate: string) => {
+  const handleInstallmentDateChange = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, paymentMethodId: number, installmentIndex: number, newDate: string, dateSetter?: (d: string) => void) => {
     setter(prev => prev.map(p => {
       if (p.id !== paymentMethodId) return p;
       const updatedInstallments = [...p.customInstallments];
@@ -918,6 +918,12 @@ export default function OCRForm({
       }
       return { ...p, customInstallments: updatedInstallments };
     }));
+    // Keep the top-level payment date in sync with the first installment of the
+    // first payment method, so the DB's payment_date stays aligned with what the
+    // user sees in the table.
+    if (installmentIndex === 0 && dateSetter) {
+      dateSetter(newDate);
+    }
   };
 
   const handleInstallmentCheckNumberChange = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, paymentMethodId: number, installmentIndex: number, value: string) => {
@@ -1827,7 +1833,14 @@ export default function OCRForm({
                       <div className="flex-1">
                         <DatePickerField
                           value={item.dateForInput}
-                          onChange={(val) => handleInstallmentDateChange(setter, pm.id, index, val)}
+                          onChange={(val) => handleInstallmentDateChange(
+                            setter,
+                            pm.id,
+                            index,
+                            val,
+                            // Only sync top-level date when editing the first installment of the first payment method
+                            pm.id === methods[0].id ? dateSetter : undefined,
+                          )}
                           className="h-[36px] rounded-[7px] text-[14px]"
                         />
                       </div>
@@ -2561,24 +2574,26 @@ export default function OCRForm({
               {/* Payment Methods */}
               {renderPaymentMethodsSection(inlinePaymentMethods, setInlinePaymentMethods, inlinePaymentDate, setInlinePaymentDate)}
 
-              {/* Payment Date */}
-              <div className="flex flex-col gap-[3px]">
-                <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
-                <DatePickerField
-                  value={inlinePaymentDate}
-                  onChange={(val) => {
-                    setInlinePaymentDate(val);
-                    setInlinePaymentMethods(prev => prev.map(p => {
-                      const numInstallments = parseInt(p.installments) || 1;
-                      const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
-                      if (numInstallments >= 1 && totalAmount > 0) {
-                        return { ...p, customInstallments: generateInstallments(numInstallments, totalAmount, val) };
-                      }
-                      return { ...p, customInstallments: [] };
-                    }));
-                  }}
-                />
-              </div>
+              {/* Payment Date — hidden once installments table is shown (each row has its own date there) */}
+              {inlinePaymentMethods.every(pm => pm.customInstallments.length === 0) && (
+                <div className="flex flex-col gap-[3px]">
+                  <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
+                  <DatePickerField
+                    value={inlinePaymentDate}
+                    onChange={(val) => {
+                      setInlinePaymentDate(val);
+                      setInlinePaymentMethods(prev => prev.map(p => {
+                        const numInstallments = parseInt(p.installments) || 1;
+                        const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
+                        if (numInstallments >= 1 && totalAmount > 0) {
+                          return { ...p, customInstallments: generateInstallments(numInstallments, totalAmount, val) };
+                        }
+                        return { ...p, customInstallments: [] };
+                      }));
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Payment Reference */}
               <div className="flex flex-col gap-[3px]">
