@@ -279,11 +279,24 @@ function NewBusinessPage() {
         const delimiter = lines[0].includes("\t") ? "\t" : ",";
         const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^["']|["']$/g, "").replace(/^\uFEFF/, ""));
 
+        // Normalize header for matching: trim, collapse whitespace, remove trailing punctuation,
+        // unify quote characters (Hebrew CSVs often have ", '', `, etc. for the geresh/gershayim)
+        const normalizeHeader = (h: string): string => {
+          return h
+            .trim()
+            .replace(/\s+/g, " ")
+            .replace(/["׳״`]/g, "'")
+            .replace(/'+/g, "'")
+            .replace(/[?:!.,;]+$/, "")
+            .trim();
+        };
+
         // Map Hebrew/English header names to field names
         const headerMap: Record<string, keyof CsvSupplier> = {
           "name": "name",
           "שם": "name",
           "שם ספק": "name",
+          "שם הספק": "name",
           "supplier_name": "name",
           "supplier name": "name",
           "expense_type": "expense_type",
@@ -313,8 +326,9 @@ function NewBusinessPage() {
         };
 
         const columnMapping: (keyof CsvSupplier | null)[] = headers.map(h => {
+          const norm = normalizeHeader(h);
           const lower = h.toLowerCase();
-          return headerMap[lower] || headerMap[h] || null;
+          return headerMap[norm] || headerMap[lower] || headerMap[h] || null;
         });
 
         // Check that "name" column exists
@@ -348,10 +362,16 @@ function NewBusinessPage() {
                 supplier[field] = parseInt(val) || 30;
               } else if (field === "expense_type") {
                 // Normalize expense type
-                const lower = val.toLowerCase();
-                if (lower === "goods_purchases" || lower === "רכש סחורה" || lower === "סחורה") {
+                const trimmed = val.trim();
+                const lower = trimmed.toLowerCase();
+                if (
+                  lower === "goods_purchases" ||
+                  trimmed === "רכש סחורה" ||
+                  trimmed === "קניות סחורה" ||
+                  trimmed === "סחורה"
+                ) {
                   supplier.expense_type = "goods_purchases";
-                } else if (lower === "employee_costs" || lower === "עלות עובדים") {
+                } else if (lower === "employee_costs" || trimmed === "עלות עובדים") {
                   supplier.expense_type = "employee_costs";
                 } else {
                   supplier.expense_type = "current_expenses";

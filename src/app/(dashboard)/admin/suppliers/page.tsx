@@ -99,22 +99,31 @@ export default function AdminSuppliersPage() {
           }
 
           // Map of possible Hebrew/English header names to canonical field names
+          // Note: keys are normalized (NFC, double-quotes → single, no trailing punctuation, trimmed) - see normalizeHeader below
           const headerAliases: Record<string, string> = {
             "שם הספק": "name", "שם": "name", "שם ספק": "name", "name": "name", "supplier_name": "name",
             "סוג הוצאה": "expense_type", "expense_type": "expense_type",
-            "נדרש מע''מ": "requires_vat", "נדרש מעמ": "requires_vat",
-            "מעמ": "vat", "מע''מ": "vat",
+            "נדרש מע'מ": "requires_vat", "נדרש מעמ": "requires_vat", "נדרש מע": "requires_vat",
+            "מעמ": "vat", "מע'מ": "vat",
             "מעמ חלקי": "vat_partial",
             "הוצאה חודשית קבועה": "is_fixed",
-            "סכום לכל תשלום קבוע (במידה וידוע)": "monthly_amount", "סכום לכל תשלום קבוע": "monthly_amount",
-            "מתי יורד כל חודש?": "charge_day", "מתי יורד כל חודש": "charge_day",
+            "סכום לכל תשלום קבוע (במידה וידוע)": "monthly_amount",
+            "סכום לכל תשלום קבוע": "monthly_amount",
+            "סכום לכל תשלום קבוע (כולל מעמ)": "monthly_amount",
+            "סכום לכל תשלום קבוע (כולל מע'מ)": "monthly_amount",
+            "מתי יורד כל חודש": "charge_day",
             // Fallback for Bubble CSVs that only have the first-charge day
             "יום (מספר)": "charge_day_fallback", "יום": "charge_day_fallback",
             "תנאי תשלום": "payment_terms", "payment_terms_days": "payment_terms", "ימי תשלום": "payment_terms",
             "הערות": "notes", "notes": "notes",
             "קטגורית אב": "parent_category",
+            "קטגוריית אב": "parent_category",
+            "קטגוריית אב (רווח הפסד)": "parent_category",
+            "קטגורית אב (רווח הפסד)": "parent_category",
             "קטגוריה": "category",
             "פעיל/לא פעיל (מספר)": "is_active_num", "פעיל/לא פעיל": "is_active_num",
+            "פעיל": "is_active_text",
+            "אמצעי תשלום": "payment_method",
             "איש קשר": "contact", "contact_name": "contact",
             "טלפון": "phone", "phone": "phone",
             "אימייל": "email", "מייל": "email", "email": "email",
@@ -123,11 +132,24 @@ export default function AdminSuppliersPage() {
             "התחייבות": "has_obligations", "התחייבות קודמות": "has_obligations",
           };
 
+          // Normalize header for matching: trim, collapse whitespace, remove trailing punctuation,
+          // unify quote characters (Hebrew CSVs often have ", '', `, etc. for the geresh/gershayim)
+          const normalizeHeader = (h: string): string => {
+            return h
+              .trim()
+              .replace(/\s+/g, " ")
+              .replace(/["׳״`]/g, "'") // unify all quote variants to single '
+              .replace(/'+/g, "'")     // collapse multiple ' to one
+              .replace(/[?:!.,;]+$/, "") // strip trailing punctuation
+              .trim();
+          };
+
           // Detect which headers from the CSV file match our known aliases
           const detectedFields = results.meta.fields || [];
           const fieldMap: Record<string, string> = {}; // canonical -> actual CSV header
           for (const header of detectedFields) {
-            const canonical = headerAliases[header];
+            const normalized = normalizeHeader(header);
+            const canonical = headerAliases[normalized] || headerAliases[header];
             if (canonical && !fieldMap[canonical]) {
               fieldMap[canonical] = header;
             }
@@ -210,9 +232,16 @@ export default function AdminSuppliersPage() {
             if (parent_category_name) parentCats.add(parent_category_name);
             if (category_name) childCats.add(`${parent_category_name}|${category_name}`);
 
-            // is_active: "1" means inactive
-            const isActiveRaw = getField(row, "is_active_num");
-            const is_active = isActiveRaw !== "1";
+            // is_active: support both legacy "1=inactive" CSVs and "כן/לא" CSVs
+            // Default: active (true) when no column present at all
+            const isActiveNumRaw = getField(row, "is_active_num");
+            const isActiveTextRaw = getField(row, "is_active_text").toLowerCase();
+            let is_active = true;
+            if (fieldMap["is_active_num"]) {
+              is_active = isActiveNumRaw !== "1";
+            } else if (fieldMap["is_active_text"]) {
+              is_active = isActiveTextRaw === "כן" || isActiveTextRaw === "yes" || isActiveTextRaw === "true" || isActiveTextRaw === "1";
+            }
 
             // Map has_previous_obligations
             const obligationsRaw = getField(row, "has_obligations");
