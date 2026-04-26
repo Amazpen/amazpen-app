@@ -3940,8 +3940,20 @@ function PaymentsPageInner() {
                                 <span className="text-[13px]">פעולות</span>
                               </div>
                             </div>
-                            {/* Invoice rows */}
-                            {payment.linkedInvoices.map((linkedInv) => {
+                            {/* Invoice rows — sort newest first by parsing the DD/MM/YY display string */}
+                            {[...payment.linkedInvoices]
+                              .sort((a, b) => {
+                                const parse = (d: string) => {
+                                  const m = (d || "").match(/^(\d{1,2})[./](\d{1,2})[./](\d{2,4})$/);
+                                  if (!m) return 0;
+                                  const day = parseInt(m[1], 10);
+                                  const month = parseInt(m[2], 10);
+                                  const year = m[3].length === 2 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10);
+                                  return year * 10000 + month * 100 + day;
+                                };
+                                return parse(b.date) - parse(a.date);
+                              })
+                              .map((linkedInv) => {
                               const invoiceAttachmentUrls = parseAttachmentUrls(linkedInv.attachmentUrl);
                               return (
                                 <div key={linkedInv.id}>
