@@ -4836,6 +4836,17 @@ function ExpensesPageInner() {
                 <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
               </div>
             )}
+            {!isLoadingMore && hasMoreInvoices && recentInvoices.length > 0 && (
+              <div className="flex items-center justify-center py-[15px]">
+                <Button
+                  type="button"
+                  onClick={loadMoreInvoices}
+                  className="bg-[#29318A] hover:bg-[#3D44A0] transition-colors text-white text-[14px] font-medium py-[8px] px-[20px] rounded-[7px] cursor-pointer"
+                >
+                  טען עוד חשבוניות
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
