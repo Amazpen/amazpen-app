@@ -1139,18 +1139,24 @@ export default function OCRForm({
       setDocumentDate(docDate);
       setPaymentTabDate(docDate);
 
-      if (data.document_number) {
-        setDocumentNumber(data.document_number);
-      }
-      if (data.discount_amount !== undefined && data.discount_amount !== null) {
-        setDiscountAmount(data.discount_amount.toString());
-      }
-      if (data.discount_percentage !== undefined && data.discount_percentage !== null) {
-        setDiscountPercentage(data.discount_percentage.toString());
-      }
-      if (data.subtotal !== undefined && data.subtotal !== null) {
-        setAmountBeforeVat(data.subtotal.toString());
-      }
+      // Reset OCR-driven fields first so stale values from a previous document
+      // don't leak through when the new document's OCR didn't extract them.
+      setDocumentNumber(data.document_number || '');
+      setDiscountAmount(
+        data.discount_amount !== undefined && data.discount_amount !== null
+          ? data.discount_amount.toString()
+          : ''
+      );
+      setDiscountPercentage(
+        data.discount_percentage !== undefined && data.discount_percentage !== null
+          ? data.discount_percentage.toString()
+          : ''
+      );
+      setAmountBeforeVat(
+        data.subtotal !== undefined && data.subtotal !== null
+          ? data.subtotal.toString()
+          : ''
+      );
       if (data.vat_amount !== undefined && data.vat_amount !== null) {
         setVatAmount(data.vat_amount.toString());
         // Default: partial VAT toggle is OFF (regular VAT). The user must
