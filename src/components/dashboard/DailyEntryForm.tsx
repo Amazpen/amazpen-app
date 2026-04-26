@@ -717,7 +717,8 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       if (!navigator.onLine) {
         // Pre-calculate manager_daily_cost for offline entry
         const offlineEntryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
-        const offlineDayFactor = parseFloat(formData.day_factor) || 1;
+        const parsedOfflineDayFactor = parseFloat(formData.day_factor);
+        const offlineDayFactor = Number.isFinite(parsedOfflineDayFactor) ? parsedOfflineDayFactor : 1;
         let offlineWorkDays = 0;
         const offYear = offlineEntryDate.getFullYear();
         const offMonth = offlineEntryDate.getMonth();
@@ -764,7 +765,8 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
       // Calculate manager daily cost for saving (daily rate from schedule × day_factor, no markup)
       const saveLaborCost = parseFloat(formData.labor_cost) || 0;
       const saveEntryDate = formData.entry_date ? new Date(formData.entry_date) : new Date();
-      const saveDayFactor = parseFloat(formData.day_factor) || 1;
+      const parsedSaveDayFactor = parseFloat(formData.day_factor);
+      const saveDayFactor = Number.isFinite(parsedSaveDayFactor) ? parsedSaveDayFactor : 1;
 
       // Calculate expected work days from schedule + exceptions (sum of day_factors across all calendar days)
       let saveWorkDaysInMonth = 0;
@@ -799,7 +801,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
             labor_cost: saveLaborCost,
             labor_hours: parseFloat(formData.labor_hours) || 0,
             discounts: parseFloat(formData.discounts) || 0,
-            day_factor: parseFloat(formData.day_factor) || 1,
+            day_factor: saveDayFactor,
             manager_daily_cost: saveManagerDailyCost,
             updated_at: new Date().toISOString(),
           })
@@ -832,7 +834,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
             labor_cost: saveLaborCost,
             labor_hours: parseFloat(formData.labor_hours) || 0,
             discounts: parseFloat(formData.discounts) || 0,
-            day_factor: parseFloat(formData.day_factor) || 1,
+            day_factor: saveDayFactor,
             manager_daily_cost: saveManagerDailyCost,
             created_by: user.id,
           })

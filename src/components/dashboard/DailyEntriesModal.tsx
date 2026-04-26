@@ -527,7 +527,8 @@ export function DailyEntriesModal({
 
       // Calculate manager daily cost for saving (daily rate from schedule × day_factor, no markup)
       const saveLaborCost = parseFloat(editFormData.labor_cost) || 0;
-      const saveDayFactor = parseFloat(editFormData.day_factor) || 1;
+      const parsedSaveDayFactor = parseFloat(editFormData.day_factor);
+      const saveDayFactor = Number.isFinite(parsedSaveDayFactor) ? parsedSaveDayFactor : 1;
       const saveWorkDaysInMonth = freshWorkDaysInMonth ?? goalsData?.workDaysInMonth ?? 26;
       const saveManagerDailyCost = saveWorkDaysInMonth > 0
         ? (managerMonthlySalary / saveWorkDaysInMonth) * saveDayFactor
@@ -542,7 +543,7 @@ export function DailyEntriesModal({
           labor_cost: saveLaborCost,
           labor_hours: parseFloat(editFormData.labor_hours) || 0,
           discounts: parseFloat(editFormData.discounts) || 0,
-          day_factor: parseFloat(editFormData.day_factor) || 1,
+          day_factor: saveDayFactor,
           manager_daily_cost: saveManagerDailyCost,
           updated_at: new Date().toISOString(),
         })
@@ -1255,7 +1256,8 @@ export function DailyEntriesModal({
                   const laborCost = parseFloat(editFormData.labor_cost) || 0;
                   const laborWithMarkup = laborCost * monthlyMarkup;
 
-                  const displayDayFactor = parseFloat(editFormData.day_factor) || 1;
+                  const parsedDayFactor = parseFloat(editFormData.day_factor);
+                  const displayDayFactor = Number.isFinite(parsedDayFactor) ? parsedDayFactor : 1;
                   const displayWorkDaysInMonth = freshWorkDaysInMonth ?? goalsData?.workDaysInMonth ?? 26;
                   const dailyManagerWithMarkup = displayWorkDaysInMonth > 0
                     ? (managerMonthlySalary / displayWorkDaysInMonth) * displayDayFactor * monthlyMarkup
@@ -1637,7 +1639,7 @@ export function DailyEntriesModal({
                                     const vatDivisor = goalsData.vatPercentage > 0 ? 1 + goalsData.vatPercentage : 1;
                                     const revenueBeforeVat = entry.total_register / vatDivisor;
                                     // (labor + manager × day_factor) × markup — same formula as dashboard
-                                    const dayFactor = Number(entry.day_factor) || 1;
+                                    const dayFactor = Number(entry.day_factor ?? 0);
                                     const laborFull = (entry.labor_cost + goalsData.managerDailyCost * dayFactor) * goalsData.markupPercentage;
                                     const laborPct = revenueBeforeVat > 0 ? (laborFull / revenueBeforeVat) * 100 : 0;
                                     return formatPercent(laborPct);
@@ -1712,7 +1714,7 @@ export function DailyEntriesModal({
                                   const vatDivisor = goalsData.vatPercentage > 0 ? 1 + goalsData.vatPercentage : 1;
                                   const revenueBeforeVat = entry.total_register / vatDivisor;
                                   // (labor + manager × day_factor) × markup — same as dashboard
-                                  const dayFactor = Number(entry.day_factor) || 1;
+                                  const dayFactor = Number(entry.day_factor ?? 0);
                                   const laborFull = (entry.labor_cost + goalsData.managerDailyCost * dayFactor) * goalsData.markupPercentage;
                                   const laborPct = revenueBeforeVat > 0 ? (laborFull / revenueBeforeVat) * 100 : 0;
                                   const targetPct = goalsData.laborCostTargetPct || 0;

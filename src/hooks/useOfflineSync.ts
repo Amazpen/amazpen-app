@@ -59,7 +59,7 @@ export function useOfflineSync(): UseOfflineSyncResult {
           labor_cost: parseFloat(formData.labor_cost) || 0,
           labor_hours: parseFloat(formData.labor_hours) || 0,
           discounts: parseFloat(formData.discounts) || 0,
-          day_factor: parseFloat(formData.day_factor) || 1,
+          day_factor: Number.isFinite(parseFloat(formData.day_factor)) ? parseFloat(formData.day_factor) : 1,
           manager_daily_cost: parseFloat(formData.manager_daily_cost) || 0,
           created_by: entry.userId || undefined,
         })

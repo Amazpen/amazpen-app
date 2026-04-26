@@ -1664,7 +1664,7 @@ function ExpensesPageInner() {
             // Always compute manager cost from monthly_salary (matches dashboard exactly).
             // DB column is unreliable — use it only for display reference, not for totals.
             const entries = laborData.map(e => {
-              const dayFactor = Number(e.day_factor) || 1;
+              const dayFactor = Number(e.day_factor ?? 0);
               return {
                 entry_date: e.entry_date,
                 labor_cost: Number(e.labor_cost) || 0,
