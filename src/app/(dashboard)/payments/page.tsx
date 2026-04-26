@@ -3629,6 +3629,10 @@ function PaymentsPageInner() {
                 }
               });
               const isShowingGlobal = hasActiveFilter && globalPaymentResults && globalPaymentResults.length > 0;
+              const installmentNum = (s: string) => {
+                const n = parseInt(s.split("/")[0], 10);
+                return Number.isFinite(n) ? n : 0;
+              };
               let sortedPayments = filteredPayments;
               if (sortColumn && sortOrder) {
                 sortedPayments = [...filteredPayments].sort((a, b) => {
@@ -3642,11 +3646,22 @@ function PaymentsPageInner() {
                     }
                     case "supplier": cmp = a.supplier.localeCompare(b.supplier, "he"); break;
                     case "reference": cmp = (a.reference || "").localeCompare(b.reference || "", "he"); break;
-                    case "installments": cmp = a.installments.localeCompare(b.installments); break;
+                    case "installments": cmp = installmentNum(a.installments) - installmentNum(b.installments); break;
                     case "method": cmp = a.paymentMethod.localeCompare(b.paymentMethod, "he"); break;
                     case "amount": cmp = a.totalAmount - b.totalAmount; break;
                   }
+                  if (cmp === 0 && a.paymentId === b.paymentId) {
+                    cmp = installmentNum(a.installments) - installmentNum(b.installments);
+                    return cmp;
+                  }
                   return sortOrder === "asc" ? cmp : -cmp;
+                });
+              } else {
+                sortedPayments = [...filteredPayments].sort((a, b) => {
+                  if (a.paymentId === b.paymentId) {
+                    return installmentNum(a.installments) - installmentNum(b.installments);
+                  }
+                  return 0;
                 });
               }
               if (sortedPayments.length === 0) return (
@@ -4084,7 +4099,7 @@ function PaymentsPageInner() {
             )}
 
             {/* Form */}
-            <div className="flex flex-col gap-[5px] px-4 pb-[80px]">
+            <div className="flex flex-col gap-[5px] px-4 pb-4">
               {/* Date Field */}
               <div className="flex flex-col gap-[5px]">
                 <div className="flex items-start">
@@ -4849,8 +4864,8 @@ function PaymentsPageInner() {
                 );
               })()}
 
-              {/* Action Buttons */}
-              <div className="flex flex-col gap-[10px] mt-[20px]">
+              {/* Action Buttons — sticky to bottom of Sheet so they're always visible */}
+              <div className="sticky bottom-0 left-0 right-0 -mx-4 mt-[20px] px-4 pt-[10px] pb-[10px] bg-[#0f1535] border-t border-[#4C526B] flex flex-col gap-[10px] z-10">
                 <Button
                   type="button"
                   onClick={editingPaymentId ? handleUpdatePayment : handleSavePayment}
