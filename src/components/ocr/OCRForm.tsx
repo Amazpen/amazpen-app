@@ -837,10 +837,14 @@ export default function OCRForm({
     return result;
   };
 
-  const updatePaymentMethodField = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[], id: number, field: keyof PaymentMethodEntry, value: string, dateStr: string, dateSetter?: (d: string) => void) => {
+  const updatePaymentMethodField = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[], id: number, field: keyof PaymentMethodEntry, value: string, dateStr: string, dateSetter?: (d: string) => void, presetCreditCardId?: string) => {
     // Auto-set payment date when payment method is selected
     if (dateSetter && field === 'method' && value) {
-      const smartDate = getSmartPaymentDate(value, documentDate);
+      // If we're picking credit_card and have a preset card (supplier default),
+      // use the card-aware smart date instead of the generic one.
+      const smartDate = value === 'credit_card' && presetCreditCardId
+        ? getSmartPaymentDate('credit_card', documentDate, presetCreditCardId)
+        : getSmartPaymentDate(value, documentDate);
       if (smartDate) dateSetter(smartDate);
     }
     if (dateSetter && field === 'creditCardId' && value) {
@@ -851,6 +855,11 @@ export default function OCRForm({
     setter(prev => prev.map(p => {
       if (p.id !== id) return p;
       const updated = { ...p, [field]: value };
+      // When switching to credit_card and we have a preset default card, apply it
+      // here so installment generation below picks it up immediately.
+      if (field === 'method' && value === 'credit_card' && presetCreditCardId && !p.creditCardId) {
+        updated.creditCardId = presetCreditCardId;
+      }
 
       // Clear creditCardId when switching away from credit_card method
       if (field === 'method' && value !== 'credit_card') {
@@ -863,8 +872,9 @@ export default function OCRForm({
         const startDate = getEffectiveStartDate(methods, dateStr);
         // For credit_card with a card already selected (e.g. supplier default),
         // pin the row to the card's billing day; otherwise fall back to startDate.
-        const card = value === 'credit_card' && p.creditCardId
-          ? businessCreditCards.find(c => c.id === p.creditCardId)
+        const effectiveCardId = updated.creditCardId;
+        const card = value === 'credit_card' && effectiveCardId
+          ? businessCreditCards.find(c => c.id === effectiveCardId)
           : null;
         if (card && startDate) {
           updated.customInstallments = generateCreditCardInstallments(1, totalAmount, startDate, card.billing_day);
@@ -1705,6 +1715,7 @@ export default function OCRForm({
     setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>,
     dateStr: string,
     dateSetter?: (d: string) => void,
+    activeSupplierId?: string,
   ) => (
     <div className="flex flex-col gap-[15px]">
       <div className="flex items-center justify-between">
@@ -1737,7 +1748,20 @@ export default function OCRForm({
           {/* Payment Method Select */}
           <Select
             value={pm.method || "__none__"}
-            onValueChange={(val) => updatePaymentMethodField(setter, methods, pm.id, 'method', val === "__none__" ? "" : val, dateStr, dateSetter)}
+            onValueChange={(val) => {
+              const method = val === "__none__" ? "" : val;
+              // When user picks credit_card and there's no card on this row yet,
+              // resolve the supplier's default card so it gets auto-selected.
+              let presetCardId: string | undefined;
+              if (method === 'credit_card' && !pm.creditCardId && activeSupplierId) {
+                const sup = suppliers.find(s => s.id === activeSupplierId);
+                const defaultCardId = sup?.default_credit_card_id || '';
+                if (defaultCardId && businessCreditCards.some(c => c.id === defaultCardId)) {
+                  presetCardId = defaultCardId;
+                }
+              }
+              updatePaymentMethodField(setter, methods, pm.id, 'method', method, dateStr, dateSetter, presetCardId);
+            }}
           >
             <SelectTrigger className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center rounded-[10px] border-[#4C526B] cursor-pointer">
               <SelectValue placeholder="בחר אמצעי תשלום..." />
@@ -2599,7 +2623,7 @@ export default function OCRForm({
 
             <div className="flex flex-col gap-[15px]">
               {/* Payment Methods */}
-              {renderPaymentMethodsSection(inlinePaymentMethods, setInlinePaymentMethods, inlinePaymentDate, setInlinePaymentDate)}
+              {renderPaymentMethodsSection(inlinePaymentMethods, setInlinePaymentMethods, inlinePaymentDate, setInlinePaymentDate, supplierId)}
 
               {/* Payment Date — hidden once installments table is shown (each row has its own date there) */}
               {inlinePaymentMethods.every(pm => pm.customInstallments.length === 0) && (
@@ -3150,7 +3174,7 @@ export default function OCRForm({
       )}
 
       {/* Payment Methods Section */}
-      {renderPaymentMethodsSection(paymentMethods, setPaymentMethods, paymentTabDate, setPaymentTabDate)}
+      {renderPaymentMethodsSection(paymentMethods, setPaymentMethods, paymentTabDate, setPaymentTabDate, paymentTabSupplierId)}
 
       {/* Reference (upload button removed — the receipt is already attached from OCR) */}
       <div className="flex flex-col gap-[3px]">
