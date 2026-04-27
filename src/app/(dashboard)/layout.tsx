@@ -63,7 +63,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/surveys", "/ocr", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/markezet-import", "/admin/payments", "/admin/commitments", "/admin/daily-entries", "/admin/historical-data", "/admin/online-users", "/admin/accounting-review", "/admin/day-exceptions", "/admin/bonus-plans", "/admin/goals-import", "/admin/supplier-budgets", "/admin/ai-conversations"];
+const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/surveys", "/ocr", "/ocr/demo", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/markezet-import", "/admin/payments", "/admin/commitments", "/admin/daily-entries", "/admin/historical-data", "/admin/online-users", "/admin/accounting-review", "/admin/day-exceptions", "/admin/bonus-plans", "/admin/goals-import", "/admin/supplier-budgets", "/admin/ai-conversations"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -110,6 +110,7 @@ const adminMenuGroups: Array<{
     title: "תפעול יומיומי",
     items: [
       { id: 104, label: "קליטת מסמכים OCR", href: "/ocr", key: "admin-ocr" },
+      { id: 121, label: "OCR דמו", href: "/ocr/demo", key: "admin-ocr-demo" },
       { id: 120, label: "מעקב מחירי ספקים", href: "/price-tracking", key: "admin-price-tracking" },
       { id: 111, label: "בדיקה ורישום בהנה\"ח", href: "/admin/accounting-review", key: "admin-accounting-review" },
       { id: 113, label: "חריגות ימי עסקים", href: "/admin/day-exceptions", key: "admin-day-exceptions" },
@@ -141,6 +142,7 @@ const pageTitles: Record<string, string> = {
   "/payments": "ניהול תשלומים",
   "/cashflow": "תזרים מזומנים",
   "/ocr": "קליטת מסמכים OCR",
+  "/ocr/demo": "OCR דמו",
   "/reports": "דוח רווח הפסד",
   "/goals": "יעדים",
   "/insights": "תובנות",
