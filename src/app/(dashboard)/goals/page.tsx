@@ -1295,12 +1295,18 @@ export default function GoalsPage() {
                 // For vs-current and vs-goods, categories are flat, so editable
                 const isFlatEditable = (isCurrent || isGoods) && item.editable;
                 const isExpanded = expandedGoalId === item.id;
+                // Fixed-expense category: name "הוצאות קבועות" OR every supplier under it is fixed
+                const isFixedCategory = (isCurrent || isGoods) && (
+                  item.name === "הוצאות קבועות" ||
+                  (item.supplierIds && item.supplierIds.length > 0 && item.supplierIds.every(sId => supplierFixedInfoMap.get(sId)?.isFixed))
+                );
 
                 return (
                   <div key={item.id} className="flex flex-col">
                     {/* Parent Row */}
                     <div
                       className={`flex flex-row items-center justify-between gap-[5px] border-b border-white/10 p-[7px] min-h-[50px] ${isExpandable ? 'cursor-pointer' : ''}`}
+                      style={isFixedCategory ? { backgroundColor: 'rgb(188 118 255 / 0.1)' } : undefined}
                       onClick={isExpandable ? () => { setExpandedGoalId(isExpanded ? null : item.id); setExpandedChildId(null); } : undefined}
                     >
                       {/* Progress/Status - left side */}
@@ -1361,7 +1367,7 @@ export default function GoalsPage() {
 
                       {/* Category/Goal Name - right side */}
                       <div className="flex-1 flex flex-row items-center justify-end gap-[3px]">
-                        <span className="text-[14px] font-bold text-white text-right" dir="rtl">
+                        <span className="text-[14px] font-bold text-right" dir="rtl" style={isFixedCategory ? { color: '#bc76ff' } : { color: '#ffffff' }}>
                           {item.name}
                         </span>
                         {isExpandable && (
@@ -1385,17 +1391,24 @@ export default function GoalsPage() {
                           // Expense: target - actual (positive = under budget)
                           const sDiff = sTarget - sActual;
                           const sColor = getStatusColor(sPct, true, sActual, sTarget);
-                          const isFixedSupplier = supplierFixedInfoMap.get(sId)?.isFixed;
-                          // Paint purple only while we're still waiting for the
-                          // real invoice — once one has been matched (OCR or
-                          // manual), the row flips back to the normal style.
+                          const isFixedSupplier = !!supplierFixedInfoMap.get(sId)?.isFixed;
+                          // Tint purple for every fixed-expense supplier so they
+                          // are always visually distinct on the goals screen,
+                          // matching the report (רווח/הפסד) styling. Use a
+                          // slightly stronger purple while still awaiting the
+                          // real invoice to keep that signal visible.
                           const isAwaitingFixedInvoice = isFixedSupplier && !fixedSuppliersWithInvoiceState.has(sId);
+                          const rowBg = isAwaitingFixedInvoice
+                            ? 'rgb(188 118 255 / 0.18)'
+                            : isFixedSupplier
+                              ? 'rgb(188 118 255 / 0.08)'
+                              : undefined;
 
                           return (
                             <div
                               key={sId}
                               className={`flex flex-row items-center justify-between gap-[5px] p-[7px] min-h-[42px] ${sIdx < item.supplierIds!.length - 1 ? 'border-b border-white/5' : ''}`}
-                              style={isAwaitingFixedInvoice ? { backgroundColor: 'rgb(188 118 255 / 0.1)' } : undefined}
+                              style={rowBg ? { backgroundColor: rowBg } : undefined}
                             >
                               {/* Status */}
                               <div className="flex flex-col items-center gap-[2px]">
@@ -1437,7 +1450,7 @@ export default function GoalsPage() {
                               )}
 
                               {/* Supplier Name */}
-                              <span className="flex-1 text-[13px] text-right" style={isAwaitingFixedInvoice ? { color: '#bc76ff' } : { color: 'rgb(255 255 255 / 0.7)' }} dir="rtl">
+                              <span className="flex-1 text-[13px] text-right" style={isFixedSupplier ? { color: '#bc76ff' } : { color: 'rgb(255 255 255 / 0.7)' }} dir="rtl">
                                 {supplierNamesMap.get(sId) || sId}
                               </span>
                             </div>
