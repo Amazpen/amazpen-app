@@ -554,12 +554,12 @@ export default function AdminGoalsPage() {
   };
 
   // Save all changes
-  // Suppliers eligible for auto-invoice generation: every current_expenses supplier.
-  // Per product spec: when an admin sets a budget for a current-expenses supplier
-  // (fixed OR variable), an invoice should be created/updated for that month.
+  // Suppliers eligible for auto-invoice generation: ONLY fixed-expense suppliers.
+  // Variable-expense suppliers get budgets stored, but no invoice is auto-created
+  // — those invoices come from real-world receipts, not from a forecast.
   // Suppliers with prior obligations are excluded — those are tracked separately.
   const isInvoiceEligible = (s: Supplier): boolean =>
-    s.expense_type === "current_expenses" && !s.has_previous_obligations;
+    s.is_fixed_expense && !s.has_previous_obligations;
 
   // Detect existing invoices that would be overwritten by saving the current
   // budgets. Returns the list of conflicts so the user can confirm.
@@ -746,7 +746,7 @@ export default function AdminGoalsPage() {
             total_amount: totalAmount,
             status: "pending",
             invoice_type: invoiceType,
-            notes: supplier.is_fixed_expense ? "הוצאה קבועה - נוצרה אוטומטית" : "הוצאה משתנה - נוצרה מתקציב יעד",
+            notes: "הוצאה קבועה - נוצרה אוטומטית",
           });
         }
       }
