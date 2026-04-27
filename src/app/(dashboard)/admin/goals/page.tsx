@@ -480,6 +480,31 @@ export default function AdminGoalsPage() {
     });
   };
 
+  // Update supplier name or is_fixed_expense — persist immediately to DB
+  const updateSupplierField = async (
+    supplierId: string,
+    field: "name" | "is_fixed_expense",
+    value: string | boolean,
+  ) => {
+    const supabase = createClient();
+    const prevSnapshot = suppliers.find(s => s.id === supplierId);
+    // Optimistic update
+    setSuppliers(prev => prev.map(s => s.id === supplierId ? { ...s, [field]: value } : s));
+    const { error } = await supabase
+      .from("suppliers")
+      .update({ [field]: value })
+      .eq("id", supplierId);
+    if (error) {
+      // Revert on failure
+      if (prevSnapshot) {
+        setSuppliers(prev => prev.map(s => s.id === supplierId ? prevSnapshot : s));
+      }
+      showToast(`שגיאה בעדכון הספק: ${error.message}`, "error");
+      return;
+    }
+    showToast(field === "name" ? "שם הספק עודכן" : "סוג ההוצאה עודכן", "success");
+  };
+
   // Update supplier budget for a specific month
   const updateSupplierBudget = (supplierId: string, month: number, value: number) => {
     setSupplierBudgets((prev) => {
@@ -991,8 +1016,33 @@ export default function AdminGoalsPage() {
                       .sort((a, b) => (a.is_fixed_expense === b.is_fixed_expense ? 0 : a.is_fixed_expense ? -1 : 1))
                       .map((supplier) => (
                       <TableRow key={supplier.id} className={`border-b border-white/5 hover:bg-white/[0.02] ${supplier.is_fixed_expense ? "bg-[#7C3AED]/10" : ""}`}>
-                        <TableCell className={`sticky right-0 z-10 px-4 py-2 text-sm font-medium ${supplier.is_fixed_expense ? "bg-[#7C3AED]/15 text-[#C084FC]" : "bg-[#1A1F37] text-white/90"}`}>{supplier.name}</TableCell>
-                        <TableCell className={`px-2 py-2 text-xs ${supplier.is_fixed_expense ? "text-[#C084FC] font-medium" : "text-white/40"}`}>{supplier.is_fixed_expense ? "קבוע" : "משתנה"}</TableCell>
+                        <TableCell className={`sticky right-0 z-10 px-2 py-1 text-sm font-medium ${supplier.is_fixed_expense ? "bg-[#7C3AED]/15" : "bg-[#1A1F37]"}`}>
+                          <Input
+                            type="text"
+                            defaultValue={supplier.name}
+                            onBlur={(e) => {
+                              const newName = e.target.value.trim();
+                              if (newName && newName !== supplier.name) {
+                                updateSupplierField(supplier.id, "name", newName);
+                              } else if (!newName) {
+                                e.target.value = supplier.name;
+                              }
+                            }}
+                            className={`w-full bg-transparent border border-transparent hover:border-[#29318A]/50 focus:border-[#4956D4] rounded px-2 py-1 text-sm font-medium focus:outline-none ${supplier.is_fixed_expense ? "text-[#C084FC]" : "text-white/90"}`}
+                          />
+                        </TableCell>
+                        <TableCell className="px-2 py-2 text-xs">
+                          <select
+                            value={supplier.is_fixed_expense ? "fixed" : "variable"}
+                            onChange={(e) =>
+                              updateSupplierField(supplier.id, "is_fixed_expense", e.target.value === "fixed")
+                            }
+                            className={`bg-[#0F1535] border border-[#29318A]/50 rounded px-2 py-1 text-xs cursor-pointer focus:outline-none focus:border-[#4956D4] ${supplier.is_fixed_expense ? "text-[#C084FC] font-medium" : "text-white/70"}`}
+                          >
+                            <option value="fixed">קבוע</option>
+                            <option value="variable">משתנה</option>
+                          </select>
+                        </TableCell>
                         {hebrewMonths.map((m) => {
                           const budget = getBudget(supplier.id, m.value);
                           return (
@@ -1071,8 +1121,33 @@ export default function AdminGoalsPage() {
                       .sort((a, b) => (a.is_fixed_expense === b.is_fixed_expense ? 0 : a.is_fixed_expense ? -1 : 1))
                       .map((supplier) => (
                       <TableRow key={supplier.id} className={`border-b border-white/5 hover:bg-white/[0.02] ${supplier.is_fixed_expense ? "bg-[#7C3AED]/10" : ""}`}>
-                        <TableCell className={`sticky right-0 z-10 px-4 py-2 text-sm font-medium ${supplier.is_fixed_expense ? "bg-[#7C3AED]/15 text-[#C084FC]" : "bg-[#1A1F37] text-white/90"}`}>{supplier.name}</TableCell>
-                        <TableCell className={`px-2 py-2 text-xs ${supplier.is_fixed_expense ? "text-[#C084FC] font-medium" : "text-white/40"}`}>{supplier.is_fixed_expense ? "קבוע" : "משתנה"}</TableCell>
+                        <TableCell className={`sticky right-0 z-10 px-2 py-1 text-sm font-medium ${supplier.is_fixed_expense ? "bg-[#7C3AED]/15" : "bg-[#1A1F37]"}`}>
+                          <Input
+                            type="text"
+                            defaultValue={supplier.name}
+                            onBlur={(e) => {
+                              const newName = e.target.value.trim();
+                              if (newName && newName !== supplier.name) {
+                                updateSupplierField(supplier.id, "name", newName);
+                              } else if (!newName) {
+                                e.target.value = supplier.name;
+                              }
+                            }}
+                            className={`w-full bg-transparent border border-transparent hover:border-[#29318A]/50 focus:border-[#4956D4] rounded px-2 py-1 text-sm font-medium focus:outline-none ${supplier.is_fixed_expense ? "text-[#C084FC]" : "text-white/90"}`}
+                          />
+                        </TableCell>
+                        <TableCell className="px-2 py-2 text-xs">
+                          <select
+                            value={supplier.is_fixed_expense ? "fixed" : "variable"}
+                            onChange={(e) =>
+                              updateSupplierField(supplier.id, "is_fixed_expense", e.target.value === "fixed")
+                            }
+                            className={`bg-[#0F1535] border border-[#29318A]/50 rounded px-2 py-1 text-xs cursor-pointer focus:outline-none focus:border-[#4956D4] ${supplier.is_fixed_expense ? "text-[#C084FC] font-medium" : "text-white/70"}`}
+                          >
+                            <option value="fixed">קבוע</option>
+                            <option value="variable">משתנה</option>
+                          </select>
+                        </TableCell>
                         {hebrewMonths.map((m) => {
                           const budget = getBudget(supplier.id, m.value);
                           return (
