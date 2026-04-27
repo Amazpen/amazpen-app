@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const N8N_WEBHOOK_URL = "https://n8n-lv4j.onrender.com/webhook/target121";
-// CC fixed list — david & netanel see every alert across all clients.
-const CC_EMAIL = "david@amazpen.co.il, netn114@gmail.com";
+// CC fixed: david sees every alert across all clients.
+const CC_EMAIL = "david@amazpen.co.il";
 
 export async function POST(request: NextRequest) {
   try {

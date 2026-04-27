@@ -29,8 +29,8 @@ export async function POST(request: NextRequest) {
   const now = new Date();
   const year = parseInt(searchParams.get("year") || "") || now.getFullYear();
   const month = parseInt(searchParams.get("month") || "") || (now.getMonth() + 1);
-  // דוד ונתנאל תמיד ב-CC כדי שיראו התראות על חריגות אצל כל הלקוחות.
-  const CC_EMAIL = "david@amazpen.co.il, netn114@gmail.com";
+  // דוד תמיד ב-CC כדי שיראה התראות על חריגות אצל כל הלקוחות.
+  const CC_EMAIL = "david@amazpen.co.il";
 
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const monthEnd =
