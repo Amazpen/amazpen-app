@@ -3736,8 +3736,36 @@ function ExpensesPageInner() {
           .eq("id", deletingInvoiceId);
         if (error) throw error;
       } else {
-        // Invoices: remove linked payments first (FK), then the invoice.
-        await supabase.from("payments").delete().eq("invoice_id", deletingInvoiceId);
+        // Invoices: cascade through dependent rows in FK order before deleting.
+        // 1. find payments linked directly via payments.invoice_id
+        const { data: directPayments } = await supabase
+          .from("payments")
+          .select("id")
+          .eq("invoice_id", deletingInvoiceId);
+        // 2. find payments linked via the join table
+        const { data: joinedLinks } = await supabase
+          .from("payment_invoice_links")
+          .select("payment_id")
+          .eq("invoice_id", deletingInvoiceId);
+
+        const paymentIds = Array.from(
+          new Set([
+            ...(directPayments || []).map((p) => p.id),
+            ...(joinedLinks || []).map((l) => l.payment_id),
+          ])
+        );
+
+        // 3. delete payment_splits referencing those payments
+        if (paymentIds.length > 0) {
+          await supabase.from("payment_splits").delete().in("payment_id", paymentIds);
+        }
+        // 4. delete payment_invoice_links pointing at this invoice
+        await supabase.from("payment_invoice_links").delete().eq("invoice_id", deletingInvoiceId);
+        // 5. delete payments themselves
+        if (paymentIds.length > 0) {
+          await supabase.from("payments").delete().in("id", paymentIds);
+        }
+        // 6. finally delete the invoice
         const { error } = await supabase
           .from("invoices")
           .delete()
