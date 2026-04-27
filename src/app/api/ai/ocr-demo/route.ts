@@ -28,6 +28,23 @@ interface MistralOcrResponse {
   usageInfo?: { pagesProcessed?: number; docSizeBytes?: number };
 }
 
+function guessMimeFromName(name: string): string {
+  const ext = name.toLowerCase().split(".").pop() || "";
+  const map: Record<string, string> = {
+    pdf: "application/pdf",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    gif: "image/gif",
+    bmp: "image/bmp",
+    tif: "image/tiff",
+    tiff: "image/tiff",
+    heic: "image/heic",
+  };
+  return map[ext] || "application/octet-stream";
+}
+
 export async function POST(req: NextRequest) {
   if (!MISTRAL_KEY) {
     return NextResponse.json(
@@ -41,8 +58,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const contentType = req.headers.get("content-type") || "";
-    let documentInput: { type: "document_url"; documentUrl: string };
     let fileName = "uploaded-document";
+
+    let documentForOcr:
+      | { type: "document_url"; documentUrl: string }
+      | { type: "image_url"; imageUrl: string };
 
     if (contentType.includes("multipart/form-data")) {
       const form = await req.formData();
@@ -52,24 +72,46 @@ export async function POST(req: NextRequest) {
       }
       fileName = file.name || fileName;
       const arrayBuffer = await file.arrayBuffer();
-      const uploaded = await client.files.upload({
-        file: { fileName, content: new Uint8Array(arrayBuffer) },
-        purpose: "ocr",
-      });
-      const signed = await client.files.getSignedUrl({ fileId: uploaded.id });
-      documentInput = { type: "document_url", documentUrl: signed.url };
+      const bytes = new Uint8Array(arrayBuffer);
+      const mime = file.type || guessMimeFromName(fileName);
+      const isImage = mime.startsWith("image/");
+
+      if (isImage) {
+        // Inline image as base64 data URL — Mistral OCR accepts this directly
+        // and avoids the file-upload roundtrip that was failing on JPEGs.
+        const base64 = Buffer.from(bytes).toString("base64");
+        documentForOcr = {
+          type: "image_url",
+          imageUrl: `data:${mime};base64,${base64}`,
+        };
+      } else {
+        // PDFs / other docs go through the upload + signed-url flow.
+        // SDK requires a real Blob for `file`, not a plain object.
+        const blob = new Blob([bytes as unknown as BlobPart], { type: mime || "application/pdf" });
+        const uploaded = await client.files.upload({
+          file: new File([blob], fileName, { type: mime || "application/pdf" }),
+          purpose: "ocr",
+        });
+        const signed = await client.files.getSignedUrl({ fileId: uploaded.id });
+        documentForOcr = { type: "document_url", documentUrl: signed.url };
+      }
     } else {
       const body = (await req.json()) as { file_url?: string };
       if (!body.file_url) {
         return NextResponse.json({ error: "file_url required" }, { status: 400 });
       }
-      documentInput = { type: "document_url", documentUrl: body.file_url };
-      fileName = body.file_url.split("/").pop() || fileName;
+      const url = body.file_url.trim();
+      const isImageUrl = /\.(jpe?g|png|webp|gif|bmp|tiff?)$/i.test(url);
+      documentForOcr = isImageUrl
+        ? { type: "image_url", imageUrl: url }
+        : { type: "document_url", documentUrl: url };
+      fileName = url.split("/").pop() || fileName;
     }
 
     const result = (await client.ocr.process({
       model: "mistral-ocr-latest",
-      document: documentInput,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      document: documentForOcr as any,
       includeImageBase64: false,
     })) as MistralOcrResponse;
 
