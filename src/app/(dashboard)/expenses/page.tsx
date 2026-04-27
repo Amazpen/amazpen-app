@@ -1529,8 +1529,15 @@ function ExpensesPageInner() {
               const categoryId = inv.supplier.expense_category_id;
               // isFixed = supplier is marked as fixed expense
               const isFixed = inv.supplier.is_fixed_expense || false;
-              // Track if this invoice is still pending (not paid)
-              const isPending = inv.status !== "paid";
+              // For purple-tinting: an invoice counts as "pending" only when it
+              // is missing BOTH the attachment and the reference number (matches
+              // the per-row logic at #invoice-card so the supplier breakdown row
+              // turns white as soon as any invoice has either signal).
+              const invAttachment = (inv as { attachment_url?: string | null }).attachment_url;
+              const invReference = (inv as { invoice_number?: string | null }).invoice_number;
+              const hasInvAttachment = !!invAttachment && String(invAttachment).trim() !== "";
+              const hasInvReference = !!invReference && String(invReference).trim() !== "" && invReference !== "-";
+              const isPending = !hasInvAttachment && !hasInvReference;
 
               // Add to supplier totals (for chart/purchases tab)
               if (supplierTotals.has(supplierId)) {
@@ -1541,6 +1548,10 @@ function ExpensesPageInner() {
               }
 
               // Add to category totals with supplier breakdown (for expenses tab drill-down)
+              // hasPending semantics: stays true ONLY while every invoice for
+              // this supplier in the period is still missing both attachment
+              // AND reference. The first approved invoice flips it to false
+              // and locks it there.
               if (categoryId && categoryTotals.has(categoryId)) {
                 const category = categoryTotals.get(categoryId)!;
                 category.total += subtotal;
@@ -1550,8 +1561,7 @@ function ExpensesPageInner() {
                   const supplier = category.suppliers.get(supplierId)!;
                   supplier.total += subtotal;
                   if (isFixed) supplier.isFixed = true;
-                  // If any invoice is still pending, mark hasPending
-                  if (isPending) supplier.hasPending = true;
+                  if (!isPending) supplier.hasPending = false;
                 } else {
                   category.suppliers.set(supplierId, { name: supplierName, total: subtotal, isFixed, hasPending: isFixed && isPending });
                 }
@@ -1567,7 +1577,7 @@ function ExpensesPageInner() {
                   const supplier = uncategorized.suppliers.get(supplierId)!;
                   supplier.total += subtotal;
                   if (isFixed) supplier.isFixed = true;
-                  if (isPending) supplier.hasPending = true;
+                  if (!isPending) supplier.hasPending = false;
                 } else {
                   uncategorized.suppliers.set(supplierId, { name: supplierName, total: subtotal, isFixed, hasPending: isFixed && isPending });
                 }
