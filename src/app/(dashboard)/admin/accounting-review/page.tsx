@@ -424,6 +424,9 @@ export default function AccountingReviewPage() {
           : inv
       )
     );
+    // Clear the selection so the checkboxes reset and the user can keep working
+    // on other rows without the previous batch staying ticked.
+    setSelectedIds(new Set());
     showToast(`${toApprove.length} חשבוניות סומנו כנרשמו בהנה"ח`, "success");
   }, [selectedInvoices, supabase, userId, showToast]);
 
