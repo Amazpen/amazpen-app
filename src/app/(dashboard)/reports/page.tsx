@@ -637,7 +637,13 @@ export default function ReportsPage() {
         const laborParents = (categoriesData || []).filter(c => !c.parent_id && laborCostNames.has(c.name));
         const laborParentIds = new Set(laborParents.map(c => c.id));
         const primaryLaborParent = laborParents.find(c => c.name === "עלות עובדים") || laborParents[0];
-        const parentCategories = (categoriesData || []).filter(c => !c.parent_id && !(laborCostNames.has(c.name) && c.id !== primaryLaborParent?.id));
+        const parentCategoriesRaw = (categoriesData || []).filter(c => !c.parent_id && !(laborCostNames.has(c.name) && c.id !== primaryLaborParent?.id));
+        // Ensure "עלות עובדים" parent always exists in the report — labor data
+        // comes from daily_entries, not invoices, so the row should render even
+        // when the business has no expense_categories row for it.
+        const parentCategories = laborParents.length > 0
+          ? parentCategoriesRaw
+          : [...parentCategoriesRaw, { id: "__virtual_labor_parent__", name: "עלות עובדים", parent_id: null }];
         const childCategories = (categoriesData || []).filter(c => c.parent_id);
 
         const displayCategories: ExpenseCategoryDisplay[] = parentCategories.map(parent => {
