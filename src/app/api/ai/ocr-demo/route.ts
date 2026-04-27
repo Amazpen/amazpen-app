@@ -85,15 +85,40 @@ export async function POST(req: NextRequest) {
           imageUrl: `data:${mime};base64,${base64}`,
         };
       } else {
-        // PDFs / other docs go through the upload + signed-url flow.
-        // SDK requires a real Blob for `file`, not a plain object.
-        const blob = new Blob([bytes as unknown as BlobPart], { type: mime || "application/pdf" });
-        const uploaded = await client.files.upload({
-          file: new File([blob], fileName, { type: mime || "application/pdf" }),
-          purpose: "ocr",
+        // PDFs: bypass the SDK and call Mistral's REST upload endpoint directly
+        // with native FormData. The SDK's File-wrapping path was producing a
+        // 422 "field required" against /v1/files in the runtime environment.
+        const fd = new FormData();
+        const blob = new Blob([bytes as unknown as BlobPart], {
+          type: mime || "application/pdf",
         });
-        const signed = await client.files.getSignedUrl({ fileId: uploaded.id });
-        documentForOcr = { type: "document_url", documentUrl: signed.url };
+        fd.append("purpose", "ocr");
+        fd.append("file", blob, fileName);
+
+        const uploadRes = await fetch("https://api.mistral.ai/v1/files", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${MISTRAL_KEY}` },
+          body: fd,
+        });
+        if (!uploadRes.ok) {
+          const errText = await uploadRes.text();
+          throw new Error(`Mistral file upload failed: ${uploadRes.status} ${errText}`);
+        }
+        const uploadJson = (await uploadRes.json()) as { id?: string };
+        if (!uploadJson.id) throw new Error("Mistral upload returned no file id");
+
+        const signedRes = await fetch(
+          `https://api.mistral.ai/v1/files/${uploadJson.id}/url?expiry=24`,
+          { headers: { Authorization: `Bearer ${MISTRAL_KEY}` } },
+        );
+        if (!signedRes.ok) {
+          const errText = await signedRes.text();
+          throw new Error(`Mistral signed URL failed: ${signedRes.status} ${errText}`);
+        }
+        const signedJson = (await signedRes.json()) as { url?: string };
+        if (!signedJson.url) throw new Error("Mistral signed URL response missing url");
+
+        documentForOcr = { type: "document_url", documentUrl: signedJson.url };
       }
     } else {
       const body = (await req.json()) as { file_url?: string };
