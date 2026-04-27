@@ -1368,44 +1368,44 @@ export default function OCRForm({
       setLineItems([]);
       setPriceCheckDone(false);
     }
-    // Only restore draft if the document has NO OCR data (i.e. user was filling from scratch).
-    // When OCR data exists, OCR values take priority - don't override with stale draft.
+    // Restore the draft (per-document, keyed by business+document id) regardless
+    // of whether the document has OCR data — the draft holds the user's manual
+    // edits, which must outrank the OCR baseline. Without this, switching to a
+    // sibling document and back wipes out edits the user already made.
     draftRestored.current = false;
     setTimeout(() => {
-      if (!document?.ocr_data) {
-        const draft = restoreDraft();
-        if (draft) {
-          if (draft.documentType) setDocumentType(draft.documentType as DocumentType);
-          if (draft.expenseType) setExpenseType(draft.expenseType as ExpenseType);
-          if (draft.supplierId !== undefined) setSupplierId(draft.supplierId as string);
-          if (draft.documentDate) setDocumentDate(draft.documentDate as string);
-          if (draft.documentNumber !== undefined) setDocumentNumber(draft.documentNumber as string);
-          if (draft.discountAmount !== undefined) setDiscountAmount(draft.discountAmount as string);
-          if (draft.discountPercentage !== undefined) setDiscountPercentage(draft.discountPercentage as string);
-          if (draft.amountBeforeVat !== undefined) setAmountBeforeVat(draft.amountBeforeVat as string);
-          if (draft.vatAmount !== undefined) setVatAmount(draft.vatAmount as string);
-          if (draft.partialVat !== undefined) setPartialVat(draft.partialVat as boolean);
-          if (draft.notes !== undefined) setNotes(draft.notes as string);
-          if (draft.isPaid !== undefined) setIsPaid(draft.isPaid as boolean);
-          if (draft.inlinePaymentMethod !== undefined) setInlinePaymentMethod(draft.inlinePaymentMethod as string);
-          if (draft.inlinePaymentDate !== undefined) setInlinePaymentDate(draft.inlinePaymentDate as string);
-          if (draft.inlinePaymentReference !== undefined) setInlinePaymentReference(draft.inlinePaymentReference as string);
-          if (draft.inlinePaymentNotes !== undefined) setInlinePaymentNotes(draft.inlinePaymentNotes as string);
-          if (draft.inlinePaymentMethods) setInlinePaymentMethods(draft.inlinePaymentMethods as PaymentMethodEntry[]);
-          if (draft.paymentTabDate) setPaymentTabDate(draft.paymentTabDate as string);
-          if (draft.paymentTabExpenseType) setPaymentTabExpenseType(draft.paymentTabExpenseType as 'all' | 'expenses' | 'purchases' | 'employees');
-          if (draft.paymentTabSupplierId !== undefined) setPaymentTabSupplierId(draft.paymentTabSupplierId as string);
-          if (draft.paymentTabReference !== undefined) setPaymentTabReference(draft.paymentTabReference as string);
-          if (draft.paymentTabNotes !== undefined) setPaymentTabNotes(draft.paymentTabNotes as string);
-          if (draft.paymentMethods) setPaymentMethods(draft.paymentMethods as PaymentMethodEntry[]);
-          if (draft.summarySupplierId !== undefined) setSummarySupplierId(draft.summarySupplierId as string);
-          if (draft.summaryDate) setSummaryDate(draft.summaryDate as string);
-          if (draft.summaryInvoiceNumber !== undefined) setSummaryInvoiceNumber(draft.summaryInvoiceNumber as string);
-          if (draft.summaryTotalAmount !== undefined) setSummaryTotalAmount(draft.summaryTotalAmount as string);
-          if (draft.summaryIsClosed !== undefined) setSummaryIsClosed(draft.summaryIsClosed as string);
-          if (draft.summaryNotes !== undefined) setSummaryNotes(draft.summaryNotes as string);
-          if (draft.summaryDeliveryNotes) setSummaryDeliveryNotes(draft.summaryDeliveryNotes as DeliveryNoteEntry[]);
-        }
+      const draft = restoreDraft();
+      if (draft) {
+        if (draft.documentType) setDocumentType(draft.documentType as DocumentType);
+        if (draft.expenseType) setExpenseType(draft.expenseType as ExpenseType);
+        if (draft.supplierId !== undefined) setSupplierId(draft.supplierId as string);
+        if (draft.documentDate) setDocumentDate(draft.documentDate as string);
+        if (draft.documentNumber !== undefined) setDocumentNumber(draft.documentNumber as string);
+        if (draft.discountAmount !== undefined) setDiscountAmount(draft.discountAmount as string);
+        if (draft.discountPercentage !== undefined) setDiscountPercentage(draft.discountPercentage as string);
+        if (draft.amountBeforeVat !== undefined) setAmountBeforeVat(draft.amountBeforeVat as string);
+        if (draft.vatAmount !== undefined) setVatAmount(draft.vatAmount as string);
+        if (draft.partialVat !== undefined) setPartialVat(draft.partialVat as boolean);
+        if (draft.notes !== undefined) setNotes(draft.notes as string);
+        if (draft.isPaid !== undefined) setIsPaid(draft.isPaid as boolean);
+        if (draft.inlinePaymentMethod !== undefined) setInlinePaymentMethod(draft.inlinePaymentMethod as string);
+        if (draft.inlinePaymentDate !== undefined) setInlinePaymentDate(draft.inlinePaymentDate as string);
+        if (draft.inlinePaymentReference !== undefined) setInlinePaymentReference(draft.inlinePaymentReference as string);
+        if (draft.inlinePaymentNotes !== undefined) setInlinePaymentNotes(draft.inlinePaymentNotes as string);
+        if (draft.inlinePaymentMethods) setInlinePaymentMethods(draft.inlinePaymentMethods as PaymentMethodEntry[]);
+        if (draft.paymentTabDate) setPaymentTabDate(draft.paymentTabDate as string);
+        if (draft.paymentTabExpenseType) setPaymentTabExpenseType(draft.paymentTabExpenseType as 'all' | 'expenses' | 'purchases' | 'employees');
+        if (draft.paymentTabSupplierId !== undefined) setPaymentTabSupplierId(draft.paymentTabSupplierId as string);
+        if (draft.paymentTabReference !== undefined) setPaymentTabReference(draft.paymentTabReference as string);
+        if (draft.paymentTabNotes !== undefined) setPaymentTabNotes(draft.paymentTabNotes as string);
+        if (draft.paymentMethods) setPaymentMethods(draft.paymentMethods as PaymentMethodEntry[]);
+        if (draft.summarySupplierId !== undefined) setSummarySupplierId(draft.summarySupplierId as string);
+        if (draft.summaryDate) setSummaryDate(draft.summaryDate as string);
+        if (draft.summaryInvoiceNumber !== undefined) setSummaryInvoiceNumber(draft.summaryInvoiceNumber as string);
+        if (draft.summaryTotalAmount !== undefined) setSummaryTotalAmount(draft.summaryTotalAmount as string);
+        if (draft.summaryIsClosed !== undefined) setSummaryIsClosed(draft.summaryIsClosed as string);
+        if (draft.summaryNotes !== undefined) setSummaryNotes(draft.summaryNotes as string);
+        if (draft.summaryDeliveryNotes) setSummaryDeliveryNotes(draft.summaryDeliveryNotes as DeliveryNoteEntry[]);
       }
       draftRestored.current = true;
     }, 0);
