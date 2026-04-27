@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 // Types
 interface Business {
@@ -116,6 +117,18 @@ export default function AdminGoalsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
+
+  // Conflict popup — when saving budgets that would overwrite existing invoices
+  type InvoiceConflict = {
+    supplierId: string;
+    supplierName: string;
+    month: number;
+    monthLabel: string;
+    existingTotal: number;
+    newTotal: number;
+    invoiceCount: number;
+  };
+  const [pendingConflicts, setPendingConflicts] = useState<InvoiceConflict[] | null>(null);
 
   // Goal data
   const [goal, setGoal] = useState<Goal | null>(null);
@@ -541,9 +554,88 @@ export default function AdminGoalsPage() {
   };
 
   // Save all changes
+  // Suppliers eligible for auto-invoice generation: every current_expenses supplier.
+  // Per product spec: when an admin sets a budget for a current-expenses supplier
+  // (fixed OR variable), an invoice should be created/updated for that month.
+  // Suppliers with prior obligations are excluded — those are tracked separately.
+  const isInvoiceEligible = (s: Supplier): boolean =>
+    s.expense_type === "current_expenses" && !s.has_previous_obligations;
+
+  // Detect existing invoices that would be overwritten by saving the current
+  // budgets. Returns the list of conflicts so the user can confirm.
+  const detectInvoiceConflicts = async (): Promise<InvoiceConflict[]> => {
+    const supabase = createClient();
+    const conflicts: InvoiceConflict[] = [];
+
+    const eligibleBudgets = supplierBudgets.filter(b => {
+      const supplier = suppliers.find(s => s.id === b.supplier_id);
+      return supplier && isInvoiceEligible(supplier) && b.budget_amount > 0;
+    });
+
+    if (eligibleBudgets.length === 0) return conflicts;
+
+    for (const b of eligibleBudgets) {
+      const supplier = suppliers.find(s => s.id === b.supplier_id);
+      if (!supplier) continue;
+
+      const monthStart = `${b.year || selectedYear}-${String(b.month).padStart(2, "0")}-01`;
+      const lastDay = new Date(b.year || selectedYear, b.month, 0).getDate();
+      const monthEnd = `${b.year || selectedYear}-${String(b.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+      const { data: existingInvoices } = await supabase
+        .from("invoices")
+        .select("id, total_amount")
+        .eq("business_id", selectedBusinessId)
+        .eq("supplier_id", b.supplier_id)
+        .is("deleted_at", null)
+        .gte("reference_date", monthStart)
+        .lte("reference_date", monthEnd);
+
+      if (existingInvoices && existingInvoices.length > 0) {
+        const subtotal = b.budget_amount;
+        const vatAmount = supplier.vat_type === "full" ? subtotal * 0.18 : 0;
+        const newTotal = subtotal + vatAmount;
+        const existingTotal = existingInvoices.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
+
+        // Only flag when the new total actually differs from the existing one
+        if (Math.abs(existingTotal - newTotal) > 0.01) {
+          conflicts.push({
+            supplierId: b.supplier_id,
+            supplierName: supplier.name,
+            month: b.month,
+            monthLabel: hebrewMonths.find(m => m.value === b.month)?.label || String(b.month),
+            existingTotal,
+            newTotal,
+            invoiceCount: existingInvoices.length,
+          });
+        }
+      }
+    }
+
+    return conflicts;
+  };
+
   const saveAll = async () => {
     if (!goal) return;
 
+    setIsSaving(true);
+    try {
+      const conflicts = await detectInvoiceConflicts();
+      if (conflicts.length > 0) {
+        setPendingConflicts(conflicts);
+        setIsSaving(false);
+        return;
+      }
+      await executeSave();
+    } catch (error) {
+      console.error("Error checking conflicts:", error);
+      showToast("שגיאה בבדיקת התנגשויות", "error");
+      setIsSaving(false);
+    }
+  };
+
+  const executeSave = async () => {
+    if (!goal) return;
     setIsSaving(true);
     const supabase = createClient();
 
@@ -599,16 +691,10 @@ export default function AdminGoalsPage() {
         }
       }
 
-      // Sync fixed expense invoices with updated budget amounts
-      const fixedSupplierIds = new Set(
-        suppliers.filter((s) => s.is_fixed_expense && !s.has_previous_obligations).map((s) => s.id)
-      );
-
+      // Sync invoices for every current-expenses supplier with a non-zero budget
       for (const b of supplierBudgets) {
-        if (!fixedSupplierIds.has(b.supplier_id)) continue;
-
         const supplier = suppliers.find((s) => s.id === b.supplier_id);
-        if (!supplier) continue;
+        if (!supplier || !isInvoiceEligible(supplier)) continue;
 
         const subtotal = b.budget_amount;
         const vatAmount = supplier.vat_type === "full" ? subtotal * 0.18 : 0;
@@ -629,18 +715,21 @@ export default function AdminGoalsPage() {
           .lte("reference_date", monthEnd);
 
         if (existingInvoices && existingInvoices.length > 0) {
-          // Update existing invoice amount
-          for (const inv of existingInvoices) {
-            await supabase
-              .from("invoices")
-              .update({
-                subtotal,
-                vat_amount: vatAmount,
-                total_amount: totalAmount,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", inv.id);
+          if (subtotal > 0) {
+            // Update existing invoice amount
+            for (const inv of existingInvoices) {
+              await supabase
+                .from("invoices")
+                .update({
+                  subtotal,
+                  vat_amount: vatAmount,
+                  total_amount: totalAmount,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", inv.id);
+            }
           }
+          // subtotal=0 → leave existing invoices alone (we don't auto-delete)
         } else if (subtotal > 0) {
           // Create invoice if budget exists but no invoice yet
           const adjustedDay = Math.min(supplier.charge_day || 1, lastDay);
@@ -657,7 +746,7 @@ export default function AdminGoalsPage() {
             total_amount: totalAmount,
             status: "pending",
             invoice_type: invoiceType,
-            notes: "הוצאה קבועה - נוצרה אוטומטית",
+            notes: supplier.is_fixed_expense ? "הוצאה קבועה - נוצרה אוטומטית" : "הוצאה משתנה - נוצרה מתקציב יעד",
           });
         }
       }
@@ -677,6 +766,7 @@ export default function AdminGoalsPage() {
 
       await loadData(true);
       showToast("נשמר בהצלחה!", "success");
+      setPendingConflicts(null);
 
     } catch (error) {
       console.error("Error saving:", error);
@@ -1194,6 +1284,65 @@ export default function AdminGoalsPage() {
           )}
         </>
       )}
+
+      {/* Conflict popup — existing invoices would be overwritten by saving these budgets */}
+      <Dialog open={!!pendingConflicts} onOpenChange={(open) => !open && setPendingConflicts(null)}>
+        <DialogContent className="bg-[#1A1F37] border border-[#29318A] text-white max-w-[600px]" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-right text-[18px] font-bold text-[#FFA500]">
+              חשבוניות קיימות — אישור עדכון
+            </DialogTitle>
+          </DialogHeader>
+          <div className="text-right space-y-3 max-h-[400px] overflow-y-auto py-2">
+            <p className="text-[14px] text-white/80">
+              עבור הספקים הבאים כבר קיימת חשבונית בחודש המבוקש בסכום שונה מהיעד החדש. שמירה תחליף את הסכום של החשבוניות הקיימות לפי היעד החדש:
+            </p>
+            <div className="border border-white/10 rounded-lg overflow-hidden">
+              <table className="w-full text-[13px]">
+                <thead className="bg-[#0F1535]">
+                  <tr>
+                    <th className="px-3 py-2 text-right font-semibold">ספק</th>
+                    <th className="px-3 py-2 text-center font-semibold">חודש</th>
+                    <th className="px-3 py-2 text-center font-semibold">קיים</th>
+                    <th className="px-3 py-2 text-center font-semibold">חדש</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(pendingConflicts || []).map((c, i) => (
+                    <tr key={`${c.supplierId}-${c.month}-${i}`} className="border-t border-white/5">
+                      <td className="px-3 py-2 text-right">{c.supplierName}</td>
+                      <td className="px-3 py-2 text-center text-white/70">{c.monthLabel}</td>
+                      <td className="px-3 py-2 text-center text-white/70">₪{c.existingTotal.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-center text-[#17DB4E] font-medium">₪{c.newTotal.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[12px] text-white/50">
+              סה״כ {pendingConflicts?.length || 0} חשבוניות יעודכנו. תוכל לבטל ולערוך לפני שמירה.
+            </p>
+          </div>
+          <DialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
+            <Button
+              type="button"
+              onClick={() => setPendingConflicts(null)}
+              disabled={isSaving}
+              className="bg-white/10 hover:bg-white/20 text-white px-5"
+            >
+              ביטול
+            </Button>
+            <Button
+              type="button"
+              onClick={() => executeSave()}
+              disabled={isSaving}
+              className="bg-[#17DB4E] hover:bg-[#15c544] text-white px-5"
+            >
+              {isSaving ? "שומר..." : "אישור ושמירה"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
