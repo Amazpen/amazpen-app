@@ -196,6 +196,8 @@ export default function OCRForm({
   // Merge documents state
   const [showMergePicker, setShowMergePicker] = useState(false);
   const [mergeSelectedIds, setMergeSelectedIds] = useState<Set<string>>(new Set());
+  // Preview a single doc full-screen from inside the merge picker.
+  const [mergePreviewUrl, setMergePreviewUrl] = useState<string | null>(null);
 
   // Fixed-expense linking — when the selected supplier is marked as is_fixed_expense,
   // pull their currently-open monthly invoices so the user can attach this document
@@ -3721,47 +3723,76 @@ export default function OCRForm({
                 .map((pd) => (
                   <label
                     key={pd.id}
-                    className={`flex items-center gap-3 p-2 rounded-[8px] cursor-pointer transition-colors ${
+                    className={`flex flex-col gap-2 p-2 rounded-[8px] cursor-pointer transition-colors ${
                       mergeSelectedIds.has(pd.id) ? 'bg-[#29318A]/30 border border-[#29318A]' : 'bg-[#1A1F3D] border border-[#4C526B]/50 hover:border-[#4C526B]'
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={mergeSelectedIds.has(pd.id)}
-                      onChange={() => {
-                        setMergeSelectedIds(prev => {
-                          const next = new Set(prev);
-                          if (next.has(pd.id)) next.delete(pd.id);
-                          else next.add(pd.id);
-                          return next;
-                        });
-                      }}
-                      className="w-4 h-4 rounded accent-[#29318A] shrink-0"
-                    />
-                    <div className="w-[50px] h-[50px] rounded-[4px] overflow-hidden bg-[#0a0d1f] shrink-0 flex items-center justify-center">
-                      {pd.file_type === 'pdf' || pd.image_url?.toLowerCase().endsWith('.pdf') ? (
-                        <div className="flex flex-col items-center">
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                          <span className="text-[8px] text-indigo-400 font-bold">PDF</span>
-                        </div>
-                      ) : (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={pd.image_url} alt="" className="w-full h-full object-cover" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-[12px] truncate">
-                        {pd.ocr_data?.supplier_name || pd.source_sender_name || pd.original_filename || 'מסמך'}
-                      </p>
-                      {pd.ocr_data?.total_amount != null && pd.ocr_data.total_amount > 0 && (
-                        <p className="text-[#17DB4E] text-[11px] font-semibold ltr-num" dir="ltr">
-                          ₪{pd.ocr_data.total_amount.toLocaleString('he-IL')}
+                    {/* Top: checkbox + meta */}
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        checked={mergeSelectedIds.has(pd.id)}
+                        onChange={() => {
+                          setMergeSelectedIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(pd.id)) next.delete(pd.id);
+                            else next.add(pd.id);
+                            return next;
+                          });
+                        }}
+                        className="w-4 h-4 rounded accent-[#29318A] shrink-0 mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-[13px] truncate font-medium">
+                          {pd.ocr_data?.supplier_name || pd.source_sender_name || pd.original_filename || 'מסמך'}
                         </p>
+                        {pd.ocr_data?.total_amount != null && pd.ocr_data.total_amount > 0 && (
+                          <p className="text-[#17DB4E] text-[12px] font-semibold ltr-num" dir="ltr">
+                            ₪{pd.ocr_data.total_amount.toLocaleString('he-IL')}
+                          </p>
+                        )}
+                        <p className="text-white/40 text-[10px]">
+                          {new Date(pd.created_at).toLocaleDateString('he-IL')}
+                          {pd.ocr_data?.document_number ? ` · ${pd.ocr_data.document_number}` : ''}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Big preview */}
+                    <div className="relative w-full h-[180px] rounded-[6px] overflow-hidden bg-[#0a0d1f] flex items-center justify-center group">
+                      {pd.file_type === 'pdf' || pd.image_url?.toLowerCase().endsWith('.pdf') ? (
+                        <a
+                          href={pd.image_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity"
+                        >
+                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                          <span className="text-[12px] text-indigo-400 font-bold">פתח PDF</span>
+                        </a>
+                      ) : (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={pd.image_url} alt="" className="w-full h-full object-contain" />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (pd.image_url) setMergePreviewUrl(pd.image_url);
+                            }}
+                            className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 transition-colors"
+                            title="הגדל"
+                            aria-label="הגדל תמונה"
+                          >
+                            <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-[#29318A] text-white text-[12px] font-medium px-3 py-1.5 rounded-[6px] flex items-center gap-1.5">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+                              הגדל
+                            </span>
+                          </button>
+                        </>
                       )}
-                      <p className="text-white/40 text-[10px]">
-                        {new Date(pd.created_at).toLocaleDateString('he-IL')}
-                        {pd.ocr_data?.document_number ? ` · ${pd.ocr_data.document_number}` : ''}
-                      </p>
                     </div>
                   </label>
                 ))
@@ -3781,6 +3812,32 @@ export default function OCRForm({
               צרף {mergeSelectedIds.size > 0 ? `(${mergeSelectedIds.size})` : ''}
             </Button>
           </div>
+
+          {/* Full-screen image preview overlay (inside Sheet so it stacks above) */}
+          {mergePreviewUrl && (
+            <div
+              role="dialog"
+              aria-label="תצוגה מוגדלת"
+              onClick={() => setMergePreviewUrl(null)}
+              className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+            >
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setMergePreviewUrl(null); }}
+                className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+                aria-label="סגור"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+              </button>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={mergePreviewUrl}
+                alt="תצוגה מוגדלת"
+                onClick={(e) => e.stopPropagation()}
+                className="max-w-full max-h-full object-contain rounded-[8px] cursor-default"
+              />
+            </div>
+          )}
         </SheetContent>
       </Sheet>
 
