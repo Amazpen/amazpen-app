@@ -133,6 +133,9 @@ export default function CashFlowPage() {
   // Drill-down state
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
   const [expandedDays, setExpandedDays] = useState<string[]>([]);
+  // Track whether we've auto-expanded the current month yet (do it once per
+  // session — re-expanding on every refresh would fight the user's clicks).
+  const [didAutoExpandCurrentMonth, setDidAutoExpandCurrentMonth] = useState(false);
 
   // Date range
   const [endDate, setEndDate] = useState<Date>(() => {
@@ -285,13 +288,31 @@ export default function CashFlowPage() {
           const rangeStart = new Date(openingDate + "T00:00:00");
           const rangeEnd = new Date(endDateStr + "T00:00:00");
           for (let m = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1); m <= rangeEnd; m.setMonth(m.getMonth() + 1)) {
-            const day = Math.min(dayOfMonth, new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate());
+            const daysInMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+            const day = Math.min(dayOfMonth, daysInMonth);
             const dateStr = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
             if (dateStr < openingDate || dateStr > endDateStr) continue;
             if (startDate && dateStr < startDate) continue;
             if (endRetDate && dateStr > endRetDate) continue;
+
+            // Last-month proration (David #2): if retainer_end_date is in
+            // this month and earlier than the last day of month, only
+            // charge the days actually covered. Mirrors the logic in
+            // /api/retainers/process so the forecast = the eventual entry.
+            let amountForMonth = netAmount;
+            if (endRetDate) {
+              const endD = new Date(endRetDate + "T00:00:00");
+              const sameMonth =
+                endD.getFullYear() === m.getFullYear() &&
+                endD.getMonth() === m.getMonth();
+              if (sameMonth && endD.getDate() < daysInMonth) {
+                const daysCovered = Math.max(0, endD.getDate() - day + 1);
+                amountForMonth = netAmount * (daysCovered / daysInMonth);
+              }
+            }
+
             const existing = retainerByDate.get(dateStr) || [];
-            existing.push({ name, amount: netAmount });
+            existing.push({ name, amount: amountForMonth });
             retainerByDate.set(dateStr, existing);
           }
         }
@@ -444,6 +465,24 @@ export default function CashFlowPage() {
 
     fetchData();
   }, [selectedBusinesses, endDate, refreshTrigger, supabase]);
+
+  // Auto-expand the current month so the cashflow doesn't appear "stuck" on
+  // an earlier month. David's bug report: viewing on April 28 still showed
+  // March collapsed-first because the list starts 3 months back.
+  useEffect(() => {
+    if (didAutoExpandCurrentMonth || monthGroups.length === 0) return;
+    const now = new Date();
+    const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    if (monthGroups.some((g) => g.key === currentKey)) {
+      setExpandedMonths((prev) => (prev.includes(currentKey) ? prev : [...prev, currentKey]));
+      setDidAutoExpandCurrentMonth(true);
+      // Scroll the current month into view after the DOM updates.
+      setTimeout(() => {
+        const el = document.getElementById(`cashflow-month-${currentKey}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }
+  }, [monthGroups, didAutoExpandCurrentMonth]);
 
   // ============================================================================
   // HANDLERS
@@ -646,7 +685,7 @@ export default function CashFlowPage() {
           <div className="flex flex-col">
             {/* Month Groups */}
             {monthGroups.map((month) => (
-              <div key={month.key}>
+              <div key={month.key} id={`cashflow-month-${month.key}`}>
                 {/* Level 1: Month Header */}
                 <Button
                   type="button"
