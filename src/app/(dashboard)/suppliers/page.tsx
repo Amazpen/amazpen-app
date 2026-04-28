@@ -1310,26 +1310,29 @@ export default function SuppliersPage() {
       // Fetch monthly data for current month
       const monthlyData = await fetchMonthlyData(supplier, new Date(now.getFullYear(), now.getMonth(), 1));
 
-      // Fetch last 6 months breakdown. A month is shown if *any* activity happened —
-      // a purchase (including credit notes with negative amounts), a payment linked
-      // to an older invoice, or a standalone payment with payment_date in the month.
+      // Fetch last 6 months breakdown. David #14: the previous version
+      // showed "שולם" as `paymentsInMonthTotal` (sum of payments by
+      // payment_date), which made any month that received a back-payment
+      // look like it had a giant credit balance. Example for גד at פרגו
+      // נס ציונה — Jan 2026 had ₪13K of invoices but a ₪88K back-payment
+      // for Oct-Dec 2025, producing "יתרה -75K" that confused David.
+      //
+      // Fix: "שולם" = `monthlyPaid` (sum of allocations against THAT
+      // month's invoices). A month with only a back-payment now shows
+      // purchases=0, paid=0 (the payment is bookkept against the older
+      // month it actually settled), and the "יתרה" reflects the real
+      // outstanding balance for that month's invoices.
       const breakdownMonths: Array<{ month: string; purchases: number; paid: number; amountToPay: number }> = [];
       for (let i = 0; i < 6; i++) {
         const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const mData = await fetchMonthlyData(supplier, mDate);
-        const hasActivity =
-          mData.monthlyPurchases !== 0 ||
-          mData.monthlyPaid !== 0 ||
-          (mData.paymentsInMonthTotal ?? 0) !== 0;
+        const hasActivity = mData.monthlyPurchases !== 0 || mData.monthlyPaid !== 0;
         if (hasActivity) {
-          // "שולם" for the month reflects cash-flow: what was actually paid during
-          // that calendar month, regardless of which invoice it was linked to.
-          const paidForMonth = mData.paymentsInMonthTotal ?? mData.monthlyPaid;
           breakdownMonths.push({
             month: mDate.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
             purchases: mData.monthlyPurchases,
-            paid: paidForMonth,
-            amountToPay: mData.monthlyPurchases - paidForMonth,
+            paid: mData.monthlyPaid,
+            amountToPay: mData.monthlyPurchases - mData.monthlyPaid,
           });
         }
       }

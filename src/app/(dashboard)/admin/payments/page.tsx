@@ -234,8 +234,9 @@ export default function AdminPaymentsPage() {
   }, [selectedBusinessId]);
 
   const findSupplierByName = useCallback((name: string): Supplier | undefined => {
+    // David #14 — symmetric trim so trailing-space variants match.
     const normalized = name.trim().toLowerCase();
-    return suppliers.find(s => s.name.toLowerCase() === normalized);
+    return suppliers.find(s => s.name.trim().toLowerCase() === normalized);
   }, [suppliers]);
 
   // Find invoice by Bubble unique_id (stored in data_source as "bubble:id1 , id2 , ...")

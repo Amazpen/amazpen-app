@@ -118,8 +118,11 @@ export default function AdminExpensesPage() {
   }, [selectedBusinessId]);
 
   const findSupplierByName = (name: string): Supplier | undefined => {
+    // David #14 — both sides must be trimmed and lower-cased so a stored
+    // supplier "גד " (trailing space) still matches input "גד" and vice
+    // versa. Without symmetric .trim() we silently miss matches.
     const normalized = name.trim().toLowerCase();
-    return suppliers.find(s => s.name.toLowerCase() === normalized);
+    return suppliers.find(s => s.name.trim().toLowerCase() === normalized);
   };
 
   // Parse date - support DD/MM/YYYY, DD/MM/YYYY HH:mm, DD-MM-YYYY, YYYY-MM-DD, etc.

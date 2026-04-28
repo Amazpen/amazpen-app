@@ -123,7 +123,10 @@ export default function MarkezetImportPage() {
 
         if (existingMarkezetUids.has(r.unique_id)) { skipped++; continue; }
 
-        const supplierId = supMap.get(r.supplier_name.toLowerCase());
+        // David #14 — match by trimmed lower-cased name. Without .trim()
+        // here the lookup would miss when import data has trailing spaces
+        // ("גד " → no match) while suppliers stored their names trimmed.
+        const supplierId = supMap.get(r.supplier_name.toLowerCase().trim());
         const invoiceDate = parseBubbleDate(r.date_str) || (r.year && r.month ? `${r.year}-${r.month.padStart(2, "0")}-01` : null);
 
         // Upload attachment if bubble URL
