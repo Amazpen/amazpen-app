@@ -2,6 +2,138 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BonusPlan, BonusPlanStatus } from "@/types/bonus";
 
 /**
+ * Compute remaining factor-weighted work days from today (inclusive) to end
+ * of month, using business_schedule (day_factor per day-of-week) and any
+ * exceptions (holidays, special closures) for the period.
+ * David #9: "כמה צריך למכור היום" — needs an honest "remaining days".
+ */
+async function getRemainingWorkDays(
+  supabase: SupabaseClient,
+  businessId: string,
+  year: number,
+  month: number
+): Promise<number> {
+  const today = new Date();
+  const isCurrentMonth =
+    year === today.getFullYear() && month === today.getMonth() + 1;
+  if (!isCurrentMonth) return 0;
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const dayOfMonthToday = today.getDate();
+
+  // Schedule (default day-factor by day-of-week 0-6)
+  const { data: schedule } = await supabase
+    .from("business_schedule")
+    .select("day_of_week, day_factor")
+    .eq("business_id", businessId);
+  const scheduleMap = new Map<number, number>();
+  for (const row of (schedule || []) as Array<{ day_of_week: number; day_factor: number }>) {
+    scheduleMap.set(row.day_of_week, Number(row.day_factor) || 0);
+  }
+
+  // Exceptions for the rest of the month
+  const fromStr = `${year}-${String(month).padStart(2, "0")}-${String(dayOfMonthToday).padStart(2, "0")}`;
+  const toStr = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+  const { data: exceptions } = await supabase
+    .from("business_day_exceptions")
+    .select("exception_date, day_factor")
+    .eq("business_id", businessId)
+    .gte("exception_date", fromStr)
+    .lte("exception_date", toStr);
+  const exceptionMap = new Map<string, number>();
+  for (const ex of (exceptions || []) as Array<{ exception_date: string; day_factor: number }>) {
+    const dateStr = String(ex.exception_date).substring(0, 10);
+    exceptionMap.set(dateStr, Number(ex.day_factor) ?? 0);
+  }
+
+  let remaining = 0;
+  for (let d = dayOfMonthToday; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    if (exceptionMap.has(dateStr)) {
+      remaining += exceptionMap.get(dateStr)!;
+    } else {
+      const dow = new Date(year, month - 1, d).getDay();
+      remaining += scheduleMap.get(dow) ?? 0;
+    }
+  }
+  return remaining;
+}
+
+/**
+ * Project end-of-month total orders by averaging the same-day-of-week count
+ * from the trailing 2 months, then summing across the days remaining in the
+ * current month. David #9 spec: "ממוצע ימי שבוע ב-2 חודשים אחורה".
+ */
+async function projectExpectedOrders(
+  supabase: SupabaseClient,
+  businessId: string,
+  incomeSourceId: string,
+  year: number,
+  month: number,
+  ordersToDate: number
+): Promise<number> {
+  const today = new Date();
+  const isCurrentMonth =
+    year === today.getFullYear() && month === today.getMonth() + 1;
+  if (!isCurrentMonth) return ordersToDate;
+
+  // Look back 2 months from the start of the current month
+  const lookbackStart = new Date(year, month - 1 - 2, 1);
+  const lookbackEnd = new Date(year, month - 1, 0); // last day of previous month
+  const fromStr = `${lookbackStart.getFullYear()}-${String(lookbackStart.getMonth() + 1).padStart(2, "0")}-01`;
+  const toStr = `${lookbackEnd.getFullYear()}-${String(lookbackEnd.getMonth() + 1).padStart(2, "0")}-${String(lookbackEnd.getDate()).padStart(2, "0")}`;
+
+  // Two-step query to avoid Supabase generic depth blowup on filtered joins.
+  const { data: dailyEntries } = await supabase
+    .from("daily_entries")
+    .select("id, entry_date")
+    .eq("business_id", businessId)
+    .gte("entry_date", fromStr)
+    .lte("entry_date", toStr)
+    .is("deleted_at", null);
+  const entryIds = (dailyEntries || []).map((e: { id: string }) => e.id);
+  const idToDate = new Map<string, string>();
+  for (const e of (dailyEntries || []) as Array<{ id: string; entry_date: string }>) {
+    idToDate.set(e.id, String(e.entry_date).substring(0, 10));
+  }
+
+  let breakdowns: Array<{ daily_entry_id: string; orders_count: number }> = [];
+  if (entryIds.length > 0) {
+    const { data } = await supabase
+      .from("daily_income_breakdown")
+      .select("daily_entry_id, orders_count")
+      .eq("income_source_id", incomeSourceId)
+      .in("daily_entry_id", entryIds);
+    breakdowns = (data || []) as Array<{ daily_entry_id: string; orders_count: number }>;
+  }
+
+  // Sum orders by day-of-week and count days observed
+  const dowSum = new Array(7).fill(0);
+  const dowCount = new Array(7).fill(0);
+  const ordersByEntry = new Map<string, number>();
+  for (const b of breakdowns) {
+    ordersByEntry.set(b.daily_entry_id, (ordersByEntry.get(b.daily_entry_id) || 0) + (Number(b.orders_count) || 0));
+  }
+  for (const [entryId, dateStr] of idToDate) {
+    const dow = new Date(dateStr + "T00:00:00").getDay();
+    const orders = ordersByEntry.get(entryId) || 0;
+    dowSum[dow] += orders;
+    dowCount[dow] += 1;
+  }
+  const dowAvg = dowSum.map((sum, i) => (dowCount[i] > 0 ? sum / dowCount[i] : 0));
+
+  // Project remaining days
+  const daysInMonth = new Date(year, month, 0).getDate();
+  let projectedRemaining = 0;
+  for (let d = today.getDate() + 1; d <= daysInMonth; d++) {
+    const dow = new Date(year, month - 1, d).getDay();
+    projectedRemaining += dowAvg[dow];
+  }
+
+  return Math.round(ordersToDate + projectedRemaining);
+}
+
+/**
  * Maps data_source values to the column names in business_monthly_metrics
  * and the corresponding goal column in goals table.
  */
@@ -109,7 +241,35 @@ export async function resolveBonusPlanStatus(
           ? plan.tier1_amount
           : 0;
 
-  return { currentValue, goalValue, qualifiedTier, bonusAmount };
+  // David #9 — daily target only meaningful for "higher is better" currency
+  // KPIs (revenue). For costs / percentages it doesn't apply.
+  let dailyTargetRequired: number | null = null;
+  let remainingWorkDays: number | null = null;
+  if (
+    plan.data_source === "revenue" &&
+    goalValue !== null &&
+    goalValue > 0 &&
+    !plan.is_lower_better
+  ) {
+    remainingWorkDays = await getRemainingWorkDays(supabase, plan.business_id, year, month);
+    // currentValue for "revenue" is monthly_pace. We need to know how much
+    // of the goal is already booked vs. what's left. Pull the actual
+    // income_to_date (income_before_vat) instead of the pace projection.
+    const { data: rawMetrics } = await supabase
+      .from("business_monthly_metrics")
+      .select("income_before_vat")
+      .eq("business_id", plan.business_id)
+      .eq("year", year)
+      .eq("month", month)
+      .maybeSingle();
+    const incomeToDate = Number(rawMetrics?.income_before_vat) || 0;
+    const remainingGoal = Math.max(0, goalValue - incomeToDate);
+    dailyTargetRequired = remainingWorkDays > 0
+      ? Math.round(remainingGoal / remainingWorkDays)
+      : null;
+  }
+
+  return { currentValue, goalValue, qualifiedTier, bonusAmount, dailyTargetRequired, remainingWorkDays };
 }
 
 /**
@@ -159,6 +319,7 @@ async function resolveAvgTicketStatus(
     .is("deleted_at", null);
 
   let currentValue: number | null = null;
+  let totalOrdersToDate = 0;
 
   if (entries && entries.length > 0) {
     const entryIds = entries.map((e: { id: string }) => e.id);
@@ -171,8 +332,8 @@ async function resolveAvgTicketStatus(
 
     if (breakdowns && breakdowns.length > 0) {
       const totalAmount = breakdowns.reduce((sum: number, r: { amount: number }) => sum + Number(r.amount || 0), 0);
-      const totalOrders = breakdowns.reduce((sum: number, r: { orders_count: number }) => sum + Number(r.orders_count || 0), 0);
-      currentValue = totalOrders > 0 ? totalAmount / totalOrders : 0;
+      totalOrdersToDate = breakdowns.reduce((sum: number, r: { orders_count: number }) => sum + Number(r.orders_count || 0), 0);
+      currentValue = totalOrdersToDate > 0 ? totalAmount / totalOrdersToDate : 0;
     }
   }
 
@@ -203,7 +364,26 @@ async function resolveAvgTicketStatus(
 
   const qualifiedTier = evaluateTier(plan, currentValue);
   const bonusAmount = qualifiedTier === 3 ? plan.tier3_amount : qualifiedTier === 2 ? plan.tier2_amount : qualifiedTier === 1 ? plan.tier1_amount : 0;
-  return { currentValue, goalValue, qualifiedTier, bonusAmount };
+
+  // David #9 — for avg-ticket plans, project end-of-month total orders so the
+  // employee sees: "ב-X הזמנות צפויות, אם תעמוד בממוצע ₪Y → +₪Z." This is
+  // the missing link between the bonus and a daily action.
+  const expectedOrders = await projectExpectedOrders(
+    supabase,
+    plan.business_id,
+    sourceId,
+    year,
+    month,
+    totalOrdersToDate
+  );
+  const remainingWorkDays = await getRemainingWorkDays(supabase, plan.business_id, year, month);
+  // dailyTargetRequired here = orders needed today to reach end-of-month
+  // expected count; gives the employee a concrete daily bar to clear.
+  const dailyTargetRequired = remainingWorkDays > 0 && expectedOrders > totalOrdersToDate
+    ? Math.round((expectedOrders - totalOrdersToDate) / remainingWorkDays)
+    : null;
+
+  return { currentValue, goalValue, qualifiedTier, bonusAmount, expectedOrders, dailyTargetRequired, remainingWorkDays };
 }
 
 /**

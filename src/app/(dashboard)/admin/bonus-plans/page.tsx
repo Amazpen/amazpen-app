@@ -118,6 +118,11 @@ export default function BonusPlansPage() {
   const [formPushDays, setFormPushDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [formNotes, setFormNotes] = useState("");
   const [formTips, setFormTips] = useState("");
+  // David #10 — 1-3 daily actions per plan (newline-separated in the
+  // textarea, JSON array in DB).
+  const [formDailyActions, setFormDailyActions] = useState("");
+  // David #11 — per-business notes Daddi reads as plan context.
+  const [formBusinessNotes, setFormBusinessNotes] = useState("");
 
   // ===== Auth check — admin OR business owner/manager =====
   useEffect(() => {
@@ -294,6 +299,8 @@ export default function BonusPlansPage() {
     setFormPushDays([0, 1, 2, 3, 4, 5, 6]);
     setFormNotes("");
     setFormTips("");
+    setFormDailyActions("");
+    setFormBusinessNotes("");
   }, []);
 
   // ===== Open edit form =====
@@ -322,6 +329,8 @@ export default function BonusPlansPage() {
     setFormPushDays(plan.push_days || [0, 1, 2, 3, 4, 5, 6]);
     setFormNotes(plan.notes || "");
     setFormTips(plan.tips || "");
+    setFormDailyActions((plan.daily_actions || []).join("\n"));
+    setFormBusinessNotes(plan.business_notes || "");
     setShowForm(true);
   }, []);
 
@@ -378,6 +387,14 @@ export default function BonusPlansPage() {
       push_days: formPushDays,
       notes: formNotes.trim() || null,
       tips: formTips.trim() || null,
+      // David #10 — split textarea by newline, drop blanks, cap at 3.
+      daily_actions: formDailyActions
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, 3),
+      // David #11 — context Daddi will see for this plan.
+      business_notes: formBusinessNotes.trim() || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -407,6 +424,7 @@ export default function BonusPlansPage() {
     formTier2Label, formTier2Threshold, formTier2ThresholdMax, formTier2Amount,
     formTier3Label, formTier3Threshold, formTier3ThresholdMax, formTier3Amount,
     formPushEnabled, formPushHour, formPushDays, formNotes, formTips,
+    formDailyActions, formBusinessNotes,
     editingPlanId, resetForm, fetchPlans,
   ]);
 
@@ -806,6 +824,32 @@ export default function BonusPlansPage() {
                     value={formTips}
                     onChange={(e) => setFormTips(e.target.value)}
                     placeholder={"לדוגמא: להציע ללקוח זיוה שוקולד ב-15₪ במקום 29.90₪ בכל הזמנה מעל 100₪\nלשאול כמה סועדים, מבוגרים/ילדים, ולהתאים את ההזמנה"}
+                    rows={3}
+                    className="w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 py-2.5 outline-none resize-none placeholder:text-white/30 text-right text-[13px]"
+                  />
+                </div>
+
+                {/* Daily actions for employee (David #10) */}
+                <div>
+                  <label className="text-white/70 text-sm mb-1.5 block">משימות יומיות לעובד (1-3)</label>
+                  <p className="text-[11px] text-white/40 text-right mb-1.5">פעולות קונקרטיות שהעובד צריך לבצע היום. שורה לכל משימה. יוצגו בהודעת הפוש ובאימייל הבונוס היומי.</p>
+                  <textarea
+                    value={formDailyActions}
+                    onChange={(e) => setFormDailyActions(e.target.value)}
+                    placeholder={"להציע קינוח על כל הזמנה מעל ₪80\nלשאול בטלפון כמה סועדים מבוגרים וכמה ילדים\nלעודד אפסייל של תוספות (פטריות, גבינה כפולה)"}
+                    rows={3}
+                    className="w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 py-2.5 outline-none resize-none placeholder:text-white/30 text-right text-[13px]"
+                  />
+                </div>
+
+                {/* Business notes for Daddi (David #11) */}
+                <div>
+                  <label className="text-white/70 text-sm mb-1.5 block">הערות לדדי (קונטקסט עסקי)</label>
+                  <p className="text-[11px] text-white/40 text-right mb-1.5">הערות שדדי יקרא כשייעץ לעובד על תוכנית זו. למשל: מנת היום, מבצעים, מוצר מומלץ, אילוצים מיוחדים.</p>
+                  <textarea
+                    value={formBusinessNotes}
+                    onChange={(e) => setFormBusinessNotes(e.target.value)}
+                    placeholder={"לדוגמה: מנת היום היא פסטה ברוטב פטריות. יש מבצע 1+1 על קינוחים עד 18:00."}
                     rows={3}
                     className="w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 py-2.5 outline-none resize-none placeholder:text-white/30 text-right text-[13px]"
                   />

@@ -25,6 +25,10 @@ export interface BonusPlan {
   is_active: boolean;
   notes: string | null;
   tips: string | null;
+  /** David #10 — 1-3 short action strings shown to the employee. */
+  daily_actions: string[] | null;
+  /** David #11 — per-business context Daddi consumes alongside the plan. */
+  business_notes: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -35,6 +39,21 @@ export interface BonusPlanStatus {
   goalValue: number | null;
   qualifiedTier: 1 | 2 | 3 | null;
   bonusAmount: number;
+  /**
+   * Daily target needed in the remaining work-days of the month to hit the
+   * goal. Computed only for revenue / avg_ticket data sources where a daily
+   * pace is meaningful. `null` when not applicable (cost-percentages, custom).
+   * David #9: turns the bonus from "a number on the wall" into an actionable
+   * daily figure.
+   */
+  dailyTargetRequired?: number | null;
+  /**
+   * Expected count for avg_ticket plans — the projected total orders by
+   * end-of-month based on the trailing 2-month same-day-of-week average.
+   */
+  expectedOrders?: number | null;
+  /** Remaining factor-weighted work days from today to end-of-month. */
+  remainingWorkDays?: number | null;
 }
 
 export interface DataSourceOption {

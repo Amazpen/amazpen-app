@@ -57,18 +57,30 @@ function buildPushMessage(
   const goal = status.goalValue !== null ? formatValue(status.goalValue, plan.measurement_type) : null;
   const goalStr = goal ? ` (יעד: ${goal})` : "";
 
+  // David #9 — daily-target nudge: turn the abstract goal into "today you
+  // need ₪X" or "today you need to take Y orders". Skip when not applicable.
+  let dailyNudge = "";
+  if (status.dailyTargetRequired != null && status.dailyTargetRequired > 0) {
+    if (plan.data_source === "revenue") {
+      const fmt = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(status.dailyTargetRequired);
+      dailyNudge = `\n📅 כדי לעמוד ביעד החודש — היום צריך ${fmt}`;
+    } else if (plan.data_source.startsWith("avg_ticket_")) {
+      dailyNudge = `\n📅 קצב מומלץ להיום: ${status.dailyTargetRequired} הזמנות`;
+    }
+  }
+
   if (status.qualifiedTier) {
     const bonus = new Intl.NumberFormat("he-IL", {
       style: "currency",
       currency: "ILS",
       maximumFractionDigits: 0,
     }).format(status.bonusAmount);
-    return `${plan.area_name}: ${current}${goalStr} — מעולה! בדרך לבונוס ${bonus}`;
+    return `${plan.area_name}: ${current}${goalStr} — מעולה! בדרך לבונוס ${bonus}${dailyNudge}`;
   }
 
   // Not qualified — include a tip if available
   const tipSuffix = plan.tips ? `\n💡 ${plan.tips.split("\n")[0]}` : " פתח את דדי לעצות";
-  return `${plan.area_name}: ${current}${goalStr} — עוד מאמץ קטן!${tipSuffix}`;
+  return `${plan.area_name}: ${current}${goalStr} — עוד מאמץ קטן!${dailyNudge}${tipSuffix}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -146,6 +158,42 @@ function computeDiffs(
 
 function isGood(plan: BonusPlan, diff: number): boolean {
   return plan.is_lower_better ? diff <= 0 : diff >= 0;
+}
+
+function buildDailyActionsHtml(kpis: ResolvedKPI[]): string {
+  // David #10 — concrete actions per plan, deduped across plans.
+  const seen = new Set<string>();
+  const items: string[] = [];
+  for (const k of kpis) {
+    const actions = (k.plan as unknown as { daily_actions?: string[] | null }).daily_actions || [];
+    for (const action of actions) {
+      const trimmed = action.trim();
+      if (!trimmed || seen.has(trimmed)) continue;
+      seen.add(trimmed);
+      items.push(trimmed);
+    }
+  }
+  if (items.length === 0) return "";
+  return items
+    .map((a) => `<li style="margin: 4px 0; font-size: 14px; color: #FFFFFF; line-height: 1.6;">${a}</li>`)
+    .join("");
+}
+
+function buildDailyTargetLines(kpis: ResolvedKPI[]): string {
+  // David #9 — show "today you need ₪X / Y orders" for plans with a real
+  // remaining-days projection. Skip plans where it's not meaningful.
+  const lines: string[] = [];
+  for (const k of kpis) {
+    const dt = k.status.dailyTargetRequired;
+    if (dt == null || dt <= 0) continue;
+    if (k.plan.data_source === "revenue") {
+      const fmt = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(dt);
+      lines.push(`📅 ${k.displayName}: היום צריך ${fmt} כדי לעמוד ביעד`);
+    } else if (k.plan.data_source.startsWith("avg_ticket_")) {
+      lines.push(`📅 ${k.displayName}: קצב יומי מומלץ ${dt} הזמנות`);
+    }
+  }
+  return lines.join("<br/>");
 }
 
 function buildConsolidatedEmailHtml(
@@ -233,6 +281,25 @@ function buildConsolidatedEmailHtml(
       </div>`
     : "";
 
+  // David #9 — daily-target panel: turns the bonus from a wall-poster into a
+  // working tool by showing what TODAY needs to look like.
+  const dailyTargetText = buildDailyTargetLines(kpis);
+  const dailyTargetHtml = dailyTargetText
+    ? `<div style="background: ${ROW_BG}; border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-right: 4px solid ${GREEN};">
+        <p style="margin: 0 0 6px 0; font-size: 13px; color: ${MUTED};">היעד היומי שלך:</p>
+        <p style="margin: 0; font-size: 14px; color: ${TEXT}; line-height: 1.7;">${dailyTargetText}</p>
+      </div>`
+    : "";
+
+  // David #10 — daily actions panel: 1-3 concrete things to do today.
+  const dailyActionsItems = buildDailyActionsHtml(kpis);
+  const dailyActionsHtml = dailyActionsItems
+    ? `<div style="background: ${ROW_BG}; border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-right: 4px solid #4A56D4;">
+        <p style="margin: 0 0 8px 0; font-size: 13px; color: ${MUTED};">משימות להיום:</p>
+        <ul style="margin: 0; padding-right: 18px;">${dailyActionsItems}</ul>
+      </div>`
+    : "";
+
   return `
     <div dir="rtl" style="font-family: Assistant, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: ${BG}; border-radius: 12px; padding: 28px; color: ${TEXT};">
       <!-- Header -->
@@ -267,6 +334,12 @@ function buildConsolidatedEmailHtml(
         <p style="margin: 0 0 4px 0; font-size: 13px; color: ${MUTED};">סטטוס מצב לקבלת בונוס</p>
         <p style="margin: 0; font-size: 16px; color: ${TEXT}; line-height: 1.6;">${bonusStatusText}</p>
       </div>
+
+      <!-- Daily target -->
+      ${dailyTargetHtml}
+
+      <!-- Daily actions -->
+      ${dailyActionsHtml}
 
       <!-- Tip -->
       ${tipHtml}
