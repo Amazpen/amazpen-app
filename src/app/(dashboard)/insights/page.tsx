@@ -232,6 +232,8 @@ export default function InsightsPage() {
         { data: productUsage },
         { data: managedProducts },
         { data: priorCommitmentsData },
+        { data: businessSchedules },
+        { data: dayExceptions },
       ] = await Promise.all([
         // Current month daily entries
         supabase
@@ -333,6 +335,18 @@ export default function InsightsPage() {
           .select("name, monthly_amount, total_installments, start_date, end_date")
           .in("business_id", businessIds)
           .is("deleted_at", null),
+        // Weekly schedule (closed days have day_factor=0) — David #13
+        supabase
+          .from("business_schedule")
+          .select("business_id, day_of_week, day_factor")
+          .in("business_id", businessIds),
+        // Day-by-day exceptions (holidays, special closures) — David #13
+        supabase
+          .from("business_day_exceptions")
+          .select("business_id, exception_date, day_factor")
+          .in("business_id", businessIds)
+          .gte("exception_date", currentMonthStart)
+          .lte("exception_date", currentMonthEnd),
       ]);
 
       const entries = currentDailyEntries || [];
@@ -971,18 +985,65 @@ export default function InsightsPage() {
       }
 
       // ====================================================================
-      // 22. OPERATIONS: Data completeness
+      // 22. OPERATIONS: Data completeness — David #13
+      // Only count "expected" days where the business is actually OPEN:
+      // skip days closed in business_schedule (factor=0), skip exception
+      // closures (holidays), and skip TODAY (the user may not have entered
+      // it yet — flagging it before evening creates a false alarm).
+      // Previously this counted dayOfMonth raw, so a 5-day-a-week business
+      // looked "3 days behind" every Sunday morning.
       // ====================================================================
-      const expectedDays = dayOfMonth;
-      const missingDays = expectedDays - entries.length;
+      const scheduleByBiz = new Map<string, Map<number, number>>();
+      for (const row of (businessSchedules || []) as Array<{ business_id: string; day_of_week: number; day_factor: number }>) {
+        if (!scheduleByBiz.has(row.business_id)) scheduleByBiz.set(row.business_id, new Map());
+        scheduleByBiz.get(row.business_id)!.set(row.day_of_week, Number(row.day_factor) || 0);
+      }
+      const exceptionByBizDate = new Map<string, number>();
+      for (const ex of (dayExceptions || []) as Array<{ business_id: string; exception_date: string; day_factor: number }>) {
+        const dateStr = String(ex.exception_date).substring(0, 10);
+        exceptionByBizDate.set(`${ex.business_id}|${dateStr}`, Number(ex.day_factor) ?? 0);
+      }
+
+      // Sum expected open-days across all selected businesses up to (but not
+      // including) today. We compare against the count of daily_entries
+      // already in the same window.
+      let expectedOpenDays = 0;
+      const todayStr = new Date().toISOString().slice(0, 10);
+      for (const bizId of businessIds) {
+        const sched = scheduleByBiz.get(bizId);
+        if (!sched || sched.size === 0) {
+          // No schedule configured — fall back to "all weekdays count" but
+          // still skip today and weekends so we don't generate noise.
+          for (let d = 1; d < dayOfMonth; d++) {
+            const dateStr = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+            const dow = new Date(dateStr + "T00:00:00").getDay();
+            if (dow >= 1 && dow <= 5) expectedOpenDays += 1;
+          }
+          continue;
+        }
+        for (let d = 1; d < dayOfMonth; d++) {
+          const dateStr = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+          if (dateStr >= todayStr) continue;
+          const exceptionFactor = exceptionByBizDate.get(`${bizId}|${dateStr}`);
+          if (exceptionFactor !== undefined) {
+            if (exceptionFactor > 0) expectedOpenDays += 1;
+          } else {
+            const dow = new Date(dateStr + "T00:00:00").getDay();
+            const factor = sched.get(dow) ?? 0;
+            if (factor > 0) expectedOpenDays += 1;
+          }
+        }
+      }
+
+      const missingDays = Math.max(0, expectedOpenDays - entries.length);
       if (missingDays > 2) {
         results.push({
           id: "missing-entries",
           title: `${missingDays} ימים חסרים במילוי יומי`,
-          description: `מתוך ${expectedDays} ימים שעברו החודש, רק ${entries.length} ימים מולאו. חסרים ${missingDays} ימים. נתונים חסרים פוגעים בדיוק התובנות ובמעקב. מומלץ להשלים בהקדם.`,
+          description: `מתוך ${expectedOpenDays} ימי עבודה שעברו החודש (לפי לוח השבועי וחריגי החגים), רק ${entries.length} ימים מולאו. חסרים ${missingDays} ימים. נתונים חסרים פוגעים בדיוק התובנות ובמעקב. מומלץ להשלים בהקדם.`,
           severity: missingDays > 5 ? "negative" : "warning",
           category: "operations",
-          value: `${entries.length} / ${expectedDays} ימים מולאו`,
+          value: `${entries.length} / ${expectedOpenDays} ימים מולאו`,
         });
       }
 
