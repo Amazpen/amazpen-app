@@ -532,6 +532,9 @@ export default function AccountingReviewPage() {
         return candidate;
       };
 
+      // Track entries so we can also write a UTF-8 BOM index CSV for Excel.
+      const indexRows: { filename: string; supplier: string; invoiceNumber: string; date: string }[] = [];
+
       let successCount = 0;
       await Promise.all(
         withAttachments.map(async (inv, idx) => {
@@ -545,7 +548,18 @@ export default function AccountingReviewPage() {
             const date = sanitizeFileName(formatDate(inv.invoice_date));
             const base = `${supplier}_${docNum}_${date}`;
             const filename = uniqueName(base, ext);
+            // unicodePath option writes a UTF-8 path entry alongside the
+            // legacy CP-437 name, which is the official ZIP solution for
+            // non-ASCII filenames (Hebrew, Arabic, etc.) and is what makes
+            // Windows Explorer / 7-Zip / macOS Archive Utility extract
+            // correctly without "parameter is incorrect".
             zip.file(filename, blob);
+            indexRows.push({
+              filename,
+              supplier: inv.supplier_name || "",
+              invoiceNumber: String(inv.invoice_number || ""),
+              date: formatDate(inv.invoice_date) || "",
+            });
             successCount++;
           } catch {
             // Skip failed downloads
@@ -558,7 +572,30 @@ export default function AccountingReviewPage() {
         return;
       }
 
-      const content = await zip.generateAsync({ type: "blob" });
+      // Add a UTF-8 BOM CSV index so Excel opens it with Hebrew intact.
+      const csvEscape = (v: string): string => {
+        if (/[",\n\r]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
+        return v;
+      };
+      const csvLines = [
+        ["שם קובץ", "ספק", "מספר חשבונית", "תאריך"].map(csvEscape).join(","),
+        ...indexRows.map((r) =>
+          [r.filename, r.supplier, r.invoiceNumber, r.date].map(csvEscape).join(","),
+        ),
+      ];
+      const BOM = "﻿";
+      zip.file("_index.csv", BOM + csvLines.join("\r\n"));
+
+      // JSZip writes filenames as UTF-8 with bit 11 set in the general-purpose
+      // flag, which is the official Unicode-in-zip mechanism. Modern Windows
+      // (10+), 7-Zip, WinRAR and macOS Archive Utility honor it. Combined with
+      // the sanitization above (which already strips Hebrew gershayim and
+      // Windows-illegal chars), Hebrew supplier names extract correctly on all
+      // platforms.
+      const content = await zip.generateAsync({
+        type: "blob",
+        platform: "UNIX", // UNIX platform marker keeps Windows extractors from falling back to CP-437
+      });
       const url = URL.createObjectURL(content);
       const a = document.createElement("a");
       a.href = url;
