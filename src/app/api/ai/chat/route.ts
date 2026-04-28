@@ -1757,13 +1757,21 @@ ORDER BY si.last_price_date DESC
 
 ### 16. לקחים קריטיים מפידבקים של משתמשים (חובה ליישם בכל תשובה!)
 
-**16.1 — עלות עובדים: חישוב חייב לכלול שכר מנהל + העמסה (markup)**
-- לעולם אל תחשב עלות עובדים רק מ-\`labor_cost\` ב-daily_entries. המספר החסר הזה לא תואם למציאות.
-- **חישוב נכון (זהה לדשבורד):** \`(SUM(labor_cost) + managerDailyCost × actualWorkDays) × markup_percentage\`
+**16.1 — עלות עובדים: חישוב חייב לכלול גלובליים + שעתיים + מנהל + ספקי "עלות עובדים"**
+- לעולם אל תחשב עלות עובדים רק מ-\`labor_cost\` ב-daily_entries. המספר החסר הזה לא תואם למציאות (פידבק דוד אלבז).
+- **חישוב נכון (זהה לדוח רווח-הפסד וגם לדשבורד):**
+  \`\`\`
+  laborTotal = (SUM(daily_entries.labor_cost) + managerDailyCost × actualWorkDays) × markup_percentage
+             + SUM(invoices.subtotal WHERE supplier.expense_category ∈ {"עלות עובדים","עלויות עובדים"})
+  \`\`\`
+- ה-SUM הראשון מכסה גלובליים+שעתיים שהוזנו ידנית במילוי היומי, כולל markup (העמסה).
+- שכר המנהל מתווסף יחסית לימי העבודה בפועל לפני ה-markup.
+- חשבוניות מספקי "עלות עובדים" (כוח אדם, חברות השמה וכד') מתווספות **בלי markup** כי הסכום בחשבונית כבר משקף את העלות המלאה.
 - \`managerDailyCost = businesses.manager_monthly_salary / expectedWorkDays\` (expectedWorkDays מחושב מ-business_schedule + business_day_exceptions)
 - \`actualWorkDays = SUM(daily_entries.day_factor)\` לחודש הנבדק
 - \`markup_percentage\` — מ-goals.markup_percentage עם fallback ל-businesses.markup_percentage
-- **אם אתה מציג אחוז:** ודא שהוא תואם למה שמופיע בדשבורד של המשתמש. בדוק עם getMonthlySummary/SQL לפני שאתה עונה.
+- **🟢 הקלה:** \`getMonthlySummary\` כבר כולל את כל המרכיבים ב-\`costs.laborCostTotal\` וב-\`costs.laborCostPct\`. אל תחשב לבד.
+- **אם אתה מציג אחוז:** ודא שהוא תואם למה שמופיע בדוח רווח-הפסד של המשתמש.
 
 **16.2 — הוצאות שוטפות חודשיות: חלק לפי ימי עבודה (פידבק דוד #1, #2)**
 - שכירות, ארנונה, אינטרנט, חשמל, הנהלת חשבונות וכו׳ הן הוצאות חודשיות מלאות.
@@ -1895,13 +1903,24 @@ async function computeMonthlySummary(
     total_discounts: 0, sum_day_factors: 0, work_days: 0,
   };
 
-  // 2. Invoices: food cost (goods_purchases) and current expenses
+  // 2. Invoices: food cost (goods_purchases), current expenses, and labor-cost
+  //    invoices (e.g. staffing agencies). Labor invoices come from suppliers
+  //    whose expense_category (or its parent) is named "עלות עובדים" /
+  //    "עלויות עובדים" — same logic as the P&L report. Without this, Daddi's
+  //    labor % was lower than the dashboard's because staffing-agency invoices
+  //    were silently bucketed into "current_expenses" by expense_type.
   // IMPORTANT: Use reference_date (not invoice_date) to match dashboard display!
-  // Dashboard filters by reference_date — this ensures AI numbers = app numbers.
+  const LABOR_CATEGORY_NAMES = `('עלות עובדים', 'עלויות עובדים')`;
   const { data: invoiceAgg } = await execReadOnlyQuery(sb,
-    `SELECT
-       COALESCE(SUM(CASE WHEN s.expense_type = 'goods_purchases' THEN i.subtotal ELSE 0 END), 0) as food_cost,
-       COALESCE(SUM(CASE WHEN s.expense_type = 'current_expenses' THEN i.subtotal ELSE 0 END), 0) as current_expenses,
+    `WITH labor_cats AS (
+       SELECT id FROM public.expense_categories
+       WHERE name IN ${LABOR_CATEGORY_NAMES}
+          OR parent_id IN (SELECT id FROM public.expense_categories WHERE name IN ${LABOR_CATEGORY_NAMES})
+     )
+     SELECT
+       COALESCE(SUM(CASE WHEN s.expense_type = 'goods_purchases' AND (s.expense_category_id IS NULL OR s.expense_category_id NOT IN (SELECT id FROM labor_cats)) THEN i.subtotal ELSE 0 END), 0) as food_cost,
+       COALESCE(SUM(CASE WHEN s.expense_category_id IN (SELECT id FROM labor_cats) THEN i.subtotal ELSE 0 END), 0) as labor_invoices,
+       COALESCE(SUM(CASE WHEN s.expense_type = 'current_expenses' AND (s.expense_category_id IS NULL OR s.expense_category_id NOT IN (SELECT id FROM labor_cats)) THEN i.subtotal ELSE 0 END), 0) as current_expenses,
        COALESCE(SUM(i.subtotal), 0) as total_expenses
      FROM public.invoices i
      JOIN public.suppliers s ON s.id = i.supplier_id
@@ -1911,7 +1930,7 @@ async function computeMonthlySummary(
        AND i.deleted_at IS NULL`
   );
   const invoices = Array.isArray(invoiceAgg) && invoiceAgg[0] ? invoiceAgg[0] : {
-    food_cost: 0, current_expenses: 0, total_expenses: 0,
+    food_cost: 0, current_expenses: 0, total_expenses: 0, labor_invoices: 0,
   };
 
   // 3. Goals
@@ -1992,7 +2011,14 @@ async function computeMonthlySummary(
   const monthlyPaceBeforeVat = dailyAvg * expectedWorkDays;
 
   const managerDailyCost = expectedWorkDays > 0 ? managerSalary / expectedWorkDays : 0;
-  const laborCostTotal = (Number(daily.total_labor_cost) + managerDailyCost * workDays) * markup;
+  // Full labor formula — must match the P&L report (reports/page.tsx).
+  // = (raw daily labor + manager) × markup  +  invoices from labor-category
+  //   suppliers (e.g. staffing agencies, "עלויות עובדים" parent).
+  // The invoice slice does NOT get the markup multiplier — invoice totals
+  // already include their full cost, the markup only applies to the in-house
+  // labor lines that come from daily_entries.
+  const laborInvoices = Number(invoices.labor_invoices) || 0;
+  const laborCostTotal = (Number(daily.total_labor_cost) + managerDailyCost * workDays) * markup + laborInvoices;
   const laborCostPct = incomeBeforeVat > 0 ? (laborCostTotal / incomeBeforeVat) * 100 : 0;
 
   const foodCost = Number(invoices.food_cost) || 0;
