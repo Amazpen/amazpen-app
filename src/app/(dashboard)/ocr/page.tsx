@@ -1160,6 +1160,10 @@ export default function OCRPage() {
           } lg:border-r border-[#4C526B] overflow-hidden`}
         >
           <OCRForm
+            // Force a fresh mount per document so the form's internal state
+            // is reset cleanly. Without this, switching between documents
+            // sometimes left fields tied to the previously-viewed document.
+            key={currentDocument?.id || 'no-doc'}
             document={currentDocument}
             suppliers={suppliers}
             coordinatorSuppliers={coordinatorSuppliers}
