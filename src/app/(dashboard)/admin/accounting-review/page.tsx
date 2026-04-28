@@ -490,6 +490,48 @@ export default function AccountingReviewPage() {
 
       showToast(`מכין ${withAttachments.length} מסמכים להורדה...`, "info");
 
+      // Sanitize names so Windows / macOS / Linux can all extract the zip.
+      // Windows blocks: \ / : * ? " < > | and trailing dots/spaces.
+      // Hebrew gershayim (״ U+05F4 and " U+0022) are common in supplier names
+      // and break Windows extraction silently with "parameter is incorrect".
+      const sanitizeFileName = (name: string): string =>
+        name
+          .replace(/["׳״'`]/g, "") // strip all quote variants
+          .replace(/[\\/:*?<>|\x00-\x1f]/g, "_") // illegal chars → underscore
+          .replace(/\s+/g, " ")
+          .replace(/\.+$/, "") // no trailing dot
+          .trim()
+          .slice(0, 120); // keep total path < 240, leave room for ext + dir
+
+      // Pull the real extension from the URL path, ignoring query strings AND
+      // intermediate dots (e.g. "15.02.26" date in the path → '26' was being
+      // treated as the extension and Windows refused the file).
+      const extractExt = (url: string): string => {
+        try {
+          const path = new URL(url).pathname;
+          const m = path.match(/\.(pdf|jpe?g|png|gif|webp|tiff?|heic|bmp)$/i);
+          return m ? m[1].toLowerCase() : "pdf";
+        } catch {
+          const m = url.split("?")[0].match(/\.(pdf|jpe?g|png|gif|webp|tiff?|heic|bmp)$/i);
+          return m ? m[1].toLowerCase() : "pdf";
+        }
+      };
+
+      // Track filenames inside the zip and append a counter on collision so we
+      // never silently overwrite (two invoices with the same number from the
+      // same supplier on the same day used to produce one entry).
+      const usedNames = new Set<string>();
+      const uniqueName = (base: string, ext: string): string => {
+        let candidate = `${base}.${ext}`;
+        let n = 2;
+        while (usedNames.has(candidate)) {
+          candidate = `${base}_(${n}).${ext}`;
+          n++;
+        }
+        usedNames.add(candidate);
+        return candidate;
+      };
+
       let successCount = 0;
       await Promise.all(
         withAttachments.map(async (inv, idx) => {
@@ -497,9 +539,12 @@ export default function AccountingReviewPage() {
             const res = await fetch(inv.attachment_url!);
             if (!res.ok) return;
             const blob = await res.blob();
-            const ext =
-              inv.attachment_url!.split(".").pop()?.split("?")[0] || "pdf";
-            const filename = `${inv.supplier_name}_${inv.invoice_number || idx}_${formatDate(inv.invoice_date)}.${ext}`;
+            const ext = extractExt(inv.attachment_url!);
+            const supplier = sanitizeFileName(inv.supplier_name || "ספק");
+            const docNum = sanitizeFileName(String(inv.invoice_number || idx));
+            const date = sanitizeFileName(formatDate(inv.invoice_date));
+            const base = `${supplier}_${docNum}_${date}`;
+            const filename = uniqueName(base, ext);
             zip.file(filename, blob);
             successCount++;
           } catch {
