@@ -245,6 +245,10 @@ export default function CustomersPage() {
   const [incomeSources, setIncomeSources] = useState<Array<{ id: string; name: string; business_id: string }>>([]);
   const [fLinkedIncomeSourceId, setFLinkedIncomeSourceId] = useState("");
 
+  // Stop-retainer-at-date dialog state (David #1: כפתור עצירת ריטיינר מתאריך X)
+  const [stopRetainerOpen, setStopRetainerOpen] = useState(false);
+  const [stopRetainerDate, setStopRetainerDate] = useState<string>("");
+
   // Dynamic VAT multiplier based on selected business (0 for foreign customers)
   const vatMultiplier = useMemo(() => {
     if (fIsForeign) return 1; // No VAT for foreign customers
@@ -1951,17 +1955,17 @@ export default function CustomersPage() {
                         variant="outline"
                         type="button"
                         onClick={() => {
-                          confirm("האם לעצור את הריטיינר לצמיתות?", async () => {
-                            const supabase = createClient();
-                            await supabase.from("customers").update({ retainer_status: 'completed' }).eq("id", selectedItem!.customer!.id);
-                            showToast("הריטיינר הופסק", "success");
-                            setRefreshTrigger((prev) => prev + 1);
-                            handleCloseDetail();
-                          });
+                          // Default to today; user can pick a future or past
+                          // date so we know exactly when retainer billing
+                          // should stop (David's request: "stop from date X").
+                          const today = new Date();
+                          const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                          setStopRetainerDate(selectedItem.customer?.retainer_end_date || todayStr);
+                          setStopRetainerOpen(true);
                         }}
                         className="flex-1 text-[13px] border-[#F64E60]/50 text-[#F64E60] hover:bg-[#F64E60]/10"
                       >
-                        עצור ריטיינר
+                        עצור ריטיינר מתאריך
                       </Button>
                     )}
                   </div>
@@ -2552,6 +2556,56 @@ export default function CustomersPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Stop-retainer-from-date dialog (David #1) */}
+      <Dialog open={stopRetainerOpen} onOpenChange={setStopRetainerOpen}>
+        <DialogContent className="bg-[#0F1535] border-[#4C526B] text-white sm:max-w-[400px] rounded-[20px] p-[20px]" dir="rtl">
+          <h3 className="text-[16px] font-bold mb-[10px]">עצירת ריטיינר</h3>
+          <p className="text-[13px] text-white/70 mb-[15px]">
+            ההפסקה תיכנס לתוקף החל מהתאריך שתבחר. זה גם יעדכן את &quot;תאריך סיום&quot; של הריטיינר.
+          </p>
+          <div className="flex flex-col gap-[5px] mb-[20px]">
+            <label className="text-[13px] text-white/60">תאריך עצירה</label>
+            <DatePickerField
+              value={stopRetainerDate}
+              onChange={setStopRetainerDate}
+            />
+          </div>
+          <div className="flex gap-[10px]">
+            <Button
+              variant="outline"
+              onClick={() => setStopRetainerOpen(false)}
+              className="flex-1 border-white/30 text-white hover:bg-white/10"
+            >
+              ביטול
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!selectedItem?.customer || !stopRetainerDate) return;
+                const supabase = createClient();
+                const { error } = await supabase
+                  .from("customers")
+                  .update({
+                    retainer_status: 'completed',
+                    retainer_end_date: stopRetainerDate,
+                  })
+                  .eq("id", selectedItem.customer.id);
+                if (error) {
+                  showToast("שגיאה בעצירת הריטיינר", "error");
+                  return;
+                }
+                showToast(`הריטיינר נעצר מתאריך ${stopRetainerDate}`, "success");
+                setStopRetainerOpen(false);
+                setRefreshTrigger((prev) => prev + 1);
+                handleCloseDetail();
+              }}
+              className="flex-1 bg-[#F64E60] text-white hover:bg-[#F64E60]/90"
+            >
+              עצור מתאריך זה
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

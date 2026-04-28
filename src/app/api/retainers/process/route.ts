@@ -77,7 +77,26 @@ export async function POST(request: NextRequest) {
           .single();
 
         const vatRate = business?.vat_percentage || 18;
-        const amountWithVat = customer.retainer_amount * (1 + vatRate / 100);
+        const fullAmountWithVat = customer.retainer_amount * (1 + vatRate / 100);
+
+        // David #2 — proration rule: first month always full (we already
+        // bill in full whenever billing day is reached). For the LAST month
+        // before retainer_end_date, charge pro-rata: amount × (days
+        // remaining in month from billing day to end_date) ÷ days in month.
+        // This way a retainer that ends on the 20th and bills on the 1st
+        // bills 20/30 ≈ 66.7% of the monthly fee, not 100%.
+        const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+        let amountWithVat = fullAmountWithVat;
+        if (customer.retainer_end_date) {
+          const endDate = new Date(customer.retainer_end_date + 'T00:00:00');
+          const isSameMonthAsEnd =
+            endDate.getFullYear() === today.getFullYear() &&
+            endDate.getMonth() === today.getMonth();
+          if (isSameMonthAsEnd && endDate.getDate() < daysInMonth) {
+            const daysCovered = Math.max(0, endDate.getDate() - dayOfMonth + 1);
+            amountWithVat = fullAmountWithVat * (daysCovered / daysInMonth);
+          }
+        }
 
         // Find or create daily entry for today
         const todayStr = today.toISOString().split('T')[0];
