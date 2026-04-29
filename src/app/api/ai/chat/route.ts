@@ -700,6 +700,18 @@ ${getRoleInstructions(userRole)}
 - **כלל ברזל:** כשמשתמש שואל "יש לי מוצר מנוהל?" או "מה המוצר המנוהל שלי?" — **תמיד** שלוף מ-public.managed_products גם אם getMonthlySummary החזיר NULL. הטבלה managed_products מכילה את ההגדרות (שם, יחידה, עלות, מלאי, יעד) גם כשהם לא מחושבים בדוח החודשי.
 - **אל תגיד "אין מוצר מנוהל"** אלא אם בדקת **גם** את טבלת managed_products ישירות והיא ריקה!
 
+### getProfitLossReport ⭐ (drill-down לפי קטגוריה / ספק)
+**מתי לקרוא:** המשתמש שואל על קטגוריה ספציפית ("איך אני בעמלות?" / "כמה הוצאתי על שיווק?"), על ספק מסוים, על תת-קטגוריה, או רוצה לראות את הפירוט המלא של הוצאות שוטפות.
+מחזיר את עץ קטגוריות ההוצאות — בדיוק כמו דוח רווח-הפסד ב-/reports:
+- **רמה 1 — Parents** (עלות מכר / עלות עובדים / שיווק ופרסום / עמלות / רשויות / תפעול ועוד): סכום בפועל + יעד + הפרש
+- **רמה 2 — Subcategories** של כל parent (לדוגמה תחת תפעול: אינטרנט, חשמל, ניקיון): סכום בפועל + יעד + הפרש
+- **רמה 3 — Suppliers** של כל subcategory: שם ספק + סכום בפועל + יעד מוגדר ב-supplier_budgets + הפרש
+- **uncategorizedSuppliers**: ספקים בלי קטגוריה — שווה להציע למשתמש לסווג אותם
+
+**עקרון single source of truth:** הכלי הזה לא מחזיר אחוזי aggregate (עלות עובדים %, עלות מכר %). את האחוזים הכלליים — תמיד שלוף מ-getMonthlySummary, שזהה לדשבורד. getProfitLossReport נועד **רק** לחלוקה פר-קטגוריה ופר-ספק.
+
+**דוגמת שימוש:** משתמש שואל "מי הספק הגבוה ביותר בעמלות החודש?" → קרא ל-getProfitLossReport, מצא את parent="עמלות", מיין subcategories.suppliers לפי actual יורד, הצג top 3 עם הפרש מהיעד.
+
 ### queryDatabase
 השתמש בכלי זה **לכל שאלה שדורשת נתונים עסקיים**: הכנסות, הוצאות, ספקים, חשבוניות, יעדים, עלויות, עובדים, תשלומים, סיכומים, לקוחות, משימות, מחירים, תעודות משלוח.
 - כתוב שאילתת SELECT בלבד (PostgreSQL).
@@ -2527,6 +2539,192 @@ function buildTools(
         } catch (e) {
           console.error("[AI Tool] getMonthlySummary error:", e);
           return { error: e instanceof Error ? e.message : "Failed to compute summary" };
+        }
+      },
+    }),
+
+    getProfitLossReport: tool({
+      description: "Get the full P&L report tree for a business + month — exactly what the user sees on /reports. Returns income, total expenses split by parent category (עלות מכר / עלות עובדים / שיווק ופרסום / עמלות / רשויות / תפעול / etc.), each with its subcategories and per-supplier actual+budget breakdown. Use when the user asks about a SPECIFIC category, subcategory, supplier, or wants to dig into where money is going. The home dashboard shows aggregates only — this is the drill-down. Numbers are aligned with the dashboard's labor/food/current totals (single source of truth).",
+      inputSchema: z.object({
+        businessId: z.string().describe("Business UUID"),
+        year: z.number().describe("Year (e.g., 2026)"),
+        month: z.number().describe("Month (1-12)"),
+      }),
+      execute: async ({ businessId: bizId, year, month }) => {
+        console.log(`[AI Tool] getProfitLossReport: ${bizId} ${year}/${month}`);
+        try {
+          const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+          const lastDay = new Date(year, month, 0);
+          const monthEnd = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, "0")}-${String(lastDay.getDate()).padStart(2, "0")}`;
+
+          const [
+            { data: categories },
+            { data: invoices },
+            { data: deliveryNotes },
+            { data: budgets },
+          ] = await Promise.all([
+            adminSupabase
+              .from("expense_categories")
+              .select("id, name, parent_id")
+              .eq("business_id", bizId)
+              .eq("is_active", true)
+              .is("deleted_at", null),
+            adminSupabase
+              .from("invoices")
+              .select("subtotal, supplier_id, status, invoice_number, supplier:suppliers(name, expense_category_id, expense_type, is_fixed_expense)")
+              .eq("business_id", bizId)
+              .is("deleted_at", null)
+              .in("invoice_type", ["current", "goods", "employees"])
+              .gte("reference_date", monthStart)
+              .lte("reference_date", monthEnd),
+            adminSupabase
+              .from("delivery_notes")
+              .select("subtotal, supplier_id, supplier:suppliers(name, expense_category_id, expense_type, is_fixed_expense)")
+              .eq("business_id", bizId)
+              .is("invoice_id", null)
+              .gte("delivery_date", monthStart)
+              .lte("delivery_date", monthEnd),
+            adminSupabase
+              .from("supplier_budgets")
+              .select("budget_amount, supplier_id, supplier:suppliers(name, expense_category_id, expense_type)")
+              .eq("business_id", bizId)
+              .eq("year", year)
+              .eq("month", month)
+              .is("deleted_at", null),
+          ]);
+
+          // Build supplier-level aggregates: actuals from invoices + delivery notes,
+          // budgets from supplier_budgets — same source the report uses.
+          type SupplierRow = {
+            id: string;
+            name: string;
+            expense_category_id: string | null;
+            expense_type: string | null;
+            actual: number;
+            budget: number;
+          };
+          const supplierMap = new Map<string, SupplierRow>();
+          const ensureSupplier = (id: string, raw: { name?: string; expense_category_id?: string | null; expense_type?: string | null } | null) => {
+            if (!supplierMap.has(id)) {
+              supplierMap.set(id, {
+                id,
+                name: raw?.name || "ספק לא ידוע",
+                expense_category_id: raw?.expense_category_id ?? null,
+                expense_type: raw?.expense_type ?? null,
+                actual: 0,
+                budget: 0,
+              });
+            }
+            return supplierMap.get(id)!;
+          };
+          for (const inv of (invoices || []) as Array<{ subtotal: number; supplier_id: string; supplier: { name?: string; expense_category_id?: string | null; expense_type?: string | null } | null }>) {
+            if (!inv.supplier_id) continue;
+            const s = ensureSupplier(inv.supplier_id, inv.supplier);
+            s.actual += Number(inv.subtotal) || 0;
+          }
+          for (const dn of (deliveryNotes || []) as Array<{ subtotal: number; supplier_id: string; supplier: { name?: string; expense_category_id?: string | null; expense_type?: string | null } | null }>) {
+            if (!dn.supplier_id) continue;
+            const s = ensureSupplier(dn.supplier_id, dn.supplier);
+            s.actual += Number(dn.subtotal) || 0;
+          }
+          for (const b of (budgets || []) as Array<{ budget_amount: number; supplier_id: string; supplier: { name?: string; expense_category_id?: string | null; expense_type?: string | null } | null }>) {
+            if (!b.supplier_id) continue;
+            const s = ensureSupplier(b.supplier_id, b.supplier);
+            s.budget += Number(b.budget_amount) || 0;
+          }
+
+          // Categories: build parent → children map.
+          const cats = (categories || []) as Array<{ id: string; name: string; parent_id: string | null }>;
+          const parents = cats.filter((c) => c.parent_id == null);
+          const childrenByParent = new Map<string, typeof parents>();
+          for (const c of cats) {
+            if (!c.parent_id) continue;
+            if (!childrenByParent.has(c.parent_id)) childrenByParent.set(c.parent_id, []);
+            childrenByParent.get(c.parent_id)!.push(c);
+          }
+
+          // Map each category id to suppliers under it (actuals + budgets).
+          const suppliersByCategory = new Map<string, SupplierRow[]>();
+          for (const s of supplierMap.values()) {
+            if (!s.expense_category_id) continue;
+            if (!suppliersByCategory.has(s.expense_category_id)) suppliersByCategory.set(s.expense_category_id, []);
+            suppliersByCategory.get(s.expense_category_id)!.push(s);
+          }
+
+          // Build tree: each parent -> { actual, budget, children: [{name, actual, budget, suppliers}] }
+          const tree = parents.map((parent) => {
+            const children = childrenByParent.get(parent.id) || [];
+            const subcategories = children.map((child) => {
+              const sups = suppliersByCategory.get(child.id) || [];
+              const actual = sups.reduce((s, x) => s + x.actual, 0);
+              const budget = sups.reduce((s, x) => s + x.budget, 0);
+              return {
+                name: child.name,
+                actual: Math.round(actual),
+                budget: Math.round(budget),
+                diff: Math.round(budget - actual),
+                suppliers: sups
+                  .filter((s) => s.actual > 0 || s.budget > 0)
+                  .map((s) => ({
+                    name: s.name,
+                    actual: Math.round(s.actual),
+                    budget: Math.round(s.budget),
+                    diff: Math.round(s.budget - s.actual),
+                  }))
+                  .sort((a, b) => b.actual - a.actual),
+              };
+            }).filter((c) => c.actual > 0 || c.budget > 0 || c.suppliers.length > 0);
+
+            // Suppliers attached directly to the parent (no subcategory)
+            const parentSuppliers = (suppliersByCategory.get(parent.id) || [])
+              .filter((s) => s.actual > 0 || s.budget > 0)
+              .map((s) => ({
+                name: s.name,
+                actual: Math.round(s.actual),
+                budget: Math.round(s.budget),
+                diff: Math.round(s.budget - s.actual),
+              }))
+              .sort((a, b) => b.actual - a.actual);
+
+            const childrenActual = subcategories.reduce((s, c) => s + c.actual, 0);
+            const childrenBudget = subcategories.reduce((s, c) => s + c.budget, 0);
+            const parentDirectActual = parentSuppliers.reduce((s, x) => s + x.actual, 0);
+            const parentDirectBudget = parentSuppliers.reduce((s, x) => s + x.budget, 0);
+            const totalActual = childrenActual + parentDirectActual;
+            const totalBudget = childrenBudget + parentDirectBudget;
+
+            return {
+              name: parent.name,
+              actual: Math.round(totalActual),
+              budget: Math.round(totalBudget),
+              diff: Math.round(totalBudget - totalActual),
+              subcategories,
+              parentLevelSuppliers: parentSuppliers,
+            };
+          }).filter((p) => p.actual > 0 || p.budget > 0 || p.subcategories.length > 0 || p.parentLevelSuppliers.length > 0);
+
+          // Suppliers without any category (orphans) — surface them so the user
+          // sees that some money isn't categorized yet.
+          const orphans = Array.from(supplierMap.values())
+            .filter((s) => !s.expense_category_id && (s.actual > 0 || s.budget > 0))
+            .map((s) => ({
+              name: s.name,
+              actual: Math.round(s.actual),
+              budget: Math.round(s.budget),
+              diff: Math.round(s.budget - s.actual),
+            }))
+            .sort((a, b) => b.actual - a.actual);
+
+          return {
+            year,
+            month,
+            categories: tree,
+            uncategorizedSuppliers: orphans,
+            note: "אחוזים על מטריקות aggregate (עלות עובדים %, עלות מכר %, הוצאות שוטפות %) — שלוף מ-getMonthlySummary כדי שיהיו זהים לדשבורד. הכלי הזה נועד לתצוגת drill-down של פר-קטגוריה ופר-ספק.",
+          };
+        } catch (e) {
+          console.error("[AI Tool] getProfitLossReport error:", e);
+          return { error: e instanceof Error ? e.message : String(e) };
         }
       },
     }),
