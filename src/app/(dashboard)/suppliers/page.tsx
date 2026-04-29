@@ -1405,21 +1405,51 @@ export default function SuppliersPage() {
         .slice(0, invLimit * 2);
 
       if (invoicesList) {
-        // Fetch linked payments for all invoices
+        // Fetch linked payments for all invoices.
+        // David's bug: an invoice paid with 2 checks showed only ONE payment
+        // row here, while the expenses page showed both. Two root causes:
+        //  (1) we only queried payments with a direct invoice_id FK and
+        //      missed payments linked through the N:M payment_invoice_links
+        //      table — the expenses page selects from BOTH and dedupes.
+        //  (2) we only rendered payment_splits[0] (the first check), even
+        //      when the payment had multiple splits (each check / installment
+        //      is a separate row in payment_splits).
+        // Fix: mirror the expenses-page logic — fetch via both edges, dedupe
+        // by payment.id, and emit one row per split.
         const invoiceIds = invoicesList.map((inv: Record<string, unknown>) => inv.id as string);
-        const { data: linkedPaymentsList } = await supabase
-          .from("payments")
-          .select(`
-            id,
-            invoice_id,
-            payment_date,
-            total_amount,
-            notes,
-            receipt_url,
-            payment_splits(payment_method, amount, installments_count, installment_number, due_date)
-          `)
-          .in("invoice_id", invoiceIds)
-          .is("deleted_at", null);
+
+        type RawSplit = {
+          id?: string;
+          payment_method?: string;
+          amount?: number;
+          installments_count?: number;
+          installment_number?: number;
+          due_date?: string;
+        };
+        type RawPayment = {
+          id: string;
+          payment_date: string;
+          total_amount: number;
+          notes?: string | null;
+          receipt_url?: string | null;
+          payment_splits?: RawSplit[];
+        };
+
+        const [{ data: directPayments }, { data: linkRows }] = await Promise.all([
+          supabase
+            .from("payments")
+            .select(`id, invoice_id, payment_date, total_amount, notes, receipt_url,
+              payment_splits(id, payment_method, amount, installments_count, installment_number, due_date)`)
+            .in("invoice_id", invoiceIds)
+            .is("deleted_at", null),
+          supabase
+            .from("payment_invoice_links")
+            .select(`invoice_id,
+              payment:payments!inner(id, payment_date, total_amount, notes, receipt_url, deleted_at,
+                payment_splits(id, payment_method, amount, installments_count, installment_number, due_date))`)
+            .in("invoice_id", invoiceIds)
+            .is("payment.deleted_at", null),
+        ]);
 
         const paymentMethodNames: Record<string, string> = {
           "bank_transfer": "העברה בנקאית",
@@ -1433,24 +1463,54 @@ export default function SuppliersPage() {
           "standing_order": "הוראת קבע",
         };
 
-        // Group payments by invoice_id
+        // Group payments by invoice_id, deduped per (invoice_id, payment_id).
         const paymentsByInvoice: Record<string, Array<{ id: string; amount: number; method: string; installments: string; date: string; receiptUrl: string | null; notes: string | null }>> = {};
-        if (linkedPaymentsList) {
-          for (const pay of linkedPaymentsList) {
-            const invoiceId = pay.invoice_id as string;
-            if (!paymentsByInvoice[invoiceId]) paymentsByInvoice[invoiceId] = [];
-            const firstSplit = pay.payment_splits?.[0];
-            const installCount = firstSplit?.installments_count || 1;
-            const installNum = firstSplit?.installment_number || 1;
+        const seenPerInvoice: Record<string, Set<string>> = {};
+
+        const pushPaymentSplits = (invoiceId: string, pay: RawPayment) => {
+          if (!seenPerInvoice[invoiceId]) seenPerInvoice[invoiceId] = new Set();
+          if (seenPerInvoice[invoiceId].has(pay.id)) return;
+          seenPerInvoice[invoiceId].add(pay.id);
+          if (!paymentsByInvoice[invoiceId]) paymentsByInvoice[invoiceId] = [];
+
+          const splits = Array.isArray(pay.payment_splits) ? pay.payment_splits : [];
+          if (splits.length === 0) {
             paymentsByInvoice[invoiceId].push({
               id: pay.id,
               amount: Number(pay.total_amount),
-              method: paymentMethodNames[firstSplit?.payment_method || "other"] || "אחר",
-              installments: installCount > 1 ? `${installNum}/${installCount}` : "1/1",
-              date: new Date((firstSplit?.due_date as string) || pay.payment_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
+              method: "אחר",
+              installments: "1/1",
+              date: new Date(pay.payment_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
               receiptUrl: pay.receipt_url || null,
               notes: pay.notes || null,
             });
+            return;
+          }
+          for (const split of splits) {
+            const installCount = split.installments_count || 1;
+            const installNum = split.installment_number || 1;
+            paymentsByInvoice[invoiceId].push({
+              id: `${pay.id}-${split.id || split.payment_method || "split"}`,
+              amount: Number(split.amount ?? pay.total_amount),
+              method: paymentMethodNames[split.payment_method || "other"] || "אחר",
+              installments: installCount > 1 ? `${installNum}/${installCount}` : "1/1",
+              date: new Date(split.due_date || pay.payment_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" }),
+              receiptUrl: pay.receipt_url || null,
+              notes: pay.notes || null,
+            });
+          }
+        };
+
+        for (const pay of (directPayments || []) as Array<RawPayment & { invoice_id: string }>) {
+          pushPaymentSplits(pay.invoice_id, pay);
+        }
+        // Supabase returns the joined `payment` either as a single object or
+        // an array depending on relationship cardinality — handle both.
+        for (const link of (linkRows || []) as unknown as Array<{ invoice_id: string; payment: RawPayment | RawPayment[] | null }>) {
+          if (!link.payment) continue;
+          const pays = Array.isArray(link.payment) ? link.payment : [link.payment];
+          for (const p of pays) {
+            if (p) pushPaymentSplits(link.invoice_id, p);
           }
         }
 
