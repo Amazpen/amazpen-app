@@ -748,7 +748,24 @@ export default function OCRForm({
   // Payment methods helpers (shared for both payment tab and inline payment)
   const addPaymentMethodEntry = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[]) => {
     const newId = Math.max(...methods.map(p => p.id)) + 1;
-    setter(prev => [...prev, { id: newId, method: '', amount: '', installments: '1', checkNumber: '', creditCardId: '', customInstallments: [] }]);
+    // Auto-increment check number when the previous row was a check with a
+    // numeric check_number — typical use case is writing 3 sequential checks
+    // and not wanting to retype each number. Inherit the method too so the
+    // user can just enter the next amount and stay on flow.
+    const last = methods[methods.length - 1];
+    const lastCheckNum = last && last.method === 'check' ? last.checkNumber.trim() : '';
+    const lastCheckNumIsNumeric = lastCheckNum !== '' && /^\d+$/.test(lastCheckNum);
+    const inheritedCheckNumber = lastCheckNumIsNumeric ? String(Number(lastCheckNum) + 1) : '';
+    const inheritedMethod = last && last.method === 'check' ? 'check' : '';
+    setter(prev => [...prev, {
+      id: newId,
+      method: inheritedMethod,
+      amount: '',
+      installments: '1',
+      checkNumber: inheritedCheckNumber,
+      creditCardId: '',
+      customInstallments: [],
+    }]);
   };
 
   const removePaymentMethodEntry = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[], id: number) => {
@@ -1842,7 +1859,19 @@ export default function OCRForm({
               value={pm.amount}
               onFocus={(e) => e.target.select()}
               onChange={(e) => {
-                const val = e.target.value.replace(/[^\d.-]/g, '').replace(/(\..*)\./g, '$1');
+                // Strip everything except digits, dot, minus.
+                let val = e.target.value.replace(/[^\d.-]/g, '');
+                // If the user typed more than one dot, keep only the first
+                // — KEEPING the digits that came after subsequent dots
+                // (the previous regex `(\..*)\.` was greedy and silently
+                // dropped the trailing portion, which scrambled the amount
+                // when the user tried to insert a dot mid-string).
+                const firstDot = val.indexOf('.');
+                if (firstDot !== -1) {
+                  const before = val.slice(0, firstDot + 1);
+                  const after = val.slice(firstDot + 1).replace(/\./g, '');
+                  val = before + after;
+                }
                 updatePaymentMethodField(setter, methods, pm.id, 'amount', val, dateStr);
               }}
               placeholder="סכום"
