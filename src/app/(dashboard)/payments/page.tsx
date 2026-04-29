@@ -4558,8 +4558,16 @@ function PaymentsPageInner() {
                         })()}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => {
-                          // Allow only numbers and a single decimal point
-                          const val = e.target.value.replace(/[^\d.-]/g, "").replace(/(\..*)\./g, "$1");
+                          // Allow only numbers and a single decimal point.
+                          // The previous `(\..*)\.` regex was greedy and
+                          // dropped trailing digits when the user inserted
+                          // a dot mid-string — fixed to keep the first dot
+                          // and just remove subsequent dots.
+                          let val = e.target.value.replace(/[^\d.-]/g, "");
+                          const firstDot = val.indexOf(".");
+                          if (firstDot !== -1) {
+                            val = val.slice(0, firstDot + 1) + val.slice(firstDot + 1).replace(/\./g, "");
+                          }
                           updatePaymentMethodField(pm.id, "amount", val);
                         }}
                         placeholder="סכום"

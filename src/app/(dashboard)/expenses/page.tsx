@@ -5619,7 +5619,16 @@ function ExpensesPageInner() {
                                 value={pm.amount}
                                 onFocus={(e) => e.target.select()}
                                 onChange={(e) => {
-                                  const val = e.target.value.replace(/[^\d.-]/g, "").replace(/(\..*)\./g, "$1");
+                                  // Strip non-numeric chars then collapse to a
+                                  // single decimal point WITHOUT dropping the
+                                  // digits that came after subsequent dots
+                                  // (the legacy `(\..*)\.` was greedy and
+                                  // scrambled mid-string dot insertions).
+                                  let val = e.target.value.replace(/[^\d.-]/g, "");
+                                  const firstDot = val.indexOf(".");
+                                  if (firstDot !== -1) {
+                                    val = val.slice(0, firstDot + 1) + val.slice(firstDot + 1).replace(/\./g, "");
+                                  }
                                   updatePopupPaymentMethodField(pm.id, "amount", val);
                                 }}
                                 placeholder="סכום"
@@ -6444,7 +6453,13 @@ function ExpensesPageInner() {
                         value={pm.amount}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => {
-                          const val = e.target.value.replace(/[^\d.-]/g, "").replace(/(\..*)\./g, "$1");
+                          // See sister handler above — collapse to a single
+                          // decimal point without losing trailing digits.
+                          let val = e.target.value.replace(/[^\d.-]/g, "");
+                          const firstDot = val.indexOf(".");
+                          if (firstDot !== -1) {
+                            val = val.slice(0, firstDot + 1) + val.slice(firstDot + 1).replace(/\./g, "");
+                          }
                           updatePopupPaymentMethodField(pm.id, "amount", val);
                         }}
                         placeholder="סכום"
