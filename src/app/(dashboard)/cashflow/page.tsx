@@ -133,6 +133,11 @@ export default function CashFlowPage() {
   // Drill-down state
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
   const [expandedDays, setExpandedDays] = useState<string[]>([]);
+  // Per-payment-method group expansion within an expanded day. Key:
+  // "YYYY-MM-DD|payment_method_id" — needed because a single payment-method
+  // collapse can contain dozens of rows (e.g. credit-card settlement of two
+  // weeks' worth of daily entries).
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   // Track whether we've auto-expanded the current month yet (do it once per
   // session — re-expanding on every refresh would fight the user's clicks).
   const [didAutoExpandCurrentMonth, setDidAutoExpandCurrentMonth] = useState(false);
@@ -534,6 +539,10 @@ export default function CashFlowPage() {
     setExpandedDays((prev) => prev.includes(dateStr) ? prev.filter((k) => k !== dateStr) : [...prev, dateStr]);
   };
 
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
+  };
+
   const handleEndDateChange = (range: { start: Date; end: Date }) => {
     setEndDate(range.end);
     setSavedEndDate(range.end.toISOString());
@@ -755,32 +764,113 @@ export default function CashFlowPage() {
                         {/* Level 3: Individual Items (expanded day) */}
                         {expandedDays.includes(day.date) && (
                           <div className="bg-[#141A40] border-b border-white/10">
-                            {/* Income items */}
-                            {day.incomeItems.length > 0 && (
-                              <div className="p-[8px]">
-                                <span className="text-[11px] text-[#17DB4E]/70 font-semibold">הכנסות</span>
-                                {day.incomeItems.map((item, idx) => (
-                                  <button
-                                    key={`inc-${idx}`}
-                                    type="button"
-                                    onClick={() => {
-                                      setOverrideItem({ date: day.date, item });
-                                      setOverrideAmount(String(Math.round(item.net_amount)));
-                                      setOverrideNote("");
-                                    }}
-                                    className="flex items-center justify-between w-full py-[4px] hover:bg-white/5 rounded px-[4px] transition-colors"
-                                  >
-                                    <div className="flex items-center gap-[6px]">
-                                      <span className="text-[12px] text-white/80">{item.payment_method_name}</span>
-                                      {item.fee_amount > 0 && (
-                                        <span className="text-[10px] text-white/30">(-{formatCurrencyFull(item.fee_amount)} עמלה)</span>
-                                      )}
-                                    </div>
-                                    <span className="text-[12px] font-bold text-[#17DB4E]">{formatCurrencyFull(item.net_amount)}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
+                            {/* Income items — grouped by payment method.
+                                Without grouping a single settlement day for a
+                                credit-card method shows 15+ identical-looking
+                                rows (one per source entry); David asked for
+                                one collapsed row per method that opens to
+                                show the original entry dates. */}
+                            {day.incomeItems.length > 0 && (() => {
+                              const groups = new Map<string, {
+                                key: string;
+                                name: string;
+                                items: typeof day.incomeItems;
+                                grossTotal: number;
+                                feeTotal: number;
+                                netTotal: number;
+                              }>();
+                              for (const item of day.incomeItems) {
+                                const k = item.payment_method_id;
+                                let g = groups.get(k);
+                                if (!g) {
+                                  g = { key: k, name: item.payment_method_name, items: [], grossTotal: 0, feeTotal: 0, netTotal: 0 };
+                                  groups.set(k, g);
+                                }
+                                g.items.push(item);
+                                g.grossTotal += item.gross_amount;
+                                g.feeTotal += item.fee_amount;
+                                g.netTotal += item.net_amount;
+                              }
+                              const groupArr = Array.from(groups.values());
+                              return (
+                                <div className="p-[8px]">
+                                  <span className="text-[11px] text-[#17DB4E]/70 font-semibold">הכנסות</span>
+                                  {groupArr.map((g) => {
+                                    const groupKey = `${day.date}|${g.key}`;
+                                    const isOpen = expandedGroups.includes(groupKey);
+                                    const hasMultiple = g.items.length > 1;
+                                    return (
+                                      <div key={g.key}>
+                                        {hasMultiple ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleGroup(groupKey)}
+                                            className="flex items-center justify-between w-full py-[4px] hover:bg-white/5 rounded px-[4px] transition-colors"
+                                          >
+                                            <div className="flex items-center gap-[6px]">
+                                              <svg
+                                                width="12" height="12" viewBox="0 0 32 32" fill="none"
+                                                className={`flex-shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                                              >
+                                                <path d="M8 12L16 20L24 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                              </svg>
+                                              <span className="text-[12px] text-white/80">{g.name}</span>
+                                              <span className="text-[10px] text-white/40">×{g.items.length}</span>
+                                              {g.feeTotal > 0 && (
+                                                <span className="text-[10px] text-white/30">(-{formatCurrencyFull(g.feeTotal)} עמלה)</span>
+                                              )}
+                                            </div>
+                                            <span className="text-[12px] font-bold text-[#17DB4E]">{formatCurrencyFull(g.netTotal)}</span>
+                                          </button>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setOverrideItem({ date: day.date, item: g.items[0] });
+                                              setOverrideAmount(String(Math.round(g.items[0].net_amount)));
+                                              setOverrideNote("");
+                                            }}
+                                            className="flex items-center justify-between w-full py-[4px] hover:bg-white/5 rounded px-[4px] transition-colors"
+                                          >
+                                            <div className="flex items-center gap-[6px]">
+                                              <span className="text-[12px] text-white/80">{g.name}</span>
+                                              {g.feeTotal > 0 && (
+                                                <span className="text-[10px] text-white/30">(-{formatCurrencyFull(g.feeTotal)} עמלה)</span>
+                                              )}
+                                            </div>
+                                            <span className="text-[12px] font-bold text-[#17DB4E]">{formatCurrencyFull(g.netTotal)}</span>
+                                          </button>
+                                        )}
+                                        {hasMultiple && isOpen && (
+                                          <div className="bg-black/20 rounded mt-[2px] mb-[4px]">
+                                            {g.items.map((item, idx) => (
+                                              <button
+                                                key={`grp-${idx}`}
+                                                type="button"
+                                                onClick={() => {
+                                                  setOverrideItem({ date: day.date, item });
+                                                  setOverrideAmount(String(Math.round(item.net_amount)));
+                                                  setOverrideNote("");
+                                                }}
+                                                className="flex items-center justify-between w-full py-[3px] hover:bg-white/5 px-[20px] transition-colors"
+                                              >
+                                                <div className="flex items-center gap-[6px]">
+                                                  <span className="text-[11px] text-white/50">מהכנסה של {formatDisplayDate(item.original_entry_date)}</span>
+                                                  {item.fee_amount > 0 && (
+                                                    <span className="text-[10px] text-white/30">(-{formatCurrencyFull(item.fee_amount)} עמלה)</span>
+                                                  )}
+                                                </div>
+                                                <span className="text-[11px] text-white/70">{formatCurrencyFull(item.net_amount)}</span>
+                                              </button>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
                             {/* Expense items */}
                             {day.expenseItems.length > 0 && (
                               <div className="p-[8px] border-t border-white/5">
