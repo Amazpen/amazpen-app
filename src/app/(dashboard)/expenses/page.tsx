@@ -1004,15 +1004,22 @@ function ExpensesPageInner() {
     return paymentDate;
   };
 
-  // Add new payment method entry to popup — auto-fill remaining balance
+  // Add new payment method entry to popup — auto-fill remaining balance.
+  // Also inherit method+next-check-number when the previous row was a numeric
+  // check, so writing 3 sequential checks doesn't require retyping each one.
   const addPopupPaymentMethodEntry = () => {
     const newId = Math.max(...popupPaymentMethods.map(p => p.id)) + 1;
     const totalInvoice = paymentInvoice ? paymentInvoice.amountWithVat : 0;
     const allocatedSoFar = popupPaymentMethods.reduce((sum, p) => sum + (parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0), 0);
     const remaining = Math.max(0, Math.round((totalInvoice - allocatedSoFar) * 100) / 100);
+    const last = popupPaymentMethods[popupPaymentMethods.length - 1];
+    const lastCheckNum = last && last.method === "check" ? last.checkNumber.trim() : "";
+    const lastIsNumeric = lastCheckNum !== "" && /^\d+$/.test(lastCheckNum);
+    const inheritedCheckNumber = lastIsNumeric ? String(Number(lastCheckNum) + 1) : "";
+    const inheritedMethod = last && last.method === "check" ? "check" : "";
     setPopupPaymentMethods(prev => [
       ...prev,
-      { id: newId, method: "", amount: remaining > 0 ? String(remaining) : "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }
+      { id: newId, method: inheritedMethod, amount: remaining > 0 ? String(remaining) : "", installments: "1", checkNumber: inheritedCheckNumber, creditCardId: "", customInstallments: [] }
     ]);
   };
 
