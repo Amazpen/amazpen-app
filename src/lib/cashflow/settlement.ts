@@ -112,12 +112,13 @@ function calculateSettlement(entryDate: string, rules: SettlementRules): Resolve
         fallback.setDate(fallback.getDate() + 1);
         return { settlement_date: formatDate(fallback), fee_rate_pct: 0, fee_fixed: 0 };
       }
-      // settlement_date in custom_periods is a day-of-month. If the entry was
-      // before the cutoff, the money usually arrives in the SAME month if
-      // settlement_date >= entry day, otherwise in the NEXT month.
+      // David's call-out: "יום תקבול" by itself is ambiguous — it can mean
+      // same month or next month. Honor the per-period offset (0=same,
+      // 1=next). Legacy data without the field defaults to next-month
+      // because that's how almost all Israeli card-settlement plans behave.
       const settleDay = Math.max(1, Math.min(28, period.settlement_date));
-      const targetMonth = settleDay >= dayOfMonth ? d.getMonth() : d.getMonth() + 1;
-      const settleDate = new Date(d.getFullYear(), targetMonth, settleDay);
+      const offset = period.settlement_month_offset ?? 1;
+      const settleDate = new Date(d.getFullYear(), d.getMonth() + offset, settleDay);
       const feePct = period.commission_type === "percentage" ? Number(period.commission_rate) || 0 : 0;
       const feeFixed = period.commission_type === "fixed" ? Number(period.commission_rate) || 0 : 0;
       return { settlement_date: formatDate(settleDate), fee_rate_pct: feePct, fee_fixed: feeFixed };

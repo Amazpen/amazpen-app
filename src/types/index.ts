@@ -80,6 +80,15 @@ export interface SettlementPeriod {
   range_start: number;      // Day of month the period starts (1-31)
   range_end: number;        // Day of month the period ends (1-31)
   settlement_date: number;  // Day of month the money arrives
+  /**
+   * Which month the money lands in, relative to the entry's month:
+   *   0 = same month as the entry
+   *   1 = next month (default for credit-card / Wolt-style schedules)
+   * David's call-out: the editor used to be ambiguous — "יום תקבול 2"
+   * could mean 2nd of THIS month or 2nd of NEXT month. The user now picks
+   * explicitly per-period.
+   */
+  settlement_month_offset?: 0 | 1;
   commission_rate: number;  // Commission rate (percentage or fixed amount)
   commission_type: "percentage" | "fixed"; // How to interpret commission_rate
 }

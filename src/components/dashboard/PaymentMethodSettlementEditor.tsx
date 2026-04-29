@@ -31,6 +31,9 @@ const DEFAULT_PERIOD: SettlementPeriod = {
   range_start: 1,
   range_end: 7,
   settlement_date: 8,
+  // Default to next month — that's how almost all Israeli card-settlement
+  // schedules work, and matches the legacy behavior the resolver had.
+  settlement_month_offset: 1,
   commission_rate: 0,
   commission_type: "percentage",
 };
@@ -51,10 +54,10 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
   // Custom periods state
   const [periods, setPeriods] = useState<SettlementPeriod[]>(
     (method.settlement_periods as SettlementPeriod[] | null) || [
-      { range_start: 1, range_end: 7, settlement_date: 8, commission_rate: 0, commission_type: "percentage" },
-      { range_start: 8, range_end: 14, settlement_date: 15, commission_rate: 0, commission_type: "percentage" },
-      { range_start: 15, range_end: 21, settlement_date: 22, commission_rate: 0, commission_type: "percentage" },
-      { range_start: 22, range_end: 28, settlement_date: 29, commission_rate: 0, commission_type: "percentage" },
+      { range_start: 1, range_end: 7, settlement_date: 8, settlement_month_offset: 1, commission_rate: 0, commission_type: "percentage" },
+      { range_start: 8, range_end: 14, settlement_date: 15, settlement_month_offset: 1, commission_rate: 0, commission_type: "percentage" },
+      { range_start: 15, range_end: 21, settlement_date: 22, settlement_month_offset: 1, commission_rate: 0, commission_type: "percentage" },
+      { range_start: 22, range_end: 28, settlement_date: 29, settlement_month_offset: 1, commission_rate: 0, commission_type: "percentage" },
     ]
   );
 
@@ -279,11 +282,12 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
               </p>
 
               {/* Header */}
-              <div className="grid grid-cols-[40px_1fr_1fr_1fr_1fr_80px_32px] gap-[6px] items-center text-[11px] text-white/50 text-center">
+              <div className="grid grid-cols-[28px_1fr_1fr_1fr_85px_1fr_70px_28px] gap-[6px] items-center text-[11px] text-white/50 text-center">
                 <span>#</span>
                 <span>מתאריך</span>
                 <span>עד תאריך</span>
                 <span>יום תקבול</span>
+                <span>חודש תקבול</span>
                 <span>עמלה</span>
                 <span>סוג עמלה</span>
                 <span></span>
@@ -291,7 +295,7 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
 
               {/* Period rows */}
               {periods.map((period, idx) => (
-                <div key={idx} className="grid grid-cols-[40px_1fr_1fr_1fr_1fr_80px_32px] gap-[6px] items-center">
+                <div key={idx} className="grid grid-cols-[28px_1fr_1fr_1fr_85px_1fr_70px_28px] gap-[6px] items-center">
                   <span className="text-[13px] text-white/40 text-center">{idx + 1}</span>
                   <Input
                     type="number"
@@ -317,6 +321,18 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
                     onChange={(e) => updatePeriod(idx, "settlement_date", parseInt(e.target.value) || 1)}
                     className="bg-[#0f1535] border-[#4C526B] text-white text-center h-[38px] rounded-[8px] text-[13px]"
                   />
+                  <Select
+                    value={String(period.settlement_month_offset ?? 1)}
+                    onValueChange={(v) => updatePeriod(idx, "settlement_month_offset", parseInt(v))}
+                  >
+                    <SelectTrigger className="bg-[#0f1535] border-[#4C526B] text-white h-[38px] rounded-[8px] text-[11px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#0f1535] border-[#4C526B]">
+                      <SelectItem value="0" className="text-white text-[12px]">אותו חודש</SelectItem>
+                      <SelectItem value="1" className="text-white text-[12px]">החודש הבא</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Input
                     type="number"
                     min={0}
@@ -363,16 +379,20 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
               {/* Summary */}
               <div className="bg-[#4956D4]/10 rounded-[10px] p-[10px]">
                 <p className="text-[11px] text-white/40 text-right mb-[4px]">סיכום תקופות:</p>
-                {periods.map((p, i) => (
-                  <p key={i} className="text-[12px] text-white/70 text-right">
-                    {i + 1}. הכנסות מ-{p.range_start} עד {p.range_end} ← נכנסות ב-{p.settlement_date} לחודש
-                    {p.commission_rate > 0 && (
-                      <span className="text-yellow-400/70">
-                        {" "}(עמלה: {p.commission_type === "percentage" ? `${p.commission_rate}%` : `₪${p.commission_rate}`})
-                      </span>
-                    )}
-                  </p>
-                ))}
+                {periods.map((p, i) => {
+                  const offset = p.settlement_month_offset ?? 1;
+                  const monthLabel = offset === 0 ? "באותו חודש" : "בחודש שאחרי";
+                  return (
+                    <p key={i} className="text-[12px] text-white/70 text-right">
+                      {i + 1}. הכנסות מ-{p.range_start} עד {p.range_end} ← נכנסות ב-{p.settlement_date} {monthLabel}
+                      {p.commission_rate > 0 && (
+                        <span className="text-yellow-400/70">
+                          {" "}(עמלה: {p.commission_type === "percentage" ? `${p.commission_rate}%` : `₪${p.commission_rate}`})
+                        </span>
+                      )}
+                    </p>
+                  );
+                })}
               </div>
             </div>
           )}
