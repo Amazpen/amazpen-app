@@ -146,7 +146,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
       {isDropdownOpen && (
         <>
           <div className="fixed inset-0 z-[100]" onClick={() => setIsDropdownOpen(false)} />
-          <div className="absolute top-full left-0 right-0 mt-[5px] bg-[#0F1535] border-2 border-[#29318A] rounded-[10px] p-[5px] z-[101] flex flex-col gap-[1px] min-w-[160px]">
+          <div className="absolute top-full right-0 mt-[5px] bg-[#0F1535] border-2 border-[#29318A] rounded-[10px] p-[5px] z-[101] flex flex-col gap-[1px] min-w-[180px]">
             <Button
               type="button"
               variant="ghost"
