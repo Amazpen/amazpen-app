@@ -134,6 +134,10 @@ export default function AdminGoalsPage() {
     invoiceCount: number;
   };
   const [pendingConflicts, setPendingConflicts] = useState<InvoiceConflict[] | null>(null);
+  // David: per-row "skip this update" — keys are `${supplierId}|${month}`.
+  // When checked, that conflict's budget is reverted to existingTotal at
+  // save-time so the existing invoice stays untouched.
+  const [conflictSkips, setConflictSkips] = useState<Set<string>>(new Set());
 
   // Goal data
   const [goal, setGoal] = useState<Goal | null>(null);
@@ -628,6 +632,7 @@ export default function AdminGoalsPage() {
       const conflicts = await detectInvoiceConflicts();
       if (conflicts.length > 0) {
         setPendingConflicts(conflicts);
+        setConflictSkips(new Set()); // start with all conflicts approved
         setIsSaving(false);
         return;
       }
@@ -645,6 +650,29 @@ export default function AdminGoalsPage() {
     const supabase = createClient();
 
     try {
+      // David's request: when conflicts pop up, the user can uncheck specific
+      // rows to keep the existing invoice amount instead of overwriting it.
+      // Translate "skip" rows back to the existing total so the budget row
+      // matches the unchanged invoice — that way the invoice-sync loop below
+      // sees no diff and does nothing for that supplier+month.
+      // Convert subtotal-without-vat from the existingTotal (with vat) using
+      // the same vat assumption the conflict detector used.
+      const skippedBudgetOverrides = new Map<string, number>();
+      if (pendingConflicts && conflictSkips.size > 0) {
+        for (const c of pendingConflicts) {
+          const key = `${c.supplierId}|${c.month}`;
+          if (!conflictSkips.has(key)) continue;
+          const supplier = suppliers.find((s) => s.id === c.supplierId);
+          if (!supplier) continue;
+          // existingTotal is total_amount from invoices; convert to subtotal
+          // using the same vat assumption the detector used.
+          const subtotal = supplier.vat_type === "full"
+            ? c.existingTotal / 1.18
+            : c.existingTotal;
+          skippedBudgetOverrides.set(key, Math.round(subtotal * 100) / 100);
+        }
+      }
+
       // Update goal
       const { error: goalError } = await supabase
         .from("goals")
@@ -678,12 +706,19 @@ export default function AdminGoalsPage() {
         }
       }
 
-      // Upsert supplier budgets (all months)
+      // Upsert supplier budgets (all months). Apply skipped-conflict
+      // overrides so an unchecked row writes the EXISTING amount back —
+      // keeping the invoice and the budget in sync.
+      const effectiveBudget = (b: SupplierBudget): number => {
+        const override = skippedBudgetOverrides.get(`${b.supplier_id}|${b.month}`);
+        return override !== undefined ? override : b.budget_amount;
+      };
       for (const b of supplierBudgets) {
+        const amount = effectiveBudget(b);
         if (b.id) {
           await supabase
             .from("supplier_budgets")
-            .update({ budget_amount: b.budget_amount })
+            .update({ budget_amount: amount })
             .eq("id", b.id);
         } else {
           await supabase.from("supplier_budgets").insert({
@@ -691,15 +726,19 @@ export default function AdminGoalsPage() {
             business_id: selectedBusinessId,
             year: selectedYear,
             month: b.month,
-            budget_amount: b.budget_amount,
+            budget_amount: amount,
           });
         }
       }
 
-      // Sync invoices for every current-expenses supplier with a non-zero budget
+      // Sync invoices for every current-expenses supplier with a non-zero budget.
+      // If this conflict was skipped, the budget already matches the existing
+      // invoice → nothing to update. Skip the whole iteration to avoid no-op
+      // round-trips.
       for (const b of supplierBudgets) {
         const supplier = suppliers.find((s) => s.id === b.supplier_id);
         if (!supplier || !isInvoiceEligible(supplier)) continue;
+        if (skippedBudgetOverrides.has(`${b.supplier_id}|${b.month}`)) continue;
 
         const subtotal = b.budget_amount;
         const vatAmount = supplier.vat_type === "full" ? subtotal * 0.18 : 0;
@@ -1339,7 +1378,7 @@ export default function AdminGoalsPage() {
 
       {/* Conflict popup — existing invoices would be overwritten by saving these budgets */}
       <Dialog open={!!pendingConflicts} onOpenChange={(open) => !open && setPendingConflicts(null)}>
-        <DialogContent className="bg-[#1A1F37] border border-[#29318A] text-white max-w-[600px]" dir="rtl">
+        <DialogContent className="bg-[#1A1F37] border border-[#29318A] text-white max-w-[640px]" dir="rtl">
           <DialogHeader>
             <DialogTitle className="text-right text-[18px] font-bold text-[#FFA500]">
               חשבוניות קיימות — אישור עדכון
@@ -1347,12 +1386,31 @@ export default function AdminGoalsPage() {
           </DialogHeader>
           <div className="text-right space-y-3 max-h-[400px] overflow-y-auto py-2">
             <p className="text-[14px] text-white/80">
-              עבור הספקים הבאים כבר קיימת חשבונית בחודש המבוקש בסכום שונה מהיעד החדש. שמירה תחליף את הסכום של החשבוניות הקיימות לפי היעד החדש:
+              עבור הספקים הבאים כבר קיימת חשבונית בחודש המבוקש בסכום שונה מהיעד החדש.
+              סמן רק את השורות שברצונך לעדכן — לא מסומנות יישארו על הסכום הקיים.
             </p>
+            <div className="flex items-center gap-3 px-1">
+              <button
+                type="button"
+                onClick={() => setConflictSkips(new Set())}
+                className="text-[12px] text-[#17DB4E] hover:underline"
+              >
+                סמן הכל
+              </button>
+              <span className="text-white/20">|</span>
+              <button
+                type="button"
+                onClick={() => setConflictSkips(new Set((pendingConflicts || []).map(c => `${c.supplierId}|${c.month}`)))}
+                className="text-[12px] text-white/70 hover:underline"
+              >
+                בטל הכל
+              </button>
+            </div>
             <div className="border border-white/10 rounded-lg overflow-hidden">
               <table className="w-full text-[13px]">
                 <thead className="bg-[#0F1535]">
                   <tr>
+                    <th className="px-3 py-2 text-center font-semibold w-[44px]">עדכן</th>
                     <th className="px-3 py-2 text-right font-semibold">ספק</th>
                     <th className="px-3 py-2 text-center font-semibold">חודש</th>
                     <th className="px-3 py-2 text-center font-semibold">קיים</th>
@@ -1360,20 +1418,53 @@ export default function AdminGoalsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(pendingConflicts || []).map((c, i) => (
-                    <tr key={`${c.supplierId}-${c.month}-${i}`} className="border-t border-white/5">
-                      <td className="px-3 py-2 text-right">{c.supplierName}</td>
-                      <td className="px-3 py-2 text-center text-white/70">{c.monthLabel}</td>
-                      <td className="px-3 py-2 text-center text-white/70">₪{c.existingTotal.toLocaleString()}</td>
-                      <td className="px-3 py-2 text-center text-[#17DB4E] font-medium">₪{c.newTotal.toLocaleString()}</td>
-                    </tr>
-                  ))}
+                  {(pendingConflicts || []).map((c, i) => {
+                    const key = `${c.supplierId}|${c.month}`;
+                    const skipped = conflictSkips.has(key);
+                    const willUpdate = !skipped;
+                    return (
+                      <tr
+                        key={`${c.supplierId}-${c.month}-${i}`}
+                        className={`border-t border-white/5 ${skipped ? "opacity-50" : ""}`}
+                      >
+                        <td className="px-3 py-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={willUpdate}
+                            onChange={() => {
+                              setConflictSkips(prev => {
+                                const next = new Set(prev);
+                                if (next.has(key)) next.delete(key);
+                                else next.add(key);
+                                return next;
+                              });
+                            }}
+                            className="w-4 h-4 accent-[#17DB4E] cursor-pointer"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right">{c.supplierName}</td>
+                        <td className="px-3 py-2 text-center text-white/70">{c.monthLabel}</td>
+                        <td className="px-3 py-2 text-center text-white/70">₪{c.existingTotal.toLocaleString()}</td>
+                        <td className={`px-3 py-2 text-center font-medium ${skipped ? "text-white/40 line-through" : "text-[#17DB4E]"}`}>
+                          ₪{c.newTotal.toLocaleString()}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-            <p className="text-[12px] text-white/50">
-              סה״כ {pendingConflicts?.length || 0} חשבוניות יעודכנו. תוכל לבטל ולערוך לפני שמירה.
-            </p>
+            {(() => {
+              const total = pendingConflicts?.length || 0;
+              const skipped = conflictSkips.size;
+              const willUpdate = total - skipped;
+              return (
+                <p className="text-[12px] text-white/60">
+                  {willUpdate} מתוך {total} יעודכנו
+                  {skipped > 0 ? ` · ${skipped} יישארו על הסכום הקיים` : ""}.
+                </p>
+              );
+            })()}
           </div>
           <DialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
             <Button
