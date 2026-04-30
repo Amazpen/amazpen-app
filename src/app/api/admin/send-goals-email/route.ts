@@ -118,12 +118,34 @@ export async function POST(request: NextRequest) {
     const overrideTo = typeof body.to === "string" && body.to.trim() ? body.to.trim() : "";
 
     // Pull the same payload the cron pulls — guarantees parity between
-    // automatic and manual sends.
-    const origin = new URL(request.url).origin;
+    // automatic and manual sends. Internal fetch to /api/business-summary-report
+    // (the n8n cron uses the same endpoint, so the email body matches the
+    // automatic 28th-of-month send byte-for-byte).
+    // NOTE: server-to-server fetch needs an absolute origin. Prefer the
+    // forwarded headers Vercel injects; fall back to the request URL only
+    // as a last resort because new URL(request.url) is sometimes 'http://0.0.0.0'
+    // inside a Vercel function and the loopback fails.
+    const forwardedHost = request.headers.get("x-forwarded-host");
+    const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
+    const reqHost = request.headers.get("host");
+    const origin = process.env.NEXT_PUBLIC_APP_URL
+      || (forwardedHost ? `${forwardedProto}://${forwardedHost}` : null)
+      || (reqHost ? `${forwardedProto}://${reqHost}` : null)
+      || new URL(request.url).origin;
     const summaryUrl = `${origin}/api/business-summary-report?business_id=${encodeURIComponent(businessId)}&year=${year}&month=${month}`;
-    const summaryRes = await fetch(summaryUrl, { cache: "no-store" });
+    let summaryRes: Response;
+    try {
+      summaryRes = await fetch(summaryUrl, { cache: "no-store" });
+    } catch (fetchErr) {
+      console.error("[send-goals-email] internal fetch failed:", { summaryUrl, err: fetchErr });
+      return NextResponse.json({
+        error: `Failed to reach summary endpoint: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`,
+      }, { status: 502 });
+    }
     if (!summaryRes.ok) {
-      return NextResponse.json({ error: `Summary fetch failed: ${summaryRes.status}` }, { status: 502 });
+      const errBody = await summaryRes.text().catch(() => "");
+      console.error("[send-goals-email] summary not ok:", { status: summaryRes.status, body: errBody.slice(0, 200), summaryUrl });
+      return NextResponse.json({ error: `Summary fetch failed: ${summaryRes.status} ${errBody.slice(0, 200)}` }, { status: 502 });
     }
     const summary = (await summaryRes.json()) as SummaryResponse;
 
