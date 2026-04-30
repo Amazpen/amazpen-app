@@ -117,44 +117,105 @@ export async function POST(request: NextRequest) {
     // owners' emails resolved by /api/business-summary-report.
     const overrideTo = typeof body.to === "string" && body.to.trim() ? body.to.trim() : "";
 
-    // Pull the same payload the cron pulls — guarantees parity between
-    // automatic and manual sends. Internal fetch to /api/business-summary-report
-    // (the n8n cron uses the same endpoint, so the email body matches the
-    // automatic 28th-of-month send byte-for-byte).
-    // NOTE: server-to-server fetch needs an absolute origin. Prefer the
-    // forwarded headers Vercel injects; fall back to the request URL only
-    // as a last resort because new URL(request.url) is sometimes 'http://0.0.0.0'
-    // inside a Vercel function and the loopback fails.
-    const forwardedHost = request.headers.get("x-forwarded-host");
-    const forwardedProto = request.headers.get("x-forwarded-proto") || "https";
-    const reqHost = request.headers.get("host");
-    const origin = process.env.NEXT_PUBLIC_APP_URL
-      || (forwardedHost ? `${forwardedProto}://${forwardedHost}` : null)
-      || (reqHost ? `${forwardedProto}://${reqHost}` : null)
-      || new URL(request.url).origin;
-    const summaryUrl = `${origin}/api/business-summary-report?business_id=${encodeURIComponent(businessId)}&year=${year}&month=${month}`;
-    let summaryRes: Response;
-    try {
-      summaryRes = await fetch(summaryUrl, { cache: "no-store" });
-    } catch (fetchErr) {
-      console.error("[send-goals-email] internal fetch failed:", { summaryUrl, err: fetchErr });
-      return NextResponse.json({
-        error: `Failed to reach summary endpoint: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`,
-      }, { status: 502 });
+    // Pull the data we need DIRECTLY from supabase — no internal fetch.
+    // The previous approach (fetch /api/business-summary-report) failed in
+    // the docker container on Dokploy because new URL(request.url).origin
+    // resolves to a loopback that the network policy blocks → 500 with no
+    // log surface. Reading from supabase here is: faster, no network hop,
+    // and survives any server URL config.
+    const [bizRes, goalRes, sourcesRes, sourceGoalsRes, priorRes] = await Promise.all([
+      adminSb
+        .from("businesses")
+        .select("name")
+        .eq("id", businessId)
+        .maybeSingle(),
+      adminSb
+        .from("goals")
+        .select("revenue_target, profit_target, labor_cost_target_pct, food_cost_target_pct, current_expenses_target")
+        .eq("business_id", businessId)
+        .eq("year", year)
+        .eq("month", month)
+        .is("deleted_at", null)
+        .maybeSingle(),
+      adminSb
+        .from("income_sources")
+        .select("id, name, display_order")
+        .eq("business_id", businessId)
+        .eq("is_active", true)
+        .is("deleted_at", null)
+        .order("display_order"),
+      adminSb
+        .from("goals")
+        .select("id, income_source_goals(income_source_id, avg_ticket_target)")
+        .eq("business_id", businessId)
+        .eq("year", year)
+        .eq("month", month)
+        .is("deleted_at", null)
+        .maybeSingle(),
+      adminSb
+        .from("prior_commitments")
+        .select("monthly_amount, start_date, end_date")
+        .eq("business_id", businessId)
+        .is("deleted_at", null),
+    ]);
+
+    if (!bizRes.data) {
+      return NextResponse.json({ error: "Business not found" }, { status: 404 });
     }
-    if (!summaryRes.ok) {
-      const errBody = await summaryRes.text().catch(() => "");
-      console.error("[send-goals-email] summary not ok:", { status: summaryRes.status, body: errBody.slice(0, 200), summaryUrl });
-      return NextResponse.json({ error: `Summary fetch failed: ${summaryRes.status} ${errBody.slice(0, 200)}` }, { status: 502 });
-    }
-    const summary = (await summaryRes.json()) as SummaryResponse;
+
+    const goal = goalRes.data || {};
+    const sources = (sourcesRes.data || []) as Array<{ id: string; name: string }>;
+    const sourceGoalsRaw = (sourceGoalsRes.data?.income_source_goals as Array<{ income_source_id: string; avg_ticket_target: number }> | undefined) || [];
+    const sourceGoalMap = new Map(sourceGoalsRaw.map((g) => [g.income_source_id, Number(g.avg_ticket_target) || 0]));
+
+    // Prior commitments active in the requested month
+    const monthStartIso = `${year}-${String(month).padStart(2, "0")}-01`;
+    const lastDayOfMonth = new Date(year, month, 0);
+    const monthEndIso = `${year}-${String(month).padStart(2, "0")}-${String(lastDayOfMonth.getDate()).padStart(2, "0")}`;
+    const priorCommitmentsTotal = ((priorRes.data || []) as Array<{ monthly_amount: number; start_date: string | null; end_date: string | null }>)
+      .filter((p) => {
+        const startsByEnd = !p.start_date || p.start_date <= monthEndIso;
+        const endsAfterStart = !p.end_date || p.end_date >= monthStartIso;
+        return startsByEnd && endsAfterStart;
+      })
+      .reduce((s, p) => s + (Number(p.monthly_amount) || 0), 0);
+
+    const summary: SummaryResponse = {
+      businessName: bizRes.data.name,
+      monthName: `${HEBREW_MONTHS[month - 1]} ${year}`,
+      revenueTarget: Number((goal as { revenue_target?: number }).revenue_target) || 0,
+      profitTarget: Number((goal as { profit_target?: number }).profit_target) || 0,
+      priorCommitmentsTotal,
+      laborTargetPct: Number((goal as { labor_cost_target_pct?: number }).labor_cost_target_pct) || 0,
+      foodTargetPct: Number((goal as { food_cost_target_pct?: number }).food_cost_target_pct) || 0,
+      currentExpensesTarget: Number((goal as { current_expenses_target?: number }).current_expenses_target) || 0,
+      incomeSources: sources.map((s) => ({
+        name: s.name,
+        avgTicketTarget: sourceGoalMap.get(s.id) || 0,
+      })),
+    };
 
     // Default monthName from the resolver if it didn't fill it (older versions).
     if (!summary.monthName) {
       summary.monthName = `${HEBREW_MONTHS[month - 1]} ${year}`;
     }
 
-    const recipientEmails = overrideTo || summary.emails || "";
+    // Recipient is always provided by the client — the dialog now picks owners
+    // and sends them as a comma-separated `to`. Fall back to resolving owners
+    // here only if the client didn't send any (legacy callers).
+    let recipientEmails = overrideTo;
+    if (!recipientEmails) {
+      const { data: members } = await adminSb
+        .from("business_members")
+        .select("profiles:user_id(email)")
+        .eq("business_id", businessId)
+        .is("deleted_at", null)
+        .in("role", ["admin", "owner"]);
+      recipientEmails = ((members || []) as Array<{ profiles: { email?: string } | null }>)
+        .map((m) => m.profiles?.email)
+        .filter((e): e is string => !!e)
+        .join(", ");
+    }
     if (!recipientEmails) {
       return NextResponse.json({
         error: "No recipient email — set a recipient on the business or pick one of its owners.",
