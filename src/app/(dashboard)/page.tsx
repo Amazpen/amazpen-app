@@ -492,20 +492,25 @@ export default function DashboardPage() {
       const goalsData = goalsResult.data || [];
       const todayEntryIds = todayEntries.map(e => e.id);
 
-      // Fetch today's breakdowns, goods invoices, current expenses invoices, managed products in parallel
+      // Fetch today's breakdowns, goods invoices, current expenses invoices, managed products in parallel.
+      // Filter by business_id (small list) and `supplier_id` is post-filtered
+      // in memory using a Set — avoids a 10KB URL when the supplier list grows
+      // (PostgREST proxy rejects giant URLs before responding with CORS).
+      const goodsSupplierIdSet = new Set(goodsSupplierIds);
+      const currentExpensesSupplierIdSet = new Set(currentExpensesSupplierIds);
       const [todayBreakdownResult, todayGoodsInvoicesResult, todayGoodsDeliveryNotesResult, todayCurrentExpensesInvoicesResult, todayProductUsageResult, incomeSourcesResult, incomeSourceGoalsResult, managedProductsResult, scheduleResult, dayExceptionsResult] = await Promise.all([
         todayEntryIds.length > 0
           ? supabase.from("daily_income_breakdown").select("income_source_id, amount, orders_count").in("daily_entry_id", todayEntryIds)
           : Promise.resolve({ data: [] }),
-        goodsSupplierIds.length > 0
-          ? supabase.from("invoices").select("subtotal").in("supplier_id", goodsSupplierIds).in("business_id", selectedBusinesses).eq("invoice_date", todayStr).is("deleted_at", null)
+        goodsSupplierIdSet.size > 0
+          ? supabase.from("invoices").select("subtotal, supplier_id").in("business_id", selectedBusinesses).eq("invoice_date", todayStr).is("deleted_at", null)
           : Promise.resolve({ data: [] }),
         // Today's unlinked delivery notes from goods suppliers — also count toward today's food cost.
-        goodsSupplierIds.length > 0
-          ? supabase.from("delivery_notes").select("subtotal").in("supplier_id", goodsSupplierIds).in("business_id", selectedBusinesses).eq("delivery_date", todayStr).is("invoice_id", null)
+        goodsSupplierIdSet.size > 0
+          ? supabase.from("delivery_notes").select("subtotal, supplier_id").in("business_id", selectedBusinesses).eq("delivery_date", todayStr).is("invoice_id", null)
           : Promise.resolve({ data: [] }),
-        currentExpensesSupplierIds.length > 0
-          ? supabase.from("invoices").select("subtotal").in("supplier_id", currentExpensesSupplierIds).in("business_id", selectedBusinesses).eq("invoice_date", todayStr).is("deleted_at", null)
+        currentExpensesSupplierIdSet.size > 0
+          ? supabase.from("invoices").select("subtotal, supplier_id").in("business_id", selectedBusinesses).eq("invoice_date", todayStr).is("deleted_at", null)
           : Promise.resolve({ data: [] }),
         todayEntryIds.length > 0
           ? supabase.from("daily_product_usage").select("product_id, quantity, unit_cost_at_time").in("daily_entry_id", todayEntryIds)
@@ -676,17 +681,21 @@ export default function DashboardPage() {
       const laborCostTargetPct = goalsData.reduce((sum, g) => sum + (Number(g.labor_cost_target_pct) || 0), 0) / Math.max(goalsData.length, 1);
       const todayLaborCostDiffPct = todayLaborCostPct - laborCostTargetPct;
 
-      // Today's food cost
+      // Today's food cost — filter by goods supplier set in memory
       const todayFoodCost = [
-        ...((todayGoodsInvoicesResult.data as Array<{ subtotal: number }>) || []),
-        ...((todayGoodsDeliveryNotesResult.data as Array<{ subtotal: number }>) || []),
-      ].reduce((sum: number, inv: { subtotal: number }) => sum + (Number(inv.subtotal) || 0), 0);
+        ...((todayGoodsInvoicesResult.data as Array<{ subtotal: number; supplier_id: string }>) || []),
+        ...((todayGoodsDeliveryNotesResult.data as Array<{ subtotal: number; supplier_id: string }>) || []),
+      ]
+        .filter((row) => goodsSupplierIdSet.has(row.supplier_id))
+        .reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);
       const todayFoodCostPct = todayIncomeBeforeVat > 0 ? (todayFoodCost / todayIncomeBeforeVat) * 100 : 0;
       const foodCostTargetPct = goalsData.reduce((sum, g) => sum + (Number(g.food_cost_target_pct) || 0), 0) / Math.max(goalsData.length, 1);
       const todayFoodCostDiffPct = todayFoodCostPct - foodCostTargetPct;
 
-      // Today's current expenses
-      const todayCurrentExpenses = (todayCurrentExpensesInvoicesResult.data || []).reduce((sum: number, inv: { subtotal: number }) => sum + (Number(inv.subtotal) || 0), 0);
+      // Today's current expenses — filter by current-expenses supplier set
+      const todayCurrentExpenses = ((todayCurrentExpensesInvoicesResult.data as Array<{ subtotal: number; supplier_id: string }>) || [])
+        .filter((row) => currentExpensesSupplierIdSet.has(row.supplier_id))
+        .reduce((sum, inv) => sum + (Number(inv.subtotal) || 0), 0);
 
       // Today's income breakdown by source type
       let todayPrivateIncome = 0, todayPrivateCount = 0, todayBusinessIncome = 0, todayBusinessCount = 0;
@@ -1115,21 +1124,26 @@ export default function DashboardPage() {
         setSelectedBusinesses(validSelectedBusinesses);
       }
 
-      // DEPENDENT QUERY - Invoices + unlinked delivery notes (goods cost also counts תעודות משלוח בלי חשבונית)
-      const goodsSupplierIdsForCards = (goodsSuppliersForCards || []).map(s => s.id);
-      const [goodsInvoicesForCardsResult, goodsDeliveryNotesForCardsResult] = goodsSupplierIdsForCards.length > 0
+      // DEPENDENT QUERY - Invoices + unlinked delivery notes (goods cost also counts תעודות משלוח בלי חשבונית).
+      // Filter by business_id (small list) and post-filter by supplier_id in
+      // memory. Filtering by .in("supplier_id", [...217 uuids]) produced a
+      // ~10KB URL that the PostgREST proxy rejected before responding with
+      // CORS headers — users saw a "blocked by CORS policy" error and the
+      // dashboard cards never loaded.
+      const goodsSupplierIdSet = new Set((goodsSuppliersForCards || []).map(s => s.id));
+      const [goodsInvoicesForCardsResult, goodsDeliveryNotesForCardsResult] = goodsSupplierIdSet.size > 0
         ? await Promise.all([
             supabase
               .from("invoices")
               .select("supplier_id, business_id, subtotal")
-              .in("supplier_id", goodsSupplierIdsForCards)
+              .in("business_id", businessIds)
               .gte("reference_date", startDateStr)
               .lte("reference_date", endDateStr)
               .is("deleted_at", null),
             supabase
               .from("delivery_notes")
               .select("supplier_id, business_id, subtotal")
-              .in("supplier_id", goodsSupplierIdsForCards)
+              .in("business_id", businessIds)
               .gte("delivery_date", startDateStr)
               .lte("delivery_date", endDateStr)
               .is("invoice_id", null),
@@ -1138,7 +1152,7 @@ export default function DashboardPage() {
       const goodsInvoicesForCards = [
         ...((goodsInvoicesForCardsResult.data as Array<{ supplier_id: string; business_id: string; subtotal: number }>) || []),
         ...((goodsDeliveryNotesForCardsResult.data as Array<{ supplier_id: string; business_id: string; subtotal: number }>) || []),
-      ];
+      ].filter(row => goodsSupplierIdSet.has(row.supplier_id));
 
       // Calculate business cards data
       const businessCardsData: BusinessCard[] = businesses.map((business) => {
@@ -1410,49 +1424,45 @@ export default function DashboardPage() {
               .in("goal_id", goalIds)
           : Promise.resolve({ data: [] }),
 
-        // 2. Get invoices from goods_purchases suppliers (depends on goodsSupplierIds)
+        // 2. Get invoices for the selected businesses (post-filtered to goods suppliers in memory).
         goodsSupplierIds.length > 0
           ? supabase
               .from("invoices")
-              .select("subtotal, invoice_date")
-              .in("supplier_id", goodsSupplierIds)
+              .select("subtotal, invoice_date, supplier_id")
               .in("business_id", selectedBusinesses)
               .gte("reference_date", startDateStr)
               .lte("reference_date", endDateStr)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
-        // 2b. Get UNLINKED delivery notes from the same suppliers — they represent goods delivered but not yet invoiced.
-        // (Delivery notes with invoice_id set are already counted via the invoice row.)
+        // 2b. Get UNLINKED delivery notes (post-filtered to goods suppliers in memory).
         goodsSupplierIds.length > 0
           ? supabase
               .from("delivery_notes")
-              .select("subtotal, delivery_date")
-              .in("supplier_id", goodsSupplierIds)
+              .select("subtotal, delivery_date, supplier_id")
               .in("business_id", selectedBusinesses)
               .gte("delivery_date", startDateStr)
               .lte("delivery_date", endDateStr)
               .is("invoice_id", null)
           : Promise.resolve({ data: [] }),
 
-        // 3. Get invoices from current_expenses suppliers (depends on currentExpensesSupplierIds)
+        // 3. Get invoices for the selected businesses (post-filtered to current_expenses suppliers in memory).
         currentExpensesSupplierIds.length > 0
           ? supabase
               .from("invoices")
-              .select("subtotal")
-              .in("supplier_id", currentExpensesSupplierIds)
+              .select("subtotal, supplier_id")
               .in("business_id", selectedBusinesses)
               .gte("reference_date", startDateStr)
               .lte("reference_date", endDateStr)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
-        // 4. Get supplier budgets for fixed monthly expense suppliers only (target calculation)
+        // 4. Get supplier budgets (post-filtered to fixed-expense suppliers in memory).
         fixedExpenseSupplierIds.length > 0
           ? supabase
               .from("supplier_budgets")
-              .select("budget_amount")
-              .in("supplier_id", fixedExpenseSupplierIds)
+              .select("budget_amount, supplier_id")
+              .in("business_id", selectedBusinesses)
               .eq("year", dateRange.start.getFullYear())
               .eq("month", dateRange.start.getMonth() + 1)
           : Promise.resolve({ data: [] })
@@ -1461,17 +1471,30 @@ export default function DashboardPage() {
       const { data: incomeSourceGoalsData } = incomeSourceGoalsResult;
       const { data: goodsInvoicesRaw } = goodsInvoicesResult;
       const { data: goodsDeliveryNotesRaw } = goodsDeliveryNotesResult;
+      // Filter to the right supplier sets in memory (queries were made on
+      // business_id only — see the goodsInvoicesResult declaration above —
+      // because a 200+ supplier_id IN list produces a URL the proxy rejects
+      // before responding with CORS).
+      const goodsSupplierIdSetForFilter = new Set(goodsSupplierIds);
+      const currentExpensesSupplierIdSetForFilter = new Set(currentExpensesSupplierIds);
+      const fixedExpenseSupplierIdSetForFilter = new Set(fixedExpenseSupplierIds);
       // Merge unlinked delivery notes with invoices — both count toward "עלות מכר".
       // Normalize delivery_date → invoice_date so downstream date-based logic keeps working.
       const goodsInvoices: Array<{ subtotal: number; invoice_date: string }> = [
-        ...((goodsInvoicesRaw as Array<{ subtotal: number; invoice_date: string }>) || []),
-        ...((goodsDeliveryNotesRaw as Array<{ subtotal: number; delivery_date: string }>) || []).map(dn => ({
-          subtotal: dn.subtotal,
-          invoice_date: dn.delivery_date,
-        })),
+        ...((goodsInvoicesRaw as Array<{ subtotal: number; invoice_date: string; supplier_id: string }>) || [])
+          .filter(row => goodsSupplierIdSetForFilter.has(row.supplier_id))
+          .map(row => ({ subtotal: row.subtotal, invoice_date: row.invoice_date })),
+        ...((goodsDeliveryNotesRaw as Array<{ subtotal: number; delivery_date: string; supplier_id: string }>) || [])
+          .filter(row => goodsSupplierIdSetForFilter.has(row.supplier_id))
+          .map(dn => ({
+            subtotal: dn.subtotal,
+            invoice_date: dn.delivery_date,
+          })),
       ];
-      const { data: currentExpensesInvoices } = currentExpensesInvoicesResult;
-      const { data: currentExpensesBudgets } = currentExpensesBudgetsResult;
+      const currentExpensesInvoices = ((currentExpensesInvoicesResult.data as Array<{ subtotal: number; supplier_id: string }>) || [])
+        .filter(row => currentExpensesSupplierIdSetForFilter.has(row.supplier_id));
+      const currentExpensesBudgets = ((currentExpensesBudgetsResult.data as Array<{ budget_amount: number; supplier_id: string }>) || [])
+        .filter(row => fixedExpenseSupplierIdSetForFilter.has(row.supplier_id));
 
       // Build a map of income_source_id -> avg_ticket_target
       const avgTicketTargetMap: Record<string, number> = {};
@@ -1971,12 +1994,11 @@ export default function DashboardPage() {
           .eq("year", prevYearYear)
           .eq("month", prevYearMonth),
 
-        // Previous month goods invoices
+        // Previous month goods invoices — filter by supplier set in memory
         goodsSupplierIds.length > 0
           ? supabase
               .from("invoices")
-              .select("subtotal")
-              .in("supplier_id", goodsSupplierIds)
+              .select("subtotal, supplier_id")
               .in("business_id", selectedBusinesses)
               .gte("reference_date", prevMonthStartStr)
               .lte("reference_date", prevMonthEndStr)
@@ -1987,8 +2009,7 @@ export default function DashboardPage() {
         goodsSupplierIds.length > 0
           ? supabase
               .from("invoices")
-              .select("subtotal")
-              .in("supplier_id", goodsSupplierIds)
+              .select("subtotal, supplier_id")
               .in("business_id", selectedBusinesses)
               .gte("reference_date", prevYearStartStr)
               .lte("reference_date", prevYearEndStr)
@@ -1999,8 +2020,7 @@ export default function DashboardPage() {
         currentExpensesSupplierIds.length > 0
           ? supabase
               .from("invoices")
-              .select("subtotal")
-              .in("supplier_id", currentExpensesSupplierIds)
+              .select("subtotal, supplier_id")
               .in("business_id", selectedBusinesses)
               .gte("reference_date", prevMonthStartStr)
               .lte("reference_date", prevMonthEndStr)
@@ -2011,8 +2031,7 @@ export default function DashboardPage() {
         currentExpensesSupplierIds.length > 0
           ? supabase
               .from("invoices")
-              .select("subtotal")
-              .in("supplier_id", currentExpensesSupplierIds)
+              .select("subtotal, supplier_id")
               .in("business_id", selectedBusinesses)
               .gte("reference_date", prevYearStartStr)
               .lte("reference_date", prevYearEndStr)
@@ -2023,10 +2042,15 @@ export default function DashboardPage() {
       const { data: prevMonthEntries } = prevMonthEntriesResult;
       const { data: prevYearEntries } = prevYearEntriesResult;
       const { data: prevYearMonthlySummaries } = prevYearMonthlySummaryResult;
-      const { data: prevMonthGoodsInvoices } = prevMonthGoodsInvoicesResult;
-      const { data: prevYearGoodsInvoices } = prevYearGoodsInvoicesResult;
-      const { data: prevMonthCurrentExpensesInvoices } = prevMonthCurrentExpensesInvoicesResult;
-      const { data: prevYearCurrentExpensesInvoices } = prevYearCurrentExpensesInvoicesResult;
+      // Post-filter prev/period invoice arrays — same supplier-set logic.
+      const prevMonthGoodsInvoices = ((prevMonthGoodsInvoicesResult.data as Array<{ subtotal: number; supplier_id: string }>) || [])
+        .filter(row => goodsSupplierIdSetForFilter.has(row.supplier_id));
+      const prevYearGoodsInvoices = ((prevYearGoodsInvoicesResult.data as Array<{ subtotal: number; supplier_id: string }>) || [])
+        .filter(row => goodsSupplierIdSetForFilter.has(row.supplier_id));
+      const prevMonthCurrentExpensesInvoices = ((prevMonthCurrentExpensesInvoicesResult.data as Array<{ subtotal: number; supplier_id: string }>) || [])
+        .filter(row => currentExpensesSupplierIdSetForFilter.has(row.supplier_id));
+      const prevYearCurrentExpensesInvoices = ((prevYearCurrentExpensesInvoicesResult.data as Array<{ subtotal: number; supplier_id: string }>) || [])
+        .filter(row => currentExpensesSupplierIdSetForFilter.has(row.supplier_id));
 
       // Calculate previous month metrics
       // Use monthlyPace (forecast) instead of raw totalIncome for fair comparison
@@ -2230,12 +2254,11 @@ export default function DashboardPage() {
           .gte("year", historicalStartDate.getFullYear())
           .is("deleted_at", null),
 
-        // All goods invoices for last 6 months
+        // All goods invoices for last 6 months — supplier filter applied in memory
         goodsSupplierIds.length > 0
           ? supabase
               .from("invoices")
               .select("supplier_id, business_id, invoice_date, subtotal")
-              .in("supplier_id", goodsSupplierIds)
               .in("business_id", selectedBusinesses)
               .gte("reference_date", historicalStartStr)
               .lte("reference_date", historicalEndStr)
@@ -2266,7 +2289,10 @@ export default function DashboardPage() {
 
       const historicalEntries = historicalEntriesResult.data || [];
       const historicalGoals = historicalGoalsResult.data || [];
-      const historicalGoodsInvoices = historicalGoodsInvoicesResult.data || [];
+      // Filter goods invoices by goods supplier set in memory
+      // (query was on business_id only — see goods-purchases query above).
+      const historicalGoodsInvoices = ((historicalGoodsInvoicesResult.data as Array<{ supplier_id: string; business_id: string; invoice_date: string; subtotal: number }>) || [])
+        .filter(row => goodsSupplierIdSetForFilter.has(row.supplier_id));
       const allBreakdownData = historicalBreakdownResult.data || [];
       const allProductUsageData = historicalProductUsageResult.data || [];
       // Build historical exception map
