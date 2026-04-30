@@ -136,12 +136,12 @@ export async function POST(request: NextRequest) {
     const [bizRes, goalRes, sourcesRes, sourceGoalsRes, priorRes, budgetsRes, categoriesRes] = await Promise.all([
       adminSb
         .from("businesses")
-        .select("name")
+        .select("name, vat_percentage")
         .eq("id", businessId)
         .maybeSingle(),
       adminSb
         .from("goals")
-        .select("revenue_target, profit_target, labor_cost_target_pct, food_cost_target_pct, current_expenses_target")
+        .select("revenue_target, profit_target, labor_cost_target_pct, food_cost_target_pct, current_expenses_target, vat_percentage")
         .eq("business_id", businessId)
         .eq("year", year)
         .eq("month", month)
@@ -242,15 +242,34 @@ export async function POST(request: NextRequest) {
       })
       .reduce((s, p) => s + (Number(p.monthly_amount) || 0), 0);
 
+    // VAT handling — same as the P&L report (reports/page.tsx line 502+):
+    // goals.revenue_target is stored INCLUDING VAT, but the email's
+    // "צפי הכנסות ללא מע""מ" and the per-category targets are all displayed
+    // EX-VAT. The legacy email at /reports also computes everything ex-VAT.
+    // Without this divide, May's email shows ₪621K when the report shows
+    // ₪526K (an 18% inflation of every figure on the page).
+    const rawVat = (goal as { vat_percentage?: number }).vat_percentage != null
+      ? Number((goal as { vat_percentage?: number }).vat_percentage)
+      : Number(bizRes.data.vat_percentage) || 0;
+    // The DB stores VAT in different conventions across rows: sometimes as a
+    // multiplier (1.18) and sometimes as a fraction (0.18). Normalize.
+    const vatFraction = rawVat > 1 ? rawVat - 1 : rawVat;
+    const vatDivisor = vatFraction > 0 ? 1 + vatFraction : 1;
+
+    const revenueTargetWithVat = Number((goal as { revenue_target?: number }).revenue_target) || 0;
+    const revenueTargetExVat = revenueTargetWithVat / vatDivisor;
+    const currentExpensesTargetRaw = Number((goal as { current_expenses_target?: number }).current_expenses_target) || 0;
+    const currentExpensesTargetExVat = currentExpensesTargetRaw / vatDivisor;
+
     const summary: SummaryResponse = {
       businessName: bizRes.data.name,
       monthName: `${HEBREW_MONTHS[month - 1]} ${year}`,
-      revenueTarget: Number((goal as { revenue_target?: number }).revenue_target) || 0,
+      revenueTarget: revenueTargetExVat,
       profitTarget: Number((goal as { profit_target?: number }).profit_target) || 0,
       priorCommitmentsTotal,
       laborTargetPct: Number((goal as { labor_cost_target_pct?: number }).labor_cost_target_pct) || 0,
       foodTargetPct: Number((goal as { food_cost_target_pct?: number }).food_cost_target_pct) || 0,
-      currentExpensesTarget: Number((goal as { current_expenses_target?: number }).current_expenses_target) || 0,
+      currentExpensesTarget: currentExpensesTargetExVat,
       incomeSources: sources.map((s) => ({
         name: s.name,
         avgTicketTarget: sourceGoalMap.get(s.id) || 0,
