@@ -107,6 +107,13 @@ export default function AdminGoalsPage() {
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [sendOverrideTo, setSendOverrideTo] = useState("");
   const [sendInProgress, setSendInProgress] = useState(false);
+  // Owners of the selected business — fetched when the dialog opens so the
+  // admin can see exactly which addresses the email is going to and tick /
+  // untick individuals.
+  const [businessOwners, setBusinessOwners] = useState<{ id: string; email: string; fullName: string; role: string }[]>([]);
+  const [ownersLoading, setOwnersLoading] = useState(false);
+  const [selectedOwnerEmails, setSelectedOwnerEmails] = useState<Set<string>>(new Set());
+  const [useCustomEmail, setUseCustomEmail] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   // Initialize date values on client only (only if no saved value)
@@ -293,6 +300,34 @@ export default function AdminGoalsPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Load owners when the send dialog opens — so the admin sees exactly
+  // which recipients the email goes to and can untick a specific person.
+  useEffect(() => {
+    if (!sendDialogOpen || !selectedBusinessId) return;
+    let cancelled = false;
+    setOwnersLoading(true);
+    setBusinessOwners([]);
+    setSelectedOwnerEmails(new Set());
+    setUseCustomEmail(false);
+    setSendOverrideTo("");
+    fetch(`/api/admin/business-owners?business_id=${encodeURIComponent(selectedBusinessId)}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled) return;
+        const owners = Array.isArray(json.owners) ? json.owners : [];
+        setBusinessOwners(owners);
+        // Default: everyone selected.
+        setSelectedOwnerEmails(new Set(owners.map((o: { email: string }) => o.email)));
+      })
+      .catch((err) => {
+        console.error("[goals/owners] failed:", err);
+        if (!cancelled) showToast("שגיאה בטעינת בעלי העסק", "error");
+      })
+      .finally(() => { if (!cancelled) setOwnersLoading(false); });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sendDialogOpen, selectedBusinessId]);
 
   // Initialize goals and budgets for a new month
   const initializeMonth = async () => {
@@ -828,6 +863,26 @@ export default function AdminGoalsPage() {
       showToast("יש לבחור עסק, שנה וחודש", "error");
       return;
     }
+    // Resolve recipient: either a custom address typed by the admin, or the
+    // checked owners from the list. We send `to` as a comma-separated string —
+    // the n8n daily-push-email webhook + Gmail node forward that to multiple
+    // recipients in one send.
+    let resolvedTo = "";
+    if (useCustomEmail) {
+      resolvedTo = sendOverrideTo.trim();
+      if (!resolvedTo) {
+        showToast("יש להזין כתובת מייל", "error");
+        return;
+      }
+    } else {
+      const picked = Array.from(selectedOwnerEmails);
+      if (picked.length === 0) {
+        showToast("יש לבחור לפחות נמען אחד", "error");
+        return;
+      }
+      resolvedTo = picked.join(", ");
+    }
+
     setSendInProgress(true);
     try {
       const res = await fetch("/api/admin/send-goals-email", {
@@ -837,7 +892,7 @@ export default function AdminGoalsPage() {
           business_id: selectedBusinessId,
           year: selectedYear,
           month: selectedMonth,
-          ...(sendOverrideTo.trim() ? { to: sendOverrideTo.trim() } : {}),
+          to: resolvedTo,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -1487,9 +1542,9 @@ export default function AdminGoalsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Send-goals-email dialog (David) */}
+      {/* Send-goals-email dialog */}
       <Dialog open={sendDialogOpen} onOpenChange={(o) => { if (!sendInProgress) setSendDialogOpen(o); }}>
-        <DialogContent className="bg-[#0F1535] border-[#4C526B] text-white sm:max-w-[480px] rounded-[20px] p-[20px]" dir="rtl">
+        <DialogContent className="bg-[#0F1535] border-[#4C526B] text-white sm:max-w-[520px] rounded-[20px] p-[20px]" dir="rtl">
           <DialogHeader>
             <DialogTitle className="text-white text-right text-[18px] font-bold">
               שליחת יעדי החודש במייל
@@ -1505,27 +1560,88 @@ export default function AdminGoalsPage() {
               <span className="text-white/50 mt-[6px]">חודש:</span>
               <span className="font-semibold">{selectedMonth ? `${selectedMonth}/${selectedYear}` : "—"}</span>
             </div>
-            <div>
-              <label className="block text-[13px] text-white/70 mb-[6px]">
-                כתובת יעד (השאר ריק לשליחה לכתובות העסק)
-              </label>
-              <Input
-                type="email"
-                value={sendOverrideTo}
-                onChange={(e) => setSendOverrideTo(e.target.value)}
-                placeholder="example@biz.co.il (אופציונלי לבדיקה)"
-                className="bg-[#0F1535] border border-[#4C526B] text-white text-right rounded-[10px] h-[44px] px-[12px]"
-                disabled={sendInProgress}
-              />
-              <p className="text-[11px] text-white/40 mt-[4px]">
-                CC לדוד תמיד מתווסף אוטומטית.
+
+            {/* Recipient picker — owners list with custom-email override */}
+            <div className="flex flex-col gap-[8px]">
+              <label className="text-[13px] text-white/70">נמענים</label>
+
+              {ownersLoading ? (
+                <div className="text-[13px] text-white/50">טוען בעלי עסק…</div>
+              ) : (
+                <>
+                  {!useCustomEmail && businessOwners.length === 0 && (
+                    <div className="text-[13px] text-yellow-400/80 bg-yellow-400/10 rounded-[8px] p-[10px]">
+                      לא נמצאו בעלים מוגדרים לעסק. השתמש בכתובת ידנית למטה.
+                    </div>
+                  )}
+
+                  {!useCustomEmail && businessOwners.length > 0 && (
+                    <div className="bg-[#1A1F37] rounded-[10px] p-[10px] flex flex-col gap-[6px]">
+                      {businessOwners.map((o) => (
+                        <label
+                          key={o.email}
+                          className="flex items-center gap-[10px] cursor-pointer hover:bg-white/5 rounded-[6px] p-[6px]"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedOwnerEmails.has(o.email)}
+                            onChange={() => {
+                              setSelectedOwnerEmails((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(o.email)) next.delete(o.email);
+                                else next.add(o.email);
+                                return next;
+                              });
+                            }}
+                            className="w-4 h-4 accent-[#17DB4E] cursor-pointer"
+                            disabled={sendInProgress}
+                          />
+                          <div className="flex flex-col text-right flex-1 min-w-0">
+                            <span className="text-[13px] text-white truncate">
+                              {o.fullName || o.email}
+                            </span>
+                            <span className="text-[11px] text-white/50 truncate">
+                              {o.email}
+                              {o.role === "admin" && " · אדמין"}
+                            </span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  {useCustomEmail && (
+                    <Input
+                      type="email"
+                      value={sendOverrideTo}
+                      onChange={(e) => setSendOverrideTo(e.target.value)}
+                      placeholder="example@biz.co.il"
+                      className="bg-[#0F1535] border border-[#4C526B] text-white text-right rounded-[10px] h-[44px] px-[12px]"
+                      disabled={sendInProgress}
+                      autoFocus
+                    />
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setUseCustomEmail((v) => !v)}
+                    className="text-[12px] text-[#4956D4] hover:underline self-start"
+                    disabled={sendInProgress}
+                  >
+                    {useCustomEmail ? "← בחר מבעלי העסק" : "← הזן כתובת אחרת ידנית"}
+                  </button>
+                </>
+              )}
+
+              <p className="text-[11px] text-white/40">
+                CC לדוד מתווסף אוטומטית בכל מקרה.
               </p>
             </div>
           </div>
           <DialogFooter className="mt-[16px] flex flex-row-reverse gap-[8px]">
             <Button
               onClick={sendGoalsEmail}
-              disabled={sendInProgress}
+              disabled={sendInProgress || ownersLoading}
               className="bg-[#4956D4] hover:bg-[#5A67E0] text-white font-semibold py-2 px-4 rounded-lg disabled:opacity-50"
             >
               {sendInProgress ? "שולח..." : "שלח עכשיו"}
