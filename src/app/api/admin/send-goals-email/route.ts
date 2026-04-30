@@ -48,7 +48,6 @@ function buildEmailHtml(r: SummaryResponse): string {
   const bizName = r.businessName || "";
   const monthName = r.monthName || "";
   const revenueTarget = r.revenueTarget || 0;
-  const profitTarget = r.profitTarget || 0;
   const priorCommitmentsTotal = r.priorCommitmentsTotal || 0;
   const laborTargetPct = r.laborTargetPct || 0;
   const foodTargetPct = r.foodTargetPct || 0;
@@ -56,7 +55,18 @@ function buildEmailHtml(r: SummaryResponse): string {
 
   const laborTargetNis = Math.round((laborTargetPct / 100) * revenueTarget);
   const foodTargetNis = Math.round((foodTargetPct / 100) * revenueTarget);
-  const totalExpensesTarget = laborTargetNis + foodTargetNis + currentExpensesTarget;
+  // The current_expenses target on goals isn't always populated. If we have
+  // the per-category breakdown, prefer summing those — guarantees the
+  // "סה"כ הוצאות" matches the "פירוט הוצאות" rows.
+  const currentExpensesFromCategories = (r.expenseCategories || []).reduce((s, c) => s + (Number(c.amount) || 0), 0);
+  const effectiveCurrentExpenses = currentExpensesFromCategories > 0 ? currentExpensesFromCategories : currentExpensesTarget;
+  const totalExpensesTarget = laborTargetNis + foodTargetNis + effectiveCurrentExpenses;
+  // Profit target stored on goals tends to be NULL — derive it instead so
+  // the email never shows "₪0" when the user clearly has revenue and
+  // expense targets configured. Falls back to the stored value only if the
+  // derived one is also zero (no targets at all).
+  const derivedProfit = revenueTarget - totalExpensesTarget;
+  const profitTarget = derivedProfit !== 0 ? derivedProfit : (r.profitTarget || 0);
 
   const categoryRows = r.expenseCategories && r.expenseCategories.length > 0
     ? r.expenseCategories
@@ -185,22 +195,17 @@ export async function POST(request: NextRequest) {
     const sourceGoalMap = new Map(sourceGoalsRaw.map((g) => [g.income_source_id, Number(g.avg_ticket_target) || 0]));
 
     // Build per-category expense breakdown for current_expenses suppliers.
-    // expense_categories may be a tree (parent_id non-null). We bubble up to
-    // the parent so the email reads at the same level the legacy cron used.
+    // Use the SUPPLIER'S OWN category — not the root parent. The legacy
+    // cron showed 15 specific rows (פרסום מזדמן, ביטוח רכבים, חברת משלוחים)
+    // because suppliers are categorized at leaf level. Walking up to root
+    // collapsed everything into 2 mega-groups ("הוצאות תפעול" / "הוצאות
+    // שיווק") — that's what produced the wrong email David flagged.
     type Category = { id: string; name: string; parent_id: string | null };
     const cats = (categoriesRes.data || []) as Category[];
     const catById = new Map<string, Category>(cats.map((c) => [c.id, c]));
-    const resolveParentName = (categoryId: string | null): string => {
+    const resolveCategoryName = (categoryId: string | null): string => {
       if (!categoryId) return "אחר";
-      let cur = catById.get(categoryId);
-      // Walk up to the parent so we group "פרסום מזדמן" + "פרסום קבוע" under
-      // "פרסום" if that's how the tree is set up. Otherwise stay where we are.
-      while (cur && cur.parent_id) {
-        const next = catById.get(cur.parent_id);
-        if (!next) break;
-        cur = next;
-      }
-      return cur?.name || "אחר";
+      return catById.get(categoryId)?.name || "אחר";
     };
 
     type BudgetRow = {
@@ -216,7 +221,7 @@ export async function POST(request: NextRequest) {
       // already get their dedicated rows from labor% × revenue and food% ×
       // revenue. Don't double-count them here.
       if (sup.expense_type !== "current_expenses") continue;
-      const name = resolveParentName(sup.expense_category_id);
+      const name = resolveCategoryName(sup.expense_category_id);
       const amount = Number(b.budget_amount) || 0;
       if (amount === 0) continue;
       expenseByCategory.set(name, (expenseByCategory.get(name) || 0) + amount);
