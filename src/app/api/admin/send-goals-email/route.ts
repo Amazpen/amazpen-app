@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     // resolves to a loopback that the network policy blocks → 500 with no
     // log surface. Reading from supabase here is: faster, no network hop,
     // and survives any server URL config.
-    const [bizRes, goalRes, sourcesRes, sourceGoalsRes, priorRes] = await Promise.all([
+    const [bizRes, goalRes, sourcesRes, sourceGoalsRes, priorRes, budgetsRes, categoriesRes] = await Promise.all([
       adminSb
         .from("businesses")
         .select("name")
@@ -157,6 +157,22 @@ export async function POST(request: NextRequest) {
         .select("monthly_amount, start_date, end_date")
         .eq("business_id", businessId)
         .is("deleted_at", null),
+      // Supplier budgets joined with the supplier so we can group by category
+      // — this is what produces the per-category expense breakdown that the
+      // legacy n8n cron showed (15 rows: ביטוח רכבים, פרסום, חברת משלוחים…).
+      adminSb
+        .from("supplier_budgets")
+        .select("budget_amount, supplier:suppliers(expense_category_id, expense_type)")
+        .eq("business_id", businessId)
+        .eq("year", year)
+        .eq("month", month)
+        .is("deleted_at", null),
+      adminSb
+        .from("expense_categories")
+        .select("id, name, parent_id")
+        .eq("business_id", businessId)
+        .eq("is_active", true)
+        .is("deleted_at", null),
     ]);
 
     if (!bizRes.data) {
@@ -167,6 +183,47 @@ export async function POST(request: NextRequest) {
     const sources = (sourcesRes.data || []) as Array<{ id: string; name: string }>;
     const sourceGoalsRaw = (sourceGoalsRes.data?.income_source_goals as Array<{ income_source_id: string; avg_ticket_target: number }> | undefined) || [];
     const sourceGoalMap = new Map(sourceGoalsRaw.map((g) => [g.income_source_id, Number(g.avg_ticket_target) || 0]));
+
+    // Build per-category expense breakdown for current_expenses suppliers.
+    // expense_categories may be a tree (parent_id non-null). We bubble up to
+    // the parent so the email reads at the same level the legacy cron used.
+    type Category = { id: string; name: string; parent_id: string | null };
+    const cats = (categoriesRes.data || []) as Category[];
+    const catById = new Map<string, Category>(cats.map((c) => [c.id, c]));
+    const resolveParentName = (categoryId: string | null): string => {
+      if (!categoryId) return "אחר";
+      let cur = catById.get(categoryId);
+      // Walk up to the parent so we group "פרסום מזדמן" + "פרסום קבוע" under
+      // "פרסום" if that's how the tree is set up. Otherwise stay where we are.
+      while (cur && cur.parent_id) {
+        const next = catById.get(cur.parent_id);
+        if (!next) break;
+        cur = next;
+      }
+      return cur?.name || "אחר";
+    };
+
+    type BudgetRow = {
+      budget_amount: number;
+      supplier: { expense_category_id: string | null; expense_type: string | null } | null;
+    };
+    const budgets = (budgetsRes.data || []) as unknown as BudgetRow[];
+    const expenseByCategory = new Map<string, number>();
+    for (const b of budgets) {
+      const sup = b.supplier;
+      if (!sup) continue;
+      // Email shows current_expenses category breakdown — labor and goods
+      // already get their dedicated rows from labor% × revenue and food% ×
+      // revenue. Don't double-count them here.
+      if (sup.expense_type !== "current_expenses") continue;
+      const name = resolveParentName(sup.expense_category_id);
+      const amount = Number(b.budget_amount) || 0;
+      if (amount === 0) continue;
+      expenseByCategory.set(name, (expenseByCategory.get(name) || 0) + amount);
+    }
+    const expenseCategories = Array.from(expenseByCategory.entries())
+      .map(([name, amount]) => ({ name, amount: Math.round(amount) }))
+      .sort((a, b) => a.name.localeCompare(b.name, "he"));
 
     // Prior commitments active in the requested month
     const monthStartIso = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -193,6 +250,7 @@ export async function POST(request: NextRequest) {
         name: s.name,
         avgTicketTarget: sourceGoalMap.get(s.id) || 0,
       })),
+      expenseCategories,
     };
 
     // Default monthName from the resolver if it didn't fill it (older versions).
