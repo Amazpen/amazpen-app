@@ -102,6 +102,11 @@ export default function AdminGoalsPage() {
   const [selectedBusinessId, setSelectedBusinessId] = usePersistedState<string>("admin-goals:businessId", "");
   const [selectedYear, setSelectedYear] = usePersistedState<number>("admin-goals:year", 0);
   const [selectedMonth, setSelectedMonth] = usePersistedState<number>("admin-goals:month", 0);
+
+  // Manual goals-email dispatch (David's request — admin button on /admin/goals)
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [sendOverrideTo, setSendOverrideTo] = useState("");
+  const [sendInProgress, setSendInProgress] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   // Initialize date values on client only (only if no saved value)
@@ -776,6 +781,42 @@ export default function AdminGoalsPage() {
     }
   };
 
+  // Manually trigger the goals email for the currently selected business +
+  // year + month. Mirrors the n8n cron "שליחת יעדים 28 לחודש" but lets the
+  // admin choose when to push it (David #manual-goals-email).
+  const sendGoalsEmail = async () => {
+    if (!selectedBusinessId || !selectedYear || !selectedMonth) {
+      showToast("יש לבחור עסק, שנה וחודש", "error");
+      return;
+    }
+    setSendInProgress(true);
+    try {
+      const res = await fetch("/api/admin/send-goals-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          business_id: selectedBusinessId,
+          year: selectedYear,
+          month: selectedMonth,
+          ...(sendOverrideTo.trim() ? { to: sendOverrideTo.trim() } : {}),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(json.error || `שגיאה בשליחה (${res.status})`, "error");
+        return;
+      }
+      showToast(`המייל נשלח ל-${json.sentTo}`, "success");
+      setSendDialogOpen(false);
+      setSendOverrideTo("");
+    } catch (err) {
+      console.error("sendGoalsEmail error:", err);
+      showToast("שגיאת רשת בשליחת המייל", "error");
+    } finally {
+      setSendInProgress(false);
+    }
+  };
+
   // Get budget for a specific supplier and month
   const getBudget = (supplierId: string, month: number): SupplierBudget | undefined => {
     return supplierBudgets.find((b) => b.supplier_id === supplierId && b.month === month);
@@ -821,9 +862,20 @@ export default function AdminGoalsPage() {
   return (
     <div dir="rtl" className="min-h-[calc(100vh-52px)] bg-[#0F1535] text-white p-4 md:p-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold mb-2">ניהול יעדים ותקציבים</h1>
-        <p className="text-white/60">הגדרת יעדי KPI ותקציבי ספקים לכל חודש</p>
+      <div className="mb-6 flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">ניהול יעדים ותקציבים</h1>
+          <p className="text-white/60">הגדרת יעדי KPI ותקציבי ספקים לכל חודש</p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => setSendDialogOpen(true)}
+          disabled={!selectedBusinessId || !goal || isLoading}
+          title={!selectedBusinessId ? "בחר עסק" : !goal ? "אין יעדים לחודש זה" : ""}
+          className="border-[#4956D4] text-[#4956D4] hover:bg-[#4956D4]/10 px-4 py-2 rounded-lg disabled:opacity-50"
+        >
+          📧 שלח יעדים במייל ללקוח
+        </Button>
       </div>
 
       {/* Selectors */}
@@ -1339,6 +1391,61 @@ export default function AdminGoalsPage() {
               className="bg-[#17DB4E] hover:bg-[#15c544] text-white px-5"
             >
               {isSaving ? "שומר..." : "אישור ושמירה"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send-goals-email dialog (David) */}
+      <Dialog open={sendDialogOpen} onOpenChange={(o) => { if (!sendInProgress) setSendDialogOpen(o); }}>
+        <DialogContent className="bg-[#0F1535] border-[#4C526B] text-white sm:max-w-[480px] rounded-[20px] p-[20px]" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-white text-right text-[18px] font-bold">
+              שליחת יעדי החודש במייל
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-[12px] mt-[10px]">
+            <p className="text-[13px] text-white/70">
+              ייווצר מייל זהה למייל הקבוע שיוצא ב-28 לחודש. ייקח דקה.
+            </p>
+            <div className="bg-[#1A1F37] rounded-[10px] p-[12px] flex flex-col gap-[4px] text-[13px]">
+              <span className="text-white/50">עסק:</span>
+              <span className="font-semibold">{businesses.find((b) => b.id === selectedBusinessId)?.name || "—"}</span>
+              <span className="text-white/50 mt-[6px]">חודש:</span>
+              <span className="font-semibold">{selectedMonth ? `${selectedMonth}/${selectedYear}` : "—"}</span>
+            </div>
+            <div>
+              <label className="block text-[13px] text-white/70 mb-[6px]">
+                כתובת יעד (השאר ריק לשליחה לכתובות העסק)
+              </label>
+              <Input
+                type="email"
+                value={sendOverrideTo}
+                onChange={(e) => setSendOverrideTo(e.target.value)}
+                placeholder="example@biz.co.il (אופציונלי לבדיקה)"
+                className="bg-[#0F1535] border border-[#4C526B] text-white text-right rounded-[10px] h-[44px] px-[12px]"
+                disabled={sendInProgress}
+              />
+              <p className="text-[11px] text-white/40 mt-[4px]">
+                CC לדוד תמיד מתווסף אוטומטית.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="mt-[16px] flex flex-row-reverse gap-[8px]">
+            <Button
+              onClick={sendGoalsEmail}
+              disabled={sendInProgress}
+              className="bg-[#4956D4] hover:bg-[#5A67E0] text-white font-semibold py-2 px-4 rounded-lg disabled:opacity-50"
+            >
+              {sendInProgress ? "שולח..." : "שלח עכשיו"}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setSendDialogOpen(false)}
+              disabled={sendInProgress}
+              className="text-white/70 hover:text-white"
+            >
+              ביטול
             </Button>
           </DialogFooter>
         </DialogContent>
