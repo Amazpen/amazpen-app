@@ -1016,6 +1016,54 @@ export default function BonusPlansPage() {
                         </div>
                       )}
 
+                      {/* What it takes to hit the bonus — David: replace
+                          the useless "rate of N orders" line with the
+                          concrete number the employee needs to push for
+                          on the remaining orders. Only shown for
+                          avg_ticket plans where we could compute it. */}
+                      {status &&
+                       plan.is_active &&
+                       plan.data_source.startsWith("avg_ticket_") &&
+                       status.neededAvgRemaining != null &&
+                       status.remainingOrders != null &&
+                       status.remainingOrders > 0 &&
+                       status.bonusTierThreshold != null && (
+                        <div className="flex items-start gap-2 rounded-lg px-2.5 sm:px-3 py-2 bg-[#17DB4E]/10 border border-[#17DB4E]/30">
+                          <span className="text-[14px] mt-0.5">🎯</span>
+                          <div className="text-[12px] sm:text-sm leading-relaxed text-white">
+                            <span className="font-semibold">לקבלת בונוס:</span>{" "}
+                            ב-<span className="font-semibold">{status.remainingOrders}</span>{" "}
+                            ההזמנות שנותרו עד סוף החודש — ממוצע נדרש{" "}
+                            <span className="font-semibold">{formatCurrency(status.neededAvgRemaining)}</span>{" "}
+                            להזמנה{" "}
+                            <span className="opacity-70">
+                              (יעד הסף: {formatCurrency(status.bonusTierThreshold)})
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Revenue plans — show the per-day target instead. */}
+                      {status &&
+                       plan.is_active &&
+                       plan.data_source === "revenue" &&
+                       status.dailyTargetRequired != null &&
+                       status.dailyTargetRequired > 0 && (
+                        <div className="flex items-start gap-2 rounded-lg px-2.5 sm:px-3 py-2 bg-[#17DB4E]/10 border border-[#17DB4E]/30">
+                          <span className="text-[14px] mt-0.5">📅</span>
+                          <div className="text-[12px] sm:text-sm leading-relaxed text-white">
+                            <span className="font-semibold">היום צריך:</span>{" "}
+                            <span className="font-semibold">{formatCurrency(status.dailyTargetRequired)}</span>{" "}
+                            כדי לעמוד ביעד החודש
+                            {status.remainingWorkDays != null && (
+                              <span className="opacity-70">
+                                {" "}({status.remainingWorkDays.toFixed(1)} ימי עבודה נותרו)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Push info */}
                       {plan.push_enabled && (
                         <div className="text-white/30 text-[11px] mt-2">
