@@ -92,12 +92,15 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
+    // The profiles table uses an `is_admin` boolean — not a `role` column
+    // (the previous check `profile?.role !== "admin"` was always falsy →
+    // every request returned 403, which is what David hit).
     const { data: profile } = await adminSb
       .from("profiles")
-      .select("role")
+      .select("is_admin")
       .eq("id", user.id)
       .maybeSingle();
-    if (profile?.role !== "admin") {
+    if (!profile?.is_admin) {
       return NextResponse.json({ error: "Admin only" }, { status: 403 });
     }
 

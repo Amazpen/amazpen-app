@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 // Types
 interface Business {
@@ -1494,11 +1494,11 @@ export default function AdminGoalsPage() {
             <DialogTitle className="text-white text-right text-[18px] font-bold">
               שליחת יעדי החודש במייל
             </DialogTitle>
+            <DialogDescription className="text-white/70 text-right text-[13px]">
+              ייווצר מייל זהה למייל הקבוע שיוצא ב-28 לחודש. ייקח דקה.
+            </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-[12px] mt-[10px]">
-            <p className="text-[13px] text-white/70">
-              ייווצר מייל זהה למייל הקבוע שיוצא ב-28 לחודש. ייקח דקה.
-            </p>
             <div className="bg-[#1A1F37] rounded-[10px] p-[12px] flex flex-col gap-[4px] text-[13px]">
               <span className="text-white/50">עסק:</span>
               <span className="font-semibold">{businesses.find((b) => b.id === selectedBusinessId)?.name || "—"}</span>
