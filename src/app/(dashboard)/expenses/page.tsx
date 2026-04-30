@@ -3297,10 +3297,14 @@ function ExpensesPageInner() {
 
         if (!existingPayments || existingPayments.length === 0) {
           const { data: { user } } = await supabase.auth.getUser();
-          // Fetch supplier_id from the invoice
+          // Fetch supplier_id from the invoice — only `total_amount` is
+          // needed; the payments table has no subtotal/vat_amount columns
+          // (the previous code tried to write them and the INSERT failed
+          // silently for non-admin users, leaving the toast as a generic
+          // "שגיאה בעדכון הסטטוס" with no clue. RLS was never the issue.)
           const { data: invRow } = await supabase
             .from("invoices")
-            .select("supplier_id, business_id, total_amount, subtotal, vat_amount")
+            .select("supplier_id, business_id, total_amount")
             .eq("id", statusConfirm.invoiceId)
             .maybeSingle();
 
@@ -3315,8 +3319,6 @@ function ExpensesPageInner() {
                 invoice_id: statusConfirm.invoiceId,
                 payment_date: todayStr,
                 total_amount: invRow.total_amount,
-                subtotal: invRow.subtotal,
-                vat_amount: invRow.vat_amount,
                 created_by: user?.id || null,
               })
               .select()
