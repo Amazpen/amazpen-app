@@ -54,6 +54,19 @@ export interface BonusPlanStatus {
   expectedOrders?: number | null;
   /** Remaining factor-weighted work days from today to end-of-month. */
   remainingWorkDays?: number | null;
+  /**
+   * David's call: "the bonus number on the wall is useless without a
+   * concrete number for today". For avg_ticket plans, this is the
+   * average per-order amount the employee must hit on the REMAINING
+   * orders so the month-end average reaches the lowest bonus tier:
+   *   neededAvg = (tierThreshold × expectedOrders − amountToDate) ÷ remainingOrders
+   * Null when the goal is already locked in (current avg ≥ tier),
+   * already missed (math doesn't reach), or not applicable.
+   */
+  remainingOrders?: number | null;
+  amountToDate?: number | null;
+  neededAvgRemaining?: number | null;
+  bonusTierThreshold?: number | null;
 }
 
 export interface DataSourceOption {

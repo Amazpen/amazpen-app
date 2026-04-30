@@ -320,6 +320,7 @@ async function resolveAvgTicketStatus(
 
   let currentValue: number | null = null;
   let totalOrdersToDate = 0;
+  let totalAmountToDate = 0;
 
   if (entries && entries.length > 0) {
     const entryIds = entries.map((e: { id: string }) => e.id);
@@ -331,9 +332,9 @@ async function resolveAvgTicketStatus(
       .in("daily_entry_id", entryIds);
 
     if (breakdowns && breakdowns.length > 0) {
-      const totalAmount = breakdowns.reduce((sum: number, r: { amount: number }) => sum + Number(r.amount || 0), 0);
+      totalAmountToDate = breakdowns.reduce((sum: number, r: { amount: number }) => sum + Number(r.amount || 0), 0);
       totalOrdersToDate = breakdowns.reduce((sum: number, r: { orders_count: number }) => sum + Number(r.orders_count || 0), 0);
-      currentValue = totalOrdersToDate > 0 ? totalAmount / totalOrdersToDate : 0;
+      currentValue = totalOrdersToDate > 0 ? totalAmountToDate / totalOrdersToDate : 0;
     }
   }
 
@@ -383,7 +384,51 @@ async function resolveAvgTicketStatus(
     ? Math.round((expectedOrders - totalOrdersToDate) / remainingWorkDays)
     : null;
 
-  return { currentValue, goalValue, qualifiedTier, bonusAmount, expectedOrders, dailyTargetRequired, remainingWorkDays };
+  // David's call: turn the abstract bonus into a concrete "what does the
+  // average per-order need to be on the remaining orders so I hit the
+  // bonus tier?". For "higher is better" plans (avg ticket), pick the
+  // LOWEST tier threshold the user hasn't hit yet — that's the closest
+  // bonus they can still earn this month.
+  // Math: finalAvg = (amountToDate + remaining × avgInRemaining) / expectedOrders
+  //       avgInRemaining = (threshold × expectedOrders − amountToDate) / remaining
+  const remainingOrders = Math.max(0, expectedOrders - totalOrdersToDate);
+  let bonusTierThreshold: number | null = null;
+  let neededAvgRemaining: number | null = null;
+  if (!plan.is_lower_better && remainingOrders > 0 && expectedOrders > 0) {
+    // Tiers ordered low→high. Pick the lowest threshold whose target
+    // currentValue hasn't yet reached. If they've already cleared the
+    // top tier, leave bonusTierThreshold null (already maxed).
+    const tiersAsc = [
+      { threshold: plan.tier1_threshold },
+      { threshold: plan.tier2_threshold },
+      { threshold: plan.tier3_threshold },
+    ].filter((t): t is { threshold: number } => t.threshold != null);
+
+    const next = tiersAsc.find((t) => (currentValue ?? 0) < t.threshold);
+    if (next) {
+      bonusTierThreshold = next.threshold;
+      const needed = (next.threshold * expectedOrders - totalAmountToDate) / remainingOrders;
+      // If the math is already lost (would need a negative or absurd avg
+      // — say > 5× the threshold), don't display a misleading number.
+      if (needed > 0 && needed < next.threshold * 5) {
+        neededAvgRemaining = Math.round(needed);
+      }
+    }
+  }
+
+  return {
+    currentValue,
+    goalValue,
+    qualifiedTier,
+    bonusAmount,
+    expectedOrders,
+    dailyTargetRequired,
+    remainingWorkDays,
+    remainingOrders,
+    amountToDate: totalAmountToDate,
+    neededAvgRemaining,
+    bonusTierThreshold,
+  };
 }
 
 /**

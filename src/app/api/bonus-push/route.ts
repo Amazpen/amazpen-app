@@ -57,14 +57,21 @@ function buildPushMessage(
   const goal = status.goalValue !== null ? formatValue(status.goalValue, plan.measurement_type) : null;
   const goalStr = goal ? ` (יעד: ${goal})` : "";
 
-  // David #9 — daily-target nudge: turn the abstract goal into "today you
-  // need ₪X" or "today you need to take Y orders". Skip when not applicable.
+  // David's call: turn the abstract goal into a concrete number for today.
+  // For revenue plans → "₪X today". For avg-ticket plans → "ב-N הזמנות
+  // שנותרו צריך ממוצע ₪Y" so the employee knows EXACTLY what to push for
+  // on the rest of the orders this month.
   let dailyNudge = "";
-  if (status.dailyTargetRequired != null && status.dailyTargetRequired > 0) {
-    if (plan.data_source === "revenue") {
-      const fmt = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(status.dailyTargetRequired);
-      dailyNudge = `\n📅 כדי לעמוד ביעד החודש — היום צריך ${fmt}`;
-    } else if (plan.data_source.startsWith("avg_ticket_")) {
+  if (plan.data_source === "revenue" && status.dailyTargetRequired != null && status.dailyTargetRequired > 0) {
+    const fmt = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(status.dailyTargetRequired);
+    dailyNudge = `\n📅 כדי לעמוד ביעד החודש — היום צריך ${fmt}`;
+  } else if (plan.data_source.startsWith("avg_ticket_")) {
+    if (status.neededAvgRemaining != null && status.remainingOrders != null && status.bonusTierThreshold != null) {
+      const fmt = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(status.neededAvgRemaining);
+      dailyNudge = `\n🎯 לבונוס: ב-${status.remainingOrders} ההזמנות שנותרו, ממוצע ${fmt} להזמנה`;
+    } else if (status.dailyTargetRequired != null && status.dailyTargetRequired > 0) {
+      // Fallback to the daily-orders nudge when we can't compute the
+      // per-order math (e.g. no tier thresholds set, already maxed).
       dailyNudge = `\n📅 קצב מומלץ להיום: ${status.dailyTargetRequired} הזמנות`;
     }
   }
@@ -180,17 +187,30 @@ function buildDailyActionsHtml(kpis: ResolvedKPI[]): string {
 }
 
 function buildDailyTargetLines(kpis: ResolvedKPI[]): string {
-  // David #9 — show "today you need ₪X / Y orders" for plans with a real
-  // remaining-days projection. Skip plans where it's not meaningful.
+  // David's call: every line must give the employee a SINGLE number they
+  // can act on today — no "rate of 18 orders" copy that doesn't say what
+  // the bonus actually requires.
   const lines: string[] = [];
+  const fmtNis = (n: number) =>
+    new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(n);
+
   for (const k of kpis) {
-    const dt = k.status.dailyTargetRequired;
-    if (dt == null || dt <= 0) continue;
+    const s = k.status;
     if (k.plan.data_source === "revenue") {
-      const fmt = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(dt);
-      lines.push(`📅 ${k.displayName}: היום צריך ${fmt} כדי לעמוד ביעד`);
+      if (s.dailyTargetRequired != null && s.dailyTargetRequired > 0) {
+        lines.push(`📅 ${k.displayName}: היום צריך ${fmtNis(s.dailyTargetRequired)} כדי לעמוד ביעד`);
+      }
     } else if (k.plan.data_source.startsWith("avg_ticket_")) {
-      lines.push(`📅 ${k.displayName}: קצב יומי מומלץ ${dt} הזמנות`);
+      if (s.neededAvgRemaining != null && s.remainingOrders != null && s.bonusTierThreshold != null) {
+        lines.push(
+          `🎯 ${k.displayName}: לקבלת בונוס, ב-${s.remainingOrders} ההזמנות שנותרו עד סוף החודש — ממוצע נדרש ${fmtNis(s.neededAvgRemaining)} להזמנה (יעד: ${fmtNis(s.bonusTierThreshold)})`
+        );
+      } else if (s.qualifiedTier != null && s.bonusAmount > 0) {
+        // Already qualified — celebrate, don't ask for more.
+        lines.push(`✅ ${k.displayName}: כבר נעלת בונוס ${fmtNis(s.bonusAmount)} — שמור על הקצב!`);
+      } else if (s.dailyTargetRequired != null && s.dailyTargetRequired > 0) {
+        lines.push(`📅 ${k.displayName}: קצב יומי מומלץ ${s.dailyTargetRequired} הזמנות`);
+      }
     }
   }
   return lines.join("<br/>");
