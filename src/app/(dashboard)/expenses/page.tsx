@@ -796,6 +796,14 @@ function ExpensesPageInner() {
 
   // Status change state
   const [showStatusMenu, setShowStatusMenu] = useState<string | null>(null);
+  // Position is captured at click-time and rendered as inline styles so the
+  // portal lands in the right spot synchronously with the open. The previous
+  // approach (set CSS vars inside a setTimeout via a ref) had a race: if the
+  // ref wasn't attached yet — common on slower devices — the vars never got
+  // set and the menu appeared at top-left or behind other content, which is
+  // why some users couldn't switch a status. (No exception was thrown, the
+  // menu just rendered unreachable.)
+  const [statusMenuPos, setStatusMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [clarificationCloseReason, setClarificationCloseReason] = useState<string>("");
   const statusMenuRef = useRef<HTMLDivElement | null>(null);
@@ -1842,6 +1850,7 @@ function ExpensesPageInner() {
         const target = e.target as HTMLElement;
         if (!target.closest('[data-status-menu]')) {
           setShowStatusMenu(null);
+          setStatusMenuPos(null);
         }
       }
       if (showFilterMenu && filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) {
@@ -4503,16 +4512,14 @@ function ExpensesPageInner() {
                         onClick={(e) => {
                           if (showStatusMenu === invoice.id) {
                             setShowStatusMenu(null);
+                            setStatusMenuPos(null);
                           } else {
                             const rect = e.currentTarget.getBoundingClientRect();
+                            setStatusMenuPos({
+                              top: rect.bottom + 5,
+                              left: rect.left + rect.width / 2,
+                            });
                             setShowStatusMenu(invoice.id);
-                            // Update menu position after render
-                            setTimeout(() => {
-                              if (statusMenuRef.current) {
-                                statusMenuRef.current.style.setProperty('--menu-top', `${rect.bottom + 5}px`);
-                                statusMenuRef.current.style.setProperty('--menu-left', `${rect.left + rect.width / 2}px`);
-                              }
-                            }, 0);
                           }
                         }}
                         className={`text-[12px] font-bold px-[14px] py-[5px] rounded-full cursor-pointer hover:opacity-80 transition-opacity whitespace-nowrap min-w-[70px] text-center ${
@@ -7219,12 +7226,20 @@ function ExpensesPageInner() {
       );
       })()}
 
-      {/* Status Menu Portal */}
-      {showStatusMenu && typeof window !== 'undefined' && createPortal(
+      {/* Status Menu Portal — positioned inline so it always renders at
+          the captured click coordinates, no matter how slow the render. */}
+      {showStatusMenu && statusMenuPos && typeof window !== 'undefined' && createPortal(
         <div
           ref={statusMenuRef}
           data-status-menu
           className="status-menu-portal bg-[#1A1F4E] border border-white/20 rounded-[8px] shadow-lg min-w-[120px] overflow-hidden"
+          style={{
+            position: "fixed",
+            top: `${statusMenuPos.top}px`,
+            left: `${statusMenuPos.left}px`,
+            transform: "translateX(-50%)",
+            zIndex: 99999,
+          }}
         >
           <Button
             type="button"
