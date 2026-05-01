@@ -68,11 +68,12 @@ function buildEmailHtml(r: SummaryResponse): string {
   const foodTargetPct = r.foodTargetPct || 0;
   const currentExpensesTarget = r.currentExpensesTarget || 0;
 
-  // Labor target = (labor% × revenue) + supplier_budgets that the report
-  // categorises under "עלות עובדים" (staffing agencies etc.). Keeps the
-  // email's totals identical to the P&L screen.
-  const laborBudgetExtra = Number(r.laborBudgetExtra) || 0;
-  const laborTargetNis = Math.round((laborTargetPct / 100) * revenueTarget + laborBudgetExtra);
+  // Labor target = labor% × revenue. The P&L report does the same — it
+  // doesn't fold labor-categorised supplier_budgets (פנסיה, חברת משלוחים
+  // etc.) into the labor row of the totals. Those are dropped from both
+  // the per-category breakdown AND the total in the email so the figures
+  // match the report 1:1.
+  const laborTargetNis = Math.round((laborTargetPct / 100) * revenueTarget);
   const foodTargetNis = Math.round((foodTargetPct / 100) * revenueTarget);
   // The current_expenses target on goals isn't always populated. If we have
   // the per-category breakdown, prefer summing those — guarantees the
@@ -240,9 +241,15 @@ export async function POST(request: NextRequest) {
       }
       return cur?.name || "";
     };
-    // Names the P&L report treats as "goods" (rolls under עלות מכר). Match
-    // David's existing setup so we don't double-count goods on top of food%.
+    // Top-level parent names the P&L report bucket under labor / goods.
+    // Suppliers whose category top-parent is one of these are NOT counted in
+    // the "סה\"כ הוצאות" line of the report (the report sums only
+    // displayCategories that are not labor and not goods, then adds
+    // labor% × revenue separately). To keep the email's totals identical to
+    // the report we mirror that exclusion here — even though the supplier
+    // itself has expense_type='current_expenses' (e.g. פנסיה, חברת משלוחים).
     const GOODS_PARENT_NAMES = new Set(["עלות מכר", "עלויות מכר"]);
+    const LABOR_PARENT_NAMES = new Set(["עלות עובדים", "עלויות עובדים"]);
 
     type BudgetRow = {
       budget_amount: number;
@@ -250,26 +257,25 @@ export async function POST(request: NextRequest) {
     };
     const budgets = (budgetsRes.data || []) as unknown as BudgetRow[];
     const expenseByCategory = new Map<string, number>();
-    let laborBudgetExtra = 0; // supplier_budgets where expense_type='employees'.
+    let laborBudgetExtra = 0; // budgets the report folds under labor (kept for completeness, not added to total).
     for (const b of budgets) {
       const sup = b.supplier;
       if (!sup) continue;
       const amount = Number(b.budget_amount) || 0;
       if (amount === 0) continue;
       const topParent = resolveTopParentName(sup.expense_category_id);
-      // Goods budgets — already covered by food% × revenue. Skip.
+      // Goods → skip (already covered by food% × revenue in the totals row).
       if (sup.expense_type === "goods_purchases" || GOODS_PARENT_NAMES.has(topParent)) continue;
-      // Pure labor (expense_type='employees') rolls into the labor row.
-      // BUT: a current_expense supplier whose CATEGORY happens to live under
-      // "עלויות עובדים" (e.g. חברת משלוחים, עלויות כ"א נוספות) is still a
-      // current expense — David wants those to show in the breakdown table.
-      if (sup.expense_type === "employees") {
+      // Labor-bucketed → skip from the breakdown AND from the total. The
+      // P&L report's "סה\"כ הוצאות יעד" line excludes them too (they're
+      // already implicitly counted via labor% × revenue), so including them
+      // here would inflate every figure by ~3K and break the email vs.
+      // report parity David flagged on פרגו נס ציונה.
+      if (sup.expense_type === "employees" || LABOR_PARENT_NAMES.has(topParent)) {
         laborBudgetExtra += amount;
         continue;
       }
-      // Everything else (current_expenses, including labor-categorised ones)
-      // shows up in the per-category breakdown table.
-      void topParent; // (kept for future bucketing — no skip on labor parent)
+      // Everything else is a regular operating expense.
       const name = resolveCategoryName(sup.expense_category_id);
       expenseByCategory.set(name, (expenseByCategory.get(name) || 0) + amount);
     }
