@@ -25,6 +25,13 @@ function fmtNum(n: unknown): string {
   const v = Number(n) || 0;
   return Math.round(v).toLocaleString("he-IL");
 }
+// Same as fmtNum but always with 2 decimal places. David wants every number
+// in the KPI row of the goals email to show 2 decimals so the precision is
+// consistent across the row (currency averages and percentage targets alike).
+function fmtNum2(n: unknown): string {
+  const v = Number(n) || 0;
+  return v.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 function fmtPct(n: unknown, digits = 0): string {
   const v = Number(n) || 0;
   return v.toFixed(digits);
@@ -94,13 +101,13 @@ function buildEmailHtml(r: SummaryResponse): string {
 
   const incomeSources = r.incomeSources || [];
   const kpiHeaders = incomeSources.map((s) => `<th>ממוצע ${s.name}</th>`).join("");
-  const kpiValues = incomeSources.map((s) => `<td>₪${fmtNum(s.avgTicketTarget)}</td>`).join("");
+  const kpiValues = incomeSources.map((s) => `<td>₪${fmtNum2(s.avgTicketTarget)}</td>`).join("");
 
   const priorCommitmentsHtml = priorCommitmentsTotal > 0
     ? `<p class="highlight">ואלה ההתחייבויות הקודמות (הלוואות שיורדות החודש) על סך: <span class="highlight">₪${fmtNum(priorCommitmentsTotal)}</span></p>`
     : "";
 
-  return `<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="UTF-8"><title>דו"ח תוכנית חודשית</title><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>body{margin:0!important;padding:0!important;font-family:'Segoe UI',Tahoma,sans-serif!important;background:#f5f7fa!important;color:#333!important;direction:rtl!important;text-align:right!important;font-size:16px!important;}.container{max-width:700px;margin:40px auto;background:#fff!important;border-radius:16px!important;box-shadow:0 4px 12px rgba(0,0,0,0.1)!important;overflow:hidden;}.header{background:#f3e8ff!important;padding:24px!important;text-align:center!important;color:#8328f8!important;}.header img{max-width:140px!important;margin-bottom:12px!important;}.header h2{margin:0;font-size:22px!important;}.content{padding:24px!important;background:#f8f5ff!important;line-height:1.8!important;}.content p{margin:12px 0!important;}.highlight{font-weight:bold!important;color:#d33bd8!important;}.table-responsive{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:16px;}table{width:100%!important;min-width:500px;border-collapse:collapse!important;}th,td{border:1px solid #ddd!important;padding:12px!important;font-size:14px!important;text-align:right!important;}th{background:#f3e8ff!important;color:#8328f8!important;}tr:nth-child(even){background:#f9f7fc!important;}.button{display:inline-block!important;padding:12px 24px!important;background:#8328f8!important;color:#fff!important;text-decoration:none!important;border-radius:6px!important;font-weight:bold!important;margin-top:24px!important;font-size:16px!important;}.footer{padding:16px!important;text-align:center!important;font-size:12px!important;background:#f3e8ff!important;color:#888!important;}</style></head><body dir="rtl"><div class="container"><div class="header"><h2>דו"ח חודשי עסקי</h2></div><div class="content"><p>שלום, ${bizName}</p><p>להלן התוכנית העסקית לחודש <span class="highlight">${monthName}</span></p><p>צפי הרווח לחודש <span class="highlight">${monthName}</span> הינו: <span class="highlight">₪${fmtNum(profitTarget)}</span></p>${priorCommitmentsHtml}<p class="highlight">להלן התחזית הפיננסית:</p><div class="table-responsive"><table><tr><th>צפי הכנסות ללא מע"מ</th><th>צפי הוצאות ללא מע"מ</th><th>סה"כ רווח</th></tr><tr><td class="highlight">₪${fmtNum(revenueTarget)}</td><td class="highlight">₪${fmtNum(totalExpensesTarget)}</td><td class="highlight">₪${fmtNum(profitTarget)}</td></tr></table></div><p class="highlight">להלן פירוט ההוצאות:</p><div class="table-responsive"><table><tr><th>קטגוריה</th><th>סכום צפי הוצאה ללא מע"מ</th></tr>${expenseRowsHtml}</table></div><p class="highlight">בכדי להגיע ליעדים, אלו מדדי ה-KPI לחודש <span class="highlight">${monthName}</span>:</p><div class="table-responsive"><table><tr><th>סה"כ מכירות ללא מע"מ</th>${kpiHeaders}<th>עלות עובדים</th><th>עלות מכר</th></tr><tr><td class="highlight">₪${fmtNum(revenueTarget)}</td>${kpiValues}<td class="highlight">${fmtPct(laborTargetPct)}%</td><td class="highlight">${fmtPct(foodTargetPct, 2)}%</td></tr></table></div><p>אנחנו נהיה כאן בשבילך במהלך החודש, נעקוב ונעדכן אותך מדי יום על התוצאות בפועל וקצב ההתקדמות של העסק בהשוואה ליעדים ולתוצאות עבר.<br>לצפייה בפירוט המלא ניתן להכנס לאפליקציה לעמוד "יעדים".<br>במידה ויש צורך בשינוי יש לפנות לשירות הלקוחות: 054-5554106.<br>אנחנו זמינים לכל שאלה ומאחלים לך המון בהצלחה בהשגת היעדים החודש.</p><div style="text-align:center;"><a class="button" href="https://app.amazpenbiz.co.il" target="_blank">כניסה לאפליקציה</a></div><p style="margin:24px 0 8px 0;text-align:right;">בברכה,<br>צוות המצפן</p></div><div class="footer">© ${new Date().getFullYear()} המצפן - כל הזכויות שמורות</div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="UTF-8"><title>דו"ח תוכנית חודשית</title><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>body{margin:0!important;padding:0!important;font-family:'Segoe UI',Tahoma,sans-serif!important;background:#f5f7fa!important;color:#333!important;direction:rtl!important;text-align:right!important;font-size:16px!important;}.container{max-width:700px;margin:40px auto;background:#fff!important;border-radius:16px!important;box-shadow:0 4px 12px rgba(0,0,0,0.1)!important;overflow:hidden;}.header{background:#f3e8ff!important;padding:24px!important;text-align:center!important;color:#8328f8!important;}.header img{max-width:140px!important;margin-bottom:12px!important;}.header h2{margin:0;font-size:22px!important;}.content{padding:24px!important;background:#f8f5ff!important;line-height:1.8!important;}.content p{margin:12px 0!important;}.highlight{font-weight:bold!important;color:#d33bd8!important;}.table-responsive{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:16px;}table{width:100%!important;min-width:500px;border-collapse:collapse!important;}th,td{border:1px solid #ddd!important;padding:12px!important;font-size:14px!important;text-align:right!important;}th{background:#f3e8ff!important;color:#8328f8!important;}tr:nth-child(even){background:#f9f7fc!important;}.button{display:inline-block!important;padding:12px 24px!important;background:#8328f8!important;color:#fff!important;text-decoration:none!important;border-radius:6px!important;font-weight:bold!important;margin-top:24px!important;font-size:16px!important;}.footer{padding:16px!important;text-align:center!important;font-size:12px!important;background:#f3e8ff!important;color:#888!important;}</style></head><body dir="rtl"><div class="container"><div class="header"><h2>דו"ח חודשי עסקי</h2></div><div class="content"><p>שלום, ${bizName}</p><p>להלן התוכנית העסקית לחודש <span class="highlight">${monthName}</span></p><p>צפי הרווח לחודש <span class="highlight">${monthName}</span> הינו: <span class="highlight">₪${fmtNum(profitTarget)}</span></p>${priorCommitmentsHtml}<p class="highlight">להלן התחזית הפיננסית:</p><div class="table-responsive"><table><tr><th>צפי הכנסות ללא מע"מ</th><th>צפי הוצאות ללא מע"מ</th><th>סה"כ רווח</th></tr><tr><td class="highlight">₪${fmtNum(revenueTarget)}</td><td class="highlight">₪${fmtNum(totalExpensesTarget)}</td><td class="highlight">₪${fmtNum(profitTarget)}</td></tr></table></div><p class="highlight">להלן פירוט ההוצאות:</p><div class="table-responsive"><table><tr><th>קטגוריה</th><th>סכום צפי הוצאה ללא מע"מ</th></tr>${expenseRowsHtml}</table></div><p class="highlight">בכדי להגיע ליעדים, אלו מדדי ה-KPI לחודש <span class="highlight">${monthName}</span>:</p><div class="table-responsive"><table><tr><th>סה"כ מכירות ללא מע"מ</th>${kpiHeaders}<th>עלות עובדים</th><th>עלות מכר</th></tr><tr><td class="highlight">₪${fmtNum2(revenueTarget)}</td>${kpiValues}<td class="highlight">${fmtPct(laborTargetPct, 2)}%</td><td class="highlight">${fmtPct(foodTargetPct, 2)}%</td></tr></table></div><p>אנחנו נהיה כאן בשבילך במהלך החודש, נעקוב ונעדכן אותך מדי יום על התוצאות בפועל וקצב ההתקדמות של העסק בהשוואה ליעדים ולתוצאות עבר.<br>לצפייה בפירוט המלא ניתן להכנס לאפליקציה לעמוד "יעדים".<br>במידה ויש צורך בשינוי יש לפנות לשירות הלקוחות: 054-5554106.<br>אנחנו זמינים לכל שאלה ומאחלים לך המון בהצלחה בהשגת היעדים החודש.</p><div style="text-align:center;"><a class="button" href="https://app.amazpenbiz.co.il" target="_blank">כניסה לאפליקציה</a></div><p style="margin:24px 0 8px 0;text-align:right;">בברכה,<br>צוות המצפן</p></div><div class="footer">© ${new Date().getFullYear()} המצפן - כל הזכויות שמורות</div></div></body></html>`;
 }
 
 export async function POST(request: NextRequest) {
@@ -233,9 +240,8 @@ export async function POST(request: NextRequest) {
       }
       return cur?.name || "";
     };
-    // Names the P&L report treats as "labor" (rolls under עלות עובדים) and
-    // "goods" (rolls under עלות מכר). Match David's existing setup.
-    const LABOR_PARENT_NAMES = new Set(["עלות עובדים", "עלויות עובדים"]);
+    // Names the P&L report treats as "goods" (rolls under עלות מכר). Match
+    // David's existing setup so we don't double-count goods on top of food%.
     const GOODS_PARENT_NAMES = new Set(["עלות מכר", "עלויות מכר"]);
 
     type BudgetRow = {
@@ -244,7 +250,7 @@ export async function POST(request: NextRequest) {
     };
     const budgets = (budgetsRes.data || []) as unknown as BudgetRow[];
     const expenseByCategory = new Map<string, number>();
-    let laborBudgetExtra = 0; // supplier_budgets categorised as labor — adds to the labor target row.
+    let laborBudgetExtra = 0; // supplier_budgets where expense_type='employees'.
     for (const b of budgets) {
       const sup = b.supplier;
       if (!sup) continue;
@@ -253,14 +259,17 @@ export async function POST(request: NextRequest) {
       const topParent = resolveTopParentName(sup.expense_category_id);
       // Goods budgets — already covered by food% × revenue. Skip.
       if (sup.expense_type === "goods_purchases" || GOODS_PARENT_NAMES.has(topParent)) continue;
-      // Labor-category budgets (e.g. staffing agencies categorised under
-      // "עלויות עובדים") roll into the labor row in the P&L. Mirror that
-      // here so the email totals match the report.
-      if (LABOR_PARENT_NAMES.has(topParent)) {
+      // Pure labor (expense_type='employees') rolls into the labor row.
+      // BUT: a current_expense supplier whose CATEGORY happens to live under
+      // "עלויות עובדים" (e.g. חברת משלוחים, עלויות כ"א נוספות) is still a
+      // current expense — David wants those to show in the breakdown table.
+      if (sup.expense_type === "employees") {
         laborBudgetExtra += amount;
         continue;
       }
-      // Everything else is a current expense — show in the breakdown table.
+      // Everything else (current_expenses, including labor-categorised ones)
+      // shows up in the per-category breakdown table.
+      void topParent; // (kept for future bucketing — no skip on labor parent)
       const name = resolveCategoryName(sup.expense_category_id);
       expenseByCategory.set(name, (expenseByCategory.get(name) || 0) + amount);
     }
