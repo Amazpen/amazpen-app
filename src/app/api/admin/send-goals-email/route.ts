@@ -42,6 +42,14 @@ interface SummaryResponse {
   currentExpensesTarget?: number;
   expenseCategories?: { name: string; amount: number }[];
   incomeSources?: { name: string; avgTicketTarget: number }[];
+  /**
+   * Extra ₪ added to labor in the P&L (supplier_budgets whose top-parent
+   * category is "עלות עובדים" / "עלויות עובדים", e.g. staffing agencies).
+   * The dashboard's labor target is just (laborPct × revenue), but the
+   * report screen also folds these invoices into the labor row. Mirror
+   * that so the email's "סה"כ הוצאות" matches the report exactly.
+   */
+  laborBudgetExtra?: number;
 }
 
 function buildEmailHtml(r: SummaryResponse): string {
@@ -53,7 +61,11 @@ function buildEmailHtml(r: SummaryResponse): string {
   const foodTargetPct = r.foodTargetPct || 0;
   const currentExpensesTarget = r.currentExpensesTarget || 0;
 
-  const laborTargetNis = Math.round((laborTargetPct / 100) * revenueTarget);
+  // Labor target = (labor% × revenue) + supplier_budgets that the report
+  // categorises under "עלות עובדים" (staffing agencies etc.). Keeps the
+  // email's totals identical to the P&L screen.
+  const laborBudgetExtra = Number(r.laborBudgetExtra) || 0;
+  const laborTargetNis = Math.round((laborTargetPct / 100) * revenueTarget + laborBudgetExtra);
   const foodTargetNis = Math.round((foodTargetPct / 100) * revenueTarget);
   // The current_expenses target on goals isn't always populated. If we have
   // the per-category breakdown, prefer summing those — guarantees the
@@ -207,6 +219,24 @@ export async function POST(request: NextRequest) {
       if (!categoryId) return "אחר";
       return catById.get(categoryId)?.name || "אחר";
     };
+    // Walk up the parent chain to find the top-level category name. The P&L
+    // report buckets each supplier under its top-level parent — so a leaf
+    // like "פרסום מזדמן" rolls up to "הוצאות שיווק ומכירות" and a leaf
+    // like "עלויות כ\"א נוספות" rolls up to "עלויות עובדים".
+    const resolveTopParentName = (categoryId: string | null): string => {
+      if (!categoryId) return "";
+      let cur: Category | undefined = catById.get(categoryId);
+      while (cur && cur.parent_id) {
+        const next = catById.get(cur.parent_id);
+        if (!next) break;
+        cur = next;
+      }
+      return cur?.name || "";
+    };
+    // Names the P&L report treats as "labor" (rolls under עלות עובדים) and
+    // "goods" (rolls under עלות מכר). Match David's existing setup.
+    const LABOR_PARENT_NAMES = new Set(["עלות עובדים", "עלויות עובדים"]);
+    const GOODS_PARENT_NAMES = new Set(["עלות מכר", "עלויות מכר"]);
 
     type BudgetRow = {
       budget_amount: number;
@@ -214,16 +244,24 @@ export async function POST(request: NextRequest) {
     };
     const budgets = (budgetsRes.data || []) as unknown as BudgetRow[];
     const expenseByCategory = new Map<string, number>();
+    let laborBudgetExtra = 0; // supplier_budgets categorised as labor — adds to the labor target row.
     for (const b of budgets) {
       const sup = b.supplier;
       if (!sup) continue;
-      // Email shows current_expenses category breakdown — labor and goods
-      // already get their dedicated rows from labor% × revenue and food% ×
-      // revenue. Don't double-count them here.
-      if (sup.expense_type !== "current_expenses") continue;
-      const name = resolveCategoryName(sup.expense_category_id);
       const amount = Number(b.budget_amount) || 0;
       if (amount === 0) continue;
+      const topParent = resolveTopParentName(sup.expense_category_id);
+      // Goods budgets — already covered by food% × revenue. Skip.
+      if (sup.expense_type === "goods_purchases" || GOODS_PARENT_NAMES.has(topParent)) continue;
+      // Labor-category budgets (e.g. staffing agencies categorised under
+      // "עלויות עובדים") roll into the labor row in the P&L. Mirror that
+      // here so the email totals match the report.
+      if (LABOR_PARENT_NAMES.has(topParent)) {
+        laborBudgetExtra += amount;
+        continue;
+      }
+      // Everything else is a current expense — show in the breakdown table.
+      const name = resolveCategoryName(sup.expense_category_id);
       expenseByCategory.set(name, (expenseByCategory.get(name) || 0) + amount);
     }
     const expenseCategories = Array.from(expenseByCategory.entries())
@@ -275,6 +313,7 @@ export async function POST(request: NextRequest) {
         avgTicketTarget: sourceGoalMap.get(s.id) || 0,
       })),
       expenseCategories,
+      laborBudgetExtra,
     };
 
     // Default monthName from the resolver if it didn't fill it (older versions).
