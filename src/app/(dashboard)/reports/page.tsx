@@ -623,8 +623,15 @@ export default function ReportsPage() {
           }
         }
 
-        // Build expense categories display
-        const expensesTarget = Number(goal?.current_expenses_target || 0);
+        // Build expense categories display.
+        // goals.current_expenses_target is stored INCLUDING VAT (same convention
+        // as revenue_target — see line 631 below). The whole report is ex-VAT,
+        // so divide here too. Without this, the legacy fallback below
+        // (Math.max(sum-of-supplier-budgets, this value)) inflates the total
+        // by the VAT rate when the user hasn't broken down the budget into
+        // per-supplier rows yet — that's how נס ציונה ended up showing
+        // ₪140.9K when the math says ₪132.1K.
+        const expensesTarget = Number(goal?.current_expenses_target || 0) / vatDivisor;
 
         // Calculate food cost (עלות מכר) target: (food_cost_target_pct / 100) * (revenue_target / vatDivisor)
         const foodCostTargetPct = Number(goal?.food_cost_target_pct || 0);
