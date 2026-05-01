@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useLayoutEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -39,6 +39,22 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
+  // Anchor: which side of the trigger the dropdown is pinned to. Defaults to
+  // 'right' (RTL — opens leftwards from the trigger). When the trigger sits
+  // close to the left edge of the viewport, the menu would clip off-screen,
+  // so we measure on open and flip to 'left' (opens rightwards) instead.
+  const [anchorSide, setAnchorSide] = useState<"right" | "left">("right");
+  const triggerRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!isDropdownOpen || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const dropdownWidth = 200; // matches min-w-[180px] + padding
+    // If anchoring right would leave the dropdown's left edge < 8px from the
+    // viewport's left edge, flip to anchor on the left side instead.
+    const wouldClipLeft = rect.right - dropdownWidth < 8;
+    setAnchorSide(wouldClipLeft ? "left" : "right");
+  }, [isDropdownOpen]);
 
   // Always display as month + year (picker enforces full-month ranges only)
   const monthLabel = hebrewMonths[dateRange.start.getMonth()]?.label || "";
@@ -99,7 +115,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
 
   if (variant === "button") {
     return (
-      <div className={`relative flex items-center gap-[8px] border border-[#4C526B] rounded-[7px] px-[12px] py-[8px] cursor-pointer ${className}`} onClick={toggleDropdown}>
+      <div ref={triggerRef} className={`relative flex items-center gap-[8px] border border-[#4C526B] rounded-[7px] px-[12px] py-[8px] cursor-pointer ${className}`} onClick={toggleDropdown}>
         <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className="text-[#4C526B]">
           <path d="M10 13L16 19L22 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
@@ -107,7 +123,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
         {isDropdownOpen && (
           <>
             <div className="fixed inset-0 z-[100]" onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(false); }} />
-            <div className="absolute top-full right-0 mt-[5px] bg-[#0F1535] border-2 border-[#29318A] rounded-[10px] p-[5px] z-[101] flex flex-col gap-[1px] min-w-[180px]" onClick={(e) => e.stopPropagation()}>
+            <div className={`absolute top-full ${anchorSide === "right" ? "right-0" : "left-0"} mt-[5px] bg-[#0F1535] border-2 border-[#29318A] rounded-[10px] p-[5px] z-[101] flex flex-col gap-[1px] min-w-[180px]`} onClick={(e) => e.stopPropagation()}>
               <Button type="button" variant="ghost" onClick={selectCurrentMonth} className="text-[14px] text-white text-center leading-[1.2] py-[4px] hover:bg-[#29318A]/30 rounded-[5px] transition-colors">חודש נוכחי</Button>
               <Button type="button" variant="ghost" onClick={selectLastMonth} className="text-[14px] text-white text-center leading-[1.2] py-[4px] hover:bg-[#29318A]/30 rounded-[5px] transition-colors">חודש שעבר</Button>
               <div className="border-t border-[#29318A]/50 my-[3px]" />
@@ -130,7 +146,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
   }
 
   return (
-    <div className="relative inline-block" dir="rtl">
+    <div ref={triggerRef} className="relative inline-block" dir="rtl">
       <Button
         type="button"
         variant="ghost"
@@ -146,7 +162,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
       {isDropdownOpen && (
         <>
           <div className="fixed inset-0 z-[100]" onClick={() => setIsDropdownOpen(false)} />
-          <div className="absolute top-full right-0 mt-[5px] bg-[#0F1535] border-2 border-[#29318A] rounded-[10px] p-[5px] z-[101] flex flex-col gap-[1px] min-w-[180px]">
+          <div className={`absolute top-full ${anchorSide === "right" ? "right-0" : "left-0"} mt-[5px] bg-[#0F1535] border-2 border-[#29318A] rounded-[10px] p-[5px] z-[101] flex flex-col gap-[1px] min-w-[180px]`}>
             <Button
               type="button"
               variant="ghost"
