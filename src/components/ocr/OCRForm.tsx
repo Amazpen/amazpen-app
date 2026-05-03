@@ -474,10 +474,27 @@ export default function OCRForm({
           return nameMatch || aliasMatch || partialMatch;
         });
         if (match && match.current_price != null && li.unit_price != null) {
-          const priceDiff = li.unit_price - match.current_price;
+          // The LLM occasionally swaps qty<->unit_price when the document table
+          // columns are unusual. If the matched supplier_item has a known price
+          // and the swap brings unit_price within 30% of history while the
+          // current values are off by >300%, treat it as a swap.
+          // qty*price is commutative so totals stay identical.
+          let qty = li.quantity;
+          let price = li.unit_price;
+          if (qty != null && qty > 0 && price > 0 && match.current_price > 0) {
+            const currentPctOff = Math.abs((price - match.current_price) / match.current_price) * 100;
+            const swappedPctOff = Math.abs((qty - match.current_price) / match.current_price) * 100;
+            if (currentPctOff > 300 && swappedPctOff < 30) {
+              [qty, price] = [price, qty];
+            }
+          }
+          const priceDiff = price - match.current_price;
           const changePct = match.current_price > 0 ? ((priceDiff / match.current_price) * 100) : 0;
           return {
             ...li,
+            quantity: qty,
+            unit_price: price,
+            total: calcLineTotal(qty, price, li.discount_amount, li.discount_type),
             matched_supplier_item_id: match.id,
             previous_price: match.current_price,
             price_change_pct: Math.abs(changePct) < 0.01 ? 0 : changePct,
