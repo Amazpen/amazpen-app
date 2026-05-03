@@ -68,7 +68,11 @@ const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments"
 // Menu items for sidebar
 const menuItems = [
   { id: 1, label: "דשבורד ראשי", href: "/", key: "dashboard" },
-  { id: 12, label: "ניהול לקוחות ונותני שירות", href: "/customers", key: "customers", requiresBusiness: true, hideForNonAdmin: true },
+  // Service-business owners (not admins) need their own client/CRM page.
+  // hideUnlessServiceModel: only show when the currently-selected business
+  // is a "service" business (set during creation in admin/business/new).
+  // Admins still see it for any selected business via isAdmin override below.
+  { id: 12, label: "ניהול לקוחות", href: "/customers", key: "customers", requiresBusiness: true, hideUnlessServiceModel: true },
   { id: 2, label: "ניהול הוצאות", href: "/expenses", key: "expenses", requiresBusiness: true },
   { id: 3, label: "ניהול ספקים", href: "/suppliers", key: "suppliers", requiresBusiness: true },
   { id: 4, label: "ניהול תשלומים", href: "/payments", key: "payments", requiresBusiness: true },
@@ -136,7 +140,7 @@ const adminMenuItems = adminMenuGroups.flatMap((g) => g.items);
 // Page titles mapping
 const pageTitles: Record<string, string> = {
   "/": "דשבורד ראשי",
-  "/customers": "ניהול לקוחות ונותני שירות",
+  "/customers": "ניהול לקוחות",
   "/expenses": "ניהול הוצאות",
   "/suppliers": "ניהול ספקים",
   "/payments": "ניהול תשלומים",
@@ -379,23 +383,30 @@ export default function DashboardLayout({
     fetchUserProfile();
   }, [isMounted, fetchUserProfile]);
 
-  // Fetch business name for sidebar display
+  // Tracks the business_model of each currently-selected business so the
+  // sidebar can hide service-only items (e.g. /customers) when the user is
+  // viewing a "regular" business instead of a service-provider business.
+  const [selectedBusinessModels, setSelectedBusinessModels] = useState<string[]>([]);
+
+  // Fetch business name + model for sidebar display
   useEffect(() => {
     const fetchBusinessName = async () => {
       if (selectedBusinesses.length === 0) {
         setBusinessName(null);
+        setSelectedBusinessModels([]);
         return;
       }
 
       const supabase = createClient();
-      const { data: business } = await supabase
+      const { data: businessesData } = await supabase
         .from("businesses")
-        .select("name")
-        .eq("id", selectedBusinesses[0])
-        .single();
+        .select("id, name, business_model")
+        .in("id", selectedBusinesses);
 
-      if (business) {
-        setBusinessName(business.name);
+      if (businessesData && businessesData.length > 0) {
+        const first = businessesData.find(b => b.id === selectedBusinesses[0]) || businessesData[0];
+        setBusinessName(first.name);
+        setSelectedBusinessModels(businessesData.map(b => b.business_model || "regular"));
       }
     };
 
@@ -727,11 +738,15 @@ export default function DashboardLayout({
 
             <div className="flex flex-col gap-[5px]">
               {menuItems
-                // hideForNonAdmin: completely omit the item for non-admin
-                // users (different from adminOnly, which shows a "בקרוב"
-                // placeholder). Used for admin-only features that
-                // shouldn't be advertised at all to business owners.
-                .filter((item) => !(item.hideForNonAdmin && !isAdmin))
+                // hideUnlessServiceModel: only show when at least one of the
+                // currently-selected businesses is a service-provider business
+                // (business_model = 'service'). Regular businesses don't have
+                // a CRM/clients page. Admins always see it.
+                .filter((item) => {
+                  if (!item.hideUnlessServiceModel) return true;
+                  if (isAdmin) return true;
+                  return selectedBusinessModels.includes("service");
+                })
                 .map((item) => {
                 // Handle logout button
                 if (item.isLogout) {

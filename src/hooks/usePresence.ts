@@ -19,7 +19,7 @@ const REALTIME_DISABLED = process.env.NEXT_PUBLIC_DISABLE_REALTIME === "true";
 // Map pathnames to Hebrew page names (must match online-users/page.tsx)
 const PAGE_NAMES: Record<string, string> = {
   "/": "דשבורד ראשי",
-  "/customers": "ניהול לקוחות ונותני שירות",
+  "/customers": "ניהול לקוחות",
   "/expenses": "ניהול הוצאות",
   "/suppliers": "ניהול ספקים",
   "/payments": "ניהול תשלומים",
