@@ -247,8 +247,8 @@ export default function AccountingReviewPage() {
         .select(
           `id, business_id, supplier_id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes, approval_status, clarification_reason, bookkeeping_registered, bookkeeping_registered_by, bookkeeping_registered_at,
            supplier:suppliers!inner(name),
-           payments!payments_invoice_id_fkey(id, total_amount, payment_date, receipt_url, payment_splits(payment_method, check_number, reference_number, payment_date)),
-           payment_invoice_links(payment:payments(id, total_amount, payment_date, receipt_url, payment_splits(payment_method, check_number, reference_number, payment_date)))`
+           payments!payments_invoice_id_fkey(id, total_amount, payment_date, receipt_url, payment_splits(payment_method, check_number, reference_number, due_date)),
+           payment_invoice_links(payment:payments(id, total_amount, payment_date, receipt_url, payment_splits(payment_method, check_number, reference_number, due_date)))`
         )
         .eq("business_id", selectedBusinessId)
         .is("deleted_at", null);
@@ -315,9 +315,10 @@ export default function AccountingReviewPage() {
       const dateSet = new Set<string>();
       const proofSet = new Set<string>();
       for (const p of payments) {
-        // Cheques can be deferred (split.payment_date differs from the
-        // payment header), so prefer the split-level date when present so
-        // bookkeeping sees the actual cash-out date.
+        // Cheques can be deferred (split.due_date differs from the payment
+        // header), so we collect both the header payment_date and any
+        // split-level due_date below — bookkeeping needs the actual
+        // cash-out date for cheques and standing orders.
         if (p.payment_date) dateSet.add(String(p.payment_date));
         if (p.receipt_url) proofSet.add(String(p.receipt_url));
         for (const s of p.payment_splits || []) {
@@ -332,7 +333,9 @@ export default function AccountingReviewPage() {
                 ? String(s.reference_number)
                 : "";
           if (ref && ref.trim() !== "-") refSet.add(ref.trim());
-          if (s.payment_date) dateSet.add(String(s.payment_date));
+          // For deferred cheques / standing orders the actual cash-out date
+          // lives on the split as due_date — not on the payment header.
+          if (s.due_date) dateSet.add(String(s.due_date));
         }
       }
 
