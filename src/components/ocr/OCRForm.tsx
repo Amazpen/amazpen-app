@@ -919,9 +919,12 @@ export default function OCRForm({
         updated.creditCardId = '';
       }
 
-      // Auto-generate 1 installment row for check or credit_card (shows date/amount inline)
+      // Auto-generate installment rows for check or credit_card (shows date/amount inline).
+      // Honour the user's current installments count — they may have clicked "+" on the
+      // stepper before picking a method, in which case we need to populate that many rows.
       if (field === 'method' && (value === 'check' || value === 'credit_card')) {
         const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
+        const numInstallments = Math.max(1, parseInt(p.installments) || 1);
         const startDate = getEffectiveStartDate(methods, dateStr);
         // For credit_card with a card already selected (e.g. supplier default),
         // pin the row to the card's billing day; otherwise fall back to startDate.
@@ -930,8 +933,30 @@ export default function OCRForm({
           ? businessCreditCards.find(c => c.id === effectiveCardId)
           : null;
         if (card && startDate) {
-          updated.customInstallments = generateCreditCardInstallments(1, totalAmount, startDate, card.billing_day);
+          updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, startDate, card.billing_day);
+        } else if (value === 'check') {
+          // Each cheque has its own number/date/amount — never auto-split a total
+          // across cheques. First row gets the full amount as a starting hint;
+          // additional rows are blank for the user to fill in.
+          const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(startDate || '');
+          const baseDate = m
+            ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+            : startDate ? new Date(startDate) : new Date();
+          const rows = [];
+          for (let i = 0; i < numInstallments; i++) {
+            const d = new Date(baseDate);
+            d.setMonth(d.getMonth() + i);
+            rows.push({
+              number: i + 1,
+              date: d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+              dateForInput: formatLocalYMD(d),
+              amount: i === 0 ? totalAmount : 0,
+              checkNumber: '',
+            });
+          }
+          updated.customInstallments = rows;
         } else {
+          // credit_card without a known card — fall back to a single row at startDate.
           const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(startDate || '');
           const date = m
             ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
