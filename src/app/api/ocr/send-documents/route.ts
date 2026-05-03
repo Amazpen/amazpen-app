@@ -221,45 +221,37 @@ export async function POST(request: NextRequest) {
       ? docsForN8n.map(d => [d])
       : [docsForN8n]
 
-    // POST a single batch to n8n with up to 3 attempts. n8n on Render is
-    // known to occasionally return 5xx on the first hit (cold start /
-    // queueing); a small retry on the same run avoids waiting until the next
-    // scheduled day before the docs reach their owner.
-    const postBatchWithRetry = async (
+    // POST a single batch to n8n. We deliberately do NOT retry inside the
+    // same run: when n8n's workflow itself is broken (e.g. it consistently
+    // 500s because a Code node references a disallowed module), retries
+    // amplify the problem into dozens of identical failed executions per
+    // run. The next scheduled cron day still picks the doc up because we
+    // dedupe against successful log rows only.
+    const postBatch = async (
       batch: typeof docsForN8n,
     ): Promise<{ success: boolean; errorMsg: string | null }> => {
-      const MAX_ATTEMPTS = 3
-      let lastErr: string | null = 'no attempts'
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        try {
-          const resp = await fetch(N8N_WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              mode: sendMode,
-              to: biz.documents_email,
-              businessName: biz.name,
-              documents: batch,
-              period: freq,
-            }),
-          })
-          if (resp.ok) return { success: true, errorMsg: null }
-          lastErr = `n8n responded ${resp.status}`
-          // Only retry on 5xx — 4xx is a payload bug we can't fix by retrying.
-          if (resp.status < 500) break
-        } catch (err) {
-          lastErr = err instanceof Error ? err.message : 'unknown error'
-        }
-        if (attempt < MAX_ATTEMPTS) {
-          await new Promise((r) => setTimeout(r, 1500 * attempt))
-        }
+      try {
+        const resp = await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: sendMode,
+            to: biz.documents_email,
+            businessName: biz.name,
+            documents: batch,
+            period: freq,
+          }),
+        })
+        if (resp.ok) return { success: true, errorMsg: null }
+        return { success: false, errorMsg: `n8n responded ${resp.status}` }
+      } catch (err) {
+        return { success: false, errorMsg: err instanceof Error ? err.message : 'unknown error' }
       }
-      return { success: false, errorMsg: lastErr }
     }
 
     let sentCount = 0
     for (const batch of batches) {
-      const { success, errorMsg } = await postBatchWithRetry(batch)
+      const { success, errorMsg } = await postBatch(batch)
 
       // Log every doc in batch — successes log error_message=null, which the
       // dedup query above uses to know we're done with that doc.
