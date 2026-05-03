@@ -1032,7 +1032,7 @@ export default function CustomersPage() {
           const activeCount = allCustomers.filter(c => c.is_active).length;
           return activeRetainerTotal > 0 ? (
             <div className="bg-[#6B21A8]/30 rounded-[10px] p-[12px] flex flex-row-reverse items-center justify-between gap-[10px]">
-              <div className="flex flex-col items-end">
+              <div className="flex flex-col items-center">
                 <span className="text-[12px] text-white/60">הכנסה חודשית מריטיינרים</span>
                 <span className="text-[20px] font-bold text-white ltr-num">₪{activeRetainerTotal.toLocaleString("he-IL")}</span>
               </div>
