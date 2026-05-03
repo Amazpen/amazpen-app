@@ -75,11 +75,13 @@ interface InvoiceRow {
   bookkeeping_registered_at: string | null;
   supplier_name: string;
   // Aggregated from payments + payment_invoice_links + payment_splits.
-  // Multiple methods/refs are joined with " + " for the CSV export and
-  // detail panel.
+  // Multiple methods/refs/dates/proofs are joined with " + " for the CSV
+  // export and detail panel.
   paid_amount: number;
   payment_methods: string;
   payment_references: string;
+  payment_dates: string;
+  payment_proofs: string[];
 }
 
 // Hebrew labels for payment methods — kept in sync with payments page.
@@ -245,8 +247,8 @@ export default function AccountingReviewPage() {
         .select(
           `id, business_id, supplier_id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes, approval_status, clarification_reason, bookkeeping_registered, bookkeeping_registered_by, bookkeeping_registered_at,
            supplier:suppliers!inner(name),
-           payments!payments_invoice_id_fkey(id, total_amount, payment_splits(payment_method, check_number, reference_number)),
-           payment_invoice_links(payment:payments(id, total_amount, payment_splits(payment_method, check_number, reference_number)))`
+           payments!payments_invoice_id_fkey(id, total_amount, payment_date, receipt_url, payment_splits(payment_method, check_number, reference_number, payment_date)),
+           payment_invoice_links(payment:payments(id, total_amount, payment_date, receipt_url, payment_splits(payment_method, check_number, reference_number, payment_date)))`
         )
         .eq("business_id", selectedBusinessId)
         .is("deleted_at", null);
@@ -310,7 +312,14 @@ export default function AccountingReviewPage() {
 
       const methodSet = new Set<string>();
       const refSet = new Set<string>();
+      const dateSet = new Set<string>();
+      const proofSet = new Set<string>();
       for (const p of payments) {
+        // Cheques can be deferred (split.payment_date differs from the
+        // payment header), so prefer the split-level date when present so
+        // bookkeeping sees the actual cash-out date.
+        if (p.payment_date) dateSet.add(String(p.payment_date));
+        if (p.receipt_url) proofSet.add(String(p.receipt_url));
         for (const s of p.payment_splits || []) {
           const label = paymentMethodNames[s.payment_method] || s.payment_method || "";
           if (label) methodSet.add(label);
@@ -323,6 +332,7 @@ export default function AccountingReviewPage() {
                 ? String(s.reference_number)
                 : "";
           if (ref && ref.trim() !== "-") refSet.add(ref.trim());
+          if (s.payment_date) dateSet.add(String(s.payment_date));
         }
       }
 
@@ -332,6 +342,11 @@ export default function AccountingReviewPage() {
         paid_amount,
         payment_methods: Array.from(methodSet).join(" + "),
         payment_references: Array.from(refSet).join(" + "),
+        payment_dates: Array.from(dateSet)
+          .sort()
+          .map((d) => formatDate(d))
+          .join(" + "),
+        payment_proofs: Array.from(proofSet),
       };
     });
 
@@ -511,8 +526,10 @@ export default function AccountingReviewPage() {
       'סכום לפני מע"מ',
       'סכום אחרי מע"מ',
       "סכום ששולם",
+      "תאריך תשלום",
       "אמצעי תשלום",
       "אסמכתא לאמצעי תשלום",
+      "הוכחת תשלום",
       'נרשם בהנה"ח',
       "הערות",
       "קישור למסמך",
@@ -527,6 +544,15 @@ export default function AccountingReviewPage() {
       return `=HYPERLINK("${safeUrl}","פתח")`;
     };
 
+    // For "הוכחת תשלום" with a single proof we emit a HYPERLINK formula so
+    // it's clickable in Excel; with multiple proofs we list URLs separated by
+    // " + " (Excel can't put two hyperlinks in one cell).
+    const proofCell = (urls: string[]): string => {
+      if (urls.length === 0) return "";
+      if (urls.length === 1) return hyperlinkFormula(urls[0]);
+      return urls.join(" + ");
+    };
+
     const rows = selectedInvoices.map((inv) => [
       formatDate(inv.invoice_date),
       inv.supplier_name,
@@ -534,8 +560,10 @@ export default function AccountingReviewPage() {
       inv.subtotal.toString(),
       inv.total_amount.toString(),
       inv.paid_amount > 0 ? inv.paid_amount.toString() : "",
+      inv.payment_dates,
       inv.payment_methods,
       inv.payment_references,
+      proofCell(inv.payment_proofs),
       inv.bookkeeping_registered ? "כן" : "לא",
       inv.notes || "",
       hyperlinkFormula(inv.attachment_url || ""),
@@ -1077,6 +1105,53 @@ export default function AccountingReviewPage() {
                 >
                   {detailInvoice.bookkeeping_registered ? "נרשם" : "לא נרשם"}
                 </p>
+              </div>
+              <div>
+                <span className="text-white/50">סכום ששולם</span>
+                <p className="font-medium">
+                  {detailInvoice.paid_amount > 0
+                    ? formatCurrency(detailInvoice.paid_amount)
+                    : "—"}
+                </p>
+              </div>
+              <div>
+                <span className="text-white/50">תאריך תשלום</span>
+                <p className="font-medium">
+                  {detailInvoice.payment_dates || "—"}
+                </p>
+              </div>
+              <div>
+                <span className="text-white/50">אמצעי תשלום</span>
+                <p className="font-medium">
+                  {detailInvoice.payment_methods || "—"}
+                </p>
+              </div>
+              <div>
+                <span className="text-white/50">אסמכתא תשלום</span>
+                <p className="font-medium">
+                  {detailInvoice.payment_references || "—"}
+                </p>
+              </div>
+              <div className="col-span-2">
+                <span className="text-white/50">הוכחת תשלום</span>
+                <div className="font-medium flex flex-wrap gap-2 mt-1">
+                  {detailInvoice.payment_proofs.length > 0 ? (
+                    detailInvoice.payment_proofs.map((url, i) => (
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[#4C9AFF] hover:underline text-xs px-2 py-1 rounded bg-[#4C9AFF]/10 border border-[#4C9AFF]/30"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        {detailInvoice.payment_proofs.length > 1 ? `הוכחה ${i + 1}` : "פתח הוכחה"}
+                      </a>
+                    ))
+                  ) : (
+                    <span className="text-white/40">—</span>
+                  )}
+                </div>
               </div>
             </div>
 
