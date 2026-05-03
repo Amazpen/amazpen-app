@@ -935,11 +935,22 @@ export default function OCRForm({
         const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
         const startDate = p.customInstallments.length > 0 ? p.customInstallments[0].dateForInput : getEffectiveStartDate(methods, dateStr);
         const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
-        if (card && startDate) {
-          updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, startDate, card.billing_day);
-        } else {
-          updated.customInstallments = generateInstallments(numInstallments, totalAmount, startDate);
-        }
+        let regenerated = card && startDate
+          ? generateCreditCardInstallments(numInstallments, totalAmount, startDate, card.billing_day)
+          : generateInstallments(numInstallments, totalAmount, startDate);
+        // Preserve check numbers and dates the user already typed for rows that
+        // still exist after the +/- click. generateInstallments rebuilds the
+        // array from scratch, so without this merge any checkNumber input is wiped.
+        regenerated = regenerated.map((row, idx) => {
+          const prevRow = p.customInstallments[idx];
+          if (!prevRow) return row;
+          return {
+            ...row,
+            ...(prevRow.checkNumber !== undefined ? { checkNumber: prevRow.checkNumber } : {}),
+            ...(prevRow.dateForInput ? { date: prevRow.date, dateForInput: prevRow.dateForInput } : {}),
+          };
+        });
+        updated.customInstallments = regenerated;
       }
 
       // When amount changes, recalculate installment amounts but keep dates
