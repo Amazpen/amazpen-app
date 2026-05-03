@@ -56,7 +56,6 @@ export async function POST(request: NextRequest) {
 
   const now = new Date()
   const dayOfWeek = now.getDay() // 0=Sun
-  const dayOfMonth = now.getDate()
 
   // Fetch businesses with documents_email
   const { data: businesses, error: bizErr } = await supabase
@@ -133,38 +132,47 @@ export async function POST(request: NextRequest) {
         .map(l => l.ocr_document_id),
     )
 
-    // For non-daily frequencies we still want to gate *fresh* docs by the
-    // appropriate window so a weekly customer doesn't get a per-day trickle
-    // for newly-uploaded invoices. But docs that previously failed always
-    // come along regardless of when they were reviewed.
-    const everAttempted = new Set(
-      (sentLog || []).map(l => l.ocr_document_id),
-    )
+    // Frequency only controls when a business gets emailed at all — once a
+    // business *is* due to be sent today, every approved doc that hasn't yet
+    // been successfully emailed comes along, regardless of when the doc
+    // itself was reviewed. Failures are picked up as well: if n8n returned
+    // 5xx last run, the doc is still considered "not yet sent".
 
-    let freshSinceMs: number
-    if (freq === 'daily') {
-      freshSinceMs = now.getTime() - 24 * 60 * 60 * 1000
-    } else if (freq === 'weekly') {
-      // For weekly, only consider new docs once a week (Sunday). On other
-      // days we still come around to retry *previously-attempted* failures.
-      freshSinceMs = dayOfWeek === 0
-        ? now.getTime() - 7 * 24 * 60 * 60 * 1000
-        : 0 // Don't pick up any *new* docs today
+    // Decide whether this business is due today.
+    // - daily: every day
+    // - weekly: only on Sunday (dayOfWeek === 0)
+    // - monthly: only when 30 days have elapsed since the last successful
+    //   send (or never sent — first run). Anchoring on the last send means
+    //   "the past 30 days of activity, ending today" — exactly what the user
+    //   asked for: e.g. running on 03.05 covers everything from 03.04 to 03.05,
+    //   not the calendar month of April.
+    let dueToday: boolean
+    if (freq === 'weekly') {
+      dueToday = dayOfWeek === 0
+    } else if (freq === 'monthly') {
+      // Find the most recent successful send timestamp for this business
+      const { data: lastSuccess } = await supabase
+        .from('ocr_email_send_log')
+        .select('sent_at')
+        .eq('business_id', biz.id)
+        .is('error_message', null)
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const lastSuccessMs = lastSuccess?.sent_at ? new Date(lastSuccess.sent_at).getTime() : 0
+      const daysSinceLast = (now.getTime() - lastSuccessMs) / (24 * 60 * 60 * 1000)
+      // First run (no successful send yet) OR ≥ 30 days since the last one
+      dueToday = lastSuccessMs === 0 || daysSinceLast >= 30
     } else {
-      // monthly: only pick new docs on the 1st
-      freshSinceMs = dayOfMonth === 1
-        ? new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime()
-        : 0
+      dueToday = true
     }
 
-    const unsent = (docs as OcrDoc[]).filter(d => {
-      if (successfullySent.has(d.id)) return false
-      // Always include previously-failed docs (retry path)
-      if (everAttempted.has(d.id)) return true
-      // Otherwise gate by the frequency-appropriate freshness window
-      const reviewedMs = d.reviewed_at ? new Date(d.reviewed_at).getTime() : 0
-      return reviewedMs >= freshSinceMs
-    })
+    if (!dueToday) {
+      results.push({ businessId: biz.id, sent: 0, skipped: 'not-due-today' })
+      continue
+    }
+
+    const unsent = (docs as OcrDoc[]).filter(d => !successfullySent.has(d.id))
 
     if (unsent.length === 0) {
       results.push({ businessId: biz.id, sent: 0, skipped: 'all-already-sent' })
