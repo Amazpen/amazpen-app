@@ -1112,24 +1112,35 @@ export default function CustomersPage() {
                     </Badge>
                   )}
 
-                  {/* Avatar — initial of the customer's business name */}
-                  <div className="w-[60px] h-[60px] rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20">
-                    <span className="text-[22px] font-bold text-white/60">
-                      {(item.customer?.business_name || item.business.name).charAt(0)}
-                    </span>
-                  </div>
-
-                  {/* Customer business name */}
-                  <div className="w-full max-w-[160px] text-center px-[4px]">
-                    <span className="text-[18px] font-bold text-white leading-[1.4]">
-                      {item.customer?.business_name || item.business.name}
-                    </span>
-                  </div>
-
-                  {/* Contact name */}
-                  {item.customer && (
-                    <span className="text-[14px] text-white/70 text-center">{item.customer.contact_name}</span>
-                  )}
+                  {/* The customer's own identity — prefer business_name, fall
+                      back to contact_name. We avoid item.business.name here
+                      because that's the *service provider's* business (e.g.
+                      "בדיקות") and would render the same name on every card. */}
+                  {(() => {
+                    const primary = item.customer?.business_name?.trim()
+                      || item.customer?.contact_name?.trim()
+                      || item.business.name;
+                    const secondary = item.customer?.business_name?.trim() && item.customer?.contact_name?.trim()
+                      ? item.customer.contact_name.trim()
+                      : null;
+                    return (
+                      <>
+                        <div className="w-[60px] h-[60px] rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20">
+                          <span className="text-[22px] font-bold text-white/60">
+                            {primary.charAt(0)}
+                          </span>
+                        </div>
+                        <div className="w-full max-w-[160px] text-center px-[4px]">
+                          <span className="text-[18px] font-bold text-white leading-[1.4]">
+                            {primary}
+                          </span>
+                        </div>
+                        {secondary && (
+                          <span className="text-[14px] text-white/70 text-center">{secondary}</span>
+                        )}
+                      </>
+                    );
+                  })()}
 
                   {/* Retainer info */}
                   {item.customer?.retainer_amount && item.customer.retainer_amount > 0 && (
