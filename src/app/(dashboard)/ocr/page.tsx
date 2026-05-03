@@ -849,6 +849,21 @@ export default function OCRPage() {
           if (mergeUpdateError) throw mergeUpdateError;
         }
 
+        // Fire-and-forget: hand the doc to the immediate-send endpoint.
+        // It only emails when the business is configured for `daily`
+        // frequency; weekly/monthly skip server-side and stay batched
+        // through the regular cron. We don't await — the user shouldn't
+        // wait for n8n on their save flow, and the cron is the safety net
+        // if anything goes wrong here.
+        const docIdsToSend = [currentDocument.id, ...mergedIds];
+        for (const id of docIdsToSend) {
+          fetch('/api/ocr/send-document-now', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ocrDocumentId: id }),
+          }).catch(() => { /* swallow — cron will retry */ });
+        }
+
         // === SUCCESS — show confirmation so the user KNOWS it saved ===
         alert('המסמך נקלט בהצלחה ✓');
 

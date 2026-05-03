@@ -1,25 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import JSZip from 'jszip'
 
 /**
- * OCR Document Email Sender — Cron endpoint.
+ * OCR Document Email Sender — Cron endpoint (weekly + monthly batches).
  *
- * Iterates over businesses with `documents_email` configured, and for each:
- *  - daily: posts each unsent reviewed OCR document individually to n8n
- *  - weekly: only on Sunday — sends week's docs (zip or individual)
- *  - monthly: only on day 1 — sends previous month's docs (zip or individual)
+ * Daily-frequency businesses are NOT sent from here — they fire from the
+ * OCR submit flow via /api/ocr/send-document-now the moment a document is
+ * approved, so the customer doesn't wait until tomorrow's cron.
  *
- * Logs every send into ocr_email_send_log to prevent duplicates.
+ * For weekly (every Sunday) and monthly (rolling 30-day window since the
+ * last successful send), this endpoint:
+ *   1. Fetches every approved doc that hasn't been successfully emailed.
+ *   2. Builds a ZIP in-memory (n8n's Code node can't require jszip/zlib
+ *      on Render, so we do this server-side).
+ *   3. Uploads the ZIP to Supabase Storage with a short-lived signed URL.
+ *   4. Calls n8n with mode='zip-url' and the signed URL — n8n just
+ *      downloads the ZIP and attaches it to the email.
  *
- * n8n webhook receives:
- *  - mode: "individual" | "zip"
- *  - to: documents_email
- *  - businessName: string
- *  - documents: [{ id, invoiceNumber, imageUrl, originalFilename }]  (individual: 1 item, zip: many)
- *  - period: "daily" | "weekly" | "monthly"
+ * Daily as a safety net: if a doc somehow missed its immediate send
+ * (network blip, n8n outage), tomorrow's cron picks it up because dedup
+ * is against successful log rows only.
  */
 
 const N8N_WEBHOOK_URL = 'https://n8n-lv4j.onrender.com/webhook/send-ocr-documents'
+
+// Storage bucket where we drop the per-business ZIPs that n8n will pull
+// down and attach to the email. Kept short-lived (signed URL, see below).
+const ZIP_BUCKET = 'attachments'
 
 interface OcrDoc {
   id: string
@@ -214,57 +222,148 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    const sendMode = freq === 'daily' ? 'individual' : (biz.documents_send_mode || 'individual')
+    // This endpoint only handles weekly + monthly. Daily was already
+    // routed away above; we leave the daily handler as a no-op so that
+    // *if* it ever runs (e.g. the cron is reused on an unconfigured
+    // schedule), it still cleanly skips every business.
+    //
+    // Build a single ZIP for all unsent docs of this business. We need to
+    // do this in our own runtime because n8n's task runner blocks both
+    // 'jszip' and 'zlib' on this Render instance, so a Code node can't
+    // build the archive itself.
+    const zip = new JSZip()
+    const usedNames = new Set<string>()
+    const sanitize = (s: string) =>
+      s.replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 120)
 
-    // Build batches: individual = one webhook call per doc; zip = one webhook call with all
-    const batches = sendMode === 'individual'
-      ? docsForN8n.map(d => [d])
-      : [docsForN8n]
-
-    // POST a single batch to n8n. We deliberately do NOT retry inside the
-    // same run: when n8n's workflow itself is broken (e.g. it consistently
-    // 500s because a Code node references a disallowed module), retries
-    // amplify the problem into dozens of identical failed executions per
-    // run. The next scheduled cron day still picks the doc up because we
-    // dedupe against successful log rows only.
-    const postBatch = async (
-      batch: typeof docsForN8n,
-    ): Promise<{ success: boolean; errorMsg: string | null }> => {
+    let zipBuildErr: string | null = null
+    for (const d of docsForN8n) {
       try {
-        const resp = await fetch(N8N_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mode: sendMode,
-            to: biz.documents_email,
-            businessName: biz.name,
-            documents: batch,
-            period: freq,
-          }),
-        })
-        if (resp.ok) return { success: true, errorMsg: null }
-        return { success: false, errorMsg: `n8n responded ${resp.status}` }
+        const r = await fetch(d.imageUrl)
+        if (!r.ok) {
+          zipBuildErr = `download failed for ${d.id}: HTTP ${r.status}`
+          continue
+        }
+        const buf = Buffer.from(await r.arrayBuffer())
+        // Pull a real extension from the URL when possible; fall back to .pdf
+        // because that's what most attachment URLs end with on this app.
+        const extMatch = d.imageUrl.split('?')[0].match(/\.(pdf|jpe?g|png|gif|webp|tiff?|heic|bmp)$/i)
+        const ext = extMatch ? extMatch[1].toLowerCase() : 'pdf'
+        const baseName = d.originalFilename.replace(/\.[^.]+$/, '') || `document-${d.id}`
+        const supplier = sanitize(`${d.invoiceNumber || baseName}`)
+        let candidate = `${supplier}.${ext}`
+        let n = 2
+        while (usedNames.has(candidate)) {
+          candidate = `${sanitize(supplier)}_(${n}).${ext}`
+          n++
+        }
+        usedNames.add(candidate)
+        zip.file(candidate, buf)
       } catch (err) {
-        return { success: false, errorMsg: err instanceof Error ? err.message : 'unknown error' }
+        zipBuildErr = err instanceof Error ? err.message : 'unknown error'
       }
     }
 
-    let sentCount = 0
-    for (const batch of batches) {
-      const { success, errorMsg } = await postBatch(batch)
-
-      // Log every doc in batch — successes log error_message=null, which the
-      // dedup query above uses to know we're done with that doc.
-      const logRows = batch.map(d => ({
+    // If every download failed, mark everything as a failed send and move
+    // on — there's nothing to attach.
+    if (usedNames.size === 0) {
+      const logRows = docsForN8n.map(d => ({
         business_id: biz.id,
         ocr_document_id: d.id,
         sent_to: biz.documents_email,
-        send_mode: sendMode,
+        send_mode: 'zip-url',
+        error_message: zipBuildErr || 'no files downloaded',
+      }))
+      await supabase.from('ocr_email_send_log').insert(logRows)
+      results.push({ businessId: biz.id, sent: 0, skipped: 'zip-empty' })
+      continue
+    }
+
+    const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' })
+
+    // Upload to Supabase Storage. Path includes a timestamp so each run
+    // gets its own object — n8n only needs read access for a few minutes.
+    const objectPath = `ocr-zips/${biz.id}/${now.toISOString().replace(/[:.]/g, '-')}.zip`
+    const { error: uploadErr } = await supabase
+      .storage
+      .from(ZIP_BUCKET)
+      .upload(objectPath, zipBuffer, {
+        contentType: 'application/zip',
+        upsert: true,
+      })
+
+    if (uploadErr) {
+      const logRows = docsForN8n.map(d => ({
+        business_id: biz.id,
+        ocr_document_id: d.id,
+        sent_to: biz.documents_email,
+        send_mode: 'zip-url',
+        error_message: `storage upload failed: ${uploadErr.message}`,
+      }))
+      await supabase.from('ocr_email_send_log').insert(logRows)
+      results.push({ businessId: biz.id, sent: 0, skipped: 'upload-failed' })
+      continue
+    }
+
+    // Signed URL good for an hour — long enough for n8n to download even
+    // if it cold-starts.
+    const { data: signed } = await supabase
+      .storage
+      .from(ZIP_BUCKET)
+      .createSignedUrl(objectPath, 60 * 60)
+
+    const zipUrl = signed?.signedUrl
+    if (!zipUrl) {
+      const logRows = docsForN8n.map(d => ({
+        business_id: biz.id,
+        ocr_document_id: d.id,
+        sent_to: biz.documents_email,
+        send_mode: 'zip-url',
+        error_message: 'failed to sign URL',
+      }))
+      await supabase.from('ocr_email_send_log').insert(logRows)
+      results.push({ businessId: biz.id, sent: 0, skipped: 'sign-failed' })
+      continue
+    }
+
+    // Hand the URL to n8n. The webhook-side workflow now downloads the
+    // ZIP from this URL and attaches it directly — no Code node, no
+    // disallowed modules.
+    let success = false
+    let errorMsg: string | null = null
+    try {
+      const resp = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'zip-url',
+          to: biz.documents_email,
+          businessName: biz.name,
+          zipUrl,
+          zipFilename: `documents-${biz.name}-${now.toISOString().split('T')[0]}.zip`,
+          period: freq,
+          documentCount: usedNames.size,
+        }),
+      })
+      success = resp.ok
+      if (!success) errorMsg = `n8n responded ${resp.status}`
+    } catch (err) {
+      errorMsg = err instanceof Error ? err.message : 'unknown error'
+    }
+
+    const sentCount = success ? docsForN8n.length : 0
+
+    // Log every doc — successes log error_message=null, which the dedup
+    // query above uses to know we're done with that doc.
+    {
+      const logRows = docsForN8n.map(d => ({
+        business_id: biz.id,
+        ocr_document_id: d.id,
+        sent_to: biz.documents_email,
+        send_mode: 'zip-url',
         error_message: errorMsg,
       }))
       await supabase.from('ocr_email_send_log').insert(logRows)
-
-      if (success) sentCount += batch.length
     }
 
     if (sentCount > 0) {
