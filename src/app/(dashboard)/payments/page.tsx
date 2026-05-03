@@ -1107,7 +1107,12 @@ function PaymentsPageInner() {
             vatAmount,
             notes: p.notes || null,
             receiptUrl: p.receipt_url || null,
-            reference: split.reference_number ? String(split.reference_number) : null,
+            // For cheques the per-installment check number IS the reference
+            // (each cheque has its own running number); fall back to the
+            // shared reference_number for non-cheque methods or legacy rows.
+            reference: split.payment_method === "check" && split.check_number
+              ? String(split.check_number)
+              : (split.reference_number ? String(split.reference_number) : null),
             checkNumber: split.check_number || null,
             createdBy: p.creator?.full_name || null,
             createdAt: p.created_at ? formatDateString(p.created_at.split("T")[0]) : null,
