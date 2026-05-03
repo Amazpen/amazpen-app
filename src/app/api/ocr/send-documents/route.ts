@@ -29,6 +29,7 @@ interface OcrDoc {
   created_invoice_id: string | null
   created_payment_id: string | null
   created_delivery_note_id: string | null
+  reviewed_at: string | null
 }
 
 interface BusinessRow {
@@ -75,25 +76,14 @@ export async function POST(request: NextRequest) {
   for (const biz of (businesses || []) as BusinessRow[]) {
     const freq = biz.documents_send_frequency || 'daily'
 
-    // Skip if today isn't the right day for this frequency
-    if (freq === 'weekly' && dayOfWeek !== 0) {
-      results.push({ businessId: biz.id, sent: 0, skipped: 'not-sunday' })
-      continue
-    }
-    if (freq === 'monthly' && dayOfMonth !== 1) {
-      results.push({ businessId: biz.id, sent: 0, skipped: 'not-first-of-month' })
-      continue
-    }
-
-    // Time window for fetching unsent documents
-    let sinceDate: Date
-    if (freq === 'daily') {
-      sinceDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-    } else if (freq === 'weekly') {
-      sinceDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    } else {
-      sinceDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    }
+    // Frequency dictates the *primary* time window for fresh docs, but we
+    // ALWAYS run for every business every day. Reason: when n8n returns 5xx
+    // (which it has done in production), a monthly retry-once-per-month means
+    // failed docs silently drop out of the window forever. The cron now
+    // re-considers every approved-but-not-yet-successfully-emailed doc on
+    // every run, regardless of frequency. The frequency just controls when
+    // *new* docs are first considered (so weekly customers don't get a daily
+    // trickle).
 
     // Determine which entity types are enabled (default: all)
     const enabledTypes = (biz.documents_send_types && biz.documents_send_types.length > 0)
@@ -109,13 +99,17 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    // Fetch approved OCR docs for this business that resulted in a saved entity of an enabled type
+    // Look back 90 days for any approved doc — the dedup against
+    // ocr_email_send_log below is what actually prevents resending. The
+    // 90-day cap is just a safety net to keep the query bounded.
+    const lookbackDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+
     const { data: docs, error: docsErr } = await supabase
       .from('ocr_documents')
-      .select('id, business_id, image_url, original_filename, created_invoice_id, created_payment_id, created_delivery_note_id')
+      .select('id, business_id, image_url, original_filename, created_invoice_id, created_payment_id, created_delivery_note_id, reviewed_at')
       .eq('business_id', biz.id)
       .eq('status', 'approved')
-      .gte('reviewed_at', sinceDate.toISOString())
+      .gte('reviewed_at', lookbackDate.toISOString())
       .or(orParts.join(','))
 
     if (docsErr || !docs || docs.length === 0) {
@@ -123,17 +117,54 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    // Filter out docs already sent
+    // Pull every send-log row for these docs (success AND failure). A doc is
+    // "done" only if it has at least one successful (error_message IS NULL)
+    // log row — failures don't count, so they get retried on subsequent runs.
     const docIds = docs.map(d => d.id)
     const { data: sentLog } = await supabase
       .from('ocr_email_send_log')
-      .select('ocr_document_id')
+      .select('ocr_document_id, error_message')
       .eq('business_id', biz.id)
       .in('ocr_document_id', docIds)
-      .is('error_message', null)
 
-    const alreadySent = new Set((sentLog || []).map(l => l.ocr_document_id))
-    const unsent = (docs as OcrDoc[]).filter(d => !alreadySent.has(d.id))
+    const successfullySent = new Set(
+      (sentLog || [])
+        .filter(l => l.error_message === null)
+        .map(l => l.ocr_document_id),
+    )
+
+    // For non-daily frequencies we still want to gate *fresh* docs by the
+    // appropriate window so a weekly customer doesn't get a per-day trickle
+    // for newly-uploaded invoices. But docs that previously failed always
+    // come along regardless of when they were reviewed.
+    const everAttempted = new Set(
+      (sentLog || []).map(l => l.ocr_document_id),
+    )
+
+    let freshSinceMs: number
+    if (freq === 'daily') {
+      freshSinceMs = now.getTime() - 24 * 60 * 60 * 1000
+    } else if (freq === 'weekly') {
+      // For weekly, only consider new docs once a week (Sunday). On other
+      // days we still come around to retry *previously-attempted* failures.
+      freshSinceMs = dayOfWeek === 0
+        ? now.getTime() - 7 * 24 * 60 * 60 * 1000
+        : 0 // Don't pick up any *new* docs today
+    } else {
+      // monthly: only pick new docs on the 1st
+      freshSinceMs = dayOfMonth === 1
+        ? new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime()
+        : 0
+    }
+
+    const unsent = (docs as OcrDoc[]).filter(d => {
+      if (successfullySent.has(d.id)) return false
+      // Always include previously-failed docs (retry path)
+      if (everAttempted.has(d.id)) return true
+      // Otherwise gate by the frequency-appropriate freshness window
+      const reviewedMs = d.reviewed_at ? new Date(d.reviewed_at).getTime() : 0
+      return reviewedMs >= freshSinceMs
+    })
 
     if (unsent.length === 0) {
       results.push({ businessId: biz.id, sent: 0, skipped: 'all-already-sent' })
@@ -182,46 +213,58 @@ export async function POST(request: NextRequest) {
       ? docsForN8n.map(d => [d])
       : [docsForN8n]
 
+    // POST a single batch to n8n with up to 3 attempts. n8n on Render is
+    // known to occasionally return 5xx on the first hit (cold start /
+    // queueing); a small retry on the same run avoids waiting until the next
+    // scheduled day before the docs reach their owner.
+    const postBatchWithRetry = async (
+      batch: typeof docsForN8n,
+    ): Promise<{ success: boolean; errorMsg: string | null }> => {
+      const MAX_ATTEMPTS = 3
+      let lastErr: string | null = 'no attempts'
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          const resp = await fetch(N8N_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              mode: sendMode,
+              to: biz.documents_email,
+              businessName: biz.name,
+              documents: batch,
+              period: freq,
+            }),
+          })
+          if (resp.ok) return { success: true, errorMsg: null }
+          lastErr = `n8n responded ${resp.status}`
+          // Only retry on 5xx — 4xx is a payload bug we can't fix by retrying.
+          if (resp.status < 500) break
+        } catch (err) {
+          lastErr = err instanceof Error ? err.message : 'unknown error'
+        }
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise((r) => setTimeout(r, 1500 * attempt))
+        }
+      }
+      return { success: false, errorMsg: lastErr }
+    }
+
     let sentCount = 0
     for (const batch of batches) {
-      try {
-        const resp = await fetch(N8N_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mode: sendMode,
-            to: biz.documents_email,
-            businessName: biz.name,
-            documents: batch,
-            period: freq,
-          }),
-        })
+      const { success, errorMsg } = await postBatchWithRetry(batch)
 
-        const success = resp.ok
-        const errorMsg = success ? null : `n8n responded ${resp.status}`
+      // Log every doc in batch — successes log error_message=null, which the
+      // dedup query above uses to know we're done with that doc.
+      const logRows = batch.map(d => ({
+        business_id: biz.id,
+        ocr_document_id: d.id,
+        sent_to: biz.documents_email,
+        send_mode: sendMode,
+        error_message: errorMsg,
+      }))
+      await supabase.from('ocr_email_send_log').insert(logRows)
 
-        // Log every doc in batch
-        const logRows = batch.map(d => ({
-          business_id: biz.id,
-          ocr_document_id: d.id,
-          sent_to: biz.documents_email,
-          send_mode: sendMode,
-          error_message: errorMsg,
-        }))
-        await supabase.from('ocr_email_send_log').insert(logRows)
-
-        if (success) sentCount += batch.length
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'unknown error'
-        const logRows = batch.map(d => ({
-          business_id: biz.id,
-          ocr_document_id: d.id,
-          sent_to: biz.documents_email,
-          send_mode: sendMode,
-          error_message: errorMsg,
-        }))
-        await supabase.from('ocr_email_send_log').insert(logRows)
-      }
+      if (success) sentCount += batch.length
     }
 
     if (sentCount > 0) {
