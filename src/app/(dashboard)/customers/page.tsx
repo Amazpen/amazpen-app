@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -146,10 +144,9 @@ const customerBusinessTypes: { id: string; label: string }[] = [
 ];
 
 export default function CustomersPage() {
-  const router = useRouter();
   const { showToast } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
-  const { selectedBusinesses, isAdmin } = useDashboard();
+  const { selectedBusinesses } = useDashboard();
 
   // Draft persistence
   const draftKey = "customerForm:draft";
@@ -158,7 +155,6 @@ export default function CustomersPage() {
 
   // List state
   const [displayItems, setDisplayItems] = useState<CustomerDisplay[]>([]);
-  const [standaloneCustomers, setStandaloneCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -264,87 +260,47 @@ export default function CustomersPage() {
       setIsLoading(true);
       const supabase = createClient();
 
-      if (isAdmin) {
-        // Admin: fetch all businesses, all customers, all members
-        const [
-          { data: businesses },
-          { data: customers },
-          { data: members },
-        ] = await Promise.all([
-          supabase
-            .from("businesses")
-            .select("*")
-            .is("deleted_at", null)
-            .order("name"),
-          supabase
-            .from("customers")
-            .select("*")
-            .is("deleted_at", null),
-          supabase
-            .from("business_members")
-            .select("user_id, role, business_id, profiles(id, full_name, email)"),
-        ]);
-
-        const businessList = businesses || [];
-        const customerList = customers || [];
-        const memberList = (members as unknown as (BusinessMember & { business_id: string })[]) || [];
-
-        setAllBusinesses(businessList);
-
-        const items: CustomerDisplay[] = businessList.map((biz) => ({
-          business: biz,
-          customer: customerList.find((c) => c.business_id === biz.id) || null,
-          members: memberList.filter((m) => m.business_id === biz.id),
-        }));
-
-        setDisplayItems(items);
-
-        const standalone = customerList.filter(
-          (c) => !c.business_id || !businessList.some((b) => b.id === c.business_id)
-        );
-        setStandaloneCustomers(standalone);
-      } else {
-        // Regular user: fetch only customers for selected businesses
-        if (selectedBusinesses.length === 0) {
-          setDisplayItems([]);
-          setStandaloneCustomers([]);
-          setAllBusinesses([]);
-          setIsLoading(false);
-          return;
-        }
-
-        const [
-          { data: customers },
-          { data: businesses },
-        ] = await Promise.all([
-          supabase
-            .from("customers")
-            .select("*")
-            .is("deleted_at", null)
-            .in("business_id", selectedBusinesses),
-          supabase
-            .from("businesses")
-            .select("*")
-            .is("deleted_at", null)
-            .in("id", selectedBusinesses),
-        ]);
-
-        const customerList = customers || [];
-        const businessList = businesses || [];
-        setAllBusinesses(businessList);
-
-        const items: CustomerDisplay[] = customerList.map((c) => {
-          const biz = businessList.find(b => b.id === c.business_id);
-          return {
-            business: biz || { id: c.business_id, name: c.business_name } as Business,
-            customer: c,
-            members: [],
-          };
-        });
-
-        setDisplayItems(items);
-        setStandaloneCustomers([]);
+      // The customers page is scoped to the currently-selected service
+      // businesses. Admin no longer gets a special "all businesses + all
+      // customers" view here — that was a leftover from the legacy
+      // amazpen-internal CRM and confused service-business owners.
+      if (selectedBusinesses.length === 0) {
+        setDisplayItems([]);
+        setAllBusinesses([]);
+        setIsLoading(false);
+        return;
       }
+
+      const [
+        { data: customers },
+        { data: businesses },
+      ] = await Promise.all([
+        supabase
+          .from("customers")
+          .select("*")
+          .is("deleted_at", null)
+          .in("business_id", selectedBusinesses),
+        supabase
+          .from("businesses")
+          .select("*")
+          .is("deleted_at", null)
+          .in("id", selectedBusinesses),
+      ]);
+
+      const customerList = customers || [];
+      const businessList = businesses || [];
+      setAllBusinesses(businessList);
+
+      const items: CustomerDisplay[] = customerList.map((c) => {
+        const biz = businessList.find(b => b.id === c.business_id);
+        return {
+          business: biz || { id: c.business_id, name: c.business_name } as Business,
+          customer: c,
+          members: [],
+        };
+      });
+
+      setDisplayItems(items);
 
       // Fetch income sources for retainer linking (#35)
       const bizIds = selectedBusinesses;
@@ -362,7 +318,7 @@ export default function CustomersPage() {
       setIsLoading(false);
     }
     fetchData();
-  }, [isAdmin, selectedBusinesses, refreshTrigger, showToast]);
+  }, [selectedBusinesses, refreshTrigger, showToast]);
 
   // Realtime — auto-refresh when customers/payments/services/businesses
   // change in any of the selected businesses (e.g. another tab adds a
@@ -372,7 +328,7 @@ export default function CustomersPage() {
   useMultiTableRealtime(
     ["customers", "customer_payments", "customer_services", "customer_documents", "businesses", "income_sources"],
     bumpRefresh,
-    isAdmin || selectedBusinesses.length > 0,
+    selectedBusinesses.length > 0,
   );
 
   // ─── Detail Fetching ───────────────────────────────────────
@@ -994,14 +950,9 @@ export default function CustomersPage() {
       (item.business.tax_id?.includes(searchQuery) ?? false)
   );
 
-  const filteredStandalone = standaloneCustomers.filter(
-    (c) =>
-      !searchQuery ||
-      c.business_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.contact_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const totalCount = filteredItems.length + filteredStandalone.length;
+  // standaloneCustomers (customers without a business_id) are no longer
+  // surfaced — see the fetch effect for the rationale.
+  const totalCount = filteredItems.length;
 
   // ─── Render ────────────────────────────────────────────────
 
@@ -1041,10 +992,9 @@ export default function CustomersPage() {
       <div className="flex flex-col gap-[7px] p-[5px]">
         {/* Financial Summary */}
         {(() => {
-          const allCustomers = [
-            ...displayItems.filter(d => d.customer).map(d => d.customer!),
-            ...standaloneCustomers,
-          ];
+          const allCustomers = displayItems
+            .filter(d => d.customer)
+            .map(d => d.customer!);
           const activeRetainerTotal = allCustomers
             .filter(c => c.retainer_status === "active" && c.retainer_amount && c.retainer_amount > 0)
             .reduce((sum, c) => sum + (c.retainer_amount || 0), 0);
@@ -1162,42 +1112,23 @@ export default function CustomersPage() {
                     </Badge>
                   )}
 
-                  {/* Logo / Avatar */}
-                  {isAdmin && item.business.logo_url ? (
-                    <Image
-                      src={item.business.logo_url}
-                      alt={item.business.name}
-                      className="w-[60px] h-[60px] rounded-full object-cover border-2 border-white/20"
-                      width={60}
-                      height={60}
-                      unoptimized
-                      loading="eager"
-                    />
-                  ) : (
-                    <div className="w-[60px] h-[60px] rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20">
-                      <span className="text-[22px] font-bold text-white/60">
-                        {(isAdmin ? item.business.name : (item.customer?.business_name || item.business.name)).charAt(0)}
-                      </span>
-                    </div>
-                  )}
+                  {/* Avatar — initial of the customer's business name */}
+                  <div className="w-[60px] h-[60px] rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20">
+                    <span className="text-[22px] font-bold text-white/60">
+                      {(item.customer?.business_name || item.business.name).charAt(0)}
+                    </span>
+                  </div>
 
-                  {/* Name */}
+                  {/* Customer business name */}
                   <div className="w-full max-w-[160px] text-center px-[4px]">
                     <span className="text-[18px] font-bold text-white leading-[1.4]">
-                      {isAdmin ? item.business.name : (item.customer?.business_name || item.business.name)}
+                      {item.customer?.business_name || item.business.name}
                     </span>
                   </div>
 
                   {/* Contact name */}
                   {item.customer && (
                     <span className="text-[14px] text-white/70 text-center">{item.customer.contact_name}</span>
-                  )}
-
-                  {/* Members count — admin only */}
-                  {isAdmin && (
-                    <span className="text-[12px] text-white/50">
-                      {item.members.length} משתמשים
-                    </span>
                   )}
 
                   {/* Retainer info */}
@@ -1222,38 +1153,10 @@ export default function CustomersPage() {
                 </Button>
               ))}
 
-              {/* Standalone customers (not linked to business) — admin only */}
-              {isAdmin && filteredStandalone.map((customer) => (
-                <Button
-                  variant="ghost"
-                  key={customer.id}
-                  type="button"
-                  onClick={() => handleOpenDetail({
-                    business: { id: "", name: customer.business_name, business_type: null, status: null, tax_id: customer.tax_id, address: null, city: null, phone: null, email: null, logo_url: null, created_at: "", deleted_at: null },
-                    customer,
-                    members: [],
-                  })}
-                  className={`bg-[#6B21A8] rounded-[10px] p-[7px] min-h-[170px] h-auto flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#7C3AED] cursor-pointer relative ${!customer.is_active ? "opacity-40" : ""}`}
-                >
-                  {!customer.is_active && (
-                    <Badge className="absolute top-[6px] left-[6px] text-[10px] bg-[#F64E60]/80 text-white px-[6px] py-[2px] rounded-full font-bold">
-                      לא פעיל
-                    </Badge>
-                  )}
-
-                  <Badge className="absolute top-[6px] right-[6px] text-[10px] bg-[#4C526B] text-white px-[6px] py-[2px] rounded-full font-bold">
-                    עצמאי
-                  </Badge>
-
-                  <div className="w-full max-w-[160px] text-center px-[4px]">
-                    <span className="text-[18px] font-bold text-white leading-[1.4]">
-                      {customer.business_name}
-                    </span>
-                  </div>
-
-                  <span className="text-[14px] text-white/70 text-center">{customer.contact_name}</span>
-                </Button>
-              ))}
+              {/* Standalone customers (no linked business) used to render
+                  here for admins as part of the legacy amazpen-internal CRM.
+                  The customers page is now scoped strictly to a service
+                  business's own clients, so there's no admin-only branch. */}
             </div>
           )}
         </div>
@@ -1810,27 +1713,11 @@ export default function CustomersPage() {
                         <p className="text-[14px] text-white mt-[4px] text-right whitespace-pre-wrap">{selectedItem.customer.notes}</p>
                       </div>
                     )}
-                    {/* Create Business from Customer - admin only */}
-                    {isAdmin && selectedItem.customer && (
-                      <div className="mt-[12px] flex justify-center">
-                        <Button
-                          variant="default"
-                          type="button"
-                          onClick={() => {
-                            const c = selectedItem.customer!;
-                            const params = new URLSearchParams();
-                            if (c.business_name) params.set("name", c.business_name);
-                            if (c.tax_id) params.set("tax_id", c.tax_id);
-                            if (c.business_type) params.set("business_type", c.business_type);
-                            if (c.contact_name) params.set("contact_name", c.contact_name);
-                            router.push(`/admin/business/new?${params.toString()}`);
-                          }}
-                          className="bg-[#0BB783] hover:bg-[#0BB783]/80 text-white text-[13px] font-semibold px-[16px] py-[8px] rounded-[10px] transition-colors"
-                        >
-                          צור עסק מנתוני הלקוח
-                        </Button>
-                      </div>
-                    )}
+                    {/* "Create business from customer" used to live here for
+                        admins as part of the legacy amazpen-internal CRM
+                        (turning a paying client into a tracked business).
+                        Removed — irrelevant to a service-business owner
+                        managing their own customer list. */}
                   </>
                 ) : (
                   <div className="flex flex-col items-center gap-[10px] py-[10px]">
