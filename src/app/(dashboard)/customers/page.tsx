@@ -2399,7 +2399,26 @@ export default function CustomersPage() {
                   <Button
                     variant="default"
                     type="button"
-                    onClick={() => setIsAddPaymentOpen(!isAddPaymentOpen)}
+                    onClick={() => {
+                      // When opening the form, prefill defaults from the
+                      // customer's profile so the user doesn't re-pick what
+                      // they already configured (David's request: "the system
+                      // should already know how the customer pays").
+                      if (!isAddPaymentOpen && selectedItem?.customer) {
+                        if (!newPaymentMethod) {
+                          setNewPaymentMethod(selectedItem.customer.payment_method || "");
+                        }
+                        if (!newPaymentDate) {
+                          const today = new Date();
+                          const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                          setNewPaymentDate(ymd);
+                        }
+                        if (!newPaymentAmount && selectedItem.customer.retainer_amount) {
+                          setNewPaymentAmount(String(selectedItem.customer.retainer_amount));
+                        }
+                      }
+                      setIsAddPaymentOpen(!isAddPaymentOpen);
+                    }}
                     className="w-full mt-[15px] bg-[#6B21A8] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-[#7C3AED] transition-colors"
                   >
                     {isAddPaymentOpen ? "ביטול" : "+ הוספת תשלום"}
