@@ -1247,7 +1247,7 @@ export default function CustomersPage() {
                     setFContactName(e.target.value);
                     if (formErrors.has("contactName")) setFormErrors(prev => { const n = new Set(prev); n.delete("contactName"); return n; });
                   }}
-                  placeholder="לדוגמה: דוד סרור"
+                  placeholder="שם העסק..."
                   className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
                 />
               </div>
