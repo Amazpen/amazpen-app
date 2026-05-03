@@ -475,16 +475,23 @@ export default function OCRForm({
         });
         if (match && match.current_price != null && li.unit_price != null) {
           // The LLM occasionally swaps qty<->unit_price when the document table
-          // columns are unusual. If the matched supplier_item has a known price
-          // and the swap brings unit_price within 30% of history while the
-          // current values are off by >300%, treat it as a swap.
-          // qty*price is commutative so totals stay identical.
+          // columns are unusual. Detect the swap by checking whether swapping
+          // brings unit_price much closer to history than the current value:
+          //   - current value diverges from history by >50% (real change)
+          //   - swapped value matches history within 15%
+          //   - swap improves the gap by at least 5x
+          // qty*price is commutative so totals stay identical — only the per-
+          // field assignment is corrected.
           let qty = li.quantity;
           let price = li.unit_price;
           if (qty != null && qty > 0 && price > 0 && match.current_price > 0) {
             const currentPctOff = Math.abs((price - match.current_price) / match.current_price) * 100;
             const swappedPctOff = Math.abs((qty - match.current_price) / match.current_price) * 100;
-            if (currentPctOff > 300 && swappedPctOff < 30) {
+            const shouldSwap =
+              currentPctOff > 50 &&
+              swappedPctOff < 15 &&
+              currentPctOff > swappedPctOff * 5;
+            if (shouldSwap) {
               [qty, price] = [price, qty];
             }
           }
