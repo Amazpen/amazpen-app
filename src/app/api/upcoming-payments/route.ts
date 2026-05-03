@@ -66,6 +66,8 @@ export async function GET(request: NextRequest) {
       credit_card: "כרטיס אשראי",
       bank_transfer: "העברה בנקאית",
       bit: "ביט",
+      standing_order: "הוראת קבע",
+      other: "אחר",
     };
 
     // Invoice type labels
