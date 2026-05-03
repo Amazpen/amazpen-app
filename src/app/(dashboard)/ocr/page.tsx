@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import DocumentViewer from '@/components/ocr/DocumentViewer';
 import OCRForm from '@/components/ocr/OCRForm';
 import DocumentQueue from '@/components/ocr/DocumentQueue';
+import OCRFormResizer from '@/components/ocr/OCRFormResizer';
 import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
@@ -54,6 +55,19 @@ export default function OCRPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [showCalculator, setShowCalculator] = useState(false);
   const [mergedDocuments, setMergedDocuments] = useState<OCRDocument[]>([]);
+  // Resizable form panel — width persists across sessions per page so reviewers
+  // can match the panel to their typical document shape (wide invoices benefit
+  // from a narrower form, dense ones want it wider). Only applies on lg+; on
+  // mobile the form panel takes full width via the tab layout.
+  const [formWidth, setFormWidth] = usePersistedState<number>('ocr:formWidth', 420);
+  const [isLgScreen, setIsLgScreen] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsLgScreen(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
 
   // Fetch OCR documents from Supabase
   const fetchDocuments = useCallback(async (): Promise<OCRDocument[]> => {
@@ -1155,10 +1169,12 @@ export default function OCRPage() {
         {/* OCR Form - Left side (desktop) / Tab 2 (mobile) */}
         <div
           id="onboarding-ocr-form"
-          className={`lg:w-[420px] lg:block ${
+          className={`lg:block ${
             !showMobileViewer ? 'flex-1' : 'hidden'
-          } lg:border-r border-[#4C526B] overflow-hidden`}
+          } lg:border-r border-[#4C526B] overflow-hidden lg:relative lg:flex-shrink-0`}
+          style={isLgScreen ? { width: `${formWidth}px` } : undefined}
         >
+          <OCRFormResizer width={formWidth} onWidthChange={setFormWidth} />
           <OCRForm
             // Force a fresh mount per document so the form's internal state
             // is reset cleanly. Without this, switching between documents

@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/client';
 import DocumentViewer from '@/components/ocr/DocumentViewer';
 import OCRForm from '@/components/ocr/OCRForm';
 import DocumentQueue from '@/components/ocr/DocumentQueue';
+import OCRFormResizer from '@/components/ocr/OCRFormResizer';
 import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
@@ -61,6 +62,17 @@ export default function OCRDemoPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [showCalculator, setShowCalculator] = useState(false);
   const [mergedDocuments, setMergedDocuments] = useState<OCRDocument[]>([]);
+  // Resizable form panel — same key as /ocr so a reviewer's preferred width
+  // carries across both pages.
+  const [formWidth, setFormWidth] = usePersistedState<number>('ocr:formWidth', 420);
+  const [isLgScreen, setIsLgScreen] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsLgScreen(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
 
   // Fetch OCR documents from Supabase
   const fetchDocuments = useCallback(async (): Promise<OCRDocument[]> => {
@@ -1048,10 +1060,12 @@ export default function OCRDemoPage() {
         {/* OCR Form - Left side (desktop) / Tab 2 (mobile) */}
         <div
           id="onboarding-ocr-form"
-          className={`lg:w-[420px] lg:block ${
+          className={`lg:block ${
             !showMobileViewer ? 'flex-1' : 'hidden'
-          } lg:border-r border-[#4C526B] overflow-hidden`}
+          } lg:border-r border-[#4C526B] overflow-hidden lg:relative lg:flex-shrink-0`}
+          style={isLgScreen ? { width: `${formWidth}px` } : undefined}
         >
+          <OCRFormResizer width={formWidth} onWidthChange={setFormWidth} />
           <OCRForm
             key={currentDocument?.id || 'no-doc'}
             document={currentDocument}
