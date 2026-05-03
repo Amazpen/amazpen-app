@@ -17,10 +17,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  DateRangePicker,
-  type DateRange,
-} from "@/components/ui/date-range-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import {
   Select,
   SelectContent,
@@ -77,7 +74,27 @@ interface InvoiceRow {
   bookkeeping_registered_by: string | null;
   bookkeeping_registered_at: string | null;
   supplier_name: string;
+  // Aggregated from payments + payment_invoice_links + payment_splits.
+  // Multiple methods/refs are joined with " + " for the CSV export and
+  // detail panel.
+  paid_amount: number;
+  payment_methods: string;
+  payment_references: string;
 }
+
+// Hebrew labels for payment methods — kept in sync with payments page.
+const paymentMethodNames: Record<string, string> = {
+  bank_transfer: "העברה בנקאית",
+  cash: "מזומן",
+  check: "צ'ק",
+  bit: "ביט",
+  paybox: "פייבוקס",
+  credit_card: "כרטיס אשראי",
+  other: "אחר",
+  credit_company: "אחר",
+  credit_companies: "אחר",
+  standing_order: "הוראת קבע",
+};
 
 // ===== Helpers =====
 
@@ -96,6 +113,17 @@ function formatDate(dateStr: string): string {
     month: "2-digit",
     year: "2-digit",
   });
+}
+
+// toISOString() converts to UTC, which shifts a local-midnight Date by the
+// timezone offset and produces the wrong YYYY-MM-DD for IDT/IST users
+// (e.g. Date(2026, 4, 31) → "2026-05-30"). Format from the local components
+// so the month boundaries in the picker match the dates Postgres stores.
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 // ===== Component =====
@@ -215,7 +243,10 @@ export default function AccountingReviewPage() {
       let q = supabase
         .from("invoices")
         .select(
-          "id, business_id, supplier_id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes, approval_status, clarification_reason, bookkeeping_registered, bookkeeping_registered_by, bookkeeping_registered_at, supplier:suppliers!inner(name)"
+          `id, business_id, supplier_id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes, approval_status, clarification_reason, bookkeeping_registered, bookkeeping_registered_by, bookkeeping_registered_at,
+           supplier:suppliers!inner(name),
+           payments!payments_invoice_id_fkey(id, total_amount, payment_splits(payment_method, check_number, reference_number)),
+           payment_invoice_links(payment:payments(id, total_amount, payment_splits(payment_method, check_number, reference_number)))`
         )
         .eq("business_id", selectedBusinessId)
         .is("deleted_at", null);
@@ -224,8 +255,8 @@ export default function AccountingReviewPage() {
       // searching by reference — a reference search must hit all history so
       // invoices from other months are reachable.
       if (!dateFilterDisabled) {
-        const startStr = dateRange.start.toISOString().split("T")[0];
-        const endStr = dateRange.end.toISOString().split("T")[0];
+        const startStr = toLocalDateStr(dateRange.start);
+        const endStr = toLocalDateStr(dateRange.end);
         q = q.gte("invoice_date", startStr).lte("invoice_date", endStr);
       }
 
@@ -259,10 +290,50 @@ export default function AccountingReviewPage() {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mapped: InvoiceRow[] = all.map((row: any) => ({
-      ...row,
-      supplier_name: row.supplier?.name || "—",
-    }));
+    const mapped: InvoiceRow[] = all.map((row: any) => {
+      // Each invoice can have payments via two paths: legacy payments.invoice_id
+      // and the newer payment_invoice_links join table. Dedupe by payment id so
+      // a payment that's both a direct match AND linked doesn't double-count.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const paymentMap = new Map<string, any>();
+      for (const p of row.payments || []) if (p?.id) paymentMap.set(p.id, p);
+      for (const link of row.payment_invoice_links || []) {
+        const p = link?.payment;
+        if (p?.id) paymentMap.set(p.id, p);
+      }
+      const payments = Array.from(paymentMap.values());
+
+      const paid_amount = payments.reduce(
+        (sum, p) => sum + (Number(p.total_amount) || 0),
+        0,
+      );
+
+      const methodSet = new Set<string>();
+      const refSet = new Set<string>();
+      for (const p of payments) {
+        for (const s of p.payment_splits || []) {
+          const label = paymentMethodNames[s.payment_method] || s.payment_method || "";
+          if (label) methodSet.add(label);
+          // Cheques carry their number in check_number; everything else uses
+          // reference_number. Skip empty/dash values that pollute the CSV.
+          const ref =
+            s.payment_method === "check" && s.check_number
+              ? String(s.check_number)
+              : s.reference_number
+                ? String(s.reference_number)
+                : "";
+          if (ref && ref.trim() !== "-") refSet.add(ref.trim());
+        }
+      }
+
+      return {
+        ...row,
+        supplier_name: row.supplier?.name || "—",
+        paid_amount,
+        payment_methods: Array.from(methodSet).join(" + "),
+        payment_references: Array.from(refSet).join(" + "),
+      };
+    });
 
     setInvoices(mapped);
     setIsLoadingInvoices(false);
@@ -439,29 +510,51 @@ export default function AccountingReviewPage() {
       "אסמכתא",
       'סכום לפני מע"מ',
       'סכום אחרי מע"מ',
+      "סכום ששולם",
+      "אמצעי תשלום",
+      "אסמכתא לאמצעי תשלום",
       'נרשם בהנה"ח',
       "הערות",
       "קישור למסמך",
     ];
+
+    // Excel / Sheets only render a clickable hyperlink when the cell is a
+    // formula, not a plain URL. Wrap the attachment URL in =HYPERLINK so the
+    // exported file is actually clickable as the user expects.
+    const hyperlinkFormula = (url: string): string => {
+      if (!url) return "";
+      const safeUrl = url.replace(/"/g, '""');
+      return `=HYPERLINK("${safeUrl}","פתח")`;
+    };
+
     const rows = selectedInvoices.map((inv) => [
       formatDate(inv.invoice_date),
       inv.supplier_name,
       inv.invoice_number || "-",
       inv.subtotal.toString(),
       inv.total_amount.toString(),
+      inv.paid_amount > 0 ? inv.paid_amount.toString() : "",
+      inv.payment_methods,
+      inv.payment_references,
       inv.bookkeeping_registered ? "כן" : "לא",
       inv.notes || "",
-      inv.attachment_url || "",
+      hyperlinkFormula(inv.attachment_url || ""),
     ]);
 
-    const BOM = "\uFEFF";
+    const BOM = "﻿";
+    // HYPERLINK formulas must NOT sit inside surrounding quotes — Excel would
+    // then treat them as plain text. Emit formulas verbatim and quote only the
+    // regular data cells.
     const csv =
       BOM +
       [
         headers.join(","),
         ...rows.map((r) =>
           r
-            .map((c) => `"${c.replace(/"/g, '""')}"`)
+            .map((c) => {
+              if (c.startsWith("=HYPERLINK(")) return c;
+              return `"${c.replace(/"/g, '""')}"`;
+            })
             .join(",")
         ),
       ].join("\n");
