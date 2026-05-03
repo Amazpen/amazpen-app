@@ -330,18 +330,29 @@ export default function OCRForm({
       .reduce((sum, inv) => sum + inv.total_amount, 0);
   }, [paymentOpenInvoices, paymentSelectedInvoiceIds]);
 
+  // Track previous selection so we only auto-fill the amount when the user
+  // actually changes the invoice selection — not on every paymentOpenInvoices
+  // refetch. Otherwise a manually-edited partial-payment amount gets clobbered
+  // back to the full invoice total.
+  const prevSelectedInvoiceIdsRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
-    // Runs also when size drops to 0 — so unchecking the last invoice clears
-    // the payment amount back to empty instead of leaving the previous total
-    // stuck in the field.
-    setPaymentMethods(prev => {
-      if (prev.length === 0) return prev;
-      const amountStr = paymentSelectedInvoiceIds.size === 0
+    const prev = prevSelectedInvoiceIdsRef.current;
+    const curr = paymentSelectedInvoiceIds;
+    const selectionChanged =
+      prev.size !== curr.size ||
+      Array.from(curr).some(id => !prev.has(id));
+    if (!selectionChanged) return;
+    prevSelectedInvoiceIdsRef.current = new Set(curr);
+
+    setPaymentMethods(prevMethods => {
+      if (prevMethods.length === 0) return prevMethods;
+      const amountStr = curr.size === 0
         ? ''
         : (paymentSelectedInvoicesTotal.toFixed(2).replace(/\.?0+$/, '') || '0');
-      return prev.map((pm, i) => i === 0 ? { ...pm, amount: amountStr } : pm);
+      return prevMethods.map((pm, i) => i === 0 ? { ...pm, amount: amountStr } : pm);
     });
-  }, [paymentSelectedInvoicesTotal, paymentSelectedInvoiceIds.size]);
+  }, [paymentSelectedInvoiceIds, paymentSelectedInvoicesTotal]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodEntry[]>([
     { id: 1, method: '', amount: '', installments: '1', checkNumber: '', creditCardId: '', customInstallments: [] },
   ]);
