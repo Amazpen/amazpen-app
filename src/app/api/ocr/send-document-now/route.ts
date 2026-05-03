@@ -71,10 +71,42 @@ export async function POST(request: NextRequest) {
     { auth: { autoRefreshToken: false, persistSession: false } },
   )
 
+  // Critical: the OCR document's `business_id` reflects where the operator
+  // *uploaded* the file (e.g. they were viewing "אושי אושי דימונה" when
+  // the file came in), but the entity that got created (invoice / payment /
+  // delivery note) carries the business the user actually picked in the
+  // form. That's the customer the email belongs to. Resolve the business
+  // from the created entity, falling back to the OCR doc's business only
+  // when no entity was created.
+  let resolvedBusinessId: string | null = null
+  if (doc.created_invoice_id) {
+    const { data } = await admin
+      .from('invoices')
+      .select('business_id')
+      .eq('id', doc.created_invoice_id)
+      .maybeSingle()
+    resolvedBusinessId = data?.business_id ?? null
+  } else if (doc.created_payment_id) {
+    const { data } = await admin
+      .from('payments')
+      .select('business_id')
+      .eq('id', doc.created_payment_id)
+      .maybeSingle()
+    resolvedBusinessId = data?.business_id ?? null
+  } else if (doc.created_delivery_note_id) {
+    const { data } = await admin
+      .from('delivery_notes')
+      .select('business_id')
+      .eq('id', doc.created_delivery_note_id)
+      .maybeSingle()
+    resolvedBusinessId = data?.business_id ?? null
+  }
+  resolvedBusinessId = resolvedBusinessId || doc.business_id
+
   const { data: biz } = await admin
     .from('businesses')
     .select('id, name, documents_email, documents_send_frequency, documents_send_types, status, deleted_at')
-    .eq('id', doc.business_id)
+    .eq('id', resolvedBusinessId)
     .maybeSingle()
 
   if (!biz || biz.deleted_at || biz.status !== 'active') {
