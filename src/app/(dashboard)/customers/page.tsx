@@ -1677,9 +1677,20 @@ export default function CustomersPage() {
             <div className="p-4" dir="rtl">
               {/* ── Section 1: Customer Info Grid ──────────────── */}
               <div className="bg-[#6B21A8]/30 rounded-[10px] p-[15px] mb-[15px]">
-                {/* Business Name - large */}
+                {/* Customer identity — same fallback as the cards: prefer
+                    customer.business_name unless it equals the provider's
+                    business name; fall through to contact_name. */}
                 <div className="flex flex-col items-center text-center mb-[15px]">
-                  <span className="text-[20px] text-white font-bold">{selectedItem.business.name}</span>
+                  {(() => {
+                    const ownerName = selectedItem.business.name?.trim();
+                    const customerBizName = selectedItem.customer?.business_name?.trim();
+                    const contact = selectedItem.customer?.contact_name?.trim();
+                    const usableBizName = customerBizName && customerBizName !== ownerName
+                      ? customerBizName
+                      : null;
+                    const heading = usableBizName || contact || ownerName || "";
+                    return <span className="text-[20px] text-white font-bold">{heading}</span>;
+                  })()}
                 </div>
 
                 {selectedItem.customer ? (
