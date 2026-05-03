@@ -1113,16 +1113,19 @@ export default function CustomersPage() {
                   )}
 
                   {/* The customer's own identity — prefer business_name, fall
-                      back to contact_name. We avoid item.business.name here
-                      because that's the *service provider's* business (e.g.
-                      "בדיקות") and would render the same name on every card. */}
+                      back to contact_name. We avoid item.business.name (the
+                      service provider's business) and also reject business_name
+                      if it accidentally matches the provider's name — bad data
+                      from imports/typos used to render "בדיקות" on every card. */}
                   {(() => {
-                    const primary = item.customer?.business_name?.trim()
-                      || item.customer?.contact_name?.trim()
-                      || item.business.name;
-                    const secondary = item.customer?.business_name?.trim() && item.customer?.contact_name?.trim()
-                      ? item.customer.contact_name.trim()
+                    const customerBizName = item.customer?.business_name?.trim();
+                    const contact = item.customer?.contact_name?.trim();
+                    const ownerName = item.business.name?.trim();
+                    const usableBizName = customerBizName && customerBizName !== ownerName
+                      ? customerBizName
                       : null;
+                    const primary = usableBizName || contact || ownerName || "";
+                    const secondary = usableBizName && contact ? contact : null;
                     return (
                       <>
                         <div className="w-[60px] h-[60px] rounded-full bg-white/10 flex items-center justify-center border-2 border-white/20">
