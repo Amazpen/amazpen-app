@@ -418,7 +418,10 @@ export default function OCRDemoPage() {
                         installments_count: installmentsCount,
                         installment_number: inst.number,
                         reference_number: formData.payment_reference || null,
-                        check_number: pm.checkNumber || null,
+                        // Per-installment cheque number — each cheque has its
+                        // own sequential number. Fall back to the method-level
+                        // value for legacy payloads.
+                        check_number: inst.checkNumber || pm.checkNumber || null,
                         credit_card_id: creditCardId,
                         due_date: inst.dateForInput || formData.payment_date || formData.document_date || null,
                       });
@@ -508,7 +511,10 @@ export default function OCRDemoPage() {
                       installments_count: installmentsCount,
                       installment_number: inst.number,
                       reference_number: formData.payment_reference || null,
-                      check_number: pm.checkNumber || null,
+                      // Per-installment cheque number — each cheque has its
+                      // own sequential number. Fall back to the method-level
+                      // value for legacy payloads.
+                      check_number: inst.checkNumber || pm.checkNumber || null,
                       credit_card_id: creditCardId,
                       due_date: inst.dateForInput || formData.document_date || null,
                     });
