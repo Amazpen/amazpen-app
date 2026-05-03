@@ -890,7 +890,19 @@ export default function OCRForm({
     return result;
   };
 
-  const updatePaymentMethodField = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[], id: number, field: keyof PaymentMethodEntry, value: string, dateStr: string, dateSetter?: (d: string) => void, presetCreditCardId?: string) => {
+  // Compute next sequential cheque number from a starting reference. Reference may
+  // contain non-digits (e.g. "A-12345"); we increment the trailing numeric portion
+  // and preserve the prefix. Returns '' when no digits are present.
+  const incrementCheckNumber = (reference: string, offset: number): string => {
+    if (!reference) return '';
+    const match = reference.match(/^(\D*)(\d+)(\D*)$/);
+    if (!match) return '';
+    const [, prefix, digits, suffix] = match;
+    const next = (BigInt(digits) + BigInt(offset)).toString().padStart(digits.length, '0');
+    return `${prefix}${next}${suffix}`;
+  };
+
+  const updatePaymentMethodField = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[], id: number, field: keyof PaymentMethodEntry, value: string, dateStr: string, dateSetter?: (d: string) => void, presetCreditCardId?: string, referenceNumber?: string) => {
     // Auto-set payment date when payment method is selected
     if (dateSetter && field === 'method' && value) {
       // If we're picking credit_card and have a preset card (supplier default),
@@ -935,13 +947,17 @@ export default function OCRForm({
         if (card && startDate) {
           updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, startDate, card.billing_day);
         } else if (value === 'check') {
-          // Each cheque has its own number/date/amount — never auto-split a total
-          // across cheques. First row gets the full amount as a starting hint;
-          // additional rows are blank for the user to fill in.
+          // Cheques: split the total evenly across rows, dated one month apart,
+          // with sequential cheque numbers seeded from the reference field if
+          // provided (so cheque #2 = reference + 1).
           const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(startDate || '');
           const baseDate = m
             ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
             : startDate ? new Date(startDate) : new Date();
+          const installmentAmount = numInstallments > 0
+            ? Math.round((totalAmount / numInstallments) * 100) / 100
+            : 0;
+          const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
           const rows = [];
           for (let i = 0; i < numInstallments; i++) {
             const d = new Date(baseDate);
@@ -950,8 +966,10 @@ export default function OCRForm({
               number: i + 1,
               date: d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
               dateForInput: formatLocalYMD(d),
-              amount: i === 0 ? totalAmount : 0,
-              checkNumber: '',
+              amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
+              checkNumber: i === 0
+                ? (referenceNumber?.trim() || '')
+                : incrementCheckNumber(referenceNumber?.trim() || '', i),
             });
           }
           updated.customInstallments = rows;
@@ -978,38 +996,40 @@ export default function OCRForm({
         const startDate = p.customInstallments.length > 0 ? p.customInstallments[0].dateForInput : getEffectiveStartDate(methods, dateStr);
         const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
 
-        // Checks are managed manually per row (each cheque has its own number,
-        // date, and amount). Adding/removing a row should keep existing rows as
-        // typed and only append/trim — no auto-split of the total amount across
-        // checks.
+        // Cheques: re-split the total evenly across the new row count and
+        // assign sequential cheque numbers based on the first row's number
+        // (which itself defaults to the reference field). User edits to a
+        // specific row's amount/checkNumber are preserved when trimming.
         if (p.method === 'check') {
           const prevRows = p.customInstallments;
-          if (numInstallments <= prevRows.length) {
-            // Trim — keep the first N rows untouched, renumber.
-            updated.customInstallments = prevRows
-              .slice(0, Math.max(1, numInstallments))
-              .map((row, idx) => ({ ...row, number: idx + 1 }));
-          } else {
-            // Append blank rows for the new cheque slots, dated one month apart
-            // from the last existing row's date so the user has a sensible default.
-            const additional = [];
-            const lastRow = prevRows[prevRows.length - 1];
-            const baseDateStr = lastRow?.dateForInput || startDate;
-            const baseDate = baseDateStr ? new Date(baseDateStr) : new Date();
-            for (let i = prevRows.length; i < numInstallments; i++) {
-              const offset = i - (prevRows.length - 1);
-              const d = new Date(baseDate);
-              d.setMonth(d.getMonth() + offset);
-              additional.push({
-                number: i + 1,
-                date: d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
-                dateForInput: formatLocalYMD(d),
-                amount: 0,
-                checkNumber: '',
-              });
-            }
-            updated.customInstallments = [...prevRows, ...additional];
+          const installmentAmount = numInstallments > 0
+            ? Math.round((totalAmount / numInstallments) * 100) / 100
+            : 0;
+          const lastInstallmentAmount = Math.round((totalAmount - installmentAmount * (numInstallments - 1)) * 100) / 100;
+          // Seed cheque numbering: prefer the user-typed first cheque number
+          // (so they can override), fall back to the reference field.
+          const seedCheck = (prevRows[0]?.checkNumber || '').trim() || (referenceNumber?.trim() || '');
+          const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(startDate || '');
+          const baseDate = m
+            ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+            : startDate ? new Date(startDate) : new Date();
+          const rows = [];
+          for (let i = 0; i < numInstallments; i++) {
+            const prevRow = prevRows[i];
+            const d = prevRow?.dateForInput
+              ? new Date(prevRow.dateForInput)
+              : (() => { const dd = new Date(baseDate); dd.setMonth(dd.getMonth() + i); return dd; })();
+            rows.push({
+              number: i + 1,
+              date: d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+              dateForInput: prevRow?.dateForInput || formatLocalYMD(d),
+              amount: i === numInstallments - 1 ? lastInstallmentAmount : installmentAmount,
+              checkNumber: i === 0
+                ? seedCheck
+                : (prevRow?.checkNumber || incrementCheckNumber(seedCheck, i)),
+            });
           }
+          updated.customInstallments = rows;
         } else {
           // Credit card / bank transfer / cash — keep auto-split behaviour but
           // preserve any user-entered metadata for rows that still exist.
@@ -1846,6 +1866,7 @@ export default function OCRForm({
     dateStr: string,
     dateSetter?: (d: string) => void,
     activeSupplierId?: string,
+    referenceNumber?: string,
   ) => (
     <div className="flex flex-col gap-[15px]">
       <div className="flex items-center justify-between">
@@ -1890,7 +1911,7 @@ export default function OCRForm({
                   presetCardId = defaultCardId;
                 }
               }
-              updatePaymentMethodField(setter, methods, pm.id, 'method', method, dateStr, dateSetter, presetCardId);
+              updatePaymentMethodField(setter, methods, pm.id, 'method', method, dateStr, dateSetter, presetCardId, referenceNumber);
             }}
           >
             <SelectTrigger className="w-full h-[50px] bg-[#0F1535] text-[18px] text-white text-center rounded-[10px] border-[#4C526B] cursor-pointer">
@@ -1985,7 +2006,7 @@ export default function OCRForm({
                 variant="ghost"
                 size="icon"
                 title="הפחת תשלום"
-                onClick={() => updatePaymentMethodField(setter, methods, pm.id, 'installments', String(Math.max(1, parseInt(pm.installments) - 1)), dateStr)}
+                onClick={() => updatePaymentMethodField(setter, methods, pm.id, 'installments', String(Math.max(1, parseInt(pm.installments) - 1)), dateStr, undefined, undefined, referenceNumber)}
                 className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
               >
                 -
@@ -1995,7 +2016,7 @@ export default function OCRForm({
                 inputMode="numeric"
                 title="כמות תשלומים"
                 value={pm.installments}
-                onChange={(e) => updatePaymentMethodField(setter, methods, pm.id, 'installments', e.target.value.replace(/\D/g, '') || '1', dateStr)}
+                onChange={(e) => updatePaymentMethodField(setter, methods, pm.id, 'installments', e.target.value.replace(/\D/g, '') || '1', dateStr, undefined, undefined, referenceNumber)}
                 className="flex-1 h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none"
               />
               <Button
@@ -2003,7 +2024,7 @@ export default function OCRForm({
                 variant="ghost"
                 size="icon"
                 title="הוסף תשלום"
-                onClick={() => updatePaymentMethodField(setter, methods, pm.id, 'installments', String(parseInt(pm.installments) + 1), dateStr)}
+                onClick={() => updatePaymentMethodField(setter, methods, pm.id, 'installments', String(parseInt(pm.installments) + 1), dateStr, undefined, undefined, referenceNumber)}
                 className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
               >
                 +
@@ -2765,7 +2786,7 @@ export default function OCRForm({
 
             <div className="flex flex-col gap-[15px]">
               {/* Payment Methods */}
-              {renderPaymentMethodsSection(inlinePaymentMethods, setInlinePaymentMethods, inlinePaymentDate, setInlinePaymentDate, supplierId)}
+              {renderPaymentMethodsSection(inlinePaymentMethods, setInlinePaymentMethods, inlinePaymentDate, setInlinePaymentDate, supplierId, inlinePaymentReference)}
 
               {/* Payment Date — hidden once installments table is shown (each row has its own date there) */}
               {inlinePaymentMethods.every(pm => pm.customInstallments.length === 0) && (
@@ -3316,7 +3337,7 @@ export default function OCRForm({
       )}
 
       {/* Payment Methods Section */}
-      {renderPaymentMethodsSection(paymentMethods, setPaymentMethods, paymentTabDate, setPaymentTabDate, paymentTabSupplierId)}
+      {renderPaymentMethodsSection(paymentMethods, setPaymentMethods, paymentTabDate, setPaymentTabDate, paymentTabSupplierId, paymentTabReference)}
 
       {/* Reference (upload button removed — the receipt is already attached from OCR) */}
       <div className="flex flex-col gap-[3px]">
