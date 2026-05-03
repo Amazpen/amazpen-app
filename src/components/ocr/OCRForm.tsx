@@ -935,22 +935,55 @@ export default function OCRForm({
         const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
         const startDate = p.customInstallments.length > 0 ? p.customInstallments[0].dateForInput : getEffectiveStartDate(methods, dateStr);
         const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
-        let regenerated = card && startDate
-          ? generateCreditCardInstallments(numInstallments, totalAmount, startDate, card.billing_day)
-          : generateInstallments(numInstallments, totalAmount, startDate);
-        // Preserve check numbers and dates the user already typed for rows that
-        // still exist after the +/- click. generateInstallments rebuilds the
-        // array from scratch, so without this merge any checkNumber input is wiped.
-        regenerated = regenerated.map((row, idx) => {
-          const prevRow = p.customInstallments[idx];
-          if (!prevRow) return row;
-          return {
-            ...row,
-            ...(prevRow.checkNumber !== undefined ? { checkNumber: prevRow.checkNumber } : {}),
-            ...(prevRow.dateForInput ? { date: prevRow.date, dateForInput: prevRow.dateForInput } : {}),
-          };
-        });
-        updated.customInstallments = regenerated;
+
+        // Checks are managed manually per row (each cheque has its own number,
+        // date, and amount). Adding/removing a row should keep existing rows as
+        // typed and only append/trim — no auto-split of the total amount across
+        // checks.
+        if (p.method === 'check') {
+          const prevRows = p.customInstallments;
+          if (numInstallments <= prevRows.length) {
+            // Trim — keep the first N rows untouched, renumber.
+            updated.customInstallments = prevRows
+              .slice(0, Math.max(1, numInstallments))
+              .map((row, idx) => ({ ...row, number: idx + 1 }));
+          } else {
+            // Append blank rows for the new cheque slots, dated one month apart
+            // from the last existing row's date so the user has a sensible default.
+            const additional = [];
+            const lastRow = prevRows[prevRows.length - 1];
+            const baseDateStr = lastRow?.dateForInput || startDate;
+            const baseDate = baseDateStr ? new Date(baseDateStr) : new Date();
+            for (let i = prevRows.length; i < numInstallments; i++) {
+              const offset = i - (prevRows.length - 1);
+              const d = new Date(baseDate);
+              d.setMonth(d.getMonth() + offset);
+              additional.push({
+                number: i + 1,
+                date: d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+                dateForInput: formatLocalYMD(d),
+                amount: 0,
+                checkNumber: '',
+              });
+            }
+            updated.customInstallments = [...prevRows, ...additional];
+          }
+        } else {
+          // Credit card / bank transfer / cash — keep auto-split behaviour but
+          // preserve any user-entered metadata for rows that still exist.
+          let regenerated = card && startDate
+            ? generateCreditCardInstallments(numInstallments, totalAmount, startDate, card.billing_day)
+            : generateInstallments(numInstallments, totalAmount, startDate);
+          regenerated = regenerated.map((row, idx) => {
+            const prevRow = p.customInstallments[idx];
+            if (!prevRow) return row;
+            return {
+              ...row,
+              ...(prevRow.dateForInput ? { date: prevRow.date, dateForInput: prevRow.dateForInput } : {}),
+            };
+          });
+          updated.customInstallments = regenerated;
+        }
       }
 
       // When amount changes, recalculate installment amounts but keep dates
