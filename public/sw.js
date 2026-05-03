@@ -1,8 +1,10 @@
 // BUILD_TIME=1777989000000
-const CACHE_NAME = 'amazpen-v4';
+const CACHE_NAME = 'amazpen-v5';
 const STATIC_ASSETS = [
   '/',
   '/icon.svg',
+  '/icon-192.png',
+  '/icon-512.png',
 ];
 
 // Install event - cache static assets, wait for user to approve update
@@ -109,7 +111,11 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then(function(response) {
-        if (response.status === 200 && isSafeStatic) {
+        // Only cache complete, ok responses. type=basic ensures it's a same-origin
+        // response and not an opaque/error one (which Chrome may treat as a
+        // truncated PNG and surface as "Download error or resource isn't a
+        // valid image" against the manifest).
+        if (response.status === 200 && response.type === 'basic' && isSafeStatic) {
           var clone = response.clone();
           caches.open(CACHE_NAME).then(function(cache) { cache.put(event.request, clone); });
         }
