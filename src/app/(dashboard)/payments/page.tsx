@@ -3835,12 +3835,18 @@ function PaymentsPageInner() {
                       <div className="flex flex-col gap-[5px] px-[7px]" dir="rtl">
                         <span className="text-[13px] text-[#979797] font-medium">אמצעי תשלום</span>
                         {(() => {
-                          // Group splits by payment method
-                          const methodGroups = new Map<string, { method: string; splits: typeof payment.rawSplits }>();
+                          // Group splits by payment method, keeping different
+                          // credit cards (or different checks) as separate groups
+                          // so two cards used for the same payment don't collapse
+                          // into one row.
+                          const methodGroups = new Map<string, { method: string; cardId: string | null; splits: typeof payment.rawSplits }>();
                           for (const split of payment.rawSplits) {
-                            const key = split.payment_method;
+                            const cardId = (split as Record<string, unknown>)?.credit_card_id as string | undefined;
+                            const key = split.payment_method === "credit_card"
+                              ? `credit_card:${cardId ?? "unknown"}`
+                              : split.payment_method;
                             if (!methodGroups.has(key)) {
-                              methodGroups.set(key, { method: key, splits: [] });
+                              methodGroups.set(key, { method: split.payment_method, cardId: cardId ?? null, splits: [] });
                             }
                             methodGroups.get(key)!.splits.push(split);
                           }
@@ -3865,8 +3871,7 @@ function PaymentsPageInner() {
                                   <span className="text-[13px] font-medium">
                                     {paymentMethodNames[group.method] || "אחר"}
                                     {group.method === "credit_card" && (() => {
-                                      const cardId = (group.splits[0] as Record<string, unknown>)?.credit_card_id as string | undefined;
-                                      const card = cardId ? businessCreditCards.find(c => c.id === cardId) : null;
+                                      const card = group.cardId ? businessCreditCards.find(c => c.id === group.cardId) : null;
                                       return card ? ` ${card.card_name}` : "";
                                     })()}
                                   </span>
