@@ -93,28 +93,47 @@ export default function OCRDemoPage() {
           ? doc.ocr_extracted_data[0] as Record<string, unknown>
           : null;
 
-        const rawLineItems = Array.isArray(extracted?.ocr_extracted_line_items)
+        // Demo page reads MISTRAL columns first, falls back to Google Vision values
+        // only if Mistral hasn't processed this doc yet. The line items come from
+        // the JSONB mistral_line_items field (stored by Save Mistral Data) when
+        // available, otherwise from the legacy ocr_extracted_line_items relation.
+        const hasMistral = extracted?.mistral_processed_at != null
+          && extracted?.mistral_supplier_name != null;
+
+        const mistralItemsRaw = Array.isArray(extracted?.mistral_line_items)
+          ? (extracted.mistral_line_items as Record<string, unknown>[])
+          : [];
+        const legacyItemsRaw = Array.isArray(extracted?.ocr_extracted_line_items)
           ? (extracted.ocr_extracted_line_items as Record<string, unknown>[])
           : [];
+        const rawLineItems = hasMistral && mistralItemsRaw.length > 0
+          ? mistralItemsRaw
+          : legacyItemsRaw;
         const lineItems = rawLineItems.map((li) => ({
-          id: li.id as string,
+          id: (li.id as string) || undefined,
           description: (li.description as string) || undefined,
           quantity: li.quantity != null ? Number(li.quantity) : undefined,
           unit_price: li.unit_price != null ? Number(li.unit_price) : undefined,
           total: li.total != null ? Number(li.total) : undefined,
         }));
 
+        const pick = <T,>(mistralVal: T, googleVal: T): T => (hasMistral && mistralVal != null ? mistralVal : googleVal);
+
         const ocrData: OCRExtractedData | undefined = extracted ? {
-          supplier_name: (extracted.supplier_name as string) || undefined,
-          supplier_tax_id: (extracted.supplier_tax_id as string) || undefined,
-          document_number: (extracted.document_number as string) || undefined,
-          document_date: extracted.document_date ? String(extracted.document_date) : undefined,
-          subtotal: extracted.subtotal != null ? Number(extracted.subtotal) : undefined,
-          vat_amount: extracted.vat_amount != null ? Number(extracted.vat_amount) : undefined,
-          total_amount: extracted.total_amount != null ? Number(extracted.total_amount) : undefined,
+          supplier_name: pick(extracted.mistral_supplier_name as string, extracted.supplier_name as string) || undefined,
+          supplier_tax_id: pick(extracted.mistral_supplier_tax_id as string, extracted.supplier_tax_id as string) || undefined,
+          document_number: pick(extracted.mistral_document_number as string, extracted.document_number as string) || undefined,
+          document_date: pick(extracted.mistral_document_date, extracted.document_date)
+            ? String(pick(extracted.mistral_document_date, extracted.document_date)) : undefined,
+          subtotal: pick(extracted.mistral_subtotal, extracted.subtotal) != null
+            ? Number(pick(extracted.mistral_subtotal, extracted.subtotal)) : undefined,
+          vat_amount: pick(extracted.mistral_vat_amount, extracted.vat_amount) != null
+            ? Number(pick(extracted.mistral_vat_amount, extracted.vat_amount)) : undefined,
+          total_amount: pick(extracted.mistral_total_amount, extracted.total_amount) != null
+            ? Number(pick(extracted.mistral_total_amount, extracted.total_amount)) : undefined,
           confidence_score: extracted.overall_confidence != null ? Number(extracted.overall_confidence) : undefined,
-          raw_text: (extracted.raw_text as string) || undefined,
-          matched_supplier_id: (extracted.matched_supplier_id as string) || undefined,
+          raw_text: (hasMistral ? (extracted.mistral_markdown as string) : (extracted.raw_text as string)) || undefined,
+          matched_supplier_id: pick(extracted.mistral_matched_supplier_id as string, extracted.matched_supplier_id as string) || undefined,
           line_items: lineItems.length > 0 ? lineItems : undefined,
         } : undefined;
 
@@ -128,7 +147,7 @@ export default function OCRDemoPage() {
           original_filename: (doc.original_filename as string) || undefined,
           file_type: (doc.file_type as string) || undefined,
           status: (doc.status as string || 'pending') as DocumentStatus,
-          document_type: (doc.document_type as DocumentType) || undefined,
+          document_type: (pick(extracted?.mistral_document_type as DocumentType, doc.document_type as DocumentType)) || undefined,
           ocr_data: ocrData,
           created_at: doc.created_at as string,
           processed_at: (doc.ocr_processed_at as string) || undefined,
