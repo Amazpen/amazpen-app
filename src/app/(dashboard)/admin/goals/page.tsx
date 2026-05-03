@@ -613,7 +613,7 @@ export default function AdminGoalsPage() {
 
     const eligibleBudgets = supplierBudgets.filter(b => {
       const supplier = suppliers.find(s => s.id === b.supplier_id);
-      return supplier && isInvoiceEligible(supplier) && b.budget_amount > 0;
+      return supplier && isInvoiceEligible(supplier) && b.budget_amount > 0 && b.month === selectedMonth;
     });
 
     if (eligibleBudgets.length === 0) return conflicts;
@@ -749,6 +749,7 @@ export default function AdminGoalsPage() {
         return override !== undefined ? override : b.budget_amount;
       };
       for (const b of supplierBudgets) {
+        if (b.month !== selectedMonth) continue;
         const amount = effectiveBudget(b);
         if (b.id) {
           await supabase
@@ -771,6 +772,7 @@ export default function AdminGoalsPage() {
       // invoice → nothing to update. Skip the whole iteration to avoid no-op
       // round-trips.
       for (const b of supplierBudgets) {
+        if (b.month !== selectedMonth) continue;
         const supplier = suppliers.find((s) => s.id === b.supplier_id);
         if (!supplier || !isInvoiceEligible(supplier)) continue;
         if (skippedBudgetOverrides.has(`${b.supplier_id}|${b.month}`)) continue;
