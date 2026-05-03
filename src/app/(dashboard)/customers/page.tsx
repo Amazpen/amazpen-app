@@ -1036,7 +1036,7 @@ export default function CustomersPage() {
                 <span className="text-[12px] text-white/60">הכנסה חודשית מריטיינרים</span>
                 <span className="text-[20px] font-bold text-white ltr-num">₪{activeRetainerTotal.toLocaleString("he-IL")}</span>
               </div>
-              <div className="flex flex-col items-end">
+              <div className="flex flex-col items-center">
                 <span className="text-[12px] text-white/60">לקוחות פעילים</span>
                 <span className="text-[18px] font-bold text-white">{activeCount}</span>
               </div>
