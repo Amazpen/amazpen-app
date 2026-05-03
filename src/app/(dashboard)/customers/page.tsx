@@ -279,7 +279,8 @@ export default function CustomersPage() {
           .from("customers")
           .select("*")
           .is("deleted_at", null)
-          .in("business_id", selectedBusinesses),
+          .in("business_id", selectedBusinesses)
+          .order("created_at", { ascending: true }),
         supabase
           .from("businesses")
           .select("*")
@@ -287,7 +288,14 @@ export default function CustomersPage() {
           .in("id", selectedBusinesses),
       ]);
 
-      const customerList = customers || [];
+      // Dedupe by customer id defensively (guards against rare duplicate
+      // rows or a stale realtime payload arriving mid-fetch).
+      const seenIds = new Set<string>();
+      const customerList = (customers || []).filter((c) => {
+        if (!c?.id || seenIds.has(c.id)) return false;
+        seenIds.add(c.id);
+        return true;
+      });
       const businessList = businesses || [];
       setAllBusinesses(businessList);
 
@@ -733,16 +741,27 @@ export default function CustomersPage() {
 
   const handleDeleteCustomer = () => {
     if (!selectedItem?.customer) return;
-    if (payments.length > 0) {
-      showToast("לא ניתן למחוק לקוח עם תשלומים קיימים", "error");
-      return;
-    }
-    confirm("האם למחוק את רשומת הלקוח?", async () => {
+    const hasHistory = payments.length > 0 || services.length > 0;
+    const message = hasHistory
+      ? "ללקוח יש תשלומים/שירותים. למחוק את הלקוח ואת כל הרשומות הקשורות?"
+      : "האם למחוק את רשומת הלקוח?";
+    confirm(message, async () => {
       const supabase = createClient();
+      const customerId = selectedItem!.customer!.id;
+      const now = new Date().toISOString();
+
+      // Cascade soft-delete: payments, services, documents, then the customer
+      // itself. Run in parallel; ignore individual errors so a missing table
+      // doesn't block the customer delete.
+      await Promise.all([
+        supabase.from("customer_payments").update({ deleted_at: now }).eq("customer_id", customerId).is("deleted_at", null),
+        supabase.from("customer_services").update({ deleted_at: now }).eq("customer_id", customerId).is("deleted_at", null),
+      ]);
+
       const { error } = await supabase
         .from("customers")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", selectedItem!.customer!.id);
+        .update({ deleted_at: now })
+        .eq("id", customerId);
 
       if (error) {
         showToast("שגיאה במחיקת לקוח", "error");
@@ -942,13 +961,25 @@ export default function CustomersPage() {
 
   // ─── Filtering ─────────────────────────────────────────────
 
-  const filteredItems = displayItems.filter(
-    (item) =>
-      !searchQuery ||
-      item.business.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.customer?.contact_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-      (item.business.tax_id?.includes(searchQuery) ?? false)
-  );
+  const filteredItems = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    const matched = displayItems.filter(
+      (item) =>
+        !searchQuery ||
+        item.business.name.toLowerCase().includes(q) ||
+        (item.customer?.contact_name?.toLowerCase().includes(q) ?? false) ||
+        (item.customer?.business_name?.toLowerCase().includes(q) ?? false) ||
+        (item.business.tax_id?.includes(searchQuery) ?? false)
+    );
+    // Final dedupe — never render the same customer card twice.
+    const seen = new Set<string>();
+    return matched.filter((item) => {
+      const key = item.customer?.id ?? `biz:${item.business.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [displayItems, searchQuery]);
 
   // standaloneCustomers (customers without a business_id) are no longer
   // surfaced — see the fetch effect for the rationale.
@@ -1093,7 +1124,7 @@ export default function CustomersPage() {
               {filteredItems.map((item) => (
                 <Button
                   variant="ghost"
-                  key={item.business.id}
+                  key={item.customer?.id ?? `biz:${item.business.id}`}
                   type="button"
                   onClick={() => handleOpenDetail(item)}
                   className={`bg-[#6B21A8] rounded-[10px] p-[7px] min-h-[170px] h-auto flex flex-col items-center justify-center gap-[10px] transition-colors duration-200 hover:bg-[#7C3AED] cursor-pointer relative ${item.customer && !item.customer.is_active ? "opacity-40" : ""}`}
