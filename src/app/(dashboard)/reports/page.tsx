@@ -457,7 +457,9 @@ export default function ReportsPage() {
         const avgMarkup = goal?.markup_percentage != null
           ? Number(goal.markup_percentage)
           : (businessData || []).reduce((sum, b) => sum + (Number(b.markup_percentage) || 1), 0) / Math.max((businessData || []).length, 1);
-        const totalManagerSalary = (businessData || []).reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
+        const totalManagerSalary = (goal as { manager_monthly_salary?: number | null } | undefined)?.manager_monthly_salary != null
+          ? Number((goal as { manager_monthly_salary: number }).manager_monthly_salary)
+          : (businessData || []).reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
 
         // Calculate expected work days from schedule
         const scheduleDayFactors: Record<number, number[]> = {};

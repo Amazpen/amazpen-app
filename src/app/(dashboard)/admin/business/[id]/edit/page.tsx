@@ -38,6 +38,56 @@ const businessTypes = [
   { id: "other", label: "אחר" },
 ];
 
+// Hebrew month names
+const HEBREW_MONTHS = [
+  "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+  "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
+];
+
+// Reusable month/year picker shown when a per-month override is needed
+function MonthEffectivePicker({
+  label,
+  year,
+  month,
+  onYearChange,
+  onMonthChange,
+}: {
+  label: string;
+  year: number;
+  month: number;
+  onYearChange: (y: number) => void;
+  onMonthChange: (m: number) => void;
+}) {
+  const currentYear = new Date().getFullYear();
+  const years: number[] = [];
+  for (let y = currentYear - 3; y <= currentYear + 1; y++) years.push(y);
+  return (
+    <div className="flex items-center gap-[6px] mt-[3px]">
+      <span className="text-[11px] text-white/60 whitespace-nowrap">{label}:</span>
+      <Select value={String(month)} onValueChange={(v) => onMonthChange(Number(v))}>
+        <SelectTrigger className="h-[32px] bg-[#1a1f3a] border-[#4C526B] text-white text-[12px] px-[8px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {HEBREW_MONTHS.map((name, i) => (
+            <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={String(year)} onValueChange={(v) => onYearChange(Number(v))}>
+        <SelectTrigger className="h-[32px] bg-[#1a1f3a] border-[#4C526B] text-white text-[12px] px-[8px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {years.map((y) => (
+            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 // Days of week for schedule
 const daysOfWeek = [
   { id: 0, label: "ראשון", short: "א'" },
@@ -91,6 +141,20 @@ export default function EditBusinessPage({ params }: PageProps) {
   const [managerSalary, setManagerSalary] = useState<number>(0);
   const [markupPercentage, setMarkupPercentage] = useState<number>(18);
   const [vatPercentage, setVatPercentage] = useState<number>(18);
+
+  // Original values (loaded from DB) — used to detect changes that need a month-effective override
+  const [originalManagerSalary, setOriginalManagerSalary] = useState<number>(0);
+  const [originalMarkupPercentage, setOriginalMarkupPercentage] = useState<number>(0);
+  const [originalVatPercentage, setOriginalVatPercentage] = useState<number>(18);
+
+  // "Effective from" month/year for each field — defaults to current month
+  const _now = new Date();
+  const [managerSalaryEffectiveYear, setManagerSalaryEffectiveYear] = useState<number>(_now.getFullYear());
+  const [managerSalaryEffectiveMonth, setManagerSalaryEffectiveMonth] = useState<number>(_now.getMonth() + 1);
+  const [markupEffectiveYear, setMarkupEffectiveYear] = useState<number>(_now.getFullYear());
+  const [markupEffectiveMonth, setMarkupEffectiveMonth] = useState<number>(_now.getMonth() + 1);
+  const [vatEffectiveYear, setVatEffectiveYear] = useState<number>(_now.getFullYear());
+  const [vatEffectiveMonth, setVatEffectiveMonth] = useState<number>(_now.getMonth() + 1);
 
   // Step 2: Business Schedule
   const [schedule, setSchedule] = useState<Record<number, string>>({
@@ -247,12 +311,18 @@ export default function EditBusinessPage({ params }: PageProps) {
       );
       setExistingLogoUrl(business.logo_url || null);
       setLogoPreview(business.logo_url || null);
-      setManagerSalary(business.manager_monthly_salary || 0);
-      setMarkupPercentage(business.markup_percentage ? Math.round((business.markup_percentage - 1) * 100) : 0);
+      const _managerSalary = business.manager_monthly_salary || 0;
+      const _markupPct = business.markup_percentage ? Math.round((business.markup_percentage - 1) * 100) : 0;
+      const _vatPct = business.vat_percentage ? Math.round(business.vat_percentage * 100) : 18;
+      setManagerSalary(_managerSalary);
+      setMarkupPercentage(_markupPct);
+      setVatPercentage(_vatPct);
+      setOriginalManagerSalary(_managerSalary);
+      setOriginalMarkupPercentage(_markupPct);
+      setOriginalVatPercentage(_vatPct);
       if (business.form_section_order && Array.isArray(business.form_section_order)) {
         setFormSectionOrder(business.form_section_order as string[]);
       }
-      setVatPercentage(business.vat_percentage ? Math.round(business.vat_percentage * 100) : 18);
 
       // Fetch schedule
       const { data: scheduleData } = await supabase
@@ -658,7 +728,15 @@ export default function EditBusinessPage({ params }: PageProps) {
         }
       }
 
+      // Detect changes for the 3 month-effective fields
+      const managerSalaryChanged = managerSalary !== originalManagerSalary;
+      const markupChanged = markupPercentage !== originalMarkupPercentage;
+      const vatChanged = vatPercentage !== originalVatPercentage;
+
       // 2. Update business record
+      // For month-effective fields: if unchanged, persist as-is (keeps fallback consistent).
+      // If changed, also update businesses (so future months without a goal use the new value),
+      // AND we'll write goal overrides below to preserve historical months with the old value.
       const { error: businessError } = await supabase
         .from("businesses")
         .update({
@@ -683,6 +761,130 @@ export default function EditBusinessPage({ params }: PageProps) {
 
       if (businessError) {
         throw new Error(`שגיאה בעדכון העסק: ${businessError.message}`);
+      }
+
+      // 2b. Write goal overrides to preserve historical months with the OLD values.
+      // For each changed field, write the original value to all (year, month) before the
+      // selected effective month — so historical reports keep showing the old value.
+      // Goals from the effective month onwards are left to fall back to the (new) businesses value.
+      if (managerSalaryChanged || markupChanged || vatChanged) {
+        const HISTORICAL_START_YEAR = 2024; // far enough back to cover all historical reports
+        const today = new Date();
+        const todayY = today.getFullYear();
+        const todayM = today.getMonth() + 1;
+
+        type Override = {
+          business_id: string;
+          year: number;
+          month: number;
+          manager_monthly_salary?: number;
+          markup_percentage?: number;
+          vat_percentage?: number;
+        };
+
+        const overrides = new Map<string, Override>();
+        const addOverride = (y: number, m: number, patch: Partial<Override>) => {
+          const key = `${y}-${m}`;
+          const existing = overrides.get(key) || { business_id: businessId, year: y, month: m };
+          overrides.set(key, { ...existing, ...patch });
+        };
+
+        const fillRange = (
+          fromY: number, fromM: number, toY: number, toM: number,
+          patch: Partial<Override>,
+        ) => {
+          let y = fromY, m = fromM;
+          while (y < toY || (y === toY && m <= toM)) {
+            addOverride(y, m, patch);
+            m += 1;
+            if (m > 12) { m = 1; y += 1; }
+          }
+        };
+
+        // Helper: write old value to all months BEFORE the effective month
+        const writeHistorical = (
+          effY: number, effM: number, fieldPatch: Partial<Override>,
+        ) => {
+          // last historical month = (effY, effM) - 1
+          let toY = effY, toM = effM - 1;
+          if (toM < 1) { toM = 12; toY -= 1; }
+          // don't go past today (no point overriding future months in the past direction)
+          if (toY > todayY || (toY === todayY && toM > todayM)) {
+            toY = todayY; toM = todayM;
+          }
+          if (toY < HISTORICAL_START_YEAR) return;
+          fillRange(HISTORICAL_START_YEAR, 1, toY, toM, fieldPatch);
+        };
+
+        if (managerSalaryChanged) {
+          writeHistorical(managerSalaryEffectiveYear, managerSalaryEffectiveMonth, {
+            manager_monthly_salary: originalManagerSalary,
+          });
+        }
+        if (markupChanged) {
+          writeHistorical(markupEffectiveYear, markupEffectiveMonth, {
+            markup_percentage: 1 + originalMarkupPercentage / 100,
+          });
+        }
+        if (vatChanged) {
+          writeHistorical(vatEffectiveYear, vatEffectiveMonth, {
+            vat_percentage: originalVatPercentage / 100,
+          });
+        }
+
+        // Fetch existing (non-deleted) goals for these months so we don't overwrite other fields
+        const overrideRows = Array.from(overrides.values());
+        if (overrideRows.length > 0) {
+          const years = Array.from(new Set(overrideRows.map(o => o.year)));
+          const { data: existingGoals } = await supabase
+            .from("goals")
+            .select("id, year, month, manager_monthly_salary, markup_percentage, vat_percentage")
+            .eq("business_id", businessId)
+            .in("year", years)
+            .is("deleted_at", null);
+
+          const existingMap = new Map<string, { id: string; manager_monthly_salary: number | null; markup_percentage: number | null; vat_percentage: number | null }>();
+          (existingGoals || []).forEach(g => {
+            existingMap.set(`${g.year}-${g.month}`, {
+              id: g.id,
+              manager_monthly_salary: g.manager_monthly_salary as number | null,
+              markup_percentage: g.markup_percentage as number | null,
+              vat_percentage: g.vat_percentage as number | null,
+            });
+          });
+
+          // Build upsert payloads. Only set field if it's not already set in the existing goal
+          // (we don't want to overwrite a deliberate per-month value the user set elsewhere).
+          const toUpsert: Override[] = [];
+          for (const o of overrideRows) {
+            const key = `${o.year}-${o.month}`;
+            const existing = existingMap.get(key);
+            const merged: Override = { business_id: businessId, year: o.year, month: o.month };
+            if (o.manager_monthly_salary !== undefined && (!existing || existing.manager_monthly_salary == null)) {
+              merged.manager_monthly_salary = o.manager_monthly_salary;
+            }
+            if (o.markup_percentage !== undefined && (!existing || existing.markup_percentage == null)) {
+              merged.markup_percentage = o.markup_percentage;
+            }
+            if (o.vat_percentage !== undefined && (!existing || existing.vat_percentage == null)) {
+              merged.vat_percentage = o.vat_percentage;
+            }
+            const hasAnyField = merged.manager_monthly_salary !== undefined
+              || merged.markup_percentage !== undefined
+              || merged.vat_percentage !== undefined;
+            if (hasAnyField) toUpsert.push(merged);
+          }
+
+          if (toUpsert.length > 0) {
+            const { error: goalsError } = await supabase
+              .from("goals")
+              .upsert(toUpsert, { onConflict: "business_id,year,month" });
+            if (goalsError) {
+              console.error("goals override upsert error:", goalsError);
+              throw new Error(`שגיאה בשמירת ערכי החודשים: ${goalsError.message}`);
+            }
+          }
+        }
       }
 
       // 3. Update business schedule
@@ -1189,6 +1391,15 @@ export default function EditBusinessPage({ params }: PageProps) {
           />
           <span className="text-white/50 text-[14px] pl-[10px]">₪</span>
         </div>
+        {managerSalary !== originalManagerSalary && (
+          <MonthEffectivePicker
+            label="החל מחודש"
+            year={managerSalaryEffectiveYear}
+            month={managerSalaryEffectiveMonth}
+            onYearChange={setManagerSalaryEffectiveYear}
+            onMonthChange={setManagerSalaryEffectiveMonth}
+          />
+        )}
       </div>
 
       {/* Markup & VAT Row */}
@@ -1208,6 +1419,15 @@ export default function EditBusinessPage({ params }: PageProps) {
               className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
+          {markupPercentage !== originalMarkupPercentage && (
+            <MonthEffectivePicker
+              label="החל מחודש"
+              year={markupEffectiveYear}
+              month={markupEffectiveMonth}
+              onYearChange={setMarkupEffectiveYear}
+              onMonthChange={setMarkupEffectiveMonth}
+            />
+          )}
         </div>
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">אחוז מע&quot;מ</label>
@@ -1224,6 +1444,15 @@ export default function EditBusinessPage({ params }: PageProps) {
               className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
+          {vatPercentage !== originalVatPercentage && (
+            <MonthEffectivePicker
+              label="החל מחודש"
+              year={vatEffectiveYear}
+              month={vatEffectiveMonth}
+              onYearChange={setVatEffectiveYear}
+              onMonthChange={setVatEffectiveMonth}
+            />
+          )}
         </div>
       </div>
 
