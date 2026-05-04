@@ -86,7 +86,7 @@ const menuItems = [
   // know the feature exists, but locked (shows "בקרוב") for users who
   // aren't admins or members of one of the listed businesses. The
   // /ocr-business route itself filters its data to OUSHI exclusively.
-  { id: 15, label: "OCR", href: "/ocr-business", key: "ocr-business", lockedUnlessBusinessId: ["bcd1d49d-1fb7-4f50-b202-e8eae1d9fe70"] },
+  { id: 15, label: "קליטת מסמכים OCR", href: "/ocr-business", key: "ocr-business", lockedUnlessBusinessId: ["bcd1d49d-1fb7-4f50-b202-e8eae1d9fe70"] },
   { id: 10, label: "הגדרות", href: "/settings", key: "settings" },
   { id: 11, label: "התנתקות", href: "#logout", key: "logout", isLogout: true },
 ];

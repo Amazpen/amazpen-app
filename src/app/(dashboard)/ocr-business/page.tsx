@@ -65,7 +65,10 @@ export default function OCRBusinessPage() {
   const [documents, setDocuments] = useState<OCRDocument[]>([]);
   const [currentDocument, setCurrentDocument] = useState<OCRDocument | null>(null);
   const [filterStatus, setFilterStatus] = usePersistedState<DocumentStatus | 'all'>('ocr-business:filterStatus', 'pending');
-  const [businessFilter, setBusinessFilter] = usePersistedState<string>('ocr-business:businessFilter', 'all');
+  // No business filter on this page — the document scope is already
+  // restricted to selectedBusinesses and the per-tenant allowlist, so a
+  // "filter by business" dropdown would be redundant. The DocumentQueue
+  // hides the filter UI when onBusinessFilterChange isn't provided.
 
   useEffect(() => {
     if (filterStatus === 'reviewing') setFilterStatus('pending');
@@ -1127,8 +1130,6 @@ export default function OCRBusinessPage() {
               onFilterChange={setFilterStatus}
               vertical={true}
               businesses={businesses}
-              businessFilter={businessFilter}
-              onBusinessFilterChange={setBusinessFilter}
             />
           )}
         </div>
@@ -1218,8 +1219,6 @@ export default function OCRBusinessPage() {
             onFilterChange={setFilterStatus}
             vertical={false}
             businesses={businesses}
-            businessFilter={businessFilter}
-            onBusinessFilterChange={setBusinessFilter}
           />
         )}
       </div>
