@@ -26,6 +26,7 @@ import DocumentViewer from '@/components/ocr/DocumentViewer';
 import OCRForm from '@/components/ocr/OCRForm';
 import DocumentQueue from '@/components/ocr/DocumentQueue';
 import OCRFormResizer from '@/components/ocr/OCRFormResizer';
+import { OCRQueueSkeleton, OCRViewerSkeleton, OCRFormSkeleton } from '@/components/ocr/OCRSkeletons';
 import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
@@ -70,6 +71,8 @@ export default function OCRBusinessPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [isLoading, setIsLoading] = useState(false);
+  // Tracks the very first fetch — render skeletons until data arrives.
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showMobileViewer, setShowMobileViewer] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [showCalculator, setShowCalculator] = useState(false);
@@ -100,6 +103,7 @@ export default function OCRBusinessPage() {
     );
     if (visibleBusinessIds.length === 0) {
       setDocuments([]);
+      setIsInitialLoad(false);
       return [];
     }
     const { data, error } = await supabase
@@ -110,6 +114,7 @@ export default function OCRBusinessPage() {
 
     if (error) {
       console.error('Error fetching OCR documents:', error);
+      setIsInitialLoad(false);
       return [];
     }
 
@@ -186,8 +191,10 @@ export default function OCRBusinessPage() {
         };
       });
       setDocuments(mapped);
+      setIsInitialLoad(false);
       return mapped;
     }
+    setIsInitialLoad(false);
     return [];
   }, [selectedBusinesses, isAdmin]);
 
@@ -1101,17 +1108,21 @@ export default function OCRBusinessPage() {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Document Queue - Right side (desktop) */}
         <div id="onboarding-ocr-queue" className="hidden lg:flex lg:flex-col lg:w-[240px] min-h-0 lg:border-l border-[#4C526B]">
-          <DocumentQueue
-            documents={documents}
-            currentDocumentId={currentDocument?.id || null}
-            onSelectDocument={handleSelectDocument}
-            filterStatus={filterStatus}
-            onFilterChange={setFilterStatus}
-            vertical={true}
-            businesses={businesses}
-            businessFilter={businessFilter}
-            onBusinessFilterChange={setBusinessFilter}
-          />
+          {isInitialLoad ? (
+            <OCRQueueSkeleton vertical />
+          ) : (
+            <DocumentQueue
+              documents={documents}
+              currentDocumentId={currentDocument?.id || null}
+              onSelectDocument={handleSelectDocument}
+              filterStatus={filterStatus}
+              onFilterChange={setFilterStatus}
+              vertical={true}
+              businesses={businesses}
+              businessFilter={businessFilter}
+              onBusinessFilterChange={setBusinessFilter}
+            />
+          )}
         </div>
 
         {/* Document Viewer - Center (desktop) / Tab 1 (mobile) */}
@@ -1122,7 +1133,9 @@ export default function OCRBusinessPage() {
           }`}
           style={{ minHeight: 0, overflow: 'hidden', height: '100%' }}
         >
-          {currentDocument ? (
+          {isInitialLoad ? (
+            <OCRViewerSkeleton />
+          ) : currentDocument ? (
             <DocumentViewer
               key={currentDocument.image_url + mergedDocuments.map(d => d.id).join(',')}
               imageUrl={currentDocument.image_url}
@@ -1154,45 +1167,53 @@ export default function OCRBusinessPage() {
           style={isLgScreen ? { width: `${formWidth}px` } : undefined}
         >
           <OCRFormResizer width={formWidth} onWidthChange={setFormWidth} />
-          <OCRForm
-            key={currentDocument?.id || 'no-doc'}
-            document={currentDocument}
-            suppliers={suppliers}
-            coordinatorSuppliers={coordinatorSuppliers}
-            businesses={businesses}
-            selectedBusinessId={selectedBusinessId}
-            onBusinessChange={setSelectedBusinessId}
-            onApprove={handleApprove}
-            onReject={handleReject}
-            onDelete={handleDelete}
-            onSkip={handleSkip}
-            isLoading={isLoading}
-            showCalculator={showCalculator}
-            onCalculatorToggle={() => setShowCalculator(v => !v)}
-            mergedDocuments={mergedDocuments}
-            pendingDocuments={documents.filter(d => {
-              if (d.status !== 'pending') return false;
-              const targetBiz = currentDocument?.business_id || selectedBusinessId;
-              return !d.business_id || !targetBiz || d.business_id === targetBiz;
-            })}
-            onMergeDocuments={setMergedDocuments}
-          />
+          {isInitialLoad ? (
+            <OCRFormSkeleton />
+          ) : (
+            <OCRForm
+              key={currentDocument?.id || 'no-doc'}
+              document={currentDocument}
+              suppliers={suppliers}
+              coordinatorSuppliers={coordinatorSuppliers}
+              businesses={businesses}
+              selectedBusinessId={selectedBusinessId}
+              onBusinessChange={setSelectedBusinessId}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              onDelete={handleDelete}
+              onSkip={handleSkip}
+              isLoading={isLoading}
+              showCalculator={showCalculator}
+              onCalculatorToggle={() => setShowCalculator(v => !v)}
+              mergedDocuments={mergedDocuments}
+              pendingDocuments={documents.filter(d => {
+                if (d.status !== 'pending') return false;
+                const targetBiz = currentDocument?.business_id || selectedBusinessId;
+                return !d.business_id || !targetBiz || d.business_id === targetBiz;
+              })}
+              onMergeDocuments={setMergedDocuments}
+            />
+          )}
         </div>
       </div>
 
       {/* Document Queue - Bottom (mobile only) */}
       <div className="lg:hidden">
-        <DocumentQueue
-          documents={documents}
-          currentDocumentId={currentDocument?.id || null}
-          onSelectDocument={handleSelectDocument}
-          filterStatus={filterStatus}
-          onFilterChange={setFilterStatus}
-          vertical={false}
-          businesses={businesses}
-          businessFilter={businessFilter}
-          onBusinessFilterChange={setBusinessFilter}
-        />
+        {isInitialLoad ? (
+          <OCRQueueSkeleton vertical={false} />
+        ) : (
+          <DocumentQueue
+            documents={documents}
+            currentDocumentId={currentDocument?.id || null}
+            onSelectDocument={handleSelectDocument}
+            filterStatus={filterStatus}
+            onFilterChange={setFilterStatus}
+            vertical={false}
+            businesses={businesses}
+            businessFilter={businessFilter}
+            onBusinessFilterChange={setBusinessFilter}
+          />
+        )}
       </div>
     </div>
   );
