@@ -798,6 +798,12 @@ export default function OCRPage() {
           reviewed_by: user?.id || null,
           reviewed_at: new Date().toISOString(),
           document_type: formData.document_type === 'summary' ? 'invoice' : formData.document_type,
+          // Sync the OCR doc's business_id to whatever the reviewer picked.
+          // Without this, a doc whose AI-detected business was wrong stays
+          // visible under the wrong business in the per-tenant /ocr-business
+          // queue even after approval. Fall back to the existing id when
+          // the form didn't carry one through.
+          business_id: formData.business_id || currentDocument.business_id || null,
           created_invoice_id: createdInvoiceId,
           created_payment_id: createdPaymentId,
           created_delivery_note_id: createdDeliveryNoteId,

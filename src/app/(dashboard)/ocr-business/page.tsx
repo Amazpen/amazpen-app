@@ -806,6 +806,10 @@ export default function OCRBusinessPage() {
           reviewed_by: user?.id || null,
           reviewed_at: new Date().toISOString(),
           document_type: formData.document_type === 'summary' ? 'invoice' : formData.document_type,
+          // Mirror /ocr/page.tsx — sync business_id to whatever the form
+          // carried so AI-misclassified docs land under the corrected
+          // business in archive/approved views.
+          business_id: formData.business_id || currentDocument.business_id || null,
           created_invoice_id: createdInvoiceId,
           created_payment_id: createdPaymentId,
           created_delivery_note_id: createdDeliveryNoteId,
