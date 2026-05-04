@@ -1,15 +1,22 @@
 'use client';
 
 /**
- * OCR — Per-business portal for אושי אושי דימונה
+ * OCR — Per-business portal
  *
- * Same Mistral pipeline as /ocr, but scoped to a single business so that
- * non-admin members of אושי אושי דימונה can review their own documents
- * without seeing anyone else's queue. Access is restricted to admins or
- * members of OUSHI_BUSINESS_ID.
+ * Same Mistral pipeline as /ocr, but scoped strictly to the businesses the
+ * user has currently selected in the dashboard's business switcher (or the
+ * single business they're a member of). The admin /ocr page is the only
+ * place that shows the full cross-business queue. This page MUST never leak
+ * a document from a business the user didn't pick.
+ *
+ * Access gate: must be admin OR a member of at least one of the businesses
+ * in the layout-allowlist (currently OUSHI). Otherwise redirected to /.
  */
 
-const OUSHI_BUSINESS_ID = 'bcd1d49d-1fb7-4f50-b202-e8eae1d9fe70';
+// Businesses that may use this per-tenant portal. Membership in at least one
+// of these is required for non-admins. Add another business id here to
+// extend access.
+const ALLOWED_BUSINESS_IDS = ['bcd1d49d-1fb7-4f50-b202-e8eae1d9fe70'];
 
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -46,10 +53,11 @@ export default function OCRBusinessPage() {
   const router = useRouter();
   const { isAdmin, selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
-  // hasAccess: admin (sees everything) or member of OUSHI (selectedBusinesses
-  // includes the OUSHI id once layout has populated memberships). Non-OUSHI
-  // members get redirected away by the gate effect below.
-  const hasAccess = isAdmin || selectedBusinesses.includes(OUSHI_BUSINESS_ID);
+  // hasAccess: admin OR currently has at least one ALLOWED business selected.
+  // Non-admin users without OUSHI selected get redirected to / by the effect
+  // below. This is a UI gate; the per-row business filter below is the
+  // hard guarantee that no other business's docs are queried.
+  const hasAccess = isAdmin || selectedBusinesses.some((id) => ALLOWED_BUSINESS_IDS.includes(id));
 
   // State - ALL hooks must be declared before any conditional returns
   const [documents, setDocuments] = useState<OCRDocument[]>([]);
@@ -81,13 +89,23 @@ export default function OCRBusinessPage() {
   // Fetch OCR documents from Supabase
   const fetchDocuments = useCallback(async (): Promise<OCRDocument[]> => {
     const supabase = createClient();
-    // Per-tenant scope: only OUSHI documents. The legacy /ocr page sees the
-    // full queue across all businesses; this page is the OUSHI portal so
-    // members never see another business's documents.
+    // Per-tenant scope: ONLY documents from currently-selected businesses.
+    // The admin /ocr page sees the cross-business queue; here we strictly
+    // never query another business. If nothing is selected, return empty.
+    // For non-admins we further restrict to ALLOWED_BUSINESS_IDS so even
+    // if a member of multiple businesses selected one that isn't allowed
+    // here, we don't leak it.
+    const visibleBusinessIds = selectedBusinesses.filter((id) =>
+      isAdmin ? true : ALLOWED_BUSINESS_IDS.includes(id),
+    );
+    if (visibleBusinessIds.length === 0) {
+      setDocuments([]);
+      return [];
+    }
     const { data, error } = await supabase
       .from('ocr_documents')
       .select('*, ocr_extracted_data(*, ocr_extracted_line_items(*))')
-      .eq('business_id', OUSHI_BUSINESS_ID)
+      .in('business_id', visibleBusinessIds)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -171,7 +189,7 @@ export default function OCRBusinessPage() {
       return mapped;
     }
     return [];
-  }, []);
+  }, [selectedBusinesses, isAdmin]);
 
   // Business and supplier state
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -204,23 +222,37 @@ export default function OCRBusinessPage() {
     !isCheckingAuth && hasAccess
   );
 
-  // Per-tenant scope: only the OUSHI business is fetched/exposed in the
-  // picker — even admins editing through this page work in OUSHI context.
-  // selectedBusinessId is force-pinned so the form/queue can't be flipped.
+  // Per-tenant scope: only currently-selected businesses appear in the
+  // picker. The OCR form uses this picker to know which business to write
+  // the new invoice/payment under, so it must mirror selectedBusinesses
+  // exactly. Default selectedBusinessId to the first available so the
+  // form has a valid target without the user having to pick.
   const fetchBusinesses = useCallback(async () => {
     if (isCheckingAuth || !hasAccess) return;
     const supabase = createClient();
+    const visibleBusinessIds = selectedBusinesses.filter((id) =>
+      isAdmin ? true : ALLOWED_BUSINESS_IDS.includes(id),
+    );
+    if (visibleBusinessIds.length === 0) {
+      setBusinesses([]);
+      return;
+    }
     const { data } = await supabase
       .from('businesses')
       .select('id, name, vat_percentage')
-      .eq('id', OUSHI_BUSINESS_ID)
+      .in('id', visibleBusinessIds)
       .is('deleted_at', null)
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .order('name');
     if (data && data.length > 0) {
       setBusinesses(data);
-      setSelectedBusinessId(OUSHI_BUSINESS_ID);
+      // Re-pin selectedBusinessId if it points outside the current scope
+      // (e.g. user switched businesses in the global switcher).
+      if (!selectedBusinessId || !visibleBusinessIds.includes(selectedBusinessId)) {
+        setSelectedBusinessId(data[0].id);
+      }
     }
-  }, [isCheckingAuth, hasAccess, setSelectedBusinessId]);
+  }, [isCheckingAuth, hasAccess, isAdmin, selectedBusinesses, selectedBusinessId, setSelectedBusinessId]);
   useEffect(() => { fetchBusinesses(); }, [fetchBusinesses]);
   useMultiTableRealtime(
     ['businesses'],
@@ -282,11 +314,13 @@ export default function OCRBusinessPage() {
   const handleSelectDocument = useCallback((document: OCRDocument) => {
     setCurrentDocument(document);
     setMergedDocuments([]);
-    // Per-tenant scope: do NOT switch business on selection. The queue is
-    // already filtered to OUSHI, so all documents belong to it; flipping
-    // selectedBusinessId would only happen if a stale doc from another
-    // business slipped through, which we don't want.
-  }, []);
+    // Sync the form-target business to whichever business the doc belongs
+    // to. Safe: fetchDocuments only returns docs from selectedBusinesses,
+    // so document.business_id is always within scope.
+    if (document.business_id) {
+      setSelectedBusinessId(document.business_id);
+    }
+  }, [setSelectedBusinessId]);
 
   const handleApprove = useCallback(
     async (formData: OCRFormData) => {
