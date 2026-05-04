@@ -63,7 +63,7 @@ const DashboardContext = createContext<DashboardContextType>({
 export const useDashboard = () => useContext(DashboardContext);
 
 // Pages that exist (have actual page.tsx files)
-const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/surveys", "/ocr", "/ocr/demo", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/markezet-import", "/admin/payments", "/admin/commitments", "/admin/daily-entries", "/admin/historical-data", "/admin/online-users", "/admin/accounting-review", "/admin/day-exceptions", "/admin/bonus-plans", "/admin/goals-import", "/admin/supplier-budgets", "/admin/ai-conversations"];
+const existingPages = ["/", "/customers", "/expenses", "/suppliers", "/payments", "/cashflow", "/goals", "/reports", "/insights", "/surveys", "/ocr", "/ocr-business", "/price-tracking", "/settings", "/ai", "/admin/business/new", "/admin/business/edit", "/admin/users", "/admin/goals", "/admin/suppliers", "/admin/expenses", "/admin/markezet-import", "/admin/payments", "/admin/commitments", "/admin/daily-entries", "/admin/historical-data", "/admin/online-users", "/admin/accounting-review", "/admin/day-exceptions", "/admin/bonus-plans", "/admin/goals-import", "/admin/supplier-budgets", "/admin/ai-conversations"];
 
 // Menu items for sidebar
 const menuItems = [
@@ -82,6 +82,11 @@ const menuItems = [
   { id: 9, label: "תובנות", href: "/insights", key: "insights", requiresBusiness: true, adminOnly: true },
   { id: 14, label: "סקרים", href: "/surveys", key: "surveys", requiresBusiness: true },
   { id: 13, label: "תכניות בונוסים", href: "/admin/bonus-plans", key: "bonus-plans", requiresBusiness: true },
+  // Per-business OCR portal. Visible to everyone in the sidebar so they
+  // know the feature exists, but locked (shows "בקרוב") for users who
+  // aren't admins or members of one of the listed businesses. The
+  // /ocr-business route itself filters its data to OUSHI exclusively.
+  { id: 15, label: "OCR", href: "/ocr-business", key: "ocr-business", lockedUnlessBusinessId: ["bcd1d49d-1fb7-4f50-b202-e8eae1d9fe70"] },
   { id: 10, label: "הגדרות", href: "/settings", key: "settings" },
   { id: 11, label: "התנתקות", href: "#logout", key: "logout", isLogout: true },
 ];
@@ -114,7 +119,6 @@ const adminMenuGroups: Array<{
     title: "תפעול יומיומי",
     items: [
       { id: 104, label: "קליטת מסמכים OCR", href: "/ocr", key: "admin-ocr" },
-      { id: 121, label: "OCR דמו", href: "/ocr/demo", key: "admin-ocr-demo" },
       { id: 120, label: "מעקב מחירי ספקים", href: "/price-tracking", key: "admin-price-tracking" },
       { id: 111, label: "בדיקה ורישום בהנה\"ח", href: "/admin/accounting-review", key: "admin-accounting-review" },
       { id: 113, label: "חריגות ימי עסקים", href: "/admin/day-exceptions", key: "admin-day-exceptions" },
@@ -146,7 +150,7 @@ const pageTitles: Record<string, string> = {
   "/payments": "ניהול תשלומים",
   "/cashflow": "תזרים מזומנים",
   "/ocr": "קליטת מסמכים OCR",
-  "/ocr/demo": "OCR דמו",
+  "/ocr-business": "קליטת מסמכים OCR",
   "/reports": "דוח רווח הפסד",
   "/goals": "יעדים",
   "/insights": "תובנות",
@@ -770,10 +774,18 @@ export default function DashboardLayout({
                 }
 
                 const pageExists = existingPages.includes(item.href);
-                // Admin-only items appear as "בקרוב" to regular users
-                const lockedForUser = !!item.adminOnly && !isAdmin;
+                // Admin-only items appear as "בקרוב" to regular users.
+                // lockedUnlessBusinessId items appear as "בקרוב" unless the
+                // user is admin OR member of one of the listed businesses
+                // (per-tenant features like the OCR portal for אושי אושי).
+                const lockedByAdmin = !!item.adminOnly && !isAdmin;
+                const allowedForBiz = (item as { lockedUnlessBusinessId?: string[] }).lockedUnlessBusinessId;
+                const lockedByBiz = !!(allowedForBiz && allowedForBiz.length > 0)
+                  && !isAdmin
+                  && !allowedForBiz!.some((id) => memberBusinessIds.has(id));
+                const lockedForUser = lockedByAdmin || lockedByBiz;
 
-                const IconComponent = item.key === "settings" ? SettingsIcon : item.key === "dashboard" ? DashboardIcon : item.key === "expenses" ? ExpensesIcon : item.key === "suppliers" ? SuppliersIcon : item.key === "payments" ? PaymentsIcon : item.key === "cashflow" ? CashFlowIcon : item.key === "insights" ? InsightsIcon : item.key === "tasks" ? TasksIcon : item.key === "reports" ? ReportsIcon : item.key === "goals" ? GoalsIcon : item.key === "surveys" ? SurveysIcon : item.key === "customers" ? CustomersIcon : MenuIcon;
+                const IconComponent = item.key === "settings" ? SettingsIcon : item.key === "dashboard" ? DashboardIcon : item.key === "expenses" ? ExpensesIcon : item.key === "suppliers" ? SuppliersIcon : item.key === "payments" ? PaymentsIcon : item.key === "cashflow" ? CashFlowIcon : item.key === "insights" ? InsightsIcon : item.key === "tasks" ? TasksIcon : item.key === "reports" ? ReportsIcon : item.key === "goals" ? GoalsIcon : item.key === "surveys" ? SurveysIcon : item.key === "customers" ? CustomersIcon : item.key === "ocr-business" ? ExpensesIcon : MenuIcon;
 
                 if (!pageExists || lockedForUser) {
                   return (

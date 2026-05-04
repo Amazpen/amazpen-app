@@ -1,19 +1,19 @@
 'use client';
 
 /**
- * OCR Demo Page — clone of /ocr that runs the Mistral pipeline
+ * OCR — Per-business portal for אושי אושי דימונה
  *
- * Identical UI, queue, form, and DB persistence as the production /ocr page.
- * The only difference: the re-OCR call (triggered by image crop) hits
- * /api/ai/ocr-extract-mistral instead of /api/ai/ocr-extract.
- *
- * Approving here writes to the same invoices/payments/delivery_notes tables
- * as the production page — by design, per product owner.
+ * Same Mistral pipeline as /ocr, but scoped to a single business so that
+ * non-admin members of אושי אושי דימונה can review their own documents
+ * without seeing anyone else's queue. Access is restricted to admins or
+ * members of OUSHI_BUSINESS_ID.
  */
+
+const OUSHI_BUSINESS_ID = 'bcd1d49d-1fb7-4f50-b202-e8eae1d9fe70';
 
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDashboard } from '../../layout';
+import { useDashboard } from '../layout';
 import { createClient } from '@/lib/supabase/client';
 import DocumentViewer from '@/components/ocr/DocumentViewer';
 import OCRForm from '@/components/ocr/OCRForm';
@@ -42,16 +42,20 @@ interface Supplier {
   expense_type?: string | null;
 }
 
-export default function OCRDemoPage() {
+export default function OCRBusinessPage() {
   const router = useRouter();
-  const { isAdmin } = useDashboard();
+  const { isAdmin, selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
+  // hasAccess: admin (sees everything) or member of OUSHI (selectedBusinesses
+  // includes the OUSHI id once layout has populated memberships). Non-OUSHI
+  // members get redirected away by the gate effect below.
+  const hasAccess = isAdmin || selectedBusinesses.includes(OUSHI_BUSINESS_ID);
 
   // State - ALL hooks must be declared before any conditional returns
   const [documents, setDocuments] = useState<OCRDocument[]>([]);
   const [currentDocument, setCurrentDocument] = useState<OCRDocument | null>(null);
-  const [filterStatus, setFilterStatus] = usePersistedState<DocumentStatus | 'all'>('ocr-demo:filterStatus', 'pending');
-  const [businessFilter, setBusinessFilter] = usePersistedState<string>('ocr-demo:businessFilter', 'all');
+  const [filterStatus, setFilterStatus] = usePersistedState<DocumentStatus | 'all'>('ocr-business:filterStatus', 'pending');
+  const [businessFilter, setBusinessFilter] = usePersistedState<string>('ocr-business:businessFilter', 'all');
 
   useEffect(() => {
     if (filterStatus === 'reviewing') setFilterStatus('pending');
@@ -77,9 +81,13 @@ export default function OCRDemoPage() {
   // Fetch OCR documents from Supabase
   const fetchDocuments = useCallback(async (): Promise<OCRDocument[]> => {
     const supabase = createClient();
+    // Per-tenant scope: only OUSHI documents. The legacy /ocr page sees the
+    // full queue across all businesses; this page is the OUSHI portal so
+    // members never see another business's documents.
     const { data, error } = await supabase
       .from('ocr_documents')
       .select('*, ocr_extracted_data(*, ocr_extracted_line_items(*))')
+      .eq('business_id', OUSHI_BUSINESS_ID)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -167,7 +175,7 @@ export default function OCRDemoPage() {
 
   // Business and supplier state
   const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [selectedBusinessId, setSelectedBusinessId] = usePersistedState('ocr-demo:businessId', '');
+  const [selectedBusinessId, setSelectedBusinessId] = usePersistedState('ocr-business:businessId', '');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [coordinatorSuppliers, setCoordinatorSuppliers] = useState<Supplier[]>([]);
 
@@ -179,44 +187,45 @@ export default function OCRDemoPage() {
   }, []);
 
   useEffect(() => {
-    if (!isCheckingAuth && !isAdmin) {
+    if (!isCheckingAuth && !hasAccess) {
       router.replace('/');
     }
-  }, [isAdmin, isCheckingAuth, router]);
+  }, [hasAccess, isCheckingAuth, router]);
 
   useEffect(() => {
-    if (!isCheckingAuth && isAdmin) {
+    if (!isCheckingAuth && hasAccess) {
       fetchDocuments();
     }
-  }, [isCheckingAuth, isAdmin, fetchDocuments]);
+  }, [isCheckingAuth, hasAccess, fetchDocuments]);
 
   useMultiTableRealtime(
     ['ocr_documents', 'ocr_extracted_data'],
     fetchDocuments,
-    !isCheckingAuth && isAdmin
+    !isCheckingAuth && hasAccess
   );
 
+  // Per-tenant scope: only the OUSHI business is fetched/exposed in the
+  // picker — even admins editing through this page work in OUSHI context.
+  // selectedBusinessId is force-pinned so the form/queue can't be flipped.
   const fetchBusinesses = useCallback(async () => {
-    if (isCheckingAuth || !isAdmin) return;
+    if (isCheckingAuth || !hasAccess) return;
     const supabase = createClient();
     const { data } = await supabase
       .from('businesses')
       .select('id, name, vat_percentage')
+      .eq('id', OUSHI_BUSINESS_ID)
       .is('deleted_at', null)
-      .eq('status', 'active')
-      .order('name');
+      .eq('status', 'active');
     if (data && data.length > 0) {
       setBusinesses(data);
-      if (!selectedBusinessId) {
-        setSelectedBusinessId(data[0].id);
-      }
+      setSelectedBusinessId(OUSHI_BUSINESS_ID);
     }
-  }, [isCheckingAuth, isAdmin, selectedBusinessId, setSelectedBusinessId]);
+  }, [isCheckingAuth, hasAccess, setSelectedBusinessId]);
   useEffect(() => { fetchBusinesses(); }, [fetchBusinesses]);
   useMultiTableRealtime(
     ['businesses'],
     fetchBusinesses,
-    !isCheckingAuth && isAdmin,
+    !isCheckingAuth && hasAccess,
   );
 
   const fetchSuppliers = useCallback(async () => {
@@ -261,22 +270,23 @@ export default function OCRDemoPage() {
   }, [fetchSuppliers]);
 
   useEffect(() => {
-    if (!isCheckingAuth && isAdmin) {
+    if (!isCheckingAuth && hasAccess) {
       const pendingDocs = documents.filter((doc) => doc.status === 'pending');
       if (pendingDocs.length > 0 && !currentDocument) {
         handleSelectDocument(pendingDocs[0]);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [documents, currentDocument, isCheckingAuth, isAdmin]);
+  }, [documents, currentDocument, isCheckingAuth, hasAccess]);
 
   const handleSelectDocument = useCallback((document: OCRDocument) => {
     setCurrentDocument(document);
     setMergedDocuments([]);
-    if (document.business_id) {
-      setSelectedBusinessId(document.business_id);
-    }
-  }, [setSelectedBusinessId]);
+    // Per-tenant scope: do NOT switch business on selection. The queue is
+    // already filtered to OUSHI, so all documents belong to it; flipping
+    // selectedBusinessId would only happen if a stale doc from another
+    // business slipped through, which we don't want.
+  }, []);
 
   const handleApprove = useCallback(
     async (formData: OCRFormData) => {
@@ -1000,7 +1010,7 @@ export default function OCRDemoPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!hasAccess) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-60px)] bg-[#0a0d1f]">
         <div className="flex flex-col items-center gap-4 text-white/60">
@@ -1019,7 +1029,7 @@ export default function OCRDemoPage() {
     <div className="flex flex-col h-[calc(100vh-60px)] bg-[#0a0d1f]">
       {/* Page header - mobile only */}
       <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-[#0F1535] border-b border-[#4C526B]">
-        <h1 className="text-[18px] font-bold text-white">קליטת מסמכים OCR (Mistral)</h1>
+        <h1 className="text-[18px] font-bold text-white">קליטת מסמכים OCR</h1>
         <span className="text-[14px] text-white/60">
           {pendingCount} ממתינים
         </span>

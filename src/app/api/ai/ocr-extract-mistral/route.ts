@@ -4,7 +4,7 @@
  * Drop-in replacement for /api/ai/ocr-extract that swaps Google Vision for
  * Mistral Document AI in step 1. Step 2 (GPT-4.1-mini structured extraction)
  * is identical so the response contract matches `/api/ai/ocr-extract` exactly
- * — `/ocr/demo` (a clone of `/ocr`) consumes the same JSON shape.
+ * — `/ocr` and `/ocr-business` both consume the same JSON shape.
  *
  * Pipeline:
  *   1. Mistral OCR → markdown (preserves table structure)
