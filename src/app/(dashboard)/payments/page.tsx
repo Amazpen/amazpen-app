@@ -558,7 +558,7 @@ function PaymentsPageInner() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-      const res = await fetch("/api/ai/ocr-extract", { method: "POST", body: fd, signal: controller.signal });
+      const res = await fetch("/api/ai/ocr-extract-mistral", { method: "POST", body: fd, signal: controller.signal });
       clearTimeout(timeoutId);
 
       if (!res.ok) {

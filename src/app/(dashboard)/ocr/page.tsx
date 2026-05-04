@@ -1,5 +1,13 @@
 'use client';
 
+/**
+ * OCR Page — Mistral pipeline (production)
+ *
+ * Reads Mistral-extracted columns first, falls back to legacy Google Vision
+ * values only if Mistral hasn't processed the doc yet. Re-OCR (triggered by
+ * image crop) hits /api/ai/ocr-extract-mistral.
+ */
+
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDashboard } from '../layout';
@@ -88,29 +96,47 @@ export default function OCRPage() {
           ? doc.ocr_extracted_data[0] as Record<string, unknown>
           : null;
 
-        // Map line items from nested relation
-        const rawLineItems = Array.isArray(extracted?.ocr_extracted_line_items)
+        // Read MISTRAL columns first, fall back to legacy Google Vision values
+        // only if Mistral hasn't processed this doc yet. Line items come from
+        // the JSONB mistral_line_items field when available, otherwise from
+        // the legacy ocr_extracted_line_items relation.
+        const hasMistral = extracted?.mistral_processed_at != null
+          && extracted?.mistral_supplier_name != null;
+
+        const mistralItemsRaw = Array.isArray(extracted?.mistral_line_items)
+          ? (extracted.mistral_line_items as Record<string, unknown>[])
+          : [];
+        const legacyItemsRaw = Array.isArray(extracted?.ocr_extracted_line_items)
           ? (extracted.ocr_extracted_line_items as Record<string, unknown>[])
           : [];
+        const rawLineItems = hasMistral && mistralItemsRaw.length > 0
+          ? mistralItemsRaw
+          : legacyItemsRaw;
         const lineItems = rawLineItems.map((li) => ({
-          id: li.id as string,
+          id: (li.id as string) || undefined,
           description: (li.description as string) || undefined,
           quantity: li.quantity != null ? Number(li.quantity) : undefined,
           unit_price: li.unit_price != null ? Number(li.unit_price) : undefined,
           total: li.total != null ? Number(li.total) : undefined,
         }));
 
+        const pick = <T,>(mistralVal: T, googleVal: T): T => (hasMistral && mistralVal != null ? mistralVal : googleVal);
+
         const ocrData: OCRExtractedData | undefined = extracted ? {
-          supplier_name: (extracted.supplier_name as string) || undefined,
-          supplier_tax_id: (extracted.supplier_tax_id as string) || undefined,
-          document_number: (extracted.document_number as string) || undefined,
-          document_date: extracted.document_date ? String(extracted.document_date) : undefined,
-          subtotal: extracted.subtotal != null ? Number(extracted.subtotal) : undefined,
-          vat_amount: extracted.vat_amount != null ? Number(extracted.vat_amount) : undefined,
-          total_amount: extracted.total_amount != null ? Number(extracted.total_amount) : undefined,
+          supplier_name: pick(extracted.mistral_supplier_name as string, extracted.supplier_name as string) || undefined,
+          supplier_tax_id: pick(extracted.mistral_supplier_tax_id as string, extracted.supplier_tax_id as string) || undefined,
+          document_number: pick(extracted.mistral_document_number as string, extracted.document_number as string) || undefined,
+          document_date: pick(extracted.mistral_document_date, extracted.document_date)
+            ? String(pick(extracted.mistral_document_date, extracted.document_date)) : undefined,
+          subtotal: pick(extracted.mistral_subtotal, extracted.subtotal) != null
+            ? Number(pick(extracted.mistral_subtotal, extracted.subtotal)) : undefined,
+          vat_amount: pick(extracted.mistral_vat_amount, extracted.vat_amount) != null
+            ? Number(pick(extracted.mistral_vat_amount, extracted.vat_amount)) : undefined,
+          total_amount: pick(extracted.mistral_total_amount, extracted.total_amount) != null
+            ? Number(pick(extracted.mistral_total_amount, extracted.total_amount)) : undefined,
           confidence_score: extracted.overall_confidence != null ? Number(extracted.overall_confidence) : undefined,
-          raw_text: (extracted.raw_text as string) || undefined,
-          matched_supplier_id: (extracted.matched_supplier_id as string) || undefined,
+          raw_text: (hasMistral ? (extracted.mistral_markdown as string) : (extracted.raw_text as string)) || undefined,
+          matched_supplier_id: pick(extracted.mistral_matched_supplier_id as string, extracted.matched_supplier_id as string) || undefined,
           line_items: lineItems.length > 0 ? lineItems : undefined,
         } : undefined;
 
@@ -124,7 +150,7 @@ export default function OCRPage() {
           original_filename: (doc.original_filename as string) || undefined,
           file_type: (doc.file_type as string) || undefined,
           status: (doc.status as string || 'pending') as DocumentStatus,
-          document_type: (doc.document_type as DocumentType) || undefined,
+          document_type: (pick(extracted?.mistral_document_type as DocumentType, doc.document_type as DocumentType)) || undefined,
           ocr_data: ocrData,
           created_at: doc.created_at as string,
           processed_at: (doc.ocr_processed_at as string) || undefined,
@@ -298,12 +324,6 @@ export default function OCRPage() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
 
-        // Get business VAT rate from already-loaded businesses data. If the
-        // supplier is flagged vat_type='none' (פטור-ממעמ), the effective rate
-        // for this document is 0 so subtotal = total and vat = 0 — otherwise
-        // a מרכזת/תעודת משלוח for a VAT-exempt supplier gets a phantom VAT
-        // split (seen in the wild: ירקות ופירות שלמה המלך, invoice 103586
-        // arrived with ₪3,502 VAT on a ₪22,960 total despite vat_type='none').
         const bizVatRate = Number(businesses.find(b => b.id === formData.business_id)?.vat_percentage) || 0.18;
         let supplierVatType: string | null = null;
         if (formData.supplier_id) {
@@ -316,24 +336,10 @@ export default function OCRPage() {
         }
         const effectiveVatRate = supplierVatType === 'none' ? 0 : bizVatRate;
 
-        // NOTE: we intentionally do NOT recompute credit-card due dates
-        // on the server any more. OCRForm already applies the
-        // `billing_day - 1` shift via getSmartPaymentDate when a card is
-        // picked, and any manual date edit is the user's explicit intent.
-        // Recomputing here was double-shifting (e.g. saving May 8 instead
-        // of April 9) and was the root cause of the "כרטיס שיורד ב10 →
-        // נשמר כ-8.5" bug.
-
-        // Track created record IDs for linking back to ocr_documents
         let createdInvoiceId: string | null = null;
         let createdPaymentId: string | null = null;
         let createdDeliveryNoteId: string | null = null;
 
-        // The OCR document's image_url + all merged document URLs should be linked
-        // as attachments on the created records. Prefer formData.merged_document_ids
-        // (authoritative — survives re-renders) and fall back to the
-        // mergedDocuments state. Look up image_urls directly from the DB so the
-        // saved attachment_url is always complete, even if state was stale.
         const mergedIdsForAttach = (formData.merged_document_ids || []).filter(Boolean);
         let mergedImageUrls: string[] = mergedDocuments
           .filter(d => d && d.image_url)
@@ -355,9 +361,6 @@ export default function OCRPage() {
           : JSON.stringify(allImageUrls);
 
         if (formData.document_type === 'invoice' || formData.document_type === 'credit_note' || formData.document_type === 'disputed_invoice') {
-          // --- INVOICE / CREDIT NOTE ---
-          // If this document should be linked to an existing pending fixed-expense
-          // invoice, UPDATE that placeholder instead of creating a duplicate.
           let newInvoice: { id: string } | null = null;
           let invoiceError: unknown = null;
           if (formData.link_to_fixed_invoice_id) {
@@ -412,7 +415,6 @@ export default function OCRPage() {
           if (invoiceError) throw invoiceError;
           createdInvoiceId = newInvoice?.id || null;
 
-          // If paid, create payment + payment splits
           if (formData.is_paid && newInvoice && formData.payment_methods) {
             const paymentTotal = formData.payment_methods.reduce((sum, pm) => {
               return sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0);
@@ -452,22 +454,15 @@ export default function OCRPage() {
                         installments_count: installmentsCount,
                         installment_number: inst.number,
                         reference_number: formData.payment_reference || null,
-                        // Per-installment cheque number (each cheque has its own
-                        // sequential number). Fall back to the method-level
-                        // checkNumber for legacy payloads that didn't set it
-                        // per row.
+                        // Per-installment cheque number — each cheque has its
+                        // own sequential number. Fall back to the method-level
+                        // value for legacy payloads.
                         check_number: inst.checkNumber || pm.checkNumber || null,
                         credit_card_id: creditCardId,
                         due_date: inst.dateForInput || formData.payment_date || formData.document_date || null,
                       });
                     }
                   } else {
-                    // OCRForm already applied the credit-card billing-day
-                    // adjustment (via getSmartPaymentDate) when the user
-                    // picked the card, and any subsequent manual date edit
-                    // represents the user's explicit intent. Re-applying
-                    // calcCreditCardDueDate here would DOUBLE-SHIFT either
-                    // case, so we just persist the date as-is.
                     const dueDate = formData.payment_date || formData.document_date || null;
 
                     await supabase.from('payment_splits').insert({
@@ -488,7 +483,6 @@ export default function OCRPage() {
           }
 
         } else if (formData.document_type === 'delivery_note') {
-          // --- DELIVERY NOTE ---
           const { data: newDeliveryNote, error: deliveryNoteError } = await supabase
             .from('delivery_notes')
             .insert({
@@ -512,16 +506,10 @@ export default function OCRPage() {
           createdDeliveryNoteId = newDeliveryNote?.id || null;
 
         } else if (formData.document_type === 'payment') {
-          // --- PAYMENT ---
           const totalAmount = formData.payment_methods
             ? formData.payment_methods.reduce((sum, pm) => sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0), 0)
             : parseFloat(formData.total_amount);
 
-          // Create ONE payment that aggregates all selected invoices, then
-          // link it to each invoice via payment_invoice_links with amount_allocated.
-          // Mirrors payments/page.tsx behaviour (commit 2c43273) — prior OCR code
-          // created one payment per linked invoice, causing N duplicate payments
-          // with N*splits in cashflow and payment forecast views.
           const selectedInvoicesArr = formData.payment_linked_invoice_ids || [];
 
           const { data: newPayment, error: paymentError } = await supabase
@@ -531,7 +519,6 @@ export default function OCRPage() {
               supplier_id: formData.supplier_id,
               payment_date: formData.document_date,
               total_amount: totalAmount,
-              // Direct FK only when a single invoice is paid; otherwise rely on links table.
               invoice_id: selectedInvoicesArr.length === 1 ? selectedInvoicesArr[0] : null,
               notes: formData.payment_notes || formData.notes || null,
               created_by: user?.id || null,
@@ -544,7 +531,6 @@ export default function OCRPage() {
           if (!newPayment) throw new Error('Failed to create payment');
           if (!createdPaymentId && newPayment?.id) createdPaymentId = newPayment.id;
 
-          // Create splits once for the single payment
           if (formData.payment_methods) {
             for (const pm of formData.payment_methods) {
               const amount = parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0;
@@ -561,20 +547,15 @@ export default function OCRPage() {
                       installments_count: installmentsCount,
                       installment_number: inst.number,
                       reference_number: formData.payment_reference || null,
-                      // Per-installment cheque number (each cheque has its own
-                      // sequential number). Fall back to the method-level
-                      // checkNumber for legacy payloads that didn't set it
-                      // per row.
+                      // Per-installment cheque number — each cheque has its
+                      // own sequential number. Fall back to the method-level
+                      // value for legacy payloads.
                       check_number: inst.checkNumber || pm.checkNumber || null,
                       credit_card_id: creditCardId,
                       due_date: inst.dateForInput || formData.document_date || null,
                     });
                   }
                 } else {
-                  // Trust the client-side date (already adjusted via
-                  // getSmartPaymentDate when a credit card was picked, or
-                  // manually overridden by the user). Re-running
-                  // calcCreditCardDueDate here double-shifts the day.
                   const dueDate = formData.payment_date || formData.document_date || null;
 
                   await supabase.from('payment_splits').insert({
@@ -593,8 +574,6 @@ export default function OCRPage() {
             }
           }
 
-          // Link the payment to each selected invoice via N:M table
-          // (only when there are 2+ invoices; single invoice already uses invoice_id FK)
           if (selectedInvoicesArr.length > 1) {
             const { data: invDetails } = await supabase
               .from('invoices')
@@ -612,7 +591,6 @@ export default function OCRPage() {
             }
           }
 
-          // Mark linked invoices as paid (±₪5 tolerance, like payments/page.tsx)
           if (formData.payment_linked_invoice_ids && formData.payment_linked_invoice_ids.length > 0) {
             const { data: selectedInvs } = await supabase
               .from('invoices')
@@ -627,7 +605,6 @@ export default function OCRPage() {
                   .update({ status: 'paid' })
                   .in('id', formData.payment_linked_invoice_ids);
               } else {
-                // Partial coverage — mark smallest-first until exhausted
                 const sorted = [...selectedInvs].sort((a, b) => Number(a.total_amount) - Number(b.total_amount));
                 let remaining = totalAmount;
                 const toMarkPaid: string[] = [];
@@ -646,7 +623,6 @@ export default function OCRPage() {
           }
 
         } else if (formData.document_type === 'summary') {
-          // --- SUMMARY (מרכזת) ---
           const total = parseFloat(formData.total_amount);
           const subtotal = effectiveVatRate > 0 ? total / (1 + effectiveVatRate) : total;
           const vatAmount = total - subtotal;
@@ -676,7 +652,6 @@ export default function OCRPage() {
           if (invoiceError) throw invoiceError;
           createdInvoiceId = invoice?.id || null;
 
-          // Link existing delivery notes to this invoice (update invoice_id)
           if (formData.summary_existing_delivery_note_ids && formData.summary_existing_delivery_note_ids.length > 0 && invoice) {
             const { error: linkError } = await supabase
               .from('delivery_notes')
@@ -685,7 +660,6 @@ export default function OCRPage() {
             if (linkError) console.error('Error linking delivery notes:', linkError);
           }
 
-          // Also insert manually added delivery notes (legacy flow)
           if (formData.summary_delivery_notes && formData.summary_delivery_notes.length > 0 && invoice) {
             const deliveryNotesData = formData.summary_delivery_notes.map(note => {
               const noteTotal = parseFloat(note.total_amount);
@@ -714,7 +688,6 @@ export default function OCRPage() {
             }
           }
         } else if (formData.document_type === 'daily_entry') {
-          // --- DAILY ENTRY (רישום יומי) ---
           const { data: dailyEntry, error: dailyError } = await supabase
             .from('daily_entries')
             .insert({
@@ -742,7 +715,6 @@ export default function OCRPage() {
 
           const dailyEntryId = dailyEntry.id;
 
-          // Save income breakdown
           if (formData.daily_income_data) {
             for (const [sourceId, data] of Object.entries(formData.daily_income_data)) {
               const amount = parseFloat(data.amount) || 0;
@@ -758,7 +730,6 @@ export default function OCRPage() {
             }
           }
 
-          // Save receipts
           if (formData.daily_receipt_data) {
             for (const [receiptId, val] of Object.entries(formData.daily_receipt_data)) {
               const amount = parseFloat(val) || 0;
@@ -772,7 +743,6 @@ export default function OCRPage() {
             }
           }
 
-          // Save custom parameters
           if (formData.daily_parameter_data) {
             for (const [paramId, val] of Object.entries(formData.daily_parameter_data)) {
               const value = parseFloat(val) || 0;
@@ -786,7 +756,6 @@ export default function OCRPage() {
             }
           }
 
-          // Save managed products usage
           if (formData.daily_product_usage && formData.daily_managed_products) {
             for (const product of formData.daily_managed_products) {
               const usage = formData.daily_product_usage[product.id];
@@ -805,7 +774,6 @@ export default function OCRPage() {
                     quantity: quantityUsed,
                     unit_cost_at_time: product.unit_cost,
                   });
-                  // Update current_stock
                   await supabase.from('managed_products').update({ current_stock: closingStock }).eq('id', product.id);
                 }
               }
@@ -813,7 +781,6 @@ export default function OCRPage() {
           }
         }
 
-        // --- PRICE TRACKING: save line item prices ---
         if (formData.line_items && formData.line_items.length > 0 && formData.supplier_id) {
           await savePriceTrackingForLineItems(supabase, {
             businessId: formData.business_id,
@@ -825,7 +792,6 @@ export default function OCRPage() {
           });
         }
 
-        // Update OCR document status in Supabase
         const mergedIds = formData.merged_document_ids || [];
         const { error: ocrUpdateError } = await supabase.from('ocr_documents').update({
           status: 'approved',
@@ -839,7 +805,6 @@ export default function OCRPage() {
         }).eq('id', currentDocument.id);
         if (ocrUpdateError) throw ocrUpdateError;
 
-        // Mark merged documents as approved too
         if (mergedIds.length > 0) {
           const { error: mergeUpdateError } = await supabase.from('ocr_documents').update({
             status: 'approved',
@@ -864,13 +829,10 @@ export default function OCRPage() {
           }).catch(() => { /* swallow — cron will retry */ });
         }
 
-        // === SUCCESS — show confirmation so the user KNOWS it saved ===
         alert('המסמך נקלט בהצלחה ✓');
 
-        // Clear merged state
         setMergedDocuments([]);
 
-        // Re-fetch documents and auto-select next pending
         const fresh = await fetchDocuments();
         const excludeIds = new Set([currentDocument.id, ...mergedIds]);
         const nextPending = fresh.find(
@@ -889,10 +851,10 @@ export default function OCRPage() {
         setIsLoading(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentDocument, fetchDocuments, handleSelectDocument]
   );
 
-  // Handle document rejection
   const handleReject = useCallback(
     async (documentId: string, reason?: string) => {
       setIsLoading(true);
@@ -901,7 +863,6 @@ export default function OCRPage() {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
-        // Update OCR document status to archived
         const { error } = await supabase.from('ocr_documents').update({
           status: 'archived',
           reviewed_by: user?.id || null,
@@ -911,7 +872,6 @@ export default function OCRPage() {
 
         if (error) throw error;
 
-        // Re-fetch documents and auto-select next pending
         const fresh = await fetchDocuments();
         const nextPending = fresh.find(
           (d) => d.status === 'pending' && d.id !== documentId
@@ -931,13 +891,11 @@ export default function OCRPage() {
     [fetchDocuments, handleSelectDocument]
   );
 
-  // Handle document deletion
   const handleDelete = useCallback(
     async (documentId: string) => {
       setIsLoading(true);
       try {
         const supabase = createClient();
-        // Delete the document - all related records cascade automatically
         const { error } = await supabase.from('ocr_documents').delete().eq('id', documentId);
         if (error) throw error;
 
@@ -960,18 +918,15 @@ export default function OCRPage() {
     [fetchDocuments, handleSelectDocument]
   );
 
-  // Handle skip
   const handleSkip = useCallback(() => {
     if (!currentDocument) return;
 
-    // Update local state
     setDocuments((prev) =>
       prev.map((doc) =>
         doc.id === currentDocument.id ? { ...doc, status: 'pending' as DocumentStatus } : doc
       )
     );
 
-    // Revert status in Supabase (fire-and-forget)
     const supabase = createClient();
     supabase.from('ocr_documents').update({ status: 'pending' }).eq('id', currentDocument.id);
 
@@ -983,44 +938,39 @@ export default function OCRPage() {
     }
   }, [currentDocument, documents]);
 
-  // Handle crop — persist cropped image to Supabase Storage, re-run OCR, refresh state
+  // Crop → re-OCR via Mistral pipeline. Same response contract as the legacy
+  // Google route, so all downstream behavior (form refresh, supplier match,
+  // line items) works unchanged.
   const handleCrop = useCallback(async (croppedImageDataUrl: string) => {
     if (!currentDocument) return;
     showToast("שומר חיתוך ומריץ OCR מחדש...", "info");
 
     try {
-      // 1) Convert data URL → File
       const blobRes = await fetch(croppedImageDataUrl);
       const blob = await blobRes.blob();
       const fileName = `cropped-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
       const storagePath = `cropped/${fileName}`;
       const file = new File([blob], fileName, { type: "image/jpeg" });
 
-      // 2) Upload to Supabase Storage (ocr-documents bucket)
       const uploadRes = await uploadFile(file, storagePath, "ocr-documents");
       if (!uploadRes.success || !uploadRes.publicUrl) {
         throw new Error(uploadRes.error || "שגיאה בהעלאת הקובץ החתוך");
       }
       const newImageUrl = uploadRes.publicUrl;
 
-      // 3) Re-run full OCR + structured extraction on the cropped image.
-      // Using /api/ai/ocr-extract (not /api/ai/ocr) so parsed fields like
-      // subtotal, document_number, supplier_name, line_items all refresh —
-      // otherwise the user sees the image update but form values stay stale.
       let extracted: Record<string, unknown> | null = null;
       try {
         const ocrFormData = new FormData();
         ocrFormData.append("file", file);
-        const ocrRes = await fetch("/api/ai/ocr-extract", { method: "POST", body: ocrFormData });
+        const ocrRes = await fetch("/api/ai/ocr-extract-mistral", { method: "POST", body: ocrFormData });
         if (ocrRes.ok) {
           extracted = await ocrRes.json();
         }
       } catch (ocrErr) {
-        console.error("[Crop] Re-OCR failed (non-fatal):", ocrErr);
+        console.error("[Crop] Mistral re-OCR failed (non-fatal):", ocrErr);
       }
       const newRawText = typeof extracted?.raw_text === "string" ? (extracted.raw_text as string) : null;
 
-      // 4) Persist new image_url + image_storage_path to ocr_documents
       const supabase = createClient();
       const { error: updateErr } = await supabase
         .from("ocr_documents")
@@ -1028,8 +978,6 @@ export default function OCRPage() {
         .eq("id", currentDocument.id);
       if (updateErr) throw updateErr;
 
-      // 5) If we got new OCR output, update ocr_extracted_data with the full
-      // structured object so the form re-initializes from the new values.
       if (extracted) {
         const { data: existing } = await supabase
           .from("ocr_extracted_data")
@@ -1056,7 +1004,6 @@ export default function OCRPage() {
         }
       }
 
-      // 6) Update local state so UI reflects the crop immediately
       const newOcrData = extracted ? { ...(currentDocument.ocr_data || {}), ...extracted } : (currentDocument.ocr_data || {});
       setDocuments((prev) => prev.map((doc) => doc.id === currentDocument.id ? {
         ...doc,
@@ -1076,10 +1023,7 @@ export default function OCRPage() {
     }
   }, [currentDocument, showToast]);
 
-  // Count pending documents
   const pendingCount = documents.filter((doc) => doc.status === 'pending').length;
-
-  // NOW we can do early returns - after all hooks have been declared
 
   if (isCheckingAuth) {
     return (
@@ -1199,9 +1143,6 @@ export default function OCRPage() {
         >
           <OCRFormResizer width={formWidth} onWidthChange={setFormWidth} />
           <OCRForm
-            // Force a fresh mount per document so the form's internal state
-            // is reset cleanly. Without this, switching between documents
-            // sometimes left fields tied to the previously-viewed document.
             key={currentDocument?.id || 'no-doc'}
             document={currentDocument}
             suppliers={suppliers}
@@ -1220,8 +1161,6 @@ export default function OCRPage() {
             pendingDocuments={documents.filter(d => {
               if (d.status !== 'pending') return false;
               const targetBiz = currentDocument?.business_id || selectedBusinessId;
-              // Include docs that match the target business OR have no business assigned
-              // (OCR-failed docs) so users can still merge them.
               return !d.business_id || !targetBiz || d.business_id === targetBiz;
             })}
             onMergeDocuments={setMergedDocuments}
