@@ -82,11 +82,12 @@ const menuItems = [
   { id: 9, label: "תובנות", href: "/insights", key: "insights", requiresBusiness: true, adminOnly: true },
   { id: 14, label: "סקרים", href: "/surveys", key: "surveys", requiresBusiness: true },
   { id: 13, label: "תכניות בונוסים", href: "/admin/bonus-plans", key: "bonus-plans", requiresBusiness: true },
-  // Per-business OCR portal. Visible to everyone in the sidebar so they
-  // know the feature exists, but locked (shows "בקרוב") for users who
-  // aren't admins or members of one of the listed businesses. The
-  // /ocr-business route itself filters its data to OUSHI exclusively.
-  { id: 15, label: "קליטת מסמכים OCR", href: "/ocr-business", key: "ocr-business", lockedUnlessBusinessId: ["bcd1d49d-1fb7-4f50-b202-e8eae1d9fe70"] },
+  // Per-business OCR portal. Visible and clickable to everyone — the
+  // page itself enforces access: members of אושי-אושי get the full UI,
+  // others see a blurred preview with a "בקרוב לעסק שלך" CTA. requiresBusiness
+  // ensures users without any selected business land on the dashboard
+  // first.
+  { id: 15, label: "קליטת מסמכים OCR", href: "/ocr-business", key: "ocr-business", requiresBusiness: true },
   { id: 10, label: "הגדרות", href: "/settings", key: "settings" },
   { id: 11, label: "התנתקות", href: "#logout", key: "logout", isLogout: true },
 ];

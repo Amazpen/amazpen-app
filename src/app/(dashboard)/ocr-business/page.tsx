@@ -55,11 +55,18 @@ export default function OCRBusinessPage() {
   const router = useRouter();
   const { isAdmin, selectedBusinesses } = useDashboard();
   const { showToast } = useToast();
-  // hasAccess: admin OR currently has at least one ALLOWED business selected.
-  // Non-admin users without OUSHI selected get redirected to / by the effect
-  // below. This is a UI gate; the per-row business filter below is the
-  // hard guarantee that no other business's docs are queried.
-  const hasAccess = isAdmin || selectedBusinesses.some((id) => ALLOWED_BUSINESS_IDS.includes(id));
+  // Three access modes:
+  // - hasFullAccess: admin OR member of an ALLOWED business (currently
+  //   only OUSHI). Full UI, can approve/reject/delete.
+  // - isPreviewMode: signed-in user with a non-allowed business selected.
+  //   The page renders with their own data (queue + viewer + form) but
+  //   blurred behind an overlay so they can see the feature exists. No
+  //   ability to interact — the overlay swallows clicks.
+  // - no access: not signed in / no business selected → handled by the
+  //   layout's middleware. We don't redirect from this page anymore.
+  const hasFullAccess = isAdmin || selectedBusinesses.some((id) => ALLOWED_BUSINESS_IDS.includes(id));
+  const isPreviewMode = !hasFullAccess && selectedBusinesses.length > 0;
+  const hasAccess = hasFullAccess || isPreviewMode;
 
   // State - ALL hooks must be declared before any conditional returns
   const [documents, setDocuments] = useState<OCRDocument[]>([]);
@@ -101,12 +108,10 @@ export default function OCRBusinessPage() {
     // Per-tenant scope: ONLY documents from currently-selected businesses.
     // The admin /ocr page sees the cross-business queue; here we strictly
     // never query another business. If nothing is selected, return empty.
-    // For non-admins we further restrict to ALLOWED_BUSINESS_IDS so even
-    // if a member of multiple businesses selected one that isn't allowed
-    // here, we don't leak it.
-    const visibleBusinessIds = selectedBusinesses.filter((id) =>
-      isAdmin ? true : ALLOWED_BUSINESS_IDS.includes(id),
-    );
+    // We rely on Supabase RLS to ensure the user can only read documents
+    // for businesses they are a member of — preview mode shows their
+    // *own* business's data (blurred), not OUSHI's.
+    const visibleBusinessIds = selectedBusinesses;
     if (visibleBusinessIds.length === 0) {
       setDocuments([]);
       setIsInitialLoad(false);
@@ -202,7 +207,7 @@ export default function OCRBusinessPage() {
     }
     setIsInitialLoad(false);
     return [];
-  }, [selectedBusinesses, isAdmin]);
+  }, [selectedBusinesses]);
 
   // Business and supplier state
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -243,9 +248,9 @@ export default function OCRBusinessPage() {
   const fetchBusinesses = useCallback(async () => {
     if (isCheckingAuth || !hasAccess) return;
     const supabase = createClient();
-    const visibleBusinessIds = selectedBusinesses.filter((id) =>
-      isAdmin ? true : ALLOWED_BUSINESS_IDS.includes(id),
-    );
+    // Match fetchDocuments scope: list all currently-selected businesses,
+    // RLS keeps the user from seeing anything they aren't a member of.
+    const visibleBusinessIds = selectedBusinesses;
     if (visibleBusinessIds.length === 0) {
       setBusinesses([]);
       return;
@@ -265,7 +270,7 @@ export default function OCRBusinessPage() {
         setSelectedBusinessId(data[0].id);
       }
     }
-  }, [isCheckingAuth, hasAccess, isAdmin, selectedBusinesses, selectedBusinessId, setSelectedBusinessId]);
+  }, [isCheckingAuth, hasAccess, selectedBusinesses, selectedBusinessId, setSelectedBusinessId]);
   useEffect(() => { fetchBusinesses(); }, [fetchBusinesses]);
   useMultiTableRealtime(
     ['businesses'],
@@ -1077,7 +1082,42 @@ export default function OCRBusinessPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-60px)] bg-[#0a0d1f]">
+    <div className="relative flex flex-col h-[calc(100vh-60px)] bg-[#0a0d1f]">
+      {/*
+        Preview overlay — non-allowed businesses see a blurred version of the
+        page (with their own data) plus a CTA, so they understand what the
+        feature does without being able to use it. We blur the inner content
+        with `filter: blur(8px)` and put a backdrop-blur overlay on top that
+        captures all pointer events.
+      */}
+      {isPreviewMode && (
+        <div
+          className="absolute inset-0 z-30 flex items-center justify-center bg-[#0a0d1f]/40 backdrop-blur-md"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div className="max-w-md mx-4 rounded-2xl border border-[#29318A]/40 bg-[#0F1535]/95 p-8 shadow-2xl text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#29318A]/30 flex items-center justify-center">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[#818cf8]">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
+            <h2 className="text-white text-[20px] font-bold mb-2">קליטת מסמכים OCR</h2>
+            <p className="text-white/70 text-[14px] mb-1">פיצ&#39;ר זה זמין כעת לעסקים נבחרים בלבד.</p>
+            <p className="text-white/50 text-[13px] mb-6">לפרטים נוספים — צור קשר עם הצוות.</p>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FFA412]/15 border border-[#FFA412]/30">
+              <span className="text-[#FFA412] text-[12px] font-semibold">בקרוב גם לעסק שלך</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div
+        className={`flex flex-col flex-1 min-h-0 ${isPreviewMode ? 'pointer-events-none select-none' : ''}`}
+        style={isPreviewMode ? { filter: 'blur(6px)' } : undefined}
+        aria-hidden={isPreviewMode}
+      >
       {/* Page header - mobile only */}
       <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-[#0F1535] border-b border-[#4C526B]">
         <h1 className="text-[18px] font-bold text-white">קליטת מסמכים OCR</h1>
@@ -1221,6 +1261,7 @@ export default function OCRBusinessPage() {
             businesses={businesses}
           />
         )}
+      </div>
       </div>
     </div>
   );
