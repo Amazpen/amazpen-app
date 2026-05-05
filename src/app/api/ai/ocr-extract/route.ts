@@ -210,13 +210,34 @@ ${rawText}`,
     const finalVat = isCreditNote ? neg(extracted.vat_amount) : extracted.vat_amount;
     const finalTotal = isCreditNote ? neg(extracted.total_amount) : extracted.total_amount;
 
-    // Sanitize line-item description: drop pure-number SKU/codes that the
-    // model sometimes picks instead of the actual product name.
+    // Sanitize line-item description: drop pure-number codes AND short-prefix
+    // codes ("ש"ד 90361", "מק"ט 12041", "SKU 200554") that the model
+    // sometimes picks instead of the actual product name.
+    const SHORT_CODE_PREFIXES = [
+      "ש\"ד", "ש'ד", "שד",
+      "מק\"ט", "מקט", "מק'ט",
+      "מס", "מס'", 'מס׳',
+      "ק.פ", "ק.פ.",
+      "פריט",
+      "SKU", "ID", "REF", "Ref", "ref",
+      "Item", "item",
+      "No", "no", "No.", "no.", "Nr", "nr",
+      "#",
+    ];
     const isNumericOnlyDescription = (desc: string | null | undefined): boolean => {
       if (!desc) return false;
       const trimmed = desc.trim();
       if (!trimmed) return false;
-      return /^[\d\s\-./]+$/.test(trimmed);
+      if (/^[\d\s\-./]+$/.test(trimmed)) return true;
+      let remainder = trimmed;
+      for (const prefix of SHORT_CODE_PREFIXES) {
+        if (remainder.startsWith(prefix)) {
+          remainder = remainder.slice(prefix.length).trim();
+          break;
+        }
+      }
+      if (remainder !== trimmed && /^[\d\s\-./]+$/.test(remainder)) return true;
+      return false;
     };
     const stripLeadingCode = (desc: string | null | undefined): string | null => {
       if (!desc) return desc ?? null;

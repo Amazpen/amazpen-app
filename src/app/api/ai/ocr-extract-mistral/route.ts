@@ -316,17 +316,40 @@ ${rawText}`,
 
     // Sanitize line-item description: when the model picked a column that
     // contains only an item code/barcode/SKU instead of the actual product
-    // name, the description ends up as a bare number string ("393", "112",
-    // "5904316130121"). Strip those — null is better than a number that
-    // confuses the user. Also strip any leading code+space combos
-    // ("393 גבי לבנה" → "גבי לבנה") so we keep only the textual part.
+    // name, the description ends up either as a bare number string ("393",
+    // "5904316130121") or a short prefix + number ("ש"ד 90361", "מק"ט
+    // 12041", "SKU 200554"). In both cases the actual product name is
+    // missing — null is better than misleading text.
+    const SHORT_CODE_PREFIXES = [
+      "ש\"ד", "ש'ד", "שד",
+      "מק\"ט", "מקט", "מק'ט",
+      "מס", "מס'", 'מס׳',
+      "ק.פ", "ק.פ.",
+      "פריט",
+      "SKU", "ID", "REF", "Ref", "ref",
+      "Item", "item",
+      "No", "no", "No.", "no.", "Nr", "nr",
+      "#",
+    ];
     const isNumericOnlyDescription = (desc: string | null | undefined): boolean => {
       if (!desc) return false;
       const trimmed = desc.trim();
       if (!trimmed) return false;
-      // Pure digits, optionally with separators (-, /, .) — covers SKUs,
-      // barcodes, and bare row numbers.
-      return /^[\d\s\-./]+$/.test(trimmed);
+      // Pure digits + separators — SKUs, barcodes, row numbers.
+      if (/^[\d\s\-./]+$/.test(trimmed)) return true;
+      // Short-code prefix + number — "ש"ד 90361", "מק"ט 12041", "SKU 200554",
+      // "Item No 42". Strip any matched prefix and check what's left.
+      let remainder = trimmed;
+      for (const prefix of SHORT_CODE_PREFIXES) {
+        if (remainder.startsWith(prefix)) {
+          remainder = remainder.slice(prefix.length).trim();
+          break;
+        }
+      }
+      // After stripping the prefix, if what remains is only digits/separators
+      // → this row had no real description, just an identifier.
+      if (remainder !== trimmed && /^[\d\s\-./]+$/.test(remainder)) return true;
+      return false;
     };
     const stripLeadingCode = (desc: string | null | undefined): string | null => {
       if (!desc) return desc ?? null;
