@@ -585,7 +585,7 @@ export default function DashboardLayout({
   const title = pageTitles[pathname] || "דשבורד";
   const activeKey = menuItems.find(item => item.href === pathname)?.key || "dashboard";
   const isAdminPage = adminMenuItems.some(item => pathname.startsWith(item.href));
-  const isOcrPage = pathname === '/ocr';
+  const isOcrPage = pathname === '/ocr' || pathname === '/ocr-business';
 
   const handleMenuClick = (item: typeof menuItems[0], e: React.MouseEvent) => {
     if (item.requiresBusiness && selectedBusinesses.length === 0) {

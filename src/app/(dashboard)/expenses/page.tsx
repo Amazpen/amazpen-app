@@ -492,7 +492,7 @@ function ExpensesPageInner() {
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .order("invoice_date", { ascending: false })
-          .limit(50);
+          .limit(500);
 
         // Also query delivery_notes in parallel for reference/supplier searches —
         // the main query only hits invoices, so delivery notes (like תעודת משלוח
@@ -509,7 +509,7 @@ function ExpensesPageInner() {
             .in("business_id", selectedBusinesses)
             .is("invoice_id", null)
             .order("delivery_date", { ascending: false })
-            .limit(50);
+            .limit(500);
           if (filterBy === "reference") {
             dnQuery = dnQuery.ilike("delivery_note_number", `%${searchVal}%`);
           } else if (filterBy === "supplier") {
@@ -4402,7 +4402,10 @@ function ExpensesPageInner() {
               <>
               {isShowingGlobal && (
                 <div className="bg-[#29318A]/30 border border-[#29318A]/50 rounded-[7px] px-[10px] py-[6px] mb-[5px]">
-                  <span className="text-[12px] text-[#00D4FF]">נמצאו {globalMatches.length} תוצאות מחוץ לטווח הנוכחי (טאב/תאריכים)</span>
+                  <span className="text-[12px] text-[#00D4FF]">
+                    נמצאו {globalMatches.length} תוצאות מחוץ לטווח הנוכחי (טאב/תאריכים)
+                    {globalMatches.length >= 500 && " — מוצגות 500 הראשונות. צמצמו את החיפוש לתוצאות מדויקות יותר."}
+                  </span>
                 </div>
               )}
               {displayInvoices.map((invoice) => {
@@ -5232,8 +5235,12 @@ function ExpensesPageInner() {
                             onClick={() => {
                               setLinkToFixedInvoiceId(inv.id);
                               setAmountBeforeVat(String(inv.subtotal));
-                              // Auto-set expense date to the original invoice date
-                              setExpenseDate(inv.invoice_date);
+                              // NEVER overwrite expenseDate when picking a
+                              // fixed-expense month — the actual invoice date
+                              // is always more accurate than the placeholder's
+                              // month-start date. The save flow updates the
+                              // placeholder's invoice_date to whatever the
+                              // user submits.
                               if (supplierInfo.vat_type === "none") {
                                 setPartialVat(true);
                                 setVatAmount("0");
@@ -6021,8 +6028,12 @@ function ExpensesPageInner() {
                             onClick={() => {
                               setLinkToFixedInvoiceId(inv.id);
                               setAmountBeforeVat(String(inv.subtotal));
-                              // Auto-set expense date to the original invoice date
-                              setExpenseDate(inv.invoice_date);
+                              // NEVER overwrite expenseDate when picking a
+                              // fixed-expense month — the actual invoice date
+                              // is always more accurate than the placeholder's
+                              // month-start date. The save flow updates the
+                              // placeholder's invoice_date to whatever the
+                              // user submits.
                               if (supplierInfo.vat_type === "none") {
                                 setPartialVat(true);
                                 setVatAmount("0");

@@ -354,11 +354,12 @@ function PaymentsPageInner() {
 
         // Apply DB-level filters where possible
         if (filterBy === "reference") {
-          // Search by reference in payment_splits
+          // Search by reference_number OR check_number in payment_splits
+          // (for cheques, the check_number is shown as the "אסמכתא")
           const { data: matchedSplits } = await supabase
             .from("payment_splits")
             .select("payment_id")
-            .ilike("reference_number", `%${searchVal}%`);
+            .or(`reference_number.ilike.%${searchVal}%,check_number.ilike.%${searchVal}%`);
           if (matchedSplits && matchedSplits.length > 0) {
             const paymentIds = [...new Set(matchedSplits.map(s => s.payment_id))];
             query = query.in("id", paymentIds);

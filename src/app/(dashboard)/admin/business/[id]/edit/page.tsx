@@ -135,6 +135,14 @@ export default function EditBusinessPage({ params }: PageProps) {
   const [documentsSendFrequency, setDocumentsSendFrequency] = useState<"daily" | "weekly" | "monthly">("daily");
   const [documentsSendMode, setDocumentsSendMode] = useState<"individual" | "zip">("individual");
   const [documentsSendTypes, setDocumentsSendTypes] = useState<Array<"invoice" | "payment" | "delivery_note">>(["invoice", "payment", "delivery_note"]);
+  // OCR intake phones — phone numbers that route incoming WhatsApp/Telegram
+  // documents to this business. n8n workflow checks this before AI tax-id matching.
+  type IntakePhone = { id: string; phone: string; source: "whatsapp" | "telegram" | "any"; notes: string | null };
+  const [intakePhones, setIntakePhones] = useState<IntakePhone[]>([]);
+  const [newIntakePhone, setNewIntakePhone] = useState("");
+  const [newIntakeSource, setNewIntakeSource] = useState<"whatsapp" | "telegram" | "any">("any");
+  const [newIntakeNotes, setNewIntakeNotes] = useState("");
+  const [isAddingIntakePhone, setIsAddingIntakePhone] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [existingLogoUrl, setExistingLogoUrl] = useState<string | null>(null);
@@ -324,6 +332,16 @@ export default function EditBusinessPage({ params }: PageProps) {
         setFormSectionOrder(business.form_section_order as string[]);
       }
 
+      // Fetch OCR intake phones
+      const { data: intakePhonesData } = await supabase
+        .from("business_ocr_intake_phones")
+        .select("id, phone, source, notes")
+        .eq("business_id", businessId)
+        .order("created_at", { ascending: true });
+      if (intakePhonesData) {
+        setIntakePhones(intakePhonesData as IntakePhone[]);
+      }
+
       // Fetch schedule
       const { data: scheduleData } = await supabase
         .from("business_schedule")
@@ -484,6 +502,67 @@ export default function EditBusinessPage({ params }: PageProps) {
         setLogoPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  // Normalize phone input to a stable format. WAHA sends WhatsApp numbers as
+  // E.164 without the leading +, so we strip non-digits and any leading plus.
+  // The n8n workflow tries 3 variants (with/without +) so we don't have to be
+  // too strict here.
+  const normalizePhone = (raw: string): string => raw.replace(/[^\d]/g, "");
+
+  const handleAddIntakePhone = async () => {
+    const normalized = normalizePhone(newIntakePhone);
+    if (!normalized || normalized.length < 8) {
+      showToast("מספר טלפון לא תקין", "error");
+      return;
+    }
+    // Prevent duplicates client-side (DB also has UNIQUE constraint).
+    if (intakePhones.some(p => p.phone === normalized && p.source === newIntakeSource)) {
+      showToast("מספר זה כבר קיים עבור מקור זה", "warning");
+      return;
+    }
+    setIsAddingIntakePhone(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("business_ocr_intake_phones")
+        .insert({
+          business_id: businessId,
+          phone: normalized,
+          source: newIntakeSource,
+          notes: newIntakeNotes.trim() || null,
+        })
+        .select("id, phone, source, notes")
+        .single();
+      if (error) throw error;
+      if (data) {
+        setIntakePhones([...intakePhones, data as IntakePhone]);
+        setNewIntakePhone("");
+        setNewIntakeNotes("");
+        setNewIntakeSource("any");
+        showToast("הטלפון נוסף בהצלחה", "success");
+      }
+    } catch (err) {
+      console.error("Add intake phone error:", err);
+      showToast(err instanceof Error ? err.message : "שגיאה בהוספת הטלפון", "error");
+    } finally {
+      setIsAddingIntakePhone(false);
+    }
+  };
+
+  const handleRemoveIntakePhone = async (id: string) => {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("business_ocr_intake_phones")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      setIntakePhones(intakePhones.filter(p => p.id !== id));
+    } catch (err) {
+      console.error("Remove intake phone error:", err);
+      showToast(err instanceof Error ? err.message : "שגיאה במחיקת הטלפון", "error");
     }
   };
 
@@ -1375,6 +1454,97 @@ export default function EditBusinessPage({ params }: PageProps) {
             </p>
           </>
         )}
+      </div>
+
+      {/* OCR Intake Phones — phone-based document routing */}
+      <div className="flex flex-col gap-[10px] p-[15px] border border-[#4C526B] rounded-[10px] bg-[#1a1f3a]/30">
+        <label className="text-[15px] font-medium text-white text-right">
+          ניתוב מסמכי OCR לפי מספר טלפון
+        </label>
+        <p className="text-[11px] text-white/50 text-right">
+          מסמכים שיישלחו דרך WhatsApp/Telegram מהמספרים האלה ינותבו אוטומטית לעסק זה — ללא צורך בזיהוי AI.
+        </p>
+
+        {/* Existing phones list */}
+        {intakePhones.length > 0 && (
+          <div className="flex flex-col gap-[6px]">
+            {intakePhones.map((p) => (
+              <div
+                key={p.id}
+                className="flex flex-row-reverse items-center justify-between gap-[10px] px-[12px] py-[8px] bg-[#0f1231] rounded-[8px] border border-[#4C526B]"
+              >
+                <div className="flex flex-col gap-[2px] text-right flex-1 min-w-0">
+                  <span className="text-[14px] text-white font-medium" dir="ltr">{p.phone}</span>
+                  <span className="text-[11px] text-white/50">
+                    {p.source === "whatsapp" ? "WhatsApp בלבד" : p.source === "telegram" ? "Telegram בלבד" : "כל המקורות"}
+                    {p.notes ? ` · ${p.notes}` : ""}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => handleRemoveIntakePhone(p.id)}
+                  className="w-[28px] h-[28px] rounded-full bg-[#F64E60]/20 hover:bg-[#F64E60]/40 text-[#F64E60] flex items-center justify-center text-[16px] transition flex-shrink-0"
+                  aria-label="מחק"
+                >
+                  ×
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add new phone */}
+        <div className="flex flex-col gap-[8px] pt-[8px] border-t border-[#4C526B]/50">
+          <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+            <Input
+              type="tel"
+              value={newIntakePhone}
+              onChange={(e) => setNewIntakePhone(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddIntakePhone(); } }}
+              placeholder="972501234567"
+              dir="ltr"
+              className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-[6px]">
+            {([
+              ["any", "כל מקור"],
+              ["whatsapp", "WhatsApp"],
+              ["telegram", "Telegram"],
+            ] as const).map(([val, label]) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setNewIntakeSource(val)}
+                className={`h-[40px] rounded-[8px] border text-[12px] text-white transition ${newIntakeSource === val ? "bg-[#29318A] border-white" : "bg-transparent border-[#4C526B] hover:border-white/50"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="border border-[#4C526B] rounded-[10px] h-[40px]">
+            <Input
+              type="text"
+              value={newIntakeNotes}
+              onChange={(e) => setNewIntakeNotes(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddIntakePhone(); } }}
+              placeholder="הערה (אופציונלי) — למשל: 'הטלפון של דוד'"
+              className="w-full h-full bg-transparent text-white text-[13px] text-right rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+            />
+          </div>
+          <Button
+            type="button"
+            onClick={handleAddIntakePhone}
+            disabled={isAddingIntakePhone || !newIntakePhone.trim()}
+            className="w-full h-[45px] rounded-[10px] bg-[#29318A] hover:bg-[#29318A]/80 text-white text-[14px] font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAddingIntakePhone ? "מוסיף..." : "+ הוסף מספר טלפון"}
+          </Button>
+        </div>
+
+        <p className="text-[11px] text-white/40 text-right">
+          פורמט: E.164 ללא +. דוגמה: 972501234567 (לא 050-1234567). אם אותו מספר משויך לכמה עסקים — הניתוב לא יעבוד והמערכת תיפול חזרה לזיהוי AI.
+        </p>
       </div>
 
       {/* Manager Salary */}

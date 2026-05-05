@@ -17,11 +17,11 @@ const invoiceSchema = z.object({
   supplier_name: z.string().nullable().describe("שם הספק/העסק שהנפיק את החשבונית"),
   document_number: z.string().nullable().describe("מספר חשבונית או תעודת משלוח"),
   document_date: z.string().nullable().describe("תאריך המסמך בפורמט YYYY-MM-DD"),
-  discount_amount: z.number().nullable().describe("סכום הנחה כולל על המסמך"),
+  discount_amount: z.number().nullable().describe("סכום הנחה כולל על המסמך בש״ח (לא אחוז). אם מופיע רק אחוז במסמך, חשב את הסכום בש״ח."),
   discount_percentage: z.number().nullable().describe("אחוז הנחה כולל על המסמך"),
-  subtotal: z.number().nullable().describe("סכום לפני מע״מ (אחרי הנחה). אם זו חשבונית זיכוי, החזר ערך שלילי."),
-  vat_amount: z.number().nullable().describe("סכום מע״מ. אם זו חשבונית זיכוי, החזר ערך שלילי."),
-  total_amount: z.number().nullable().describe("סכום כולל מע״מ (אחרי הנחה). אם זו חשבונית זיכוי, החזר ערך שלילי."),
+  subtotal: z.number().nullable().describe("סכום לפני מע״מ ולפני הנחה כללית. אם זו חשבונית זיכוי, החזר ערך שלילי."),
+  vat_amount: z.number().nullable().describe("סכום מע״מ הסופי במסמך. אם זו חשבונית זיכוי, החזר ערך שלילי."),
+  total_amount: z.number().nullable().describe("סכום סופי כולל מע״מ אחרי הנחה. אם זו חשבונית זיכוי, החזר ערך שלילי."),
   is_credit_note: z.boolean().nullable().describe("true אם המסמך הוא חשבונית זיכוי / credit note / זיכוי — כלומר מסמך המחזיר כסף לקונה"),
   line_items: z.array(lineItemSchema).nullable().describe("פריטים בחשבונית"),
 });
@@ -117,11 +117,11 @@ export async function POST(request: NextRequest) {
 - שם הספק (supplier_name)
 - מספר חשבונית/תעודה (document_number)
 - תאריך המסמך (document_date) בפורמט YYYY-MM-DD
-- הנחה על המסמך (discount_amount) - סכום ההנחה הכולל אם מופיע
+- הנחה על המסמך (discount_amount) - סכום ההנחה הכולל בש״ח אם מופיע. **חובה לחפש** הנחות במסמך — זה שדה קריטי.
 - אחוז הנחה (discount_percentage) - אם מופיע אחוז הנחה
-- סכום לפני מע״מ (subtotal) - הסכום אחרי הנחה, לפני מע״מ
-- סכום מע״מ (vat_amount)
-- סכום כולל מע״מ (total_amount) - הסכום הסופי אחרי הנחה ומע״מ
+- סכום לפני מע״מ (subtotal) - הסכום **לפני** הנחה כללית, לפני מע״מ. אם המסמך מציג רק "סה״כ אחרי הנחה", חשב: subtotal = (סה״כ אחרי הנחה לפני מע״מ) + discount_amount
+- סכום מע״מ (vat_amount) - הסכום הסופי של המע״מ במסמך
+- סכום כולל מע״מ (total_amount) - הסכום הסופי שהלקוח משלם, אחרי הנחה ואחרי מע״מ
 - חשבונית זיכוי (is_credit_note) - האם המסמך הוא חשבונית זיכוי / זיכוי / credit note / הודעת זיכוי
 - פריטים (line_items) - אם ישנם פריטים ברשימה עם כמות ומחיר
 
@@ -133,10 +133,14 @@ export async function POST(request: NextRequest) {
 - כאשר is_credit_note=false: החזר את הסכומים כפי שהם חיוביים במסמך, גם אם המילה "זיכוי" מופיעה איפשהו.
 
 חשוב מאוד: הנחות!
-- אם יש הנחה על כל המסמך (כגון "הנחה 5%", "הנחה ₪100"), חלץ את discount_amount ו/או discount_percentage
-- subtotal ו-total_amount חייבים לשקף את הסכום אחרי ההנחה
-- אם יש הנחה ספציפית על פריט, הכנס discount_amount בפריט עצמו. ה-total של הפריט חייב להיות אחרי ההנחה
-- אם unit_price * quantity שונה מ-total, כנראה יש הנחה — חשב את ההפרש כ-discount_amount
+מילים שמסמנות הנחה כללית על המסמך: "הנחה", "הנחה כללית", "הנחה מסחרית", "הנחה למזומן", "הנחת לקוח", "ניכוי", "הנחה %", "Discount", "סה״כ הנחה".
+- אם יש הנחה על כל המסמך (גם בש״ח וגם באחוזים), חלץ את discount_amount בש״ח. אם מופיע רק אחוז (למשל "הנחה 5%"), חשב את הסכום: subtotal_לפני_הנחה * אחוז / 100.
+- אם מופיע גם אחוז וגם סכום, מלא את שניהם (discount_amount בש״ח, discount_percentage באחוזים).
+- subtotal הוא הסכום **לפני** ההנחה הכללית — כלומר סך כל הפריטים. total_amount הוא הסכום **הסופי** במסמך אחרי הנחה ואחרי מע״מ.
+- אם החשבונית מציגה רק "סך אחרי הנחה" ולא "סך לפני הנחה", חשב: subtotal = total_after_discount + discount_amount.
+- אם יש הנחה ספציפית על פריט (בעמודות הפריטים), הכנס discount_amount בפריט עצמו. ה-total של הפריט חייב להיות אחרי ההנחה. זה לא משפיע על discount_amount הכללי של המסמך.
+- אם unit_price * quantity שונה מ-total של אותה שורה, כנראה יש הנחה על הפריט — חשב את ההפרש כ-discount_amount של הפריט.
+- אם המסמך **לא** מציג הנחה כללית באף מקום, השאר את discount_amount ו-discount_percentage ריקים (null).
 
 חשוב מאוד: הקצאת quantity ו-unit_price (טקסט מ-PDF עברי לפעמים מבולגן)!
 טקסט שחולץ מ-PDF בעברית מגיע לפעמים בסדר עמודות לא צפוי, במיוחד כששמות הפריטים גולשים לשורה חדשה. לכל שורה שיש בה qty, price ו-total:
@@ -144,6 +148,25 @@ export async function POST(request: NextRequest) {
 - במקרה של ספק: quantity הוא לרוב מספר שלם או חצי-שלם (1, 2, 5, 10, 20, 100, 120 וכד'), בעוד unit_price כולל בדרך כלל אגורות (1.20, 2.20, 64.10, 145.29). אם אחד הערכים נראה כמו "כמות עגולה" והשני כמו "מחיר עם אגורות" — הקצה בהתאם.
 - שורות הוצאות מזון/סיטונאות עם פריטי קמעונאות זולים: כמות גדולה (100-200) ומחיר נמוך (1-3 ש"ח) זה תקין. כמות 1.2 עם מחיר 120 זו טעות.
 - חשבוניות עם עמודות הנחה כפולות ("הנחה %" + "סה\"כ הנחה" בש"ח) שכיחות במסמכי וטרינריה/חנויות. במקרה זה: unit_price הוא המחיר ה*מקורי* לפני הנחה, discount_amount הוא הסכום בש"ח (לא האחוז), ו-total הוא אחרי ההנחה. דוגמה: כמות=1, מחיר=252, הנחה 24% (60.48 ש"ח), סה"כ=191.52 → quantity=1, unit_price=252, discount_amount=60.48, total=191.52.
+
+חשוב מאוד: שורות גולשות (פריט אחד שתופס יותר משורה אחת)!
+- פריט אחד יכול לגלוש לשתי שורות או יותר — לדוגמה: שם הפריט בשורה אחת ("נטורה דיאט חתול בוגר סטרילייז עוף 8 ק"ג מופחת דגנים"), והמק"ט/ברקוד בשורה הבאה ("8436596671300").
+- שורת המשך מזוהה לפי כך שהיא חסרה את השדות המספריים העיקריים: אין בה כמות + מחיר + סה"כ. לרוב יש בה רק טקסט, או רק מק"ט/ברקוד.
+- במקרה כזה: **אחד את השורות לפריט אחד**. הוסף את הטקסט/מק"ט מהשורה הגולשת ל-description של הפריט, ואל תיצור פריט נפרד עם quantity=null או total=null.
+- אם פריט נראה ריק (אין quantity, אין unit_price, אין total — רק טקסט/מק"ט) — זה כמעט תמיד שורת המשך של הפריט הקודם, לא פריט עצמאי. **אל תכלול אותו ברשימת line_items.**
+- ברקוד/מק"ט שמופיע בשורה נפרדת מתחת לתיאור — צרף אותו לתיאור הפריט שמעליו (למשל: "נטורה דיאט חתול בוגר סטרילייז עוף 8 ק"ג 8436596671300").
+
+חשוב מאוד: בחירת ה-description (שם הפריט) — קריטי!
+לחשבונית יש בדרך כלל **כמה עמודות מזהה** עבור כל פריט: בר-קוד, מק"ט/קוד פנימי, ושם פריט. החזר ב-description אך ורק את **התיאור המילולי** של הפריט — לא קוד.
+
+- description חייב להיות טקסט מילולי שמתאר את הפריט בעברית או אנגלית (למשל "גבי לבנה 9% (2ק)", "ירקות מעורב", "סולת קמח רגיל").
+- description לעולם לא יהיה רק מספר/קוד (למשל "557763505", "517014478", "5904316130121", "393", "112", "274"). אם השדה היחיד הזמין הוא מספר — השאר את description ריק (null).
+- עמודות שיכולות להכיל תיאור (לפי הסדר העדפה): "תיאור פריט" / "שם פריט" / "פירוט" / "Description" / "Item Name". בחר תמיד את העמודה עם הטקסט המילולי.
+- עמודות לדלג עליהן (אלה לא תיאור): "מס פריט" / "מס' פריט" / "קוד פריט" / "מק"ט" / "בר קוד" / "Barcode" / "SKU" / "מספר" / "#".
+- אם יש כמה עמודות עם טקסט מילולי, בחר את הארוכה ביותר (היא לרוב התיאור המלא; הקצרה היא לרוב קטגוריה).
+- במסמכים שבהם יש שורה אחת בה מופיעים גם קוד וגם תיאור (למשל "393 גבי לבנה 9% (2ק)"), חלץ רק את הטקסט המילולי ל-description, לא את הקוד.
+
+בדיקה לפני החזרה: ודא שאף description **אינו מספר בלבד**. אם יש כזה — תקן או השאר null.
 
 אם שדה לא מופיע במסמך, השמט אותו.
 עבור תאריכים בעברית (למשל 17/02/2026) המר לפורמט YYYY-MM-DD.
@@ -187,6 +210,54 @@ ${rawText}`,
     const finalVat = isCreditNote ? neg(extracted.vat_amount) : extracted.vat_amount;
     const finalTotal = isCreditNote ? neg(extracted.total_amount) : extracted.total_amount;
 
+    // Sanitize line-item description: drop pure-number SKU/codes that the
+    // model sometimes picks instead of the actual product name.
+    const isNumericOnlyDescription = (desc: string | null | undefined): boolean => {
+      if (!desc) return false;
+      const trimmed = desc.trim();
+      if (!trimmed) return false;
+      return /^[\d\s\-./]+$/.test(trimmed);
+    };
+    const stripLeadingCode = (desc: string | null | undefined): string | null => {
+      if (!desc) return desc ?? null;
+      const trimmed = desc.trim();
+      const match = trimmed.match(/^[\d\-./]{2,}\s+(.+)$/);
+      if (match && /[א-תA-Za-z]/.test(match[1])) {
+        return match[1].trim();
+      }
+      return trimmed;
+    };
+
+    // Merge continuation rows (no qty / no total → previous item's SKU or
+    // wrapped description). Belt-and-suspenders for the prompt instruction.
+    const mergedLineItems = (() => {
+      const items = extracted.line_items;
+      if (!items || items.length === 0) return items;
+      const out: typeof items = [];
+      for (const item of items) {
+        const hasNumbers = (item.quantity != null && item.quantity !== 0)
+          || (item.total != null && item.total !== 0)
+          || (item.unit_price != null && item.unit_price !== 0);
+        if (!hasNumbers && out.length > 0) {
+          const prev = out[out.length - 1];
+          const extra = (item.description || "").trim();
+          if (extra) {
+            prev.description = prev.description
+              ? `${prev.description} ${extra}`.trim()
+              : extra;
+          }
+          continue;
+        }
+        if (isNumericOnlyDescription(item.description)) {
+          item.description = null;
+        } else {
+          item.description = stripLeadingCode(item.description);
+        }
+        out.push(item);
+      }
+      return out;
+    })();
+
     return Response.json({
       supplier_name: extracted.supplier_name,
       document_number: extracted.document_number,
@@ -197,7 +268,7 @@ ${rawText}`,
       vat_amount: finalVat,
       total_amount: finalTotal,
       is_credit_note: isCreditNote,
-      line_items: extracted.line_items,
+      line_items: mergedLineItems,
       matched_supplier_id: matchedSupplierId,
       raw_text: rawText,
     });

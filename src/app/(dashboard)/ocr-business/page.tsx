@@ -1053,6 +1053,86 @@ export default function OCRBusinessPage() {
     }
   }, [currentDocument, showToast]);
 
+  // Re-run OCR extraction on the existing image without cropping. Useful when
+  // first pass missed line items or got numbers wrong.
+  const [isReExtracting, setIsReExtracting] = useState(false);
+  const handleReExtract = useCallback(async () => {
+    if (!currentDocument || isReExtracting) return;
+    if (!currentDocument.image_url) {
+      showToast("אין תמונה למסמך זה — לא ניתן להריץ OCR מחדש", "error");
+      return;
+    }
+    setIsReExtracting(true);
+    showToast("מריץ OCR מחדש...", "info");
+    try {
+      const imgRes = await fetch(currentDocument.image_url);
+      if (!imgRes.ok) throw new Error("לא ניתן לטעון את תמונת המסמך");
+      const blob = await imgRes.blob();
+      const isPdf = (currentDocument.file_type || "").toLowerCase().includes("pdf")
+        || currentDocument.image_url.toLowerCase().includes(".pdf");
+      const ext = isPdf ? "pdf" : "jpg";
+      const mime = isPdf ? "application/pdf" : (blob.type || "image/jpeg");
+      const file = new File([blob], `re-extract-${Date.now()}.${ext}`, { type: mime });
+
+      const ocrFormData = new FormData();
+      ocrFormData.append("file", file);
+      const ocrRes = await fetch("/api/ai/ocr-extract-mistral", { method: "POST", body: ocrFormData });
+      if (!ocrRes.ok) {
+        const errBody = await ocrRes.json().catch(() => ({}));
+        throw new Error(errBody.error || `OCR נכשל (${ocrRes.status})`);
+      }
+      const extracted = await ocrRes.json();
+      const newRawText = typeof extracted?.raw_text === "string" ? extracted.raw_text : null;
+
+      const supabase = createClient();
+      const { data: existing } = await supabase
+        .from("ocr_extracted_data")
+        .select("id")
+        .eq("document_id", currentDocument.id)
+        .maybeSingle();
+      const nowIso = new Date().toISOString();
+      const extractedRow: Record<string, unknown> = {
+        raw_text: newRawText,
+        supplier_name: extracted.supplier_name ?? null,
+        document_number: extracted.document_number ?? null,
+        document_date: extracted.document_date ?? null,
+        subtotal: extracted.subtotal ?? null,
+        vat_amount: extracted.vat_amount ?? null,
+        total_amount: extracted.total_amount ?? null,
+        discount_amount: extracted.discount_amount ?? null,
+        discount_percentage: extracted.discount_percentage ?? null,
+        line_items: extracted.line_items ?? null,
+        is_credit_note: extracted.is_credit_note ?? null,
+        mistral_supplier_name: extracted.supplier_name ?? null,
+        mistral_document_number: extracted.document_number ?? null,
+        mistral_document_date: extracted.document_date ?? null,
+        mistral_subtotal: extracted.subtotal ?? null,
+        mistral_vat_amount: extracted.vat_amount ?? null,
+        mistral_total_amount: extracted.total_amount ?? null,
+        mistral_line_items: extracted.line_items ?? null,
+        mistral_markdown: newRawText,
+        mistral_matched_supplier_id: extracted.matched_supplier_id ?? null,
+        mistral_processed_at: nowIso,
+      };
+      if (existing?.id) {
+        await supabase.from("ocr_extracted_data").update(extractedRow).eq("id", existing.id);
+      } else {
+        await supabase.from("ocr_extracted_data").insert({ document_id: currentDocument.id, ...extractedRow });
+      }
+
+      const newOcrData = { ...(currentDocument.ocr_data || {}), ...extracted };
+      setDocuments((prev) => prev.map((doc) => doc.id === currentDocument.id ? { ...doc, ocr_data: newOcrData } : doc));
+      setCurrentDocument((prev) => prev ? { ...prev, ocr_data: newOcrData } : null);
+
+      showToast("OCR הסתיים — בדוק שהנתונים נכונים", "success");
+    } catch (err) {
+      console.error("[Re-extract] Failed:", err);
+      showToast(err instanceof Error ? err.message : "שגיאה בהרצת OCR מחדש", "error");
+    } finally {
+      setIsReExtracting(false);
+    }
+  }, [currentDocument, isReExtracting, showToast]);
+
   const pendingCount = documents.filter((doc) => doc.status === 'pending').length;
 
   if (isCheckingAuth) {
@@ -1191,6 +1271,8 @@ export default function OCRBusinessPage() {
               imageUrls={[currentDocument.image_url, ...mergedDocuments.map(d => d.image_url)]}
               fileType={currentDocument.file_type}
               onCrop={handleCrop}
+              onReExtract={handleReExtract}
+              isReExtracting={isReExtracting}
               showCalculator={showCalculator}
               onCalculatorToggle={() => setShowCalculator(v => !v)}
             />

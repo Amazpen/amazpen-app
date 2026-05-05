@@ -275,6 +275,11 @@ export default function SuppliersPage() {
   const [defaultDiscountPercentage, setDefaultDiscountPercentage] = useState("");
   const [fixedNote, setFixedNote] = useState("");
   const [supplierEmail, setSupplierEmail] = useState("");
+  // Current user's email — used as the default for "כתובת מייל" on a new
+  // supplier so karteset requests come back to the operator who created it.
+  // The user can override per-supplier if they want it sent elsewhere
+  // (e.g. directly to the bookkeeper).
+  const [currentUserEmail, setCurrentUserEmail] = useState("");
   const [requestKarteset, setRequestKarteset] = useState(false);
   const [isSendingKarteset, setIsSendingKarteset] = useState(false);
   const [showKartesetPeriodPicker, setShowKartesetPeriodPicker] = useState(false);
@@ -345,6 +350,14 @@ export default function SuppliersPage() {
       supplierDraftRestored.current = true;
     }
   }, [isAddSupplierModalOpen, isEditingSupplier, restoreSupplierDraft, resetSupplierDraftCleared]);
+
+  // Load current user's email once — used as default for new-supplier email
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email) setCurrentUserEmail(user.email);
+    });
+  }, []);
 
   // Fetch suppliers from database
   useEffect(() => {
@@ -1778,11 +1791,46 @@ export default function SuppliersPage() {
               setIsAddCommitmentOpen(true);
               return;
             }
+            // Clear any stale draft from a previous session — users complained
+            // that opening "+ ספק חדש" on a fresh visit silently restored the
+            // last unsaved draft (incl. unrelated supplier names like "הקצב-
+            // סלמון") with no indication it was old data. Refresh doesn't
+            // wipe localStorage, so we explicitly clear here. The form below
+            // will start blank; pre-fills (expenseType from tab, default
+            // email) are applied AFTER the clear.
+            clearSupplierDraft();
+            resetSupplierDraftCleared();
+            // Reset all form fields to empty defaults so the modal opens clean
+            setSupplierName("");
+            setHasPreviousObligations(false);
+            setWaitingForCoordinator(false);
+            setObligationTotalAmount("");
+            setObligationTerms("");
+            setObligationFirstChargeDate("");
+            setObligationNumPayments("");
+            setObligationMonthlyAmount("");
+            setCategory("");
+            setParentCategory("");
+            setPaymentTerms("");
+            setVatRequired("yes");
+            setIsFixedExpense(false);
+            setChargeDay("");
+            setMonthlyExpenseAmount("");
+            setPrimaryPaymentMethod("");
+            setSelectedCreditCardId("");
+            setDefaultDiscountPercentage("");
+            setFixedNote("");
+            // Default email to the current user's email — they're the most
+            // likely recipient for karteset requests. They can clear it or
+            // change it per-supplier if a bookkeeper should get it instead.
+            setSupplierEmail(currentUserEmail || "");
+            setRequestKarteset(false);
             if (activeTab === "purchases") {
               setExpenseType("goods");
-            }
-            if (activeTab === "employees") {
+            } else if (activeTab === "employees") {
               setExpenseType("employees");
+            } else {
+              setExpenseType("current");
             }
             setIsAddSupplierModalOpen(true);
           }}
@@ -2480,7 +2528,19 @@ export default function SuppliersPage() {
               {/* Primary Payment Method */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">אמצעי תשלום ראשי</label>
-                <Select value={primaryPaymentMethod || "__none__"} onValueChange={(val) => { const v = val === "__none__" ? "" : val; setPrimaryPaymentMethod(v); if (v !== "credit") setSelectedCreditCardId(""); }}>
+                <Select value={primaryPaymentMethod || "__none__"} onValueChange={(val) => {
+                  const v = val === "__none__" ? "" : val;
+                  setPrimaryPaymentMethod(v);
+                  if (v !== "credit") {
+                    setSelectedCreditCardId("");
+                  } else if (!selectedCreditCardId && businessCreditCards.length > 0) {
+                    // Auto-pick a credit card so the user doesn't have to take
+                    // a second step. If only one card exists it's obviously
+                    // the right pick; with multiple, default to the first
+                    // (most-recently-added) and let the user change it.
+                    setSelectedCreditCardId(businessCreditCards[0].id);
+                  }
+                }}>
                   <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                     <SelectValue placeholder="אמצעי תשלום ראשי" />
                   </SelectTrigger>

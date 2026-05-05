@@ -1303,8 +1303,18 @@ export default function OCRForm({
           setIsSummaryLinked(false);
           setIsDisputed(false);
         } else if (raw === 'delivery_note') {
+          // The Mistral AI sometimes mis-classifies regular invoices as
+          // delivery notes. Don't blindly set isSummaryLinked=true — that
+          // would make the doc save as a delivery note even when the user
+          // doesn't realize it (the toggle is hidden when the supplier
+          // isn't flagged as waiting_for_coordinator). Instead, only set
+          // it when the chosen supplier is actually a "מרכזת" supplier;
+          // otherwise treat as a regular invoice and let the user toggle
+          // it manually if needed.
           setDocumentType('invoice');
-          setIsSummaryLinked(true);
+          const matchedSupplierId = data.matched_supplier_id || supplierId;
+          const sup = suppliers.find(s => s.id === matchedSupplierId);
+          setIsSummaryLinked(!!sup?.waiting_for_coordinator);
           setIsDisputed(false);
         } else if (raw === 'disputed_invoice') {
           setDocumentType('invoice');
@@ -2295,7 +2305,13 @@ export default function OCRForm({
                       setLinkToFixedInvoiceId(inv.id);
                       fixedOverwriteConfirmedRef.current = false;
                       setAmountBeforeVat(String(inv.subtotal));
-                      setDocumentDate(inv.invoice_date);
+                      // NEVER overwrite documentDate when picking a fixed-expense
+                      // month — even if it contains today's auto-default. The
+                      // actual invoice date (whether OCR-extracted or
+                      // user-typed) is always more accurate than the
+                      // placeholder's month-start date. The intake API will
+                      // update the placeholder's invoice_date to whatever the
+                      // user submits.
                       if (selectedSupplier.vat_type === 'none') {
                         setPartialVat(true);
                         setVatAmount('0');
@@ -3843,22 +3859,88 @@ export default function OCRForm({
             >
               + צרף עמודים נוספים
             </Button>
-            {mergedDocuments.map((md) => (
-              <span
-                key={md.id}
-                className="inline-flex items-center gap-1 bg-[#29318A]/20 border border-[#29318A]/40 text-white text-[11px] px-2 py-1 rounded-[6px]"
-              >
-                {md.original_filename || md.source_sender_name || md.id.slice(0, 8)}
-                <button
-                  type="button"
-                  onClick={() => onMergeDocuments(mergedDocuments.filter(d => d.id !== md.id))}
-                  className="text-white/50 hover:text-white"
+            {mergedDocuments.map((md) => {
+              const isPdf = md.file_type === 'pdf' || md.image_url?.toLowerCase().endsWith('.pdf');
+              const totalAmount = md.ocr_data?.total_amount;
+              return (
+                <span
+                  key={md.id}
+                  className="inline-flex items-center gap-1.5 bg-[#29318A]/20 border border-[#29318A]/40 text-white text-[11px] px-2 py-1 rounded-[6px]"
                 >
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
+                  {/* Click on the chip body opens a preview of the merged doc.
+                      Critical for the user to verify what's actually attached
+                      — earlier the chip showed only a filename and the file
+                      contents were unreachable from the form. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isPdf && md.image_url) {
+                        window.open(md.image_url, '_blank', 'noopener,noreferrer');
+                      } else if (md.image_url) {
+                        setMergePreviewUrl(md.image_url);
+                      }
+                    }}
+                    className="flex items-center gap-1.5 hover:text-[#bc76ff] transition-colors"
+                    title={isPdf ? "פתח PDF" : "צפה בתמונה"}
+                  >
+                    {/* Tiny thumbnail (image only — PDFs show an icon) */}
+                    {isPdf ? (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    ) : md.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={md.image_url} alt="" className="w-[20px] h-[20px] object-cover rounded-[3px] border border-white/20" />
+                    ) : null}
+                    <span className="truncate max-w-[120px]">
+                      {md.ocr_data?.supplier_name || md.original_filename || md.source_sender_name || md.id.slice(0, 8)}
+                    </span>
+                    {totalAmount != null && totalAmount > 0 && (
+                      <span className="text-[#17DB4E] text-[10px] font-semibold ltr-num" dir="ltr">
+                        ₪{totalAmount.toLocaleString('he-IL')}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onMergeDocuments(mergedDocuments.filter(d => d.id !== md.id))}
+                    className="text-white/50 hover:text-white pr-0.5 border-r border-white/10"
+                    title="הסר מצירוף"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              );
+            })}
           </div>
+          {/* Sum totals from merged docs — shown only when there's data and the
+              user might want to combine. We deliberately DON'T auto-merge into
+              amountBeforeVat to avoid confusion when the user attached pages
+              of the SAME invoice (e.g. a multi-page scan) — adding them would
+              double-count. The button gives the user explicit control. */}
+          {mergedDocuments.some(md => md.ocr_data?.subtotal != null && md.ocr_data.subtotal !== 0) && (() => {
+            const sumSubtotal = mergedDocuments.reduce((s, md) => s + (Number(md.ocr_data?.subtotal) || 0), 0);
+            const currentSubtotal = parseFloat(amountBeforeVat) || 0;
+            const combined = currentSubtotal + sumSubtotal;
+            if (sumSubtotal === 0) return null;
+            return (
+              <div className="mt-2 flex items-center justify-between gap-2 bg-[#bc76ff]/10 border border-[#bc76ff]/30 rounded-[7px] px-3 py-2">
+                <div className="flex flex-col text-right text-[11px] text-white/80 flex-1 min-w-0">
+                  <span>
+                    סכום במסמכים המצורפים: <span className="text-[#17DB4E] font-semibold ltr-num" dir="ltr">₪{sumSubtotal.toLocaleString('he-IL', { maximumFractionDigits: 2 })}</span>
+                  </span>
+                  <span className="text-white/40 text-[10px]">
+                    אם זו אותה חשבונית בכמה עמודים — אל תוסיף. אם אלה חשבוניות שונות שאתה מאחד — לחץ &quot;חבר סכומים&quot;.
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => setAmountBeforeVat(String(combined.toFixed(2)))}
+                  className="bg-[#bc76ff]/30 hover:bg-[#bc76ff]/50 text-white text-[11px] font-medium px-3 py-1 rounded-[6px] transition-colors h-auto whitespace-nowrap"
+                >
+                  חבר סכומים
+                </Button>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -3967,33 +4049,38 @@ export default function OCRForm({
             </Button>
           </div>
 
-          {/* Full-screen image preview overlay (inside Sheet so it stacks above) */}
-          {mergePreviewUrl && (
-            <div
-              role="dialog"
-              aria-label="תצוגה מוגדלת"
-              onClick={() => setMergePreviewUrl(null)}
-              className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
-            >
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setMergePreviewUrl(null); }}
-                className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-                aria-label="סגור"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
-              </button>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={mergePreviewUrl}
-                alt="תצוגה מוגדלת"
-                onClick={(e) => e.stopPropagation()}
-                className="max-w-full max-h-full object-contain rounded-[8px] cursor-default"
-              />
-            </div>
-          )}
         </SheetContent>
       </Sheet>
+
+      {/* Full-screen image preview overlay — kept outside the Sheet so the
+          merged-doc chips in the form header can also open it (otherwise
+          closing the Sheet would unmount the overlay). z-[200] beats the
+          Sheet's z-index so it stacks on top whether the Sheet is open
+          or not. */}
+      {mergePreviewUrl && (
+        <div
+          role="dialog"
+          aria-label="תצוגה מוגדלת"
+          onClick={() => setMergePreviewUrl(null)}
+          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setMergePreviewUrl(null); }}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            aria-label="סגור"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={mergePreviewUrl}
+            alt="תצוגה מוגדלת"
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-full object-contain rounded-[8px] cursor-default"
+          />
+        </div>
+      )}
 
       {/* Duplicate warning banner */}
       {duplicateWarning && (
