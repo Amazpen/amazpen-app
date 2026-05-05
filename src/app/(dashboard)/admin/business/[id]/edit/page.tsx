@@ -955,12 +955,45 @@ export default function EditBusinessPage({ params }: PageProps) {
           }
 
           if (toUpsert.length > 0) {
-            const { error: goalsError } = await supabase
-              .from("goals")
-              .upsert(toUpsert, { onConflict: "business_id,year,month" });
-            if (goalsError) {
-              console.error("goals override upsert error:", goalsError);
-              throw new Error(`שגיאה בשמירת ערכי החודשים: ${goalsError.message}`);
+            // Manual upsert split into UPDATE (for rows that already exist
+            // in goals) and INSERT (for new rows). We can't use Supabase's
+            // .upsert(onConflict: "business_id,year,month") because the
+            // unique constraint on goals is PARTIAL ("WHERE deleted_at IS
+            // NULL"), and PostgREST/PostgreSQL ON CONFLICT doesn't accept
+            // partial-unique-index targets without a WHERE clause that we
+            // can't pass through the JS client. existingMap was already
+            // built above so we know which keys are updates.
+            const inserts: Override[] = [];
+            type UpdatePatch = { id: string; patch: Partial<Override> };
+            const updates: UpdatePatch[] = [];
+            for (const row of toUpsert) {
+              const key = `${row.year}-${row.month}`;
+              const existing = existingMap.get(key);
+              if (existing?.id) {
+                const patch: Partial<Override> = {};
+                if (row.manager_monthly_salary !== undefined) patch.manager_monthly_salary = row.manager_monthly_salary;
+                if (row.markup_percentage !== undefined) patch.markup_percentage = row.markup_percentage;
+                if (row.vat_percentage !== undefined) patch.vat_percentage = row.vat_percentage;
+                updates.push({ id: existing.id, patch });
+              } else {
+                inserts.push(row);
+              }
+            }
+            const updateResults = await Promise.all(
+              updates.map(u => supabase.from("goals").update(u.patch).eq("id", u.id)),
+            );
+            for (const r of updateResults) {
+              if (r.error) {
+                console.error("goals override update error:", r.error);
+                throw new Error(`שגיאה בעדכון ערכי החודשים: ${r.error.message}`);
+              }
+            }
+            if (inserts.length > 0) {
+              const { error: insertError } = await supabase.from("goals").insert(inserts);
+              if (insertError) {
+                console.error("goals override insert error:", insertError);
+                throw new Error(`שגיאה בשמירת ערכי החודשים: ${insertError.message}`);
+              }
             }
           }
         }
