@@ -17,10 +17,84 @@ import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { Mistral } from "@mistralai/mistralai";
+import sharp from "sharp";
 import { MAX_FILE_SIZE, ACCEPTED_IMAGE_TYPES } from "@/lib/ocr";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+
+/**
+ * Enhance an image for Mistral OCR. Applies in order:
+ *  - EXIF auto-rotate (so phones holding the doc upside-down don't trip OCR).
+ *  - Upscale to ≥2000px on the long edge (Mistral handles small images poorly
+ *    on dense Hebrew tables).
+ *  - Light contrast/brightness lift via linear() — pulls faint photocopies out
+ *    of the gray haze without overexposing the page.
+ *  - Sharpen with conservative sigma so edges of small Hebrew letters don't
+ *    bleed into each other.
+ *  - Encode as PNG so we don't lose detail to JPEG quantisation.
+ */
+async function preprocessImageForOcr(input: Buffer): Promise<Buffer> {
+  const meta = await sharp(input).metadata();
+  const longestEdge = Math.max(meta.width || 0, meta.height || 0);
+  const targetLongest = 2400;
+  const scale = longestEdge > 0 && longestEdge < targetLongest
+    ? targetLongest / longestEdge
+    : 1;
+
+  let pipeline = sharp(input).rotate();
+  if (scale > 1.05) {
+    const newWidth = Math.round((meta.width || 0) * scale);
+    if (newWidth > 0) pipeline = pipeline.resize({ width: newWidth, kernel: "lanczos3" });
+  }
+  return await pipeline
+    .linear(1.15, -8)            // contrast multiplier + tiny brightness offset
+    .sharpen({ sigma: 0.8 })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+}
+
+/**
+ * Heuristic: did Mistral actually read the items table?
+ * Returns { ok: boolean; reason?: string } so the caller can decide whether
+ * to retry with preprocessed image. We flag "ok=false" when the markdown
+ * either has too few rows or shows the model repeating the same description
+ * across many rows (a known failure mode on dense Hebrew invoices — Mistral
+ * latches onto one item name and copies it down the entire table).
+ */
+function looksLikeOcrFailure(markdown: string, fileSizeBytes: number): { ok: boolean; reason?: string } {
+  if (!markdown || markdown.length < 100) {
+    return { ok: false, reason: "markdown too short" };
+  }
+  // Count description-like cells in the markdown table — anything with a
+  // pipe, then text containing Hebrew letters, then another pipe.
+  const lines = markdown.split(/\r?\n/);
+  const tableLines = lines.filter(l => /^\s*\|.*\|.*\|/.test(l));
+  if (tableLines.length === 0 && fileSizeBytes > 200_000) {
+    // No table detected on a non-trivial file — likely a layout failure.
+    return { ok: false, reason: "no markdown tables for a non-trivial file" };
+  }
+
+  // Extract the leftmost text column (description) per data row, find duplicates.
+  const descs: string[] = [];
+  for (const line of tableLines) {
+    const cells = line.split("|").map(c => c.trim()).filter(c => c !== "");
+    if (cells.length < 2) continue;
+    // Find the longest cell that contains Hebrew or English letters — that's
+    // typically the description column.
+    const desc = cells
+      .filter(c => /[א-תA-Za-z]/.test(c))
+      .sort((a, b) => b.length - a.length)[0];
+    if (desc && desc.length >= 4) descs.push(desc);
+  }
+  if (descs.length >= 4) {
+    const uniqueRatio = new Set(descs).size / descs.length;
+    if (uniqueRatio < 0.4) {
+      return { ok: false, reason: `duplicate descriptions (${descs.length} rows, ${new Set(descs).size} unique)` };
+    }
+  }
+  return { ok: true };
+}
 
 const lineItemSchema = z.object({
   description: z.string().nullable().describe("שם הפריט"),
@@ -79,13 +153,21 @@ function guessMimeFromName(name: string): string {
  * Mirrors the working pattern from `/api/ai/ocr-demo` — images go inline as
  * base64 data URLs (avoids the SDK's failing /v1/files JPEG roundtrip), PDFs
  * upload via direct REST calls then OCR by signed URL.
+ *
+ * `overrideImageBytes` lets the caller pass a preprocessed buffer (e.g. from
+ * `preprocessImageForOcr`) instead of re-reading the File — used by the retry
+ * pass when the first OCR returned a likely-failed extraction.
  */
-async function mistralOcrFile(file: File, mistralKey: string): Promise<string> {
+async function mistralOcrFile(
+  file: File,
+  mistralKey: string,
+  overrideImageBytes?: { bytes: Uint8Array; mime: string },
+): Promise<string> {
   const client = new Mistral({ apiKey: mistralKey });
-  const arrayBuffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuffer);
+  const arrayBuffer = overrideImageBytes ? overrideImageBytes.bytes.buffer : await file.arrayBuffer();
+  const bytes = overrideImageBytes ? overrideImageBytes.bytes : new Uint8Array(arrayBuffer);
   const fileName = file.name || "uploaded-document";
-  const mime = file.type || guessMimeFromName(fileName);
+  const mime = overrideImageBytes ? overrideImageBytes.mime : (file.type || guessMimeFromName(fileName));
   const isImage = mime.startsWith("image/");
 
   let documentForOcr:
@@ -197,9 +279,40 @@ export async function POST(request: NextRequest) {
   console.log(`[OCR-Extract-Mistral] File: type=${file.type}, size=${file.size}, isImage=${isImage}, isPdf=${isPdf}`);
 
   try {
-    // Step 1: Mistral OCR → markdown
-    const rawText = await mistralOcrFile(file, process.env.MISTRAL_API_KEY);
-    console.log(`[OCR-Extract-Mistral] Raw markdown length: ${rawText?.length ?? 0}`);
+    // Step 1: Mistral OCR → markdown.
+    // First pass uses the original file as-is. If validation flags the result
+    // as a likely failure (too few rows, duplicate descriptions, etc.), we
+    // run a second pass with an upscaled + contrast-enhanced version of the
+    // image. Whichever pass yields more line-item-looking content wins.
+    let rawText = await mistralOcrFile(file, process.env.MISTRAL_API_KEY);
+    console.log(`[OCR-Extract-Mistral] First pass markdown length: ${rawText?.length ?? 0}`);
+
+    const firstPassCheck = looksLikeOcrFailure(rawText || "", file.size);
+    if (!firstPassCheck.ok && isImage) {
+      console.log(`[OCR-Extract-Mistral] First pass flagged: ${firstPassCheck.reason}. Retrying with preprocessed image...`);
+      try {
+        const arr = await file.arrayBuffer();
+        const enhanced = await preprocessImageForOcr(Buffer.from(arr));
+        const retryText = await mistralOcrFile(
+          file,
+          process.env.MISTRAL_API_KEY,
+          { bytes: new Uint8Array(enhanced), mime: "image/png" },
+        );
+        console.log(`[OCR-Extract-Mistral] Retry markdown length: ${retryText?.length ?? 0}`);
+        const retryCheck = looksLikeOcrFailure(retryText || "", file.size);
+        // Pick the better of the two passes — prefer the one that PASSED
+        // validation; if both passed/failed, prefer the longer markdown
+        // (more content extracted).
+        if (retryCheck.ok && !firstPassCheck.ok) {
+          rawText = retryText;
+        } else if (retryText && retryText.length > (rawText?.length ?? 0) * 1.2) {
+          rawText = retryText;
+        }
+      } catch (preErr) {
+        console.warn(`[OCR-Extract-Mistral] Preprocess/retry failed:`, preErr);
+        // Keep the first pass result.
+      }
+    }
 
     if (!rawText || rawText.length < 5) {
       return Response.json({
