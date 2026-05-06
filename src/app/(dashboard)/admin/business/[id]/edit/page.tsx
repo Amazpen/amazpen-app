@@ -165,6 +165,9 @@ export default function EditBusinessPage({ params }: PageProps) {
   // Per-month markup overrides: { "YYYY-M": pct (0-100) }. Explicit user overrides per month.
   const [markupByMonth, setMarkupByMonth] = useState<Record<string, number>>({});
   const [originalMarkupByMonth, setOriginalMarkupByMonth] = useState<Record<string, number>>({});
+  // Keys the user explicitly cleared (typed empty into a row that originally had a value).
+  // Save clears markup_percentage in DB ONLY for keys in this set — never via state-diff alone.
+  const [clearedMarkupKeys, setClearedMarkupKeys] = useState<Set<string>>(new Set());
 
   // Step 2: Business Schedule
   const [schedule, setSchedule] = useState<Record<number, string>>({
@@ -934,7 +937,10 @@ export default function EditBusinessPage({ params }: PageProps) {
       // Markup also runs (a) automatically using the current month as effective when the
       // main markup field changes — so historical reports keep their old percentage.
 
-      // Compute markup explicit diffs (per-month list)
+      // Compute markup explicit diffs (per-month list).
+      // Safety rule: clear (null) ONLY for keys the user explicitly typed empty into.
+      // A missing key with no explicit-clear entry is treated as state-loss and skipped,
+      // so we never accidentally wipe markup overrides the user created.
       type MarkupDiff = { year: number; month: number; markup_percentage: number | null };
       const markupDiffs: MarkupDiff[] = [];
       const markupKeys = new Set<string>([
@@ -944,13 +950,17 @@ export default function EditBusinessPage({ params }: PageProps) {
       markupKeys.forEach((key) => {
         const newVal = markupByMonth[key];
         const oldVal = originalMarkupByMonth[key];
-        if (newVal !== oldVal) {
-          const [yStr, mStr] = key.split("-");
-          markupDiffs.push({
-            year: Number(yStr),
-            month: Number(mStr),
-            markup_percentage: newVal != null ? 1 + newVal / 100 : null,
-          });
+        if (newVal === oldVal) return;
+        const [yStr, mStr] = key.split("-");
+        const year = Number(yStr);
+        const month = Number(mStr);
+        if (newVal != null) {
+          markupDiffs.push({ year, month, markup_percentage: 1 + newVal / 100 });
+          return;
+        }
+        // newVal is undefined → clear only if explicitly cleared by the user
+        if (clearedMarkupKeys.has(key)) {
+          markupDiffs.push({ year, month, markup_percentage: null });
         }
       });
 
@@ -1785,6 +1795,21 @@ export default function EditBusinessPage({ params }: PageProps) {
                           }
                           return next;
                         });
+                        // Track explicit clear (so save can null-out only this key, not other lost state)
+                        if (val === "" && originalMarkupByMonth[r.key] != null) {
+                          setClearedMarkupKeys((prev) => {
+                            if (prev.has(r.key)) return prev;
+                            const next = new Set(prev);
+                            next.add(r.key);
+                            return next;
+                          });
+                        } else if (val !== "" && clearedMarkupKeys.has(r.key)) {
+                          setClearedMarkupKeys((prev) => {
+                            const next = new Set(prev);
+                            next.delete(r.key);
+                            return next;
+                          });
+                        }
                       }}
                       className="w-full h-full bg-transparent text-white text-[13px] text-center border-none outline-none px-[6px] placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
