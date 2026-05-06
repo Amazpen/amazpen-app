@@ -33,6 +33,60 @@ export default function PriceTrackingPage() {
   const [historyModalAlert, setHistoryModalAlert] = useState<PriceAlert | null>(null);
   const [historyModalRows, setHistoryModalRows] = useState<SupplierItemPrice[]>([]);
   const [historyModalLoading, setHistoryModalLoading] = useState(false);
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editPrice, setEditPrice] = useState('');
+  const [editQty, setEditQty] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
+  const startEditRow = useCallback((row: SupplierItemPrice) => {
+    setEditingRowId(row.id);
+    setEditPrice(String(row.price));
+    setEditQty(row.quantity != null ? String(row.quantity) : '');
+  }, []);
+
+  const cancelEditRow = useCallback(() => {
+    setEditingRowId(null);
+    setEditPrice('');
+    setEditQty('');
+  }, []);
+
+  const saveEditRow = useCallback(async (row: SupplierItemPrice) => {
+    const priceNum = parseFloat(editPrice);
+    if (!Number.isFinite(priceNum) || priceNum < 0) return;
+    const qtyNum = editQty.trim() === '' ? null : parseFloat(editQty);
+    if (qtyNum != null && (!Number.isFinite(qtyNum) || qtyNum < 0)) return;
+
+    setEditSaving(true);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('supplier_item_prices')
+      .update({ price: priceNum, quantity: qtyNum })
+      .eq('id', row.id);
+
+    if (!error) {
+      // Refresh modal rows in place
+      setHistoryModalRows(prev => prev.map(r => r.id === row.id ? { ...r, price: priceNum, quantity: qtyNum ?? undefined } : r));
+
+      // If this is the latest record for the item, also sync supplier_items.current_price
+      const isLatest = historyModalRows.length > 0 && historyModalRows[0].id === row.id;
+      if (isLatest) {
+        await supabase
+          .from('supplier_items')
+          .update({ current_price: priceNum })
+          .eq('id', row.supplier_item_id);
+      }
+
+      // Also reflect in the page's supplierItems list if this product is loaded there
+      setSupplierItems(prev => prev.map(si =>
+        si.id === row.supplier_item_id && historyModalRows[0]?.id === row.id
+          ? { ...si, current_price: priceNum }
+          : si
+      ));
+
+      cancelEditRow();
+    }
+    setEditSaving(false);
+  }, [editPrice, editQty, historyModalRows, cancelEditRow]);
 
   const openHistoryModal = useCallback(async (alert: PriceAlert) => {
     setHistoryModalAlert(alert);
@@ -765,28 +819,59 @@ export default function PriceTrackingPage() {
                 <div className="p-[20px] text-center text-white/50 text-[13px]">אין היסטוריית מחירים למוצר זה</div>
               ) : (
                 <div className="flex flex-col">
-                  <div className="grid grid-cols-[1fr_90px_70px_90px] bg-[#29318A]/40 sticky top-0 px-[12px] py-[7px] text-[11px] text-white/70">
+                  <div className="grid grid-cols-[1fr_90px_70px_70px_60px] bg-[#29318A]/40 sticky top-0 px-[12px] py-[7px] text-[11px] text-white/70">
                     <span className="text-right">תאריך</span>
                     <span className="text-center">מחיר</span>
                     <span className="text-center">כמות</span>
                     <span className="text-center">שינוי</span>
+                    <span></span>
                   </div>
                   {historyModalRows.map((row, idx) => {
                     const next = idx < historyModalRows.length - 1 ? historyModalRows[idx + 1] : null;
                     const change = next ? ((row.price - next.price) / next.price) * 100 : null;
                     const isAlertRow = row.price === historyModalAlert.new_price &&
                       historyModalAlert.document_date && row.document_date === historyModalAlert.document_date;
+                    const isEditing = editingRowId === row.id;
                     return (
                       <div
                         key={row.id}
-                        className={`grid grid-cols-[1fr_90px_70px_90px] px-[12px] py-[8px] border-b border-[#4C526B]/30 text-[12.5px] items-center ${isAlertRow ? 'bg-[#29318A]/30' : ''}`}
+                        className={`grid grid-cols-[1fr_90px_70px_70px_60px] px-[12px] py-[8px] border-b border-[#4C526B]/30 text-[12.5px] items-center ${isAlertRow ? 'bg-[#29318A]/30' : ''} ${isEditing ? 'bg-[#29318A]/40' : ''}`}
                       >
                         <span className="text-white/90 text-right">
                           {row.document_date ? new Date(row.document_date).toLocaleDateString('he-IL') : '-'}
                           {isAlertRow && <span className="mr-[6px] text-[10px] text-[#FFB84D]">(שינוי שזוהה)</span>}
                         </span>
-                        <span className="text-white text-center ltr-num">₪{Number(row.price).toFixed(2)}</span>
-                        <span className="text-white/70 text-center ltr-num">{row.quantity != null ? row.quantity : '-'}</span>
+                        {isEditing ? (
+                          <span className="text-center px-[2px]">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editPrice}
+                              onChange={(e) => setEditPrice(e.target.value)}
+                              className="w-full bg-transparent border border-[#4C526B] rounded-[4px] text-center text-white text-[12px] h-[26px] px-[4px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              dir="ltr"
+                              autoFocus
+                            />
+                          </span>
+                        ) : (
+                          <span className="text-white text-center ltr-num">₪{Number(row.price).toFixed(2)}</span>
+                        )}
+                        {isEditing ? (
+                          <span className="text-center px-[2px]">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editQty}
+                              onChange={(e) => setEditQty(e.target.value)}
+                              className="w-full bg-transparent border border-[#4C526B] rounded-[4px] text-center text-white text-[12px] h-[26px] px-[4px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              dir="ltr"
+                            />
+                          </span>
+                        ) : (
+                          <span className="text-white/70 text-center ltr-num">{row.quantity != null ? row.quantity : '-'}</span>
+                        )}
                         <span className="text-center ltr-num">
                           {change != null ? (
                             <span className={`font-medium ${change > 0 ? 'text-[#F64E60]' : change < 0 ? 'text-[#3CD856]' : 'text-white/40'}`}>
@@ -794,6 +879,42 @@ export default function PriceTrackingPage() {
                             </span>
                           ) : (
                             <span className="text-white/30">-</span>
+                          )}
+                        </span>
+                        <span className="flex items-center justify-center gap-[3px]">
+                          {isEditing ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => saveEditRow(row)}
+                                disabled={editSaving}
+                                title="שמור"
+                                className="w-[24px] h-[24px] flex items-center justify-center rounded-[5px] bg-[#3CD856]/20 hover:bg-[#3CD856]/40 text-[#3CD856] transition disabled:opacity-50"
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelEditRow}
+                                disabled={editSaving}
+                                title="ביטול"
+                                className="w-[24px] h-[24px] flex items-center justify-center rounded-[5px] bg-white/5 hover:bg-white/15 text-white/60 transition disabled:opacity-50"
+                              >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => startEditRow(row)}
+                              title="ערוך מחיר/כמות"
+                              className="w-[24px] h-[24px] flex items-center justify-center rounded-[5px] bg-white/5 hover:bg-[#29318A] text-white/50 hover:text-white transition"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                            </button>
                           )}
                         </span>
                       </div>
