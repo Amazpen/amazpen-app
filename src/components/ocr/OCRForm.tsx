@@ -435,6 +435,38 @@ export default function OCRForm({
   const [lineItems, setLineItems] = useState<OCRLineItem[]>([]);
   const [priceCheckDone, setPriceCheckDone] = useState(false);
 
+  // Cache of the current supplier's known items — used to power the per-row
+  // "pick from existing" picker so users can replace OCR-mangled descriptions
+  // with a real catalog match (also prevents creating duplicate items).
+  type SupplierItemOption = { id: string; item_name: string; current_price: number | null; unit: string | null };
+  const [supplierItemsCache, setSupplierItemsCache] = useState<SupplierItemOption[]>([]);
+  const [pickerOpenIdx, setPickerOpenIdx] = useState<number | null>(null);
+  const [pickerQuery, setPickerQuery] = useState('');
+
+  // Always-on cache of the supplier's catalog (powers the picker even before
+  // any line item is added/matched). Independent of the price-check effect
+  // below so the picker works regardless of whether OCR detected items.
+  useEffect(() => {
+    if (!supplierId || !selectedBusinessId) {
+      setSupplierItemsCache([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('supplier_items')
+        .select('id, item_name, current_price, unit')
+        .eq('business_id', selectedBusinessId)
+        .eq('supplier_id', supplierId)
+        .eq('is_active', true)
+        .order('item_name');
+      if (cancelled) return;
+      setSupplierItemsCache((data || []) as SupplierItemOption[]);
+    })();
+    return () => { cancelled = true; };
+  }, [supplierId, selectedBusinessId]);
+
   // Fetch price comparisons when supplier or document changes.
   // Uses a cancellation guard + doc-id gate so rapid document switches (e.g. after
   // saving one invoice and auto-advancing to the next) don't let a stale request
@@ -2505,17 +2537,110 @@ export default function OCRForm({
             )}
             {lineItems.map((li, idx) => (
               <div key={`line-${idx}`} className="grid grid-cols-[1fr_50px_60px_75px_60px_28px] min-w-[320px] items-center border-b border-[#4C526B]/50 py-[6px] px-[4px] gap-[2px]">
-                <span className="min-w-0 pr-[2px]">
-                  <input
-                    type="text"
-                    value={li.description || ''}
-                    onChange={(e) => {
-                      setLineItems(prev => prev.map((item, i) => i !== idx ? item : { ...item, description: e.target.value }));
-                    }}
-                    className="w-full bg-transparent border border-[#4C526B]/50 focus:border-[#29318A] rounded-[4px] text-right text-white text-[13px] h-[28px] px-[3px] outline-none overflow-hidden text-ellipsis"
-                    title={li.description || '-'}
-                    dir="rtl"
-                  />
+                <span className="min-w-0 pr-[2px] relative">
+                  <div className="flex items-center gap-[2px]">
+                    <input
+                      type="text"
+                      value={li.description || ''}
+                      onChange={(e) => {
+                        setLineItems(prev => prev.map((item, i) => i !== idx ? item : { ...item, description: e.target.value }));
+                      }}
+                      className="flex-1 min-w-0 bg-transparent border border-[#4C526B]/50 focus:border-[#29318A] rounded-[4px] text-right text-white text-[13px] h-[28px] px-[3px] outline-none overflow-hidden text-ellipsis"
+                      title={li.description || '-'}
+                      dir="rtl"
+                    />
+                    {supplierId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPickerOpenIdx(pickerOpenIdx === idx ? null : idx);
+                          setPickerQuery('');
+                        }}
+                        className="flex-shrink-0 w-[24px] h-[28px] flex items-center justify-center bg-[#29318A]/40 hover:bg-[#29318A] border border-[#4C526B]/50 rounded-[4px] text-white/70 hover:text-white transition-colors"
+                        title="בחר ממוצרים קיימים"
+                        aria-label="בחר ממוצרים קיימים"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 6h18M3 12h18M3 18h18" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  {pickerOpenIdx === idx && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setPickerOpenIdx(null)}
+                      />
+                      <div className="absolute z-50 top-full right-0 mt-[3px] w-[280px] max-w-[90vw] bg-[#0f1231] border border-[#4C526B] rounded-[8px] shadow-xl overflow-hidden">
+                        <div className="p-[6px] border-b border-[#4C526B]/50">
+                          <input
+                            type="text"
+                            value={pickerQuery}
+                            onChange={(e) => setPickerQuery(e.target.value)}
+                            placeholder="חיפוש מוצר..."
+                            className="w-full h-[30px] bg-transparent border border-[#4C526B] rounded-[5px] px-[8px] text-white text-[12px] text-right outline-none focus:border-[#29318A]"
+                            dir="rtl"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="max-h-[260px] overflow-y-auto">
+                          {(() => {
+                            const q = pickerQuery.trim().toLowerCase();
+                            const filtered = q
+                              ? supplierItemsCache.filter(s => s.item_name.toLowerCase().includes(q))
+                              : supplierItemsCache;
+                            if (supplierItemsCache.length === 0) {
+                              return (
+                                <div className="text-center text-white/40 text-[12px] py-[14px]">
+                                  אין מוצרים קיימים לספק זה
+                                </div>
+                              );
+                            }
+                            if (filtered.length === 0) {
+                              return (
+                                <div className="text-center text-white/40 text-[12px] py-[14px]">
+                                  אין תוצאה ל-&quot;{pickerQuery}&quot;
+                                </div>
+                              );
+                            }
+                            return filtered.map((opt) => (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => {
+                                  setLineItems(prev => prev.map((item, i) => {
+                                    if (i !== idx) return item;
+                                    const newPrice = opt.current_price ?? item.unit_price;
+                                    return {
+                                      ...item,
+                                      description: opt.item_name,
+                                      unit_price: newPrice ?? undefined,
+                                      matched_supplier_item_id: opt.id,
+                                      previous_price: opt.current_price ?? undefined,
+                                      price_change_pct: 0,
+                                      is_new_item: false,
+                                      total: calcLineTotal(item.quantity, newPrice ?? undefined, item.discount_amount, item.discount_type),
+                                    };
+                                  }));
+                                  setPickerOpenIdx(null);
+                                  setPickerQuery('');
+                                }}
+                                className="w-full text-right px-[10px] py-[7px] hover:bg-[#29318A]/40 border-b border-[#4C526B]/30 last:border-b-0 transition-colors"
+                              >
+                                <div className="text-white text-[12.5px] truncate">{opt.item_name}</div>
+                                {opt.current_price != null && (
+                                  <div className="text-white/50 text-[10.5px] ltr-num text-left">
+                                    &#8362;{Number(opt.current_price).toFixed(2)}{opt.unit ? ` / ${opt.unit}` : ''}
+                                  </div>
+                                )}
+                              </button>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </span>
                 <span className="px-[1px]">
                   <input
