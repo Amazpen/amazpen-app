@@ -137,7 +137,7 @@ export default function EditBusinessPage({ params }: PageProps) {
   const [documentsSendTypes, setDocumentsSendTypes] = useState<Array<"invoice" | "payment" | "delivery_note">>(["invoice", "payment", "delivery_note"]);
   // OCR intake phones — phone numbers that route incoming WhatsApp/Telegram
   // documents to this business. n8n workflow checks this before AI tax-id matching.
-  type IntakePhone = { id: string; phone: string; source: "whatsapp" | "telegram" | "any"; notes: string | null };
+  type IntakePhone = { id: string; phone: string; source: "whatsapp" | "telegram" | "any"; notes: string | null; derived_from_user_id?: string | null };
   const [intakePhones, setIntakePhones] = useState<IntakePhone[]>([]);
   const [newIntakePhone, setNewIntakePhone] = useState("");
   const [newIntakeSource, setNewIntakeSource] = useState<"whatsapp" | "telegram" | "any">("any");
@@ -346,10 +346,11 @@ export default function EditBusinessPage({ params }: PageProps) {
         setFormSectionOrder(business.form_section_order as string[]);
       }
 
-      // Fetch OCR intake phones
+      // Fetch OCR intake phones (include derived_from_user_id so we can mark
+      // auto-managed rows in the UI and prevent accidental manual deletes).
       const { data: intakePhonesData } = await supabase
         .from("business_ocr_intake_phones")
-        .select("id, phone, source, notes")
+        .select("id, phone, source, notes, derived_from_user_id")
         .eq("business_id", businessId)
         .order("created_at", { ascending: true });
       if (intakePhonesData) {
@@ -1588,28 +1589,45 @@ export default function EditBusinessPage({ params }: PageProps) {
         {/* Existing phones list */}
         {intakePhones.length > 0 && (
           <div className="flex flex-col gap-[6px]">
-            {intakePhones.map((p) => (
+            {intakePhones.map((p) => {
+              const isAuto = !!p.derived_from_user_id;
+              return (
               <div
                 key={p.id}
-                className="flex flex-row-reverse items-center justify-between gap-[10px] px-[12px] py-[8px] bg-[#0f1231] rounded-[8px] border border-[#4C526B]"
+                className={`flex flex-row-reverse items-center justify-between gap-[10px] px-[12px] py-[8px] rounded-[8px] border ${isAuto ? "bg-[#0f1231]/60 border-[#A855F7]/40" : "bg-[#0f1231] border-[#4C526B]"}`}
               >
                 <div className="flex flex-col gap-[2px] text-right flex-1 min-w-0">
-                  <span className="text-[14px] text-white font-medium" dir="ltr">{p.phone}</span>
+                  <div className="flex items-center gap-[6px] flex-row-reverse">
+                    <span className="text-[14px] text-white font-medium" dir="ltr">{p.phone}</span>
+                    {isAuto && (
+                      <span className="text-[9px] bg-[#A855F7]/20 text-[#C084FC] px-[6px] py-[1px] rounded-full leading-[14px]">מצוות</span>
+                    )}
+                  </div>
                   <span className="text-[11px] text-white/50">
                     {p.source === "whatsapp" ? "WhatsApp בלבד" : p.source === "telegram" ? "Telegram בלבד" : "כל המקורות"}
                     {p.notes ? ` · ${p.notes}` : ""}
                   </span>
                 </div>
-                <Button
-                  type="button"
-                  onClick={() => handleRemoveIntakePhone(p.id)}
-                  className="w-[28px] h-[28px] rounded-full bg-[#F64E60]/20 hover:bg-[#F64E60]/40 text-[#F64E60] flex items-center justify-center text-[16px] transition flex-shrink-0"
-                  aria-label="מחק"
-                >
-                  ×
-                </Button>
+                {isAuto ? (
+                  <span
+                    className="w-[28px] h-[28px] rounded-full bg-white/5 text-white/30 flex items-center justify-center flex-shrink-0"
+                    title="נטען מפרופיל המשתמש — מתעדכן אוטומטית בעריכת חברי הצוות"
+                  >
+                    🔒
+                  </span>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => handleRemoveIntakePhone(p.id)}
+                    className="w-[28px] h-[28px] rounded-full bg-[#F64E60]/20 hover:bg-[#F64E60]/40 text-[#F64E60] flex items-center justify-center text-[16px] transition flex-shrink-0"
+                    aria-label="מחק"
+                  >
+                    ×
+                  </Button>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
