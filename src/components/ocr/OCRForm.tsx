@@ -1298,7 +1298,18 @@ export default function OCRForm({
         // Everything else lives inside "invoice" and is expressed as a toggle.
         const raw = document.document_type as DocumentType;
         const topLevelTypes: DocumentType[] = ['invoice', 'payment', 'summary', 'daily_entry', 'credit_note'];
-        if (topLevelTypes.includes(raw)) {
+        const matchedSupplierIdForType = data.matched_supplier_id || supplierId;
+        const matchedSupplierForType = suppliers.find(s => s.id === matchedSupplierIdForType);
+        // Mistral sometimes mis-classifies regular invoices as "summary" (מרכזת).
+        // A summary only makes sense when the supplier is actually a coordinator
+        // (waiting_for_coordinator=true). For fixed-expense / regular suppliers
+        // we fall back to a normal invoice so the doc isn't tagged "מרכזת" by
+        // mistake (which would also save with is_consolidated=true).
+        if (raw === 'summary' && !matchedSupplierForType?.waiting_for_coordinator) {
+          setDocumentType('invoice');
+          setIsSummaryLinked(false);
+          setIsDisputed(false);
+        } else if (topLevelTypes.includes(raw)) {
           setDocumentType(raw);
           setIsSummaryLinked(false);
           setIsDisputed(false);
