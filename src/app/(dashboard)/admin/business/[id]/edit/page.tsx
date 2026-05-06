@@ -1738,22 +1738,26 @@ export default function EditBusinessPage({ params }: PageProps) {
       </div>
 
       {/* Per-month markup overrides */}
-      <div className="flex flex-col gap-[8px] p-[12px] bg-[#0f1231] rounded-[10px] border border-[#4C526B]/50">
-        <div className="flex flex-col gap-[2px] text-right">
+      <div className="flex flex-col gap-[10px] p-[14px] bg-[#0f1231] rounded-[10px] border border-[#4C526B]/50">
+        <div className="flex flex-col gap-[6px] text-right">
           <span className="text-[14px] font-medium text-white">אחוז העמסה לפי חודש</span>
-          <span className="text-[11px] text-white/50">השאירו ריק לירושת ערך החודש הקודם. ערך מפורש דורס את ברירת המחדל.</span>
+          <span className="text-[11px] text-white/60 leading-[1.6]">
+            כל שורה מציגה את אחוז ההעמסה שייכנס לדוחות באותו חודש. שורה <b className="text-white/80">ריקה</b> = יורשת אוטומטית את הערך מהחודש הקודם (או מברירת המחדל למעלה: {markupPercentage}%). שורה עם <b className="text-white">ערך לבן</b> = ערך מפורש לחודש הזה. לחיצה על <span className="inline-block w-[14px] h-[14px] rounded-full bg-[#F64E60]/30 text-[#F64E60] text-[10px] leading-[14px] text-center">×</span> מבטלת את הערך המפורש וחוזרת לירושה.
+          </span>
         </div>
-        <div className="flex flex-col gap-[5px]">
+        <div className="flex flex-col gap-[6px]">
           {(() => {
             const rows: { year: number; month: number; key: string; label: string }[] = [];
             const now = new Date();
+            const curY = now.getFullYear();
+            const curM = now.getMonth() + 1;
             for (let i = 0; i < 12; i++) {
-              const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+              const d = new Date(curY, now.getMonth() - i, 1);
               const y = d.getFullYear();
               const m = d.getMonth() + 1;
               rows.push({ year: y, month: m, key: `${y}-${m}`, label: `${HEBREW_MONTHS[m - 1]} ${y}` });
             }
-            // Resolve inherited (chain back from prior month, ignoring current month's own override)
+            // Resolve inherited (chain back from prior month, ignoring this month's own override)
             const getInherited = (year: number, month: number): number => {
               let y = year, mm = month - 1;
               if (mm < 1) { mm = 12; y -= 1; }
@@ -1765,16 +1769,46 @@ export default function EditBusinessPage({ params }: PageProps) {
               }
               return markupPercentage;
             };
+            const clearOverride = (key: string) => {
+              setMarkupByMonth((prev) => {
+                if (!(key in prev)) return prev;
+                const next = { ...prev };
+                delete next[key];
+                return next;
+              });
+              if (originalMarkupByMonth[key] != null) {
+                setClearedMarkupKeys((prev) => {
+                  if (prev.has(key)) return prev;
+                  const next = new Set(prev);
+                  next.add(key);
+                  return next;
+                });
+              }
+            };
             return rows.map((r) => {
               const explicit = markupByMonth[r.key];
               const inherited = getInherited(r.year, r.month);
               const hasExplicit = explicit != null;
+              const isCurrent = r.year === curY && r.month === curM;
+              const hint = hasExplicit
+                ? (explicit === inherited ? `זהה לירושה (${inherited}%)` : `במקום ${inherited}% (ירושה)`)
+                : `יורש ${inherited}%`;
               return (
-                <div key={r.key} className="grid grid-cols-[1fr_120px] gap-[8px] items-center">
-                  <span className={`text-[13px] text-right ${hasExplicit ? "text-white" : "text-white/60"}`}>
-                    {r.label}
-                  </span>
-                  <div className={`border rounded-[8px] h-[38px] flex items-center ${hasExplicit ? "border-white" : "border-[#4C526B]"}`}>
+                <div key={r.key} className="grid grid-cols-[1fr_140px] gap-[10px] items-center">
+                  <div className="flex flex-col text-right gap-[1px]">
+                    <div className="flex items-center justify-end gap-[6px]">
+                      {isCurrent && (
+                        <span className="text-[9px] bg-[#29318A] text-white px-[6px] py-[1px] rounded-full leading-[14px]">חודש נוכחי</span>
+                      )}
+                      <span className={`text-[13px] ${hasExplicit ? "text-white font-medium" : "text-white/70"}`}>
+                        {r.label}
+                      </span>
+                    </div>
+                    <span className={`text-[10px] ${hasExplicit ? "text-white/55" : "text-white/40"}`}>
+                      {hint}
+                    </span>
+                  </div>
+                  <div className={`relative border rounded-[8px] h-[38px] flex items-center ${hasExplicit ? "border-white bg-[#1a1f3a]" : "border-[#4C526B]"}`}>
                     <span className="text-white/50 text-[12px] pr-[8px]">%</span>
                     <Input
                       type="number"
@@ -1795,7 +1829,6 @@ export default function EditBusinessPage({ params }: PageProps) {
                           }
                           return next;
                         });
-                        // Track explicit clear (so save can null-out only this key, not other lost state)
                         if (val === "" && originalMarkupByMonth[r.key] != null) {
                           setClearedMarkupKeys((prev) => {
                             if (prev.has(r.key)) return prev;
@@ -1811,8 +1844,19 @@ export default function EditBusinessPage({ params }: PageProps) {
                           });
                         }
                       }}
-                      className="w-full h-full bg-transparent text-white text-[13px] text-center border-none outline-none px-[6px] placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className={`w-full h-full bg-transparent text-white text-[13px] text-center border-none outline-none px-[6px] placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${hasExplicit ? "pl-[26px]" : ""}`}
                     />
+                    {hasExplicit && (
+                      <button
+                        type="button"
+                        onClick={() => clearOverride(r.key)}
+                        aria-label="בטל ערך מפורש וחזור לירושה"
+                        title="בטל ערך מפורש וחזור לירושה"
+                        className="absolute left-[4px] top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-full bg-[#F64E60]/20 hover:bg-[#F64E60]/40 text-[#F64E60] flex items-center justify-center text-[14px] leading-none transition"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
                 </div>
               );
