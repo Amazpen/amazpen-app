@@ -145,6 +145,7 @@ export function HistoryModal({
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
   const [monthlyData, setMonthlyData] = useState<MonthData[]>([]);
   const isCostCard = ['laborCost', 'foodCost', 'managedProduct', 'currentExpenses'].includes(cardType);
+  const isIncomeSource = cardType === 'incomeSource';
   const [isLoading, setIsLoading] = useState(false);
   const [availableYears, setAvailableYears] = useState<number[]>([new Date().getFullYear()]);
 
@@ -973,7 +974,7 @@ export function HistoryModal({
                       שינוי מחודש{"\n"}קודם %
                     </TableHead>
                     <TableHead className="text-white text-[14px] lg:text-[18px] font-semibold text-center leading-[1.4] pb-[5px] align-bottom">
-                      שינוי משנה שעברה<br/>%
+                      {isIncomeSource ? <>ממוצע<br/>להזמנה</> : <>שינוי משנה שעברה<br/>%</>}
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1011,9 +1012,17 @@ export function HistoryModal({
                         </span>
                       </TableCell>
                       <TableCell className={`text-center p-[5px] border-x border-white ${isFirst ? 'border-t rounded-tl-[10px]' : ''} ${isLast ? 'border-b rounded-bl-[10px]' : ''}`}>
-                        <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getYoyColor(row.yoyChangePct)}`}>
-                          {row.value === 0 && (row.valuePct === null || row.valuePct === 0) ? '0%' : formatPercentWithSign(row.yoyChangePct)}
-                        </span>
+                        {isIncomeSource ? (
+                          <span className="text-white text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num">
+                            {row.quantity && row.quantity > 0 && row.value > 0
+                              ? formatCurrencyFull(row.value / row.quantity)
+                              : '-'}
+                          </span>
+                        ) : (
+                          <span className={`text-[13px] lg:text-[15px] font-normal leading-[1.4] ltr-num ${getYoyColor(row.yoyChangePct)}`}>
+                            {row.value === 0 && (row.valuePct === null || row.valuePct === 0) ? '0%' : formatPercentWithSign(row.yoyChangePct)}
+                          </span>
+                        )}
                       </TableCell>
                     </TableRow>
                     );
