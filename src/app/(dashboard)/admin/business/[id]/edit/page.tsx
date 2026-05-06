@@ -159,10 +159,12 @@ export default function EditBusinessPage({ params }: PageProps) {
   const _now = new Date();
   const [managerSalaryEffectiveYear, setManagerSalaryEffectiveYear] = useState<number>(_now.getFullYear());
   const [managerSalaryEffectiveMonth, setManagerSalaryEffectiveMonth] = useState<number>(_now.getMonth() + 1);
-  const [markupEffectiveYear, setMarkupEffectiveYear] = useState<number>(_now.getFullYear());
-  const [markupEffectiveMonth, setMarkupEffectiveMonth] = useState<number>(_now.getMonth() + 1);
   const [vatEffectiveYear, setVatEffectiveYear] = useState<number>(_now.getFullYear());
   const [vatEffectiveMonth, setVatEffectiveMonth] = useState<number>(_now.getMonth() + 1);
+
+  // Per-month markup overrides: { "YYYY-M": pct (0-100) }. Explicit user overrides per month.
+  const [markupByMonth, setMarkupByMonth] = useState<Record<string, number>>({});
+  const [originalMarkupByMonth, setOriginalMarkupByMonth] = useState<Record<string, number>>({});
 
   // Step 2: Business Schedule
   const [schedule, setSchedule] = useState<Record<number, string>>({
@@ -357,6 +359,25 @@ export default function EditBusinessPage({ params }: PageProps) {
           setSchedule(newSchedule);
         }
       }
+
+      // Fetch per-month markup overrides from goals
+      const { data: markupGoals } = await supabase
+        .from("goals")
+        .select("year, month, markup_percentage")
+        .eq("business_id", businessId)
+        .not("markup_percentage", "is", null)
+        .is("deleted_at", null);
+
+      const markupMap: Record<string, number> = {};
+      (markupGoals || []).forEach((g) => {
+        if (g.markup_percentage != null) {
+          // DB stores as 1 + pct/100 (e.g., 1.18 for 18%); UI shows pct (e.g., 18)
+          const pct = Math.round((Number(g.markup_percentage) - 1) * 100);
+          markupMap[`${g.year}-${g.month}`] = pct;
+        }
+      });
+      setMarkupByMonth(markupMap);
+      setOriginalMarkupByMonth({ ...markupMap });
 
       // Fetch income sources with settlement rules
       const { data: incomeData } = await supabase
@@ -842,12 +863,39 @@ export default function EditBusinessPage({ params }: PageProps) {
         throw new Error(`שגיאה בעדכון העסק: ${businessError.message}`);
       }
 
-      // 2b. Write goal overrides to preserve historical months with the OLD values.
-      // For each changed field, write the original value to all (year, month) before the
-      // selected effective month — so historical reports keep showing the old value.
-      // Goals from the effective month onwards are left to fall back to the (new) businesses value.
-      if (managerSalaryChanged || markupChanged || vatChanged) {
-        const HISTORICAL_START_YEAR = 2024; // far enough back to cover all historical reports
+      // 2b. Write goal overrides.
+      // Two kinds of writes happen here:
+      //   (a) Historical preservation — when manager_salary or vat changes, we copy the
+      //       OLD value into goals for all months BEFORE the picker's effective month
+      //       (preserve-if-existing: never overwrite a deliberate per-month value).
+      //   (b) Per-month explicit markup — the user edits markup_percentage per month
+      //       directly (markupByMonth). Diffs vs originalMarkupByMonth always overwrite,
+      //       including null (clear).
+      // Markup also runs (a) automatically using the current month as effective when the
+      // main markup field changes — so historical reports keep their old percentage.
+
+      // Compute markup explicit diffs (per-month list)
+      type MarkupDiff = { year: number; month: number; markup_percentage: number | null };
+      const markupDiffs: MarkupDiff[] = [];
+      const markupKeys = new Set<string>([
+        ...Object.keys(markupByMonth),
+        ...Object.keys(originalMarkupByMonth),
+      ]);
+      markupKeys.forEach((key) => {
+        const newVal = markupByMonth[key];
+        const oldVal = originalMarkupByMonth[key];
+        if (newVal !== oldVal) {
+          const [yStr, mStr] = key.split("-");
+          markupDiffs.push({
+            year: Number(yStr),
+            month: Number(mStr),
+            markup_percentage: newVal != null ? 1 + newVal / 100 : null,
+          });
+        }
+      });
+
+      if (managerSalaryChanged || markupChanged || vatChanged || markupDiffs.length > 0) {
+        const HISTORICAL_START_YEAR = 2024;
         const today = new Date();
         const todayY = today.getFullYear();
         const todayM = today.getMonth() + 1;
@@ -861,36 +909,25 @@ export default function EditBusinessPage({ params }: PageProps) {
           vat_percentage?: number;
         };
 
-        const overrides = new Map<string, Override>();
-        const addOverride = (y: number, m: number, patch: Partial<Override>) => {
+        // (a) Historical preserve-if-existing overrides
+        const historicalOverrides = new Map<string, Override>();
+        const addHistorical = (y: number, m: number, patch: Partial<Override>) => {
           const key = `${y}-${m}`;
-          const existing = overrides.get(key) || { business_id: businessId, year: y, month: m };
-          overrides.set(key, { ...existing, ...patch });
+          const existing = historicalOverrides.get(key) || { business_id: businessId, year: y, month: m };
+          historicalOverrides.set(key, { ...existing, ...patch });
         };
-
-        const fillRange = (
-          fromY: number, fromM: number, toY: number, toM: number,
-          patch: Partial<Override>,
-        ) => {
+        const fillRange = (fromY: number, fromM: number, toY: number, toM: number, patch: Partial<Override>) => {
           let y = fromY, m = fromM;
           while (y < toY || (y === toY && m <= toM)) {
-            addOverride(y, m, patch);
+            addHistorical(y, m, patch);
             m += 1;
             if (m > 12) { m = 1; y += 1; }
           }
         };
-
-        // Helper: write old value to all months BEFORE the effective month
-        const writeHistorical = (
-          effY: number, effM: number, fieldPatch: Partial<Override>,
-        ) => {
-          // last historical month = (effY, effM) - 1
+        const writeHistorical = (effY: number, effM: number, fieldPatch: Partial<Override>) => {
           let toY = effY, toM = effM - 1;
           if (toM < 1) { toM = 12; toY -= 1; }
-          // don't go past today (no point overriding future months in the past direction)
-          if (toY > todayY || (toY === todayY && toM > todayM)) {
-            toY = todayY; toM = todayM;
-          }
+          if (toY > todayY || (toY === todayY && toM > todayM)) { toY = todayY; toM = todayM; }
           if (toY < HISTORICAL_START_YEAR) return;
           fillRange(HISTORICAL_START_YEAR, 1, toY, toM, fieldPatch);
         };
@@ -901,7 +938,8 @@ export default function EditBusinessPage({ params }: PageProps) {
           });
         }
         if (markupChanged) {
-          writeHistorical(markupEffectiveYear, markupEffectiveMonth, {
+          // Auto-effective = current month. Past months get the OLD value (preserve-if-existing).
+          writeHistorical(todayY, todayM, {
             markup_percentage: 1 + originalMarkupPercentage / 100,
           });
         }
@@ -911,18 +949,28 @@ export default function EditBusinessPage({ params }: PageProps) {
           });
         }
 
-        // Fetch existing (non-deleted) goals for these months so we don't overwrite other fields
-        const overrideRows = Array.from(overrides.values());
-        if (overrideRows.length > 0) {
-          const years = Array.from(new Set(overrideRows.map(o => o.year)));
+        // (b) Per-month explicit markup diffs (null = clear)
+        const markupExplicitMap = new Map<string, number | null>();
+        for (const d of markupDiffs) {
+          markupExplicitMap.set(`${d.year}-${d.month}`, d.markup_percentage);
+        }
+
+        // Fetch existing goal rows for all touched months
+        const allKeys = new Set<string>([
+          ...historicalOverrides.keys(),
+          ...markupExplicitMap.keys(),
+        ]);
+        if (allKeys.size > 0) {
+          const allYears = Array.from(new Set(Array.from(allKeys).map(k => Number(k.split("-")[0]))));
           const { data: existingGoals } = await supabase
             .from("goals")
             .select("id, year, month, manager_monthly_salary, markup_percentage, vat_percentage")
             .eq("business_id", businessId)
-            .in("year", years)
+            .in("year", allYears)
             .is("deleted_at", null);
 
-          const existingMap = new Map<string, { id: string; manager_monthly_salary: number | null; markup_percentage: number | null; vat_percentage: number | null }>();
+          type ExistingRow = { id: string; manager_monthly_salary: number | null; markup_percentage: number | null; vat_percentage: number | null };
+          const existingMap = new Map<string, ExistingRow>();
           (existingGoals || []).forEach(g => {
             existingMap.set(`${g.year}-${g.month}`, {
               id: g.id,
@@ -932,53 +980,55 @@ export default function EditBusinessPage({ params }: PageProps) {
             });
           });
 
-          // Build upsert payloads. Only set field if it's not already set in the existing goal
-          // (we don't want to overwrite a deliberate per-month value the user set elsewhere).
-          const toUpsert: Override[] = [];
-          for (const o of overrideRows) {
-            const key = `${o.year}-${o.month}`;
-            const existing = existingMap.get(key);
-            const merged: Override = { business_id: businessId, year: o.year, month: o.month };
-            if (o.manager_monthly_salary !== undefined && (!existing || existing.manager_monthly_salary == null)) {
-              merged.manager_monthly_salary = o.manager_monthly_salary;
-            }
-            if (o.markup_percentage !== undefined && (!existing || existing.markup_percentage == null)) {
-              merged.markup_percentage = o.markup_percentage;
-            }
-            if (o.vat_percentage !== undefined && (!existing || existing.vat_percentage == null)) {
-              merged.vat_percentage = o.vat_percentage;
-            }
-            const hasAnyField = merged.manager_monthly_salary !== undefined
-              || merged.markup_percentage !== undefined
-              || merged.vat_percentage !== undefined;
-            if (hasAnyField) toUpsert.push(merged);
-          }
+          type FieldPatch = { manager_monthly_salary?: number; markup_percentage?: number | null; vat_percentage?: number };
+          const inserts: Override[] = [];
+          const updates: { id: string; patch: FieldPatch }[] = [];
 
-          if (toUpsert.length > 0) {
-            // Manual upsert split into UPDATE (for rows that already exist
-            // in goals) and INSERT (for new rows). We can't use Supabase's
-            // .upsert(onConflict: "business_id,year,month") because the
-            // unique constraint on goals is PARTIAL ("WHERE deleted_at IS
-            // NULL"), and PostgREST/PostgreSQL ON CONFLICT doesn't accept
-            // partial-unique-index targets without a WHERE clause that we
-            // can't pass through the JS client. existingMap was already
-            // built above so we know which keys are updates.
-            const inserts: Override[] = [];
-            type UpdatePatch = { id: string; patch: Partial<Override> };
-            const updates: UpdatePatch[] = [];
-            for (const row of toUpsert) {
-              const key = `${row.year}-${row.month}`;
-              const existing = existingMap.get(key);
-              if (existing?.id) {
-                const patch: Partial<Override> = {};
-                if (row.manager_monthly_salary !== undefined) patch.manager_monthly_salary = row.manager_monthly_salary;
-                if (row.markup_percentage !== undefined) patch.markup_percentage = row.markup_percentage;
-                if (row.vat_percentage !== undefined) patch.vat_percentage = row.vat_percentage;
-                updates.push({ id: existing.id, patch });
-              } else {
-                inserts.push(row);
+          for (const key of allKeys) {
+            const [yStr, mStr] = key.split("-");
+            const y = Number(yStr), m = Number(mStr);
+            const histo = historicalOverrides.get(key);
+            const hasMarkupExplicit = markupExplicitMap.has(key);
+            const markupExplicitVal = hasMarkupExplicit ? markupExplicitMap.get(key)! : undefined;
+            const existing = existingMap.get(key);
+
+            const patch: FieldPatch = {};
+            // Historical: only fill if existing row doesn't already have that field
+            if (histo?.manager_monthly_salary !== undefined && (!existing || existing.manager_monthly_salary == null)) {
+              patch.manager_monthly_salary = histo.manager_monthly_salary;
+            }
+            if (histo?.vat_percentage !== undefined && (!existing || existing.vat_percentage == null)) {
+              patch.vat_percentage = histo.vat_percentage;
+            }
+            // Historical markup (from main field change) — only if not also explicitly set per-month
+            if (!hasMarkupExplicit && histo?.markup_percentage !== undefined && (!existing || existing.markup_percentage == null)) {
+              patch.markup_percentage = histo.markup_percentage;
+            }
+            // Explicit markup wins always (including null = clear)
+            if (hasMarkupExplicit) {
+              patch.markup_percentage = markupExplicitVal ?? null;
+            }
+
+            if (Object.keys(patch).length === 0) continue;
+
+            if (existing?.id) {
+              updates.push({ id: existing.id, patch });
+            } else {
+              const hasMeaningful =
+                (patch.manager_monthly_salary != null) ||
+                (patch.vat_percentage != null) ||
+                (patch.markup_percentage != null);
+              if (hasMeaningful) {
+                const insertRow: Override = { business_id: businessId, year: y, month: m };
+                if (patch.manager_monthly_salary != null) insertRow.manager_monthly_salary = patch.manager_monthly_salary;
+                if (patch.vat_percentage != null) insertRow.vat_percentage = patch.vat_percentage;
+                if (patch.markup_percentage != null) insertRow.markup_percentage = patch.markup_percentage;
+                inserts.push(insertRow);
               }
             }
+          }
+
+          if (updates.length > 0) {
             const updateResults = await Promise.all(
               updates.map(u => supabase.from("goals").update(u.patch).eq("id", u.id)),
             );
@@ -988,12 +1038,12 @@ export default function EditBusinessPage({ params }: PageProps) {
                 throw new Error(`שגיאה בעדכון ערכי החודשים: ${r.error.message}`);
               }
             }
-            if (inserts.length > 0) {
-              const { error: insertError } = await supabase.from("goals").insert(inserts);
-              if (insertError) {
-                console.error("goals override insert error:", insertError);
-                throw new Error(`שגיאה בשמירת ערכי החודשים: ${insertError.message}`);
-              }
+          }
+          if (inserts.length > 0) {
+            const { error: insertError } = await supabase.from("goals").insert(inserts);
+            if (insertError) {
+              console.error("goals override insert error:", insertError);
+              throw new Error(`שגיאה בשמירת ערכי החודשים: ${insertError.message}`);
             }
           }
         }
@@ -1622,15 +1672,6 @@ export default function EditBusinessPage({ params }: PageProps) {
               className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
-          {markupPercentage !== originalMarkupPercentage && (
-            <MonthEffectivePicker
-              label="החל מחודש"
-              year={markupEffectiveYear}
-              month={markupEffectiveMonth}
-              onYearChange={setMarkupEffectiveYear}
-              onMonthChange={setMarkupEffectiveMonth}
-            />
-          )}
         </div>
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">אחוז מע&quot;מ</label>
@@ -1656,6 +1697,75 @@ export default function EditBusinessPage({ params }: PageProps) {
               onMonthChange={setVatEffectiveMonth}
             />
           )}
+        </div>
+      </div>
+
+      {/* Per-month markup overrides */}
+      <div className="flex flex-col gap-[8px] p-[12px] bg-[#0f1231] rounded-[10px] border border-[#4C526B]/50">
+        <div className="flex flex-col gap-[2px] text-right">
+          <span className="text-[14px] font-medium text-white">אחוז העמסה לפי חודש</span>
+          <span className="text-[11px] text-white/50">השאירו ריק לירושת ערך החודש הקודם. ערך מפורש דורס את ברירת המחדל.</span>
+        </div>
+        <div className="flex flex-col gap-[5px]">
+          {(() => {
+            const rows: { year: number; month: number; key: string; label: string }[] = [];
+            const now = new Date();
+            for (let i = 0; i < 12; i++) {
+              const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+              const y = d.getFullYear();
+              const m = d.getMonth() + 1;
+              rows.push({ year: y, month: m, key: `${y}-${m}`, label: `${HEBREW_MONTHS[m - 1]} ${y}` });
+            }
+            // Resolve inherited (chain back from prior month, ignoring current month's own override)
+            const getInherited = (year: number, month: number): number => {
+              let y = year, mm = month - 1;
+              if (mm < 1) { mm = 12; y -= 1; }
+              for (let i = 0; i < 36; i++) {
+                const v = markupByMonth[`${y}-${mm}`];
+                if (v != null) return v;
+                mm -= 1;
+                if (mm < 1) { mm = 12; y -= 1; }
+              }
+              return markupPercentage;
+            };
+            return rows.map((r) => {
+              const explicit = markupByMonth[r.key];
+              const inherited = getInherited(r.year, r.month);
+              const hasExplicit = explicit != null;
+              return (
+                <div key={r.key} className="grid grid-cols-[1fr_120px] gap-[8px] items-center">
+                  <span className={`text-[13px] text-right ${hasExplicit ? "text-white" : "text-white/60"}`}>
+                    {r.label}
+                  </span>
+                  <div className={`border rounded-[8px] h-[38px] flex items-center ${hasExplicit ? "border-white" : "border-[#4C526B]"}`}>
+                    <span className="text-white/50 text-[12px] pr-[8px]">%</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={hasExplicit ? explicit : ""}
+                      placeholder={String(inherited)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setMarkupByMonth((prev) => {
+                          const next = { ...prev };
+                          if (val === "") {
+                            delete next[r.key];
+                          } else {
+                            const num = parseFloat(val);
+                            if (!Number.isNaN(num)) next[r.key] = num;
+                          }
+                          return next;
+                        });
+                      }}
+                      className="w-full h-full bg-transparent text-white text-[13px] text-center border-none outline-none px-[6px] placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       </div>
 
