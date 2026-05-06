@@ -12,8 +12,14 @@ RUN apk add --no-cache libc6-compat vips vips-heif
 # Copy package files
 COPY package.json package-lock.json* bun.lock* ./
 
-# Install all deps, with sharp prebuilt binary for Alpine (musl libc)
-RUN npm install --legacy-peer-deps --cpu=x64 --os=linux --libc=musl
+# Install all deps, with sharp prebuilt binary for Alpine (musl libc).
+# Network flags: 600s timeout + 5 retries with backoff guard against transient
+# ECONNRESET / aborted-fetch errors from registry.npmjs.org during Docker build.
+RUN npm config set fetch-retries 5 \
+  && npm config set fetch-retry-mintimeout 20000 \
+  && npm config set fetch-retry-maxtimeout 120000 \
+  && npm config set fetch-timeout 600000 \
+  && npm install --legacy-peer-deps --cpu=x64 --os=linux --libc=musl --no-audit --no-fund
 
 # ============================================
 # Stage 2: Builder
