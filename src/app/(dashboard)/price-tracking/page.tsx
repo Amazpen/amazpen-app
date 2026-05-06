@@ -334,9 +334,24 @@ export default function PriceTrackingPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-60px)] bg-[#0a0d1f] overflow-y-auto" dir="rtl">
       {/* Header */}
-      <div className="px-4 py-4 bg-[#0F1535] border-b border-[#4C526B]">
-        <h1 className="text-[20px] font-bold text-white">מעקב מחירי ספקים</h1>
-        <p className="text-[14px] text-white/50 mt-1">מעקב אחרי שינויי מחירים מחשבוניות</p>
+      <div className="px-4 py-4 bg-[#0F1535] border-b border-[#4C526B] flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[20px] font-bold text-white">מעקב מחירי ספקים</h1>
+          <p className="text-[14px] text-white/50 mt-1">מעקב אחרי שינויי מחירים מחשבוניות</p>
+        </div>
+        <div className="w-[260px] flex-shrink-0">
+          <SupplierSearchSelect
+            suppliers={suppliers}
+            value={selectedSupplierId}
+            onChange={(id) => {
+              setSelectedSupplierId(id);
+              setSelectedItemId(null);
+              setItemSearchQuery('');
+            }}
+            placeholder="חפש ספק..."
+            label=""
+          />
+        </div>
       </div>
 
       {/* Insight cards — money/action-oriented */}
@@ -499,32 +514,36 @@ export default function PriceTrackingPage() {
         )}
       </div>
 
-      {/* ===== SECTION 2: בחירת ספק + חיפוש פריט ===== */}
-      <div className="px-4 py-3 mt-2 border-t border-[#4C526B]">
-        <h2 className="text-[16px] font-semibold text-white mb-3">חיפוש מחירים לפי ספק</h2>
-
-        {/* Supplier select */}
-        <div className="flex gap-2 mb-3">
-          <div className="flex-1">
-            <SupplierSearchSelect
-              suppliers={suppliers}
-              value={selectedSupplierId}
-              onChange={(id) => {
-                setSelectedSupplierId(id);
-                setSelectedItemId(null);
-                setItemSearchQuery('');
-              }}
-              placeholder="בחר ספק..."
-              label="חיפוש ספק"
-            />
-          </div>
-        </div>
-
-        {/* Item search + items list */}
-        {selectedSupplierId && (
-          <>
+      {/* Supplier items modal — triggered by header search */}
+      {selectedSupplierId && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onClick={() => { setSelectedSupplierId(''); setSelectedItemId(null); setItemSearchQuery(''); }}
+        >
+          <div
+            className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] max-w-[820px] w-full max-h-[88vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            <div className="flex items-start justify-between p-[14px] border-b border-[#4C526B]">
+              <div className="flex flex-col gap-[2px] min-w-0">
+                <span className="text-white text-[16px] font-semibold truncate">
+                  {suppliers.find(s => s.id === selectedSupplierId)?.name || 'מחירים לפי ספק'}
+                </span>
+                <span className="text-white/50 text-[12px]">{supplierItems.length} פריטים מעוקבים</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setSelectedSupplierId(''); setSelectedItemId(null); setItemSearchQuery(''); }}
+                className="text-white/50 hover:text-white text-[20px] leading-none flex-shrink-0"
+                aria-label="סגור"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex flex-col flex-1 overflow-hidden p-[14px]">
             {/* Item search input */}
-            <div className="mb-3">
+            <div className="mb-3 flex-shrink-0">
               <input
                 type="text"
                 value={itemSearchQuery}
@@ -535,6 +554,7 @@ export default function PriceTrackingPage() {
               />
             </div>
 
+            <div className="flex-1 overflow-y-auto -mx-[14px] px-[14px]">
             {supplierItems.length === 0 ? (
               <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-6 text-center">
                 <p className="text-white/40 text-[14px]">אין פריטים מעוקבים לספק זה</p>
@@ -680,9 +700,11 @@ export default function PriceTrackingPage() {
                 ))}
               </div>
             )}
-          </>
-        )}
-      </div>
+            </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Price history modal */}
       {historyModalAlert && (

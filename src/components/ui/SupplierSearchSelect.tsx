@@ -108,9 +108,11 @@ export default function SupplierSearchSelect({
 
   return (
     <div className="flex flex-col gap-[3px]">
-      <label className="text-[15px] font-medium text-white text-right">
-        {label}
-      </label>
+      {label !== '' && (
+        <label className="text-[15px] font-medium text-white text-right">
+          {label}
+        </label>
+      )}
 
       <div ref={containerRef} className="relative">
         {/* Trigger / Display */}
