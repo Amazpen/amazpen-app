@@ -245,10 +245,64 @@ export default function PriceTrackingPage() {
   // Stats
   const unreadAlerts = useMemo(() => alerts.filter(a => a.status === 'unread'), [alerts]);
   const recentAlerts = useMemo(() => alerts.slice(0, 10), [alerts]);
-  const trackedItems = useMemo(() => {
-    const unique = new Set(alerts.map(a => a.supplier_item_id));
-    return unique.size;
-  }, [alerts]);
+
+  // Business-actionable insights (replaces the previous "alerts/items/suppliers"
+  // counters that didn't tell the owner anything about money).
+  type SupplierInsight = { name: string; impact: number; count: number; avgPct: number };
+  type SpikeInsight = { item: string; supplier: string; pct: number };
+  type Insights = {
+    monthCostImpact: number;
+    monthAlertCount: number;
+    topSupplier: SupplierInsight | null;
+    biggestSpike: SpikeInsight | null;
+  };
+  const insights = useMemo<Insights>(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    let monthCostImpact = 0; // ₪ delta this month based on last-quantity
+    let monthAlertCount = 0;
+
+    type SupplierAgg = { name: string; impact: number; count: number; pctSum: number };
+    const bySupplier = new Map<string, SupplierAgg>();
+    let biggestSpike: { item: string; supplier: string; pct: number } | null = null;
+
+    for (const a of alerts) {
+      if (a.status !== 'unread') continue;
+      const qty = lastQuantityMap.get(a.supplier_item_id);
+      const impact = qty != null ? (a.new_price - a.old_price) * qty : 0;
+
+      const created = a.created_at ? new Date(a.created_at) : null;
+      if (created && created >= monthStart) {
+        monthCostImpact += impact;
+        monthAlertCount += 1;
+      }
+
+      const supKey = a.supplier_id;
+      const existing = bySupplier.get(supKey) || { name: a.supplier_name || 'ספק לא ידוע', impact: 0, count: 0, pctSum: 0 };
+      existing.impact += impact;
+      existing.count += 1;
+      existing.pctSum += a.change_pct;
+      bySupplier.set(supKey, existing);
+
+      if (!biggestSpike || Math.abs(a.change_pct) > Math.abs(biggestSpike.pct)) {
+        biggestSpike = {
+          item: a.item_name || 'מוצר',
+          supplier: a.supplier_name || '',
+          pct: a.change_pct,
+        };
+      }
+    }
+
+    let topSupplier: SupplierInsight | null = null;
+    bySupplier.forEach((v) => {
+      const candidate: SupplierInsight = { name: v.name, impact: v.impact, count: v.count, avgPct: v.pctSum / v.count };
+      if (!topSupplier || Math.abs(candidate.impact) > Math.abs(topSupplier.impact)) {
+        topSupplier = candidate;
+      }
+    });
+
+    return { monthCostImpact, monthAlertCount, topSupplier, biggestSpike };
+  }, [alerts, lastQuantityMap]);
 
   // Filtered items for search
   const filteredItems = useMemo(() => {
@@ -285,19 +339,79 @@ export default function PriceTrackingPage() {
         <p className="text-[14px] text-white/50 mt-1">מעקב אחרי שינויי מחירים מחשבוניות</p>
       </div>
 
-      {/* Stats cards */}
-      <div className="grid grid-cols-3 gap-3 px-4 py-3">
-        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-center">
-          <p className="text-[24px] font-bold text-[#F64E60] ltr-num">{unreadAlerts.length}</p>
-          <p className="text-[12px] text-white/50">התראות חדשות</p>
+      {/* Insight cards — money/action-oriented */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 px-4 py-3">
+        {/* Card 1: monthly cost impact */}
+        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-right flex flex-col gap-[4px] min-h-[92px] justify-between">
+          <p className="text-[11px] text-white/50">השפעת השינויים החודש</p>
+          {insights.monthAlertCount === 0 ? (
+            <>
+              <p className="text-[20px] font-bold text-white/40 ltr-num text-left">—</p>
+              <p className="text-[11px] text-white/40">לא זוהו שינויים החודש</p>
+            </>
+          ) : (
+            <>
+              <p className={`text-[22px] font-bold ltr-num text-left ${insights.monthCostImpact > 0 ? 'text-[#F64E60]' : insights.monthCostImpact < 0 ? 'text-[#3CD856]' : 'text-white'}`}>
+                {insights.monthCostImpact > 0 ? '+' : ''}₪{Math.round(insights.monthCostImpact).toLocaleString('he-IL')}
+              </p>
+              <p className="text-[11px] text-white/50">
+                {insights.monthCostImpact > 0
+                  ? `עליות מחירים מוסיפות לעלויות`
+                  : insights.monthCostImpact < 0
+                    ? `הוזלות חוסכות לכם`
+                    : `שינויי מחיר מאוזנים`}
+                {' '}· {insights.monthAlertCount} שינויים
+              </p>
+            </>
+          )}
         </div>
-        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-center">
-          <p className="text-[24px] font-bold text-white ltr-num">{trackedItems}</p>
-          <p className="text-[12px] text-white/50">פריטים במעקב</p>
+
+        {/* Card 2: supplier with biggest impact */}
+        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-right flex flex-col gap-[4px] min-h-[92px] justify-between">
+          <p className="text-[11px] text-white/50">הספק עם ההשפעה הגדולה</p>
+          {!insights.topSupplier ? (
+            <>
+              <p className="text-[20px] font-bold text-white/40">—</p>
+              <p className="text-[11px] text-white/40">אין נתונים להצגה</p>
+            </>
+          ) : (
+            <>
+              <p className="text-[16px] font-bold text-white truncate" title={insights.topSupplier.name}>{insights.topSupplier.name}</p>
+              <p className="text-[11px] text-white/60">
+                <span className={`ltr-num font-medium ${insights.topSupplier.impact > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                  {insights.topSupplier.impact > 0 ? '+' : ''}₪{Math.round(insights.topSupplier.impact).toLocaleString('he-IL')}
+                </span>
+                {' '}· {insights.topSupplier.count} פריטים · ממוצע{' '}
+                <span className={`ltr-num ${insights.topSupplier.avgPct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                  {insights.topSupplier.avgPct > 0 ? '+' : ''}{insights.topSupplier.avgPct.toFixed(1)}%
+                </span>
+              </p>
+            </>
+          )}
         </div>
-        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-center">
-          <p className="text-[24px] font-bold text-[#3CD856] ltr-num">{suppliers.length}</p>
-          <p className="text-[12px] text-white/50">ספקים פעילים</p>
+
+        {/* Card 3: biggest single jump */}
+        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-right flex flex-col gap-[4px] min-h-[92px] justify-between">
+          <p className="text-[11px] text-white/50">הקפיצה הגדולה ביותר</p>
+          {!insights.biggestSpike ? (
+            <>
+              <p className="text-[20px] font-bold text-white/40">—</p>
+              <p className="text-[11px] text-white/40">אין שינויים פעילים</p>
+            </>
+          ) : (
+            <>
+              <p className="text-[16px] font-bold text-white truncate" title={insights.biggestSpike.item}>
+                {insights.biggestSpike.item}
+                {' '}
+                <span className={`ltr-num text-[15px] ${insights.biggestSpike.pct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                  {insights.biggestSpike.pct > 0 ? '▲' : '▼'}{Math.abs(insights.biggestSpike.pct).toFixed(1)}%
+                </span>
+              </p>
+              <p className="text-[11px] text-white/50 truncate" title={insights.biggestSpike.supplier}>
+                {insights.biggestSpike.supplier || '—'}
+              </p>
+            </>
+          )}
         </div>
       </div>
 
