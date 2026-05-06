@@ -186,6 +186,29 @@ export default function OCRPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [coordinatorSuppliers, setCoordinatorSuppliers] = useState<Supplier[]>([]);
 
+  // When admin picks a business in the form, persist business_id on the
+  // current document immediately. This way the doc routes to the correct
+  // /ocr-business view without waiting for "אישור וקליטה" — fixes the
+  // case where pending docs assigned to a business stay invisible to
+  // that business's users until approved.
+  const handleBusinessChange = useCallback(async (newBusinessId: string) => {
+    setSelectedBusinessId(newBusinessId);
+    if (!currentDocument) return;
+    const targetId = newBusinessId || null;
+    if (currentDocument.business_id === targetId) return;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('ocr_documents')
+      .update({ business_id: targetId, updated_at: new Date().toISOString() })
+      .eq('id', currentDocument.id);
+    if (error) {
+      console.error('Failed to persist business_id on current OCR doc:', error);
+      return;
+    }
+    setCurrentDocument(prev => prev && prev.id === currentDocument.id ? { ...prev, business_id: targetId || '' } : prev);
+    setDocuments(prev => prev.map(d => d.id === currentDocument.id ? { ...d, business_id: targetId || '' } : d));
+  }, [currentDocument, setSelectedBusinessId]);
+
   // Check admin access
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1278,7 +1301,7 @@ export default function OCRPage() {
               coordinatorSuppliers={coordinatorSuppliers}
               businesses={businesses}
               selectedBusinessId={selectedBusinessId}
-              onBusinessChange={setSelectedBusinessId}
+              onBusinessChange={handleBusinessChange}
               onApprove={handleApprove}
               onReject={handleReject}
               onDelete={handleDelete}
