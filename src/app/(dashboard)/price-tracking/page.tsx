@@ -446,15 +446,30 @@ export default function PriceTrackingPage() {
           ) : (
             <>
               <p className="text-[16px] font-bold text-white truncate" title={insights.topSupplier.name}>{insights.topSupplier.name}</p>
-              <p className="text-[11px] text-white/60">
-                <span className={`ltr-num font-medium ${insights.topSupplier.impact > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
-                  {insights.topSupplier.impact > 0 ? '+' : ''}₪{Math.round(insights.topSupplier.impact).toLocaleString('he-IL')}
-                </span>
-                {' '}· {insights.topSupplier.count} פריטים · ממוצע{' '}
-                <span className={`ltr-num ${insights.topSupplier.avgPct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
-                  {insights.topSupplier.avgPct > 0 ? '+' : ''}{insights.topSupplier.avgPct.toFixed(1)}%
-                </span>
-              </p>
+              <div className="flex flex-col gap-[2px]">
+                <p className="text-[11px] text-white/60">
+                  {insights.topSupplier.count} פריטים{' '}
+                  {insights.topSupplier.avgPct > 0
+                    ? 'התייקרו בממוצע ב-'
+                    : insights.topSupplier.avgPct < 0
+                      ? 'הוזלו בממוצע ב-'
+                      : 'ללא שינוי ממוצע ('}
+                  <span className={`ltr-num font-medium ${insights.topSupplier.avgPct > 0 ? 'text-[#F64E60]' : insights.topSupplier.avgPct < 0 ? 'text-[#3CD856]' : 'text-white/60'}`}>
+                    {Math.abs(insights.topSupplier.avgPct).toFixed(1)}%
+                  </span>
+                  {insights.topSupplier.avgPct === 0 && ')'}
+                </p>
+                <p className="text-[11px]">
+                  <span className="text-white/50">
+                    {insights.topSupplier.impact > 0 ? 'מוסיף לעלויות: ' : insights.topSupplier.impact < 0 ? 'חוסך לכם: ' : 'ללא השפעה כספית'}
+                  </span>
+                  {insights.topSupplier.impact !== 0 && (
+                    <span className={`ltr-num font-semibold ${insights.topSupplier.impact > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                      ₪{Math.abs(Math.round(insights.topSupplier.impact)).toLocaleString('he-IL')}
+                    </span>
+                  )}
+                </p>
+              </div>
             </>
           )}
         </div>
