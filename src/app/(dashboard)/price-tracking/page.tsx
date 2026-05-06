@@ -58,6 +58,7 @@ export default function PriceTrackingPage() {
 
     setEditSaving(true);
     const supabase = createClient();
+    const oldDbPrice = row.price;
     const { data: updated, error } = await supabase
       .from('supplier_item_prices')
       .update({ price: priceNum, quantity: qtyNum })
@@ -76,6 +77,45 @@ export default function PriceTrackingPage() {
       alert('שמירת המחיר לא נדחתה אבל גם לא בוצעה — בדוק הרשאות.');
       setEditSaving(false);
       return;
+    }
+
+    // Sync any price_alerts that referenced this row's previous price.
+    // Alerts are point-in-time snapshots; without this, the alerts list keeps
+    // showing the old delta even after the user corrected the source row.
+    if (Math.abs(priceNum - oldDbPrice) > 0.005) {
+      const eq = (x: number, y: number) => Math.abs(x - y) < 0.005;
+      const { data: relatedAlerts } = await supabase
+        .from('price_alerts')
+        .select('id, old_price, new_price')
+        .eq('supplier_item_id', row.supplier_item_id);
+      type AlertSync = { id: string; old_price: number; new_price: number; change_pct: number };
+      const syncs: AlertSync[] = [];
+      (relatedAlerts || []).forEach((a: { id: string; old_price: number | string; new_price: number | string }) => {
+        const oldP = Number(a.old_price);
+        const newP = Number(a.new_price);
+        let nextOld = oldP;
+        let nextNew = newP;
+        if (eq(oldP, oldDbPrice)) nextOld = priceNum;
+        if (eq(newP, oldDbPrice)) nextNew = priceNum;
+        if (nextOld !== oldP || nextNew !== newP) {
+          const changePct = nextOld > 0 ? ((nextNew - nextOld) / nextOld) * 100 : 0;
+          syncs.push({ id: a.id, old_price: nextOld, new_price: nextNew, change_pct: changePct });
+        }
+      });
+      if (syncs.length > 0) {
+        await Promise.all(syncs.map(s =>
+          supabase.from('price_alerts').update({
+            old_price: s.old_price,
+            new_price: s.new_price,
+            change_pct: s.change_pct,
+          }).eq('id', s.id)
+        ));
+        setAlerts(prev => prev.map(a => {
+          const s = syncs.find(x => x.id === a.id);
+          if (!s) return a;
+          return { ...a, old_price: s.old_price, new_price: s.new_price, change_pct: s.change_pct };
+        }));
+      }
     }
 
     // Refresh modal rows in place
