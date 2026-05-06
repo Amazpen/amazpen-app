@@ -745,12 +745,13 @@ export default function DashboardLayout({
               {menuItems
                 // hideUnlessServiceModel: only show when at least one of the
                 // currently-selected businesses is a service-provider business
-                // (business_model = 'service'). Regular businesses don't have
-                // a CRM/clients page. Admins also never see it — customers is
-                // a per-business operational page, not an admin tool.
+                // (business_model = 'service'). Regular businesses (restaurants,
+                // retail, etc.) don't surface the CRM. Admins now follow the
+                // same rule — they only see the customers tab when they're
+                // viewing a service business, so navigation matches what the
+                // tenant sees.
                 .filter((item) => {
                   if (!item.hideUnlessServiceModel) return true;
-                  if (isAdmin) return false;
                   return selectedBusinessModels.includes("service");
                 })
                 .map((item) => {
