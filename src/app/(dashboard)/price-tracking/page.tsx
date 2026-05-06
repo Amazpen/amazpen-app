@@ -304,11 +304,15 @@ export default function PriceTrackingPage() {
   // counters that didn't tell the owner anything about money).
   type SupplierInsight = { name: string; impact: number; count: number; avgPct: number };
   type SpikeInsight = { item: string; supplier: string; pct: number };
+  type ImpactRow = { item: string; supplier: string; impact: number; pct: number };
   type Insights = {
     monthCostImpact: number;
     monthAlertCount: number;
     topSupplier: SupplierInsight | null;
     biggestSpike: SpikeInsight | null;
+    biggestLeak: ImpactRow | null;       // most negative-for-business impact (highest cost increase × qty)
+    biggestSaving: ImpactRow | null;     // most positive-for-business impact (largest cost decrease × qty)
+    mostActiveSupplier: { name: string; count: number } | null; // supplier with the most price changes
   };
   const insights = useMemo<Insights>(() => {
     const now = new Date();
@@ -318,7 +322,9 @@ export default function PriceTrackingPage() {
 
     type SupplierAgg = { name: string; impact: number; count: number; pctSum: number };
     const bySupplier = new Map<string, SupplierAgg>();
-    let biggestSpike: { item: string; supplier: string; pct: number } | null = null;
+    let biggestSpike: SpikeInsight | null = null;
+    let biggestLeak: ImpactRow | null = null;
+    let biggestSaving: ImpactRow | null = null;
 
     for (const a of alerts) {
       if (a.status !== 'unread') continue;
@@ -345,17 +351,30 @@ export default function PriceTrackingPage() {
           pct: a.change_pct,
         };
       }
+
+      // Biggest cost leak: item with the largest positive ₪ impact (we know qty)
+      if (impact > 0 && (!biggestLeak || impact > biggestLeak.impact)) {
+        biggestLeak = { item: a.item_name || 'מוצר', supplier: a.supplier_name || '', impact, pct: a.change_pct };
+      }
+      // Biggest saving: item with the largest negative ₪ impact
+      if (impact < 0 && (!biggestSaving || impact < biggestSaving.impact)) {
+        biggestSaving = { item: a.item_name || 'מוצר', supplier: a.supplier_name || '', impact, pct: a.change_pct };
+      }
     }
 
     let topSupplier: SupplierInsight | null = null;
+    let mostActiveSupplier: { name: string; count: number } | null = null;
     bySupplier.forEach((v) => {
       const candidate: SupplierInsight = { name: v.name, impact: v.impact, count: v.count, avgPct: v.pctSum / v.count };
       if (!topSupplier || Math.abs(candidate.impact) > Math.abs(topSupplier.impact)) {
         topSupplier = candidate;
       }
+      if (!mostActiveSupplier || v.count > mostActiveSupplier.count) {
+        mostActiveSupplier = { name: v.name, count: v.count };
+      }
     });
 
-    return { monthCostImpact, monthAlertCount, topSupplier, biggestSpike };
+    return { monthCostImpact, monthAlertCount, topSupplier, biggestSpike, biggestLeak, biggestSaving, mostActiveSupplier };
   }, [alerts, lastQuantityMap]);
 
   // Filtered items for search
@@ -431,6 +450,11 @@ export default function PriceTrackingPage() {
                     : `שינויי מחיר מאוזנים`}
                 {' '}· {insights.monthAlertCount} שינויים
               </p>
+              {Math.abs(insights.monthCostImpact) >= 1 && (
+                <p className="text-[10px] text-white/40">
+                  פרויקציה שנתית: {insights.monthCostImpact > 0 ? '+' : '-'}₪{Math.abs(Math.round(insights.monthCostImpact * 12)).toLocaleString('he-IL')}
+                </p>
+              )}
             </>
           )}
         </div>
@@ -498,6 +522,69 @@ export default function PriceTrackingPage() {
           )}
         </div>
       </div>
+
+      {/* Recommended actions panel — surfaces the 3 most actionable items */}
+      {(insights.biggestLeak || insights.biggestSaving || insights.mostActiveSupplier) && (
+        <div className="px-4 pb-2">
+          <h2 className="text-[14px] font-semibold text-white/70 mb-2">מומלץ לבדוק</h2>
+          <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] divide-y divide-[#4C526B]/40">
+            {insights.biggestLeak && (
+              <div className="p-3 flex items-start gap-3">
+                <div className="w-[28px] h-[28px] flex-shrink-0 rounded-full bg-[#F64E60]/20 flex items-center justify-center text-[14px]" title="הפסד גדול">
+                  <span>📈</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] text-white truncate">
+                    <span className="font-semibold">{insights.biggestLeak.item}</span>
+                    {insights.biggestLeak.supplier ? <span className="text-white/50"> · {insights.biggestLeak.supplier}</span> : null}
+                  </p>
+                  <p className="text-[12px] text-white/60">
+                    התייקר ב-<span className="ltr-num text-[#F64E60] font-medium">{insights.biggestLeak.pct.toFixed(1)}%</span>
+                    {' '}— מוסיף <span className="ltr-num text-[#F64E60] font-semibold">₪{Math.round(insights.biggestLeak.impact).toLocaleString('he-IL')}</span> להוצאות.
+                    {' '}<span className="text-white/40">שווה לשקול תחליף או משא ומתן.</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {insights.biggestSaving && (
+              <div className="p-3 flex items-start gap-3">
+                <div className="w-[28px] h-[28px] flex-shrink-0 rounded-full bg-[#3CD856]/20 flex items-center justify-center text-[14px]" title="הזדמנות חיסכון">
+                  <span>📉</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] text-white truncate">
+                    <span className="font-semibold">{insights.biggestSaving.item}</span>
+                    {insights.biggestSaving.supplier ? <span className="text-white/50"> · {insights.biggestSaving.supplier}</span> : null}
+                  </p>
+                  <p className="text-[12px] text-white/60">
+                    הוזל ב-<span className="ltr-num text-[#3CD856] font-medium">{Math.abs(insights.biggestSaving.pct).toFixed(1)}%</span>
+                    {' '}— חוסך <span className="ltr-num text-[#3CD856] font-semibold">₪{Math.abs(Math.round(insights.biggestSaving.impact)).toLocaleString('he-IL')}</span> בעלויות.
+                    {' '}<span className="text-white/40">הזדמנות לקבע מחיר או להגדיל הזמנה.</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {insights.mostActiveSupplier && insights.mostActiveSupplier.count >= 3 && (
+              <div className="p-3 flex items-start gap-3">
+                <div className="w-[28px] h-[28px] flex-shrink-0 rounded-full bg-[#FFB84D]/20 flex items-center justify-center text-[14px]" title="ספק תזזיתי">
+                  <span>🔄</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] text-white truncate">
+                    <span className="font-semibold">{insights.mostActiveSupplier.name}</span> שינה מחירים על{' '}
+                    <span className="ltr-num font-medium">{insights.mostActiveSupplier.count}</span> פריטים
+                  </p>
+                  <p className="text-[12px] text-white/60">
+                    תזזיתיות גבוהה — שווה לפתוח שיחת מחיר אחת על כל הסל במקום פריט-פריט.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ===== SECTION 1: שינויי מחיר שזוהו (10 אחרונים) ===== */}
       <div className="px-4 py-2">
