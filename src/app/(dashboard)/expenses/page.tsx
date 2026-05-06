@@ -4305,7 +4305,7 @@ function ExpensesPageInner() {
         {/* Table */}
         <div id="onboarding-expenses-list" className="w-full flex flex-col gap-[5px]">
           {/* Table Header */}
-          <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center">
+          <div className="grid grid-cols-[0.7fr_1.4fr_1fr_0.8fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] items-center">
             {([["date", "תאריך"], ["supplier", "ספק"], ["reference", "אסמכתא"], ["amount", "סכום"], ["status", "סטטוס"]] as const).map(([col, label]) => (
               <Button
                 key={col}
@@ -4322,7 +4322,7 @@ function ExpensesPageInner() {
           </div>
 
           {/* Table Rows */}
-          <div ref={invoicesListRef} onScroll={handleInvoicesScroll} className="max-h-[calc(100vh-280px)] overflow-y-auto flex flex-col gap-[5px]">
+          <div ref={invoicesListRef} onScroll={handleInvoicesScroll} className="max-h-[calc(100vh-280px)] overflow-y-auto flex flex-col gap-[5px] [scrollbar-gutter:stable]">
             {(() => {
               const searchVal = filterValue.trim().toLowerCase();
               // For "reference" filter: include parent consolidated invoices when a delivery note matches

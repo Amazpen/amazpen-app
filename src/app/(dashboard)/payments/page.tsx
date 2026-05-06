@@ -3585,8 +3585,10 @@ function PaymentsPageInner() {
 
         {/* Table */}
         <div className="w-full flex flex-col">
-          {/* Header */}
-          <div className="grid grid-cols-[0.6fr_1.4fr_0.8fr_0.6fr_0.7fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center">
+          {/* Header — scrollbar-gutter:stable on the rows container reserves
+              the scrollbar width even when not scrolling, so the header columns
+              line up with the rows on both wide and narrow screens. */}
+          <div className="grid grid-cols-[0.6fr_1.4fr_0.8fr_0.6fr_0.7fr_0.9fr] bg-[#29318A] rounded-t-[7px] p-[10px_5px] items-center">
             {([
               ["date", "תאריך"],
               ["supplier", "ספק"],
@@ -3606,7 +3608,7 @@ function PaymentsPageInner() {
           </div>
 
           {/* Rows */}
-          <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="max-h-[calc(100vh-280px)] overflow-y-auto flex flex-col gap-[5px]">
+          <div ref={paymentsListRef} onScroll={handlePaymentsScroll} className="max-h-[calc(100vh-280px)] overflow-y-auto flex flex-col gap-[5px] [scrollbar-gutter:stable]">
             {(() => {
               const searchVal = filterValue.trim().toLowerCase();
               const hasActiveFilter = filterBy && searchVal;
