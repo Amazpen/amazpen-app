@@ -253,6 +253,15 @@ export default function EditBusinessPage({ params }: PageProps) {
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Track explicit user-initiated removals (real DB ids the user clicked X on).
+  // Save deactivates ONLY these — never via "diff with current state" — so a stale
+  // form/draft can't accidentally hide items the user created.
+  const [removedIncomeIds, setRemovedIncomeIds] = useState<Set<string>>(new Set());
+  const [removedCustomParamIds, setRemovedCustomParamIds] = useState<Set<string>>(new Set());
+  const [removedCreditCardIds, setRemovedCreditCardIds] = useState<Set<string>>(new Set());
+  const [removedManagedProductIds, setRemovedManagedProductIds] = useState<Set<string>>(new Set());
+  const [removedPaymentMethodIds, setRemovedPaymentMethodIds] = useState<Set<string>>(new Set());
+
   // Load existing business data
   useEffect(() => {
     const loadBusinessData = async () => {
@@ -481,10 +490,41 @@ export default function EditBusinessPage({ params }: PageProps) {
           if (draft.markupPercentage !== undefined) setMarkupPercentage(draft.markupPercentage as number);
           if (draft.vatPercentage !== undefined) setVatPercentage(draft.vatPercentage as number);
           if (draft.schedule) setSchedule(draft.schedule as Record<number, string>);
-          if (draft.incomeSources) setIncomeSources(draft.incomeSources as typeof incomeSources);
-          if (draft.customParameters) setCustomParameters(draft.customParameters as typeof customParameters);
-          if (draft.creditCards) setCreditCards(draft.creditCards as CreditCard[]);
-          if (draft.managedProducts) setManagedProducts(draft.managedProducts as ManagedProduct[]);
+          // Lists with DB-backed ids: never overwrite the loaded list. Only append
+          // pending unsaved items (`_new_*`) from the draft. Otherwise a stale draft
+          // can hide DB items and the next save would mark them inactive.
+          if (draft.incomeSources) {
+            const ds = draft.incomeSources as Partial<IncomeSource>[];
+            setIncomeSources((current) => {
+              const dbIds = new Set(current.map(s => s.id).filter(Boolean) as string[]);
+              const pending = ds.filter(s => s.id?.startsWith('_new_') && !dbIds.has(s.id));
+              return pending.length > 0 ? [...current, ...pending] : current;
+            });
+          }
+          if (draft.customParameters) {
+            const dp = draft.customParameters as typeof customParameters;
+            setCustomParameters((current) => {
+              const dbIds = new Set(current.map(p => p.id).filter(Boolean));
+              const pending = dp.filter(p => p.id?.startsWith('_new_') && !dbIds.has(p.id));
+              return pending.length > 0 ? [...current, ...pending] : current;
+            });
+          }
+          if (draft.creditCards) {
+            const dc = draft.creditCards as CreditCard[];
+            setCreditCards((current) => {
+              const dbIds = new Set(current.map(c => c.id).filter(Boolean));
+              const pending = dc.filter(c => c.id?.startsWith('_new_') && !dbIds.has(c.id));
+              return pending.length > 0 ? [...current, ...pending] : current;
+            });
+          }
+          if (draft.managedProducts) {
+            const dm = draft.managedProducts as ManagedProduct[];
+            setManagedProducts((current) => {
+              const dbIds = new Set(current.map(p => p.id).filter(Boolean));
+              const pending = dm.filter(p => p.id?.startsWith('_new_') && !dbIds.has(p.id));
+              return pending.length > 0 ? [...current, ...pending] : current;
+            });
+          }
         }
         draftRestored.current = true;
       }, 0);
@@ -595,6 +635,10 @@ export default function EditBusinessPage({ params }: PageProps) {
   };
 
   const handleRemoveIncomeSource = (index: number) => {
+    const item = incomeSources[index];
+    if (item?.id && !item.id.startsWith('_new_')) {
+      setRemovedIncomeIds(prev => new Set(prev).add(item.id!));
+    }
     setIncomeSources(incomeSources.filter((_, i) => i !== index));
   };
 
@@ -606,6 +650,10 @@ export default function EditBusinessPage({ params }: PageProps) {
   };
 
   const handleRemoveCustomParameter = (index: number) => {
+    const item = customParameters[index];
+    if (item?.id && !item.id.startsWith('_new_')) {
+      setRemovedCustomParamIds(prev => new Set(prev).add(item.id!));
+    }
     setCustomParameters(customParameters.filter((_, i) => i !== index));
   };
 
@@ -618,6 +666,10 @@ export default function EditBusinessPage({ params }: PageProps) {
   };
 
   const handleRemoveCreditCard = (index: number) => {
+    const item = creditCards[index];
+    if (item?.id && !item.id.startsWith('_new_')) {
+      setRemovedCreditCardIds(prev => new Set(prev).add(item.id));
+    }
     setCreditCards(creditCards.filter((_, i) => i !== index));
   };
 
@@ -636,6 +688,10 @@ export default function EditBusinessPage({ params }: PageProps) {
   };
 
   const handleRemoveManagedProduct = (index: number) => {
+    const item = managedProducts[index];
+    if (item?.id && !item.id.startsWith('_new_')) {
+      setRemovedManagedProductIds(prev => new Set(prev).add(item.id));
+    }
     setManagedProducts(managedProducts.filter((_, i) => i !== index));
   };
 
@@ -647,6 +703,10 @@ export default function EditBusinessPage({ params }: PageProps) {
   };
 
   const handleRemovePaymentMethod = (index: number) => {
+    const item = paymentMethods[index];
+    if (item?.id && !item.id.startsWith('_new_')) {
+      setRemovedPaymentMethodIds(prev => new Set(prev).add(item.id!));
+    }
     setPaymentMethods(paymentMethods.filter((_, i) => i !== index));
   };
 
@@ -1060,19 +1120,14 @@ export default function EditBusinessPage({ params }: PageProps) {
           }, { onConflict: "business_id,day_of_week" });
       }
 
-      // 4. Update income sources - delete removed, insert new
-      const existingIncomeIds = incomeSources.filter(s => s.id && !s.id.startsWith('_new_')).map(s => s.id);
-      if (existingIncomeIds.length > 0) {
+      // 4. Update income sources — only deactivate ids the user explicitly clicked X on.
+      // Never use list-diff: a stale form/draft must not be allowed to hide DB items.
+      if (removedIncomeIds.size > 0) {
         await supabase
           .from("income_sources")
           .update({ is_active: false })
           .eq("business_id", businessId)
-          .not("id", "in", `(${existingIncomeIds.join(",")})`);
-      } else {
-        await supabase
-          .from("income_sources")
-          .update({ is_active: false })
-          .eq("business_id", businessId);
+          .in("id", Array.from(removedIncomeIds));
       }
 
       // Update display_order for existing income sources based on current array order (#38)
@@ -1096,20 +1151,13 @@ export default function EditBusinessPage({ params }: PageProps) {
         );
       }
 
-      // 5. Update custom parameters
-      const existingParamIds = customParameters.filter(p => p.id && !p.id.startsWith('_new_')).map(p => p.id);
-      if (existingParamIds.length > 0) {
+      // 5. Update custom parameters — only deactivate explicit removals.
+      if (removedCustomParamIds.size > 0) {
         await supabase
           .from("custom_parameters")
           .update({ is_active: false })
           .eq("business_id", businessId)
-          .not("id", "in", `(${existingParamIds.join(",")})`);
-      } else {
-        // Deactivate all if none are kept
-        await supabase
-          .from("custom_parameters")
-          .update({ is_active: false })
-          .eq("business_id", businessId);
+          .in("id", Array.from(removedCustomParamIds));
       }
 
       const newParams = customParameters.filter(p => !p.id || p.id.startsWith('_new_'));
@@ -1124,23 +1172,15 @@ export default function EditBusinessPage({ params }: PageProps) {
         );
       }
 
-      // 7. Update credit cards
+      // 7. Update credit cards — only soft-delete explicit removals.
       const nowIso = new Date().toISOString();
-      const existingCardIds = creditCards.filter(c => c.id && !c.id.startsWith('_new_')).map(c => c.id);
-      if (existingCardIds.length > 0) {
+      if (removedCreditCardIds.size > 0) {
         await supabase
           .from("business_credit_cards")
           .update({ is_active: false, deleted_at: nowIso })
           .eq("business_id", businessId)
           .is("deleted_at", null)
-          .not("id", "in", `(${existingCardIds.join(",")})`);
-      } else {
-        // Soft-delete all if none are kept
-        await supabase
-          .from("business_credit_cards")
-          .update({ is_active: false, deleted_at: nowIso })
-          .eq("business_id", businessId)
-          .is("deleted_at", null);
+          .in("id", Array.from(removedCreditCardIds));
       }
 
       const newCards = creditCards.filter(c => !c.id || c.id.startsWith('_new_'));
@@ -1156,20 +1196,13 @@ export default function EditBusinessPage({ params }: PageProps) {
         if (insertCardsError) throw insertCardsError;
       }
 
-      // 8. Update managed products
-      const existingProductIds = managedProducts.filter(p => p.id && !p.id.startsWith('_new_')).map(p => p.id);
-      if (existingProductIds.length > 0) {
+      // 8. Update managed products — only deactivate explicit removals.
+      if (removedManagedProductIds.size > 0) {
         await supabase
           .from("managed_products")
           .update({ is_active: false })
           .eq("business_id", businessId)
-          .not("id", "in", `(${existingProductIds.join(",")})`);
-      } else {
-        // Deactivate all if none are kept
-        await supabase
-          .from("managed_products")
-          .update({ is_active: false })
-          .eq("business_id", businessId);
+          .in("id", Array.from(removedManagedProductIds));
       }
 
       // Update existing products (unit + unit_cost + display_order)
@@ -1198,19 +1231,13 @@ export default function EditBusinessPage({ params }: PageProps) {
         );
       }
 
-      // 9. Update payment methods
-      const existingPmIds = paymentMethods.filter(pm => pm.id && !pm.id.startsWith('_new_')).map(pm => pm.id);
-      if (existingPmIds.length > 0) {
+      // 9. Update payment methods — only deactivate explicit removals.
+      if (removedPaymentMethodIds.size > 0) {
         await supabase
           .from("payment_method_types")
           .update({ is_active: false })
           .eq("business_id", businessId)
-          .not("id", "in", `(${existingPmIds.join(",")})`);
-      } else {
-        await supabase
-          .from("payment_method_types")
-          .update({ is_active: false })
-          .eq("business_id", businessId);
+          .in("id", Array.from(removedPaymentMethodIds));
       }
 
       // Update existing payment methods (settlement rules + display_order)
