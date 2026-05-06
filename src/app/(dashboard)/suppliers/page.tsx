@@ -1844,11 +1844,11 @@ export default function SuppliersPage() {
       <div className="flex-1 flex flex-col bg-[#0F1535] rounded-[10px]">
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as TabType)} dir="rtl">
-          <TabsList id="onboarding-suppliers-tabs" className="w-full bg-transparent rounded-[7px] p-0 h-[50px] sm:h-[60px] mb-[10px] gap-0 border border-[#6B6B6B]">
-            <TabsTrigger value="purchases" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-r-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">קניות סחורה</TabsTrigger>
-            <TabsTrigger value="current" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">הוצאות שוטפות</TabsTrigger>
-            <TabsTrigger value="employees" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">עלות עובדים</TabsTrigger>
-            <TabsTrigger value="previous" className="flex-1 text-[14px] sm:text-[20px] font-semibold py-0 h-full rounded-none rounded-l-[7px] border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">התחייבויות קודמות</TabsTrigger>
+          <TabsList id="onboarding-suppliers-tabs" className="w-full bg-transparent rounded-[7px] p-0 h-auto mb-[10px] gap-0 border border-[#6B6B6B] overflow-hidden grid grid-cols-2 sm:grid-cols-4 sm:h-[60px]">
+            <TabsTrigger value="purchases" className="text-[13px] sm:text-[20px] font-semibold py-0 h-[44px] sm:h-full rounded-none border-none border-l border-b sm:border-b-0 border-[#6B6B6B]/60 data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">קניות סחורה</TabsTrigger>
+            <TabsTrigger value="current" className="text-[13px] sm:text-[20px] font-semibold py-0 h-[44px] sm:h-full rounded-none border-none border-b sm:border-b-0 sm:border-l border-[#6B6B6B]/60 data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">הוצאות שוטפות</TabsTrigger>
+            <TabsTrigger value="employees" className="text-[13px] sm:text-[20px] font-semibold py-0 h-[44px] sm:h-full rounded-none border-none border-l border-[#6B6B6B]/60 data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">עלות עובדים</TabsTrigger>
+            <TabsTrigger value="previous" className="text-[13px] sm:text-[20px] font-semibold py-0 h-[44px] sm:h-full rounded-none border-none data-[state=active]:bg-[#29318A] data-[state=active]:text-white text-[#979797] data-[state=inactive]:bg-transparent px-[4px] sm:px-[8px]">התחייבויות קודמות</TabsTrigger>
           </TabsList>
         </Tabs>
 
