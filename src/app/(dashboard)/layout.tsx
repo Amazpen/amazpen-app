@@ -960,25 +960,25 @@ export default function DashboardLayout({
         )}
 
         {/* Fixed Header - Always visible, offset by sidebar on desktop */}
-        <header role="banner" aria-label="כותרת עליונה" className={`fixed top-0 left-0 right-0 ${isOcrPage ? '' : 'lg:right-[220px]'} z-50 bg-[#0f1231] flex justify-between items-center px-[7px] sm:px-3 py-3 sm:py-3 min-h-[60px] sm:min-h-[56px]`}>
+        <header role="banner" aria-label="כותרת עליונה" className={`fixed top-0 left-0 right-0 ${isOcrPage ? '' : 'lg:right-[220px]'} z-50 bg-[#0f1231] flex justify-between items-center gap-2 px-[7px] sm:px-3 py-3 sm:py-3 min-h-[60px] sm:min-h-[56px]`}>
           {/* Right side - Menu and Title */}
-          <div className="flex items-center gap-[8px]">
+          <div className="flex items-center gap-[8px] min-w-0 flex-1">
             <Button
               type="button"
               aria-label="תפריט"
               title="תפריט"
               onClick={() => setIsMenuOpen(true)}
-              className={`w-[44px] h-[44px] sm:w-[40px] sm:h-[40px] flex items-center justify-center text-[#4C526B] cursor-pointer touch-manipulation ${isOcrPage ? '' : 'lg:hidden'}`}
+              className={`w-[44px] h-[44px] sm:w-[40px] sm:h-[40px] flex-shrink-0 flex items-center justify-center text-[#4C526B] cursor-pointer touch-manipulation ${isOcrPage ? '' : 'lg:hidden'}`}
             >
               <svg width="30" height="30" viewBox="0 0 32 32" fill="none" className="sm:w-8 sm:h-8">
                 <path d="M5 8H27M5 16H27M5 24H27" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </Button>
-            <span className="text-white text-[17px] sm:text-[19px] font-bold leading-[1.4]">{title}</span>
+            <span className="text-white text-[15px] sm:text-[19px] font-bold leading-[1.4] truncate min-w-0">{title}</span>
           </div>
 
           {/* Left side - Profile, Notifications, Buttons */}
-          <div className="flex flex-row-reverse items-stretch gap-2 sm:gap-[5px]">
+          <div className="flex flex-row-reverse items-stretch gap-[6px] sm:gap-[5px] flex-shrink-0">
             {/* Profile Image */}
             <Link href="/settings" className="w-[34px] sm:w-[32px] aspect-square rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative touch-manipulation self-center cursor-pointer" suppressHydrationWarning>
               {/* Skeleton loader - only show when loading AND there's an image to load */}
@@ -1178,7 +1178,7 @@ export default function DashboardLayout({
             </div>
 
             {/* AI Button */}
-            <Link href="/ai" onClick={() => { if (pathname !== "/ai") localStorage.setItem("ai_page_context", pathname); }} className="px-[8px] sm:px-[12px] min-w-[50px] sm:min-w-[60px] text-center bg-[#29318A] rounded-[7px] text-white text-[12px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center">
+            <Link href="/ai" onClick={() => { if (pathname !== "/ai") localStorage.setItem("ai_page_context", pathname); }} className="px-[6px] sm:px-[12px] min-w-[42px] sm:min-w-[60px] flex-shrink-0 text-center bg-[#29318A] rounded-[7px] text-white text-[11px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center">
               AI
             </Link>
 
@@ -1190,7 +1190,7 @@ export default function DashboardLayout({
               <Button
                 type="button"
                 onClick={() => setIsCoordinatorModalOpen(true)}
-                className="px-[8px] sm:px-[12px] min-w-[50px] sm:min-w-[60px] text-center bg-[#29318A] rounded-[7px] text-white text-[12px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center"
+                className="px-[6px] sm:px-[12px] min-w-[42px] sm:min-w-[60px] flex-shrink-0 text-center bg-[#29318A] rounded-[7px] text-white text-[11px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center"
               >
                 מרכזת
               </Button>
