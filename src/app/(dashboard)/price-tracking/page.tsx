@@ -342,16 +342,16 @@ export default function PriceTrackingPage() {
       {/* Insight cards — money/action-oriented */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 px-4 py-3">
         {/* Card 1: monthly cost impact */}
-        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-right flex flex-col gap-[4px] min-h-[92px] justify-between">
+        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-center flex flex-col gap-[4px] min-h-[92px] justify-between">
           <p className="text-[11px] text-white/50">השפעת השינויים החודש</p>
           {insights.monthAlertCount === 0 ? (
             <>
-              <p className="text-[20px] font-bold text-white/40 ltr-num text-left">—</p>
+              <p className="text-[20px] font-bold text-white/40 ltr-num text-center">—</p>
               <p className="text-[11px] text-white/40">לא זוהו שינויים החודש</p>
             </>
           ) : (
             <>
-              <p className={`text-[22px] font-bold ltr-num text-left ${insights.monthCostImpact > 0 ? 'text-[#F64E60]' : insights.monthCostImpact < 0 ? 'text-[#3CD856]' : 'text-white'}`}>
+              <p className={`text-[22px] font-bold ltr-num text-center ${insights.monthCostImpact > 0 ? 'text-[#F64E60]' : insights.monthCostImpact < 0 ? 'text-[#3CD856]' : 'text-white'}`}>
                 {insights.monthCostImpact > 0 ? '+' : ''}₪{Math.round(insights.monthCostImpact).toLocaleString('he-IL')}
               </p>
               <p className="text-[11px] text-white/50">
@@ -367,7 +367,7 @@ export default function PriceTrackingPage() {
         </div>
 
         {/* Card 2: supplier with biggest impact */}
-        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-right flex flex-col gap-[4px] min-h-[92px] justify-between">
+        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-center flex flex-col gap-[4px] min-h-[92px] justify-between">
           <p className="text-[11px] text-white/50">הספק עם ההשפעה הגדולה</p>
           {!insights.topSupplier ? (
             <>
@@ -391,7 +391,7 @@ export default function PriceTrackingPage() {
         </div>
 
         {/* Card 3: biggest single jump */}
-        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-right flex flex-col gap-[4px] min-h-[92px] justify-between">
+        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-center flex flex-col gap-[4px] min-h-[92px] justify-between">
           <p className="text-[11px] text-white/50">הקפיצה הגדולה ביותר</p>
           {!insights.biggestSpike ? (
             <>
