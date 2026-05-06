@@ -33,11 +33,52 @@ function looksLikeOcrFailure(markdown: string, fileSizeBytes: number): { ok: boo
   if (!markdown || markdown.length < 100) {
     return { ok: false, reason: "markdown too short" };
   }
+
+  // Density heuristic: a 100KB+ image of a real invoice produces at least
+  // ~2KB of markdown (text per item × items). If we got <1500 chars on a
+  // file >80KB, Mistral almost certainly only read the header and gave up.
+  if (fileSizeBytes > 80_000 && markdown.length < 1500) {
+    return { ok: false, reason: `markdown density too low (${markdown.length} chars on ${fileSizeBytes} bytes)` };
+  }
+
   const lines = markdown.split(/\r?\n/);
   const tableLines = lines.filter(l => /^\s*\|.*\|.*\|/.test(l));
   if (tableLines.length === 0 && fileSizeBytes > 200_000) {
     return { ok: false, reason: "no markdown tables for a non-trivial file" };
   }
+
+  // Repeated-header heuristic: when Mistral can't read the body it sometimes
+  // fragments the page into many tiny tables, each with the same header row
+  // and no actual data. If the SAME normalised line appears 3+ times in the
+  // markdown, the table parsing failed even if individual cells differ.
+  const lineCounts = new Map<string, number>();
+  for (const line of tableLines) {
+    const norm = line.replace(/\s+/g, " ").trim();
+    if (norm.length < 8) continue;
+    lineCounts.set(norm, (lineCounts.get(norm) || 0) + 1);
+  }
+  for (const [line, count] of lineCounts) {
+    if (count >= 3) {
+      return { ok: false, reason: `header repeated ${count}× (${line.slice(0, 60)})` };
+    }
+  }
+
+  // Numeric-row heuristic: a real invoice items table has rows with multiple
+  // numeric cells (qty, price, total). Count rows that have ≥2 separate
+  // numeric cells. If we have lots of table lines but none look like data,
+  // the columns are noise.
+  let numericRows = 0;
+  for (const line of tableLines) {
+    const cells = line.split("|").map(c => c.trim()).filter(c => c !== "");
+    const numericCells = cells.filter(c => /^\d{1,8}([.,]\d+)?$/.test(c.replace(/[\s₪]/g, "")));
+    if (numericCells.length >= 2) numericRows += 1;
+  }
+  if (tableLines.length >= 6 && numericRows === 0) {
+    return { ok: false, reason: `${tableLines.length} table lines but no numeric data rows` };
+  }
+
+  // Duplicate-description heuristic (original failure mode): Mistral
+  // latching onto one item name and copying it down the column.
   const descs: string[] = [];
   for (const line of tableLines) {
     const cells = line.split("|").map(c => c.trim()).filter(c => c !== "");
@@ -53,6 +94,7 @@ function looksLikeOcrFailure(markdown: string, fileSizeBytes: number): { ok: boo
       return { ok: false, reason: `duplicate descriptions (${descs.length} rows, ${new Set(descs).size} unique)` };
     }
   }
+
   return { ok: true };
 }
 

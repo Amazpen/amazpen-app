@@ -66,22 +66,47 @@ function looksLikeOcrFailure(markdown: string, fileSizeBytes: number): { ok: boo
   if (!markdown || markdown.length < 100) {
     return { ok: false, reason: "markdown too short" };
   }
-  // Count description-like cells in the markdown table — anything with a
-  // pipe, then text containing Hebrew letters, then another pipe.
+  if (fileSizeBytes > 80_000 && markdown.length < 1500) {
+    return { ok: false, reason: `markdown density too low (${markdown.length} chars on ${fileSizeBytes} bytes)` };
+  }
+
   const lines = markdown.split(/\r?\n/);
   const tableLines = lines.filter(l => /^\s*\|.*\|.*\|/.test(l));
   if (tableLines.length === 0 && fileSizeBytes > 200_000) {
-    // No table detected on a non-trivial file — likely a layout failure.
     return { ok: false, reason: "no markdown tables for a non-trivial file" };
   }
 
-  // Extract the leftmost text column (description) per data row, find duplicates.
+  // Repeated-header heuristic: same line appearing 3+ times = fragmented
+  // tables with no data, classic Mistral failure on dense Hebrew layouts.
+  const lineCounts = new Map<string, number>();
+  for (const line of tableLines) {
+    const norm = line.replace(/\s+/g, " ").trim();
+    if (norm.length < 8) continue;
+    lineCounts.set(norm, (lineCounts.get(norm) || 0) + 1);
+  }
+  for (const [line, count] of lineCounts) {
+    if (count >= 3) {
+      return { ok: false, reason: `header repeated ${count}× (${line.slice(0, 60)})` };
+    }
+  }
+
+  // Numeric-row heuristic: invoice rows have qty/price/total cells. If the
+  // table has many lines but none of them look numeric, columns are noise.
+  let numericRows = 0;
+  for (const line of tableLines) {
+    const cells = line.split("|").map(c => c.trim()).filter(c => c !== "");
+    const numericCells = cells.filter(c => /^\d{1,8}([.,]\d+)?$/.test(c.replace(/[\s₪]/g, "")));
+    if (numericCells.length >= 2) numericRows += 1;
+  }
+  if (tableLines.length >= 6 && numericRows === 0) {
+    return { ok: false, reason: `${tableLines.length} table lines but no numeric data rows` };
+  }
+
+  // Duplicate-description heuristic.
   const descs: string[] = [];
   for (const line of tableLines) {
     const cells = line.split("|").map(c => c.trim()).filter(c => c !== "");
     if (cells.length < 2) continue;
-    // Find the longest cell that contains Hebrew or English letters — that's
-    // typically the description column.
     const desc = cells
       .filter(c => /[א-תA-Za-z]/.test(c))
       .sort((a, b) => b.length - a.length)[0];
