@@ -120,7 +120,7 @@ const adminMenuGroups: Array<{
     title: "תפעול יומיומי",
     items: [
       { id: 104, label: "קליטת מסמכים OCR", href: "/ocr", key: "admin-ocr" },
-      { id: 120, label: "מעקב מחירים", href: "/price-tracking", key: "admin-price-tracking" },
+      { id: 120, label: "מעקב מחירי ספקים", href: "/price-tracking", key: "admin-price-tracking" },
       { id: 111, label: "בדיקה ורישום בהנה\"ח", href: "/admin/accounting-review", key: "admin-accounting-review" },
       { id: 113, label: "חריגות ימי עסקים", href: "/admin/day-exceptions", key: "admin-day-exceptions" },
     ],
@@ -171,7 +171,7 @@ const pageTitles: Record<string, string> = {
   "/admin/goals-import": "ייבוא יעדים וכוונות",
   "/admin/supplier-budgets": "ייבוא תקציבי ספקים",
   "/admin/accounting-review": "בדיקה ורישום בהנה\"ח",
-  "/price-tracking": "מעקב מחירים",
+  "/price-tracking": "מעקב מחירי ספקים",
   "/ai": "עוזר AI",
   "/admin/online-users": "משתמשים מחוברים",
   "/admin/day-exceptions": "חריגות ימי עסקים",
