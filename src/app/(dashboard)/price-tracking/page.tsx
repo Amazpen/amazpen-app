@@ -58,33 +58,46 @@ export default function PriceTrackingPage() {
 
     setEditSaving(true);
     const supabase = createClient();
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from('supplier_item_prices')
       .update({ price: priceNum, quantity: qtyNum })
-      .eq('id', row.id);
+      .eq('id', row.id)
+      .select('id');
 
-    if (!error) {
-      // Refresh modal rows in place
-      setHistoryModalRows(prev => prev.map(r => r.id === row.id ? { ...r, price: priceNum, quantity: qtyNum ?? undefined } : r));
-
-      // If this is the latest record for the item, also sync supplier_items.current_price
-      const isLatest = historyModalRows.length > 0 && historyModalRows[0].id === row.id;
-      if (isLatest) {
-        await supabase
-          .from('supplier_items')
-          .update({ current_price: priceNum })
-          .eq('id', row.supplier_item_id);
-      }
-
-      // Also reflect in the page's supplierItems list if this product is loaded there
-      setSupplierItems(prev => prev.map(si =>
-        si.id === row.supplier_item_id && historyModalRows[0]?.id === row.id
-          ? { ...si, current_price: priceNum }
-          : si
-      ));
-
-      cancelEditRow();
+    if (error) {
+      console.error('Failed to update price row:', error);
+      alert('שמירת המחיר נכשלה: ' + (error.message || 'שגיאה לא ידועה'));
+      setEditSaving(false);
+      return;
     }
+    // Some RLS configs return success with 0 rows updated — guard so the user
+    // doesn't see a silent "saved" while DB is unchanged.
+    if (!updated || updated.length === 0) {
+      alert('שמירת המחיר לא נדחתה אבל גם לא בוצעה — בדוק הרשאות.');
+      setEditSaving(false);
+      return;
+    }
+
+    // Refresh modal rows in place
+    setHistoryModalRows(prev => prev.map(r => r.id === row.id ? { ...r, price: priceNum, quantity: qtyNum ?? undefined } : r));
+
+    // If this is the latest record for the item, also sync supplier_items.current_price
+    const isLatest = historyModalRows.length > 0 && historyModalRows[0].id === row.id;
+    if (isLatest) {
+      await supabase
+        .from('supplier_items')
+        .update({ current_price: priceNum })
+        .eq('id', row.supplier_item_id);
+    }
+
+    // Also reflect in the page's supplierItems list if this product is loaded there
+    setSupplierItems(prev => prev.map(si =>
+      si.id === row.supplier_item_id && historyModalRows[0]?.id === row.id
+        ? { ...si, current_price: priceNum }
+        : si
+    ));
+
+    cancelEditRow();
     setEditSaving(false);
   }, [editPrice, editQty, historyModalRows, cancelEditRow]);
 
@@ -599,8 +612,8 @@ export default function PriceTrackingPage() {
           </div>
         ) : (
           <div className="w-full flex flex-col">
-            {/* Header */}
-            <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1.2fr_auto] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[13px]">
+            {/* Header — desktop only */}
+            <div className="hidden sm:grid sm:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1.2fr_auto] bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[13px]">
               <span className="text-white/80 font-medium text-right px-2">מוצר</span>
               <span className="text-white/80 font-medium text-right px-2">ספק</span>
               <span className="text-white/80 font-medium text-center px-2">מחיר קודם</span>
@@ -615,53 +628,85 @@ export default function PriceTrackingPage() {
                 const qty = lastQuantityMap.get(alert.supplier_item_id);
                 const valueChange = qty != null ? (alert.new_price - alert.old_price) * qty : null;
                 const isUnread = alert.status === 'unread';
+                const Actions = (
+                  <span className="flex items-center justify-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    {isUnread && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); updateAlertStatus(alert.id, 'read'); }}
+                          className="text-[11px] text-white/50 hover:text-white bg-[#29318A]/30 hover:bg-[#29318A] px-2 py-1 rounded-[5px] transition-colors whitespace-nowrap"
+                        >
+                          ראיתי
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); updateAlertStatus(alert.id, 'dismissed'); }}
+                          className="text-[11px] text-white/30 hover:text-white/60 px-1 py-1 rounded-[5px] transition-colors"
+                        >
+                          ✕
+                        </button>
+                      </>
+                    )}
+                  </span>
+                );
                 return (
                   <div
                     key={alert.id}
                     onClick={() => openHistoryModal(alert)}
-                    className={`grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1.2fr_auto] w-full p-[8px_5px] rounded-[7px] items-center text-[13px] cursor-pointer hover:bg-[#29318A]/40 transition-colors ${
+                    className={`w-full rounded-[7px] cursor-pointer hover:bg-[#29318A]/40 transition-colors ${
                       isUnread ? 'bg-[#0F1535]' : 'bg-[#0F1535]/60'
                     }`}
                     title="לחץ לצפייה בהיסטוריית המוצר"
                   >
-                    <span className="text-white font-medium truncate px-2">{alert.item_name}</span>
-                    <span className="text-white/60 truncate px-2">{alert.supplier_name}</span>
-                    <span className="text-white/50 text-center ltr-num px-2">₪{alert.old_price.toFixed(2)}</span>
-                    <span className="text-white text-center font-semibold ltr-num px-2">₪{alert.new_price.toFixed(2)}</span>
-                    <span className="text-center ltr-num px-2">
-                      <span className={`font-semibold ${alert.change_pct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
-                        {alert.change_pct > 0 ? '▲' : '▼'} {Math.abs(alert.change_pct).toFixed(1)}%
-                      </span>
-                    </span>
-                    <span className="text-center ltr-num px-2">
-                      {valueChange != null ? (
-                        <span className={`font-medium ${valueChange > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
-                          {valueChange > 0 ? '+' : ''}₪{valueChange.toFixed(0)}
+                    {/* Mobile layout — item name first + key signals on a second line */}
+                    <div className="sm:hidden flex flex-col gap-[4px] p-[8px_10px]">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-white font-semibold text-[14px] flex-1 min-w-0 break-words leading-[1.3]">{alert.item_name}</span>
+                        <span className={`ltr-num font-semibold text-[13px] whitespace-nowrap flex-shrink-0 ${alert.change_pct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                          {alert.change_pct > 0 ? '▲' : '▼'} {Math.abs(alert.change_pct).toFixed(1)}%
                         </span>
-                      ) : (
-                        <span className="text-white/30">-</span>
-                      )}
-                    </span>
-                    <span className="w-[70px] flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-                      {isUnread && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); updateAlertStatus(alert.id, 'read'); }}
-                            className="text-[11px] text-white/50 hover:text-white bg-[#29318A]/30 hover:bg-[#29318A] px-2 py-1 rounded-[5px] transition-colors whitespace-nowrap"
-                          >
-                            ראיתי
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); updateAlertStatus(alert.id, 'dismissed'); }}
-                            className="text-[11px] text-white/30 hover:text-white/60 px-1 py-1 rounded-[5px] transition-colors"
-                          >
-                            ✕
-                          </button>
-                        </>
-                      )}
-                    </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-[12px]">
+                        <span className="text-white/60 truncate flex-1 min-w-0">{alert.supplier_name}</span>
+                        <span className="ltr-num text-white/70 whitespace-nowrap" dir="ltr">
+                          ₪{alert.old_price.toFixed(2)} → <span className="text-white font-semibold">₪{alert.new_price.toFixed(2)}</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        {valueChange != null ? (
+                          <span className={`text-[12px] ltr-num font-medium ${valueChange > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                            השפעה: {valueChange > 0 ? '+' : ''}₪{Math.round(valueChange).toLocaleString('he-IL')}
+                          </span>
+                        ) : <span />}
+                        {Actions}
+                      </div>
+                    </div>
+
+                    {/* Desktop layout — original 7-column grid */}
+                    <div className="hidden sm:grid sm:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1.2fr_auto] p-[8px_5px] items-center text-[13px]">
+                      <span className="text-white font-medium truncate px-2">{alert.item_name}</span>
+                      <span className="text-white/60 truncate px-2">{alert.supplier_name}</span>
+                      <span className="text-white/50 text-center ltr-num px-2">₪{alert.old_price.toFixed(2)}</span>
+                      <span className="text-white text-center font-semibold ltr-num px-2">₪{alert.new_price.toFixed(2)}</span>
+                      <span className="text-center ltr-num px-2">
+                        <span className={`font-semibold ${alert.change_pct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                          {alert.change_pct > 0 ? '▲' : '▼'} {Math.abs(alert.change_pct).toFixed(1)}%
+                        </span>
+                      </span>
+                      <span className="text-center ltr-num px-2">
+                        {valueChange != null ? (
+                          <span className={`font-medium ${valueChange > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                            {valueChange > 0 ? '+' : ''}₪{valueChange.toFixed(0)}
+                          </span>
+                        ) : (
+                          <span className="text-white/30">-</span>
+                        )}
+                      </span>
+                      <span className="w-[70px]">
+                        {Actions}
+                      </span>
+                    </div>
                   </div>
                 );
               })}
