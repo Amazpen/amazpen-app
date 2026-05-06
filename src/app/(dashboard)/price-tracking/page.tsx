@@ -390,7 +390,7 @@ export default function PriceTrackingPage() {
       {/* Header */}
       <div className="px-4 py-4 bg-[#0F1535] border-b border-[#4C526B] flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-[20px] font-bold text-white">מעקב מחירי ספקים</h1>
+          <h1 className="text-[20px] font-bold text-white">מעקב מחירים</h1>
           <p className="text-[14px] text-white/50 mt-1">מעקב אחרי שינויי מחירים מחשבוניות</p>
         </div>
         <div className="w-[260px] flex-shrink-0">
