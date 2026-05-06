@@ -3793,12 +3793,13 @@ function ExpensesPageInner() {
         if (paymentIds.length > 0) {
           await supabase.from("payments").delete().in("id", paymentIds);
         }
-        // 6. HARD-DELETE everything that references this invoice. The FKs have no
-        // ON DELETE set, so without this the final DELETE invoices fails 409. By
-        // user policy: a delete is a delete — drop the delivery notes and the
-        // price-tracking entries created from this invoice, not just the link.
+        // 6. Resolve FK refs on referencing tables. FKs have no ON DELETE, so
+        // without these two the final DELETE invoices fails 409.
+        // - delivery_notes: hard-delete (per user policy: delete is delete).
+        // - supplier_item_prices: keep the rows, only unlink (set invoice_id=null)
+        //   so the price-tracking history survives the invoice deletion.
         await supabase.from("delivery_notes").delete().eq("invoice_id", deletingInvoiceId);
-        await supabase.from("supplier_item_prices").delete().eq("invoice_id", deletingInvoiceId);
+        await supabase.from("supplier_item_prices").update({ invoice_id: null }).eq("invoice_id", deletingInvoiceId);
         // 7. finally delete the invoice
         const { error } = await supabase
           .from("invoices")
