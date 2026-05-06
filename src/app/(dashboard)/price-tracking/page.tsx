@@ -29,6 +29,39 @@ export default function PriceTrackingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
+  // Per-alert price history modal
+  const [historyModalAlert, setHistoryModalAlert] = useState<PriceAlert | null>(null);
+  const [historyModalRows, setHistoryModalRows] = useState<SupplierItemPrice[]>([]);
+  const [historyModalLoading, setHistoryModalLoading] = useState(false);
+
+  const openHistoryModal = useCallback(async (alert: PriceAlert) => {
+    setHistoryModalAlert(alert);
+    setHistoryModalRows([]);
+    setHistoryModalLoading(true);
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('supplier_item_prices')
+      .select('*')
+      .eq('supplier_item_id', alert.supplier_item_id)
+      .order('document_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (data) {
+      setHistoryModalRows(data.map((p: Record<string, unknown>) => ({
+        id: p.id as string,
+        supplier_item_id: p.supplier_item_id as string,
+        price: Number(p.price),
+        quantity: p.quantity != null ? Number(p.quantity) : undefined,
+        invoice_id: (p.invoice_id as string) || undefined,
+        ocr_document_id: (p.ocr_document_id as string) || undefined,
+        document_date: p.document_date as string,
+        notes: (p.notes as string) || undefined,
+        created_at: p.created_at as string,
+      })));
+    }
+    setHistoryModalLoading(false);
+  }, []);
+
   // Auth check
   useEffect(() => {
     const timer = setTimeout(() => setIsCheckingAuth(false), 500);
@@ -300,9 +333,11 @@ export default function PriceTrackingPage() {
                 return (
                   <div
                     key={alert.id}
-                    className={`grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1.2fr_auto] w-full p-[8px_5px] rounded-[7px] items-center text-[13px] ${
+                    onClick={() => openHistoryModal(alert)}
+                    className={`grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1.2fr_auto] w-full p-[8px_5px] rounded-[7px] items-center text-[13px] cursor-pointer hover:bg-[#29318A]/40 transition-colors ${
                       isUnread ? 'bg-[#0F1535]' : 'bg-[#0F1535]/60'
                     }`}
+                    title="לחץ לצפייה בהיסטוריית המוצר"
                   >
                     <span className="text-white font-medium truncate px-2">{alert.item_name}</span>
                     <span className="text-white/60 truncate px-2">{alert.supplier_name}</span>
@@ -322,19 +357,19 @@ export default function PriceTrackingPage() {
                         <span className="text-white/30">-</span>
                       )}
                     </span>
-                    <span className="w-[70px] flex items-center justify-center gap-1">
+                    <span className="w-[70px] flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                       {isUnread && (
                         <>
                           <button
                             type="button"
-                            onClick={() => updateAlertStatus(alert.id, 'read')}
+                            onClick={(e) => { e.stopPropagation(); updateAlertStatus(alert.id, 'read'); }}
                             className="text-[11px] text-white/50 hover:text-white bg-[#29318A]/30 hover:bg-[#29318A] px-2 py-1 rounded-[5px] transition-colors whitespace-nowrap"
                           >
                             ראיתי
                           </button>
                           <button
                             type="button"
-                            onClick={() => updateAlertStatus(alert.id, 'dismissed')}
+                            onClick={(e) => { e.stopPropagation(); updateAlertStatus(alert.id, 'dismissed'); }}
                             className="text-[11px] text-white/30 hover:text-white/60 px-1 py-1 rounded-[5px] transition-colors"
                           >
                             ✕
@@ -534,6 +569,106 @@ export default function PriceTrackingPage() {
           </>
         )}
       </div>
+
+      {/* Price history modal */}
+      {historyModalAlert && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setHistoryModalAlert(null)}
+        >
+          <div
+            className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] max-w-[640px] w-full max-h-[85vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            <div className="flex items-start justify-between p-[14px] border-b border-[#4C526B]">
+              <div className="flex flex-col gap-[2px]">
+                <span className="text-white text-[16px] font-semibold">היסטוריית מחירים — {historyModalAlert.item_name}</span>
+                <span className="text-white/50 text-[12px]">{historyModalAlert.supplier_name}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHistoryModalAlert(null)}
+                className="text-white/50 hover:text-white text-[20px] leading-none"
+                aria-label="סגור"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Change summary banner */}
+            <div className="p-[12px] bg-[#29318A]/20 border-b border-[#4C526B]/50">
+              <div className="grid grid-cols-3 gap-[8px] text-center">
+                <div className="flex flex-col gap-[2px]">
+                  <span className="text-[10px] text-white/50">מחיר קודם</span>
+                  <span className="text-[14px] text-white ltr-num">₪{historyModalAlert.old_price.toFixed(2)}</span>
+                </div>
+                <div className="flex flex-col gap-[2px]">
+                  <span className="text-[10px] text-white/50">מחיר חדש</span>
+                  <span className="text-[14px] text-white font-semibold ltr-num">₪{historyModalAlert.new_price.toFixed(2)}</span>
+                </div>
+                <div className="flex flex-col gap-[2px]">
+                  <span className="text-[10px] text-white/50">שינוי</span>
+                  <span className={`text-[14px] font-semibold ltr-num ${historyModalAlert.change_pct > 0 ? 'text-[#F64E60]' : 'text-[#3CD856]'}`}>
+                    {historyModalAlert.change_pct > 0 ? '▲' : '▼'} {Math.abs(historyModalAlert.change_pct).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+              {historyModalAlert.document_date && (
+                <div className="mt-[8px] text-center text-[11px] text-white/50">
+                  זוהה ב-{new Date(historyModalAlert.document_date).toLocaleDateString('he-IL')}
+                </div>
+              )}
+            </div>
+
+            {/* History list */}
+            <div className="flex-1 overflow-y-auto">
+              {historyModalLoading ? (
+                <div className="p-[20px] text-center text-white/50 text-[13px]">טוען היסטוריה...</div>
+              ) : historyModalRows.length === 0 ? (
+                <div className="p-[20px] text-center text-white/50 text-[13px]">אין היסטוריית מחירים למוצר זה</div>
+              ) : (
+                <div className="flex flex-col">
+                  <div className="grid grid-cols-[1fr_90px_70px_90px] bg-[#29318A]/40 sticky top-0 px-[12px] py-[7px] text-[11px] text-white/70">
+                    <span className="text-right">תאריך</span>
+                    <span className="text-center">מחיר</span>
+                    <span className="text-center">כמות</span>
+                    <span className="text-center">שינוי</span>
+                  </div>
+                  {historyModalRows.map((row, idx) => {
+                    const next = idx < historyModalRows.length - 1 ? historyModalRows[idx + 1] : null;
+                    const change = next ? ((row.price - next.price) / next.price) * 100 : null;
+                    const isAlertRow = row.price === historyModalAlert.new_price &&
+                      historyModalAlert.document_date && row.document_date === historyModalAlert.document_date;
+                    return (
+                      <div
+                        key={row.id}
+                        className={`grid grid-cols-[1fr_90px_70px_90px] px-[12px] py-[8px] border-b border-[#4C526B]/30 text-[12.5px] items-center ${isAlertRow ? 'bg-[#29318A]/30' : ''}`}
+                      >
+                        <span className="text-white/90 text-right">
+                          {row.document_date ? new Date(row.document_date).toLocaleDateString('he-IL') : '-'}
+                          {isAlertRow && <span className="mr-[6px] text-[10px] text-[#FFB84D]">(שינוי שזוהה)</span>}
+                        </span>
+                        <span className="text-white text-center ltr-num">₪{Number(row.price).toFixed(2)}</span>
+                        <span className="text-white/70 text-center ltr-num">{row.quantity != null ? row.quantity : '-'}</span>
+                        <span className="text-center ltr-num">
+                          {change != null ? (
+                            <span className={`font-medium ${change > 0 ? 'text-[#F64E60]' : change < 0 ? 'text-[#3CD856]' : 'text-white/40'}`}>
+                              {change > 0 ? '+' : ''}{change.toFixed(1)}%
+                            </span>
+                          ) : (
+                            <span className="text-white/30">-</span>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
