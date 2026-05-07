@@ -4016,6 +4016,47 @@ export default function OCRForm({
       {/* Merge documents section */}
       {document && onMergeDocuments && (
         <div className="px-4 py-2 border-b border-[#4C526B]" dir="rtl">
+          {/* Auto-suggest: documents from the SAME sender (phone or name)
+              that arrived within ±5 minutes of this one are almost certainly
+              other pages of the same invoice. We don't auto-merge — David
+              insisted on opt-in — but we surface a one-click suggestion so
+              the admin doesn't have to open the picker and tick boxes by
+              hand for the common case (multi-page WhatsApp scan). */}
+          {(() => {
+            if (!document) return null;
+            const FIVE_MIN_MS = 5 * 60 * 1000;
+            const baseTime = new Date(document.created_at).getTime();
+            const senderKey = (d: OCRDocument): string =>
+              d.source_sender_phone || d.source_sender_name || '';
+            const baseSender = senderKey(document);
+            if (!baseSender) return null;
+            const candidates = pendingDocuments.filter((d) => {
+              if (d.id === document.id) return false;
+              if (mergedDocuments.some(m => m.id === d.id)) return false;
+              if (senderKey(d) !== baseSender) return false;
+              if (d.business_id && document.business_id && d.business_id !== document.business_id) return false;
+              const t = new Date(d.created_at).getTime();
+              return Math.abs(t - baseTime) <= FIVE_MIN_MS;
+            });
+            if (candidates.length === 0) return null;
+            return (
+              <div className="mb-2 flex items-center justify-between gap-2 bg-[#bc76ff]/10 border border-[#bc76ff]/40 rounded-[7px] px-3 py-2">
+                <div className="text-[12px] text-white/80 text-right flex-1 min-w-0">
+                  <span className="font-medium">💡 זוהו {candidates.length} עמודים נוספים מאותו שולח בטווח של 5 דק׳</span>
+                  <span className="block text-[11px] text-white/55 mt-0.5">
+                    סביר שאלו עמודים של אותה חשבונית — אפשר לצרף בלחיצה אחת.
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => onMergeDocuments?.([...mergedDocuments, ...candidates])}
+                  className="bg-[#bc76ff]/30 hover:bg-[#bc76ff]/50 text-white text-[12px] font-medium px-3 py-1.5 rounded-[7px] h-auto flex-shrink-0"
+                >
+                  צרף הכל
+                </Button>
+              </div>
+            );
+          })()}
           <div className="flex items-center gap-2 flex-wrap">
             <Button
               type="button"
