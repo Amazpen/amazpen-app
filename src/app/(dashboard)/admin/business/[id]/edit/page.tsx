@@ -1764,8 +1764,8 @@ export default function EditBusinessPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Per-month markup + VAT table */}
-      <div className="flex flex-col gap-[10px] p-[14px] bg-[#0f1231] rounded-[10px] border border-[#4C526B]/50">
+      {/* Per-month markup + VAT table — full width */}
+      <div dir="rtl" className="w-full flex flex-col gap-[10px] p-[14px] bg-[#0f1231] rounded-[10px] border border-[#4C526B]/50">
         <div className="flex flex-col gap-[4px] text-right">
           <span className="text-[14px] font-medium text-white">אחוז העמסה ומע&quot;מ לפי חודש</span>
           <span className="text-[11px] text-white/60 leading-[1.5]">
@@ -1774,7 +1774,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         </div>
 
         {/* Header row */}
-        <div className="grid grid-cols-[1fr_110px_110px] gap-[10px] items-center pb-[6px] border-b border-[#4C526B]/40">
+        <div className="grid grid-cols-3 gap-[14px] items-center pb-[6px] border-b border-[#4C526B]/40">
           <span className="text-[11px] text-white/50 text-right">חודש</span>
           <span className="text-[11px] text-white/50 text-center">אחוז העמסה</span>
           <span className="text-[11px] text-white/50 text-center">אחוז מע&quot;מ</span>
@@ -1855,7 +1855,7 @@ export default function EditBusinessPage({ params }: PageProps) {
               const isCurrent = r.year === curY && r.month === curM;
 
               return (
-                <div key={r.key} className="grid grid-cols-[1fr_110px_110px] gap-[10px] items-center">
+                <div key={r.key} className="grid grid-cols-3 gap-[14px] items-center">
                   <div className="flex items-center justify-end gap-[6px]">
                     {isCurrent && (
                       <span className="text-[9px] bg-[#29318A] text-white px-[6px] py-[1px] rounded-full leading-[14px]">החודש</span>
@@ -3187,7 +3187,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       </div>
 
       {/* Form Container */}
-      <div className="flex-1 bg-[#0F1535] rounded-[20px] p-[10px]">
+      <div className="flex-1 w-full max-w-[900px] mx-auto bg-[#0F1535] rounded-[20px] p-[15px]">
         {currentStep === 1 && renderStep1()}
         {currentStep === 2 && renderStep2()}
         {currentStep === 3 && renderStep3()}
