@@ -445,6 +445,72 @@ export default function InsightsPage() {
           category: "revenue",
           value: `קצב צפוי: ${formatCurrencyFull(monthlyPace)}${revenueTarget > 0 ? ` | יעד: ${formatCurrencyFull(revenueTarget)}` : ""}`,
         });
+
+        // ==================================================================
+        // 2a. OPERATIONAL: Purchase budget remaining (David #12)
+        // "מותר לקנות עד סוף החודש מקסימום ₪X" — exactly the sentence he
+        // gave in the review. Uses the goal's food_cost_target_pct (or
+        // operating_cost_target_pct as fallback when there's no food goal)
+        // applied to the projected monthly revenue, minus what's already
+        // been spent on goods this month.
+        // ==================================================================
+        const foodTargetPct = goal ? Number(goal.food_cost_target_pct) || 0 : 0;
+        if (foodTargetPct > 0 && monthlyPace > 0) {
+          // Goal pct is stored as percentage (e.g. 30 = 30%). Convert to ratio.
+          const ratio = foodTargetPct / 100;
+          const allowedTotal = monthlyPace * ratio;
+          const remaining = allowedTotal - totalGoods;
+          const overBudget = remaining < 0;
+          const fmtPace = formatCurrencyFull(monthlyPace);
+          const fmtAllowed = formatCurrencyFull(allowedTotal);
+          const fmtRemaining = formatCurrencyFull(Math.abs(remaining));
+          const fmtSpent = formatCurrencyFull(totalGoods);
+          results.push({
+            id: "purchase-budget-remaining",
+            title: overBudget
+              ? "חרגת מתקציב הרכישות לחודש"
+              : "תקציב רכישות פנוי עד סוף החודש",
+            description: overBudget
+              ? `לפי צפי הכנסות חודשי של ${fmtPace} ויעד עלות מזון של ${formatPercent(foodTargetPct)}, התקציב המקסימלי לרכישות החודש הוא ${fmtAllowed}. עד עכשיו נרכש ב-${fmtSpent} — חריגה של ${fmtRemaining}.`
+              : `לפי צפי הכנסות חודשי של ${fmtPace} ויעד עלות מזון של ${formatPercent(foodTargetPct)}, מותר לקנות החודש עד ${fmtAllowed}. עד עכשיו נרכש ב-${fmtSpent}, אז נשאר תקציב של ${fmtRemaining} עד סוף החודש.`,
+            severity: overBudget ? "negative" : "info",
+            category: "expenses",
+            value: overBudget
+              ? `חריגה: ${fmtRemaining}`
+              : `נשאר לרכוש: ${fmtRemaining}`,
+          });
+        }
+
+        // ==================================================================
+        // 2b. OPERATIONAL: Daily labor hours budget (David #12)
+        // "יש תקציב 46 שעות עובדים ביום" — the second sentence from the
+        // review. Translates the labor-cost-target into actual hours the
+        // employer can buy at the current avg hourly wage, given today's
+        // revenue target (= dailyAvg projected from current pace).
+        // ==================================================================
+        const laborTargetPct = goal ? Number(goal.labor_cost_target_pct) || 0 : 0;
+        if (laborTargetPct > 0 && totalLaborHours > 0 && totalLabor > 0 && dailyAvg > 0) {
+          const ratio = laborTargetPct / 100;
+          // Avg hourly wage actually paid this month (incl. employee+manager
+          // proportional). Use raw labor cost (without markup) so the hours
+          // figure matches the manager's intuition of payroll spend.
+          const avgHourlyWage = totalLabor / totalLaborHours;
+          if (avgHourlyWage > 0) {
+            const dailyTargetRevenue = dailyAvg; // best estimate of "what tomorrow needs to make"
+            const dailyAllowedLabor = dailyTargetRevenue * ratio;
+            const dailyAllowedHours = dailyAllowedLabor / avgHourlyWage;
+            const fmtDaily = formatCurrencyFull(dailyTargetRevenue);
+            const fmtWage = formatCurrencyFull(avgHourlyWage);
+            results.push({
+              id: "daily-labor-hours-budget",
+              title: "תקציב שעות עובדים יומי",
+              description: `לפי יעד יומי של ${fmtDaily} ויעד עלות עבודה ${formatPercent(laborTargetPct)}, יש תקציב של עד ${formatNumber(dailyAllowedHours)} שעות עובדים ביום (לפי שכר ממוצע ${fmtWage} לשעה).`,
+              severity: "info",
+              category: "labor",
+              value: `${formatNumber(dailyAllowedHours)} שעות / יום`,
+            });
+          }
+        }
       }
 
       // ====================================================================
