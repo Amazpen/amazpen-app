@@ -1773,13 +1773,13 @@ export default function EditBusinessPage({ params }: PageProps) {
           </span>
         </div>
 
-        {/* Header row — flex-row-reverse so the cells lay out right-to-left
-            without depending on inherited CSS direction (Gmail / inline
-            renderers sometimes ignore [direction:rtl]). */}
-        <div className="flex flex-row-reverse gap-[14px] items-center pb-[6px] border-b border-[#4C526B]/40">
-          <span className="flex-1 text-[11px] text-white/50 text-right">חודש</span>
-          <span className="flex-1 text-[11px] text-white/50 text-center">אחוז העמסה</span>
-          <span className="flex-1 text-[11px] text-white/50 text-center">אחוז מע&quot;מ</span>
+        {/* Header row — explicit dir="rtl" + inline style guarantees the
+            grid lays out right-to-left even when Tailwind 4 doesn't emit
+            the [direction:rtl] arbitrary class for the grid container. */}
+        <div dir="rtl" style={{ direction: 'rtl' }} className="grid grid-cols-3 gap-[14px] items-center pb-[6px] border-b border-[#4C526B]/40">
+          <span className="text-[11px] text-white/50 text-right">חודש</span>
+          <span className="text-[11px] text-white/50 text-center">אחוז העמסה</span>
+          <span className="text-[11px] text-white/50 text-center">אחוז מע&quot;מ</span>
         </div>
 
         <div className="flex flex-col gap-[6px]">
@@ -1857,8 +1857,8 @@ export default function EditBusinessPage({ params }: PageProps) {
               const isCurrent = r.year === curY && r.month === curM;
 
               return (
-                <div key={r.key} className="flex flex-row-reverse gap-[14px] items-center">
-                  <div className="flex-1 flex items-center justify-end gap-[6px]">
+                <div key={r.key} dir="rtl" style={{ direction: 'rtl' }} className="grid grid-cols-3 gap-[14px] items-center">
+                  <div className="flex items-center justify-end gap-[6px]">
                     {isCurrent && (
                       <span className="text-[9px] bg-[#29318A] text-white px-[6px] py-[1px] rounded-full leading-[14px]">החודש</span>
                     )}
@@ -1868,7 +1868,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                   </div>
 
                   {/* Markup cell */}
-                  <div className={`flex-1 relative border rounded-[8px] h-[38px] flex items-center ${hasMarkup ? "border-white bg-[#1a1f3a]" : "border-[#4C526B]"}`}>
+                  <div className={`relative border rounded-[8px] h-[38px] flex items-center ${hasMarkup ? "border-white bg-[#1a1f3a]" : "border-[#4C526B]"}`}>
                     <span className="text-white/50 text-[12px] pr-[8px]">%</span>
                     <Input
                       type="number"
@@ -1920,7 +1920,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                   </div>
 
                   {/* VAT cell */}
-                  <div className={`flex-1 relative border rounded-[8px] h-[38px] flex items-center ${hasVat ? "border-white bg-[#1a1f3a]" : "border-[#4C526B]"}`}>
+                  <div className={`relative border rounded-[8px] h-[38px] flex items-center ${hasVat ? "border-white bg-[#1a1f3a]" : "border-[#4C526B]"}`}>
                     <span className="text-white/50 text-[12px] pr-[8px]">%</span>
                     <Input
                       type="number"
