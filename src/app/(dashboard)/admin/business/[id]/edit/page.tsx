@@ -168,6 +168,10 @@ export default function EditBusinessPage({ params }: PageProps) {
   // Keys the user explicitly cleared (typed empty into a row that originally had a value).
   // Save clears markup_percentage in DB ONLY for keys in this set — never via state-diff alone.
   const [clearedMarkupKeys, setClearedMarkupKeys] = useState<Set<string>>(new Set());
+  // Per-month VAT overrides: { "YYYY-M": pct (0-100) }
+  const [vatByMonth, setVatByMonth] = useState<Record<string, number>>({});
+  const [originalVatByMonth, setOriginalVatByMonth] = useState<Record<string, number>>({});
+  const [clearedVatKeys, setClearedVatKeys] = useState<Set<string>>(new Set());
 
   // Step 2: Business Schedule
   const [schedule, setSchedule] = useState<Record<number, string>>({
@@ -373,24 +377,31 @@ export default function EditBusinessPage({ params }: PageProps) {
         }
       }
 
-      // Fetch per-month markup overrides from goals
-      const { data: markupGoals } = await supabase
+      // Fetch per-month markup + VAT overrides from goals (one query covers both)
+      const { data: monthlyOverrides } = await supabase
         .from("goals")
-        .select("year, month, markup_percentage")
+        .select("year, month, markup_percentage, vat_percentage")
         .eq("business_id", businessId)
-        .not("markup_percentage", "is", null)
+        .or("markup_percentage.not.is.null,vat_percentage.not.is.null")
         .is("deleted_at", null);
 
       const markupMap: Record<string, number> = {};
-      (markupGoals || []).forEach((g) => {
+      const vatMap: Record<string, number> = {};
+      (monthlyOverrides || []).forEach((g) => {
+        const key = `${g.year}-${g.month}`;
         if (g.markup_percentage != null) {
           // DB stores as 1 + pct/100 (e.g., 1.18 for 18%); UI shows pct (e.g., 18)
-          const pct = Math.round((Number(g.markup_percentage) - 1) * 100);
-          markupMap[`${g.year}-${g.month}`] = pct;
+          markupMap[key] = Math.round((Number(g.markup_percentage) - 1) * 100);
+        }
+        if (g.vat_percentage != null) {
+          // DB stores as 0.18; UI shows 18
+          vatMap[key] = Math.round(Number(g.vat_percentage) * 100);
         }
       });
       setMarkupByMonth(markupMap);
       setOriginalMarkupByMonth({ ...markupMap });
+      setVatByMonth(vatMap);
+      setOriginalVatByMonth({ ...vatMap });
 
       // Fetch income sources with settlement rules
       const { data: incomeData } = await supabase
@@ -970,7 +981,30 @@ export default function EditBusinessPage({ params }: PageProps) {
         }
       });
 
-      if (managerSalaryChanged || vatChanged || markupDiffs.length > 0) {
+      // Same logic for per-month VAT overrides.
+      type VatDiff = { year: number; month: number; vat_percentage: number | null };
+      const vatDiffs: VatDiff[] = [];
+      const vatKeys = new Set<string>([
+        ...Object.keys(vatByMonth),
+        ...Object.keys(originalVatByMonth),
+      ]);
+      vatKeys.forEach((key) => {
+        const newVal = vatByMonth[key];
+        const oldVal = originalVatByMonth[key];
+        if (newVal === oldVal) return;
+        const [yStr, mStr] = key.split("-");
+        const year = Number(yStr);
+        const month = Number(mStr);
+        if (newVal != null) {
+          vatDiffs.push({ year, month, vat_percentage: newVal / 100 });
+          return;
+        }
+        if (clearedVatKeys.has(key)) {
+          vatDiffs.push({ year, month, vat_percentage: null });
+        }
+      });
+
+      if (managerSalaryChanged || vatChanged || markupDiffs.length > 0 || vatDiffs.length > 0) {
         const HISTORICAL_START_YEAR = 2024;
         const today = new Date();
         const todayY = today.getFullYear();
@@ -1029,11 +1063,16 @@ export default function EditBusinessPage({ params }: PageProps) {
         for (const d of markupDiffs) {
           markupExplicitMap.set(`${d.year}-${d.month}`, d.markup_percentage);
         }
+        const vatExplicitMap = new Map<string, number | null>();
+        for (const d of vatDiffs) {
+          vatExplicitMap.set(`${d.year}-${d.month}`, d.vat_percentage);
+        }
 
         // Fetch existing goal rows for all touched months
         const allKeys = new Set<string>([
           ...historicalOverrides.keys(),
           ...markupExplicitMap.keys(),
+          ...vatExplicitMap.keys(),
         ]);
         if (allKeys.size > 0) {
           const allYears = Array.from(new Set(Array.from(allKeys).map(k => Number(k.split("-")[0]))));
@@ -1055,7 +1094,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             });
           });
 
-          type FieldPatch = { manager_monthly_salary?: number; markup_percentage?: number | null; vat_percentage?: number };
+          type FieldPatch = { manager_monthly_salary?: number; markup_percentage?: number | null; vat_percentage?: number | null };
           const inserts: Override[] = [];
           const updates: { id: string; patch: FieldPatch }[] = [];
 
@@ -1065,6 +1104,8 @@ export default function EditBusinessPage({ params }: PageProps) {
             const histo = historicalOverrides.get(key);
             const hasMarkupExplicit = markupExplicitMap.has(key);
             const markupExplicitVal = hasMarkupExplicit ? markupExplicitMap.get(key)! : undefined;
+            const hasVatExplicit = vatExplicitMap.has(key);
+            const vatExplicitVal = hasVatExplicit ? vatExplicitMap.get(key)! : undefined;
             const existing = existingMap.get(key);
 
             const patch: FieldPatch = {};
@@ -1072,16 +1113,25 @@ export default function EditBusinessPage({ params }: PageProps) {
             if (histo?.manager_monthly_salary !== undefined && (!existing || existing.manager_monthly_salary == null)) {
               patch.manager_monthly_salary = histo.manager_monthly_salary;
             }
-            if (histo?.vat_percentage !== undefined && (!existing || existing.vat_percentage == null)) {
+            // Historical VAT only fills if not also explicitly set per-month for this key
+            if (!hasVatExplicit && histo?.vat_percentage !== undefined && (!existing || existing.vat_percentage == null)) {
               patch.vat_percentage = histo.vat_percentage;
             }
             // Historical markup (from main field change) — only if not also explicitly set per-month
             if (!hasMarkupExplicit && histo?.markup_percentage !== undefined && (!existing || existing.markup_percentage == null)) {
               patch.markup_percentage = histo.markup_percentage;
             }
-            // Explicit markup wins always (including null = clear)
+            // Explicit per-month overrides always win (including null = clear)
             if (hasMarkupExplicit) {
               patch.markup_percentage = markupExplicitVal ?? null;
+            }
+            if (hasVatExplicit) {
+              patch.vat_percentage = vatExplicitVal ?? undefined;
+              if (vatExplicitVal == null) {
+                // Explicit clear — write null. The Override type uses optional, so
+                // we have to model "null" by sending it through FieldPatch's null path.
+                (patch as { vat_percentage?: number | null }).vat_percentage = null;
+              }
             }
 
             if (Object.keys(patch).length === 0) continue;
@@ -1714,43 +1764,22 @@ export default function EditBusinessPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* VAT Row — markup field moved to per-month table below */}
-      <div className="grid grid-cols-1 gap-[10px]">
-        <div className="flex flex-col gap-[5px]">
-          <label className="text-[15px] font-medium text-white text-right">אחוז מע&quot;מ</label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
-            <span className="text-white/50 text-[14px] pr-[10px]">%</span>
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              step="1"
-              value={vatPercentage}
-              onChange={(e) => setVatPercentage(parseFloat(e.target.value) || 18)}
-              placeholder="18"
-              className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-          </div>
-          {vatPercentage !== originalVatPercentage && (
-            <MonthEffectivePicker
-              label="החל מחודש"
-              year={vatEffectiveYear}
-              month={vatEffectiveMonth}
-              onYearChange={setVatEffectiveYear}
-              onMonthChange={setVatEffectiveMonth}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Per-month markup overrides */}
+      {/* Per-month markup + VAT table */}
       <div className="flex flex-col gap-[10px] p-[14px] bg-[#0f1231] rounded-[10px] border border-[#4C526B]/50">
-        <div className="flex flex-col gap-[6px] text-right">
-          <span className="text-[14px] font-medium text-white">אחוז העמסה לפי חודש</span>
-          <span className="text-[11px] text-white/60 leading-[1.6]">
-            כל שורה מציגה את אחוז ההעמסה שייכנס לדוחות באותו חודש. שורה <b className="text-white/80">ריקה</b> = יורשת אוטומטית את הערך מהחודש הקודם (ברירת מחדל: {markupPercentage}%). שורה עם <b className="text-white">ערך לבן</b> = ערך מפורש לחודש הזה. לחיצה על <span className="inline-block w-[14px] h-[14px] rounded-full bg-[#F64E60]/30 text-[#F64E60] text-[10px] leading-[14px] text-center">×</span> מבטלת את הערך המפורש וחוזרת לירושה.
+        <div className="flex flex-col gap-[4px] text-right">
+          <span className="text-[14px] font-medium text-white">אחוז העמסה ומע&quot;מ לפי חודש</span>
+          <span className="text-[11px] text-white/60 leading-[1.5]">
+            ערך ריק בחודש מסוים = משתמש בערך של החודש הקודם. כדי לקבוע ערך לחודש בודד, מלאו את השדה. ה-<span className="inline-block w-[14px] h-[14px] rounded-full bg-[#F64E60]/30 text-[#F64E60] text-[10px] leading-[14px] text-center">×</span> מאפס את החודש הזה.
           </span>
         </div>
+
+        {/* Header row */}
+        <div className="grid grid-cols-[1fr_110px_110px] gap-[10px] items-center pb-[6px] border-b border-[#4C526B]/40">
+          <span className="text-[11px] text-white/50 text-right">חודש</span>
+          <span className="text-[11px] text-white/50 text-center">אחוז העמסה</span>
+          <span className="text-[11px] text-white/50 text-center">אחוז מע&quot;מ</span>
+        </div>
+
         <div className="flex flex-col gap-[6px]">
           {(() => {
             const rows: { year: number; month: number; key: string; label: string }[] = [];
@@ -1763,19 +1792,27 @@ export default function EditBusinessPage({ params }: PageProps) {
               const m = d.getMonth() + 1;
               rows.push({ year: y, month: m, key: `${y}-${m}`, label: `${HEBREW_MONTHS[m - 1]} ${y}` });
             }
-            // Resolve inherited (chain back from prior month, ignoring this month's own override)
-            const getInherited = (year: number, month: number): number => {
+            // Resolve inherited from previous month, falling back to the
+            // business default. Used as a placeholder so the user can see
+            // what an empty row will end up using.
+            const getInherited = (
+              map: Record<string, number>,
+              fallback: number,
+              year: number,
+              month: number,
+            ): number => {
               let y = year, mm = month - 1;
               if (mm < 1) { mm = 12; y -= 1; }
               for (let i = 0; i < 36; i++) {
-                const v = markupByMonth[`${y}-${mm}`];
+                const v = map[`${y}-${mm}`];
                 if (v != null) return v;
                 mm -= 1;
                 if (mm < 1) { mm = 12; y -= 1; }
               }
-              return markupPercentage;
+              return fallback;
             };
-            const clearOverride = (key: string) => {
+
+            const clearMarkup = (key: string) => {
               setMarkupByMonth((prev) => {
                 if (!(key in prev)) return prev;
                 const next = { ...prev };
@@ -1791,38 +1828,53 @@ export default function EditBusinessPage({ params }: PageProps) {
                 });
               }
             };
+            const clearVat = (key: string) => {
+              setVatByMonth((prev) => {
+                if (!(key in prev)) return prev;
+                const next = { ...prev };
+                delete next[key];
+                return next;
+              });
+              if (originalVatByMonth[key] != null) {
+                setClearedVatKeys((prev) => {
+                  if (prev.has(key)) return prev;
+                  const next = new Set(prev);
+                  next.add(key);
+                  return next;
+                });
+              }
+            };
+
             return rows.map((r) => {
-              const explicit = markupByMonth[r.key];
-              const inherited = getInherited(r.year, r.month);
-              const hasExplicit = explicit != null;
+              const markupExplicit = markupByMonth[r.key];
+              const vatExplicit = vatByMonth[r.key];
+              const markupInherited = getInherited(markupByMonth, markupPercentage, r.year, r.month);
+              const vatInherited = getInherited(vatByMonth, vatPercentage, r.year, r.month);
+              const hasMarkup = markupExplicit != null;
+              const hasVat = vatExplicit != null;
               const isCurrent = r.year === curY && r.month === curM;
-              const hint = hasExplicit
-                ? (explicit === inherited ? `זהה לירושה (${inherited}%)` : `במקום ${inherited}% (ירושה)`)
-                : `יורש ${inherited}%`;
+
               return (
-                <div key={r.key} className="grid grid-cols-[1fr_140px] gap-[10px] items-center">
-                  <div className="flex flex-col text-right gap-[1px]">
-                    <div className="flex items-center justify-end gap-[6px]">
-                      {isCurrent && (
-                        <span className="text-[9px] bg-[#29318A] text-white px-[6px] py-[1px] rounded-full leading-[14px]">חודש נוכחי</span>
-                      )}
-                      <span className={`text-[13px] ${hasExplicit ? "text-white font-medium" : "text-white/70"}`}>
-                        {r.label}
-                      </span>
-                    </div>
-                    <span className={`text-[10px] ${hasExplicit ? "text-white/55" : "text-white/40"}`}>
-                      {hint}
+                <div key={r.key} className="grid grid-cols-[1fr_110px_110px] gap-[10px] items-center">
+                  <div className="flex items-center justify-end gap-[6px]">
+                    {isCurrent && (
+                      <span className="text-[9px] bg-[#29318A] text-white px-[6px] py-[1px] rounded-full leading-[14px]">החודש</span>
+                    )}
+                    <span className={`text-[13px] ${hasMarkup || hasVat ? "text-white font-medium" : "text-white/70"}`}>
+                      {r.label}
                     </span>
                   </div>
-                  <div className={`relative border rounded-[8px] h-[38px] flex items-center ${hasExplicit ? "border-white bg-[#1a1f3a]" : "border-[#4C526B]"}`}>
+
+                  {/* Markup cell */}
+                  <div className={`relative border rounded-[8px] h-[38px] flex items-center ${hasMarkup ? "border-white bg-[#1a1f3a]" : "border-[#4C526B]"}`}>
                     <span className="text-white/50 text-[12px] pr-[8px]">%</span>
                     <Input
                       type="number"
                       min="0"
                       max="100"
                       step="1"
-                      value={hasExplicit ? explicit : ""}
-                      placeholder={String(inherited)}
+                      value={hasMarkup ? markupExplicit : ""}
+                      placeholder={String(markupInherited)}
                       onChange={(e) => {
                         const val = e.target.value;
                         setMarkupByMonth((prev) => {
@@ -1850,14 +1902,66 @@ export default function EditBusinessPage({ params }: PageProps) {
                           });
                         }
                       }}
-                      className={`w-full h-full bg-transparent text-white text-[13px] text-center border-none outline-none px-[6px] placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${hasExplicit ? "pl-[26px]" : ""}`}
+                      className={`w-full h-full bg-transparent text-white text-[13px] text-center border-none outline-none px-[6px] placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${hasMarkup ? "pl-[26px]" : ""}`}
                     />
-                    {hasExplicit && (
+                    {hasMarkup && (
                       <button
                         type="button"
-                        onClick={() => clearOverride(r.key)}
-                        aria-label="בטל ערך מפורש וחזור לירושה"
-                        title="בטל ערך מפורש וחזור לירושה"
+                        onClick={() => clearMarkup(r.key)}
+                        aria-label="אפס לחודש זה"
+                        title="אפס לחודש זה"
+                        className="absolute left-[4px] top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-full bg-[#F64E60]/20 hover:bg-[#F64E60]/40 text-[#F64E60] flex items-center justify-center text-[14px] leading-none transition"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+
+                  {/* VAT cell */}
+                  <div className={`relative border rounded-[8px] h-[38px] flex items-center ${hasVat ? "border-white bg-[#1a1f3a]" : "border-[#4C526B]"}`}>
+                    <span className="text-white/50 text-[12px] pr-[8px]">%</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={hasVat ? vatExplicit : ""}
+                      placeholder={String(vatInherited)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setVatByMonth((prev) => {
+                          const next = { ...prev };
+                          if (val === "") {
+                            delete next[r.key];
+                          } else {
+                            const num = parseFloat(val);
+                            if (!Number.isNaN(num)) next[r.key] = num;
+                          }
+                          return next;
+                        });
+                        if (val === "" && originalVatByMonth[r.key] != null) {
+                          setClearedVatKeys((prev) => {
+                            if (prev.has(r.key)) return prev;
+                            const next = new Set(prev);
+                            next.add(r.key);
+                            return next;
+                          });
+                        } else if (val !== "" && clearedVatKeys.has(r.key)) {
+                          setClearedVatKeys((prev) => {
+                            const next = new Set(prev);
+                            next.delete(r.key);
+                            return next;
+                          });
+                        }
+                      }}
+                      className={`w-full h-full bg-transparent text-white text-[13px] text-center border-none outline-none px-[6px] placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${hasVat ? "pl-[26px]" : ""}`}
+                    />
+                    {hasVat && (
+                      <button
+                        type="button"
+                        onClick={() => clearVat(r.key)}
+                        aria-label="אפס לחודש זה"
+                        title="אפס לחודש זה"
                         className="absolute left-[4px] top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-full bg-[#F64E60]/20 hover:bg-[#F64E60]/40 text-[#F64E60] flex items-center justify-center text-[14px] leading-none transition"
                       >
                         ×
