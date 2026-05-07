@@ -892,9 +892,13 @@ export default function EditBusinessPage({ params }: PageProps) {
         }
       }
 
-      // Detect changes for the 3 month-effective fields
+      // Detect changes for the month-effective fields.
+      // markupPercentage no longer has a top-level editor — markup is always
+      // edited through the per-month table. We keep originalMarkupPercentage
+      // around as the fallback value used by getInherited() in the UI, but
+      // it can never diverge from `markupPercentage` here, so we drop the
+      // historical-rollover write that used to fire on markup changes.
       const managerSalaryChanged = managerSalary !== originalManagerSalary;
-      const markupChanged = markupPercentage !== originalMarkupPercentage;
       const vatChanged = vatPercentage !== originalVatPercentage;
 
       // 2. Update business record
@@ -917,7 +921,8 @@ export default function EditBusinessPage({ params }: PageProps) {
           documents_send_types: documentsSendTypes.length > 0 ? documentsSendTypes : ["invoice", "payment", "delivery_note"],
           logo_url: logoUrl,
           manager_monthly_salary: managerSalary,
-          markup_percentage: 1 + markupPercentage / 100,
+          // markup_percentage on businesses is intentionally not written here.
+          // Markup is now edited per-month via the goals table (see step 2b).
           vat_percentage: vatPercentage / 100,
           form_section_order: formSectionOrder,
         })
@@ -965,7 +970,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         }
       });
 
-      if (managerSalaryChanged || markupChanged || vatChanged || markupDiffs.length > 0) {
+      if (managerSalaryChanged || vatChanged || markupDiffs.length > 0) {
         const HISTORICAL_START_YEAR = 2024;
         const today = new Date();
         const todayY = today.getFullYear();
@@ -1008,12 +1013,11 @@ export default function EditBusinessPage({ params }: PageProps) {
             manager_monthly_salary: originalManagerSalary,
           });
         }
-        if (markupChanged) {
-          // Auto-effective = current month. Past months get the OLD value (preserve-if-existing).
-          writeHistorical(todayY, todayM, {
-            markup_percentage: 1 + originalMarkupPercentage / 100,
-          });
-        }
+        // Markup historical-rollover removed: the top markup field is no
+        // longer editable, so changing the per-month table no longer needs
+        // to backfill past months — previously the rollover would write the
+        // old % into every prior un-overridden month and that's what made
+        // March suddenly appear at 28% after editing only May.
         if (vatChanged) {
           writeHistorical(vatEffectiveYear, vatEffectiveMonth, {
             vat_percentage: originalVatPercentage / 100,
@@ -1710,24 +1714,8 @@ export default function EditBusinessPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Markup & VAT Row */}
-      <div className="grid grid-cols-2 gap-[10px]">
-        <div className="flex flex-col gap-[5px]">
-          <label className="text-[15px] font-medium text-white text-right">אחוז העמסה</label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
-            <span className="text-white/50 text-[14px] pr-[10px]">%</span>
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              step="1"
-              value={markupPercentage}
-              onChange={(e) => setMarkupPercentage(parseFloat(e.target.value) || 0)}
-              placeholder="1"
-              className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-          </div>
-        </div>
+      {/* VAT Row — markup field moved to per-month table below */}
+      <div className="grid grid-cols-1 gap-[10px]">
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">אחוז מע&quot;מ</label>
           <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
@@ -1760,7 +1748,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         <div className="flex flex-col gap-[6px] text-right">
           <span className="text-[14px] font-medium text-white">אחוז העמסה לפי חודש</span>
           <span className="text-[11px] text-white/60 leading-[1.6]">
-            כל שורה מציגה את אחוז ההעמסה שייכנס לדוחות באותו חודש. שורה <b className="text-white/80">ריקה</b> = יורשת אוטומטית את הערך מהחודש הקודם (או מברירת המחדל למעלה: {markupPercentage}%). שורה עם <b className="text-white">ערך לבן</b> = ערך מפורש לחודש הזה. לחיצה על <span className="inline-block w-[14px] h-[14px] rounded-full bg-[#F64E60]/30 text-[#F64E60] text-[10px] leading-[14px] text-center">×</span> מבטלת את הערך המפורש וחוזרת לירושה.
+            כל שורה מציגה את אחוז ההעמסה שייכנס לדוחות באותו חודש. שורה <b className="text-white/80">ריקה</b> = יורשת אוטומטית את הערך מהחודש הקודם (ברירת מחדל: {markupPercentage}%). שורה עם <b className="text-white">ערך לבן</b> = ערך מפורש לחודש הזה. לחיצה על <span className="inline-block w-[14px] h-[14px] rounded-full bg-[#F64E60]/30 text-[#F64E60] text-[10px] leading-[14px] text-center">×</span> מבטלת את הערך המפורש וחוזרת לירושה.
           </span>
         </div>
         <div className="flex flex-col gap-[6px]">
