@@ -404,7 +404,7 @@ export default function OCRPage() {
               .update({
                 invoice_number: formData.document_number || null,
                 invoice_date: formData.document_date,
-                reference_date: formData.document_date,
+                reference_date: formData.value_date || formData.document_date,
                 discount_amount: parseFloat(formData.discount_amount || '0') || 0,
                 discount_percentage: parseFloat(formData.discount_percentage || '0') || 0,
                 subtotal: parseFloat(formData.amount_before_vat),
@@ -428,7 +428,7 @@ export default function OCRPage() {
                 supplier_id: formData.supplier_id,
                 invoice_number: formData.document_number || null,
                 invoice_date: formData.document_date,
-                reference_date: formData.document_date,
+                reference_date: formData.value_date || formData.document_date,
                 discount_amount: parseFloat(formData.discount_amount || '0') || 0,
                 discount_percentage: parseFloat(formData.discount_percentage || '0') || 0,
                 subtotal: parseFloat(formData.amount_before_vat),

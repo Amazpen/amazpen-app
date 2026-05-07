@@ -178,6 +178,8 @@ export default function OCRForm({
   const [expenseType, setExpenseType] = useState<ExpenseType>('goods');
   const [supplierId, setSupplierId] = useState('');
   const [documentDate, setDocumentDate] = useState('');
+  const [valueDate, setValueDate] = useState('');
+  const valueDateManuallySet = useRef(false);
   const [documentNumber, setDocumentNumber] = useState('');
   const [discountAmount, setDiscountAmount] = useState('');
   const [discountPercentage, setDiscountPercentage] = useState('');
@@ -1291,7 +1293,9 @@ export default function OCRForm({
   // Save draft on every form change
   const saveDraftData = useCallback(() => {
     saveDraft({
-      documentType, expenseType, supplierId, documentDate, documentNumber,
+      documentType, expenseType, supplierId, documentDate,
+      valueDate: valueDateManuallySet.current ? valueDate : null,
+      documentNumber,
       discountAmount, discountPercentage, amountBeforeVat, vatAmount, partialVat, notes, isPaid,
       inlinePaymentMethod, inlinePaymentDate, inlinePaymentReference, inlinePaymentNotes,
       inlinePaymentMethods,
@@ -1300,7 +1304,7 @@ export default function OCRForm({
       summarySupplierId, summaryDate, summaryInvoiceNumber, summaryTotalAmount, summaryIsClosed, summaryNotes,
       summaryDeliveryNotes,
     });
-  }, [saveDraft, documentType, expenseType, supplierId, documentDate, documentNumber,
+  }, [saveDraft, documentType, expenseType, supplierId, documentDate, valueDate, documentNumber,
     discountAmount, discountPercentage, amountBeforeVat, vatAmount, partialVat, notes, isPaid,
     inlinePaymentMethod, inlinePaymentDate, inlinePaymentReference, inlinePaymentNotes,
     inlinePaymentMethods,
@@ -1376,6 +1380,8 @@ export default function OCRForm({
       }
       const docDate = data.document_date || new Date().toISOString().split('T')[0];
       setDocumentDate(docDate);
+      setValueDate(docDate);
+      valueDateManuallySet.current = false;
       setPaymentTabDate(docDate);
 
       // Reset OCR-driven fields first so stale values from a previous document
@@ -1531,6 +1537,8 @@ export default function OCRForm({
       setSupplierId('');
       const today = new Date().toISOString().split('T')[0];
       setDocumentDate(today);
+      setValueDate(today);
+      valueDateManuallySet.current = false;
       setDocumentNumber('');
       setAmountBeforeVat('');
       setVatAmount('');
@@ -1576,6 +1584,10 @@ export default function OCRForm({
         if (draft.expenseType) setExpenseType(draft.expenseType as ExpenseType);
         if (draft.supplierId !== undefined) setSupplierId(draft.supplierId as string);
         if (draft.documentDate) setDocumentDate(draft.documentDate as string);
+        if (draft.valueDate !== undefined && draft.valueDate !== null) {
+          setValueDate(draft.valueDate as string);
+          valueDateManuallySet.current = true;
+        }
         if (draft.documentNumber !== undefined) setDocumentNumber(draft.documentNumber as string);
         if (draft.discountAmount !== undefined) setDiscountAmount(draft.discountAmount as string);
         if (draft.discountPercentage !== undefined) setDiscountPercentage(draft.discountPercentage as string);
@@ -1884,6 +1896,7 @@ export default function OCRForm({
         expense_type: expenseType,
         supplier_id: supplierId,
         document_date: documentDate,
+        value_date: valueDate || documentDate,
         document_number: documentNumber,
         discount_amount: discountAmount,
         discount_percentage: discountPercentage,
@@ -2212,13 +2225,32 @@ export default function OCRForm({
         </div>
       </div>
 
-      {/* Date Field */}
+      {/* Invoice Date Field */}
       <div className="flex flex-col gap-[5px]">
-        <label className="text-[15px] font-medium text-white text-right">תאריך</label>
+        <label className="text-[15px] font-medium text-white text-right">תאריך חשבונית</label>
         <DatePickerField
           value={documentDate}
-          onChange={(val) => setDocumentDate(val)}
+          onChange={(val) => {
+            setDocumentDate(val);
+            // Auto-sync value date as long as the user hasn't manually changed it
+            if (!valueDateManuallySet.current) {
+              setValueDate(val);
+            }
+          }}
         />
+      </div>
+
+      {/* Value Date Field */}
+      <div className="flex flex-col gap-[5px]">
+        <label className="text-[15px] font-medium text-white text-right">תאריך ערך</label>
+        <DatePickerField
+          value={valueDate || documentDate}
+          onChange={(val) => {
+            valueDateManuallySet.current = true;
+            setValueDate(val);
+          }}
+        />
+        <span className="text-[12px] text-white/50 text-right">התאריך שהאפליקציה תציג את ההוצאה לפיו (לרואה חשבון)</span>
       </div>
 
       {/* Supplier Select */}

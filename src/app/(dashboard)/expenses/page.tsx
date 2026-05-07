@@ -4124,7 +4124,7 @@ function ExpensesPageInner() {
                 {[
                   { value: "", label: "ללא סינון" },
                   { value: "date", label: "תאריך חשבונית" },
-                  { value: "reference_date", label: "תאריך אסמכתא" },
+                  { value: "reference_date", label: "תאריך ערך" },
                   { value: "supplier", label: "ספק" },
                   { value: "reference", label: "מספר תעודה" },
                   { value: "amount", label: "סכום לפני מע\"מ" },
@@ -4262,7 +4262,7 @@ function ExpensesPageInner() {
         {filterBy && filterBy !== "fixed" && (
           <div className="flex items-center gap-[10px] px-[10px]">
             <span className="text-[13px] text-white/60 whitespace-nowrap">
-              {filterBy === "date" ? "תאריך:" : filterBy === "reference_date" ? "תאריך אסמכתא:" : filterBy === "supplier" ? "ספק:" : filterBy === "reference" ? "אסמכתא:" : filterBy === "amount" ? "סכום:" : filterBy === "creditCard" ? "כרטיס אשראי:" : "הערות:"}
+              {filterBy === "date" ? "תאריך חשבונית:" : filterBy === "reference_date" ? "תאריך ערך:" : filterBy === "supplier" ? "ספק:" : filterBy === "reference" ? "אסמכתא:" : filterBy === "amount" ? "סכום:" : filterBy === "creditCard" ? "כרטיס אשראי:" : "הערות:"}
             </span>
             <Input
               type="text"

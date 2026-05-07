@@ -93,6 +93,7 @@ export interface OCRFormData {
   expense_type: ExpenseType;
   supplier_id: string;
   document_date: string;
+  value_date?: string;
   document_number: string;
   discount_amount?: string;
   discount_percentage?: string;
