@@ -50,17 +50,16 @@ function buildPushMessage(
 ): string {
   if (plan.data_source === "custom" || status.currentValue === null) {
     const tipSuffix = plan.tips ? `\n💡 טיפ: ${plan.tips.split("\n")[0]}` : "";
-    return `תחום: ${plan.area_name} — בדוק את המצב שלך ופתח את דדי לעצות${tipSuffix}`;
+    // Plural / neutral phrasing — works for any gender of recipient.
+    return `תחום: ${plan.area_name} — אפשר לבדוק את המצב ולפתוח את דדי לעצות${tipSuffix}`;
   }
 
   const current = formatValue(status.currentValue, plan.measurement_type);
   const goal = status.goalValue !== null ? formatValue(status.goalValue, plan.measurement_type) : null;
   const goalStr = goal ? ` (יעד: ${goal})` : "";
 
-  // David's call: turn the abstract goal into a concrete number for today.
-  // For revenue plans → "₪X today". For avg-ticket plans → "ב-N הזמנות
-  // שנותרו צריך ממוצע ₪Y" so the employee knows EXACTLY what to push for
-  // on the rest of the orders this month.
+  // Concrete daily nudge in plain Hebrew. Pushes are short by nature, so
+  // we give one number per plan with the same structure as the email.
   let dailyNudge = "";
   if (plan.data_source === "revenue" && status.dailyTargetRequired != null && status.dailyTargetRequired > 0) {
     const fmt = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(status.dailyTargetRequired);
@@ -70,8 +69,6 @@ function buildPushMessage(
       const fmt = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(status.neededAvgRemaining);
       dailyNudge = `\n🎯 לבונוס: ב-${status.remainingOrders} ההזמנות שנותרו, ממוצע ${fmt} להזמנה`;
     } else if (status.dailyTargetRequired != null && status.dailyTargetRequired > 0) {
-      // Fallback to the daily-orders nudge when we can't compute the
-      // per-order math (e.g. no tier thresholds set, already maxed).
       dailyNudge = `\n📅 קצב מומלץ להיום: ${status.dailyTargetRequired} הזמנות`;
     }
   }
@@ -85,9 +82,10 @@ function buildPushMessage(
     return `${plan.area_name}: ${current}${goalStr} — מעולה! בדרך לבונוס ${bonus}${dailyNudge}`;
   }
 
-  // Not qualified — include a tip if available
-  const tipSuffix = plan.tips ? `\n💡 ${plan.tips.split("\n")[0]}` : " פתח את דדי לעצות";
-  return `${plan.area_name}: ${current}${goalStr} — עוד מאמץ קטן!${dailyNudge}${tipSuffix}`;
+  // Not qualified — include a tip if available. Neutral wording so it
+  // reads the same to everyone.
+  const tipSuffix = plan.tips ? `\n💡 ${plan.tips.split("\n")[0]}` : " — אפשר לפתוח את דדי לעצות";
+  return `${plan.area_name}: ${current}${goalStr} — אפשר לשפר${dailyNudge}${tipSuffix}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -187,9 +185,13 @@ function buildDailyActionsHtml(kpis: ResolvedKPI[]): string {
 }
 
 function buildDailyTargetLines(kpis: ResolvedKPI[]): string {
-  // David's call: every line must give the employee a SINGLE number they
-  // can act on today — no "rate of 18 orders" copy that doesn't say what
-  // the bonus actually requires.
+  // David's exact request from the review: every line must read like a
+  // sentence an employee could repeat to themselves, with concrete numbers
+  // and no "rate of N orders" jargon. The narrative is:
+  //   "צופים עוד X הזמנות עד סוף החודש. כדי להגיע ליעד ממוצע ₪Y,
+  //    צריך למכור כל הזמנה בממוצע ₪Z."
+  // Anything less than that and the employee asks "okay, but what do I
+  // actually do?" — which was David's whole complaint.
   const lines: string[] = [];
   const fmtNis = (n: number) =>
     new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(n);
@@ -198,29 +200,41 @@ function buildDailyTargetLines(kpis: ResolvedKPI[]): string {
     const s = k.status;
     if (k.plan.data_source === "revenue") {
       if (s.dailyTargetRequired != null && s.dailyTargetRequired > 0) {
-        lines.push(`📅 ${k.displayName}: היום צריך ${fmtNis(s.dailyTargetRequired)} כדי לעמוד ביעד`);
-      }
-    } else if (k.plan.data_source.startsWith("avg_ticket_")) {
-      if (s.neededAvgRemaining != null && s.remainingOrders != null && s.bonusTierThreshold != null) {
         lines.push(
-          `🎯 ${k.displayName}: לקבלת בונוס, ב-${s.remainingOrders} ההזמנות שנותרו עד סוף החודש — ממוצע נדרש ${fmtNis(s.neededAvgRemaining)} להזמנה (יעד: ${fmtNis(s.bonusTierThreshold)})`
+          `📅 <strong>${k.displayName}</strong> — כדי לעמוד ביעד החודש, היום צריך להכניס <strong>${fmtNis(s.dailyTargetRequired)}</strong>.`,
         );
       } else if (s.qualifiedTier != null && s.bonusAmount > 0) {
-        // Already qualified — celebrate, don't ask for more.
-        lines.push(`✅ ${k.displayName}: כבר נעלת בונוס ${fmtNis(s.bonusAmount)} — שמור על הקצב!`);
+        lines.push(
+          `✅ <strong>${k.displayName}</strong> — היעד כבר הושג. ממשיכים באותו קצב.`,
+        );
+      }
+    } else if (k.plan.data_source.startsWith("avg_ticket_")) {
+      if (s.qualifiedTier != null && s.bonusAmount > 0) {
+        lines.push(
+          `✅ <strong>${k.displayName}</strong> — נעלנו בונוס ${fmtNis(s.bonusAmount)}. שומרים על הקצב הזה עד סוף החודש.`,
+        );
+      } else if (s.neededAvgRemaining != null && s.remainingOrders != null && s.bonusTierThreshold != null) {
+        lines.push(
+          `🎯 <strong>${k.displayName}</strong> — צופים עוד <strong>${s.remainingOrders}</strong> הזמנות עד סוף החודש. כדי להגיע ליעד ממוצע ${fmtNis(s.bonusTierThreshold)}, צריך למכור כל הזמנה בממוצע <strong>${fmtNis(s.neededAvgRemaining)}</strong>.`,
+        );
       } else if (s.dailyTargetRequired != null && s.dailyTargetRequired > 0) {
-        lines.push(`📅 ${k.displayName}: קצב יומי מומלץ ${s.dailyTargetRequired} הזמנות`);
+        // Fallback when we don't have full bonus tier math (no threshold
+        // set yet, or zero remaining orders). Still actionable.
+        lines.push(
+          `📅 <strong>${k.displayName}</strong> — קצב מומלץ להיום: <strong>${s.dailyTargetRequired}</strong> הזמנות.`,
+        );
       }
     }
   }
-  return lines.join("<br/>");
+  return lines.join("<br/><br/>");
 }
 
 function buildConsolidatedEmailHtml(
   employeeName: string,
   kpis: ResolvedKPI[],
   totalBonus: number,
-  bestTip: string | null
+  bestTip: string | null,
+  businessLabel: string,
 ): string {
   const LOGO_URL = "https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png";
   const GREEN = "#17DB4E";
@@ -232,19 +246,9 @@ function buildConsolidatedEmailHtml(
   const MUTED = "rgba(255,255,255,0.5)";
   const ACCENT = totalBonus > 0 ? GREEN : "#FFA412";
 
-  // Group KPIs by plan (multiple KPIs can belong to different plans)
-  // Since each plan has one KPI, group by plan name for the "שם התכנית" header
-  // We'll group by plan.id to avoid duplicates
-  const planGroups = new Map<string, { planName: string; items: ResolvedKPI[] }>();
-  for (const kpi of kpis) {
-    const key = kpi.plan.id;
-    if (!planGroups.has(key)) {
-      planGroups.set(key, { planName: kpi.plan.area_name, items: [] });
-    }
-    planGroups.get(key)!.items.push(kpi);
-  }
-
-  // Build KPI rows — all in one table
+  // Build KPI rows — all in one table.
+  // Each row also carries a "mobile-card" class so the @media block at the
+  // top of the document can flip rows into stacked cards on small screens.
   let tableRowsHtml = "";
   for (const kpi of kpis) {
     const { plan, status, displayName, diffPct, diffAmount } = kpi;
@@ -252,17 +256,14 @@ function buildConsolidatedEmailHtml(
     const currentStr = status.currentValue !== null ? formatValue(status.currentValue, plan.measurement_type) : "—";
     const goalStr = status.goalValue !== null ? formatValue(status.goalValue, plan.measurement_type) : "—";
 
-    // Determine color based on whether the diff is good or bad
     let diffPctStr = "—";
     let diffAmountStr = "—";
     let rowColor = TEXT;
 
     if (diffPct !== null) {
-      // For "lower is better" KPIs, negative diff = good
       const good = isGood(plan, diffPct);
       rowColor = good ? GREEN : RED;
-      diffPctStr = formatPctDiff(plan.is_lower_better ? diffPct : diffPct);
-      // For lower-is-better: show negative diff as-is (negative = saving)
+      diffPctStr = formatPctDiff(diffPct);
     }
 
     if (diffAmount !== null) {
@@ -270,16 +271,15 @@ function buildConsolidatedEmailHtml(
     }
 
     tableRowsHtml += `
-      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-        <td style="padding: 10px 12px; color: ${TEXT}; font-size: 14px; text-align: right; white-space: nowrap;">${displayName}</td>
-        <td style="padding: 10px 8px; color: ${MUTED}; font-size: 14px; text-align: center;">${goalStr}</td>
-        <td style="padding: 10px 8px; color: ${rowColor}; font-size: 14px; text-align: center; font-weight: bold;">${currentStr}</td>
-        <td style="padding: 10px 8px; color: ${rowColor}; font-size: 14px; text-align: center;">${diffPctStr}</td>
-        <td style="padding: 10px 8px; color: ${rowColor}; font-size: 14px; text-align: center;">${diffAmountStr}</td>
+      <tr class="kpi-row" style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <td class="kpi-cell kpi-name" data-label="פרמטר" style="padding: 10px 12px; color: ${TEXT}; font-size: 14px; text-align: right;">${displayName}</td>
+        <td class="kpi-cell" data-label="יעד" style="padding: 10px 8px; color: ${MUTED}; font-size: 14px; text-align: center;">${goalStr}</td>
+        <td class="kpi-cell" data-label="בפועל" style="padding: 10px 8px; color: ${rowColor}; font-size: 14px; text-align: center; font-weight: bold;">${currentStr}</td>
+        <td class="kpi-cell" data-label="הפרש %" style="padding: 10px 8px; color: ${rowColor}; font-size: 14px; text-align: center;">${diffPctStr}</td>
+        <td class="kpi-cell" data-label="הפרש ₪" style="padding: 10px 8px; color: ${rowColor}; font-size: 14px; text-align: center;">${diffAmountStr}</td>
       </tr>`;
   }
 
-  // Build plan names list
   const planNames = [...new Set(kpis.map(k => k.plan.area_name))];
   const planNamesHtml = planNames.map(name =>
     `<span style="display: inline-block; background: ${HEADER_BG}; padding: 4px 14px; border-radius: 6px; font-size: 13px; margin: 3px 4px; color: ${TEXT};">${name}</span>`
@@ -293,7 +293,7 @@ function buildConsolidatedEmailHtml(
 
   const bonusStatusText = totalBonus > 0
     ? `נכון לעכשיו צפי הבונוס הינו <span style="color: ${GREEN}; font-weight: bold; font-size: 20px;">${bonusFormatted}</span>`
-    : `נכון לעכשיו אין צפי לבונוס — אפשר לשפר!`;
+    : `נכון לעכשיו אין צפי לבונוס — אפשר לשפר.`;
 
   const tipHtml = bestTip
     ? `<div style="background: ${ROW_BG}; border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-right: 4px solid #FFA412;">
@@ -301,17 +301,14 @@ function buildConsolidatedEmailHtml(
       </div>`
     : "";
 
-  // David #9 — daily-target panel: turns the bonus from a wall-poster into a
-  // working tool by showing what TODAY needs to look like.
   const dailyTargetText = buildDailyTargetLines(kpis);
   const dailyTargetHtml = dailyTargetText
     ? `<div style="background: ${ROW_BG}; border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-right: 4px solid ${GREEN};">
-        <p style="margin: 0 0 6px 0; font-size: 13px; color: ${MUTED};">היעד היומי שלך:</p>
+        <p style="margin: 0 0 6px 0; font-size: 13px; color: ${MUTED};">היעד להיום:</p>
         <p style="margin: 0; font-size: 14px; color: ${TEXT}; line-height: 1.7;">${dailyTargetText}</p>
       </div>`
     : "";
 
-  // David #10 — daily actions panel: 1-3 concrete things to do today.
   const dailyActionsItems = buildDailyActionsHtml(kpis);
   const dailyActionsHtml = dailyActionsItems
     ? `<div style="background: ${ROW_BG}; border-radius: 8px; padding: 14px 18px; margin: 16px 0; border-right: 4px solid #4A56D4;">
@@ -320,61 +317,97 @@ function buildConsolidatedEmailHtml(
       </div>`
     : "";
 
+  // David's responsive request: the table breaks badly on phones — narrow
+  // viewport collapses every cell into a tower of 2-character columns.
+  // The @media block flips rows into stacked cards (label : value pairs
+  // using data-label) on screens < 480px. Older email clients just ignore
+  // the styles and keep the desktop table layout, so it's a safe upgrade.
+  const styleBlock = `
+    <style>
+      @media (max-width: 480px) {
+        .container { padding: 16px !important; }
+        .header-title { font-size: 20px !important; }
+        .header-business { font-size: 14px !important; }
+        .plan-names span { font-size: 12px !important; padding: 3px 10px !important; }
+        .kpi-table thead { display: none !important; }
+        .kpi-table, .kpi-table tbody, .kpi-row, .kpi-cell { display: block !important; width: 100% !important; }
+        .kpi-row { background: ${ROW_BG} !important; border-radius: 8px !important; margin-bottom: 10px !important; padding: 10px 12px !important; border: 1px solid rgba(255,255,255,0.08) !important; }
+        .kpi-cell { display: flex !important; justify-content: space-between !important; align-items: center !important; padding: 5px 0 !important; text-align: right !important; border: none !important; }
+        .kpi-cell::before { content: attr(data-label); color: ${MUTED}; font-size: 12px; }
+        .kpi-cell.kpi-name { font-weight: bold; font-size: 15px !important; padding-bottom: 8px !important; border-bottom: 1px solid rgba(255,255,255,0.08) !important; margin-bottom: 5px !important; }
+        .kpi-cell.kpi-name::before { display: none !important; }
+        .cta { padding: 14px 20px !important; font-size: 14px !important; }
+      }
+    </style>
+  `;
+
+  const businessHeader = businessLabel
+    ? `<p class="header-business" style="margin: 4px 0 0 0; font-size: 15px; color: ${MUTED};">${businessLabel}</p>`
+    : "";
+
+  // Greeting in plural so the same copy works for any gender / multiple
+  // recipients without a "שלך / שלכם" mismatch.
+  const greetingName = employeeName ? `, ${employeeName}` : "";
+
   return `
-    <div dir="rtl" style="font-family: Assistant, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: ${BG}; border-radius: 12px; padding: 28px; color: ${TEXT};">
-      <!-- Header -->
-      <div style="text-align: center; margin-bottom: 24px;">
-        <h2 style="margin: 0 0 8px 0; font-size: 22px; color: ${ACCENT};">🎯 עדכון בונוס יומי</h2>
-        <p style="margin: 0; font-size: 16px; color: ${TEXT};">שלום ${employeeName},</p>
+    <!DOCTYPE html>
+    <html dir="rtl" lang="he">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      ${styleBlock}
+    </head>
+    <body style="margin: 0; padding: 0; background: ${BG};">
+      <div class="container" dir="rtl" style="font-family: Assistant, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: ${BG}; border-radius: 12px; padding: 28px; color: ${TEXT};">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 22px;">
+          <h2 class="header-title" style="margin: 0 0 6px 0; font-size: 22px; color: ${ACCENT};">🎯 עדכון בונוס יומי</h2>
+          ${businessHeader}
+          <p style="margin: 10px 0 0 0; font-size: 16px; color: ${TEXT};">שלום${greetingName},</p>
+        </div>
+
+        <!-- Plan names -->
+        <div class="plan-names" style="text-align: center; margin-bottom: 20px;">
+          ${planNamesHtml}
+        </div>
+
+        <!-- KPI Table -->
+        <table class="kpi-table" dir="rtl" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; background: ${ROW_BG}; border-radius: 8px; overflow: hidden;">
+          <thead>
+            <tr style="background: ${HEADER_BG};">
+              <th style="padding: 12px; font-size: 13px; color: ${MUTED}; text-align: right; font-weight: 600;">פרמטר שנמדד</th>
+              <th style="padding: 12px 8px; font-size: 13px; color: ${MUTED}; text-align: center; font-weight: 600;">יעד</th>
+              <th style="padding: 12px 8px; font-size: 13px; color: ${MUTED}; text-align: center; font-weight: 600;">בפועל</th>
+              <th style="padding: 12px 8px; font-size: 13px; color: ${MUTED}; text-align: center; font-weight: 600;">הפרש ב%</th>
+              <th style="padding: 12px 8px; font-size: 13px; color: ${MUTED}; text-align: center; font-weight: 600;">הפרש ב-₪</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRowsHtml}
+          </tbody>
+        </table>
+
+        <!-- Bonus Status -->
+        <div style="text-align: center; margin: 22px 0; padding: 18px; background: ${ROW_BG}; border-radius: 8px; border: 1px solid ${ACCENT}40;">
+          <p style="margin: 0 0 4px 0; font-size: 13px; color: ${MUTED};">סטטוס בונוס</p>
+          <p style="margin: 0; font-size: 16px; color: ${TEXT}; line-height: 1.6;">${bonusStatusText}</p>
+        </div>
+
+        ${dailyTargetHtml}
+        ${dailyActionsHtml}
+        ${tipHtml}
+
+        <div style="text-align: center; margin-top: 20px;">
+          <a class="cta" href="https://app.amazpenbiz.co.il/ai" style="display: inline-block; background: #2C3595; color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 15px; font-weight: bold;">🤖 לפתיחת דדי — היועץ הדיגיטלי לעצות נוספות</a>
+        </div>
+
+        <div style="text-align: center; margin-top: 28px;">
+          <img src="${LOGO_URL}" alt="Amazpen" style="height: 32px; opacity: 0.7;" />
+          <p style="font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 8px;">המצפן — מערכת ניהול עסקית</p>
+        </div>
       </div>
-
-      <!-- Plan names -->
-      <div style="text-align: center; margin-bottom: 20px;">
-        ${planNamesHtml}
-      </div>
-
-      <!-- KPI Table -->
-      <table dir="rtl" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; background: ${ROW_BG}; border-radius: 8px; overflow: hidden;">
-        <thead>
-          <tr style="background: ${HEADER_BG};">
-            <th style="padding: 12px; font-size: 13px; color: ${MUTED}; text-align: right; font-weight: 600;">פרמטר שנמדד</th>
-            <th style="padding: 12px 8px; font-size: 13px; color: ${MUTED}; text-align: center; font-weight: 600;">יעד</th>
-            <th style="padding: 12px 8px; font-size: 13px; color: ${MUTED}; text-align: center; font-weight: 600;">בפועל</th>
-            <th style="padding: 12px 8px; font-size: 13px; color: ${MUTED}; text-align: center; font-weight: 600;">הפרש ב%</th>
-            <th style="padding: 12px 8px; font-size: 13px; color: ${MUTED}; text-align: center; font-weight: 600;">הפרש ב-₪</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${tableRowsHtml}
-        </tbody>
-      </table>
-
-      <!-- Bonus Status -->
-      <div style="text-align: center; margin: 24px 0; padding: 18px; background: ${ROW_BG}; border-radius: 8px; border: 1px solid ${ACCENT}40;">
-        <p style="margin: 0 0 4px 0; font-size: 13px; color: ${MUTED};">סטטוס מצב לקבלת בונוס</p>
-        <p style="margin: 0; font-size: 16px; color: ${TEXT}; line-height: 1.6;">${bonusStatusText}</p>
-      </div>
-
-      <!-- Daily target -->
-      ${dailyTargetHtml}
-
-      <!-- Daily actions -->
-      ${dailyActionsHtml}
-
-      <!-- Tip -->
-      ${tipHtml}
-
-      <!-- CTA -->
-      <div style="text-align: center; margin-top: 20px;">
-        <a href="https://app.amazpenbiz.co.il/ai" style="display: inline-block; background: #2C3595; color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 16px; font-weight: bold;">🤖 פתח את דדי היועץ הדיגיטלי שלך לעצות נוספות</a>
-      </div>
-
-      <!-- Logo -->
-      <div style="text-align: center; margin-top: 28px;">
-        <img src="${LOGO_URL}" alt="Amazpen" style="height: 32px; opacity: 0.7;" />
-        <p style="font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 8px;">המצפן — מערכת ניהול עסקית</p>
-      </div>
-    </div>
+    </body>
+    </html>
   `;
 }
 
@@ -596,6 +629,22 @@ export async function POST(request: NextRequest) {
         // Collect all unique business IDs for this employee's plans
         const businessIds = [...new Set(planStatuses.map(ps => ps.plan.business_id))];
 
+        // Fetch business names so the email + subject can name them
+        // explicitly. David's call: "עדכון בונוס יומי — אושי אושי" beats
+        // a generic "עדכון בונוס יומי" because employees and the owner
+        // both forward these, and without the business name in the subject
+        // it's impossible to tell which branch the numbers belong to.
+        const businessNamesMap = new Map<string, string>();
+        {
+          const { data: bizRows } = await supabaseAdmin
+            .from("businesses")
+            .select("id, name")
+            .in("id", businessIds);
+          (bizRows || []).forEach((b: { id: string; name: string }) => {
+            businessNamesMap.set(b.id, b.name);
+          });
+        }
+
         // Fetch metrics for all businesses (for ₪ conversion and managed product names)
         const metricsMap = new Map<string, Record<string, unknown>>();
         for (const bizId of businessIds) {
@@ -660,17 +709,27 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // Compose business label for subject + header. When the employee
+        // owns plans across several businesses we list them all so the
+        // header reflects what's inside; usually it's just one.
+        const businessLabel = businessIds
+          .map(id => businessNamesMap.get(id))
+          .filter((n): n is string => Boolean(n))
+          .join(" · ");
+
         // Build and send consolidated email
         const emailHtml = buildConsolidatedEmailHtml(
           profile.full_name || "",
           resolvedKPIs,
           totalBonus,
-          bestTip
+          bestTip,
+          businessLabel
         );
 
+        const subjectSuffix = businessLabel ? ` — ${businessLabel}` : "";
         const emailSubject = totalBonus > 0
-          ? `🎯 עדכון בונוס — צפי ${new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(totalBonus)}`
-          : `🎯 עדכון בונוס יומי — בוא נשפר!`;
+          ? `🎯 עדכון בונוס יומי${subjectSuffix} — צפי ${new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(totalBonus)}`
+          : `🎯 עדכון בונוס יומי${subjectSuffix} — אפשר לשפר`;
 
         // CC the Amazpen owner (David) on every bonus email so he sees what
         // employees receive — explicit request, asked twice in the David
