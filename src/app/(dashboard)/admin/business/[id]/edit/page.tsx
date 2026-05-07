@@ -1777,7 +1777,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             grid lays out right-to-left even when Tailwind 4 doesn't emit
             the [direction:rtl] arbitrary class for the grid container. */}
         <div dir="rtl" style={{ direction: 'rtl' }} className="grid grid-cols-[140px_1fr_1fr] gap-[14px] items-center pb-[6px] border-b border-[#4C526B]/40">
-          <span className="text-[11px] text-white/50 text-right">חודש</span>
+          <span className="text-[11px] text-white/50 text-center">חודש</span>
           <span className="text-[11px] text-white/50 text-center">אחוז העמסה</span>
           <span className="text-[11px] text-white/50 text-center">אחוז מע&quot;מ</span>
         </div>
@@ -1858,7 +1858,7 @@ export default function EditBusinessPage({ params }: PageProps) {
 
               return (
                 <div key={r.key} dir="rtl" style={{ direction: 'rtl' }} className="grid grid-cols-[140px_1fr_1fr] gap-[14px] items-center">
-                  <div className="flex items-center justify-end gap-[6px]">
+                  <div className="flex items-center justify-center gap-[6px]">
                     {isCurrent && (
                       <span className="text-[9px] bg-[#29318A] text-white px-[6px] py-[1px] rounded-full leading-[14px]">החודש</span>
                     )}
