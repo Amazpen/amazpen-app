@@ -1774,7 +1774,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         </div>
 
         {/* Header row */}
-        <div className="grid grid-cols-3 gap-[14px] items-center pb-[6px] border-b border-[#4C526B]/40">
+        <div className="grid grid-cols-3 gap-[14px] items-center pb-[6px] [direction:rtl] border-b border-[#4C526B]/40">
           <span className="text-[11px] text-white/50 text-right">חודש</span>
           <span className="text-[11px] text-white/50 text-center">אחוז העמסה</span>
           <span className="text-[11px] text-white/50 text-center">אחוז מע&quot;מ</span>
@@ -1855,7 +1855,7 @@ export default function EditBusinessPage({ params }: PageProps) {
               const isCurrent = r.year === curY && r.month === curM;
 
               return (
-                <div key={r.key} className="grid grid-cols-3 gap-[14px] items-center">
+                <div key={r.key} className="grid grid-cols-3 gap-[14px] items-center [direction:rtl]">
                   <div className="flex items-center justify-end gap-[6px]">
                     {isCurrent && (
                       <span className="text-[9px] bg-[#29318A] text-white px-[6px] py-[1px] rounded-full leading-[14px]">החודש</span>
