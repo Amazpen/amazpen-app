@@ -348,6 +348,28 @@ export default function OCRPage() {
     }
   }, [setSelectedBusinessId]);
 
+  // Per-card "✓ שייך לעסק הנבחר" handler. Reassigns the clicked document
+  // (not necessarily the currently-open one) to whatever business is
+  // selected in the form's top picker, so admins can claim a misrouted
+  // doc without opening it first. David's request from the meeting.
+  const handleConfirmBusinessForDoc = useCallback(async (document: OCRDocument) => {
+    if (!selectedBusinessId) return;
+    if (document.business_id === selectedBusinessId) return;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('ocr_documents')
+      .update({ business_id: selectedBusinessId, updated_at: new Date().toISOString() })
+      .eq('id', document.id);
+    if (error) {
+      console.error('Failed to confirm business for OCR doc:', error);
+      return;
+    }
+    setDocuments(prev => prev.map(d => d.id === document.id ? { ...d, business_id: selectedBusinessId } : d));
+    if (currentDocument?.id === document.id) {
+      setCurrentDocument(prev => prev ? { ...prev, business_id: selectedBusinessId } : prev);
+    }
+  }, [selectedBusinessId, currentDocument]);
+
   // Handle form approval - saves to Supabase based on document type
   const handleApprove = useCallback(
     async (formData: OCRFormData) => {
@@ -1243,6 +1265,8 @@ export default function OCRPage() {
               businesses={businesses}
               businessFilter={businessFilter}
               onBusinessFilterChange={setBusinessFilter}
+              targetBusinessId={selectedBusinessId}
+              onConfirmBusiness={handleConfirmBusinessForDoc}
             />
           )}
         </div>
@@ -1336,6 +1360,8 @@ export default function OCRPage() {
             businesses={businesses}
             businessFilter={businessFilter}
             onBusinessFilterChange={setBusinessFilter}
+            targetBusinessId={selectedBusinessId}
+            onConfirmBusiness={handleConfirmBusinessForDoc}
           />
         )}
       </div>

@@ -21,6 +21,17 @@ interface DocumentQueueProps {
   businesses?: QueueBusiness[];
   businessFilter?: string; // business id or 'all'
   onBusinessFilterChange?: (businessId: string) => void;
+  /**
+   * Business currently selected in the OCR form's top picker. Used as the
+   * target when the admin clicks the per-card "✓" confirm button.
+   */
+  targetBusinessId?: string;
+  /**
+   * Called when the admin clicks "✓" on a card whose business_id doesn't
+   * match the currently-selected business. The handler should reassign
+   * the document to targetBusinessId.
+   */
+  onConfirmBusiness?: (document: OCRDocument) => void;
 }
 
 // 'reviewing' removed from the filter list — selecting a document no longer
@@ -44,6 +55,8 @@ export default function DocumentQueue({
   businesses = [],
   businessFilter = 'all',
   onBusinessFilterChange,
+  targetBusinessId,
+  onConfirmBusiness,
 }: DocumentQueueProps) {
   // Map business_id -> name for card lookups
   const businessNameById = new Map(businesses.map(b => [b.id, b.name]));
@@ -303,6 +316,9 @@ export default function DocumentQueue({
                   onClick={() => onSelectDocument(doc)}
                   businessName={businessNameById.get(doc.business_id)}
                   serial={serialByDocId.get(doc.id)}
+                  targetBusinessId={targetBusinessId}
+                  targetBusinessName={targetBusinessId ? businessNameById.get(targetBusinessId) : undefined}
+                  onConfirmBusiness={onConfirmBusiness}
                 />
               ))
             )}
@@ -407,6 +423,9 @@ export default function DocumentQueue({
                 onClick={() => onSelectDocument(doc)}
                 businessName={businessNameById.get(doc.business_id)}
                 serial={serialByDocId.get(doc.id)}
+                targetBusinessId={targetBusinessId}
+                targetBusinessName={targetBusinessId ? businessNameById.get(targetBusinessId) : undefined}
+                onConfirmBusiness={onConfirmBusiness}
               />
             ))
           )}
@@ -422,6 +441,12 @@ interface DocumentCardProps {
   onClick: () => void;
   businessName?: string;
   serial?: number;
+  /** The business currently selected in the form's top picker. */
+  targetBusinessId?: string;
+  /** Display name of targetBusinessId (used inside the confirm button label). */
+  targetBusinessName?: string;
+  /** Reassigns the doc's business_id to targetBusinessId. */
+  onConfirmBusiness?: (document: OCRDocument) => void;
 }
 
 // Format upload time: "לפני 3 שעות" / "לפני 2 ימים" / DD/MM HH:mm
@@ -466,10 +491,17 @@ function PdfThumbnail({ url: _url }: { url: string }) {
 }
 
 // Horizontal card for bottom queue
-function DocumentCard({ document, isSelected, onClick, businessName, serial }: DocumentCardProps) {
+function DocumentCard({ document, isSelected, onClick, businessName, serial, targetBusinessId, targetBusinessName, onConfirmBusiness }: DocumentCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const isPdf = isPdfDocument(document);
+
+  const showConfirmButton = !!(
+    onConfirmBusiness &&
+    targetBusinessId &&
+    document.status === 'pending' &&
+    document.business_id !== targetBusinessId
+  );
 
   return (
     <Button
@@ -578,13 +610,28 @@ function DocumentCard({ document, isSelected, onClick, businessName, serial }: D
         {document.ocr_data?.confidence_score !== undefined && (
           <ConfidenceBar score={document.ocr_data.confidence_score} />
         )}
+
+        {showConfirmButton && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onConfirmBusiness?.(document);
+            }}
+            title={targetBusinessName ? `שייך ל-${targetBusinessName}` : 'שייך לעסק הנבחר'}
+            className="mt-1.5 w-full px-2 py-1 rounded-[6px] border border-[#34d399] bg-[#34d399]/10 text-[#34d399] text-[10px] font-bold flex items-center justify-center gap-1 hover:bg-[#34d399]/20 transition"
+          >
+            <span className="text-[12px] leading-none">✓</span>
+            <span className="truncate">שייך{targetBusinessName ? ` ל-${targetBusinessName}` : ''}</span>
+          </button>
+        )}
       </div>
     </Button>
   );
 }
 
 // Vertical card for sidebar - business name is the primary label
-function DocumentCardVertical({ document, isSelected, onClick, businessName, serial }: DocumentCardProps) {
+function DocumentCardVertical({ document, isSelected, onClick, businessName, serial, targetBusinessId, targetBusinessName, onConfirmBusiness }: DocumentCardProps) {
   const supplierName = document.ocr_data?.supplier_name || 'ממתין לזיהוי';
   const docTypeLabel = document.document_type
     ? getDocumentTypeLabel(document.document_type)
@@ -593,6 +640,19 @@ function DocumentCardVertical({ document, isSelected, onClick, businessName, ser
   const documentNumber = document.ocr_data?.document_number;
   const bizLabel = businessName || 'עסק לא ידוע';
   const uploadedAt = formatUploadedAt(document.created_at);
+
+  // Show the confirm-business button when an admin has a business selected
+  // in the form's top picker AND that business doesn't already match this
+  // document's business_id. David's request from the review: a green "✓"
+  // on the card so admins can manually claim a misrouted (or unassigned)
+  // doc for the currently-selected business without having to open the
+  // form first.
+  const showConfirmButton = !!(
+    onConfirmBusiness &&
+    targetBusinessId &&
+    document.status === 'pending' &&
+    document.business_id !== targetBusinessId
+  );
 
   return (
     <div
@@ -682,6 +742,37 @@ function DocumentCardVertical({ document, isSelected, onClick, businessName, ser
         <div style={{ color: '#EB5757', fontSize: '10px', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           סיבה: {document.rejection_reason}
         </div>
+      )}
+
+      {showConfirmButton && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation(); // don't trigger card-level onClick
+            onConfirmBusiness?.(document);
+          }}
+          title={targetBusinessName ? `שייך ל-${targetBusinessName}` : 'שייך לעסק הנבחר'}
+          style={{
+            marginTop: '8px',
+            width: '100%',
+            padding: '6px 8px',
+            borderRadius: '6px',
+            border: '1px solid #34d399',
+            backgroundColor: 'rgba(52, 211, 153, 0.12)',
+            color: '#34d399',
+            fontSize: '11px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            direction: 'rtl',
+          }}
+        >
+          <span style={{ fontSize: '14px', lineHeight: 1 }}>✓</span>
+          <span>שייך{targetBusinessName ? ` ל-${targetBusinessName}` : ' לעסק הנבחר'}</span>
+        </button>
       )}
     </div>
   );
