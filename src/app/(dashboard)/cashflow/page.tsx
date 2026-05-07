@@ -98,18 +98,12 @@ export default function CashFlowPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Gate: cashflow is admin-only for now (non-admin sees "בקרוב" in the sidebar
-  // and lands back on the dashboard if they try to reach this URL directly).
-  // The 500ms delay matches the pattern used on /ocr so we don't redirect
-  // before the profile has had a chance to load from Supabase.
-  const [isCheckingAdminAccess, setIsCheckingAdminAccess] = useState(true);
-  useEffect(() => {
-    const timer = setTimeout(() => setIsCheckingAdminAccess(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
-  useEffect(() => {
-    if (!isCheckingAdminAccess && !isAdmin) router.replace('/');
-  }, [isAdmin, isCheckingAdminAccess, router]);
+  // David #13: cashflow is now opened to all customers as a public beta —
+  // the admin-only gate was removed in favour of a "גרסת בטא" badge at
+  // the top of the page so users know not to fully trust the numbers yet.
+  // Keeping isAdmin import live since other branches reference it.
+  void isAdmin;
+  void router;
 
   // Persisted state
   const [savedEndDate, setSavedEndDate] = usePersistedState<string | null>("cashflow:endDate", null);
@@ -208,10 +202,13 @@ export default function CashFlowPage() {
         setSettings(settingsData);
 
         const openingBalance = settingsData?.opening_balance ? Number(settingsData.opening_balance) : 0;
-        // Default opening date: first of month 3 months ago (to show historical data)
+        // Default opening date: first of the CURRENT month. David #13:
+        // "התזרים יציג מהחודש הנוכחי קדימה, לא מפברואר" — the previous
+        // 3-month lookback meant the page opened on stale historical data
+        // for users who hadn't pinned a balance date themselves. The
+        // history-back button still lets them step backwards manually.
         const defaultOpeningDate = (() => {
           const d = new Date();
-          d.setMonth(d.getMonth() - 3);
           d.setDate(1);
           return formatLocalDate(d);
         })();
@@ -571,6 +568,20 @@ export default function CashFlowPage() {
 
   return (
     <article aria-label="תזרים מזומנים" className="text-white p-[7px] pb-[80px] flex flex-col gap-[10px]">
+
+      {/* Beta banner — David #13: every customer can now see the cashflow,
+          but the projections are still being tuned. The badge at the very
+          top makes the status obvious without hiding the feature. */}
+      <div dir="rtl" className="bg-[#FFA412]/10 border border-[#FFA412]/40 rounded-[10px] px-[14px] py-[10px] flex items-center justify-between gap-[10px]">
+        <div className="flex items-center gap-[10px] flex-1 min-w-0">
+          <span className="bg-[#FFA412] text-[#0F1535] text-[12px] font-bold px-[10px] py-[3px] rounded-full whitespace-nowrap">
+            גרסת בטא
+          </span>
+          <span className="text-[13px] text-white/80 leading-[1.5]">
+            התזרים נמצא בבדיקה — המספרים עוד עשויים להשתנות. נשמח לפידבק.
+          </span>
+        </div>
+      </div>
 
       {/* ============= HEADER ============= */}
       <section className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
