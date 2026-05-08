@@ -2301,20 +2301,56 @@ export default function OCRForm({
           <span className="text-[13px] text-white font-medium">{document.ocr_data.supplier_name}</span>
         </div>
       )}
-      {/* "+ ספק חדש" — David's review request: avoid context-switching to
-          /suppliers when the OCR document references a vendor that's not
-          in the system yet. Only rendered when the host page wires the
-          handler (i.e. on /ocr, where the admin owns supplier creation). */}
-      {onRequestAddSupplier && (
-        <button
-          type="button"
-          onClick={onRequestAddSupplier}
-          className="self-start text-[12px] text-[#00D4FF] hover:text-white transition-colors flex items-center gap-1"
-        >
-          <span className="text-[14px] leading-none">+</span>
-          <span>הוספת ספק חדש</span>
-        </button>
-      )}
+      {/* Wrap the supplier select with our own header row when the page
+          gave us an "+ הוספת ספק חדש" handler. We render a label on the
+          right and the link on the LEFT side of the same line (RTL: end
+          edge), then suppress the built-in label on SupplierSearchSelect
+          so it isn't duplicated. The link is a David-review request to
+          avoid leaving /ocr just to add a new vendor. */}
+      {onRequestAddSupplier ? (
+        <div className="flex flex-col gap-[3px]">
+          <div className="flex items-center justify-between">
+            <label className="text-[15px] font-medium text-white text-right">שם ספק</label>
+            <button
+              type="button"
+              onClick={onRequestAddSupplier}
+              className="text-[12px] text-[#00D4FF] hover:text-white transition-colors flex items-center gap-1"
+            >
+              <span className="text-[14px] leading-none">+</span>
+              <span>הוספת ספק חדש</span>
+            </button>
+          </div>
+          <SupplierSearchSelect
+            suppliers={suppliers}
+            value={supplierId}
+            label=""
+            onChange={(id) => {
+              setSupplierId(id);
+              setIsSummaryLinked(false);
+              const sel = suppliers.find(s => s.id === id);
+              if (sel?.default_discount_percentage && sel.default_discount_percentage > 0) {
+                setDiscountPercentage(sel.default_discount_percentage.toString());
+              } else {
+                setDiscountPercentage('');
+              }
+              if (sel?.vat_type === 'none') {
+                setPartialVat(true);
+                setVatAmount('0');
+              } else {
+                setPartialVat(false);
+                setVatAmount('');
+              }
+              if (sel?.expense_type) {
+                const mapped: ExpenseType | null =
+                  sel.expense_type === 'current_expenses' ? 'current' :
+                  sel.expense_type === 'goods_purchases' ? 'goods' :
+                  sel.expense_type === 'employee_costs' ? 'employee_costs' : null;
+                if (mapped) setExpenseType(mapped);
+              }
+            }}
+          />
+        </div>
+      ) : (
       <SupplierSearchSelect
         suppliers={suppliers}
         value={supplierId}
@@ -2351,6 +2387,7 @@ export default function OCRForm({
           }
         }}
       />
+      )}
 
       {/* Link to summary invoice checkbox - only for suppliers marked as מרכזת */}
       {(() => {
