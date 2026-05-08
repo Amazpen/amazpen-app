@@ -202,8 +202,8 @@ export default function OCRForm({
     const exists = suppliers.some(s => s.id === pendingSupplierToSelect);
     if (!exists) return;
     setSupplierId(pendingSupplierToSelect);
-    setIsSummaryLinked(false);
     const sel = suppliers.find(s => s.id === pendingSupplierToSelect);
+    setIsSummaryLinked(!!sel?.waiting_for_coordinator);
     if (sel?.expense_type) {
       const mapped: ExpenseType | null =
         sel.expense_type === 'current_expenses' ? 'current' :
@@ -2326,8 +2326,12 @@ export default function OCRForm({
             label=""
             onChange={(id) => {
               setSupplierId(id);
-              setIsSummaryLinked(false);
               const sel = suppliers.find(s => s.id === id);
+              // David's request: if the supplier is configured as a
+              // "ממתין למרכזת" vendor, default the "שייך למרכזת" toggle to
+              // ON the moment the supplier is picked — saves a click on
+              // every delivery-note approval.
+              setIsSummaryLinked(!!sel?.waiting_for_coordinator);
               if (sel?.default_discount_percentage && sel.default_discount_percentage > 0) {
                 setDiscountPercentage(sel.default_discount_percentage.toString());
               } else {
@@ -2356,8 +2360,10 @@ export default function OCRForm({
         value={supplierId}
         onChange={(id) => {
           setSupplierId(id);
-          setIsSummaryLinked(false);
           const sel = suppliers.find(s => s.id === id);
+          // Default "שייך למרכזת" to ON whenever the supplier itself is
+          // marked waiting_for_coordinator (delivery-note funnel).
+          setIsSummaryLinked(!!sel?.waiting_for_coordinator);
           // Auto-fill discount from supplier defaults
           if (sel?.default_discount_percentage && sel.default_discount_percentage > 0) {
             setDiscountPercentage(sel.default_discount_percentage.toString());
