@@ -66,6 +66,22 @@ interface OCRFormProps {
   mergedDocuments?: OCRDocument[];
   pendingDocuments?: OCRDocument[];
   onMergeDocuments?: (docs: OCRDocument[]) => void;
+  /**
+   * Open the "quick add supplier" sheet from the supplier select. The page
+   * owns the sheet state + the post-create refresh, so the form just
+   * triggers it. When provided, a small "+ ספק חדש" button appears next
+   * to the supplier picker.
+   */
+  onRequestAddSupplier?: () => void;
+  /**
+   * After the page creates a new supplier, it sets this to the new id so
+   * the form can auto-select it without us having to remount via a `key`
+   * change (which would wipe out everything else the admin already typed).
+   * The form clears the selection back via onSupplierAutoSelected so the
+   * page knows the signal was consumed.
+   */
+  pendingSupplierToSelect?: string | null;
+  onSupplierAutoSelected?: () => void;
 }
 
 // Tabs for document type selection
@@ -159,6 +175,9 @@ export default function OCRForm({
   mergedDocuments = [],
   pendingDocuments = [],
   onMergeDocuments,
+  onRequestAddSupplier,
+  pendingSupplierToSelect,
+  onSupplierAutoSelected,
 }: OCRFormProps) {
   const { confirm, ConfirmDialog } = useConfirmDialog();
 
@@ -172,6 +191,28 @@ export default function OCRForm({
   // edits like "delete all line items").
   const suppliersRef = useRef<Supplier[]>(suppliers);
   useEffect(() => { suppliersRef.current = suppliers; }, [suppliers]);
+
+  // Auto-select a freshly-created supplier once the page tells us about it
+  // AND the suppliers list has been refreshed to include it. Without the
+  // suppliers-list check the select would be set to an id that doesn't
+  // exist yet, and the dropdown would render "(לא ידוע)" until the next
+  // realtime refresh.
+  useEffect(() => {
+    if (!pendingSupplierToSelect) return;
+    const exists = suppliers.some(s => s.id === pendingSupplierToSelect);
+    if (!exists) return;
+    setSupplierId(pendingSupplierToSelect);
+    setIsSummaryLinked(false);
+    const sel = suppliers.find(s => s.id === pendingSupplierToSelect);
+    if (sel?.expense_type) {
+      const mapped: ExpenseType | null =
+        sel.expense_type === 'current_expenses' ? 'current' :
+        sel.expense_type === 'goods_purchases' ? 'goods' :
+        sel.expense_type === 'employee_costs' ? 'employee_costs' : null;
+      if (mapped) setExpenseType(mapped);
+    }
+    onSupplierAutoSelected?.();
+  }, [pendingSupplierToSelect, suppliers, onSupplierAutoSelected]);
 
   // Form state
   const [documentType, setDocumentType] = useState<DocumentType>('invoice');
@@ -2259,6 +2300,20 @@ export default function OCRForm({
           <span className="text-[13px] text-[#00D4FF]">זוהה מ-OCR: </span>
           <span className="text-[13px] text-white font-medium">{document.ocr_data.supplier_name}</span>
         </div>
+      )}
+      {/* "+ ספק חדש" — David's review request: avoid context-switching to
+          /suppliers when the OCR document references a vendor that's not
+          in the system yet. Only rendered when the host page wires the
+          handler (i.e. on /ocr, where the admin owns supplier creation). */}
+      {onRequestAddSupplier && (
+        <button
+          type="button"
+          onClick={onRequestAddSupplier}
+          className="self-start text-[12px] text-[#00D4FF] hover:text-white transition-colors flex items-center gap-1"
+        >
+          <span className="text-[14px] leading-none">+</span>
+          <span>הוספת ספק חדש</span>
+        </button>
       )}
       <SupplierSearchSelect
         suppliers={suppliers}

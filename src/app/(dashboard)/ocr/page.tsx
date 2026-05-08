@@ -18,6 +18,7 @@ import DocumentQueue from '@/components/ocr/DocumentQueue';
 import OCRFormResizer from '@/components/ocr/OCRFormResizer';
 import OCRQueueResizer from '@/components/ocr/OCRQueueResizer';
 import { OCRQueueSkeleton, OCRViewerSkeleton, OCRFormSkeleton } from '@/components/ocr/OCRSkeletons';
+import QuickAddSupplierModal from '@/components/ocr/QuickAddSupplierModal';
 import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
@@ -185,6 +186,13 @@ export default function OCRPage() {
   const [selectedBusinessId, setSelectedBusinessId] = usePersistedState('ocr:businessId', '');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [coordinatorSuppliers, setCoordinatorSuppliers] = useState<Supplier[]>([]);
+
+  // Quick "+ ספק חדש" sheet — opens from inside OCRForm. We hold the state
+  // here (not inside the form) so a successful insert can refresh the
+  // suppliers list and bump pendingSupplierToSelect, which the form keys
+  // off of to auto-select the new row without us having to remount.
+  const [showQuickAddSupplier, setShowQuickAddSupplier] = useState(false);
+  const [pendingSupplierToSelect, setPendingSupplierToSelect] = useState<string | null>(null);
 
   // When admin picks a business in the form, persist business_id on the
   // current document immediately. This way the doc routes to the correct
@@ -1340,10 +1348,33 @@ export default function OCRPage() {
                 return !d.business_id || !targetBiz || d.business_id === targetBiz;
               })}
               onMergeDocuments={setMergedDocuments}
+              onRequestAddSupplier={
+                selectedBusinessId
+                  ? () => setShowQuickAddSupplier(true)
+                  : undefined
+              }
+              pendingSupplierToSelect={pendingSupplierToSelect}
+              onSupplierAutoSelected={() => setPendingSupplierToSelect(null)}
             />
           )}
         </div>
       </div>
+
+      {/* Quick add supplier — opened from inside OCRForm via the
+          "+ הוספת ספק חדש" link. After save we refresh the supplier list
+          and stash the new id in pendingSupplierToSelect; the form picks
+          it up the moment the suppliers prop contains the new row. */}
+      <QuickAddSupplierModal
+        open={showQuickAddSupplier}
+        onOpenChange={setShowQuickAddSupplier}
+        businessId={selectedBusinessId}
+        initialName={currentDocument?.ocr_data?.supplier_name}
+        initialTaxId={currentDocument?.ocr_data?.supplier_tax_id}
+        onCreated={async (newSupplierId) => {
+          await fetchSuppliers();
+          setPendingSupplierToSelect(newSupplierId);
+        }}
+      />
 
       {/* Document Queue - Bottom (mobile only) */}
       <div className="lg:hidden">
