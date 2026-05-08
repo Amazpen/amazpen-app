@@ -524,6 +524,12 @@ export default function OCRBusinessPage() {
               notes: formData.notes || null,
               is_verified: false,
               attachment_url: ocrImageUrl,
+              // Audit trail: stamp who clicked "אישור וקליטה" so the
+              // expense list can show the real reviewer instead of
+              // falling back to "מערכת". Aligned with the invoice +
+              // payment inserts a few lines below which were already
+              // setting created_by.
+              created_by: user?.id || null,
             })
             .select()
             .single();
@@ -702,6 +708,7 @@ export default function OCRBusinessPage() {
                 total_amount: noteTotal,
                 notes: note.notes?.trim() || null,
                 is_verified: isClosed,
+                created_by: user?.id || null,
               };
             });
 

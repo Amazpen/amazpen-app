@@ -563,6 +563,9 @@ export default function OCRPage() {
               notes: formData.notes || null,
               is_verified: false,
               attachment_url: ocrImageUrl,
+              // Audit: same as the invoice insert above — stamp the
+              // approver so /expenses doesn't render "מערכת".
+              created_by: user?.id || null,
             })
             .select()
             .single();
@@ -741,6 +744,7 @@ export default function OCRPage() {
                 total_amount: noteTotal,
                 notes: note.notes?.trim() || null,
                 is_verified: isClosed,
+                created_by: user?.id || null,
               };
             });
 
