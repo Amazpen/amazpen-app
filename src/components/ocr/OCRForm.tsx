@@ -319,11 +319,28 @@ export default function OCRForm({
   const [paymentTabNotes, setPaymentTabNotes] = useState('');
 
   // Payment tab — open invoices for linking (mirrors payments/page.tsx)
-  type PaymentOpenInvoice = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number; status: string };
+  type PaymentOpenInvoice = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number; status: string; clarification_reason: string | null };
   const [paymentOpenInvoices, setPaymentOpenInvoices] = useState<PaymentOpenInvoice[]>([]);
   const [paymentSelectedInvoiceIds, setPaymentSelectedInvoiceIds] = useState<Set<string>>(new Set());
   const [paymentExpandedMonths, setPaymentExpandedMonths] = useState<Set<string>>(new Set());
   const [paymentIsLoadingInvoices, setPaymentIsLoadingInvoices] = useState(false);
+
+  // Move an invoice from "בבירור" → "ממתין" so it becomes selectable for payment.
+  // Used inline from the open-invoices list when the user resolved the dispute.
+  const releaseClarificationInvoice = async (invoiceId: string) => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('invoices')
+      .update({ status: 'pending', clarification_reason: null })
+      .eq('id', invoiceId);
+    if (error) {
+      alert('שינוי הסטטוס נכשל. נסה שוב.');
+      return;
+    }
+    setPaymentOpenInvoices(prev => prev.map(inv =>
+      inv.id === invoiceId ? { ...inv, status: 'pending', clarification_reason: null } : inv
+    ));
+  };
 
   // Fetch open invoices whenever the user picks a supplier in the payment tab
   useEffect(() => {
@@ -339,7 +356,7 @@ export default function OCRForm({
       const supabase = createClient();
       const { data } = await supabase
         .from('invoices')
-        .select('id, invoice_number, invoice_date, total_amount, status')
+        .select('id, invoice_number, invoice_date, total_amount, status, clarification_reason')
         .eq('business_id', selectedBusinessId)
         .eq('supplier_id', paymentTabSupplierId)
         .in('status', ['pending', 'clarification'])
@@ -352,6 +369,7 @@ export default function OCRForm({
         invoice_date: inv.invoice_date as string,
         total_amount: Number(inv.total_amount),
         status: inv.status as string,
+        clarification_reason: (inv.clarification_reason as string) || null,
       }));
       setPaymentOpenInvoices(mapped);
       setPaymentSelectedInvoiceIds(new Set());
@@ -3640,45 +3658,74 @@ export default function OCRForm({
                           const isSelected = paymentSelectedInvoiceIds.has(inv.id);
                           const disabled = inv.status === 'clarification';
                           return (
-                            <button
-                              key={inv.id}
-                              type="button"
-                              disabled={disabled}
-                              onClick={() => {
-                                if (disabled) return;
-                                setPaymentSelectedInvoiceIds(prev => {
-                                  const next = new Set(prev);
-                                  if (next.has(inv.id)) next.delete(inv.id); else next.add(inv.id);
-                                  return next;
-                                });
-                              }}
-                              className={`flex items-center justify-between rounded-[8px] p-[10px] transition-colors ${
-                                disabled
-                                  ? 'bg-[#1a1f42] border border-[#F59E0B]/30 opacity-60 cursor-not-allowed'
-                                  : isSelected
-                                    ? 'bg-[#29318A]/40 border border-[#29318A] cursor-pointer'
-                                    : 'bg-[#1a1f42] border border-transparent hover:border-white/20 cursor-pointer'
-                              }`}
-                            >
-                              <div className="flex items-center gap-[8px]">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={isSelected ? 'text-[#3CD856]' : 'text-white/30'}>
-                                  {isSelected ? (
-                                    <><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2" fill="currentColor"/><path d="M8 12l3 3 5-5" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></>
-                                  ) : (
-                                    <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/>
-                                  )}
-                                </svg>
-                                <span className="text-[14px] text-white font-medium ltr-num">
-                                  &#8362;{inv.total_amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                              <div className="flex flex-col items-end">
-                                <span className="text-[14px] text-white">{inv.invoice_number || '(ללא מספר)'}</span>
-                                <span className="text-[11px] text-white/50">
-                                  {inv.invoice_date ? new Date(inv.invoice_date + 'T00:00:00').toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
-                                </span>
-                              </div>
-                            </button>
+                            <div key={inv.id} className="flex flex-col gap-[4px]">
+                              <button
+                                type="button"
+                                disabled={disabled}
+                                onClick={() => {
+                                  if (disabled) return;
+                                  setPaymentSelectedInvoiceIds(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(inv.id)) next.delete(inv.id); else next.add(inv.id);
+                                    return next;
+                                  });
+                                }}
+                                className={`flex items-center justify-between rounded-[8px] p-[10px] transition-colors ${
+                                  disabled
+                                    ? 'bg-[#1a1f42] border border-[#F59E0B]/30 opacity-60 cursor-not-allowed'
+                                    : isSelected
+                                      ? 'bg-[#29318A]/40 border border-[#29318A] cursor-pointer'
+                                      : 'bg-[#1a1f42] border border-transparent hover:border-white/20 cursor-pointer'
+                                }`}
+                              >
+                                <div className="flex items-center gap-[8px]">
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={isSelected ? 'text-[#3CD856]' : 'text-white/30'}>
+                                    {isSelected ? (
+                                      <><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2" fill="currentColor"/><path d="M8 12l3 3 5-5" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></>
+                                    ) : (
+                                      <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/>
+                                    )}
+                                  </svg>
+                                  <span className="text-[14px] text-white font-medium ltr-num">
+                                    &#8362;{inv.total_amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col items-end">
+                                  <span className="text-[14px] text-white">{inv.invoice_number || '(ללא מספר)'}</span>
+                                  <span className="text-[11px] text-white/50">
+                                    {inv.invoice_date ? new Date(inv.invoice_date + 'T00:00:00').toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
+                                  </span>
+                                </div>
+                              </button>
+                              {disabled && (
+                                <div className="flex items-start gap-[6px] px-[10px] py-[6px] bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded-[6px]" dir="rtl">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-[#F59E0B] flex-shrink-0 mt-[2px]">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                                    <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                  </svg>
+                                  <div className="flex flex-col gap-[4px] flex-1 text-right">
+                                    <span className="text-[11px] font-semibold text-[#F59E0B]">בבירור — לא ניתן לתשלום</span>
+                                    {inv.clarification_reason && (
+                                      <span className="text-[11px] text-white/80 leading-[1.4]">{inv.clarification_reason}</span>
+                                    )}
+                                    <Button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        confirm(
+                                          `לשנות את החשבונית ${inv.invoice_number || '(ללא מספר)'} מ"בבירור" ל"ממתין"?\n\nזה יסמן שהבירור הסתיים והחשבונית תהיה זמינה לתשלום.`,
+                                          () => releaseClarificationInvoice(inv.id)
+                                        );
+                                      }}
+                                      className="self-start mt-[2px] px-[8px] py-[3px] rounded-[4px] bg-[#F59E0B] hover:bg-[#FBA94A] text-[#0F1535] text-[10px] font-bold transition-colors touch-manipulation"
+                                    >
+                                      ✓ הסתיים הבירור — שנה לממתין
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
                       </div>
