@@ -672,10 +672,13 @@ function ExpensesPageInner() {
                 }
               }
             }
+            // Same display rule as the main list and the supplier popup —
+            // sort/group by reference_date when present, fall back to invoice_date.
+            const primaryDate = inv.reference_date || inv.invoice_date;
             return {
               id: inv.id,
-              date: formatDateString(inv.invoice_date),
-              rawDate: inv.invoice_date ? toLocalDateStr(new Date(inv.invoice_date)) : "",
+              date: formatDateString(primaryDate),
+              rawDate: primaryDate ? toLocalDateStr(new Date(primaryDate)) : "",
               supplier: inv.supplier?.name || "לא ידוע",
               reference: inv.invoice_number || "",
               amount: Number(inv.total_amount),
@@ -1308,8 +1311,11 @@ function ExpensesPageInner() {
             `)
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
-            .gte("reference_date", startDate)
-            .lte("reference_date", endDate)
+            // Display rule (matches the supplier-breakdown popup): show by
+            // reference_date when present; otherwise fall back to invoice_date.
+            // Without the OR fallback, invoices created with a NULL reference_date
+            // (older imports, some intake flows) silently disappeared from the page.
+            .or(`and(reference_date.gte.${startDate},reference_date.lte.${endDate}),and(reference_date.is.null,invoice_date.gte.${startDate},invoice_date.lte.${endDate})`)
             .or("consolidated_reference.is.null,is_consolidated.eq.true")
             .order("created_at", { ascending: false })
             .range(0, INVOICES_PAGE_SIZE - 1),
@@ -1430,8 +1436,9 @@ function ExpensesPageInner() {
             `)
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
-            .gte("reference_date", startDate)
-            .lte("reference_date", endDate)
+            // Same display rule as the main list: reference_date if present,
+            // else fall back to invoice_date. Keeps NULL-reference rows visible.
+            .or(`and(reference_date.gte.${startDate},reference_date.lte.${endDate}),and(reference_date.is.null,invoice_date.gte.${startDate},invoice_date.lte.${endDate})`)
             // Filter by the supplier's expense_type (source of truth) instead of
             // invoice_type on the invoice itself — invoice_type can be 'manual'
             // or NULL when created via intake/import/placeholder flows, which
@@ -1439,7 +1446,7 @@ function ExpensesPageInner() {
             .eq("supplier.expense_type", activeTab === "expenses" ? "current_expenses" : activeTab === "employees" ? "employee_costs" : "goods_purchases")
             // Hide children of a markezet — only show orphans or the markezet parent itself.
             .or("consolidated_reference.is.null,is_consolidated.eq.true")
-            .order("reference_date", { ascending: false }),
+            .order("reference_date", { ascending: false, nullsFirst: false }),
           supabase
             .from("expense_categories")
             .select("id, name")
