@@ -4279,12 +4279,6 @@ function PaymentsPageInner() {
                               onClick={() => toggleMonthExpanded(monthKey)}
                               className="flex items-center justify-between py-[10px] hover:bg-white/5 rounded-[7px] px-[10px] transition-colors"
                             >
-                              <div className="flex items-center gap-[8px]">
-                                <span className="text-[13px] text-white/80 font-semibold ltr-num">
-                                  ₪{monthTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
-                                <span className="text-[11px] text-white/40">({monthInvoices.length})</span>
-                              </div>
                               <div className="flex items-center gap-[5px]">
                                 <span className="text-[16px] font-bold text-white">{getMonthYearLabel(monthKey)}</span>
                                 <svg
@@ -4296,6 +4290,12 @@ function PaymentsPageInner() {
                                 >
                                   <path d="M10 14L16 20L22 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                 </svg>
+                              </div>
+                              <div className="flex items-center gap-[8px]">
+                                <span className="text-[13px] text-white/80 font-semibold ltr-num">
+                                  ₪{monthTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                                <span className="text-[11px] text-white/40">({monthInvoices.length})</span>
                               </div>
                             </Button>
 
