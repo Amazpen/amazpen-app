@@ -35,6 +35,7 @@ interface Supplier {
   expense_type: string;
   default_payment_method?: string | null;
   default_credit_card_id?: string | null;
+  notes?: string | null;
 }
 
 // Payment method summary for chart
@@ -857,7 +858,7 @@ function PaymentsPageInner() {
         const [{ data: suppliersData }, { data: bizVatData }] = await Promise.all([
           supabase
             .from("suppliers")
-            .select("id, name, expense_type, default_payment_method, default_credit_card_id")
+            .select("id, name, expense_type, default_payment_method, default_credit_card_id, notes")
             .in("business_id", selectedBusinesses)
             .is("deleted_at", null)
             .eq("is_active", true)
@@ -4225,6 +4226,22 @@ function PaymentsPageInner() {
                   }
                 }}
               />
+
+              {/* Supplier Notes - show if selected supplier has notes */}
+              {(() => {
+                const sup = suppliers.find(s => s.id === selectedSupplier);
+                if (!sup?.notes || !sup.notes.trim()) return null;
+                return (
+                  <div className="bg-[#FFA500]/10 border border-[#FFA500]/40 rounded-[8px] px-[10px] py-[8px] flex items-start gap-[6px]">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFA500" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-[2px]">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="12" y1="8" x2="12" y2="12"/>
+                      <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <span className="text-[13px] text-white/90 text-right leading-[1.4] whitespace-pre-wrap">{sup.notes}</span>
+                  </div>
+                );
+              })()}
 
               {/* Open Invoices Section */}
               {openInvoices.length > 0 && (
