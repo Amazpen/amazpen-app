@@ -1717,10 +1717,10 @@ export default function OCRForm({
         setCalcDisplay('שגיאה');
         setCalcExpression('');
       }
-    } else if (value === '×1.18') {
-      // Multiply current value by 1.18 (Israeli VAT)
-      setCalcExpression(prev => prev + '*1.18');
-      setCalcDisplay('*1.18');
+    } else if (value === 'מע"מ') {
+      // Insert 1.18 as a number (Israeli VAT factor)
+      setCalcExpression(prev => prev + '1.18');
+      setCalcDisplay('1.18');
     } else if (['+', '-', '*', '/'].includes(value)) {
       setCalcExpression(prev => prev + value);
       setCalcDisplay(value);
@@ -4415,18 +4415,18 @@ export default function OCRForm({
               '7', '8', '9', '-',
               '4', '5', '6', '+',
               '1', '2', '3', '=',
-              '0', '.', '×1.18', ''].map((btn, i) => btn ? (
+              '0', '.', 'מע"מ', ''].map((btn, i) => btn ? (
               <button
                 key={i}
                 onClick={() => calcInput(btn)}
-                className={`h-[38px] rounded-[6px] text-[14px] font-medium transition-colors ${
+                className={`h-[38px] rounded-[6px] font-medium transition-colors ${
                   btn === '=' ? 'bg-[#22c55e] text-white row-span-1 hover:bg-[#16a34a] text-[16px]'
                   : ['C', '⌫'].includes(btn) ? 'bg-[#EB5757]/20 text-[#EB5757] hover:bg-[#EB5757]/30 text-[16px]'
-                  : btn === '×1.18' ? 'bg-[#F2C94C]/20 text-[#F2C94C] hover:bg-[#F2C94C]/30 text-[12px] font-bold'
+                  : btn === 'מע"מ' ? 'bg-[#F2C94C]/20 text-[#F2C94C] hover:bg-[#F2C94C]/30 text-[13px] font-bold'
                   : ['+', '-', '*', '/'].includes(btn) ? 'bg-[#29318A] text-white hover:bg-[#3D44A0] text-[16px]'
                   : 'bg-[#4C526B]/30 text-white hover:bg-[#4C526B]/50 text-[16px]'
                 }`}
-                title={btn === '×1.18' ? 'הכפלה ב-1.18 (תוספת מע"מ)' : undefined}
+                title={btn === 'מע"מ' ? 'הכנס 1.18 (מע"מ ישראלי)' : undefined}
               >
                 {btn}
               </button>
