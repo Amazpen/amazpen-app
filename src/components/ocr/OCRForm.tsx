@@ -2303,6 +2303,7 @@ export default function OCRForm({
             valueDateManuallySet.current = true;
           }}
         />
+        <span className="text-[12px] text-white/50 text-right">עבור הנהלת חשבונות</span>
       </div>
 
       {/* Value Date Field */}
@@ -2315,7 +2316,6 @@ export default function OCRForm({
             setValueDate(val);
           }}
         />
-        <span className="text-[12px] text-white/50 text-right">התאריך שיוצג באפליקציה</span>
       </div>
 
       {/* Supplier Select */}
