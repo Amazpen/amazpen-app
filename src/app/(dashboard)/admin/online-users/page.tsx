@@ -114,7 +114,10 @@ function UserHistoryModal({ user, onClose }: { user: PresenceUser; onClose: () =
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 lg:right-[220px] z-[1502] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
       <div
         className="bg-[#0F1535] border border-white/10 rounded-2xl max-w-5xl w-full max-h-[92vh] overflow-hidden flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
