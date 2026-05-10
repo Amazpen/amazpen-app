@@ -2297,10 +2297,9 @@ export default function OCRForm({
           value={documentDate}
           onChange={(val) => {
             setDocumentDate(val);
-            // Auto-sync value date as long as the user hasn't manually changed it
-            if (!valueDateManuallySet.current) {
-              setValueDate(val);
-            }
+            // Invoice-date change always cascades to value-date
+            setValueDate(val);
+            valueDateManuallySet.current = true;
           }}
         />
       </div>
