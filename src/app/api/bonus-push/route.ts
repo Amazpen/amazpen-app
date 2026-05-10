@@ -733,14 +733,43 @@ export async function POST(request: NextRequest) {
 
         // CC the Amazpen owner (David) on every bonus email so he sees what
         // employees receive — explicit request, asked twice in the David
-        // review session.
-        const OWNER_CC = process.env.BONUS_EMAIL_OWNER_CC || "david@amazpen.co.il";
+        // review session. Also CC the business owner(s) so they see exactly
+        // what their employees receive.
+        const AMAZPEN_OWNER_CC = process.env.BONUS_EMAIL_OWNER_CC || "david@amazpen.co.il";
+
+        const businessOwnerEmails: string[] = [];
+        {
+          const { data: ownerMembers } = await supabaseAdmin
+            .from("business_members")
+            .select("user_id")
+            .in("business_id", businessIds)
+            .eq("role", "owner")
+            .is("deleted_at", null);
+
+          const ownerIds = [...new Set((ownerMembers || []).map((m: { user_id: string }) => m.user_id))]
+            .filter(id => id !== employeeUserId);
+
+          if (ownerIds.length > 0) {
+            const { data: ownerProfiles } = await supabaseAdmin
+              .from("profiles")
+              .select("email")
+              .in("id", ownerIds);
+            (ownerProfiles || []).forEach((p: { email: string | null }) => {
+              if (p.email && p.email !== profile.email) businessOwnerEmails.push(p.email);
+            });
+          }
+        }
+
+        const ccList = [...new Set([AMAZPEN_OWNER_CC, ...businessOwnerEmails])]
+          .filter(Boolean)
+          .join(", ");
+
         const emailRes = await fetch("https://n8n-lv4j.onrender.com/webhook/daily-push-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: profile.email,
-            cc: OWNER_CC,
+            cc: ccList,
             subject: emailSubject,
             html: emailHtml,
           }),

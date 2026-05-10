@@ -3410,7 +3410,7 @@ export default function SuppliersPage() {
                   </div>
 
                   {/* Table Rows */}
-                  <div className="max-h-[200px] overflow-y-auto flex flex-col gap-[5px]">
+                  <div className="flex flex-col gap-[5px]">
                     {supplierPayments.length === 0 ? (
                       <div className="flex items-center justify-center py-[30px]">
                         <span className="text-[14px] text-white/50">אין תשלומים להצגה</span>
