@@ -130,6 +130,7 @@ interface InvoiceDisplay {
   isFixed: boolean;
   approval_status: string | null;
   referenceDate: string | null;
+  invoiceDate?: string | null;
   linkedPayments: { id: string; paymentId: string; amount: number; method: string; date: string; checkNumber: string; installmentNumber: number | null; installmentsCount: number | null; referenceNumber: string; creditCardId: string | null; receiptUrl: string | null; notes: string | null }[];
   linkedDeliveryNotes: { id: string; deliveryNoteNumber: string; date: string; amount: number; subtotal: number; attachmentUrl: string | null; attachmentUrls: string[]; notes: string }[];
   documentType: "invoice" | "delivery_note";
@@ -3607,9 +3608,10 @@ function ExpensesPageInner() {
           .in("business_id", selectedBusinesses)
           .eq("supplier_id", supplierId)
           .is("deleted_at", null)
-          .gte("reference_date", startDate)
-          .lte("reference_date", endDate)
-          .order("reference_date", { ascending: false }),
+          // Display by value-date (reference_date) when present; fall back to invoice_date.
+          // Filter: (reference_date in range) OR (reference_date IS NULL AND invoice_date in range)
+          .or(`and(reference_date.gte.${startDate},reference_date.lte.${endDate}),and(reference_date.is.null,invoice_date.gte.${startDate},invoice_date.lte.${endDate})`)
+          .order("reference_date", { ascending: false, nullsFirst: false }),
         supabase
           .from("delivery_notes")
           .select(`
@@ -3625,10 +3627,13 @@ function ExpensesPageInner() {
           .order("delivery_date", { ascending: false }),
       ]);
 
-      const displayInvoices: InvoiceDisplay[] = (invoicesData || []).map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => ({
+      const displayInvoices: InvoiceDisplay[] = (invoicesData || []).map((inv: Invoice & { supplier: Supplier | null; creator: { full_name: string } | null }) => {
+        // Display by value-date (reference_date) when present; fall back to invoice_date
+        const primaryDate = inv.reference_date || inv.invoice_date;
+        return ({
         id: inv.id,
-        date: formatDateString(inv.invoice_date),
-        rawDate: inv.invoice_date ? toLocalDateStr(new Date(inv.invoice_date)) : "",
+        date: formatDateString(primaryDate),
+        rawDate: primaryDate ? toLocalDateStr(new Date(primaryDate)) : "",
         supplier: inv.supplier?.name || "לא ידוע",
         reference: inv.invoice_number || "",
         amount: Number(inv.total_amount),
@@ -3645,13 +3650,15 @@ function ExpensesPageInner() {
         isFixed: inv.supplier?.is_fixed_expense || false,
         approval_status: inv.approval_status || null,
         referenceDate: inv.reference_date ? formatDateString(inv.reference_date) : null,
+        invoiceDate: inv.invoice_date ? formatDateString(inv.invoice_date) : null,
         linkedPayments: [],
         linkedDeliveryNotes: [],
         documentType: "invoice",
         invoiceType: inv.invoice_type || undefined,
         consolidatedReference: (inv as { consolidated_reference?: string | null }).consolidated_reference || null,
         isConsolidated: !!(inv as { is_consolidated?: boolean }).is_consolidated,
-      }));
+        });
+      });
       // Add unlinked delivery notes (status='ת. משלוח')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const dnDisplay: InvoiceDisplay[] = (deliveryNotesData || []).map((dn: any) => ({
@@ -6818,7 +6825,9 @@ function ExpensesPageInner() {
                   <div key={inv.id} className="flex items-center justify-between px-[5px] py-[10px] border-b border-white/5">
                     <div className="flex flex-col text-right" style={{ width: 81, maxWidth: 81 }}>
                       <span className="text-[14px] text-white ltr-num">{inv.date}</span>
-                      {inv.referenceDate && <span className="text-[10px] text-white/40 ltr-num">אסמכתא: {inv.referenceDate}</span>}
+                      {inv.referenceDate && inv.invoiceDate && inv.referenceDate !== inv.invoiceDate && (
+                        <span className="text-[10px] text-white/40 ltr-num">חשבונית: {inv.invoiceDate}</span>
+                      )}
                     </div>
                     <span className="text-[14px] text-white text-center ltr-num" style={{ width: 66, maxWidth: 66 }}>{inv.reference || "-"}</span>
                     <span className="text-[14px] text-white text-center ltr-num" style={{ width: 65, maxWidth: 65 }}>₪{inv.amountBeforeVat.toLocaleString()}</span>
