@@ -386,7 +386,48 @@ export default function OCRBusinessPage() {
           : allImageUrls.length === 1 ? allImageUrls[0]
           : JSON.stringify(allImageUrls);
 
-        if (formData.document_type === 'invoice' || formData.document_type === 'credit_note' || formData.document_type === 'disputed_invoice') {
+        // ── ATTACH-TO-EXISTING ─────────────────────────────────────────────
+        // When the user chose "צרף דף לחשבונית הקיימת" from the duplicate
+        // banner, append the current image to the existing row's attachment_url
+        // and link the OCR doc to it. No new invoice/delivery_note is created.
+        if (formData.attach_to_existing_id && formData.attach_to_existing_kind) {
+          const targetTable = formData.attach_to_existing_kind === 'delivery_note' ? 'delivery_notes' : 'invoices';
+          const { data: existingRow } = await supabase
+            .from(targetTable)
+            .select('id, attachment_url')
+            .eq('id', formData.attach_to_existing_id)
+            .maybeSingle();
+          if (!existingRow) throw new Error('המסמך הקיים לצירוף לא נמצא');
+
+          const existingUrls: string[] = (() => {
+            const raw = (existingRow as { attachment_url: string | null }).attachment_url;
+            if (!raw) return [];
+            const trimmed = raw.trim();
+            if (trimmed.startsWith('[')) {
+              try {
+                const parsed = JSON.parse(trimmed);
+                return Array.isArray(parsed) ? parsed.filter((u): u is string => typeof u === 'string') : [raw];
+              } catch { return [raw]; }
+            }
+            return [raw];
+          })();
+          const combined = Array.from(new Set([...existingUrls, ...allImageUrls]));
+          const combinedAttachmentUrl = combined.length === 0 ? null
+            : combined.length === 1 ? combined[0]
+            : JSON.stringify(combined);
+
+          const { error: attachUpdateError } = await supabase
+            .from(targetTable)
+            .update({ attachment_url: combinedAttachmentUrl })
+            .eq('id', formData.attach_to_existing_id);
+          if (attachUpdateError) throw attachUpdateError;
+
+          if (formData.attach_to_existing_kind === 'delivery_note') {
+            createdDeliveryNoteId = formData.attach_to_existing_id;
+          } else {
+            createdInvoiceId = formData.attach_to_existing_id;
+          }
+        } else if (formData.document_type === 'invoice' || formData.document_type === 'credit_note' || formData.document_type === 'disputed_invoice') {
           let newInvoice: { id: string } | null = null;
           let invoiceError: unknown = null;
           if (formData.link_to_fixed_invoice_id) {

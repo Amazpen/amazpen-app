@@ -137,6 +137,11 @@ export interface OCRFormData {
   daily_managed_products?: Array<{ id: string; unit_cost: number }>;
   // Merged document IDs (for multi-page document merging)
   merged_document_ids?: string[];
+  // Attach this scan as an additional page to an existing invoice/delivery_note
+  // (when duplicate detection finds a saved doc with the same number+supplier).
+  // When set, no new invoice/delivery_note is created — only attachment_url is updated.
+  attach_to_existing_id?: string | null;
+  attach_to_existing_kind?: 'invoice' | 'delivery_note' | null;
   // Pearla-specific daily entry fields
   daily_pearla_data?: {
     portions_count: string;

@@ -464,6 +464,18 @@ export default function OCRForm({
 
   // Duplicate detection
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  // When the duplicate is an existing invoice/delivery_note (not a payment), capture
+  // the row so we can offer a "צרף דף לחשבונית הקיימת" button — attaches the current
+  // scan as an additional page without creating a new doc or changing amounts.
+  const [duplicateExisting, setDuplicateExisting] = useState<{
+    id: string;
+    kind: 'invoice' | 'delivery_note';
+    documentNumber: string;
+    attachmentUrl: string | null;
+  } | null>(null);
+  // When the user confirms "צרף דף לחשבונית הקיימת", we store the target id here so
+  // handleSubmit forwards it to onApprove and the parent attaches instead of creating.
+  const [attachToExistingId, setAttachToExistingId] = useState<string | null>(null);
   const duplicateConfirmedRef = useRef(false);
   // Track confirmation for "this OCR will overwrite a fixed-expense invoice with very different values".
   const fixedOverwriteConfirmedRef = useRef(false);
@@ -613,6 +625,8 @@ export default function OCRForm({
   // Duplicate detection: check if invoice/delivery_note with same number+supplier+business exists
   useEffect(() => {
     setDuplicateWarning(null);
+    setDuplicateExisting(null);
+    setAttachToExistingId(null);
     duplicateConfirmedRef.current = false;
     if (documentType === 'daily_entry') return;
 
@@ -650,12 +664,13 @@ export default function OCRForm({
         return;
       }
 
-      const table = documentType === 'delivery_note' ? 'delivery_notes' : 'invoices';
-      const numberCol = documentType === 'delivery_note' ? 'delivery_note_number' : 'invoice_number';
+      const isDeliveryNote = documentType === 'delivery_note';
+      const table = isDeliveryNote ? 'delivery_notes' : 'invoices';
+      const numberCol = isDeliveryNote ? 'delivery_note_number' : 'invoice_number';
 
       const { data, error } = await supabase
         .from(table)
-        .select('id')
+        .select('id, attachment_url')
         .eq('business_id', selectedBusinessId)
         .eq('supplier_id', supId)
         .eq(numberCol, docNum)
@@ -664,7 +679,14 @@ export default function OCRForm({
 
       if (!error && data && data.length > 0) {
         const supplierName = suppliers.find(s => s.id === supId)?.name || 'הספק';
+        const row = data[0] as { id: string; attachment_url: string | null };
         setDuplicateWarning(`כבר קיים מסמך עם מספר ${docNum} לספק ${supplierName}`);
+        setDuplicateExisting({
+          id: row.id,
+          kind: isDeliveryNote ? 'delivery_note' : 'invoice',
+          documentNumber: docNum,
+          attachmentUrl: row.attachment_url ?? null,
+        });
       }
     }, 500); // debounce
 
@@ -1762,8 +1784,10 @@ export default function OCRForm({
       return;
     }
 
-    // Duplicate warning — ask for confirmation before proceeding
-    if (duplicateWarning && !duplicateConfirmedRef.current) {
+    // Duplicate warning — ask for confirmation before proceeding.
+    // Skip when the user explicitly chose "attach to existing" — that path
+    // intentionally targets the duplicate row and shouldn't trigger a warning.
+    if (duplicateWarning && !duplicateConfirmedRef.current && !attachToExistingId) {
       confirm(`⚠️ ${duplicateWarning}\n\nהאם להמשיך בכל זאת?`, () => {
         duplicateConfirmedRef.current = true;
         handleSubmit();
@@ -1974,6 +1998,8 @@ export default function OCRForm({
         link_to_fixed_invoice_id: linkToFixedInvoiceId,
         line_items: lineItems.length > 0 ? lineItems : undefined,
         merged_document_ids: mergedDocuments.length > 0 ? mergedDocuments.map(d => d.id) : undefined,
+        attach_to_existing_id: attachToExistingId,
+        attach_to_existing_kind: attachToExistingId ? (duplicateExisting?.kind ?? null) : null,
         ...(isPaid && {
           payment_method: inlinePaymentMethods[0]?.method || inlinePaymentMethod,
           payment_date: inlinePaymentDate,
@@ -4407,8 +4433,39 @@ export default function OCRForm({
 
       {/* Duplicate warning banner */}
       {duplicateWarning && (
-        <div className="mx-4 mt-2 p-3 bg-[#F59E0B]/15 border border-[#F59E0B]/40 rounded-[8px] text-[#F59E0B] text-[13px] font-medium text-right" dir="rtl">
-          {duplicateWarning}
+        <div
+          className={`mx-4 mt-2 p-3 rounded-[8px] text-[13px] font-medium text-right border ${
+            attachToExistingId
+              ? 'bg-[#22C55E]/15 border-[#22C55E]/40 text-[#22C55E]'
+              : 'bg-[#F59E0B]/15 border-[#F59E0B]/40 text-[#F59E0B]'
+          }`}
+          dir="rtl"
+        >
+          <div className="flex flex-row-reverse items-center gap-2 flex-wrap">
+            <span className="flex-1 min-w-0">
+              {attachToExistingId
+                ? `הדף יצורף לחשבונית הקיימת ${duplicateExisting?.documentNumber ?? ''} בעת אישור`
+                : duplicateWarning}
+            </span>
+            {duplicateExisting && !attachToExistingId && (
+              <button
+                type="button"
+                onClick={() => setAttachToExistingId(duplicateExisting.id)}
+                className="px-3 py-1 rounded-[6px] bg-[#29318A] hover:bg-[#3D44A0] text-white text-[12px] font-semibold whitespace-nowrap touch-manipulation"
+              >
+                צרף דף לחשבונית הקיימת
+              </button>
+            )}
+            {attachToExistingId && (
+              <button
+                type="button"
+                onClick={() => setAttachToExistingId(null)}
+                className="px-3 py-1 rounded-[6px] bg-[#29318A] hover:bg-[#3D44A0] text-white text-[12px] font-semibold whitespace-nowrap touch-manipulation"
+              >
+                בטל צירוף
+              </button>
+            )}
+          </div>
         </div>
       )}
 
