@@ -4488,12 +4488,7 @@ export default function OCRForm({
           }`}
           dir="rtl"
         >
-          <div className="flex flex-row-reverse items-center gap-2 flex-wrap">
-            <span className="flex-1 min-w-0">
-              {attachToExistingId
-                ? `הדף יצורף לחשבונית הקיימת ${duplicateExisting?.documentNumber ?? ''} בעת אישור`
-                : duplicateWarning}
-            </span>
+          <div className="flex flex-row items-center gap-2 flex-wrap">
             {duplicateExisting && !attachToExistingId && (
               <button
                 type="button"
@@ -4512,6 +4507,11 @@ export default function OCRForm({
                 בטל צירוף
               </button>
             )}
+            <span className="flex-1 min-w-0 text-right">
+              {attachToExistingId
+                ? `הדף יצורף לחשבונית הקיימת ${duplicateExisting?.documentNumber ?? ''} בעת אישור`
+                : duplicateWarning}
+            </span>
           </div>
         </div>
       )}
