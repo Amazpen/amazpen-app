@@ -124,6 +124,7 @@ interface InvoiceDisplay {
   status: string;
   enteredBy: string;
   entryDate: string;
+  createdAt: string;
   notes: string;
   attachmentUrl: string | null;
   attachmentUrls: string[];
@@ -550,6 +551,7 @@ function ExpensesPageInner() {
               statusRaw: "delivery_note",
               enteredBy: creator?.full_name || "מערכת",
               entryDate: formatDateString(dn.created_at as string),
+              createdAt: (dn.created_at as string) || "",
               notes: (dn.notes as string) || "",
               attachmentUrl: (dn.attachment_url as string) || null,
               attachmentUrls: parseAttachmentUrls(dn.attachment_url as string),
@@ -683,6 +685,7 @@ function ExpensesPageInner() {
               statusRaw: inv.status || "pending",
               enteredBy: inv.creator?.full_name || "מערכת",
               entryDate: formatDateString(inv.created_at),
+              createdAt: inv.created_at || "",
               notes: inv.notes || "",
               attachmentUrl: inv.attachment_url || null,
               attachmentUrls: parseAttachmentUrls(inv.attachment_url),
@@ -1308,7 +1311,7 @@ function ExpensesPageInner() {
             .gte("reference_date", startDate)
             .lte("reference_date", endDate)
             .or("consolidated_reference.is.null,is_consolidated.eq.true")
-            .order("reference_date", { ascending: false })
+            .order("created_at", { ascending: false })
             .range(0, INVOICES_PAGE_SIZE - 1),
           supabase
             .from("delivery_notes")
@@ -1320,7 +1323,7 @@ function ExpensesPageInner() {
             .in("business_id", selectedBusinesses)
             .gte("delivery_date", startDate)
             .lte("delivery_date", endDate)
-            .order("delivery_date", { ascending: false })
+            .order("created_at", { ascending: false })
             .range(0, INVOICES_PAGE_SIZE - 1),
         ]);
 
@@ -1339,6 +1342,7 @@ function ExpensesPageInner() {
           status: dn.is_verified ? "אומת" : "ת. משלוח",
           enteredBy: dn.creator?.full_name || "מערכת",
           entryDate: formatDateString(dn.created_at),
+          createdAt: dn.created_at || "",
           notes: dn.notes || "",
           attachmentUrl: dn.attachment_url || null,
           attachmentUrls: parseAttachmentUrls(dn.attachment_url),
@@ -1401,7 +1405,7 @@ function ExpensesPageInner() {
         }
 
         const merged = [...allInvoices, ...transformedDeliveryNotes]
-          .sort((a, b) => (b.rawDate || "").localeCompare(a.rawDate || ""))
+          .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
           .slice(0, INVOICES_PAGE_SIZE);
 
         setRecentInvoices(merged);
@@ -1782,6 +1786,7 @@ function ExpensesPageInner() {
         statusRaw: inv.status || "pending",
         enteredBy: inv.creator?.full_name || "מערכת",
         entryDate: formatDateString(inv.created_at),
+        createdAt: inv.created_at || "",
         notes: inv.notes || "",
         attachmentUrl: inv.attachment_url || null,
         attachmentUrls: parseAttachmentUrls(inv.attachment_url),
@@ -1821,7 +1826,7 @@ function ExpensesPageInner() {
         .is("deleted_at", null)
         .gte("reference_date", startDate)
         .lte("reference_date", endDate)
-        .order("reference_date", { ascending: false })
+        .order("created_at", { ascending: false })
         .range(invoicesOffset, invoicesOffset + INVOICES_PAGE_SIZE - 1);
 
       const newInvoices = transformInvoicesData(data || []);
@@ -3200,7 +3205,13 @@ function ExpensesPageInner() {
 
   // Handle status change - show confirmation popup first
   const handleStatusChange = (invoiceId: string, newStatus: string) => {
-    const invoice = recentInvoices.find(inv => inv.id === invoiceId);
+    // Look in both lists — the same invoice can be rendered from the main
+    // page (recentInvoices) or from the supplier-breakdown popup
+    // (breakdownSupplierInvoices). Without this, clicking "שולם" inside
+    // the supplier popup silently no-op'd because the lookup hit only
+    // recentInvoices.
+    const invoice = recentInvoices.find(inv => inv.id === invoiceId)
+      || breakdownSupplierInvoices.find(inv => inv.id === invoiceId);
 
     // If changing to "paid", open payment popup directly (it has its own confirmation)
     if (newStatus === 'paid') {
@@ -3250,7 +3261,10 @@ function ExpensesPageInner() {
     const supabase = createClient();
 
     try {
-      const invoice = recentInvoices.find(inv => inv.id === statusConfirm.invoiceId);
+      // Same fallback as handleStatusChange — the invoice may live in the
+      // supplier-breakdown popup, not the main recentInvoices list.
+      const invoice = recentInvoices.find(inv => inv.id === statusConfirm.invoiceId)
+        || breakdownSupplierInvoices.find(inv => inv.id === statusConfirm.invoiceId);
       const isClosingClarification = invoice?.status === 'בבירור' && statusConfirm.newStatus === 'pending';
 
       if (isClosingClarification && !clarificationCloseReason.trim()) {
@@ -3644,6 +3658,7 @@ function ExpensesPageInner() {
         statusRaw: inv.status || "pending",
         enteredBy: inv.creator?.full_name || "מערכת",
         entryDate: formatDateString(inv.created_at),
+        createdAt: inv.created_at || "",
         notes: inv.notes || "",
         attachmentUrl: inv.attachment_url || null,
         attachmentUrls: parseAttachmentUrls(inv.attachment_url),
@@ -3675,6 +3690,7 @@ function ExpensesPageInner() {
         statusRaw: "delivery_note",
         enteredBy: dn.creator?.full_name || "מערכת",
         entryDate: formatDateString(dn.created_at),
+        createdAt: dn.created_at || "",
         notes: dn.notes || "",
         attachmentUrl: dn.attachment_url || null,
         attachmentUrls: parseAttachmentUrls(dn.attachment_url),
