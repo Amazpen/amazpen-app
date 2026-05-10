@@ -5093,25 +5093,25 @@ function ExpensesPageInner() {
                 )}
               </div>
 
-              {/* Reference Date Field */}
+              {/* Invoice Date Field — saved to DB column invoice_date */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">תאריך חשבונית</label>
-                <DatePickerField
-                  value={referenceDate}
-                  onChange={(val) => {
-                    setReferenceDate(val);
-                    setExpenseDate(val);
-                  }}
-                />
-              </div>
-
-              {/* Date Field */}
-              <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">תאריך ערך</label>
                 <DatePickerField
                   value={expenseDate}
                   onChange={(val) => {
                     setExpenseDate(val);
+                    setReferenceDate(val);
+                  }}
+                />
+              </div>
+
+              {/* Value Date Field — saved to DB column reference_date */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[15px] font-medium text-white text-right">תאריך ערך</label>
+                <DatePickerField
+                  value={referenceDate}
+                  onChange={(val) => {
+                    setReferenceDate(val);
                     referenceDateManuallySet.current = true;
                   }}
                 />
@@ -5969,25 +5969,25 @@ function ExpensesPageInner() {
 
             {/* Form */}
             <div className="flex flex-col gap-[15px] px-[5px]">
-              {/* Reference Date Field */}
+              {/* Invoice Date Field — saved to DB column invoice_date */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">תאריך חשבונית</label>
-                <DatePickerField
-                  value={referenceDate}
-                  onChange={(val) => {
-                    setReferenceDate(val);
-                    setExpenseDate(val);
-                  }}
-                />
-              </div>
-
-              {/* Date Field */}
-              <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">תאריך ערך</label>
                 <DatePickerField
                   value={expenseDate}
                   onChange={(val) => {
                     setExpenseDate(val);
+                    setReferenceDate(val);
+                  }}
+                />
+              </div>
+
+              {/* Value Date Field — saved to DB column reference_date */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[15px] font-medium text-white text-right">תאריך ערך</label>
+                <DatePickerField
+                  value={referenceDate}
+                  onChange={(val) => {
+                    setReferenceDate(val);
                     referenceDateManuallySet.current = true;
                   }}
                 />
