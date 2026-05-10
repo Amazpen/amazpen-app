@@ -319,27 +319,54 @@ export default function OCRForm({
   const [paymentTabNotes, setPaymentTabNotes] = useState('');
 
   // Payment tab — open invoices for linking (mirrors payments/page.tsx)
-  type PaymentOpenInvoice = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number; status: string; clarification_reason: string | null };
+  type PaymentOpenInvoice = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number; status: string; clarification_reason: string | null; notes: string | null };
   const [paymentOpenInvoices, setPaymentOpenInvoices] = useState<PaymentOpenInvoice[]>([]);
   const [paymentSelectedInvoiceIds, setPaymentSelectedInvoiceIds] = useState<Set<string>>(new Set());
   const [paymentExpandedMonths, setPaymentExpandedMonths] = useState<Set<string>>(new Set());
   const [paymentIsLoadingInvoices, setPaymentIsLoadingInvoices] = useState(false);
 
-  // Move an invoice from "בבירור" → "ממתין" so it becomes selectable for payment.
-  // Used inline from the open-invoices list when the user resolved the dispute.
-  const releaseClarificationInvoice = async (invoiceId: string) => {
+  // Update an invoice's status inline from the open-invoices list. Mirrors
+  // the status select in /expenses so the user has the same three choices
+  // here without having to leave the OCR flow.
+  const updateOpenInvoiceStatus = async (invoiceId: string, newStatus: 'pending' | 'paid' | 'clarification') => {
     const supabase = createClient();
+    const updatePayload: Record<string, unknown> = { status: newStatus };
+    // Leaving "בבירור" — clear the reason so it doesn't reappear stale.
+    if (newStatus !== 'clarification') {
+      updatePayload.clarification_reason = null;
+    }
     const { error } = await supabase
       .from('invoices')
-      .update({ status: 'pending', clarification_reason: null })
+      .update(updatePayload)
       .eq('id', invoiceId);
     if (error) {
       alert('שינוי הסטטוס נכשל. נסה שוב.');
       return;
     }
+    if (newStatus === 'paid') {
+      // Once marked paid, the invoice no longer belongs in the "open invoices"
+      // list — drop it and de-select it.
+      setPaymentOpenInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
+      setPaymentSelectedInvoiceIds(prev => {
+        const next = new Set(prev);
+        next.delete(invoiceId);
+        return next;
+      });
+      return;
+    }
     setPaymentOpenInvoices(prev => prev.map(inv =>
-      inv.id === invoiceId ? { ...inv, status: 'pending', clarification_reason: null } : inv
+      inv.id === invoiceId
+        ? { ...inv, status: newStatus, clarification_reason: newStatus === 'clarification' ? inv.clarification_reason : null }
+        : inv
     ));
+    // If we flipped INTO clarification, drop the selection so it can't be paid.
+    if (newStatus === 'clarification') {
+      setPaymentSelectedInvoiceIds(prev => {
+        const next = new Set(prev);
+        next.delete(invoiceId);
+        return next;
+      });
+    }
   };
 
   // Fetch open invoices whenever the user picks a supplier in the payment tab
@@ -356,7 +383,7 @@ export default function OCRForm({
       const supabase = createClient();
       const { data } = await supabase
         .from('invoices')
-        .select('id, invoice_number, invoice_date, total_amount, status, clarification_reason')
+        .select('id, invoice_number, invoice_date, total_amount, status, clarification_reason, notes')
         .eq('business_id', selectedBusinessId)
         .eq('supplier_id', paymentTabSupplierId)
         .in('status', ['pending', 'clarification'])
@@ -370,6 +397,7 @@ export default function OCRForm({
         total_amount: Number(inv.total_amount),
         status: inv.status as string,
         clarification_reason: (inv.clarification_reason as string) || null,
+        notes: (inv.notes as string) || null,
       }));
       setPaymentOpenInvoices(mapped);
       setPaymentSelectedInvoiceIds(new Set());
@@ -3697,34 +3725,57 @@ export default function OCRForm({
                                   </span>
                                 </div>
                               </button>
-                              {disabled && (
-                                <div className="flex items-start gap-[6px] px-[10px] py-[6px] bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded-[6px]" dir="rtl">
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-[#F59E0B] flex-shrink-0 mt-[2px]">
-                                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                                    <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                                    <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                                  </svg>
-                                  <div className="flex flex-col gap-[4px] flex-1 text-right">
-                                    <span className="text-[11px] font-semibold text-[#F59E0B]">בבירור — לא ניתן לתשלום</span>
-                                    {inv.clarification_reason && (
-                                      <span className="text-[11px] text-white/80 leading-[1.4]">{inv.clarification_reason}</span>
-                                    )}
-                                    <Button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        confirm(
-                                          `לשנות את החשבונית ${inv.invoice_number || '(ללא מספר)'} מ"בבירור" ל"ממתין"?\n\nזה יסמן שהבירור הסתיים והחשבונית תהיה זמינה לתשלום.`,
-                                          () => releaseClarificationInvoice(inv.id)
-                                        );
-                                      }}
-                                      className="self-start mt-[2px] px-[8px] py-[3px] rounded-[4px] bg-[#F59E0B] hover:bg-[#FBA94A] text-[#0F1535] text-[10px] font-bold transition-colors touch-manipulation"
-                                    >
-                                      ✓ הסתיים הבירור — שנה לממתין
-                                    </Button>
+                              {disabled && (() => {
+                                // Reason can be stored in either column historically — clarification_reason
+                                // (newer flow) or notes (legacy /expenses save path). Prefer the dedicated
+                                // column when present, fall back to notes, otherwise admit we don't have one.
+                                const reasonText = (inv.clarification_reason && inv.clarification_reason.trim())
+                                  || (inv.notes && inv.notes.trim())
+                                  || null;
+                                return (
+                                  <div className="flex items-start gap-[6px] px-[10px] py-[6px] bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded-[6px]" dir="rtl">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-[#F59E0B] flex-shrink-0 mt-[2px]">
+                                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                                      <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                      <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                    </svg>
+                                    <div className="flex flex-col gap-[4px] flex-1 text-right">
+                                      <span className="text-[11px] font-semibold text-[#F59E0B]">בבירור — לא ניתן לתשלום</span>
+                                      <span className="text-[11px] text-white/80 leading-[1.4]">
+                                        {reasonText
+                                          ? <><span className="text-white/50">סיבה: </span>{reasonText}</>
+                                          : <span className="text-white/40 italic">לא צוינה סיבה</span>}
+                                      </span>
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                );
+                              })()}
+                              {/* Status changer — same 3 options as /expenses, available on every row.
+                                  Disabled rows ('clarification') need this so admins can release them
+                                  back to 'pending'; pending rows expose it too in case the user wants to
+                                  flag a dispute (→ 'clarification') or mark as paid without processing
+                                  a payment row. */}
+                              <div className="flex items-center gap-[6px] px-[10px]" dir="rtl">
+                                <span className="text-[11px] text-white/50">סטטוס:</span>
+                                <select
+                                  value={inv.status}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    const newStatus = e.target.value as 'pending' | 'paid' | 'clarification';
+                                    if (newStatus === inv.status) return;
+                                    const labels: Record<string, string> = { pending: 'ממתין לתשלום', paid: 'שולם', clarification: 'בבירור' };
+                                    confirm(
+                                      `לשנות את הסטטוס של חשבונית ${inv.invoice_number || '(ללא מספר)'} ל"${labels[newStatus]}"?`,
+                                      () => updateOpenInvoiceStatus(inv.id, newStatus)
+                                    );
+                                  }}
+                                  className="bg-[#1a1f42] border border-[#4C526B] text-white text-[11px] rounded-[4px] px-[6px] py-[3px] cursor-pointer focus:outline-none focus:border-[#29318A]"
+                                >
+                                  <option value="pending" className="bg-[#1A1F3D]">ממתין לתשלום</option>
+                                  <option value="paid" className="bg-[#1A1F3D]">שולם</option>
+                                  <option value="clarification" className="bg-[#1A1F3D]">בבירור</option>
+                                </select>
+                              </div>
                             </div>
                           );
                         })}
