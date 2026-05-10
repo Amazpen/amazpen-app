@@ -1700,10 +1700,10 @@ export default function OCRForm({
       setCalcDisplay('0');
       setCalcExpression('');
     } else if (value === '⌫') {
+      setCalcExpression(prev => prev.slice(0, -1));
       setCalcDisplay(prev => prev.length > 1 ? prev.slice(0, -1) : '0');
     } else if (value === '=') {
       try {
-        // Safe eval using Function constructor (only numbers and operators)
         const sanitized = calcExpression.replace(/[^0-9+\-*/.() ]/g, '');
         if (sanitized) {
           const result = new Function('return ' + sanitized)();
@@ -1717,6 +1717,10 @@ export default function OCRForm({
         setCalcDisplay('שגיאה');
         setCalcExpression('');
       }
+    } else if (value === '×1.18') {
+      // Multiply current value by 1.18 (Israeli VAT)
+      setCalcExpression(prev => prev + '*1.18');
+      setCalcDisplay('*1.18');
     } else if (['+', '-', '*', '/'].includes(value)) {
       setCalcExpression(prev => prev + value);
       setCalcDisplay(value);
@@ -1729,6 +1733,27 @@ export default function OCRForm({
       setCalcDisplay(prev => prev === '0' || ['+', '-', '*', '/', 'שגיאה'].includes(prev) ? value : prev + value);
     }
   }, [calcExpression]);
+
+  // Keyboard support — only active when calculator is open and focus is not in an input/textarea
+  useEffect(() => {
+    if (!showCalculator) return;
+    const handleKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable;
+      if (isEditable) return;
+
+      const k = e.key;
+      if (/^[0-9]$/.test(k)) { e.preventDefault(); calcInput(k); }
+      else if (k === '.' || k === ',') { e.preventDefault(); calcInput('.'); }
+      else if (k === '+' || k === '-' || k === '*' || k === '/') { e.preventDefault(); calcInput(k); }
+      else if (k === 'Enter' || k === '=') { e.preventDefault(); calcInput('='); }
+      else if (k === 'Backspace') { e.preventDefault(); calcInput('⌫'); }
+      else if (k === 'Escape' || k === 'Delete' || k.toLowerCase() === 'c') { e.preventDefault(); calcInput('C'); }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [showCalculator, calcInput]);
 
   const handleSubmit = () => {
     if (!selectedBusinessId) {
@@ -4390,16 +4415,18 @@ export default function OCRForm({
               '7', '8', '9', '-',
               '4', '5', '6', '+',
               '1', '2', '3', '=',
-              '0', '.', '', ''].map((btn, i) => btn ? (
+              '0', '.', '×1.18', ''].map((btn, i) => btn ? (
               <button
                 key={i}
                 onClick={() => calcInput(btn)}
-                className={`h-[38px] rounded-[6px] text-[16px] font-medium transition-colors ${
-                  btn === '=' ? 'bg-[#22c55e] text-white row-span-1 hover:bg-[#16a34a]'
-                  : ['C', '⌫'].includes(btn) ? 'bg-[#EB5757]/20 text-[#EB5757] hover:bg-[#EB5757]/30'
-                  : ['+', '-', '*', '/'].includes(btn) ? 'bg-[#29318A] text-white hover:bg-[#3D44A0]'
-                  : 'bg-[#4C526B]/30 text-white hover:bg-[#4C526B]/50'
+                className={`h-[38px] rounded-[6px] text-[14px] font-medium transition-colors ${
+                  btn === '=' ? 'bg-[#22c55e] text-white row-span-1 hover:bg-[#16a34a] text-[16px]'
+                  : ['C', '⌫'].includes(btn) ? 'bg-[#EB5757]/20 text-[#EB5757] hover:bg-[#EB5757]/30 text-[16px]'
+                  : btn === '×1.18' ? 'bg-[#F2C94C]/20 text-[#F2C94C] hover:bg-[#F2C94C]/30 text-[12px] font-bold'
+                  : ['+', '-', '*', '/'].includes(btn) ? 'bg-[#29318A] text-white hover:bg-[#3D44A0] text-[16px]'
+                  : 'bg-[#4C526B]/30 text-white hover:bg-[#4C526B]/50 text-[16px]'
                 }`}
+                title={btn === '×1.18' ? 'הכפלה ב-1.18 (תוספת מע"מ)' : undefined}
               >
                 {btn}
               </button>
