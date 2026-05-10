@@ -981,7 +981,7 @@ export default function DashboardLayout({
           {/* Left side - Profile, Notifications, Buttons */}
           <div className="flex flex-row-reverse items-stretch gap-[6px] sm:gap-[5px] flex-shrink-0">
             {/* Profile Image */}
-            <Link href="/settings" className="w-[34px] sm:w-[32px] aspect-square rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative touch-manipulation self-center cursor-pointer" suppressHydrationWarning>
+            <Link href="/settings" aria-label="פרופיל והגדרות" className="w-[34px] sm:w-[32px] aspect-square rounded-full overflow-hidden border border-[#4C526B] bg-[#29318A] flex items-center justify-center relative touch-manipulation self-center cursor-pointer" suppressHydrationWarning>
               {/* Skeleton loader - only show when loading AND there's an image to load */}
               {(isLoadingProfile || (!profileImageLoaded && userProfile?.avatar_url)) && (
                 <div className="absolute inset-0 bg-gradient-to-r from-[#29318A] via-[#3D44A0] to-[#29318A] animate-pulse rounded-full" />
@@ -1014,6 +1014,7 @@ export default function DashboardLayout({
               <Button
                 type="button"
                 onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                aria-label={unreadCount > 0 ? `התראות (${unreadCount} חדשות)` : "התראות"}
                 className="w-[34px] sm:w-[32px] aspect-square self-center rounded-full bg-[#29318A] flex items-center justify-center relative cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="sm:w-[20px] sm:h-[20px] text-[#FFA412]">
