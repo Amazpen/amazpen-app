@@ -538,18 +538,31 @@ export default function InsightsPage() {
       // 4. REVENUE: Day-of-week pattern analysis
       // ====================================================================
       if (entries.length >= 7) {
-        const dayTotals: Record<number, { total: number; count: number; labor: number; hours: number }> = {};
+        // Weight every aggregate by `day_factor` so closed days (factor=0)
+        // and half-days (factor=0.5) don't pull a day-of-week's average down.
+        // Without this, פרגו (closed Saturday) shows ₪3,422 שבת average from
+        // 0.5-factor entries — making Saturday look like a real workday with
+        // half the revenue, which is misleading.
+        const dayTotals: Record<number, { total: number; weight: number; labor: number; hours: number }> = {};
         for (const entry of entries) {
           const dow = new Date(entry.entry_date).getDay();
-          if (!dayTotals[dow]) dayTotals[dow] = { total: 0, count: 0, labor: 0, hours: 0 };
+          const factor = Number(entry.day_factor) || 0;
+          if (factor <= 0) continue;
+          if (!dayTotals[dow]) dayTotals[dow] = { total: 0, weight: 0, labor: 0, hours: 0 };
           dayTotals[dow].total += Number(entry.total_register) || 0;
-          dayTotals[dow].count += 1;
+          dayTotals[dow].weight += factor;
           dayTotals[dow].labor += Number(entry.labor_cost) || 0;
           dayTotals[dow].hours += Number(entry.labor_hours) || 0;
         }
 
         const dayAvgs = Object.entries(dayTotals)
-          .map(([day, data]) => ({ day: Number(day), avg: data.total / data.count, laborPct: data.total > 0 ? (data.labor / data.total * 100) : 0, avgHours: data.hours / data.count }))
+          .filter(([, data]) => data.weight > 0)
+          .map(([day, data]) => ({
+            day: Number(day),
+            avg: data.total / data.weight,
+            laborPct: data.total > 0 ? (data.labor / data.total * 100) : 0,
+            avgHours: data.hours / data.weight,
+          }))
           .sort((a, b) => b.avg - a.avg);
 
         if (dayAvgs.length >= 3) {
@@ -920,23 +933,14 @@ export default function InsightsPage() {
       }
 
       // ====================================================================
-      // 16. CASHFLOW: Overdue payments
+      // 16. CASHFLOW: Overdue payments — DISABLED
+      // payment_splits represents the installment schedule of an *executed*
+      // payment record (every split has a payment_id, and the payment itself
+      // is "actually paid"). Filtering by `due_date <= today` therefore
+      // catches every historical paid installment and produced absurd
+      // numbers like "785 overdue payments / ₪1,209,293" for a small business.
+      // We need a real "scheduled but not paid" status before reviving this.
       // ====================================================================
-      const overduePayments = bizPaymentSplits.filter((ps) => ps.due_date <= today);
-      if (overduePayments.length > 0) {
-        const totalOverdue = overduePayments.reduce((s, ps) => s + (Number(ps.amount) || 0), 0);
-        const oldest = overduePayments.reduce((o, ps) => ps.due_date < o ? ps.due_date : o, overduePayments[0].due_date);
-        const daysOld = Math.floor((now.getTime() - new Date(oldest).getTime()) / (1000 * 60 * 60 * 24));
-
-        results.push({
-          id: "overdue-payments",
-          title: `${overduePayments.length} תשלומים שעבר מועד פירעון`,
-          description: `יש ${overduePayments.length} תשלומים בסך ${formatCurrencyFull(totalOverdue)} שעבר מועד פירעונם. הוותיק מאוחר ב-${daysOld} ימים. מומלץ לטפל בהקדם כדי לשמור על יחסי ספקים תקינים ולהימנע מריביות.`,
-          severity: "negative",
-          category: "cashflow",
-          value: `${formatCurrencyFull(totalOverdue)} (${overduePayments.length} תשלומים, הוותיק: ${daysOld} ימים)`,
-        });
-      }
 
       // ====================================================================
       // 17. CASHFLOW: Upcoming 7 days
@@ -1114,25 +1118,24 @@ export default function InsightsPage() {
       }
 
       // ====================================================================
-      // 23. NET CASHFLOW: Income vs all payments this month
+      // 23. NET CASHFLOW: Income vs all expenses this month
+      // We previously subtracted both `payment_splits.due_date in month` AND
+      // `invoices.subtotal in month` — but these represent the same money
+      // moving once (a payment is the execution of an invoice's payment
+      // terms), so the net was double-counted on the expense side.
+      // Use only the invoice totals (goods + current expenses) to match the
+      // dashboard's P&L logic.
       // ====================================================================
-      if (currentTotal > 0) {
-        const monthPayments = bizPaymentSplits.filter((ps) =>
-          ps.due_date >= currentMonthStart && ps.due_date <= currentMonthEnd
-        );
-        const totalMonthPayments = monthPayments.reduce((s, ps) => s + (Number(ps.amount) || 0), 0);
-        const netCashflow = currentTotal - totalMonthPayments - totalAllExpenses;
-
-        if (totalMonthPayments > 0 || totalAllExpenses > 0) {
-          results.push({
-            id: "net-cashflow",
-            title: netCashflow >= 0 ? "תזרים חודשי חיובי" : "תזרים חודשי שלילי",
-            description: `הכנסות: ${formatCurrencyFull(currentTotal)}, תשלומים לספקים: ${formatCurrencyFull(totalMonthPayments)}, חשבוניות שוטפות: ${formatCurrencyFull(totalAllExpenses)}. ${netCashflow >= 0 ? `נשאר עודף של ${formatCurrencyFull(netCashflow)}.` : `חסרים ${formatCurrencyFull(Math.abs(netCashflow))}.`}`,
-            severity: netCashflow >= 0 ? "positive" : "negative",
-            category: "cashflow",
-            value: `נטו: ${formatCurrencyFull(netCashflow)}`,
-          });
-        }
+      if (currentTotal > 0 && totalAllExpenses > 0) {
+        const netCashflow = incomeBeforeVat - totalAllExpenses;
+        results.push({
+          id: "net-cashflow",
+          title: netCashflow >= 0 ? "תזרים חודשי חיובי" : "תזרים חודשי שלילי",
+          description: `הכנסות לפני מע״מ: ${formatCurrencyFull(incomeBeforeVat)}, סחורה: ${formatCurrencyFull(totalGoods)}, הוצאות שוטפות: ${formatCurrencyFull(totalCurrentExp)}. ${netCashflow >= 0 ? `נשאר עודף של ${formatCurrencyFull(netCashflow)}.` : `חסרים ${formatCurrencyFull(Math.abs(netCashflow))}.`}`,
+          severity: netCashflow >= 0 ? "positive" : "negative",
+          category: "cashflow",
+          value: `נטו: ${formatCurrencyFull(netCashflow)}`,
+        });
       }
 
       // Sort: negative first, then warning, then positive, then info
