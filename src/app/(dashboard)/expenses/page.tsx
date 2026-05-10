@@ -5093,7 +5093,7 @@ function ExpensesPageInner() {
                   value={referenceDate}
                   onChange={(val) => {
                     setReferenceDate(val);
-                    referenceDateManuallySet.current = true;
+                    setExpenseDate(val);
                   }}
                 />
               </div>
@@ -5969,7 +5969,7 @@ function ExpensesPageInner() {
                   value={referenceDate}
                   onChange={(val) => {
                     setReferenceDate(val);
-                    referenceDateManuallySet.current = true;
+                    setExpenseDate(val);
                   }}
                 />
               </div>
