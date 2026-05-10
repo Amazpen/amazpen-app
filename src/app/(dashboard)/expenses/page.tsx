@@ -6945,14 +6945,19 @@ function ExpensesPageInner() {
                             e.stopPropagation();
                             openViewer(inv.attachmentUrls[0], inv.attachmentUrls);
                           }}
-                          className="w-[25px] h-[25px] flex items-center justify-center text-white/50 hover:text-white transition-colors"
-                          title="צפה בקובץ"
+                          className="relative w-[25px] h-[25px] flex items-center justify-center text-white/50 hover:text-white transition-colors"
+                          title={inv.attachmentUrls.length > 1 ? `צפה בקובץ (${inv.attachmentUrls.length} דפים)` : "צפה בקובץ"}
                         >
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                             <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
                             <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/>
                             <path d="M21 15L16 10L5 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
+                          {inv.attachmentUrls.length > 1 && (
+                            <span className="absolute -top-[4px] -right-[4px] min-w-[14px] h-[14px] px-[3px] rounded-full bg-[#29318A] text-white text-[9px] font-bold flex items-center justify-center ltr-num leading-none">
+                              {inv.attachmentUrls.length}
+                            </span>
+                          )}
                         </Button>
                       )}
                     </div>
