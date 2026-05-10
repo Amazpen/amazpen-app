@@ -231,7 +231,7 @@ export default function DocumentQueue({
                         : 'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/40 hover:bg-[#F59E0B]/25'
                     }`}
                   >
-                    <div className="flex items-center gap-1.5 truncate flex-1 text-right justify-end">
+                    <div className="flex flex-row-reverse items-center gap-1.5 truncate flex-1 justify-end">
                       <span className="truncate">לא מזוהים</span>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
                         <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
