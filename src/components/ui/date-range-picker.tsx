@@ -35,10 +35,15 @@ const hebrewMonths = [
 // Generate years array (2024 to 2031)
 const years = [2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031];
 
+// Default year shown in the year dropdown when nothing has been picked yet.
+// Keeps the picker pinned to the active operational year so users don't have
+// to scroll/select a year for every month switch.
+const DEFAULT_YEAR = "2026";
+
 export function DateRangePicker({ dateRange, onChange, className = "", variant = "compact" }: DateRangePickerProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState("");
-  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedYear, setSelectedYear] = useState(DEFAULT_YEAR);
   // Anchor: which side of the trigger the dropdown is pinned to. Defaults to
   // 'right' (RTL — opens leftwards from the trigger). When the trigger sits
   // close to the left edge of the viewport, the menu would clip off-screen,
@@ -106,7 +111,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
     onChange({ start, end });
     setIsDropdownOpen(false);
     setSelectedMonth("");
-    setSelectedYear("");
+    setSelectedYear(DEFAULT_YEAR);
   };
 
   const toggleDropdown = () => {
