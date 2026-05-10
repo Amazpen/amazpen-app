@@ -55,6 +55,32 @@ async function preprocessImageForOcr(input: Buffer): Promise<Buffer> {
 }
 
 /**
+ * Aggressive 3rd-pass preprocessing for phone photos that survived the
+ * standard preprocess. Adds bigger upscale, grayscale, normalization, and
+ * harder sharpening — pulls dim text out of glare/shadow/thermal-paper fade.
+ */
+async function preprocessImageForOcrAggressive(input: Buffer): Promise<Buffer> {
+  const meta = await sharp(input).metadata();
+  const longestEdge = Math.max(meta.width || 0, meta.height || 0);
+  const targetLongest = 3200;
+  const scale = longestEdge > 0 && longestEdge < targetLongest
+    ? targetLongest / longestEdge
+    : 1;
+  let pipeline = sharp(input).rotate();
+  if (scale > 1.05) {
+    const newWidth = Math.round((meta.width || 0) * scale);
+    if (newWidth > 0) pipeline = pipeline.resize({ width: newWidth, kernel: "lanczos3" });
+  }
+  return await pipeline
+    .grayscale()
+    .normalize()
+    .linear(1.25, -15)
+    .sharpen({ sigma: 1.2 })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+}
+
+/**
  * Heuristic: did Mistral actually read the items table?
  * Returns { ok: boolean; reason?: string } so the caller can decide whether
  * to retry with preprocessed image. We flag "ok=false" when the markdown
@@ -70,10 +96,36 @@ function looksLikeOcrFailure(markdown: string, fileSizeBytes: number): { ok: boo
     return { ok: false, reason: `markdown density too low (${markdown.length} chars on ${fileSizeBytes} bytes)` };
   }
 
+  // Image-placeholder heuristic: when Mistral fails on a phone photo of a
+  // dense Hebrew table it emits ![img-N.jpeg](img-N.jpeg) blocks instead of
+  // reading text. 3+ placeholders with <800 chars of text = it gave up.
+  const imgPlaceholderMatches = markdown.match(/!\[img-\d+/gi) || [];
+  if (imgPlaceholderMatches.length >= 3) {
+    const textWithoutImages = markdown.replace(/!\[img-\d+[^)]*\)/gi, "").trim();
+    if (textWithoutImages.length < 800) {
+      return { ok: false, reason: `${imgPlaceholderMatches.length} image placeholders with only ${textWithoutImages.length} chars of text — Mistral gave up on the body` };
+    }
+  }
+
   const lines = markdown.split(/\r?\n/);
   const tableLines = lines.filter(l => /^\s*\|.*\|.*\|/.test(l));
   if (tableLines.length === 0 && fileSizeBytes > 200_000) {
     return { ok: false, reason: "no markdown tables for a non-trivial file" };
+  }
+
+  // All-zero totals heuristic: a real invoice always has at least one non-
+  // zero numeric value. All zeros = column misread or hallucinated content.
+  if (tableLines.length >= 2) {
+    const allCells = tableLines
+      .flatMap(l => l.split("|").map(c => c.trim()).filter(c => c !== ""))
+      .filter(c => /^[\d.,\s₪]+$/.test(c));
+    const nonZero = allCells.filter(c => {
+      const n = parseFloat(c.replace(/[^\d.]/g, ""));
+      return Number.isFinite(n) && n > 0;
+    });
+    if (allCells.length >= 4 && nonZero.length === 0) {
+      return { ok: false, reason: `all numeric cells are zero (${allCells.length} numeric cells, none non-zero)` };
+    }
   }
 
   // Repeated-header heuristic: same line appearing 3+ times = fragmented
@@ -315,27 +367,50 @@ export async function POST(request: NextRequest) {
     const firstPassCheck = looksLikeOcrFailure(rawText || "", file.size);
     if (!firstPassCheck.ok && isImage) {
       console.log(`[OCR-Extract-Mistral] First pass flagged: ${firstPassCheck.reason}. Retrying with preprocessed image...`);
+      let secondPassCheck: { ok: boolean; reason?: string } = { ok: false };
+      let imageArr: ArrayBuffer | null = null;
       try {
-        const arr = await file.arrayBuffer();
-        const enhanced = await preprocessImageForOcr(Buffer.from(arr));
+        imageArr = await file.arrayBuffer();
+        const enhanced = await preprocessImageForOcr(Buffer.from(imageArr));
         const retryText = await mistralOcrFile(
           file,
           process.env.MISTRAL_API_KEY,
           { bytes: new Uint8Array(enhanced), mime: "image/png" },
         );
         console.log(`[OCR-Extract-Mistral] Retry markdown length: ${retryText?.length ?? 0}`);
-        const retryCheck = looksLikeOcrFailure(retryText || "", file.size);
+        secondPassCheck = looksLikeOcrFailure(retryText || "", file.size);
         // Pick the better of the two passes — prefer the one that PASSED
         // validation; if both passed/failed, prefer the longer markdown
         // (more content extracted).
-        if (retryCheck.ok && !firstPassCheck.ok) {
+        if (secondPassCheck.ok && !firstPassCheck.ok) {
           rawText = retryText;
         } else if (retryText && retryText.length > (rawText?.length ?? 0) * 1.2) {
           rawText = retryText;
         }
       } catch (preErr) {
         console.warn(`[OCR-Extract-Mistral] Preprocess/retry failed:`, preErr);
-        // Keep the first pass result.
+      }
+
+      // Third pass — aggressive preprocess (grayscale + normalize + bigger
+      // upscale + harder sharpen). Only worth the extra Mistral call when the
+      // standard preprocess also looked bad.
+      if (!secondPassCheck.ok && imageArr) {
+        console.log(`[OCR-Extract-Mistral] Second pass also flagged: ${secondPassCheck.reason}. Trying aggressive preprocess...`);
+        try {
+          const aggressive = await preprocessImageForOcrAggressive(Buffer.from(imageArr));
+          const aggText = await mistralOcrFile(
+            file,
+            process.env.MISTRAL_API_KEY,
+            { bytes: new Uint8Array(aggressive), mime: "image/png" },
+          );
+          console.log(`[OCR-Extract-Mistral] Aggressive pass markdown length: ${aggText?.length ?? 0}`);
+          const aggCheck = looksLikeOcrFailure(aggText || "", file.size);
+          if (aggCheck.ok || (aggText && aggText.length > (rawText?.length ?? 0) * 1.2)) {
+            rawText = aggText;
+          }
+        } catch (aggErr) {
+          console.warn(`[OCR-Extract-Mistral] Aggressive preprocess failed:`, aggErr);
+        }
       }
     }
 

@@ -1180,9 +1180,14 @@ export default function OCRPage() {
         await supabase.from("ocr_extracted_data").insert({ document_id: currentDocument.id, ...extractedRow });
       }
 
-      const newOcrData = { ...(currentDocument.ocr_data || {}), ...extracted };
-      setDocuments((prev) => prev.map((doc) => doc.id === currentDocument.id ? { ...doc, ocr_data: newOcrData } : doc));
-      setCurrentDocument((prev) => prev ? { ...prev, ocr_data: newOcrData } : null);
+      // Re-fetch from DB so the UI reads the same shape fetchDocuments builds
+      // (mistral_* columns + line items relation) — a manual state merge would
+      // miss supplier_tax_id, line item IDs, and the mistral-vs-legacy pick logic.
+      const fresh = await fetchDocuments();
+      const refreshed = fresh.find((d) => d.id === currentDocument.id);
+      if (refreshed) {
+        setCurrentDocument(refreshed);
+      }
 
       showToast("OCR הסתיים — בדוק שהנתונים נכונים", "success");
     } catch (err) {
@@ -1191,7 +1196,7 @@ export default function OCRPage() {
     } finally {
       setIsReExtracting(false);
     }
-  }, [currentDocument, isReExtracting, showToast]);
+  }, [currentDocument, isReExtracting, showToast, fetchDocuments]);
 
   const pendingCount = documents.filter((doc) => doc.status === 'pending').length;
 
