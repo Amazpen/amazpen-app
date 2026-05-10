@@ -2008,14 +2008,14 @@ export function DailyEntriesModal({
                           const foodMTD = revenueMTD * ((monthlyCumulative?.foodCostPct || 0) / 100);
                           const currentExpensesMTD = monthlyCumulative?.currentExpenses || 0;
                           const monthlyProfit = revenueMTD - laborMTD - foodMTD - currentExpensesMTD;
-                          const valueColor = monthlyProfit < 0 ? "text-[#FF4D4D]" : monthlyProfit > 0 ? "text-[#4ADE80]" : "text-white";
+                          const colorForValue = (v: number) => v < 0 ? "text-[#FF4D4D]" : v > 0 ? "text-green-400" : "text-white";
                           return (
                             <div className="flex flex-col border-2 border-[#FFCF00] rounded-[10px] p-[10px_7px] mt-[15px]" dir="rtl">
                               <div className="flex items-center w-full">
                                 <span className="text-white text-[18px] font-bold leading-[1.4] w-[230px] shrink-0">
                                   צפי הכנסות חודשי כולל מע&quot;מ:
                                 </span>
-                                <span className={`${valueColor} text-[18px] font-medium leading-[1.4] ltr-num flex-1 text-center`}>
+                                <span className={`${colorForValue(monthlyPace)} text-[18px] font-medium leading-[1.4] ltr-num flex-1 text-center`}>
                                   {formatCurrency(Math.round(monthlyPace))}
                                 </span>
                               </div>
@@ -2023,7 +2023,7 @@ export function DailyEntriesModal({
                                 <span className="text-white text-[18px] font-bold leading-[1.4] w-[230px] shrink-0">
                                   צפי רווח החודש:
                                 </span>
-                                <span className={`${valueColor} text-[18px] font-medium leading-[1.4] ltr-num flex-1 text-center`}>
+                                <span className={`${colorForValue(monthlyProfit)} text-[18px] font-medium leading-[1.4] ltr-num flex-1 text-center`}>
                                   {formatCurrency(Math.round(monthlyProfit))}
                                 </span>
                               </div>
