@@ -44,50 +44,6 @@ const HEBREW_MONTHS = [
   "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
 ];
 
-// Reusable month/year picker shown when a per-month override is needed
-function MonthEffectivePicker({
-  label,
-  year,
-  month,
-  onYearChange,
-  onMonthChange,
-}: {
-  label: string;
-  year: number;
-  month: number;
-  onYearChange: (y: number) => void;
-  onMonthChange: (m: number) => void;
-}) {
-  const currentYear = new Date().getFullYear();
-  const years: number[] = [];
-  for (let y = currentYear - 3; y <= currentYear + 1; y++) years.push(y);
-  return (
-    <div className="flex items-center gap-[6px] mt-[3px]">
-      <span className="text-[11px] text-white/60 whitespace-nowrap">{label}:</span>
-      <Select value={String(month)} onValueChange={(v) => onMonthChange(Number(v))}>
-        <SelectTrigger className="h-[32px] bg-[#1a1f3a] border-[#4C526B] text-white text-[12px] px-[8px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {HEBREW_MONTHS.map((name, i) => (
-            <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={String(year)} onValueChange={(v) => onYearChange(Number(v))}>
-        <SelectTrigger className="h-[32px] bg-[#1a1f3a] border-[#4C526B] text-white text-[12px] px-[8px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {years.map((y) => (
-            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
 // Days of week for schedule
 const daysOfWeek = [
   { id: 0, label: "ראשון", short: "א'" },
@@ -152,15 +108,19 @@ export default function EditBusinessPage({ params }: PageProps) {
 
   // Original values (loaded from DB) — used to detect changes that need a month-effective override
   const [originalManagerSalary, setOriginalManagerSalary] = useState<number>(0);
-  const [originalMarkupPercentage, setOriginalMarkupPercentage] = useState<number>(0);
+  // originalMarkupPercentage was previously kept around so a top-level markup
+  // edit could backfill historical months. The top-level field is gone, so we
+  // no longer need the original value either.
   const [originalVatPercentage, setOriginalVatPercentage] = useState<number>(18);
 
-  // "Effective from" month/year for each field — defaults to current month
+  // Effective-from month for the historical-rollover writes (e.g. when the
+  // legacy top-level managerSalary/vatPercentage values change). The picker
+  // UIs were removed; we always use "this month" as the cutoff.
   const _now = new Date();
-  const [managerSalaryEffectiveYear, setManagerSalaryEffectiveYear] = useState<number>(_now.getFullYear());
-  const [managerSalaryEffectiveMonth, setManagerSalaryEffectiveMonth] = useState<number>(_now.getMonth() + 1);
-  const [vatEffectiveYear, setVatEffectiveYear] = useState<number>(_now.getFullYear());
-  const [vatEffectiveMonth, setVatEffectiveMonth] = useState<number>(_now.getMonth() + 1);
+  const [managerSalaryEffectiveYear] = useState<number>(_now.getFullYear());
+  const [managerSalaryEffectiveMonth] = useState<number>(_now.getMonth() + 1);
+  const [vatEffectiveYear] = useState<number>(_now.getFullYear());
+  const [vatEffectiveMonth] = useState<number>(_now.getMonth() + 1);
 
   // Per-month markup overrides: { "YYYY-M": pct (0-100) }. Explicit user overrides per month.
   const [markupByMonth, setMarkupByMonth] = useState<Record<string, number>>({});
@@ -172,6 +132,10 @@ export default function EditBusinessPage({ params }: PageProps) {
   const [vatByMonth, setVatByMonth] = useState<Record<string, number>>({});
   const [originalVatByMonth, setOriginalVatByMonth] = useState<Record<string, number>>({});
   const [clearedVatKeys, setClearedVatKeys] = useState<Set<string>>(new Set());
+  // Per-month manager salary overrides (₪). Same semantics as markup/vat.
+  const [managerSalaryByMonth, setManagerSalaryByMonth] = useState<Record<string, number>>({});
+  const [originalManagerSalaryByMonth, setOriginalManagerSalaryByMonth] = useState<Record<string, number>>({});
+  const [clearedManagerSalaryKeys, setClearedManagerSalaryKeys] = useState<Set<string>>(new Set());
 
   // Step 2: Business Schedule
   const [schedule, setSchedule] = useState<Record<number, string>>({
@@ -344,7 +308,6 @@ export default function EditBusinessPage({ params }: PageProps) {
       setMarkupPercentage(_markupPct);
       setVatPercentage(_vatPct);
       setOriginalManagerSalary(_managerSalary);
-      setOriginalMarkupPercentage(_markupPct);
       setOriginalVatPercentage(_vatPct);
       if (business.form_section_order && Array.isArray(business.form_section_order)) {
         setFormSectionOrder(business.form_section_order as string[]);
@@ -377,16 +340,17 @@ export default function EditBusinessPage({ params }: PageProps) {
         }
       }
 
-      // Fetch per-month markup + VAT overrides from goals (one query covers both)
+      // Fetch per-month markup + VAT + manager salary overrides from goals
       const { data: monthlyOverrides } = await supabase
         .from("goals")
-        .select("year, month, markup_percentage, vat_percentage")
+        .select("year, month, markup_percentage, vat_percentage, manager_monthly_salary")
         .eq("business_id", businessId)
-        .or("markup_percentage.not.is.null,vat_percentage.not.is.null")
+        .or("markup_percentage.not.is.null,vat_percentage.not.is.null,manager_monthly_salary.not.is.null")
         .is("deleted_at", null);
 
       const markupMap: Record<string, number> = {};
       const vatMap: Record<string, number> = {};
+      const salaryMap: Record<string, number> = {};
       (monthlyOverrides || []).forEach((g) => {
         const key = `${g.year}-${g.month}`;
         if (g.markup_percentage != null) {
@@ -397,11 +361,16 @@ export default function EditBusinessPage({ params }: PageProps) {
           // DB stores as 0.18; UI shows 18
           vatMap[key] = Math.round(Number(g.vat_percentage) * 100);
         }
+        if (g.manager_monthly_salary != null) {
+          salaryMap[key] = Number(g.manager_monthly_salary);
+        }
       });
       setMarkupByMonth(markupMap);
       setOriginalMarkupByMonth({ ...markupMap });
       setVatByMonth(vatMap);
       setOriginalVatByMonth({ ...vatMap });
+      setManagerSalaryByMonth(salaryMap);
+      setOriginalManagerSalaryByMonth({ ...salaryMap });
 
       // Fetch income sources with settlement rules
       const { data: incomeData } = await supabase
@@ -909,8 +878,29 @@ export default function EditBusinessPage({ params }: PageProps) {
       // around as the fallback value used by getInherited() in the UI, but
       // it can never diverge from `markupPercentage` here, so we drop the
       // historical-rollover write that used to fire on markup changes.
+      // managerSalary likewise no longer has a top-level editor — it is
+      // edited only through the per-month table. The top-level field is
+      // kept around purely as the resolved-current-month value mirrored
+      // onto businesses.manager_monthly_salary for legacy consumers.
       const managerSalaryChanged = managerSalary !== originalManagerSalary;
       const vatChanged = vatPercentage !== originalVatPercentage;
+
+      // Resolve the effective manager salary for the CURRENT month from the
+      // per-month table (with inheritance from earlier months, falling back to
+      // the legacy top-level value). This is mirrored onto businesses.manager_monthly_salary
+      // so legacy screens that read directly from businesses still get a sane value.
+      const _resolveSalaryForCurrentMonth = (): number => {
+        const now = new Date();
+        let y = now.getFullYear(), m = now.getMonth() + 1;
+        for (let i = 0; i < 36; i++) {
+          const v = managerSalaryByMonth[`${y}-${m}`];
+          if (v != null) return v;
+          m -= 1;
+          if (m < 1) { m = 12; y -= 1; }
+        }
+        return managerSalary;
+      };
+      const _effectiveSalaryNow = _resolveSalaryForCurrentMonth();
 
       // 2. Update business record
       // For month-effective fields: if unchanged, persist as-is (keeps fallback consistent).
@@ -931,7 +921,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           documents_send_mode: documentsSendFrequency === "daily" ? "individual" : documentsSendMode,
           documents_send_types: documentsSendTypes.length > 0 ? documentsSendTypes : ["invoice", "payment", "delivery_note"],
           logo_url: logoUrl,
-          manager_monthly_salary: managerSalary,
+          manager_monthly_salary: _effectiveSalaryNow,
           // markup_percentage on businesses is intentionally not written here.
           // Markup is now edited per-month via the goals table (see step 2b).
           vat_percentage: vatPercentage / 100,
@@ -1004,7 +994,30 @@ export default function EditBusinessPage({ params }: PageProps) {
         }
       });
 
-      if (managerSalaryChanged || vatChanged || markupDiffs.length > 0 || vatDiffs.length > 0) {
+      // Same logic for per-month manager salary overrides (₪).
+      type SalaryDiff = { year: number; month: number; manager_monthly_salary: number | null };
+      const salaryDiffs: SalaryDiff[] = [];
+      const salaryKeys = new Set<string>([
+        ...Object.keys(managerSalaryByMonth),
+        ...Object.keys(originalManagerSalaryByMonth),
+      ]);
+      salaryKeys.forEach((key) => {
+        const newVal = managerSalaryByMonth[key];
+        const oldVal = originalManagerSalaryByMonth[key];
+        if (newVal === oldVal) return;
+        const [yStr, mStr] = key.split("-");
+        const year = Number(yStr);
+        const month = Number(mStr);
+        if (newVal != null) {
+          salaryDiffs.push({ year, month, manager_monthly_salary: newVal });
+          return;
+        }
+        if (clearedManagerSalaryKeys.has(key)) {
+          salaryDiffs.push({ year, month, manager_monthly_salary: null });
+        }
+      });
+
+      if (managerSalaryChanged || vatChanged || markupDiffs.length > 0 || vatDiffs.length > 0 || salaryDiffs.length > 0) {
         const HISTORICAL_START_YEAR = 2024;
         const today = new Date();
         const todayY = today.getFullYear();
@@ -1067,12 +1080,17 @@ export default function EditBusinessPage({ params }: PageProps) {
         for (const d of vatDiffs) {
           vatExplicitMap.set(`${d.year}-${d.month}`, d.vat_percentage);
         }
+        const salaryExplicitMap = new Map<string, number | null>();
+        for (const d of salaryDiffs) {
+          salaryExplicitMap.set(`${d.year}-${d.month}`, d.manager_monthly_salary);
+        }
 
         // Fetch existing goal rows for all touched months
         const allKeys = new Set<string>([
           ...historicalOverrides.keys(),
           ...markupExplicitMap.keys(),
           ...vatExplicitMap.keys(),
+          ...salaryExplicitMap.keys(),
         ]);
         if (allKeys.size > 0) {
           const allYears = Array.from(new Set(Array.from(allKeys).map(k => Number(k.split("-")[0]))));
@@ -1106,11 +1124,14 @@ export default function EditBusinessPage({ params }: PageProps) {
             const markupExplicitVal = hasMarkupExplicit ? markupExplicitMap.get(key)! : undefined;
             const hasVatExplicit = vatExplicitMap.has(key);
             const vatExplicitVal = hasVatExplicit ? vatExplicitMap.get(key)! : undefined;
+            const hasSalaryExplicit = salaryExplicitMap.has(key);
+            const salaryExplicitVal = hasSalaryExplicit ? salaryExplicitMap.get(key)! : undefined;
             const existing = existingMap.get(key);
 
             const patch: FieldPatch = {};
-            // Historical: only fill if existing row doesn't already have that field
-            if (histo?.manager_monthly_salary !== undefined && (!existing || existing.manager_monthly_salary == null)) {
+            // Historical: only fill if existing row doesn't already have that field,
+            // and never if the user also set this month explicitly in the salary table.
+            if (!hasSalaryExplicit && histo?.manager_monthly_salary !== undefined && (!existing || existing.manager_monthly_salary == null)) {
               patch.manager_monthly_salary = histo.manager_monthly_salary;
             }
             // Historical VAT only fills if not also explicitly set per-month for this key
@@ -1131,6 +1152,13 @@ export default function EditBusinessPage({ params }: PageProps) {
                 // Explicit clear — write null. The Override type uses optional, so
                 // we have to model "null" by sending it through FieldPatch's null path.
                 (patch as { vat_percentage?: number | null }).vat_percentage = null;
+              }
+            }
+            if (hasSalaryExplicit) {
+              if (salaryExplicitVal == null) {
+                (patch as { manager_monthly_salary?: number | null }).manager_monthly_salary = null;
+              } else {
+                patch.manager_monthly_salary = salaryExplicitVal;
               }
             }
 
@@ -1739,35 +1767,13 @@ export default function EditBusinessPage({ params }: PageProps) {
         </p>
       </div>
 
-      {/* Manager Salary */}
-      <div className="flex flex-col gap-[5px]">
-        <label className="text-[15px] font-medium text-white text-right">שכר מנהל חודשי</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
-          <Input
-            type="text"
-            inputMode="numeric"
-            value={managerSalary === 0 ? "" : formatNumberWithCommas(managerSalary)}
-            onChange={(e) => setManagerSalary(parseFormattedNumber(e.target.value))}
-            placeholder="0"
-            className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
-          />
-          <span className="text-white/50 text-[14px] pl-[10px]">₪</span>
-        </div>
-        {managerSalary !== originalManagerSalary && (
-          <MonthEffectivePicker
-            label="החל מחודש"
-            year={managerSalaryEffectiveYear}
-            month={managerSalaryEffectiveMonth}
-            onYearChange={setManagerSalaryEffectiveYear}
-            onMonthChange={setManagerSalaryEffectiveMonth}
-          />
-        )}
-      </div>
+      {/* Manager Salary editor moved into the per-month table below — the
+          top-level field + effective-month picker were removed. */}
 
-      {/* Per-month markup + VAT table — full width */}
+      {/* Per-month markup + VAT + manager salary table — full width */}
       <div dir="rtl" className="w-full flex flex-col gap-[10px] p-[14px] bg-[#0f1231] rounded-[10px] border border-[#4C526B]/50">
         <div className="flex flex-col gap-[4px] text-right">
-          <span className="text-[14px] font-medium text-white">אחוז העמסה ומע&quot;מ לפי חודש</span>
+          <span className="text-[14px] font-medium text-white">שכר מנהל, אחוז העמסה ומע&quot;מ לפי חודש</span>
           <span className="text-[11px] text-white/60 leading-[1.5]">
             ערך ריק בחודש מסוים = משתמש בערך של החודש הקודם. כדי לקבוע ערך לחודש בודד, מלאו את השדה. ה-<span className="inline-block w-[14px] h-[14px] rounded-full bg-[#F64E60]/30 text-[#F64E60] text-[10px] leading-[14px] text-center">×</span> מאפס את החודש הזה.
           </span>
@@ -1776,8 +1782,9 @@ export default function EditBusinessPage({ params }: PageProps) {
         {/* Header row — explicit dir="rtl" + inline style guarantees the
             grid lays out right-to-left even when Tailwind 4 doesn't emit
             the [direction:rtl] arbitrary class for the grid container. */}
-        <div dir="rtl" style={{ direction: 'rtl' }} className="grid grid-cols-[140px_1fr_1fr] gap-[14px] items-center pb-[6px] border-b border-[#4C526B]/40">
+        <div dir="rtl" style={{ direction: 'rtl' }} className="grid grid-cols-[140px_1.4fr_1fr_1fr] gap-[14px] items-center pb-[6px] border-b border-[#4C526B]/40">
           <span className="text-[11px] text-white/50 text-center">חודש</span>
+          <span className="text-[11px] text-white/50 text-center">שכר מנהל</span>
           <span className="text-[11px] text-white/50 text-center">אחוז העמסה</span>
           <span className="text-[11px] text-white/50 text-center">אחוז מע&quot;מ</span>
         </div>
@@ -1846,25 +1853,94 @@ export default function EditBusinessPage({ params }: PageProps) {
                 });
               }
             };
+            const clearSalary = (key: string) => {
+              setManagerSalaryByMonth((prev) => {
+                if (!(key in prev)) return prev;
+                const next = { ...prev };
+                delete next[key];
+                return next;
+              });
+              if (originalManagerSalaryByMonth[key] != null) {
+                setClearedManagerSalaryKeys((prev) => {
+                  if (prev.has(key)) return prev;
+                  const next = new Set(prev);
+                  next.add(key);
+                  return next;
+                });
+              }
+            };
 
             return rows.map((r) => {
               const markupExplicit = markupByMonth[r.key];
               const vatExplicit = vatByMonth[r.key];
+              const salaryExplicit = managerSalaryByMonth[r.key];
               const markupInherited = getInherited(markupByMonth, markupPercentage, r.year, r.month);
               const vatInherited = getInherited(vatByMonth, vatPercentage, r.year, r.month);
+              const salaryInherited = getInherited(managerSalaryByMonth, managerSalary, r.year, r.month);
               const hasMarkup = markupExplicit != null;
               const hasVat = vatExplicit != null;
+              const hasSalary = salaryExplicit != null;
               const isCurrent = r.year === curY && r.month === curM;
 
               return (
-                <div key={r.key} dir="rtl" style={{ direction: 'rtl' }} className="grid grid-cols-[140px_1fr_1fr] gap-[14px] items-center">
+                <div key={r.key} dir="rtl" style={{ direction: 'rtl' }} className="grid grid-cols-[140px_1.4fr_1fr_1fr] gap-[14px] items-center">
                   <div className="flex items-center justify-center gap-[6px]">
                     {isCurrent && (
                       <span className="text-[9px] bg-[#29318A] text-white px-[6px] py-[1px] rounded-full leading-[14px]">החודש</span>
                     )}
-                    <span className={`text-[13px] ${hasMarkup || hasVat ? "text-white font-medium" : "text-white/70"}`}>
+                    <span className={`text-[13px] ${hasMarkup || hasVat || hasSalary ? "text-white font-medium" : "text-white/70"}`}>
                       {r.label}
                     </span>
+                  </div>
+
+                  {/* Manager salary cell (₪) */}
+                  <div className={`relative border rounded-[8px] h-[38px] flex items-center ${hasSalary ? "border-white bg-[#1a1f3a]" : "border-[#4C526B]"}`}>
+                    <span className="text-white/50 text-[12px] pr-[8px]">₪</span>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      value={hasSalary ? formatNumberWithCommas(salaryExplicit) : ""}
+                      placeholder={salaryInherited > 0 ? formatNumberWithCommas(salaryInherited) : "0"}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setManagerSalaryByMonth((prev) => {
+                          const next = { ...prev };
+                          if (raw.trim() === "") {
+                            delete next[r.key];
+                          } else {
+                            const num = parseFormattedNumber(raw);
+                            if (Number.isFinite(num)) next[r.key] = num;
+                          }
+                          return next;
+                        });
+                        if (raw.trim() === "" && originalManagerSalaryByMonth[r.key] != null) {
+                          setClearedManagerSalaryKeys((prev) => {
+                            if (prev.has(r.key)) return prev;
+                            const next = new Set(prev);
+                            next.add(r.key);
+                            return next;
+                          });
+                        } else if (raw.trim() !== "" && clearedManagerSalaryKeys.has(r.key)) {
+                          setClearedManagerSalaryKeys((prev) => {
+                            const next = new Set(prev);
+                            next.delete(r.key);
+                            return next;
+                          });
+                        }
+                      }}
+                      className={`w-full h-full bg-transparent text-white text-[13px] text-center border-none outline-none px-[6px] placeholder:text-white/30 ${hasSalary ? "pl-[26px]" : ""}`}
+                    />
+                    {hasSalary && (
+                      <button
+                        type="button"
+                        onClick={() => clearSalary(r.key)}
+                        aria-label="אפס לחודש זה"
+                        title="אפס לחודש זה"
+                        className="absolute left-[4px] top-1/2 -translate-y-1/2 w-[22px] h-[22px] rounded-full bg-[#F64E60]/20 hover:bg-[#F64E60]/40 text-[#F64E60] flex items-center justify-center text-[14px] leading-none transition"
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
 
                   {/* Markup cell */}
