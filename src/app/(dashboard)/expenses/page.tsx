@@ -5086,18 +5086,6 @@ function ExpensesPageInner() {
                 )}
               </div>
 
-              {/* Date Field */}
-              <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">תאריך ערך</label>
-                <DatePickerField
-                  value={expenseDate}
-                  onChange={(val) => {
-                    setExpenseDate(val);
-                    referenceDateManuallySet.current = true;
-                  }}
-                />
-              </div>
-
               {/* Reference Date Field */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">תאריך חשבונית</label>
@@ -5105,6 +5093,18 @@ function ExpensesPageInner() {
                   value={referenceDate}
                   onChange={(val) => {
                     setReferenceDate(val);
+                    referenceDateManuallySet.current = true;
+                  }}
+                />
+              </div>
+
+              {/* Date Field */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[15px] font-medium text-white text-right">תאריך ערך</label>
+                <DatePickerField
+                  value={expenseDate}
+                  onChange={(val) => {
+                    setExpenseDate(val);
                     referenceDateManuallySet.current = true;
                   }}
                 />
@@ -5962,18 +5962,6 @@ function ExpensesPageInner() {
 
             {/* Form */}
             <div className="flex flex-col gap-[15px] px-[5px]">
-              {/* Date Field */}
-              <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">תאריך ערך</label>
-                <DatePickerField
-                  value={expenseDate}
-                  onChange={(val) => {
-                    setExpenseDate(val);
-                    referenceDateManuallySet.current = true;
-                  }}
-                />
-              </div>
-
               {/* Reference Date Field */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">תאריך חשבונית</label>
@@ -5981,6 +5969,18 @@ function ExpensesPageInner() {
                   value={referenceDate}
                   onChange={(val) => {
                     setReferenceDate(val);
+                    referenceDateManuallySet.current = true;
+                  }}
+                />
+              </div>
+
+              {/* Date Field */}
+              <div className="flex flex-col gap-[5px]">
+                <label className="text-[15px] font-medium text-white text-right">תאריך ערך</label>
+                <DatePickerField
+                  value={expenseDate}
+                  onChange={(val) => {
+                    setExpenseDate(val);
                     referenceDateManuallySet.current = true;
                   }}
                 />
