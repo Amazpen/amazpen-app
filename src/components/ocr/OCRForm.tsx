@@ -2314,7 +2314,6 @@ export default function OCRForm({
             setValueDate(val);
           }}
         />
-        <span className="text-[12px] text-white/50 text-right">התאריך שהאפליקציה תציג את ההוצאה לפיו (לרואה חשבון)</span>
       </div>
 
       {/* Supplier Select */}
