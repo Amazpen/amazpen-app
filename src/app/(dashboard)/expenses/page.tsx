@@ -5093,16 +5093,14 @@ function ExpensesPageInner() {
                   value={expenseDate}
                   onChange={(val) => {
                     setExpenseDate(val);
-                    if (!referenceDateManuallySet.current) {
-                      setReferenceDate(val);
-                    }
+                    referenceDateManuallySet.current = true;
                   }}
                 />
               </div>
 
               {/* Reference Date Field */}
               <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">תאריך אסמכתא</label>
+                <label className="text-[15px] font-medium text-white text-right">תאריך חשבונית</label>
                 <DatePickerField
                   value={referenceDate}
                   onChange={(val) => {
@@ -5971,16 +5969,14 @@ function ExpensesPageInner() {
                   value={expenseDate}
                   onChange={(val) => {
                     setExpenseDate(val);
-                    if (!referenceDateManuallySet.current) {
-                      setReferenceDate(val);
-                    }
+                    referenceDateManuallySet.current = true;
                   }}
                 />
               </div>
 
               {/* Reference Date Field */}
               <div className="flex flex-col gap-[5px]">
-                <label className="text-[15px] font-medium text-white text-right">תאריך אסמכתא</label>
+                <label className="text-[15px] font-medium text-white text-right">תאריך חשבונית</label>
                 <DatePickerField
                   value={referenceDate}
                   onChange={(val) => {
