@@ -66,9 +66,13 @@ export default function DocumentQueue({
   const [isBusinessFilterOpen, setIsBusinessFilterOpen] = useState(false);
 
   // Selected business label for the collapsed-header chip.
+  // 'unassigned' is a synthetic bucket for OCR docs that AI couldn't match
+  // to a business — admins should see these first so they can assign them.
   const selectedBusinessName = businessFilter === 'all'
     ? 'כל העסקים'
-    : (businessNameById.get(businessFilter) || 'עסק לא ידוע');
+    : businessFilter === 'unassigned'
+      ? 'לא מזוהים'
+      : (businessNameById.get(businessFilter) || 'עסק לא ידוע');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -125,9 +129,11 @@ export default function DocumentQueue({
     serialByDocId.set(doc.id, idx + 1);
   });
 
-  // Filter documents by status + business
+  // Filter documents by status + business.
+  // 'unassigned' = docs the AI couldn't match (no business_id) — admin-only bucket.
   const filteredDocuments = documents.filter((doc) => {
     if (filterStatus !== 'all' && doc.status !== filterStatus) return false;
+    if (businessFilter === 'unassigned') return !doc.business_id;
     if (businessFilter !== 'all' && doc.business_id !== businessFilter) return false;
     return true;
   });
@@ -135,7 +141,9 @@ export default function DocumentQueue({
   // Count by status (respecting current business filter so numbers match what's shown)
   const businessScoped = businessFilter === 'all'
     ? documents
-    : documents.filter((doc) => doc.business_id === businessFilter);
+    : businessFilter === 'unassigned'
+      ? documents.filter((doc) => !doc.business_id)
+      : documents.filter((doc) => doc.business_id === businessFilter);
   const statusCounts = businessScoped.reduce(
     (acc, doc) => {
       acc[doc.status] = (acc[doc.status] || 0) + 1;
@@ -145,11 +153,15 @@ export default function DocumentQueue({
   );
 
   // Count docs per business (for the business filter list, scoped to current status)
-  const businessCounts: Record<string, number> = { all: 0 };
+  const businessCounts: Record<string, number> = { all: 0, unassigned: 0 };
   for (const doc of documents) {
     if (filterStatus !== 'all' && doc.status !== filterStatus) continue;
     businessCounts.all += 1;
-    businessCounts[doc.business_id] = (businessCounts[doc.business_id] || 0) + 1;
+    if (!doc.business_id) {
+      businessCounts.unassigned += 1;
+    } else {
+      businessCounts[doc.business_id] = (businessCounts[doc.business_id] || 0) + 1;
+    }
   }
 
   // Vertical layout for desktop sidebar
@@ -188,13 +200,52 @@ export default function DocumentQueue({
                 <span className="text-white/40">עסק: </span>
                 {selectedBusinessName}
               </span>
-              <span className="text-[10px] min-w-[20px] h-[16px] flex items-center justify-center rounded-full bg-[#4C526B]/30 flex-shrink-0">
-                {(businessFilter === 'all' ? businessCounts.all : businessCounts[businessFilter]) || 0}
+              <span className={`text-[10px] min-w-[20px] h-[16px] flex items-center justify-center rounded-full flex-shrink-0 ${
+                businessFilter === 'unassigned' && businessCounts.unassigned > 0
+                  ? 'bg-[#F59E0B] text-[#0F1535] font-bold'
+                  : 'bg-[#4C526B]/30'
+              }`}>
+                {(businessFilter === 'all'
+                  ? businessCounts.all
+                  : businessFilter === 'unassigned'
+                    ? businessCounts.unassigned
+                    : businessCounts[businessFilter]) || 0}
               </span>
             </Button>
 
             {isBusinessFilterOpen && (
               <div className="flex flex-col gap-1 max-h-[220px] overflow-y-auto mt-1.5">
+                {/* Unassigned bucket — pinned to top so admins notice docs that need
+                    business assignment. Only rendered when there's at least one. */}
+                {businessCounts.unassigned > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      onBusinessFilterChange('unassigned');
+                      setIsBusinessFilterOpen(false);
+                    }}
+                    className={`w-full px-2.5 py-1.5 rounded-md text-[12px] font-bold transition-all flex items-center justify-between gap-2 border ${
+                      businessFilter === 'unassigned'
+                        ? 'bg-[#F59E0B] text-[#0F1535] border-[#F59E0B]'
+                        : 'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/40 hover:bg-[#F59E0B]/25'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 truncate flex-1 text-right justify-end">
+                      <span className="truncate">לא מזוהים</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                        <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                    </div>
+                    <span className={`text-[10px] min-w-[20px] h-[16px] flex items-center justify-center rounded-full font-bold ${
+                      businessFilter === 'unassigned' ? 'bg-[#0F1535]/30 text-[#0F1535]' : 'bg-[#F59E0B] text-[#0F1535]'
+                    }`}>
+                      {businessCounts.unassigned}
+                    </span>
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="ghost"

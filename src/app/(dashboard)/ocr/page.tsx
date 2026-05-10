@@ -8,7 +8,7 @@
  * image crop) hits /api/ai/ocr-extract-mistral.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDashboard } from '../layout';
 import { createClient } from '@/lib/supabase/client';
@@ -61,6 +61,27 @@ export default function OCRPage() {
     if (filterStatus === 'reviewing') setFilterStatus('pending');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Once-per-session: if the admin lands on the OCR queue and there are docs
+  // the AI couldn't match to a business, jump straight to the "unassigned"
+  // bucket so they handle those first. Won't override an explicit user pick
+  // (this only fires once per page load).
+  const didAutoSelectUnassignedRef = useRef(false);
+  useEffect(() => {
+    if (didAutoSelectUnassignedRef.current) return;
+    if (documents.length === 0) return;
+    // Only auto-switch when the user is on the default 'all' view; respect
+    // any explicit business they had previously pinned.
+    if (businessFilter !== 'all') {
+      didAutoSelectUnassignedRef.current = true;
+      return;
+    }
+    const hasUnassignedPending = documents.some(d => !d.business_id && d.status === 'pending');
+    if (hasUnassignedPending) {
+      setBusinessFilter('unassigned');
+    }
+    didAutoSelectUnassignedRef.current = true;
+  }, [documents, businessFilter, setBusinessFilter]);
   const [isLoading, setIsLoading] = useState(false);
   // Distinct from isLoading (which tracks per-action work like approve/reject):
   // tracks the very first fetch of documents+businesses. Used by the render
