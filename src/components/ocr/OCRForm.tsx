@@ -3685,8 +3685,21 @@ export default function OCRForm({
                         {monthInvs.map(inv => {
                           const isSelected = paymentSelectedInvoiceIds.has(inv.id);
                           const disabled = inv.status === 'clarification';
+                          // Reason can live in either clarification_reason (new flow) or notes (legacy /expenses).
+                          const reasonText = disabled
+                            ? ((inv.clarification_reason && inv.clarification_reason.trim())
+                                || (inv.notes && inv.notes.trim())
+                                || null)
+                            : null;
+                          // Outer card framing — single rounded container that holds the row, the dispute
+                          // notice, and the status changer. Avoids the previous "stacked-floating-pieces" look.
+                          const outerClasses = disabled
+                            ? 'rounded-[10px] border border-[#F59E0B]/40 bg-[#1a1f42] overflow-hidden'
+                            : isSelected
+                              ? 'rounded-[10px] border border-[#29318A] bg-[#29318A]/30 overflow-hidden'
+                              : 'rounded-[10px] border border-[#4C526B]/40 bg-[#1a1f42] hover:border-white/20 overflow-hidden';
                           return (
-                            <div key={inv.id} className="flex flex-col gap-[4px]">
+                            <div key={inv.id} className={`flex flex-col ${outerClasses}`}>
                               <button
                                 type="button"
                                 disabled={disabled}
@@ -3698,16 +3711,12 @@ export default function OCRForm({
                                     return next;
                                   });
                                 }}
-                                className={`flex items-center justify-between rounded-[8px] p-[10px] transition-colors ${
-                                  disabled
-                                    ? 'bg-[#1a1f42] border border-[#F59E0B]/30 opacity-60 cursor-not-allowed'
-                                    : isSelected
-                                      ? 'bg-[#29318A]/40 border border-[#29318A] cursor-pointer'
-                                      : 'bg-[#1a1f42] border border-transparent hover:border-white/20 cursor-pointer'
+                                className={`flex items-center justify-between p-[10px] transition-colors ${
+                                  disabled ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer hover:bg-white/[0.03]'
                                 }`}
                               >
                                 <div className="flex items-center gap-[8px]">
-                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={isSelected ? 'text-[#3CD856]' : 'text-white/30'}>
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={isSelected ? 'text-[#3CD856]' : disabled ? 'text-[#F59E0B]/40' : 'text-white/30'}>
                                     {isSelected ? (
                                       <><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2" fill="currentColor"/><path d="M8 12l3 3 5-5" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></>
                                     ) : (
@@ -3725,38 +3734,30 @@ export default function OCRForm({
                                   </span>
                                 </div>
                               </button>
-                              {disabled && (() => {
-                                // Reason can be stored in either column historically — clarification_reason
-                                // (newer flow) or notes (legacy /expenses save path). Prefer the dedicated
-                                // column when present, fall back to notes, otherwise admit we don't have one.
-                                const reasonText = (inv.clarification_reason && inv.clarification_reason.trim())
-                                  || (inv.notes && inv.notes.trim())
-                                  || null;
-                                return (
-                                  <div className="flex items-start gap-[6px] px-[10px] py-[6px] bg-[#F59E0B]/10 border border-[#F59E0B]/30 rounded-[6px]" dir="rtl">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-[#F59E0B] flex-shrink-0 mt-[2px]">
-                                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                                      <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                                      <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                                    </svg>
-                                    <div className="flex flex-col gap-[4px] flex-1 text-right">
-                                      <span className="text-[11px] font-semibold text-[#F59E0B]">בבירור — לא ניתן לתשלום</span>
-                                      <span className="text-[11px] text-white/80 leading-[1.4]">
-                                        {reasonText
-                                          ? <><span className="text-white/50">סיבה: </span>{reasonText}</>
-                                          : <span className="text-white/40 italic">לא צוינה סיבה</span>}
-                                      </span>
-                                    </div>
+
+                              {disabled && (
+                                <div className="flex items-start gap-[8px] px-[10px] py-[8px] bg-[#F59E0B]/10 border-t border-[#F59E0B]/25" dir="rtl">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-[#F59E0B] flex-shrink-0 mt-[2px]">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                                    <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                  </svg>
+                                  <div className="flex flex-col gap-[2px] flex-1 text-right min-w-0">
+                                    <span className="text-[11px] font-semibold text-[#F59E0B]">בבירור — לא ניתן לתשלום</span>
+                                    <span className="text-[11px] text-white/80 leading-[1.4] break-words">
+                                      {reasonText
+                                        ? <><span className="text-white/50">סיבה: </span>{reasonText}</>
+                                        : <span className="text-white/40 italic">לא צוינה סיבה</span>}
+                                    </span>
                                   </div>
-                                );
-                              })()}
-                              {/* Status changer — same 3 options as /expenses, available on every row.
-                                  Disabled rows ('clarification') need this so admins can release them
-                                  back to 'pending'; pending rows expose it too in case the user wants to
-                                  flag a dispute (→ 'clarification') or mark as paid without processing
-                                  a payment row. */}
-                              <div className="flex items-center gap-[6px] px-[10px]" dir="rtl">
-                                <span className="text-[11px] text-white/50">סטטוס:</span>
+                                </div>
+                              )}
+
+                              {/* Status changer — same 3 options as /expenses, on every row, anchored
+                                  to the bottom of the card with a soft divider so it reads as a
+                                  meta-action rather than a floating control. */}
+                              <div className="flex items-center justify-between gap-[8px] px-[10px] py-[6px] border-t border-white/[0.06] bg-white/[0.02]" dir="rtl">
+                                <span className="text-[11px] text-white/50">שינוי סטטוס</span>
                                 <select
                                   value={inv.status}
                                   onChange={(e) => {
@@ -3769,7 +3770,7 @@ export default function OCRForm({
                                       () => updateOpenInvoiceStatus(inv.id, newStatus)
                                     );
                                   }}
-                                  className="bg-[#1a1f42] border border-[#4C526B] text-white text-[11px] rounded-[4px] px-[6px] py-[3px] cursor-pointer focus:outline-none focus:border-[#29318A]"
+                                  className="bg-transparent border border-[#4C526B]/60 text-white/90 text-[11px] rounded-[6px] px-[8px] py-[3px] cursor-pointer focus:outline-none focus:border-[#29318A] hover:border-white/40 transition-colors"
                                 >
                                   <option value="pending" className="bg-[#1A1F3D]">ממתין לתשלום</option>
                                   <option value="paid" className="bg-[#1A1F3D]">שולם</option>
