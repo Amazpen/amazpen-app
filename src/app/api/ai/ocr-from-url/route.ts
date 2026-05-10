@@ -190,6 +190,13 @@ async function runMistralOcr(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     document: doc as any,
     includeImageBase64: false,
+    // CRITICAL: imageLimit=0 forces Mistral to extract every region as TEXT
+    // instead of returning ![img-N.jpeg] placeholders. Without this, dense
+    // Hebrew invoice tables get classified as "embedded images" and the
+    // markdown comes back with placeholder URLs but no actual text — exactly
+    // the failure we hit on milouf and prego invoices.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    imageLimit: 0 as any,
   })) as MistralOcrResponse;
   const pages = result.pages || [];
   const markdown = pages
