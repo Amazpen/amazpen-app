@@ -412,20 +412,45 @@ export default function InsightsPage() {
       const bizProducts = (productUsage || []).filter((p) => entryIds.includes(p.daily_entry_id));
 
       // ====================================================================
-      // 1. REVENUE: Monthly trend
+      // PACE PROJECTIONS — every insight that compares actuals to a
+      // monthly figure (fixed-expense budget, monthly target, etc.) MUST
+      // use these projections instead of partial-month actuals. Otherwise
+      // ratios on day 7 of a 31-day month look catastrophic just because
+      // the denominator is 1/4 of what it'll be by month-end.
       // ====================================================================
-      if (prevTotal > 0 && currentTotal > 0) {
-        const changePct = ((currentTotal - prevTotal) / prevTotal) * 100;
+      const dailyAvgRevenue = actualWorkDays > 0 ? currentTotal / actualWorkDays : 0;
+      const monthlyPaceRevenue = dailyAvgRevenue * daysInMonth;
+      const monthlyPaceIncomeBeforeVat = monthlyPaceRevenue / (1 + vatPct);
+
+      // For partial-month invoice/labor totals, we project to a full-month
+      // figure ONLY when at least 3 work-days have been logged. With fewer
+      // entries the projection is too noisy to trust.
+      const haveEnoughData = entries.length >= 3 && actualWorkDays > 0;
+      const paceMultiplier = haveEnoughData ? daysInMonth / actualWorkDays : 1;
+      const projectedGoods = totalGoods * paceMultiplier;
+      const projectedCurrentExp = totalCurrentExp * paceMultiplier;
+      const projectedLaborWithManager = laborCostWithManager * paceMultiplier;
+
+      // ====================================================================
+      // 1. REVENUE: Monthly trend — pace vs previous full month
+      // We compare the projected pace against the previous full month so
+      // mid-month entries don't fake a giant drop. (Old behaviour: 7-day
+      // partial vs 30-day full → "ירידה 66%" even when actually trending
+      // up.) If we don't have enough data for a stable pace yet, skip the
+      // insight rather than generating a misleading one.
+      // ====================================================================
+      if (prevTotal > 0 && currentTotal > 0 && haveEnoughData && monthlyPaceRevenue > 0) {
+        const changePct = ((monthlyPaceRevenue - prevTotal) / prevTotal) * 100;
         const isUp = changePct > 0;
         results.push({
           id: "revenue-trend",
-          title: isUp ? "מגמת הכנסות עולה" : "ירידה בהכנסות לעומת חודש קודם",
+          title: isUp ? "צפי עלייה בהכנסות לעומת חודש קודם" : "צפי ירידה בהכנסות לעומת חודש קודם",
           description: isUp
-            ? `ההכנסות החודש עלו ב-${formatPercent(Math.abs(changePct))} בהשוואה לחודש שעבר. המומנטום חיובי — כדאי לבדוק מה השתנה ולהמשיך את המגמה.`
-            : `ההכנסות החודש ירדו ב-${formatPercent(Math.abs(changePct))} לעומת חודש קודם. מומלץ לבדוק אם מדובר בעונתיות או בבעיה שצריך לטפל בה.`,
+            ? `לפי הקצב הנוכחי, ההכנסות לסוף החודש צפויות להגיע ל-${formatCurrencyFull(monthlyPaceRevenue)} — עלייה של ${formatPercent(Math.abs(changePct))} לעומת ${formatCurrencyFull(prevTotal)} בחודש שעבר.`
+            : `לפי הקצב הנוכחי, ההכנסות לסוף החודש צפויות להגיע ל-${formatCurrencyFull(monthlyPaceRevenue)} — ירידה של ${formatPercent(Math.abs(changePct))} לעומת ${formatCurrencyFull(prevTotal)} בחודש שעבר.`,
           severity: isUp ? "positive" : "negative",
           category: "revenue",
-          value: `${formatCurrencyFull(currentTotal)} (חודש נוכחי) מול ${formatCurrencyFull(prevTotal)} (חודש קודם)`,
+          value: `קצב צפוי: ${formatCurrencyFull(monthlyPaceRevenue)} | חודש קודם: ${formatCurrencyFull(prevTotal)}`,
         });
       }
 
@@ -690,55 +715,60 @@ export default function InsightsPage() {
           });
         }
 
-        // Food cost change vs prev month
-        if (prevGoods > 0) {
-          const foodChange = ((totalGoods - prevGoods) / prevGoods) * 100;
+        // Food cost change vs prev month — projected to month-end
+        if (prevGoods > 0 && haveEnoughData) {
+          const foodChange = ((projectedGoods - prevGoods) / prevGoods) * 100;
           if (Math.abs(foodChange) > 10) {
             results.push({
               id: "food-cost-trend",
-              title: foodChange > 0 ? "עלייה בעלויות סחורה" : "ירידה בעלויות סחורה",
+              title: foodChange > 0 ? "צפי עלייה בעלויות סחורה" : "צפי ירידה בעלויות סחורה",
               description: foodChange > 0
-                ? `עלויות הסחורה (קניות) עלו ב-${formatPercent(Math.abs(foodChange))} לעומת חודש קודם. כדאי לבדוק: עליית מחירי ספקים? הזמנות גדולות יותר? פחת שעלה?`
-                : `עלויות הסחורה ירדו ב-${formatPercent(Math.abs(foodChange))} לעומת חודש קודם. אם לא ירדה הפעילות — זו חיסכון אמיתי.`,
+                ? `לפי הקצב הנוכחי, עלויות הסחורה לסוף החודש צפויות להגיע ל-${formatCurrencyFull(projectedGoods)} — עלייה של ${formatPercent(Math.abs(foodChange))} לעומת ${formatCurrencyFull(prevGoods)} בחודש שעבר. כדאי לבדוק: עליית מחירי ספקים? הזמנות גדולות יותר? פחת שעלה?`
+                : `לפי הקצב הנוכחי, עלויות הסחורה לסוף החודש צפויות להיות ${formatCurrencyFull(projectedGoods)} — ירידה של ${formatPercent(Math.abs(foodChange))} לעומת ${formatCurrencyFull(prevGoods)} בחודש שעבר.`,
               severity: foodChange > 15 ? "negative" : foodChange > 0 ? "warning" : "positive",
               category: "suppliers",
-              value: `${formatCurrencyFull(totalGoods)} (חודש נוכחי) מול ${formatCurrencyFull(prevGoods)} (חודש קודם)`,
+              value: `קצב צפוי: ${formatCurrencyFull(projectedGoods)} | חודש קודם: ${formatCurrencyFull(prevGoods)}`,
             });
           }
         }
       }
 
       // ====================================================================
-      // 9. EXPENSES: Current expenses analysis
+      // 9. EXPENSES: Current expenses analysis — projected to full month
+      // current_expenses_target is a full-month target, so compare it to
+      // the projected month-end actuals (otherwise day-7 numbers always
+      // look "way under target").
       // ====================================================================
       if (incomeBeforeVat > 0 && totalCurrentExp > 0) {
-        const expPct = (totalCurrentExp / incomeBeforeVat) * 100;
+        const expPct = monthlyPaceIncomeBeforeVat > 0
+          ? (projectedCurrentExp / monthlyPaceIncomeBeforeVat) * 100
+          : (totalCurrentExp / incomeBeforeVat) * 100;
         const expTarget = goal ? Number(goal.current_expenses_target) || 0 : 0;
 
-        if (expTarget > 0) {
-          const diff = totalCurrentExp - expTarget;
+        if (expTarget > 0 && haveEnoughData) {
+          const diff = projectedCurrentExp - expTarget;
           results.push({
             id: "current-exp-target",
-            title: diff > 0 ? "חריגה ביעד הוצאות שוטפות" : "הוצאות שוטפות מתחת ליעד",
+            title: diff > 0 ? "צפי חריגה ביעד הוצאות שוטפות" : "הוצאות שוטפות צפויות מתחת ליעד",
             description: diff > 0
-              ? `ההוצאות השוטפות הגיעו ל-${formatCurrencyFull(totalCurrentExp)} — חריגה של ${formatCurrencyFull(Math.abs(diff))} מיעד ${formatCurrencyFull(expTarget)}.`
-              : `ההוצאות השוטפות הן ${formatCurrencyFull(totalCurrentExp)} — מתחת ליעד של ${formatCurrencyFull(expTarget)} ב-${formatCurrencyFull(Math.abs(diff))}.`,
+              ? `לפי הקצב הנוכחי, ההוצאות השוטפות לסוף החודש צפויות להגיע ל-${formatCurrencyFull(projectedCurrentExp)} (כרגע ${formatCurrencyFull(totalCurrentExp)} ב-${entries.length} ימים) — חריגה של ${formatCurrencyFull(Math.abs(diff))} מיעד ${formatCurrencyFull(expTarget)}.`
+              : `לפי הקצב הנוכחי, ההוצאות השוטפות לסוף החודש צפויות להיות ${formatCurrencyFull(projectedCurrentExp)} (כרגע ${formatCurrencyFull(totalCurrentExp)} ב-${entries.length} ימים) — ${formatCurrencyFull(Math.abs(diff))} מתחת ליעד ${formatCurrencyFull(expTarget)}.`,
             severity: diff > 0 ? "negative" : "positive",
             category: "expenses",
-            value: `${formatCurrencyFull(totalCurrentExp)} (${formatPercent(expPct)} מפדיון) | יעד: ${formatCurrencyFull(expTarget)}`,
+            value: `קצב צפוי: ${formatCurrencyFull(projectedCurrentExp)} (${formatPercent(expPct)} מקצב פדיון) | יעד: ${formatCurrencyFull(expTarget)}`,
           });
         }
 
-        // Current expenses change vs prev month
-        if (prevCurrentExp > 0) {
-          const expChange = ((totalCurrentExp - prevCurrentExp) / prevCurrentExp) * 100;
+        // Current expenses change vs prev month — projected to month-end
+        if (prevCurrentExp > 0 && haveEnoughData) {
+          const expChange = ((projectedCurrentExp - prevCurrentExp) / prevCurrentExp) * 100;
           if (Math.abs(expChange) > 10) {
             results.push({
               id: "current-exp-trend",
-              title: expChange > 0 ? "עלייה בהוצאות שוטפות" : "ירידה בהוצאות שוטפות",
+              title: expChange > 0 ? "צפי עלייה בהוצאות שוטפות" : "צפי ירידה בהוצאות שוטפות",
               description: expChange > 0
-                ? `ההוצאות השוטפות עלו ב-${formatPercent(Math.abs(expChange))} לעומת חודש קודם (${formatCurrencyFull(totalCurrentExp)} מול ${formatCurrencyFull(prevCurrentExp)}). כדאי לבדוק אילו ספקים גדלו.`
-                : `ההוצאות השוטפות ירדו ב-${formatPercent(Math.abs(expChange))} לעומת חודש קודם. חיסכון של ${formatCurrencyFull(Math.abs(totalCurrentExp - prevCurrentExp))}.`,
+                ? `לפי הקצב הנוכחי, ההוצאות השוטפות לסוף החודש צפויות לעלות ב-${formatPercent(Math.abs(expChange))} לעומת חודש קודם (${formatCurrencyFull(projectedCurrentExp)} מול ${formatCurrencyFull(prevCurrentExp)}). כדאי לבדוק אילו ספקים גדלו.`
+                : `לפי הקצב הנוכחי, ההוצאות השוטפות לסוף החודש צפויות לרדת ב-${formatPercent(Math.abs(expChange))} לעומת חודש קודם. חיסכון של ${formatCurrencyFull(Math.abs(projectedCurrentExp - prevCurrentExp))}.`,
               severity: expChange > 0 ? "warning" : "positive",
               category: "expenses",
             });
@@ -747,22 +777,28 @@ export default function InsightsPage() {
       }
 
       // ====================================================================
-      // 10. PROFIT: Operating profit calculation
+      // 10. PROFIT: Operating profit — projected to month-end
+      // Was comparing partial actuals (₪40k income from 7 days) against a
+      // mix of partial+full expenses and screaming "27.6% loss". Now we
+      // project everything to a full-month basis so day-of-month doesn't
+      // distort the picture.
       // ====================================================================
-      if (incomeBeforeVat > 0) {
-        const allExpenses = laborCostWithManager + totalGoods + totalCurrentExp;
-        const operatingProfit = incomeBeforeVat - allExpenses;
-        const profitPct = (operatingProfit / incomeBeforeVat) * 100;
+      if (haveEnoughData && monthlyPaceIncomeBeforeVat > 0) {
+        const projectedExpenses = projectedLaborWithManager + projectedGoods + projectedCurrentExp;
+        const projectedProfit = monthlyPaceIncomeBeforeVat - projectedExpenses;
+        const profitPct = (projectedProfit / monthlyPaceIncomeBeforeVat) * 100;
 
         results.push({
           id: "operating-profit",
-          title: operatingProfit >= 0 ? `רווח תפעולי: ${formatPercent(profitPct)}` : `הפסד תפעולי: ${formatPercent(Math.abs(profitPct))}`,
-          description: operatingProfit >= 0
-            ? `אחרי כל ההוצאות (כ״א: ${formatCurrencyFull(laborCostWithManager)}, סחורה: ${formatCurrencyFull(totalGoods)}, שוטפות: ${formatCurrencyFull(totalCurrentExp)}), נותר רווח תפעולי של ${formatCurrencyFull(operatingProfit)} (${formatPercent(profitPct)} מהפדיון).`
-            : `סך ההוצאות (${formatCurrencyFull(allExpenses)}) עולה על הפדיון (${formatCurrencyFull(incomeBeforeVat)}). הפסד תפעולי של ${formatCurrencyFull(Math.abs(operatingProfit))}. נדרשת בדיקה דחופה.`,
+          title: projectedProfit >= 0
+            ? `רווח תפעולי צפוי: ${formatPercent(profitPct)}`
+            : `הפסד תפעולי צפוי: ${formatPercent(Math.abs(profitPct))}`,
+          description: projectedProfit >= 0
+            ? `לפי הקצב הנוכחי (${formatCurrencyFull(monthlyPaceIncomeBeforeVat)} פדיון לפני מע״מ לסוף החודש), הוצאות צפויות: כ״א ${formatCurrencyFull(projectedLaborWithManager)}, סחורה ${formatCurrencyFull(projectedGoods)}, שוטפות ${formatCurrencyFull(projectedCurrentExp)}. רווח צפוי: ${formatCurrencyFull(projectedProfit)}.`
+            : `לפי הקצב הנוכחי (${formatCurrencyFull(monthlyPaceIncomeBeforeVat)} פדיון לפני מע״מ צפוי), סך ההוצאות הצפויות (${formatCurrencyFull(projectedExpenses)}) יעלה על הפדיון. הפסד צפוי של ${formatCurrencyFull(Math.abs(projectedProfit))}. כדאי לבדוק דחוף.`,
           severity: profitPct > 10 ? "positive" : profitPct > 0 ? "info" : "negative",
           category: "revenue",
-          value: `פדיון: ${formatCurrencyFull(incomeBeforeVat)} | הוצאות: ${formatCurrencyFull(allExpenses)} | רווח: ${formatCurrencyFull(operatingProfit)}`,
+          value: `קצב פדיון: ${formatCurrencyFull(monthlyPaceIncomeBeforeVat)} | קצב הוצאות: ${formatCurrencyFull(projectedExpenses)} | רווח: ${formatCurrencyFull(projectedProfit)}`,
         });
       }
 
@@ -798,21 +834,26 @@ export default function InsightsPage() {
       }
 
       // ====================================================================
-      // 12. FIXED EXPENSES: Review
+      // 12. FIXED EXPENSES: Review — compared to monthly pace
+      // The denominator MUST be the projected monthly revenue (full-month
+      // figure) because monthly_expense_amount is itself a full-month
+      // budget. Comparing it to partial-month revenue made it look like
+      // fixed expenses were 79% of income on day 7 — they're really ~13%.
       // ====================================================================
       if (fixedSuppliers && fixedSuppliers.length > 0) {
         const totalFixed = fixedSuppliers.reduce((s, sup) => s + (Number(sup.monthly_expense_amount) || 0), 0);
-        if (totalFixed > 0 && incomeBeforeVat > 0) {
-          const fixedPct = (totalFixed / incomeBeforeVat) * 100;
+        const denomIncomeBeforeVat = monthlyPaceIncomeBeforeVat > 0 ? monthlyPaceIncomeBeforeVat : incomeBeforeVat;
+        if (totalFixed > 0 && denomIncomeBeforeVat > 0) {
+          const fixedPct = (totalFixed / denomIncomeBeforeVat) * 100;
           const topFixed = [...fixedSuppliers].sort((a, b) => (Number(b.monthly_expense_amount) || 0) - (Number(a.monthly_expense_amount) || 0)).slice(0, 3);
 
           results.push({
             id: "fixed-expenses",
             title: `${fixedSuppliers.length} הוצאות קבועות — ${formatCurrencyFull(totalFixed)}/חודש`,
-            description: `הוצאות קבועות מהוות ${formatPercent(fixedPct)} מהפדיון. הגדולות: ${topFixed.map((s) => `${s.name} (${formatCurrencyFull(Number(s.monthly_expense_amount) || 0)})`).join(", ")}. ${fixedPct > 20 ? "מומלץ לעבור על הרשימה ולבדוק אם כולן הכרחיות." : "הרמה סבירה."}`,
+            description: `הוצאות קבועות מהוות ${formatPercent(fixedPct)} מהקצב החודשי הצפוי (${formatCurrencyFull(denomIncomeBeforeVat)} לפני מע״מ). הגדולות: ${topFixed.map((s) => `${s.name} (${formatCurrencyFull(Number(s.monthly_expense_amount) || 0)})`).join(", ")}. ${fixedPct > 20 ? "מומלץ לעבור על הרשימה ולבדוק אם כולן הכרחיות." : "הרמה סבירה."}`,
             severity: fixedPct > 25 ? "warning" : "info",
             category: "expenses",
-            value: `${formatCurrencyFull(totalFixed)} / חודש (${formatPercent(fixedPct)} מפדיון)`,
+            value: `${formatCurrencyFull(totalFixed)} / חודש (${formatPercent(fixedPct)} מקצב פדיון)`,
           });
         }
       }
@@ -1118,23 +1159,22 @@ export default function InsightsPage() {
       }
 
       // ====================================================================
-      // 23. NET CASHFLOW: Income vs all expenses this month
-      // We previously subtracted both `payment_splits.due_date in month` AND
-      // `invoices.subtotal in month` — but these represent the same money
-      // moving once (a payment is the execution of an invoice's payment
-      // terms), so the net was double-counted on the expense side.
-      // Use only the invoice totals (goods + current expenses) to match the
-      // dashboard's P&L logic.
+      // 23. NET CASHFLOW: Income vs expenses — projected to month-end
+      // Same reasoning as operating-profit: comparing partial-month income
+      // to partial-month expenses can give misleading results when
+      // expenses include fixed-cycle invoices that hit early in the month
+      // (rent on the 1st, etc). Project both sides to month-end.
       // ====================================================================
-      if (currentTotal > 0 && totalAllExpenses > 0) {
-        const netCashflow = incomeBeforeVat - totalAllExpenses;
+      if (haveEnoughData && monthlyPaceIncomeBeforeVat > 0 && (projectedGoods + projectedCurrentExp) > 0) {
+        const projectedExpenses = projectedGoods + projectedCurrentExp;
+        const netCashflow = monthlyPaceIncomeBeforeVat - projectedExpenses;
         results.push({
           id: "net-cashflow",
-          title: netCashflow >= 0 ? "תזרים חודשי חיובי" : "תזרים חודשי שלילי",
-          description: `הכנסות לפני מע״מ: ${formatCurrencyFull(incomeBeforeVat)}, סחורה: ${formatCurrencyFull(totalGoods)}, הוצאות שוטפות: ${formatCurrencyFull(totalCurrentExp)}. ${netCashflow >= 0 ? `נשאר עודף של ${formatCurrencyFull(netCashflow)}.` : `חסרים ${formatCurrencyFull(Math.abs(netCashflow))}.`}`,
+          title: netCashflow >= 0 ? "תזרים חודשי צפוי חיובי" : "תזרים חודשי צפוי שלילי",
+          description: `לפי הקצב הנוכחי לסוף החודש: הכנסות לפני מע״מ ${formatCurrencyFull(monthlyPaceIncomeBeforeVat)}, סחורה ${formatCurrencyFull(projectedGoods)}, הוצאות שוטפות ${formatCurrencyFull(projectedCurrentExp)}. ${netCashflow >= 0 ? `צפוי עודף של ${formatCurrencyFull(netCashflow)}.` : `צפוי חוסר של ${formatCurrencyFull(Math.abs(netCashflow))}.`}`,
           severity: netCashflow >= 0 ? "positive" : "negative",
           category: "cashflow",
-          value: `נטו: ${formatCurrencyFull(netCashflow)}`,
+          value: `נטו צפוי: ${formatCurrencyFull(netCashflow)}`,
         });
       }
 
