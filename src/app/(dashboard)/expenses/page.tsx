@@ -1875,7 +1875,10 @@ function ExpensesPageInner() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showStatusMenu, showFilterMenu]);
 
-  // Live duplicate-invoice detection (same business + supplier + invoice_number)
+  // Live duplicate detection — checks BOTH invoices (invoice_number) AND
+  // delivery_notes (delivery_note_number) for the same business + supplier,
+  // so a user who types a number that already exists as a delivery note also
+  // sees the warning before creating a duplicate expense row.
   useEffect(() => {
     setDuplicateWarning(null);
     const num = invoiceNumber.trim();
@@ -1883,16 +1886,30 @@ function ExpensesPageInner() {
     if (linkToCoordinator || linkToFixedInvoiceId) return;
     const timer = setTimeout(async () => {
       const supabase = createClient();
-      const { data } = await supabase
-        .from("invoices")
-        .select("id")
-        .eq("business_id", selectedBusinesses[0])
-        .eq("supplier_id", selectedSupplier)
-        .eq("invoice_number", num)
-        .limit(1);
-      if (data && data.length > 0) {
-        const supplierName = suppliers.find(s => s.id === selectedSupplier)?.name || "הספק";
+      const supplierName = suppliers.find(s => s.id === selectedSupplier)?.name || "הספק";
+
+      const [{ data: invRows }, { data: dnRows }] = await Promise.all([
+        supabase
+          .from("invoices")
+          .select("id")
+          .eq("business_id", selectedBusinesses[0])
+          .eq("supplier_id", selectedSupplier)
+          .eq("invoice_number", num)
+          .is("deleted_at", null)
+          .limit(1),
+        supabase
+          .from("delivery_notes")
+          .select("id")
+          .eq("business_id", selectedBusinesses[0])
+          .eq("supplier_id", selectedSupplier)
+          .eq("delivery_note_number", num)
+          .limit(1),
+      ]);
+
+      if (invRows && invRows.length > 0) {
         setDuplicateWarning(`כבר קיימת חשבונית עם מספר ${num} לספק ${supplierName}`);
+      } else if (dnRows && dnRows.length > 0) {
+        setDuplicateWarning(`כבר קיימת תעודת משלוח עם מספר ${num} לספק ${supplierName}`);
       }
     }, 500);
     return () => clearTimeout(timer);

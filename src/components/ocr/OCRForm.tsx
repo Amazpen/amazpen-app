@@ -710,28 +710,47 @@ export default function OCRForm({
         return;
       }
 
-      const isDeliveryNote = documentType === 'delivery_note';
-      const table = isDeliveryNote ? 'delivery_notes' : 'invoices';
-      const numberCol = isDeliveryNote ? 'delivery_note_number' : 'invoice_number';
+      // Check BOTH invoices and delivery_notes — the user expects a warning
+      // whenever the typed number collides with an existing document of either
+      // kind for this supplier, regardless of which tab is active.
+      // Note: delivery_notes has no deleted_at column, only invoices does.
+      const [invRes, dnRes] = await Promise.all([
+        supabase
+          .from('invoices')
+          .select('id, attachment_url')
+          .eq('business_id', selectedBusinessId)
+          .eq('supplier_id', supId)
+          .eq('invoice_number', docNum)
+          .is('deleted_at', null)
+          .limit(1),
+        supabase
+          .from('delivery_notes')
+          .select('id, attachment_url')
+          .eq('business_id', selectedBusinessId)
+          .eq('supplier_id', supId)
+          .eq('delivery_note_number', docNum)
+          .limit(1),
+      ]);
 
-      const { data, error } = await supabase
-        .from(table)
-        .select('id, attachment_url')
-        .eq('business_id', selectedBusinessId)
-        .eq('supplier_id', supId)
-        .eq(numberCol, docNum)
-        .is('deleted_at', null)
-        .limit(1);
+      const supplierName = suppliers.find(s => s.id === supId)?.name || 'הספק';
+      const invRow = (invRes.data && invRes.data[0]) as { id: string; attachment_url: string | null } | undefined;
+      const dnRow = (dnRes.data && dnRes.data[0]) as { id: string; attachment_url: string | null } | undefined;
 
-      if (!error && data && data.length > 0) {
-        const supplierName = suppliers.find(s => s.id === supId)?.name || 'הספק';
-        const row = data[0] as { id: string; attachment_url: string | null };
-        setDuplicateWarning(`כבר קיים מסמך עם מספר ${docNum} לספק ${supplierName}`);
+      if (invRow) {
+        setDuplicateWarning(`כבר קיימת חשבונית עם מספר ${docNum} לספק ${supplierName}`);
         setDuplicateExisting({
-          id: row.id,
-          kind: isDeliveryNote ? 'delivery_note' : 'invoice',
+          id: invRow.id,
+          kind: 'invoice',
           documentNumber: docNum,
-          attachmentUrl: row.attachment_url ?? null,
+          attachmentUrl: invRow.attachment_url ?? null,
+        });
+      } else if (dnRow) {
+        setDuplicateWarning(`כבר קיימת תעודת משלוח עם מספר ${docNum} לספק ${supplierName}`);
+        setDuplicateExisting({
+          id: dnRow.id,
+          kind: 'delivery_note',
+          documentNumber: docNum,
+          attachmentUrl: dnRow.attachment_url ?? null,
         });
       }
     }, 500); // debounce
