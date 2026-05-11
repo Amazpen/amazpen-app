@@ -1160,7 +1160,7 @@ export default function SuppliersPage() {
     // 1. Fetch invoices for this supplier IN THIS BUSINESS for the month (by invoice_date, not reference_date — matches what the user sees)
     const { data: monthlyInvoices } = await supabase
       .from("invoices")
-      .select("id, total_amount")
+      .select("id, total_amount, status")
       .eq("supplier_id", supplier.id)
       .eq("business_id", supplier.business_id)
       .is("deleted_at", null)
@@ -1237,7 +1237,22 @@ export default function SuppliersPage() {
       expectedPaymentDate = expectedDate.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
     }
 
-    return { expectedPaymentDate, monthlyPurchases, monthlyPaid, amountToPay: monthlyPurchases - monthlyPaid, paymentsInMonthTotal };
+    // amountToPay = sum of OPEN invoices (pending / clarification) for this month.
+    // This matches the "יתרה לתשלום" pill at the top of the supplier panel and
+    // intentionally ignores `monthlyPaid`. Reason: imported / legacy payments
+    // often have no link to a specific invoice (no row in
+    // `payment_invoice_links` and no `payments.invoice_id` FK). When we
+    // computed "יתרה = purchases - paid" those payments were invisible here
+    // but counted in totalPaid above, so months whose invoices were actually
+    // settled showed a phantom unpaid balance and the breakdown total
+    // diverged from "יתרה לתשלום". Trusting `invoices.status` keeps the two
+    // numbers consistent and uses the same source of truth the payments page
+    // uses to decide what's outstanding.
+    const monthlyOpenBalance = (monthlyInvoices || [])
+      .filter((inv) => inv.status === "pending" || inv.status === "clarification")
+      .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+
+    return { expectedPaymentDate, monthlyPurchases, monthlyPaid, amountToPay: monthlyOpenBalance, paymentsInMonthTotal };
   }, []);
 
   // Handle opening supplier detail popup
@@ -1323,18 +1338,15 @@ export default function SuppliersPage() {
       // Fetch monthly data for current month
       const monthlyData = await fetchMonthlyData(supplier, new Date(now.getFullYear(), now.getMonth(), 1));
 
-      // Fetch last 6 months breakdown. David #14: the previous version
-      // showed "שולם" as `paymentsInMonthTotal` (sum of payments by
-      // payment_date), which made any month that received a back-payment
-      // look like it had a giant credit balance. Example for גד at פרגו
-      // נס ציונה — Jan 2026 had ₪13K of invoices but a ₪88K back-payment
-      // for Oct-Dec 2025, producing "יתרה -75K" that confused David.
-      //
-      // Fix: "שולם" = `monthlyPaid` (sum of allocations against THAT
-      // month's invoices). A month with only a back-payment now shows
-      // purchases=0, paid=0 (the payment is bookkept against the older
-      // month it actually settled), and the "יתרה" reflects the real
-      // outstanding balance for that month's invoices.
+      // Fetch last 6 months breakdown.
+      // "שולם" = `monthlyPaid` (allocations against THAT month's invoices) —
+      //   keeps back-payments bookkept against the month they actually
+      //   settled (David #14: previously used paymentsInMonthTotal and
+      //   January looked like a -75K credit because of an 88K Oct–Dec
+      //   back-payment).
+      // "יתרה" = open invoices (pending/clarification) for the month —
+      //   matches the "יתרה לתשלום" pill at the top, and survives imported
+      //   payments that have no link row.
       const breakdownMonths: Array<{ month: string; purchases: number; paid: number; amountToPay: number }> = [];
       for (let i = 0; i < 6; i++) {
         const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -1345,7 +1357,7 @@ export default function SuppliersPage() {
             month: mDate.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
             purchases: mData.monthlyPurchases,
             paid: mData.monthlyPaid,
-            amountToPay: mData.monthlyPurchases - mData.monthlyPaid,
+            amountToPay: mData.amountToPay,
           });
         }
       }
