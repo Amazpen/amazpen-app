@@ -15,7 +15,7 @@ interface Supplier {
 
 export default function PriceTrackingPage() {
   const router = useRouter();
-  const { selectedBusinesses, isAdmin } = useDashboard();
+  const { selectedBusinesses, isAdmin, isProfileLoading } = useDashboard();
   const businessId = selectedBusinesses[0] || '';
 
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
@@ -169,11 +169,13 @@ export default function PriceTrackingPage() {
     setHistoryModalLoading(false);
   }, []);
 
-  // Auth check
+  // Auth check — wait for the dashboard layout's profile fetch instead of a
+  // fixed 500ms timeout that races the fetch on slow networks.
   useEffect(() => {
-    const timer = setTimeout(() => setIsCheckingAuth(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
+    if (!isProfileLoading) {
+      setIsCheckingAuth(false);
+    }
+  }, [isProfileLoading]);
 
   useEffect(() => {
     if (!isCheckingAuth && !isAdmin) {

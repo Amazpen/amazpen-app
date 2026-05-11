@@ -26,6 +26,10 @@ interface DashboardContextType {
   setSelectedBusinesses: React.Dispatch<React.SetStateAction<string[]>>;
   toggleBusiness: (id: string) => void;
   isAdmin: boolean;
+  // True until the profile fetch in layout finishes. Pages that gate on
+  // `isAdmin` must wait for this — otherwise they see the default `false`
+  // and redirect/forbid the user mid-load (e.g. /ocr admin redirect).
+  isProfileLoading: boolean;
   // True when the user can edit/delete financial records (invoices, payments) —
   // platform admins OR any business member of all selected businesses. Mirrors
   // the RLS policy which allows any member to update/delete. Use this to gate
@@ -48,6 +52,7 @@ const DashboardContext = createContext<DashboardContextType>({
   setSelectedBusinesses: () => {},
   toggleBusiness: () => {},
   isAdmin: false,
+  isProfileLoading: true,
   canManage: false,
   refreshProfile: async () => {},
   onlineUsers: [],
@@ -260,7 +265,9 @@ export default function DashboardLayout({
   const [isCoordinatorModalOpen, setIsCoordinatorModalOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const prevUnreadCount = useRef(-1);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  // Start as `true` so gated pages (e.g. /ocr admin-only) don't see the
+  // default isAdmin=false and redirect before the profile actually loads.
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [profileImageLoaded, setProfileImageLoaded] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -680,7 +687,7 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
-    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, canManage, refreshProfile: fetchUserProfile, onlineUsers, globalDateRange, setGlobalDateRange, globalMonth, setGlobalMonth, globalYear, setGlobalYear, userAvatarUrl: userProfile?.avatar_url || null }}>
+    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, isProfileLoading: isLoadingProfile, canManage, refreshProfile: fetchUserProfile, onlineUsers, globalDateRange, setGlobalDateRange, globalMonth, setGlobalMonth, globalYear, setGlobalYear, userAvatarUrl: userProfile?.avatar_url || null }}>
       <div className="min-h-screen bg-[#0F1535]">
         {/* Sidebar Overlay - Mobile only */}
         {isMenuOpen && (

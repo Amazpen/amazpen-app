@@ -44,7 +44,7 @@ interface Supplier {
 
 export default function OCRPage() {
   const router = useRouter();
-  const { isAdmin } = useDashboard();
+  const { isAdmin, isProfileLoading } = useDashboard();
   const { showToast } = useToast();
 
   // State - ALL hooks must be declared before any conditional returns
@@ -238,13 +238,16 @@ export default function OCRPage() {
     setDocuments(prev => prev.map(d => d.id === currentDocument.id ? { ...d, business_id: targetId || '' } : d));
   }, [currentDocument, setSelectedBusinessId]);
 
-  // Check admin access
+  // Check admin access: wait for the profile fetch in the dashboard layout
+  // to finish before we look at `isAdmin`. Previously this used a fixed 500ms
+  // timeout, which raced the profile fetch — on slower networks the admin
+  // value was still the default `false` when we checked, so even admins were
+  // bounced back to "/" with no error visible.
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (!isProfileLoading) {
       setIsCheckingAuth(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  }, [isProfileLoading]);
 
   // Redirect non-admin users
   useEffect(() => {

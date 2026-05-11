@@ -53,7 +53,7 @@ interface Supplier {
 
 export default function OCRBusinessPage() {
   const router = useRouter();
-  const { isAdmin, selectedBusinesses } = useDashboard();
+  const { isAdmin, selectedBusinesses, isProfileLoading } = useDashboard();
   const { showToast } = useToast();
   // Three access modes:
   // - hasFullAccess: admin OR member of an ALLOWED business (currently
@@ -215,12 +215,14 @@ export default function OCRBusinessPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [coordinatorSuppliers, setCoordinatorSuppliers] = useState<Supplier[]>([]);
 
+  // Wait for the profile fetch in the dashboard layout before evaluating
+  // access; a fixed 500ms timeout used to race the fetch and bounce users
+  // back to "/" when the profile arrived late.
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (!isProfileLoading) {
       setIsCheckingAuth(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  }, [isProfileLoading]);
 
   useEffect(() => {
     if (!isCheckingAuth && !hasAccess) {
