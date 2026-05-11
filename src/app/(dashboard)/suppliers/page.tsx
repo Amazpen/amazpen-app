@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { DatePickerField } from "@/components/ui/date-picker-field";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Category type from database
 interface ExpenseCategory {
@@ -177,6 +178,9 @@ export default function SuppliersPage() {
       amountToPay: number;
     };
   } | null>(null);
+  // True while the supplier detail panel is fetching aggregates + invoices.
+  // Used to show skeleton loaders instead of phantom ₪0 / empty rows.
+  const [isLoadingSupplierDetail, setIsLoadingSupplierDetail] = useState(false);
   const [detailMonth, setDetailMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -1316,6 +1320,14 @@ export default function SuppliersPage() {
 
     setShowSupplierDetailPopup(true);
 
+    // Clear previous supplier's data so the panel shows skeletons instead of
+    // stale aggregates / invoice list from the previously opened supplier.
+    setIsLoadingSupplierDetail(true);
+    setSupplierDetailData(null);
+    setMonthlyBreakdown([]);
+    setSupplierInvoices([]);
+    setSupplierPayments([]);
+
     // Reset to current month
     const now = new Date();
     setDetailMonth(new Date(now.getFullYear(), now.getMonth(), 1));
@@ -1654,6 +1666,8 @@ export default function SuppliersPage() {
       }
     } catch (error) {
       console.error("Error fetching supplier detail:", error);
+    } finally {
+      setIsLoadingSupplierDetail(false);
     }
   };
 
@@ -2936,48 +2950,71 @@ export default function SuppliersPage() {
             <div className="mb-[15px]">
               <h3 className="text-[16px] font-bold text-white text-center mb-[10px]">מצב חשבון</h3>
               <div className="bg-[#29318A]/30 rounded-[10px] p-[15px] flex flex-col gap-[10px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[14px] text-white">
-                    {selectedSupplier.has_previous_obligations
-                      ? "סה\"כ סכום ההתחייבות (כולל ריבית)"
-                      : "סה\"כ קניות שבוצעו מהספק (כולל מע\"מ)"}
-                  </span>
-                  <span className="text-[16px] text-white font-bold ltr-num">
-                    ₪{(supplierDetailData?.totalPurchases || 0).toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[14px] text-white">סה&quot;כ תשלום שבוצע לספק</span>
-                  <span className="text-[16px] text-white font-bold ltr-num">
-                    ₪{(supplierDetailData?.totalPaid || 0).toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between border-t border-white/20 pt-[10px]">
-                  {(() => {
-                    const rawBalance = supplierDetailData?.remainingBalance || 0;
-                    // Negative = we paid an advance (supplier owes us). Show as a credit / green.
-                    const isCredit = rawBalance < 0;
-                    const balanceColor = isCredit ? "text-[#3CD856]" : "text-[#F64E60]";
-                    const label = selectedSupplier.has_previous_obligations
-                      ? "יתרת הלוואה"
-                      : isCredit
-                        ? "מקדמה לספק"
-                        : "יתרה לתשלום";
-                    return (
-                      <>
-                        <span className={`text-[14px] font-medium ${balanceColor}`}>{label}</span>
-                        <span className={`text-[18px] font-bold ltr-num ${balanceColor}`}>
-                          ₪{rawBalance.toLocaleString()}
-                        </span>
-                      </>
-                    );
-                  })()}
-                </div>
+                {isLoadingSupplierDetail || !supplierDetailData ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] text-white">
+                        {selectedSupplier.has_previous_obligations
+                          ? "סה\"כ סכום ההתחייבות (כולל ריבית)"
+                          : "סה\"כ קניות שבוצעו מהספק (כולל מע\"מ)"}
+                      </span>
+                      <Skeleton className="h-[20px] w-[90px] bg-white/10" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] text-white">סה&quot;כ תשלום שבוצע לספק</span>
+                      <Skeleton className="h-[20px] w-[90px] bg-white/10" />
+                    </div>
+                    <div className="flex items-center justify-between border-t border-white/20 pt-[10px]">
+                      <span className="text-[14px] font-medium text-white/60">יתרה לתשלום</span>
+                      <Skeleton className="h-[22px] w-[110px] bg-white/10" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] text-white">
+                        {selectedSupplier.has_previous_obligations
+                          ? "סה\"כ סכום ההתחייבות (כולל ריבית)"
+                          : "סה\"כ קניות שבוצעו מהספק (כולל מע\"מ)"}
+                      </span>
+                      <span className="text-[16px] text-white font-bold ltr-num">
+                        ₪{supplierDetailData.totalPurchases.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] text-white">סה&quot;כ תשלום שבוצע לספק</span>
+                      <span className="text-[16px] text-white font-bold ltr-num">
+                        ₪{supplierDetailData.totalPaid.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-white/20 pt-[10px]">
+                      {(() => {
+                        const rawBalance = supplierDetailData.remainingBalance;
+                        // Negative = we paid an advance (supplier owes us). Show as a credit / green.
+                        const isCredit = rawBalance < 0;
+                        const balanceColor = isCredit ? "text-[#3CD856]" : "text-[#F64E60]";
+                        const label = selectedSupplier.has_previous_obligations
+                          ? "יתרת הלוואה"
+                          : isCredit
+                            ? "מקדמה לספק"
+                            : "יתרה לתשלום";
+                        return (
+                          <>
+                            <span className={`text-[14px] font-medium ${balanceColor}`}>{label}</span>
+                            <span className={`text-[18px] font-bold ltr-num ${balanceColor}`}>
+                              ₪{rawBalance.toLocaleString()}
+                            </span>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
             {/* Monthly Breakdown Summary */}
-            {monthlyBreakdown.length > 0 && (
+            {(isLoadingSupplierDetail || monthlyBreakdown.length > 0) && (
               <div className="bg-[#29318A]/30 rounded-[10px] p-[15px] mb-[10px]">
                 <span className="text-[14px] font-medium text-white mb-[10px] block">סיכום לפי חודשים</span>
                 <div className="flex flex-col gap-[3px]">
@@ -2988,26 +3025,45 @@ export default function SuppliersPage() {
                     <span className="text-center">שולם</span>
                     <span className="text-center">יתרה</span>
                   </div>
-                  {/* Rows */}
-                  {monthlyBreakdown.map((m) => (
-                    <div key={m.month} className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] bg-white/5 rounded-[5px] text-[12px]">
-                      <span className="text-right font-medium">{m.month}</span>
-                      <span className="text-center ltr-num">₪{m.purchases.toLocaleString()}</span>
-                      <span className="text-center ltr-num">₪{m.paid.toLocaleString()}</span>
-                      <span className={`text-center ltr-num font-medium ${m.amountToPay > 0 ? "text-[#F64E60]" : m.amountToPay < 0 ? "text-[#0BB783]" : ""}`}>
-                        ₪{m.amountToPay.toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                  {/* Total row */}
-                  <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] border-t border-white/20 mt-[3px] text-[12px] font-bold">
-                    <span className="text-right">סה&quot;כ</span>
-                    <span className="text-center ltr-num">₪{monthlyBreakdown.reduce((s, m) => s + m.purchases, 0).toLocaleString()}</span>
-                    <span className="text-center ltr-num">₪{monthlyBreakdown.reduce((s, m) => s + m.paid, 0).toLocaleString()}</span>
-                    <span className={`text-center ltr-num ${monthlyBreakdown.reduce((s, m) => s + m.amountToPay, 0) > 0 ? "text-[#F64E60]" : "text-[#0BB783]"}`}>
-                      ₪{monthlyBreakdown.reduce((s, m) => s + m.amountToPay, 0).toLocaleString()}
-                    </span>
-                  </div>
+                  {isLoadingSupplierDetail ? (
+                    <>
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] bg-white/5 rounded-[5px] text-[12px] items-center">
+                          <div className="flex justify-end pe-[4px]"><Skeleton className="h-[14px] w-[60px] bg-white/10" /></div>
+                          <div className="flex justify-center"><Skeleton className="h-[14px] w-[70px] bg-white/10" /></div>
+                          <div className="flex justify-center"><Skeleton className="h-[14px] w-[60px] bg-white/10" /></div>
+                          <div className="flex justify-center"><Skeleton className="h-[14px] w-[60px] bg-white/10" /></div>
+                        </div>
+                      ))}
+                      <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] border-t border-white/20 mt-[3px] text-[12px] font-bold items-center">
+                        <span className="text-right">סה&quot;כ</span>
+                        <div className="flex justify-center"><Skeleton className="h-[14px] w-[80px] bg-white/10" /></div>
+                        <div className="flex justify-center"><Skeleton className="h-[14px] w-[70px] bg-white/10" /></div>
+                        <div className="flex justify-center"><Skeleton className="h-[14px] w-[70px] bg-white/10" /></div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {monthlyBreakdown.map((m) => (
+                        <div key={m.month} className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] bg-white/5 rounded-[5px] text-[12px]">
+                          <span className="text-right font-medium">{m.month}</span>
+                          <span className="text-center ltr-num">₪{m.purchases.toLocaleString()}</span>
+                          <span className="text-center ltr-num">₪{m.paid.toLocaleString()}</span>
+                          <span className={`text-center ltr-num font-medium ${m.amountToPay > 0 ? "text-[#F64E60]" : m.amountToPay < 0 ? "text-[#0BB783]" : ""}`}>
+                            ₪{m.amountToPay.toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] border-t border-white/20 mt-[3px] text-[12px] font-bold">
+                        <span className="text-right">סה&quot;כ</span>
+                        <span className="text-center ltr-num">₪{monthlyBreakdown.reduce((s, m) => s + m.purchases, 0).toLocaleString()}</span>
+                        <span className="text-center ltr-num">₪{monthlyBreakdown.reduce((s, m) => s + m.paid, 0).toLocaleString()}</span>
+                        <span className={`text-center ltr-num ${monthlyBreakdown.reduce((s, m) => s + m.amountToPay, 0) > 0 ? "text-[#F64E60]" : "text-[#0BB783]"}`}>
+                          ₪{monthlyBreakdown.reduce((s, m) => s + m.amountToPay, 0).toLocaleString()}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -3050,30 +3106,53 @@ export default function SuppliersPage() {
               </div>
 
               <div className="flex flex-col gap-[10px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-white/80">צפי תאריך התשלום</span>
-                  <span className="text-[14px] text-white font-medium ltr-num">
-                    {supplierDetailData?.monthlyData.expectedPaymentDate || "-"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-white/80">סך הרכישות מהספק (כולל מע&quot;מ)</span>
-                  <span className="text-[14px] text-white font-medium ltr-num">
-                    ₪{(supplierDetailData?.monthlyData.monthlyPurchases || 0).toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-white/80">שולם בגין החודש הנבחר</span>
-                  <span className="text-[14px] text-white font-medium ltr-num">
-                    ₪{(supplierDetailData?.monthlyData.monthlyPaid || 0).toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between border-t border-white/20 pt-[10px]">
-                  <span className="text-[13px] text-[#3F97FF] font-medium">להוציא תשלום לספק ע&quot;ס</span>
-                  <span className="text-[16px] text-[#3F97FF] font-bold ltr-num">
-                    ₪{(supplierDetailData?.monthlyData.amountToPay || 0).toLocaleString(undefined, { minimumFractionDigits: 1 })}
-                  </span>
-                </div>
+                {isLoadingSupplierDetail || !supplierDetailData ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] text-white/80">צפי תאריך התשלום</span>
+                      <Skeleton className="h-[18px] w-[70px] bg-white/10" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] text-white/80">סך הרכישות מהספק (כולל מע&quot;מ)</span>
+                      <Skeleton className="h-[18px] w-[80px] bg-white/10" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] text-white/80">שולם בגין החודש הנבחר</span>
+                      <Skeleton className="h-[18px] w-[80px] bg-white/10" />
+                    </div>
+                    <div className="flex items-center justify-between border-t border-white/20 pt-[10px]">
+                      <span className="text-[13px] text-[#3F97FF] font-medium">להוציא תשלום לספק ע&quot;ס</span>
+                      <Skeleton className="h-[20px] w-[90px] bg-white/10" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] text-white/80">צפי תאריך התשלום</span>
+                      <span className="text-[14px] text-white font-medium ltr-num">
+                        {supplierDetailData.monthlyData.expectedPaymentDate || "-"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] text-white/80">סך הרכישות מהספק (כולל מע&quot;מ)</span>
+                      <span className="text-[14px] text-white font-medium ltr-num">
+                        ₪{supplierDetailData.monthlyData.monthlyPurchases.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] text-white/80">שולם בגין החודש הנבחר</span>
+                      <span className="text-[14px] text-white font-medium ltr-num">
+                        ₪{supplierDetailData.monthlyData.monthlyPaid.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-white/20 pt-[10px]">
+                      <span className="text-[13px] text-[#3F97FF] font-medium">להוציא תשלום לספק ע&quot;ס</span>
+                      <span className="text-[16px] text-[#3F97FF] font-bold ltr-num">
+                        ₪{supplierDetailData.monthlyData.amountToPay.toLocaleString(undefined, { minimumFractionDigits: 1 })}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Payment Button */}
@@ -3155,7 +3234,19 @@ export default function SuppliersPage() {
 
                   {/* Table Rows */}
                   <div className="flex flex-col gap-[5px]">
-                    {supplierInvoices.length === 0 ? (
+                    {isLoadingSupplierDetail ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="rounded-[7px] p-[7px_3px] bg-white/5">
+                          <div className="grid grid-cols-[0.7fr_0.9fr_0.7fr_0.7fr_0.7fr] w-full p-[5px_5px] items-center">
+                            <div className="flex justify-center"><Skeleton className="h-[12px] w-[60px] bg-white/10" /></div>
+                            <div className="flex justify-center"><Skeleton className="h-[12px] w-[70px] bg-white/10" /></div>
+                            <div className="flex justify-center"><Skeleton className="h-[12px] w-[55px] bg-white/10" /></div>
+                            <div className="flex justify-center"><Skeleton className="h-[12px] w-[55px] bg-white/10" /></div>
+                            <div className="flex justify-center"><Skeleton className="h-[18px] w-[55px] rounded-full bg-white/10" /></div>
+                          </div>
+                        </div>
+                      ))
+                    ) : supplierInvoices.length === 0 ? (
                       <div className="flex items-center justify-center py-[30px]">
                         <span className="text-[14px] text-white/50">אין חשבוניות להצגה</span>
                       </div>
@@ -3452,7 +3543,18 @@ export default function SuppliersPage() {
 
                   {/* Table Rows */}
                   <div className="flex flex-col gap-[5px]">
-                    {supplierPayments.length === 0 ? (
+                    {isLoadingSupplierDetail ? (
+                      Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="rounded-[7px] p-[7px_3px] bg-white/5">
+                          <div className="grid grid-cols-[0.8fr_1fr_0.9fr_0.8fr] w-full p-[5px_5px] items-center">
+                            <div className="flex justify-center"><Skeleton className="h-[12px] w-[60px] bg-white/10" /></div>
+                            <div className="flex justify-center"><Skeleton className="h-[12px] w-[80px] bg-white/10" /></div>
+                            <div className="flex justify-center"><Skeleton className="h-[12px] w-[60px] bg-white/10" /></div>
+                            <div className="flex justify-center"><Skeleton className="h-[12px] w-[60px] bg-white/10" /></div>
+                          </div>
+                        </div>
+                      ))
+                    ) : supplierPayments.length === 0 ? (
                       <div className="flex items-center justify-center py-[30px]">
                         <span className="text-[14px] text-white/50">אין תשלומים להצגה</span>
                       </div>
@@ -3666,7 +3768,20 @@ export default function SuppliersPage() {
                 <div className="w-full flex flex-col gap-[10px]">
                   {/* Documents List */}
                   <div className="flex flex-col gap-[5px]">
-                    {supplierDocuments.length === 0 ? (
+                    {isLoadingSupplierDetail ? (
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="bg-white/5 rounded-[7px] p-[10px] flex items-center justify-between gap-[10px]">
+                          <div className="flex-1 min-w-0">
+                            <Skeleton className="h-[14px] w-[60%] bg-white/10" />
+                            <Skeleton className="h-[11px] w-[80px] mt-[6px] bg-white/10" />
+                          </div>
+                          <div className="flex items-center gap-[8px] flex-shrink-0">
+                            <Skeleton className="w-[28px] h-[28px] rounded-[6px] bg-white/10" />
+                            <Skeleton className="w-[28px] h-[28px] rounded-[6px] bg-white/10" />
+                          </div>
+                        </div>
+                      ))
+                    ) : supplierDocuments.length === 0 ? (
                       <div className="flex items-center justify-center py-[30px]">
                         <span className="text-[14px] text-white/50">אין מסמכים להצגה</span>
                       </div>
