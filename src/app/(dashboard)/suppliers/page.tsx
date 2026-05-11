@@ -1201,7 +1201,15 @@ export default function SuppliersPage() {
 
       const seenPaymentIds = new Set<string>();
       for (const row of linkRows || []) {
-        monthlyPaid += Number(row.amount_allocated) || 0;
+        const allocated = Number(row.amount_allocated) || 0;
+        // Skip ghost link rows (amount_allocated = 0). Some invoices have a
+        // `payment_invoice_links` row with allocated=0 alongside a real
+        // `payments.invoice_id` FK that actually settled the invoice (e.g.
+        // imported data, failed/reverted allocations). Counting the ghost as
+        // "seen" suppressed the FK fallback below and left "שולם" at ₪0 even
+        // though the payment is in the books.
+        if (allocated === 0) continue;
+        monthlyPaid += allocated;
         if (row.payment_id) seenPaymentIds.add(row.payment_id);
         if (row.invoice_id) accountedInvoiceIds.add(row.invoice_id);
       }
