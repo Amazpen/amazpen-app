@@ -92,7 +92,7 @@ export default function RootLayout({
           }}
         >
           <Image
-            src="https://amazpen.supabase.brainboxai.io/storage/v1/object/public/amazpen//logo%20white.png"
+            src="https://db.amazpenbiz.co.il/storage/v1/object/public/assets/logo/amazpen-logo.jpeg"
             alt="Amazpen"
             width={400}
             height={189}
