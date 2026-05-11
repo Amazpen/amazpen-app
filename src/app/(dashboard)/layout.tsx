@@ -1187,16 +1187,14 @@ export default function DashboardLayout({
             {/* Help/Tour Button - disabled temporarily */}
             {/* <HelpButton /> */}
 
-            {/* מרכזת Button - Admin Only */}
-            {isAdmin && (
-              <Button
-                type="button"
-                onClick={() => setIsCoordinatorModalOpen(true)}
-                className="px-[6px] sm:px-[12px] min-w-[42px] sm:min-w-[60px] flex-shrink-0 text-center bg-[#29318A] rounded-[7px] text-white text-[11px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center"
-              >
-                מרכזת
-              </Button>
-            )}
+            {/* מרכזת Button */}
+            <Button
+              type="button"
+              onClick={() => setIsCoordinatorModalOpen(true)}
+              className="px-[6px] sm:px-[12px] min-w-[42px] sm:min-w-[60px] flex-shrink-0 text-center bg-[#29318A] rounded-[7px] text-white text-[11px] sm:text-[13px] font-bold leading-[1.4] cursor-pointer hover:bg-[#3D44A0] transition-colors touch-manipulation flex items-center justify-center"
+            >
+              מרכזת
+            </Button>
           </div>
         </header>
 
@@ -1212,14 +1210,12 @@ export default function DashboardLayout({
           {children}
         </main>
 
-        {/* Coordinator Modal - Admin Only */}
-        {isAdmin && (
-          <ConsolidatedInvoiceModal
-            key={`coordinator-${isCoordinatorModalOpen}`}
-            isOpen={isCoordinatorModalOpen}
-            onClose={() => setIsCoordinatorModalOpen(false)}
-          />
-        )}
+        {/* Coordinator Modal */}
+        <ConsolidatedInvoiceModal
+          key={`coordinator-${isCoordinatorModalOpen}`}
+          isOpen={isCoordinatorModalOpen}
+          onClose={() => setIsCoordinatorModalOpen(false)}
+        />
       </div>
     </DashboardContext.Provider>
     <InstallPrompt />

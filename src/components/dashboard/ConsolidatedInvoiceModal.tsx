@@ -216,7 +216,7 @@ export function ConsolidatedInvoiceModal({
         if (businessIds.length > 0) {
           const { data: userBusinesses } = await supabase
             .from("businesses")
-            .select("id, name")
+            .select("id, name, vat_percentage")
             .in("id", businessIds)
             .is("deleted_at", null)
             .eq("status", "active")
