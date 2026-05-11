@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
         .eq("goal_id", ""), // placeholder, will fix below
       supabase
         .from("invoices")
-        .select("subtotal, invoice_type, reference_date")
+        .select("subtotal, invoice_type, reference_date, supplier_id")
         .eq("business_id", businessId)
         .gte("reference_date", startStr)
         .lt("reference_date", endExclusiveStr)
@@ -216,17 +216,56 @@ export async function GET(request: NextRequest) {
     const laborDiffPct = laborCostPct - laborTargetPct;
     const laborDiffNis = (laborDiffPct * incomeBeforeVat) / 100;
 
-    // ===== Food cost (all invoices, not just goods — matches dashboard) =====
-    const foodCost = invoices.reduce((s, inv) => s + (Number(inv.subtotal) || 0), 0);
+    // ===== Food cost / Current expenses split =====
+    // The dashboard buckets invoices by the SUPPLIER's `expense_type`, not by
+    // `invoices.invoice_type`. A supplier with expense_type='goods_purchases'
+    // (or its unlinked delivery notes) contributes to "עלות מכר"; everything
+    // else lands in "הוצאות שוטפות". The previous implementation summed every
+    // invoice into foodCost AND also into currentExpensesActual when type was
+    // 'current' — which double-counted the same shekels in the profit math
+    // (food + current both saw them) and inflated cost-of-goods to 78%+.
+    const goodsSupplierIdsRes = await supabase
+      .from("suppliers")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("expense_type", "goods_purchases")
+      .is("deleted_at", null);
+    const goodsSupplierIds = new Set(
+      ((goodsSupplierIdsRes.data || []) as Array<{ id: string }>).map((s) => s.id)
+    );
+
+    // Also include unlinked delivery notes (תעודות משלוח without an invoice)
+    // from goods suppliers — same as the dashboard does for "עלות מכר".
+    let deliveryNotesGoods = 0;
+    if (goodsSupplierIds.size > 0) {
+      const { data: dnRows } = await supabase
+        .from("delivery_notes")
+        .select("subtotal, supplier_id")
+        .eq("business_id", businessId)
+        .gte("delivery_date", startStr)
+        .lt("delivery_date", endExclusiveStr)
+        .is("invoice_id", null);
+      deliveryNotesGoods = ((dnRows || []) as Array<{ subtotal: number; supplier_id: string }>)
+        .filter((dn) => goodsSupplierIds.has(dn.supplier_id))
+        .reduce((s, dn) => s + (Number(dn.subtotal) || 0), 0);
+    }
+
+    type InvRow = { subtotal: number; invoice_type: string | null; supplier_id: string | null };
+    const goodsInvoicesTotal = (invoices as InvRow[])
+      .filter((inv) => inv.supplier_id && goodsSupplierIds.has(inv.supplier_id))
+      .reduce((s, inv) => s + (Number(inv.subtotal) || 0), 0);
+    const foodCost = goodsInvoicesTotal + deliveryNotesGoods;
     const foodCostPct = incomeBeforeVat > 0 ? (foodCost / incomeBeforeVat) * 100 : 0;
     const foodTargetPct = Number(goal?.food_cost_target_pct) || 0;
     const foodDiffPct = foodCostPct - foodTargetPct;
     const foodDiffNis = (foodDiffPct * incomeBeforeVat) / 100;
 
-    // ===== Current expenses (from goal target, actual = current-type invoices) =====
+    // Current expenses = invoices from non-goods suppliers. Falls back to the
+    // legacy invoice_type='current' filter for invoices whose supplier was
+    // deleted / has no expense_type, so they still get bucketed somewhere.
     const currentExpensesTarget = Number(goal?.current_expenses_target) || 0;
-    const currentExpensesActual = invoices
-      .filter((inv) => inv.invoice_type === "current")
+    const currentExpensesActual = (invoices as InvRow[])
+      .filter((inv) => !inv.supplier_id || !goodsSupplierIds.has(inv.supplier_id))
       .reduce((s, inv) => s + (Number(inv.subtotal) || 0), 0);
     const currentExpensesDiffNis = currentExpensesActual - currentExpensesTarget;
     const currentExpensesDiffPct =
