@@ -549,6 +549,28 @@ export default function OCRPage() {
           if (invoiceError) throw invoiceError;
           createdInvoiceId = newInvoice?.id || null;
 
+          // Attach a previously-unlinked payment to this fresh invoice if the
+          // reviewer picked one. Mirrors the /expenses save flow: link row +
+          // payments.invoice_id FK + flip invoice to paid.
+          if (formData.link_to_unlinked_payment_id && newInvoice) {
+            const allocated = parseFloat(formData.total_amount) || 0;
+            const [linkRes, payFkRes, invStatusRes] = await Promise.all([
+              supabase.from('payment_invoice_links').insert({
+                payment_id: formData.link_to_unlinked_payment_id,
+                invoice_id: newInvoice.id,
+                amount_allocated: allocated,
+              }),
+              supabase
+                .from('payments')
+                .update({ invoice_id: newInvoice.id })
+                .eq('id', formData.link_to_unlinked_payment_id),
+              supabase.from('invoices').update({ status: 'paid' }).eq('id', newInvoice.id),
+            ]);
+            if (linkRes.error) console.error('[OCR Approve] payment_invoice_links insert failed:', linkRes.error);
+            if (payFkRes.error) console.error('[OCR Approve] payments.invoice_id update failed:', payFkRes.error);
+            if (invStatusRes.error) console.error('[OCR Approve] invoice paid status update failed:', invStatusRes.error);
+          }
+
           if (formData.is_paid && newInvoice && formData.payment_methods) {
             const paymentTotal = formData.payment_methods.reduce((sum, pm) => {
               return sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0);

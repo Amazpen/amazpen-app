@@ -118,6 +118,10 @@ export interface OCRFormData {
   // Fixed expense: when supplier is_fixed_expense, link to existing pending invoice
   // (null/undefined = create new invoice; string = update existing invoice id)
   link_to_fixed_invoice_id?: string | null;
+  // Unlinked payment: when an existing payment to this supplier has no invoice yet,
+  // the reviewer can pick it to attach the freshly created invoice to that payment.
+  // Triggers a payment_invoice_links INSERT and flips the invoice to status=paid.
+  link_to_unlinked_payment_id?: string | null;
   // Payment tab: link this payment to one or more open invoices.
   // Empty array = unlinked payment (legacy behaviour).
   payment_linked_invoice_ids?: string[];

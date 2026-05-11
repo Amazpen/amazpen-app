@@ -327,6 +327,16 @@ function ExpensesPageInner() {
   const [linkToFixedInvoiceId, setLinkToFixedInvoiceId] = useState<string | null>(null); // null = create new
   const [showFixedInvoices, setShowFixedInvoices] = useState(false);
 
+  // Unlinked payments — payments to this supplier that aren't yet tied to any
+  // invoice (no `payments.invoice_id`, no `payment_invoice_links` row). When the
+  // user is creating an invoice for that supplier we surface them so they can
+  // attach the new invoice to a payment that was made in advance / on account.
+  // Mirror image of the "open invoices" picker in /payments.
+  type UnlinkedPayment = { id: string; payment_date: string; total_amount: number; notes: string | null };
+  const [unlinkedPayments, setUnlinkedPayments] = useState<UnlinkedPayment[]>([]);
+  const [showUnlinkedPayments, setShowUnlinkedPayments] = useState(false);
+  const [linkToUnlinkedPaymentId, setLinkToUnlinkedPaymentId] = useState<string | null>(null);
+
   // Line items for price tracking (goods expenses only)
   const [expenseLineItems, setExpenseLineItems] = useState<OCRLineItem[]>([]);
   const [showLineItems, setShowLineItems] = useState(false);
@@ -2096,6 +2106,9 @@ function ExpensesPageInner() {
     setFixedOpenInvoices([]);
     setLinkToFixedInvoiceId(null);
     setShowFixedInvoices(false);
+    setUnlinkedPayments([]);
+    setShowUnlinkedPayments(false);
+    setLinkToUnlinkedPaymentId(null);
     if (!supplierId) return;
     const supplier = suppliers.find(s => s.id === supplierId);
     if (!supplier) return;
@@ -2151,6 +2164,53 @@ function ExpensesPageInner() {
         });
         setFixedOpenInvoices(mapped);
         if (mapped.length > 0) setShowFixedInvoices(true);
+      }
+    }
+
+    // Always fetch unlinked payments (any supplier, not just fixed). Used to
+    // surface "there's an existing payment on account for this supplier — link
+    // this new invoice to it?". We restrict to the currently selected business
+    // (same scope as fixed-invoice lookup above) so we don't show payments from
+    // a different business the admin happens to have access to.
+    if (selectedBusinesses.length > 0) {
+      const supabaseU = createClient();
+      const { data: unlinkedRaw } = await supabaseU
+        .from("payments")
+        .select(`
+          id,
+          payment_date,
+          total_amount,
+          notes,
+          invoice_id,
+          payment_invoice_links!left(id)
+        `)
+        .eq("supplier_id", supplierId)
+        .in("business_id", selectedBusinesses)
+        .is("deleted_at", null)
+        .is("invoice_id", null)
+        .order("payment_date", { ascending: false });
+
+      type UnlinkedRow = {
+        id: string;
+        payment_date: string;
+        total_amount: number | string;
+        notes: string | null;
+        invoice_id: string | null;
+        payment_invoice_links: { id: string }[] | null;
+      };
+      const trulyUnlinked = ((unlinkedRaw as UnlinkedRow[] | null) || []).filter(
+        (p) => !p.payment_invoice_links || p.payment_invoice_links.length === 0
+      );
+      if (trulyUnlinked.length > 0) {
+        setUnlinkedPayments(
+          trulyUnlinked.map((p) => ({
+            id: p.id,
+            payment_date: p.payment_date,
+            total_amount: Number(p.total_amount),
+            notes: p.notes,
+          }))
+        );
+        setShowUnlinkedPayments(true);
       }
     }
   }, [suppliers, selectedBusinesses]);
@@ -2607,6 +2667,27 @@ function ExpensesPageInner() {
         if (!newInvoice) {
           console.error("[Save Expense] Invoice insert returned null without error");
           throw new Error("לא התקבל מזהה חשבונית מהשרת");
+        }
+
+        // Link an unlinked payment to this brand-new invoice when the user
+        // ticked one in the "תשלומים לא משויכים" picker. We allocate the full
+        // invoice total against the chosen payment, set the FK on payments
+        // for downstream reports that rely on payments.invoice_id, and flip
+        // the invoice to 'paid' so it stops showing as open.
+        if (linkToUnlinkedPaymentId && newInvoice) {
+          const allocated = totalWithVat;
+          const [linkRes, payFkRes, invStatusRes] = await Promise.all([
+            supabase.from("payment_invoice_links").insert({
+              payment_id: linkToUnlinkedPaymentId,
+              invoice_id: newInvoice.id,
+              amount_allocated: allocated,
+            }),
+            supabase.from("payments").update({ invoice_id: newInvoice.id }).eq("id", linkToUnlinkedPaymentId),
+            supabase.from("invoices").update({ status: "paid" }).eq("id", newInvoice.id),
+          ]);
+          if (linkRes.error) console.error("[Save Expense] payment_invoice_links insert failed:", linkRes.error);
+          if (payFkRes.error) console.error("[Save Expense] payments.invoice_id update failed:", payFkRes.error);
+          if (invStatusRes.error) console.error("[Save Expense] invoice paid status update failed:", invStatusRes.error);
         }
 
         // Upload attachments if any
@@ -5266,7 +5347,72 @@ function ExpensesPageInner() {
                 );
               })()}
 
-              {/* Fixed Expense - Link to existing invoice or create new */}
+              {/* Unlinked payments for this supplier (CREATE popup) — payments
+                  without an invoice yet. Mirror image of the "חשבוניות פתוחות"
+                  picker in /payments: lets the user attach the invoice they
+                  are creating to a payment that was already made on account. */}
+              {unlinkedPayments.length > 0 && (
+                <div className="flex flex-col gap-[8px]">
+                  <div
+                    className="flex items-center gap-[5px] cursor-pointer"
+                    dir="rtl"
+                    onClick={() => setShowUnlinkedPayments(!showUnlinkedPayments)}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`text-white/70 transition-transform ${showUnlinkedPayments ? "rotate-180" : ""}`}>
+                      <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span className="text-[14px] font-medium text-[#3CD856]">
+                      תשלומים לא משויכים — {unlinkedPayments.length} ממתינים לקישור
+                    </span>
+                  </div>
+                  {showUnlinkedPayments && (
+                    <div className="flex flex-col gap-[6px] pr-[10px]">
+                      <span className="text-[12px] text-white/60 text-right leading-[1.4]">
+                        לספק זה קיימים תשלומים שלא קושרו לאף חשבונית. בחר תשלום כדי לקשר אליו את החשבונית הנוכחית (החשבונית תסומן כשולמה).
+                      </span>
+                      <Button
+                        type="button"
+                        onClick={() => setLinkToUnlinkedPaymentId(null)}
+                        className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
+                          linkToUnlinkedPaymentId === null
+                            ? "bg-[#4F46E5] text-white border border-white/30"
+                            : "bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80"
+                        }`}
+                      >
+                        אל תקשר לתשלום קיים
+                      </Button>
+                      {unlinkedPayments.map((p) => {
+                        const d = new Date(p.payment_date);
+                        const dateStr = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+                        return (
+                          <Button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setLinkToUnlinkedPaymentId(p.id)}
+                            className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
+                              linkToUnlinkedPaymentId === p.id
+                                ? "bg-[#4F46E5] text-white border border-white/30"
+                                : "bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80"
+                            }`}
+                          >
+                            <div className="flex flex-col gap-[2px]">
+                              <div className="flex items-center justify-between">
+                                <span className="ltr-num">₪{p.total_amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="ltr-num text-white/70">{dateStr}</span>
+                              </div>
+                              {p.notes && (
+                                <span className="text-[11px] text-white/50 truncate text-right">{p.notes}</span>
+                              )}
+                            </div>
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Fixed Expense - Link to existing invoice or create new (CREATE popup) */}
               {fixedOpenInvoices.length > 0 && (() => {
                 const supplierInfo = suppliers.find(s => s.id === selectedSupplier);
                 if (!supplierInfo?.is_fixed_expense) return null;
@@ -6073,7 +6219,7 @@ function ExpensesPageInner() {
                 );
               })()}
 
-              {/* Fixed Expense - Link to existing invoice (mobile) */}
+              {/* Fixed Expense - Link to existing invoice (EDIT popup) */}
               {fixedOpenInvoices.length > 0 && (() => {
                 const supplierInfo = suppliers.find(s => s.id === selectedSupplier);
                 if (!supplierInfo?.is_fixed_expense) return null;

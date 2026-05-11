@@ -249,6 +249,16 @@ export default function OCRForm({
   const [linkToFixedInvoiceId, setLinkToFixedInvoiceId] = useState<string | null>(null); // null = create new
   const [showFixedInvoices, setShowFixedInvoices] = useState(false);
 
+  // Unlinked payments — payments to the chosen supplier that have no invoice
+  // yet (no payments.invoice_id and no row in payment_invoice_links). Mirror
+  // image of the "חשבוניות פתוחות" picker in /payments: when a payment was
+  // made on account and the matching invoice arrives later (e.g. via OCR), we
+  // let the reviewer link them on the spot instead of opening another screen.
+  type UnlinkedPayment = { id: string; payment_date: string; total_amount: number; notes: string | null };
+  const [unlinkedPayments, setUnlinkedPayments] = useState<UnlinkedPayment[]>([]);
+  const [showUnlinkedPayments, setShowUnlinkedPayments] = useState(false);
+  const [linkToUnlinkedPaymentId, setLinkToUnlinkedPaymentId] = useState<string | null>(null);
+
   // Fetch open fixed-expense invoices whenever the user picks a fixed-expense supplier
   useEffect(() => {
     const sel = suppliers.find(s => s.id === supplierId);
@@ -304,6 +314,63 @@ export default function OCRForm({
     })();
     return () => { cancelled = true; };
   }, [supplierId, selectedBusinessId, suppliers]);
+
+  // Fetch unlinked payments for the selected supplier in the active business.
+  // Any supplier qualifies (not just fixed-expense); we just need a payment
+  // that has no invoice yet to surface here.
+  useEffect(() => {
+    if (!supplierId || !selectedBusinessId) {
+      setUnlinkedPayments([]);
+      setShowUnlinkedPayments(false);
+      setLinkToUnlinkedPaymentId(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const { data: rows } = await supabase
+        .from('payments')
+        .select(`
+          id,
+          payment_date,
+          total_amount,
+          notes,
+          invoice_id,
+          payment_invoice_links!left(id)
+        `)
+        .eq('business_id', selectedBusinessId)
+        .eq('supplier_id', supplierId)
+        .is('deleted_at', null)
+        .is('invoice_id', null)
+        .order('payment_date', { ascending: false });
+      if (cancelled) return;
+      type Row = {
+        id: string;
+        payment_date: string;
+        total_amount: number | string;
+        notes: string | null;
+        invoice_id: string | null;
+        payment_invoice_links: { id: string }[] | null;
+      };
+      const trulyUnlinked = ((rows as Row[] | null) || []).filter(
+        (p) => !p.payment_invoice_links || p.payment_invoice_links.length === 0
+      );
+      if (trulyUnlinked.length > 0) {
+        setUnlinkedPayments(trulyUnlinked.map(p => ({
+          id: p.id,
+          payment_date: p.payment_date,
+          total_amount: Number(p.total_amount),
+          notes: p.notes,
+        })));
+        setShowUnlinkedPayments(true);
+      } else {
+        setUnlinkedPayments([]);
+        setShowUnlinkedPayments(false);
+      }
+      setLinkToUnlinkedPaymentId(null);
+    })();
+    return () => { cancelled = true; };
+  }, [supplierId, selectedBusinessId]);
 
   // Payment fields for invoice tab (when isPaid is checked) - single payment method
   const [inlinePaymentMethod, setInlinePaymentMethod] = useState('');
@@ -2061,6 +2128,7 @@ export default function OCRForm({
         notes,
         is_paid: isPaid,
         link_to_fixed_invoice_id: linkToFixedInvoiceId,
+        link_to_unlinked_payment_id: linkToUnlinkedPaymentId,
         line_items: lineItems.length > 0 ? lineItems : undefined,
         merged_document_ids: mergedDocuments.length > 0 ? mergedDocuments.map(d => d.id) : undefined,
         attach_to_existing_id: attachToExistingId,
@@ -2619,6 +2687,70 @@ export default function OCRForm({
           </div>
         );
       })()}
+
+      {/* Unlinked payments for this supplier — surfaces payments that were
+          made on account and never tied to an invoice. Mirror image of the
+          "חשבוניות פתוחות" picker in /payments. */}
+      {unlinkedPayments.length > 0 && (
+        <div className="flex flex-col gap-[8px]">
+          <div
+            className="flex items-center gap-[5px] cursor-pointer"
+            dir="rtl"
+            onClick={() => setShowUnlinkedPayments(!showUnlinkedPayments)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`text-white/70 transition-transform ${showUnlinkedPayments ? 'rotate-180' : ''}`}>
+              <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span className="text-[14px] font-medium text-[#3CD856]">
+              תשלומים לא משויכים — {unlinkedPayments.length} ממתינים לקישור
+            </span>
+          </div>
+          {showUnlinkedPayments && (
+            <div className="flex flex-col gap-[6px] pr-[10px]">
+              <span className="text-[12px] text-white/60 text-right leading-[1.4]">
+                לספק זה קיימים תשלומים שלא קושרו לאף חשבונית. בחר תשלום כדי לקשר אליו את החשבונית הנוכחית (החשבונית תסומן כשולמה).
+              </span>
+              <Button
+                type="button"
+                onClick={() => setLinkToUnlinkedPaymentId(null)}
+                className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
+                  linkToUnlinkedPaymentId === null
+                    ? 'bg-[#4F46E5] text-white border border-white/30'
+                    : 'bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80'
+                }`}
+              >
+                אל תקשר לתשלום קיים
+              </Button>
+              {unlinkedPayments.map((p) => {
+                const d = new Date(p.payment_date);
+                const dateStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                return (
+                  <Button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setLinkToUnlinkedPaymentId(p.id)}
+                    className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
+                      linkToUnlinkedPaymentId === p.id
+                        ? 'bg-[#4F46E5] text-white border border-white/30'
+                        : 'bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80'
+                    }`}
+                  >
+                    <div className="flex flex-col gap-[2px]">
+                      <div className="flex items-center justify-between">
+                        <span className="ltr-num">&#8362;{p.total_amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="ltr-num text-white/70">{dateStr}</span>
+                      </div>
+                      {p.notes && (
+                        <span className="text-[11px] text-white/50 truncate text-right">{p.notes}</span>
+                      )}
+                    </div>
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Document Number */}
       <div className="flex flex-col gap-[5px]">
