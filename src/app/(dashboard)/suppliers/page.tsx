@@ -1188,30 +1188,51 @@ export default function SuppliersPage() {
     // 2. Calculate paid: sum from payment_invoice_links.amount_allocated (the trustworthy
     // per-invoice allocation), and avoid double-counting the same payment from payments.invoice_id.
     let monthlyPaid = 0;
+    // Track which of THIS MONTH's invoice IDs we've already credited so we can
+    // top up with a third source (imported `status=paid` invoices that have no
+    // link at all) without double counting.
+    const accountedInvoiceIds = new Set<string>();
     if (invoiceIds.length > 0) {
       // Pull ALL allocations for these invoices via N:M links
       const { data: linkRows } = await supabase
         .from("payment_invoice_links")
-        .select("payment_id, amount_allocated")
+        .select("payment_id, invoice_id, amount_allocated")
         .in("invoice_id", invoiceIds);
 
       const seenPaymentIds = new Set<string>();
       for (const row of linkRows || []) {
         monthlyPaid += Number(row.amount_allocated) || 0;
         if (row.payment_id) seenPaymentIds.add(row.payment_id);
+        if (row.invoice_id) accountedInvoiceIds.add(row.invoice_id);
       }
 
       // Add payments that are linked ONLY via direct invoice_id FK (no row in payment_invoice_links)
       const { data: directPayments } = await supabase
         .from("payments")
-        .select("id, total_amount")
+        .select("id, invoice_id, total_amount")
         .in("invoice_id", invoiceIds)
         .is("deleted_at", null);
 
       for (const p of directPayments || []) {
         if (!seenPaymentIds.has(p.id)) {
           monthlyPaid += Number(p.total_amount) || 0;
+          if (p.invoice_id) accountedInvoiceIds.add(p.invoice_id);
+        } else if (p.invoice_id) {
+          // Already counted via links — still mark its invoice as accounted
+          accountedInvoiceIds.add(p.invoice_id);
         }
+      }
+    }
+
+    // 3. Imported / legacy `status=paid` invoices have neither a link row nor
+    // a direct FK on payments. Without this top-up the column shows ₪0 for
+    // months that are actually settled in the books (e.g. קוקה קולה דצמ–פבר
+    // imported from Patrones — invoices.status=paid but payment_invoice_links
+    // is empty). We trust `invoices.status` as the source of truth, the same
+    // way `amountToPay` does below.
+    for (const inv of monthlyInvoices || []) {
+      if (inv.status === "paid" && !accountedInvoiceIds.has(inv.id)) {
+        monthlyPaid += Number(inv.total_amount) || 0;
       }
     }
 
