@@ -363,6 +363,19 @@ export default function SuppliersPage() {
     });
   }, []);
 
+  // When the selected businesses change, clear the supplier list and flip
+  // back to loading so the grid renders skeletons during the re-fetch instead
+  // of briefly showing the previous business's suppliers. Realtime refreshes
+  // (refreshTrigger) are deliberately excluded — those update cards in place
+  // without a skeleton flash.
+  useEffect(() => {
+    if (selectedBusinesses.length > 0) {
+      setIsLoading(true);
+      setSuppliers([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(selectedBusinesses)]);
+
   // Fetch suppliers from database
   useEffect(() => {
     async function fetchSuppliers() {
