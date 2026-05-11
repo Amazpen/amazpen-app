@@ -979,8 +979,19 @@ export default function OCRPage() {
 
         const fresh = await fetchDocuments();
         const excludeIds = new Set([currentDocument.id, ...mergedIds]);
+        // Respect the active business filter in the queue: if the reviewer
+        // is scoped to one customer (e.g. "הנקודה הקסומה"), jumping to the
+        // next pending doc from any other business yanks them out of their
+        // workflow. Stay inside the filter — null out the selection when the
+        // filter has no more pending docs, so the UI can render an empty
+        // state instead of secretly switching context.
+        const matchesBusinessFilter = (d: OCRDocument): boolean => {
+          if (businessFilter === 'all') return true;
+          if (businessFilter === 'unassigned') return !d.business_id;
+          return d.business_id === businessFilter;
+        };
         const nextPending = fresh.find(
-          (d) => d.status === 'pending' && !excludeIds.has(d.id)
+          (d) => d.status === 'pending' && !excludeIds.has(d.id) && matchesBusinessFilter(d)
         );
         if (nextPending) {
           handleSelectDocument(nextPending);
@@ -996,7 +1007,22 @@ export default function OCRPage() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentDocument, fetchDocuments, handleSelectDocument]
+    [currentDocument, fetchDocuments, handleSelectDocument, businessFilter]
+  );
+
+  // Same guard as in handleApprove — keeps the "next doc" pick scoped to
+  // whatever business the reviewer is filtered to.
+  const pickNextPendingInFilter = useCallback(
+    (fresh: OCRDocument[], excludeIds: Set<string>): OCRDocument | undefined => {
+      return fresh.find((d) => {
+        if (d.status !== 'pending') return false;
+        if (excludeIds.has(d.id)) return false;
+        if (businessFilter === 'all') return true;
+        if (businessFilter === 'unassigned') return !d.business_id;
+        return d.business_id === businessFilter;
+      });
+    },
+    [businessFilter]
   );
 
   const handleReject = useCallback(
@@ -1017,9 +1043,7 @@ export default function OCRPage() {
         if (error) throw error;
 
         const fresh = await fetchDocuments();
-        const nextPending = fresh.find(
-          (d) => d.status === 'pending' && d.id !== documentId
-        );
+        const nextPending = pickNextPendingInFilter(fresh, new Set([documentId]));
         if (nextPending) {
           handleSelectDocument(nextPending);
         } else {
@@ -1032,7 +1056,7 @@ export default function OCRPage() {
         setIsLoading(false);
       }
     },
-    [fetchDocuments, handleSelectDocument]
+    [fetchDocuments, handleSelectDocument, pickNextPendingInFilter]
   );
 
   const handleDelete = useCallback(
@@ -1044,9 +1068,7 @@ export default function OCRPage() {
         if (error) throw error;
 
         const fresh = await fetchDocuments();
-        const nextPending = fresh.find(
-          (d) => d.status === 'pending' && d.id !== documentId
-        );
+        const nextPending = pickNextPendingInFilter(fresh, new Set([documentId]));
         if (nextPending) {
           handleSelectDocument(nextPending);
         } else {
@@ -1059,7 +1081,7 @@ export default function OCRPage() {
         setIsLoading(false);
       }
     },
-    [fetchDocuments, handleSelectDocument]
+    [fetchDocuments, handleSelectDocument, pickNextPendingInFilter]
   );
 
   const handleSkip = useCallback(() => {
@@ -1074,13 +1096,20 @@ export default function OCRPage() {
     const supabase = createClient();
     supabase.from('ocr_documents').update({ status: 'pending' }).eq('id', currentDocument.id);
 
+    // Skip should also respect the business filter — same reasoning as
+    // approve/reject/delete: don't yank the reviewer out of their scope.
+    const matchesBusinessFilter = (d: OCRDocument): boolean => {
+      if (businessFilter === 'all') return true;
+      if (businessFilter === 'unassigned') return !d.business_id;
+      return d.business_id === businessFilter;
+    };
     const pendingDocs = documents.filter(
-      (doc) => doc.status === 'pending' && doc.id !== currentDocument.id
+      (doc) => doc.status === 'pending' && doc.id !== currentDocument.id && matchesBusinessFilter(doc)
     );
     if (pendingDocs.length > 0) {
       setCurrentDocument(pendingDocs[0]);
     }
-  }, [currentDocument, documents]);
+  }, [currentDocument, documents, businessFilter]);
 
   // Crop → re-OCR via Mistral pipeline. Same response contract as the legacy
   // Google route, so all downstream behavior (form refresh, supplier match,
