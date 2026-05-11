@@ -285,6 +285,57 @@ input[inputmode="numeric"] {
   transition: color 0.3s ease-out, opacity 0.3s ease-out;
 }
 
+/* Mobile-only: scale down dashboard card typography so long currency
+   strings like "₪178,241" don't wrap onto a second line / clip the
+   adjacent label. Desktop layout is unchanged. Applied via CSS so we
+   don't have to touch ~25 inline text-[20px] / text-[18px] occurrences
+   in the JSX. */
+@media (max-width: 640px) {
+  .data-card-new,
+  .data-card-pending {
+    padding-inline: 10px;
+  }
+  /* Big metric titles + values: 20px → 17px, drop to semibold */
+  .data-card-new .text-\[20px\],
+  .data-card-pending .text-\[20px\] {
+    font-size: 16.5px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  /* Secondary values (e.g. "₪64.25"): 18px → 16px */
+  .data-card-new .text-\[18px\],
+  .data-card-pending .text-\[18px\] {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  /* Inline labels/values: 16px → 14px, semibold instead of bold */
+  .data-card-new .text-\[16px\],
+  .data-card-pending .text-\[16px\] {
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  /* Helper labels: 15px → 13px */
+  .data-card-new .text-\[15px\],
+  .data-card-pending .text-\[15px\] {
+    font-size: 13px;
+    line-height: 1.3;
+  }
+  /* Small labels: 14px → 12px */
+  .data-card-new .text-\[14px\],
+  .data-card-pending .text-\[14px\] {
+    font-size: 12px;
+    line-height: 1.3;
+  }
+  /* Numeric values wrapped in ltr-num inside cards should never wrap to
+     a new line — they read as a single token. */
+  .data-card-new .ltr-num,
+  .data-card-pending .ltr-num {
+    white-space: nowrap;
+  }
+}
+
 /* Pending approval state — gray card */
 .data-card-pending {
   background-color: rgb(60, 65, 80) !important;
