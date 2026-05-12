@@ -254,7 +254,7 @@ function ExpensesPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightInvoiceId = searchParams.get("invoiceId");
-  const { selectedBusinesses, canManage, globalDateRange, setGlobalDateRange } = useDashboard();
+  const { selectedBusinesses, canManage, globalDateRange, setGlobalDateRange, openCoordinatorEdit } = useDashboard();
   const { approveInvoice, approvePayment } = useApprovals(selectedBusinesses);
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = usePersistedState<"expenses" | "purchases" | "employees">("expenses:tab", "expenses");
@@ -2919,6 +2919,13 @@ function ExpensesPageInner() {
 
   // Handle opening edit popup
   const handleEditInvoice = (invoice: InvoiceDisplay) => {
+    // Markezet (consolidated) invoices need a different editor: the coordinator
+    // sheet, which lets the user (un)link delivery notes to the markezet. The
+    // generic invoice popup has no UI for that, so it silently strips the link.
+    if (invoice.isConsolidated && invoice.documentType !== "delivery_note") {
+      openCoordinatorEdit(invoice.id);
+      return;
+    }
     setEditingInvoice(invoice);
     setEditStatus(invoice.statusRaw || '');
     // Pre-fill form with invoice data

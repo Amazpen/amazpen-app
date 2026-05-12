@@ -46,18 +46,25 @@ const HEBREW_MONTHS = [
 interface ConsolidatedInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
+  editInvoiceId?: string | null;
 }
 
 export function ConsolidatedInvoiceModal({
   isOpen,
   onClose,
+  editInvoiceId = null,
 }: ConsolidatedInvoiceModalProps) {
+  const isEditMode = !!editInvoiceId;
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Draft persistence
   const { saveDraft, restoreDraft, clearDraft } = useFormDraft("consolidatedInvoice:draft");
   const draftRestored = useRef(false);
+  // True once edit-mode has done its one-shot preselect of linked delivery notes,
+  // so subsequent re-fetches (e.g. switching businesses inside the same open) don't
+  // overwrite the user's manual selection.
+  const initialDNLoadedRef = useRef(false);
 
   // Form state
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -138,14 +145,15 @@ export function ConsolidatedInvoiceModal({
     totalAmount, isClosed, notes, selectedNoteIds]);
 
   useEffect(() => {
-    if (draftRestored.current && isOpen) {
+    if (draftRestored.current && isOpen && !isEditMode) {
       saveDraftData();
     }
-  }, [saveDraftData, isOpen]);
+  }, [saveDraftData, isOpen, isEditMode]);
 
-  // Restore draft when modal opens
+  // Restore draft when modal opens (only in create mode — edit mode loads
+  // from the existing invoice and would clobber its values with a stale draft)
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !isEditMode) {
       draftRestored.current = false;
       setTimeout(() => {
         const draft = restoreDraft();
@@ -161,17 +169,20 @@ export function ConsolidatedInvoiceModal({
         }
         draftRestored.current = true;
       }, 0);
+    } else if (isOpen && isEditMode) {
+      // In edit mode the loader effect populates state; never save draft.
+      draftRestored.current = false;
     }
-  }, [isOpen, restoreDraft]);
+  }, [isOpen, isEditMode, restoreDraft]);
 
-  // Set default date to today
+  // Set default date to today (create mode only — edit mode keeps the invoice's date)
   useEffect(() => {
-    if (isOpen && !invoiceDate) {
+    if (isOpen && !invoiceDate && !isEditMode) {
       const today = new Date();
       const formattedDate = today.toISOString().split("T")[0];
       setInvoiceDate(formattedDate);
     }
-  }, [isOpen, invoiceDate]);
+  }, [isOpen, invoiceDate, isEditMode]);
 
   // Fetch businesses on open
   useEffect(() => {
@@ -234,6 +245,56 @@ export function ConsolidatedInvoiceModal({
     fetchBusinesses();
   }, [isOpen]);
 
+  // Edit mode: load the existing markezet invoice once businesses are available.
+  // Populates business/supplier/date/number/total/closed/notes/attachments so the
+  // user lands on a fully pre-filled form. Linked delivery notes are preselected
+  // by the delivery-notes effect above (it queries for invoice_id = editInvoiceId).
+  useEffect(() => {
+    if (!isOpen || !isEditMode || !editInvoiceId) return;
+    if (businesses.length === 0) return; // wait for businesses list
+    let cancelled = false;
+
+    const loadInvoice = async () => {
+      const supabase = createClient();
+      const { data: inv } = await supabase
+        .from("invoices")
+        .select("id, business_id, supplier_id, invoice_date, invoice_number, subtotal, vat_amount, total_amount, status, notes, attachment_url")
+        .eq("id", editInvoiceId)
+        .maybeSingle();
+      if (cancelled || !inv) return;
+
+      setSelectedBusinessId(inv.business_id || "");
+      setSelectedSupplierId(inv.supplier_id || "");
+      setInvoiceDate(inv.invoice_date ? String(inv.invoice_date).slice(0, 10) : "");
+      setInvoiceNumber(inv.invoice_number || "");
+      setTotalAmount(inv.total_amount != null ? String(inv.total_amount) : "");
+      // status === 'pending' was saved when isClosed === 'yes', 'needs_review' when 'no'.
+      setIsClosed(inv.status === "needs_review" ? "no" : "yes");
+      setNotes(inv.notes || "");
+
+      // Parse attachments — can be a plain URL or a JSON-array string (matches expenses page).
+      const raw = inv.attachment_url || "";
+      let urls: string[] = [];
+      if (raw) {
+        const trimmed = raw.trim();
+        if (trimmed.startsWith("[")) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) urls = parsed.filter((u): u is string => typeof u === "string");
+          } catch {
+            urls = [raw];
+          }
+        } else {
+          urls = [raw];
+        }
+      }
+      setUploadedFiles(urls.map((url, i) => ({ name: `קובץ ${i + 1}`, url })));
+    };
+
+    loadInvoice();
+    return () => { cancelled = true; };
+  }, [isOpen, isEditMode, editInvoiceId, businesses.length]);
+
   // Fetch suppliers when business changes
   useEffect(() => {
     if (!selectedBusinessId) {
@@ -254,14 +315,24 @@ export function ConsolidatedInvoiceModal({
         .is("deleted_at", null)
         .order("name");
 
-      if (supplierData) {
-        setSuppliers(supplierData);
+      let list = supplierData || [];
+      // In edit mode also include the current supplier even if its
+      // waiting_for_coordinator flag was turned off after the markezet was created,
+      // otherwise the select would render empty / lose its selection.
+      if (isEditMode && selectedSupplierId && !list.some(s => s.id === selectedSupplierId)) {
+        const { data: extra } = await supabase
+          .from("suppliers")
+          .select("id, name, waiting_for_coordinator, notes")
+          .eq("id", selectedSupplierId)
+          .maybeSingle();
+        if (extra) list = [extra, ...list];
       }
+      setSuppliers(list);
       setIsLoadingSuppliers(false);
     };
 
     fetchSuppliers();
-  }, [selectedBusinessId]);
+  }, [selectedBusinessId, isEditMode, selectedSupplierId]);
 
   // Fetch ALL unlinked delivery notes when supplier is selected
   useEffect(() => {
@@ -274,16 +345,30 @@ export function ConsolidatedInvoiceModal({
     const fetchUnlinkedDeliveryNotes = async () => {
       setIsLoadingNotes(true);
       const supabase = createClient();
-      const { data } = await supabase
+      // In edit mode also pull delivery notes already linked to this markezet
+      // (invoice_id = editInvoiceId) so they stay visible and preselected.
+      let query = supabase
         .from("delivery_notes")
-        .select("id, delivery_note_number, delivery_date, subtotal, vat_amount, total_amount, notes")
+        .select("id, delivery_note_number, delivery_date, subtotal, vat_amount, total_amount, notes, invoice_id")
         .eq("supplier_id", selectedSupplierId)
         .eq("business_id", selectedBusinessId)
-        .is("invoice_id", null)
         .order("delivery_date", { ascending: true });
+      query = isEditMode && editInvoiceId
+        ? query.or(`invoice_id.is.null,invoice_id.eq.${editInvoiceId}`)
+        : query.is("invoice_id", null);
+      const { data } = await query;
 
       if (data) {
         setAllDeliveryNotes(data);
+        // In edit mode preselect notes already linked to this invoice. Only do
+        // this on the initial load — once the user toggles, leave selection alone.
+        if (isEditMode && editInvoiceId && !initialDNLoadedRef.current) {
+          const preselected = data
+            .filter(n => (n as { invoice_id?: string | null }).invoice_id === editInvoiceId)
+            .map(n => n.id);
+          setSelectedNoteIds(new Set(preselected));
+          initialDNLoadedRef.current = true;
+        }
         setExpandedMonths(new Set());
       } else {
         setAllDeliveryNotes([]);
@@ -292,7 +377,7 @@ export function ConsolidatedInvoiceModal({
     };
 
     fetchUnlinkedDeliveryNotes();
-  }, [selectedSupplierId, selectedBusinessId]);
+  }, [selectedSupplierId, selectedBusinessId, isEditMode, editInvoiceId]);
 
   // Toggle single note selection
   const toggleNoteSelection = (noteId: string) => {
@@ -382,6 +467,7 @@ export function ConsolidatedInvoiceModal({
     setAllDeliveryNotes([]);
     setSelectedNoteIds(new Set());
     setExpandedMonths(new Set());
+    initialDNLoadedRef.current = false;
   };
 
   // Close popup
@@ -416,7 +502,7 @@ export function ConsolidatedInvoiceModal({
       showToast("יש לבחור האם החשבונית נסגרה", "warning");
       return;
     }
-    if (selectedNoteIds.size === 0) {
+    if (!isEditMode && selectedNoteIds.size === 0) {
       showToast("יש לבחור לפחות תעודת משלוח אחת", "warning");
       return;
     }
@@ -434,55 +520,120 @@ export function ConsolidatedInvoiceModal({
       const vatAmount = total - subtotal;
 
       const status = isClosed === "yes" ? "pending" : "needs_review";
+      // Match how expenses page reads attachment_url: single URL stays as-is,
+      // multiple URLs are stored as a JSON-array string (parseAttachmentUrls handles both).
+      const attachmentUrlField = uploadedFiles.length === 0
+        ? null
+        : uploadedFiles.length === 1
+          ? uploadedFiles[0].url
+          : JSON.stringify(uploadedFiles.map(f => f.url));
 
-      // Insert consolidated invoice
-      const { data: invoice, error: invoiceError } = await supabase
-        .from("invoices")
-        .insert({
-          business_id: selectedBusinessId,
-          supplier_id: selectedSupplierId,
-          invoice_date: invoiceDate,
-          invoice_number: invoiceNumber.trim(),
-          subtotal: subtotal,
-          vat_amount: vatAmount,
-          total_amount: total,
-          status: status,
-          invoice_type: "current",
-          is_consolidated: true,
-          notes: notes.trim() || null,
-          attachment_url: uploadedFiles.length > 0 ? uploadedFiles[0].url : null,
-          created_by: user?.id,
-        })
-        .select()
-        .single();
+      let invoiceId: string;
 
-      if (invoiceError) {
-        throw invoiceError;
-      }
-
-      // Link selected delivery notes to the invoice
-      if (invoice && selectedNoteIds.size > 0) {
-        const noteIdsArray = Array.from(selectedNoteIds);
-        const { error: linkError } = await supabase
-          .from("delivery_notes")
+      if (isEditMode && editInvoiceId) {
+        // UPDATE existing markezet
+        const { error: updateError } = await supabase
+          .from("invoices")
           .update({
-            invoice_id: invoice.id,
-            is_verified: isClosed === "yes",
+            business_id: selectedBusinessId,
+            supplier_id: selectedSupplierId,
+            invoice_date: invoiceDate,
+            invoice_number: invoiceNumber.trim(),
+            subtotal,
+            vat_amount: vatAmount,
+            total_amount: total,
+            status,
+            notes: notes.trim() || null,
+            attachment_url: attachmentUrlField,
           })
-          .in("id", noteIdsArray);
+          .eq("id", editInvoiceId);
 
-        if (linkError) {
-          console.error("Error linking delivery notes:", linkError);
-          showToast("החשבונית נשמרה אך היתה שגיאה בקישור תעודות המשלוח", "warning");
+        if (updateError) throw updateError;
+        invoiceId = editInvoiceId;
+
+        // Reconcile linked delivery notes:
+        //   - notes previously linked but now unselected → set invoice_id=null
+        //   - notes newly selected → set invoice_id=editInvoiceId
+        const previouslyLinked = allDeliveryNotes
+          .filter(n => (n as { invoice_id?: string | null }).invoice_id === editInvoiceId)
+          .map(n => n.id);
+        const previouslyLinkedSet = new Set(previouslyLinked);
+        const toUnlink = previouslyLinked.filter(id => !selectedNoteIds.has(id));
+        const toLink = Array.from(selectedNoteIds).filter(id => !previouslyLinkedSet.has(id));
+
+        if (toUnlink.length > 0) {
+          const { error: unlinkError } = await supabase
+            .from("delivery_notes")
+            .update({ invoice_id: null, is_verified: false })
+            .in("id", toUnlink);
+          if (unlinkError) console.error("Error unlinking delivery notes:", unlinkError);
         }
+        if (toLink.length > 0) {
+          const { error: linkError } = await supabase
+            .from("delivery_notes")
+            .update({ invoice_id: invoiceId, is_verified: isClosed === "yes" })
+            .in("id", toLink);
+          if (linkError) console.error("Error linking delivery notes:", linkError);
+        }
+        // Sync is_verified on still-linked notes when the closed-state changed
+        const stillLinked = Array.from(selectedNoteIds).filter(id => previouslyLinkedSet.has(id));
+        if (stillLinked.length > 0) {
+          await supabase
+            .from("delivery_notes")
+            .update({ is_verified: isClosed === "yes" })
+            .in("id", stillLinked);
+        }
+      } else {
+        // CREATE new markezet
+        const { data: invoice, error: invoiceError } = await supabase
+          .from("invoices")
+          .insert({
+            business_id: selectedBusinessId,
+            supplier_id: selectedSupplierId,
+            invoice_date: invoiceDate,
+            invoice_number: invoiceNumber.trim(),
+            subtotal,
+            vat_amount: vatAmount,
+            total_amount: total,
+            status,
+            invoice_type: "current",
+            is_consolidated: true,
+            notes: notes.trim() || null,
+            attachment_url: attachmentUrlField,
+            created_by: user?.id,
+          })
+          .select()
+          .single();
+
+        if (invoiceError) throw invoiceError;
+        invoiceId = invoice.id;
+
+        if (selectedNoteIds.size > 0) {
+          const { error: linkError } = await supabase
+            .from("delivery_notes")
+            .update({
+              invoice_id: invoiceId,
+              is_verified: isClosed === "yes",
+            })
+            .in("id", Array.from(selectedNoteIds));
+          if (linkError) {
+            console.error("Error linking delivery notes:", linkError);
+            showToast("החשבונית נשמרה אך היתה שגיאה בקישור תעודות המשלוח", "warning");
+          }
+        }
+        clearDraft();
       }
 
-      clearDraft();
-      showToast(isClosed === "yes" ? "המרכזת נסגרה ונשמרה בהצלחה" : "המרכזת נשמרה בהצלחה", "success");
+      showToast(
+        isEditMode
+          ? "המרכזת עודכנה בהצלחה"
+          : isClosed === "yes" ? "המרכזת נסגרה ונשמרה בהצלחה" : "המרכזת נשמרה בהצלחה",
+        "success",
+      );
       handleClose();
     } catch (err) {
       console.error("Error saving consolidated invoice:", err);
-      showToast("שגיאה בשמירת המרכזת", "error");
+      showToast(isEditMode ? "שגיאה בעדכון המרכזת" : "שגיאה בשמירת המרכזת", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -531,7 +682,7 @@ export function ConsolidatedInvoiceModal({
                 <span className="text-white text-[20px] font-bold">{selectedBusinessName}</span>
               )}
               <SheetTitle className="text-white text-[18px] font-normal">
-                {selectedBusinessName ? "מרכזת | תעודות משלוח" : "הוספת מרכזת"}
+                {isEditMode ? "עריכת מרכזת" : selectedBusinessName ? "מרכזת | תעודות משלוח" : "הוספת מרכזת"}
               </SheetTitle>
             </div>
             <div className="w-[24px]" />
@@ -863,18 +1014,18 @@ export function ConsolidatedInvoiceModal({
                 <Button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={isSubmitting || !selectedBusinessId || !selectedSupplierId || !invoiceNumber || !totalAmount || !isClosed || selectedNoteIds.size === 0}
+                  disabled={isSubmitting || !selectedBusinessId || !selectedSupplierId || !invoiceNumber || !totalAmount || !isClosed || (!isEditMode && selectedNoteIds.size === 0)}
                   className="min-w-[40%] max-w-[40%] h-[40px] bg-[#0F1535] border border-[#0F1535] rounded-[5px] text-white text-[17px] font-semibold transition-all disabled:opacity-50 disabled:cursor-default hover:bg-[#1a2050]"
                 >
-                  {isSubmitting ? "שומר..." : "שמירה"}
+                  {isSubmitting ? (isEditMode ? "מעדכן..." : "שומר...") : (isEditMode ? "עדכון" : "שמירה")}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handleReset}
+                  onClick={isEditMode ? handleClose : handleReset}
                   className="min-w-[40%] max-w-[40%] h-[40px] border border-white rounded-[5px] text-white text-[17px] font-semibold transition-all hover:bg-white/10"
                 >
-                  איפוס
+                  {isEditMode ? "ביטול" : "איפוס"}
                 </Button>
               </div>
             </div>

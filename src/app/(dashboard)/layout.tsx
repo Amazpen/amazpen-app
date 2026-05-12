@@ -45,6 +45,11 @@ interface DashboardContextType {
   globalYear: string;
   setGlobalYear: (year: string) => void;
   userAvatarUrl: string | null;
+  // Opens the global ConsolidatedInvoiceModal in edit mode for the given markezet
+  // invoice id. Lives in layout (not expenses page) so any page can reuse it
+  // without re-mounting the modal — the expenses table calls this when the user
+  // clicks edit on a row flagged isConsolidated.
+  openCoordinatorEdit: (invoiceId: string) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType>({
@@ -63,6 +68,7 @@ const DashboardContext = createContext<DashboardContextType>({
   globalYear: "",
   setGlobalYear: () => {},
   userAvatarUrl: null,
+  openCoordinatorEdit: () => {},
 });
 
 export const useDashboard = () => useContext(DashboardContext);
@@ -263,6 +269,9 @@ export default function DashboardLayout({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isCoordinatorModalOpen, setIsCoordinatorModalOpen] = useState(false);
+  // When non-null the coordinator modal opens in edit mode for this invoice id.
+  // Pages call `openCoordinatorEdit(id)` from context to set both at once.
+  const [coordinatorEditInvoiceId, setCoordinatorEditInvoiceId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const prevUnreadCount = useRef(-1);
   // Start as `true` so gated pages (e.g. /ocr admin-only) don't see the
@@ -687,7 +696,7 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
-    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, isProfileLoading: isLoadingProfile, canManage, refreshProfile: fetchUserProfile, onlineUsers, globalDateRange, setGlobalDateRange, globalMonth, setGlobalMonth, globalYear, setGlobalYear, userAvatarUrl: userProfile?.avatar_url || null }}>
+    <DashboardContext.Provider value={{ selectedBusinesses, setSelectedBusinesses, toggleBusiness, isAdmin, isProfileLoading: isLoadingProfile, canManage, refreshProfile: fetchUserProfile, onlineUsers, globalDateRange, setGlobalDateRange, globalMonth, setGlobalMonth, globalYear, setGlobalYear, userAvatarUrl: userProfile?.avatar_url || null, openCoordinatorEdit: (id: string) => { setCoordinatorEditInvoiceId(id); setIsCoordinatorModalOpen(true); } }}>
       <div className="min-h-screen bg-[#0F1535]">
         {/* Sidebar Overlay - Mobile only */}
         {isMenuOpen && (
@@ -1219,9 +1228,12 @@ export default function DashboardLayout({
 
         {/* Coordinator Modal */}
         <ConsolidatedInvoiceModal
-          key={`coordinator-${isCoordinatorModalOpen}`}
+          // Remount when toggling open/closed AND when switching between
+          // create (null) and edit (some id) so internal state fully resets.
+          key={`coordinator-${isCoordinatorModalOpen}-${coordinatorEditInvoiceId ?? "create"}`}
           isOpen={isCoordinatorModalOpen}
-          onClose={() => setIsCoordinatorModalOpen(false)}
+          editInvoiceId={coordinatorEditInvoiceId}
+          onClose={() => { setIsCoordinatorModalOpen(false); setCoordinatorEditInvoiceId(null); }}
         />
       </div>
     </DashboardContext.Provider>
