@@ -224,11 +224,15 @@ export async function GET(request: NextRequest) {
     // invoice into foodCost AND also into currentExpensesActual when type was
     // 'current' — which double-counted the same shekels in the profit math
     // (food + current both saw them) and inflated cost-of-goods to 78%+.
+    // Match the dashboard's supplier filter exactly: active goods suppliers
+    // for this business. Inactive ones are intentionally excluded so the
+    // email number is identical to what the user sees on the kpi card.
     const goodsSupplierIdsRes = await supabase
       .from("suppliers")
       .select("id")
       .eq("business_id", businessId)
       .eq("expense_type", "goods_purchases")
+      .eq("is_active", true)
       .is("deleted_at", null);
     const goodsSupplierIds = new Set(
       ((goodsSupplierIdsRes.data || []) as Array<{ id: string }>).map((s) => s.id)

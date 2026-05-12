@@ -218,6 +218,22 @@ export default function OCRForm({
   const [documentType, setDocumentType] = useState<DocumentType>('invoice');
   const [expenseType, setExpenseType] = useState<ExpenseType>('goods');
   const [supplierId, setSupplierId] = useState('');
+
+  // When the selected business changes (or its suppliers list updates), drop
+  // any supplierId that no longer belongs to the active business. Without
+  // this guard the form keeps a stale supplier from the previous business —
+  // a reviewer who changes the business assignment of an OCR document can
+  // accidentally save an invoice for business A pointing at a supplier of
+  // business B (cross-business corruption). The dashboard then can't bucket
+  // it under "עלות מכר" / "הוצאות שוטפות" consistently.
+  useEffect(() => {
+    if (!supplierId) return;
+    const stillValid = suppliers.some((s) => s.id === supplierId)
+      || coordinatorSuppliers.some((s) => s.id === supplierId);
+    if (!stillValid) {
+      setSupplierId('');
+    }
+  }, [suppliers, coordinatorSuppliers, supplierId]);
   const [documentDate, setDocumentDate] = useState('');
   const [valueDate, setValueDate] = useState('');
   const valueDateManuallySet = useRef(false);
