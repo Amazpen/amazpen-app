@@ -3902,6 +3902,17 @@ function ExpensesPageInner() {
       showToast("שגיאה בניתוק התשלום", "error");
       return;
     }
+    // Optimistically strip the payment from the local invoice rows so the user
+    // sees the row disappear immediately. refreshTrigger also re-fetches in
+    // the background, but on global-search results that runs with a 600ms
+    // debounce — without this optimistic update the user thinks "nothing
+    // happened" and clicks again.
+    const stripPayment = (rows: InvoiceDisplay[]): InvoiceDisplay[] =>
+      rows.map(row => row.id === invoiceId
+        ? { ...row, linkedPayments: row.linkedPayments.filter(p => p.paymentId !== paymentId) }
+        : row);
+    setRecentInvoices(prev => stripPayment(prev));
+    setGlobalSearchResults(prev => prev ? stripPayment(prev) : prev);
     showToast("התשלום נותק מהחשבונית", "success");
     setRefreshTrigger(prev => prev + 1);
   };
