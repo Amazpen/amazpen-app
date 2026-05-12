@@ -30,7 +30,11 @@ type VatRequired = "yes" | "no" | "partial";
 type PaymentMethod = "" | "credit" | "bank_transfer" | "cash" | "check" | "direct_debit";
 
 type ParentCategory = { id: string; name: string; business_id: string };
-type Category = { id: string; name: string; business_id: string; parent_category_id: string | null };
+// Child categories live in the SAME expense_categories table as parents — the
+// parent/child link is the `parent_id` column on each row, not a separate
+// `parent_categories` table. (The old code mistakenly hit a non-existent
+// table + wrong column, so both dropdowns came back empty.)
+type Category = { id: string; name: string; business_id: string; parent_id: string | null };
 type CreditCard = { id: string; card_name: string };
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
@@ -132,20 +136,34 @@ export default function QuickAddSupplierModal({
     setError(null);
   }, [open, initialName, initialTaxId]);
 
-  // Fetch categories + credit cards once we have a business
+  // Fetch categories + credit cards once we have a business.
+  // Parents and children both live in expense_categories — rows with
+  // parent_id IS NULL are parent categories, everything else is a child.
+  // (Matches /suppliers exactly so the dropdowns show the same lists.)
   useEffect(() => {
     if (!open || !businessId) return;
     const supabase = createClient();
     let cancelled = false;
     (async () => {
-      const [pcRes, cRes, ccRes] = await Promise.all([
-        supabase.from("parent_categories").select("id, name, business_id").eq("business_id", businessId).order("name"),
-        supabase.from("expense_categories").select("id, name, business_id, parent_category_id").eq("business_id", businessId).order("name"),
+      const [catRes, ccRes] = await Promise.all([
+        supabase
+          .from("expense_categories")
+          .select("id, name, business_id, parent_id")
+          .eq("business_id", businessId)
+          .is("deleted_at", null)
+          .eq("is_active", true)
+          .order("display_order", { ascending: true, nullsFirst: false })
+          .order("name", { ascending: true }),
         supabase.from("business_credit_cards").select("id, card_name").eq("business_id", businessId).eq("is_active", true).order("card_name"),
       ]);
       if (cancelled) return;
-      setParentCategories((pcRes.data as ParentCategory[]) || []);
-      setCategories((cRes.data as Category[]) || []);
+      const allCats = (catRes.data as Category[]) || [];
+      const parents = allCats.filter(c => !c.parent_id).map(c => ({ id: c.id, name: c.name, business_id: c.business_id }));
+      const children = allCats.filter(c => c.parent_id);
+      setParentCategories(parents);
+      // If the business has flat categories (no parents/children split), still
+      // show them in the "category" dropdown — that's how /suppliers handles it.
+      setCategories(children.length > 0 ? children : allCats);
       setCreditCards((ccRes.data as CreditCard[]) || []);
     })();
     return () => { cancelled = true; };
@@ -153,7 +171,7 @@ export default function QuickAddSupplierModal({
 
   // Filter child categories to the selected parent (matching /suppliers behavior)
   const filteredCategories = parentCategoryId
-    ? categories.filter(c => c.parent_category_id === parentCategoryId)
+    ? categories.filter(c => c.parent_id === parentCategoryId)
     : categories;
 
   const handleSave = async () => {
