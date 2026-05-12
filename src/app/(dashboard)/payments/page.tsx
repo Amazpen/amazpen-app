@@ -1153,7 +1153,16 @@ function PaymentsPageInner() {
         });
       }
     }
-    return results;
+    // Dedupe rows by display id. The N:M payment_invoice_links join in the
+    // upstream query can in some PostgREST versions surface the same payment
+    // row multiple times; without this guard the user sees an identical
+    // payment repeated under "תשלומים אחרונים ששולמו".
+    const seen = new Set<string>();
+    return results.filter(r => {
+      if (seen.has(r.id)) return false;
+      seen.add(r.id);
+      return true;
+    });
   };
 
   // Load more payments (infinite scroll)
