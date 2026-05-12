@@ -809,6 +809,12 @@ function ExpensesPageInner() {
   const [breakdownSupplierInvoices, setBreakdownSupplierInvoices] = useState<InvoiceDisplay[]>([]);
   const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
   const returnToBreakdownRef = useRef(false);
+  // Set when the popup was opened via a deep-link from /suppliers. On close
+  // we send the user back there instead of leaving them on /expenses with
+  // no obvious way to switch months. Uses a ref (not state) because the URL
+  // params get cleared on mount and we don't want the back-target to be a
+  // re-render trigger.
+  const returnToSuppliersRef = useRef(false);
   // Local month override for the popup — lets the user page ← → through months
   // inside the supplier breakdown without changing the main page's dateRange.
   // Holds the 1st-of-month Date for the month currently shown in the popup.
@@ -3313,6 +3319,9 @@ function ExpensesPageInner() {
 
     // Clear the query params immediately so navigation history stays clean
     window.history.replaceState({}, "", "/expenses");
+    // Remember that we got here from /suppliers so closing the breakdown
+    // popup sends the user back instead of stranding them on /expenses.
+    returnToSuppliersRef.current = true;
 
     const monthStart = new Date(year, monthIdx, 1);
     const monthEnd = new Date(year, monthIdx + 1, 0);
@@ -3934,6 +3943,14 @@ function ExpensesPageInner() {
       setBreakdownSupplierTotalWithVat(0);
       setBreakdownSupplierId("");
       setBreakdownMonthOverride(null);
+    }
+    // If the breakdown was opened via the deep-link from /suppliers, send the
+    // user back there so they can keep tapping months on the same supplier
+    // without losing their place. Skip when returnToBreakdownRef is on — that
+    // means a sub-popup is closing back into the breakdown, not the whole flow.
+    if (returnToSuppliersRef.current && !returnToBreakdownRef.current) {
+      returnToSuppliersRef.current = false;
+      router.back();
     }
   };
 
