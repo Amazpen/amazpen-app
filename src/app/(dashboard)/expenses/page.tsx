@@ -3235,6 +3235,21 @@ function ExpensesPageInner() {
     // Reset attachments
     setEditAttachmentFiles([]);
     setEditAttachmentPreviews([]);
+    // Return to supplier breakdown if we came from there
+    if (returnToBreakdownRef.current) {
+      returnToBreakdownRef.current = false;
+      setShowSupplierBreakdownPopup(true);
+      // Re-fetch so the edited invoice's values show updated in the list
+      if (breakdownSupplierId) {
+        const base = breakdownMonthOverride ?? new Date(dateRange.start.getFullYear(), dateRange.start.getMonth(), 1);
+        const monthStart = new Date(base.getFullYear(), base.getMonth(), 1);
+        const monthEnd = breakdownMonthOverride
+          ? new Date(base.getFullYear(), base.getMonth() + 1, 0)
+          : dateRange.end;
+        const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        fetchBreakdownForRange(breakdownSupplierId, fmt(monthStart), fmt(monthEnd));
+      }
+    }
   };
 
   // Handle deep-link edit from supplier card (?edit=invoiceId)
@@ -3271,6 +3286,48 @@ function ExpensesPageInner() {
       }
     };
     fetchAndEdit();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBusinesses]);
+
+  // Handle deep-link breakdown from suppliers page (?supplierId=X&month=YYYY-MM)
+  // Opens the supplier breakdown popup scoped to that single month,
+  // so the user lands on the same view they would get from a category drill-down.
+  useEffect(() => {
+    if (typeof window === "undefined" || selectedBusinesses.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const supplierIdParam = params.get("supplierId");
+    const monthParam = params.get("month");
+    if (!supplierIdParam || !monthParam) return;
+
+    const [yearStr, monthStr] = monthParam.split("-");
+    const year = parseInt(yearStr, 10);
+    const monthIdx = parseInt(monthStr, 10) - 1;
+    if (Number.isNaN(year) || Number.isNaN(monthIdx)) return;
+
+    // Clear the query params immediately so navigation history stays clean
+    window.history.replaceState({}, "", "/expenses");
+
+    const monthStart = new Date(year, monthIdx, 1);
+    const monthEnd = new Date(year, monthIdx + 1, 0);
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    const openBreakdownForMonth = async () => {
+      const supabase = createClient();
+      const { data: supplierData } = await supabase
+        .from("suppliers")
+        .select("id, name")
+        .eq("id", supplierIdParam)
+        .maybeSingle();
+      if (!supplierData) return;
+
+      setBreakdownSupplierId(supplierData.id);
+      setBreakdownSupplierName(supplierData.name);
+      setBreakdownSupplierCategory("");
+      setBreakdownMonthOverride(monthStart);
+      setShowSupplierBreakdownPopup(true);
+      await fetchBreakdownForRange(supplierData.id, fmt(monthStart), fmt(monthEnd));
+    };
+    openBreakdownForMonth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBusinesses]);
 
@@ -5800,6 +5857,9 @@ function ExpensesPageInner() {
                         creditCardId: defaultCardId,
                         customInstallments: amount ? generatePopupInstallments(1, totalWithVat, smartDate) : [],
                       }]);
+                      if (!paymentReference.trim() && invoiceNumber.trim()) {
+                        setPaymentReference(invoiceNumber.trim());
+                      }
                     }
                   }}
                   className="flex items-center gap-[3px] min-h-[35px]"
@@ -7096,7 +7156,7 @@ function ExpensesPageInner() {
                 <span className="text-[14px] font-medium text-white text-center" style={{ width: 66, maxWidth: 66 }}>מספר חשבונית</span>
                 <span className="text-[14px] font-medium text-white text-center" style={{ width: 65, maxWidth: 65 }}>סכום לפני מע&quot;מ</span>
                 <span className="text-[14px] font-medium text-white text-center" style={{ width: 60, maxWidth: 60 }}>סטטוס</span>
-                <span className="text-[14px] font-medium text-white text-center" style={{ width: 76, maxWidth: 76 }}>אפשרויות</span>
+                <span className="text-[14px] font-medium text-white text-center" style={{ width: 105, maxWidth: 105 }}>אפשרויות</span>
               </div>
 
               {/* Table Rows */}
@@ -7146,7 +7206,7 @@ function ExpensesPageInner() {
                         </span>
                       )}
                     </span>
-                    <div className="flex items-center justify-center gap-[4px]" style={{ width: 76, maxWidth: 76 }}>
+                    <div className="flex items-center justify-center gap-[4px]" style={{ width: 105, maxWidth: 105 }}>
                       {((inv.notes && inv.notes.trim()) || (inv.clarificationReason && inv.clarificationReason.trim())) && (
                         <Popover>
                           <PopoverTrigger asChild>
@@ -7176,6 +7236,26 @@ function ExpensesPageInner() {
                             )}
                           </PopoverContent>
                         </Popover>
+                      )}
+                      {canManage && inv.documentType !== "delivery_note" && (
+                        <Button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Return to the breakdown popup after the edit popup closes,
+                            // so the user keeps their place in the supplier's monthly list.
+                            returnToBreakdownRef.current = true;
+                            setShowSupplierBreakdownPopup(false);
+                            handleEditInvoice(inv);
+                          }}
+                          className="w-[25px] h-[25px] flex items-center justify-center text-white/50 hover:text-white transition-colors"
+                          title="ערוך"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                        </Button>
                       )}
                       {canManage && (
                         <Button

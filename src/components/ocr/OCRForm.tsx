@@ -3266,6 +3266,9 @@ export default function OCRForm({
                 creditCardId: defaultCardId,
                 customInstallments: amount ? generateInstallments(1, totalWithVat, smartDate) : [],
               }]);
+              if (!inlinePaymentReference.trim() && documentNumber.trim()) {
+                setInlinePaymentReference(documentNumber.trim());
+              }
             }
           }}
           className="flex items-center gap-[3px] min-h-[35px]"
