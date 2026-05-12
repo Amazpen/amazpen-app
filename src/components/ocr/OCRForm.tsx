@@ -243,6 +243,11 @@ export default function OCRForm({
   const [amountBeforeVat, setAmountBeforeVat] = useState('');
   const [vatAmount, setVatAmount] = useState('');
   const [partialVat, setPartialVat] = useState(false);
+  // Some invoices show the total-with-VAT as the headline number, so the user
+  // wants to type that directly and have the before-VAT amount derived. While
+  // the user is editing the total field we store their raw string here; clearing
+  // it falls back to the standard before-VAT-is-master flow.
+  const [totalWithVatInput, setTotalWithVatInput] = useState('');
   const [notes, setNotes] = useState('');
   const [isPaid, setIsPaid] = useState(false);
   const [isDisputed, setIsDisputed] = useState(false);
@@ -1607,6 +1612,9 @@ export default function OCRForm({
           ? data.subtotal.toString()
           : ''
       );
+      // OCR data is authoritative — drop any earlier user-typed total so the
+      // form displays the freshly-extracted before-VAT subtotal in forward mode.
+      setTotalWithVatInput('');
       if (data.vat_amount !== undefined && data.vat_amount !== null) {
         setVatAmount(data.vat_amount.toString());
         // Default: partial VAT toggle is OFF (regular VAT). The user must
@@ -1697,6 +1705,7 @@ export default function OCRForm({
             : (data.subtotal !== undefined && data.subtotal !== null ? Number(data.subtotal) : null);
           if (total !== null && !Number.isNaN(total)) {
             setAmountBeforeVat(total.toString());
+            setTotalWithVatInput('');
           }
           setPartialVat(true);
           setVatAmount('0');
@@ -1748,6 +1757,7 @@ export default function OCRForm({
       setAmountBeforeVat('');
       setVatAmount('');
       setPartialVat(false);
+      setTotalWithVatInput('');
       setNotes('');
       setIsPaid(false);
       setIsDisputed(false);
@@ -2671,6 +2681,7 @@ export default function OCRForm({
                       setLinkToFixedInvoiceId(inv.id);
                       fixedOverwriteConfirmedRef.current = false;
                       setAmountBeforeVat(String(inv.subtotal));
+                      setTotalWithVatInput('');
                       // NEVER overwrite documentDate when picking a fixed-expense
                       // month — even if it contains today's auto-default. The
                       // actual invoice date (whether OCR-extracted or
@@ -2789,7 +2800,7 @@ export default function OCRForm({
             dir="ltr"
             title="סכום לפני מע״מ"
             value={amountBeforeVat}
-            onChange={(e) => setAmountBeforeVat(e.target.value)}
+            onChange={(e) => { setAmountBeforeVat(e.target.value); setTotalWithVatInput(''); }}
             placeholder="0.00"
             className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
           />
@@ -2813,7 +2824,20 @@ export default function OCRForm({
               title="סכום מע״מ"
               placeholder="0.00"
               value={partialVat ? vatAmount : calculatedVat.toFixed(2)}
-              onChange={(e) => setVatAmount(e.target.value)}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setVatAmount(raw);
+                // If the user is anchoring on the total-with-VAT field, the
+                // before-VAT amount has to follow when the VAT changes.
+                if (totalWithVatInput !== '' && partialVat) {
+                  const total = parseFloat(totalWithVatInput);
+                  const vat = parseFloat(raw);
+                  if (isFinite(total) && isFinite(vat)) {
+                    const disc = parseFloat(discountAmount) || 0;
+                    setAmountBeforeVat((total - vat + disc).toFixed(2));
+                  }
+                }
+              }}
               disabled={!partialVat}
               className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] disabled:text-white/50"
             />
@@ -2843,17 +2867,45 @@ export default function OCRForm({
         </div>
       </div>
 
-      {/* Total with VAT */}
+      {/* Total with VAT — editable. Lots of invoices print the total-with-VAT
+          as the headline number, so users want to enter that directly and have
+          the before-VAT amount calculated for them. While the user is typing
+          here we keep their raw string in totalWithVatInput and back-derive
+          amountBeforeVat (respecting the partialVat / discount knobs). The
+          moment they touch the before-VAT field we drop back to forward mode. */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
         <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
           <Input
             type="text"
+            inputMode="decimal"
+            dir="ltr"
             title="סכום כולל מע״מ"
             placeholder="0.00"
-            value={totalWithVat.toFixed(2)}
-            disabled
-            className="w-full h-full bg-transparent text-white/50 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+            value={totalWithVatInput !== '' ? totalWithVatInput : totalWithVat.toFixed(2)}
+            onChange={(e) => {
+              const raw = e.target.value;
+              setTotalWithVatInput(raw);
+              const total = parseFloat(raw);
+              if (!isFinite(total)) {
+                // Empty / mid-typing — leave amountBeforeVat alone; the field
+                // still shows whatever the user typed via totalWithVatInput.
+                return;
+              }
+              const disc = parseFloat(discountAmount) || 0;
+              let newBeforeVat: number;
+              if (partialVat) {
+                // VAT is fixed by the user → before = total - vat + discount.
+                const vat = parseFloat(vatAmount) || 0;
+                newBeforeVat = total - vat + disc;
+              } else {
+                // Auto VAT → amountAfterDiscount = total / (1+rate); add the
+                // discount back to land on the before-VAT input value.
+                newBeforeVat = total / (1 + businessVatRate) + disc;
+              }
+              setAmountBeforeVat(newBeforeVat.toFixed(2));
+            }}
+            className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
           />
         </div>
       </div>
@@ -4545,7 +4597,7 @@ export default function OCRForm({
                 </div>
                 <Button
                   type="button"
-                  onClick={() => setAmountBeforeVat(String(combined.toFixed(2)))}
+                  onClick={() => { setAmountBeforeVat(String(combined.toFixed(2))); setTotalWithVatInput(''); }}
                   className="bg-[#bc76ff]/30 hover:bg-[#bc76ff]/50 text-white text-[11px] font-medium px-3 py-1 rounded-[6px] transition-colors h-auto whitespace-nowrap"
                 >
                   חבר סכומים

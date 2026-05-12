@@ -315,6 +315,10 @@ function ExpensesPageInner() {
   const [amountBeforeVat, setAmountBeforeVat] = useState("");
   const [partialVat, setPartialVat] = useState(false);
   const [vatAmount, setVatAmount] = useState("");
+  // While the user is typing into the "סכום כולל מע&quot;מ" field we keep
+  // their raw string here and back-derive amountBeforeVat. Empty string ⇒
+  // the normal forward flow (before-VAT is master) is active.
+  const [totalWithVatInput, setTotalWithVatInput] = useState("");
   const [notes, setNotes] = useState("");
   const [isPaidInFull, setIsPaidInFull] = useState(false);
   const [needsClarification, setNeedsClarification] = useState(false);
@@ -2364,7 +2368,7 @@ function ExpensesPageInner() {
           }
         }
         if (data.document_number) setInvoiceNumber(data.document_number);
-        if (data.subtotal != null) setAmountBeforeVat(data.subtotal.toString());
+        if (data.subtotal != null) { setAmountBeforeVat(data.subtotal.toString()); setTotalWithVatInput(""); }
         if (data.vat_amount != null) {
           const expectedVat = (data.subtotal || 0) * 0.18;
           if (Math.abs(data.vat_amount - expectedVat) > 0.5) {
@@ -2888,6 +2892,7 @@ function ExpensesPageInner() {
     setAmountBeforeVat("");
     setPartialVat(false);
     setVatAmount("");
+    setTotalWithVatInput("");
     setNotes("");
     setIsPaidInFull(false);
     setNeedsClarification(false);
@@ -2954,6 +2959,7 @@ function ExpensesPageInner() {
     }
     setInvoiceNumber(invoice.reference);
     setAmountBeforeVat(invoice.amountBeforeVat.toString());
+    setTotalWithVatInput("");
     setNotes(invoice.notes);
     setClarificationReason(invoice.clarificationReason || "");
     // Set reference date (convert from DD.MM.YY display format to YYYY-MM-DD)
@@ -3230,6 +3236,7 @@ function ExpensesPageInner() {
     setAmountBeforeVat("");
     setPartialVat(false);
     setVatAmount("");
+    setTotalWithVatInput("");
     setNotes("");
     setClarificationReason("");
     // Reset attachments
@@ -5576,6 +5583,7 @@ function ExpensesPageInner() {
                             onClick={() => {
                               setLinkToFixedInvoiceId(inv.id);
                               setAmountBeforeVat(String(inv.subtotal));
+                              setTotalWithVatInput("");
                               // NEVER overwrite expenseDate when picking a
                               // fixed-expense month — the actual invoice date
                               // is always more accurate than the placeholder's
@@ -5630,7 +5638,7 @@ function ExpensesPageInner() {
                     inputMode="decimal"
                     title="סכום לפני מע״מ"
                     value={amountBeforeVat && !isNaN(parseFloat(amountBeforeVat)) ? (amountBeforeVat.endsWith(".") ? parseFloat(amountBeforeVat).toLocaleString("en-US", { maximumFractionDigits: 0 }) + "." : parseFloat(amountBeforeVat).toLocaleString("en-US", { maximumFractionDigits: 2 })) : amountBeforeVat}
-                    onChange={(e) => setAmountBeforeVat(e.target.value.replace(/,/g, ""))}
+                    onChange={(e) => { setAmountBeforeVat(e.target.value.replace(/,/g, "")); setTotalWithVatInput(""); }}
                     placeholder="0.00"
                     className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
                   />
@@ -5648,7 +5656,20 @@ function ExpensesPageInner() {
                       title="סכום מע״מ"
                       placeholder="0.00"
                       value={partialVat ? vatAmount : calculatedVat.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      onChange={(e) => setVatAmount(e.target.value.replace(/,/g, ""))}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/,/g, "");
+                        setVatAmount(raw);
+                        // Mirror behaviour from OCR: if the user is anchoring
+                        // on the total-with-VAT field, recompute before-VAT
+                        // when they tweak the manual VAT amount.
+                        if (totalWithVatInput !== "" && partialVat) {
+                          const total = parseFloat(totalWithVatInput);
+                          const vat = parseFloat(raw);
+                          if (isFinite(total) && isFinite(vat)) {
+                            setAmountBeforeVat((total - vat).toFixed(2));
+                          }
+                        }
+                      }}
                       disabled={!partialVat}
                       className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] disabled:text-white/50"
                     />
@@ -5676,17 +5697,33 @@ function ExpensesPageInner() {
                 </div>
               </div>
 
-              {/* Total with VAT */}
+              {/* Total with VAT — editable. Many invoices print the
+                  total-with-VAT as the headline figure; users want to enter it
+                  directly and have the before-VAT amount back-derived. */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
                   <Input
                     type="text"
+                    inputMode="decimal"
                     title="סכום כולל מע״מ"
                     placeholder="0.00"
-                    value={totalWithVat.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    disabled
-                    className="w-full h-full bg-transparent text-white/50 text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
+                    value={totalWithVatInput !== "" ? totalWithVatInput : totalWithVat.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/,/g, "");
+                      setTotalWithVatInput(raw);
+                      const total = parseFloat(raw);
+                      if (!isFinite(total)) return;
+                      let newBeforeVat: number;
+                      if (partialVat) {
+                        const vat = parseFloat(vatAmount) || 0;
+                        newBeforeVat = total - vat;
+                      } else {
+                        newBeforeVat = total / (1 + businessVatRate);
+                      }
+                      setAmountBeforeVat(newBeforeVat.toFixed(2));
+                    }}
+                    className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
                   />
                 </div>
               </div>
@@ -6386,6 +6423,7 @@ function ExpensesPageInner() {
                             onClick={() => {
                               setLinkToFixedInvoiceId(inv.id);
                               setAmountBeforeVat(String(inv.subtotal));
+                              setTotalWithVatInput("");
                               // NEVER overwrite expenseDate when picking a
                               // fixed-expense month — the actual invoice date
                               // is always more accurate than the placeholder's
@@ -6440,7 +6478,7 @@ function ExpensesPageInner() {
                     inputMode="decimal"
                     title="סכום לפני מע״מ"
                     value={amountBeforeVat && !isNaN(parseFloat(amountBeforeVat)) ? (amountBeforeVat.endsWith(".") ? parseFloat(amountBeforeVat).toLocaleString("en-US", { maximumFractionDigits: 0 }) + "." : parseFloat(amountBeforeVat).toLocaleString("en-US", { maximumFractionDigits: 2 })) : amountBeforeVat}
-                    onChange={(e) => setAmountBeforeVat(e.target.value.replace(/,/g, ""))}
+                    onChange={(e) => { setAmountBeforeVat(e.target.value.replace(/,/g, "")); setTotalWithVatInput(""); }}
                     placeholder="0.00"
                     className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
                   />
@@ -6458,7 +6496,17 @@ function ExpensesPageInner() {
                       title="סכום מע״מ"
                       placeholder="0.00"
                       value={partialVat ? vatAmount : calculatedVat.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      onChange={(e) => setVatAmount(e.target.value.replace(/,/g, ""))}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/,/g, "");
+                        setVatAmount(raw);
+                        if (totalWithVatInput !== "" && partialVat) {
+                          const total = parseFloat(totalWithVatInput);
+                          const vat = parseFloat(raw);
+                          if (isFinite(total) && isFinite(vat)) {
+                            setAmountBeforeVat((total - vat).toFixed(2));
+                          }
+                        }
+                      }}
                       disabled={!partialVat}
                       className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] disabled:text-white/50"
                     />
@@ -6486,14 +6534,32 @@ function ExpensesPageInner() {
                 </div>
               </div>
 
-              {/* Total with VAT (read-only) */}
+              {/* Total with VAT — editable; back-derives amountBeforeVat. */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
                 <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
                   <Input
                     type="text"
-                    readOnly
-                    value={((parseFloat(amountBeforeVat) || 0) + (partialVat ? (parseFloat(vatAmount) || 0) : calculatedVat)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    inputMode="decimal"
+                    title="סכום כולל מע״מ"
+                    placeholder="0.00"
+                    value={totalWithVatInput !== ""
+                      ? totalWithVatInput
+                      : ((parseFloat(amountBeforeVat) || 0) + (partialVat ? (parseFloat(vatAmount) || 0) : calculatedVat)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/,/g, "");
+                      setTotalWithVatInput(raw);
+                      const total = parseFloat(raw);
+                      if (!isFinite(total)) return;
+                      let newBeforeVat: number;
+                      if (partialVat) {
+                        const vat = parseFloat(vatAmount) || 0;
+                        newBeforeVat = total - vat;
+                      } else {
+                        newBeforeVat = total / (1 + businessVatRate);
+                      }
+                      setAmountBeforeVat(newBeforeVat.toFixed(2));
+                    }}
                     className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px]"
                   />
                 </div>
