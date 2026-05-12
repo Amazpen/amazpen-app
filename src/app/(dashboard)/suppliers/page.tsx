@@ -187,6 +187,7 @@ export default function SuppliersPage() {
   });
   const [monthlyBreakdown, setMonthlyBreakdown] = useState<Array<{
     month: string;
+    monthKey: string;
     purchases: number;
     paid: number;
     amountToPay: number;
@@ -1401,7 +1402,7 @@ export default function SuppliersPage() {
       // "יתרה" = open invoices (pending/clarification) for the month —
       //   matches the "יתרה לתשלום" pill at the top, and survives imported
       //   payments that have no link row.
-      const breakdownMonths: Array<{ month: string; purchases: number; paid: number; amountToPay: number }> = [];
+      const breakdownMonths: Array<{ month: string; monthKey: string; purchases: number; paid: number; amountToPay: number }> = [];
       for (let i = 0; i < 6; i++) {
         const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const mData = await fetchMonthlyData(supplier, mDate);
@@ -1409,6 +1410,7 @@ export default function SuppliersPage() {
         if (hasActivity) {
           breakdownMonths.push({
             month: mDate.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
+            monthKey: `${mDate.getFullYear()}-${String(mDate.getMonth() + 1).padStart(2, '0')}`,
             purchases: mData.monthlyPurchases,
             paid: mData.monthlyPaid,
             amountToPay: mData.amountToPay,
@@ -3058,14 +3060,23 @@ export default function SuppliersPage() {
                   ) : (
                     <>
                       {monthlyBreakdown.map((m) => (
-                        <div key={m.month} className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] bg-white/5 rounded-[5px] text-[12px]">
+                        <button
+                          key={m.month}
+                          type="button"
+                          onClick={() => {
+                            if (!selectedSupplier) return;
+                            router.push(`/expenses?supplierId=${selectedSupplier.id}&month=${m.monthKey}`);
+                          }}
+                          className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] bg-white/5 rounded-[5px] text-[12px] text-white hover:bg-white/10 transition-colors cursor-pointer text-right"
+                          title="הצג פירוט חשבוניות לחודש"
+                        >
                           <span className="text-right font-medium">{m.month}</span>
                           <span className="text-center ltr-num">₪{m.purchases.toLocaleString()}</span>
                           <span className="text-center ltr-num">₪{m.paid.toLocaleString()}</span>
                           <span className={`text-center ltr-num font-medium ${m.amountToPay > 0 ? "text-[#F64E60]" : m.amountToPay < 0 ? "text-[#0BB783]" : ""}`}>
                             ₪{m.amountToPay.toLocaleString()}
                           </span>
-                        </div>
+                        </button>
                       ))}
                       <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] border-t border-white/20 mt-[3px] text-[12px] font-bold">
                         <span className="text-right">סה&quot;כ</span>
