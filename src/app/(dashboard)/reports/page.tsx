@@ -8,6 +8,8 @@ import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { ChevronDown } from "lucide-react";
 
 // Lazy loaded Recharts components
@@ -105,6 +107,11 @@ function formatPercentage(value: number): string {
   return `${sign}${value.toFixed(2)}%`;
 }
 
+const hebrewMonthsShort = [
+  "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+  "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
+];
+
 // Progress bar color based on utilization (100 - remainingRaw)
 function getProgressBarColor(remainingRaw: number): string {
   const used = 100 - remainingRaw;
@@ -156,6 +163,29 @@ export default function ReportsPage() {
 
   // 6-month trends chart data
   const [trendsData, setTrendsData] = useState<{ month: string; income: number; expenses: number }[]>([]);
+
+  // Monthly (default) vs Yearly view. Persisted so the user's last choice
+  // sticks across refreshes — matches how the rest of the dashboard treats
+  // sticky UI state.
+  const [viewMode, setViewMode] = usePersistedState<"monthly" | "yearly">("reports:viewMode", "monthly");
+
+  // Yearly per-supplier × per-month actual-spend matrix. Each supplier row
+  // holds the 12 monthly totals plus a yearly total. Same data sources as the
+  // monthly view (invoices + unlinked delivery notes), just bucketed by month
+  // across the whole selected year so users can see how each supplier's spend
+  // trended without flipping months one by one.
+  const [yearlySupplierRows, setYearlySupplierRows] = useState<Array<{
+    supplierId: string;
+    name: string;
+    expenseType: string | null;
+    isFixed: boolean;
+    monthly: number[]; // length 12, index 0 = Jan
+    total: number;
+  }>>([]);
+  const [yearlyMonthTotals, setYearlyMonthTotals] = useState<number[]>(Array(12).fill(0));
+  const [yearlyGrandTotal, setYearlyGrandTotal] = useState(0);
+  const [yearlySupplierSearch, setYearlySupplierSearch] = useState("");
+  const [isLoadingYearly, setIsLoadingYearly] = useState(false);
 
   // Fetch 6-month trends for chart
   useEffect(() => {
@@ -320,6 +350,118 @@ export default function ReportsPage() {
 
     fetchTrends();
   }, [selectedBusinesses, selectedYear, selectedMonth]);
+
+  // Yearly view fetch — pulls every invoice (current + goods + employees) and
+  // every unlinked delivery note in the selected year, then buckets the
+  // subtotals into a supplier × month matrix. Runs only while the yearly toggle
+  // is on so we don't pay the network cost when the user is in monthly view.
+  useEffect(() => {
+    if (viewMode !== "yearly") return;
+    if (selectedBusinesses.length === 0 || !selectedYear) {
+      setYearlySupplierRows([]);
+      setYearlyMonthTotals(Array(12).fill(0));
+      setYearlyGrandTotal(0);
+      return;
+    }
+    const year = parseInt(selectedYear);
+    if (isNaN(year)) return;
+
+    const yearStart = `${year}-01-01`;
+    const yearEnd = `${year}-12-31`;
+    let cancelled = false;
+
+    const fetchYearly = async () => {
+      setIsLoadingYearly(true);
+      const supabase = createClient();
+      const [{ data: invs }, { data: dns }] = await Promise.all([
+        supabase
+          .from("invoices")
+          .select("subtotal, reference_date, invoice_date, supplier_id, supplier:suppliers(name, expense_type, is_fixed_expense)")
+          .in("business_id", selectedBusinesses)
+          .is("deleted_at", null)
+          .in("invoice_type", ["current", "goods", "employees"])
+          .gte("reference_date", yearStart)
+          .lte("reference_date", yearEnd),
+        // Unlinked delivery notes count as actual expense until their invoice
+        // arrives — bucket them by their own date, matching the monthly view.
+        supabase
+          .from("delivery_notes")
+          .select("subtotal, delivery_date, supplier_id, supplier:suppliers(name, expense_type, is_fixed_expense)")
+          .in("business_id", selectedBusinesses)
+          .is("invoice_id", null)
+          .gte("delivery_date", yearStart)
+          .lte("delivery_date", yearEnd),
+      ]);
+      if (cancelled) return;
+
+      type SupplierRow = {
+        supplierId: string;
+        name: string;
+        expenseType: string | null;
+        isFixed: boolean;
+        monthly: number[];
+        total: number;
+      };
+      const rows = new Map<string, SupplierRow>();
+
+      const addAmount = (
+        supplierId: string | null | undefined,
+        supplier: { name: string | null; expense_type: string | null; is_fixed_expense: boolean | null } | null,
+        dateStr: string | null | undefined,
+        rawSubtotal: unknown,
+      ) => {
+        if (!supplierId || !dateStr) return;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime()) || d.getFullYear() !== year) return;
+        const monthIdx = d.getMonth();
+        const amount = Number(rawSubtotal) || 0;
+        if (amount === 0) return;
+        let row = rows.get(supplierId);
+        if (!row) {
+          row = {
+            supplierId,
+            name: supplier?.name || "(ללא שם)",
+            expenseType: supplier?.expense_type ?? null,
+            isFixed: !!supplier?.is_fixed_expense,
+            monthly: Array(12).fill(0),
+            total: 0,
+          };
+          rows.set(supplierId, row);
+        }
+        row.monthly[monthIdx] += amount;
+        row.total += amount;
+      };
+
+      for (const inv of invs || []) {
+        const supplier = inv.supplier as unknown as { name: string | null; expense_type: string | null; is_fixed_expense: boolean | null } | null;
+        const sid = (inv as unknown as { supplier_id: string | null }).supplier_id;
+        const dateStr = (inv as unknown as { reference_date: string | null; invoice_date: string | null }).reference_date
+          || (inv as unknown as { reference_date: string | null; invoice_date: string | null }).invoice_date;
+        addAmount(sid, supplier, dateStr, inv.subtotal);
+      }
+      for (const dn of dns || []) {
+        const supplier = dn.supplier as unknown as { name: string | null; expense_type: string | null; is_fixed_expense: boolean | null } | null;
+        const sid = (dn as unknown as { supplier_id: string | null }).supplier_id;
+        const dateStr = (dn as unknown as { delivery_date: string | null }).delivery_date;
+        addAmount(sid, supplier, dateStr, dn.subtotal);
+      }
+
+      const rowsArr = Array.from(rows.values()).sort((a, b) => b.total - a.total);
+      const monthTotals = Array(12).fill(0);
+      let grand = 0;
+      for (const r of rowsArr) {
+        for (let i = 0; i < 12; i++) monthTotals[i] += r.monthly[i];
+        grand += r.total;
+      }
+      setYearlySupplierRows(rowsArr);
+      setYearlyMonthTotals(monthTotals);
+      setYearlyGrandTotal(grand);
+      setIsLoadingYearly(false);
+    };
+
+    fetchYearly();
+    return () => { cancelled = true; };
+  }, [viewMode, selectedBusinesses, selectedYear, refreshTrigger]);
 
   // Patch current month in chart with actual summary values so they always match
   useEffect(() => {
@@ -999,8 +1141,35 @@ export default function ReportsPage() {
           <span className="text-[20px] font-bold leading-[1.4]">סה&quot;כ תוצאות רווח/הפסד</span>
         </div>
 
-        {/* Date Filters Row */}
+        {/* View-mode toggle — sticks in the same card as the filters so it
+            reads as part of the "what am I looking at" controls. Monthly is
+            the default (and what the rest of the report was built around);
+            yearly swaps the report body for a 12-month supplier breakdown. */}
+        <div className="flex flex-row-reverse items-center w-full gap-[5px] p-[3px] bg-[#1a1f4e] rounded-[7px] border border-[#4C526B]">
+          <button
+            type="button"
+            onClick={() => setViewMode("monthly")}
+            className={`flex-1 h-[40px] rounded-[5px] text-[15px] font-semibold transition-colors ${
+              viewMode === "monthly" ? "bg-[#29318A] text-white" : "bg-transparent text-white/60 hover:text-white"
+            }`}
+          >
+            תצוגה חודשית
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("yearly")}
+            className={`flex-1 h-[40px] rounded-[5px] text-[15px] font-semibold transition-colors ${
+              viewMode === "yearly" ? "bg-[#29318A] text-white" : "bg-transparent text-white/60 hover:text-white"
+            }`}
+          >
+            תצוגה שנתית
+          </button>
+        </div>
+
+        {/* Date Filters Row — month selector is hidden in yearly view because
+            the whole point of yearly is to show all 12 months side-by-side. */}
         <div className="flex flex-row-reverse items-center justify-between w-full min-h-[40px] gap-[10px]">
+          {viewMode === "monthly" && (
           <div className="flex-1">
             <Select value={selectedMonth || "__none__"} onValueChange={(val) => setSelectedMonth(val === "__none__" ? "" : val)}>
               <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[7px] h-[50px] px-[12px] text-[18px] text-white font-bold text-right">
@@ -1016,6 +1185,7 @@ export default function ReportsPage() {
               </SelectContent>
             </Select>
           </div>
+          )}
           <div className="flex-1">
             <Select value={selectedYear || "__none__"} onValueChange={(val) => setSelectedYear(val === "__none__" ? "" : val)}>
               <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[7px] h-[50px] px-[12px] text-[18px] text-white font-bold text-right">
@@ -1030,6 +1200,8 @@ export default function ReportsPage() {
           </div>
         </div>
       </section>
+
+      {viewMode === "monthly" ? (<>
 
       {/* 6-Month Income vs Expenses Chart */}
       {trendsData.length > 0 && trendsData.some(d => d.income > 0 || d.expenses > 0) && (
@@ -1421,6 +1593,85 @@ export default function ReportsPage() {
         </div>
         <span className="text-[14px] sm:text-[18px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">צפי תזרים</span>
       </section>
+
+      </>) : (
+      /* Yearly view — supplier × 12 months actual-spend matrix, modeled on
+         "ניהול יעדים ותקציבים > תקציב הוצאות שוטפות". No targets, no fixed/
+         variable budgets, just the raw spent-per-month so the user can scan
+         each supplier across the whole year. */
+      <section aria-label="פירוט שנתי לפי ספק" className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+        <div className="flex flex-row-reverse items-center justify-between">
+          <span className="text-[18px] font-bold leading-[1.4]">פירוט הוצאות שנתי לפי ספק — {selectedYear}</span>
+          <span className="text-[14px] text-white/60 ltr-num">סה&quot;כ ₪{yearlyGrandTotal.toLocaleString("he-IL", { maximumFractionDigits: 0 })}</span>
+        </div>
+
+        <Input
+          type="text"
+          placeholder="חיפוש ספק..."
+          value={yearlySupplierSearch}
+          onChange={(e) => setYearlySupplierSearch(e.target.value)}
+          className="w-full bg-[#1a1f4e] border border-[#29318A] rounded-[7px] px-[12px] h-[40px] text-white text-right placeholder:text-white/30 focus:outline-none focus:border-[#4956D4]"
+        />
+
+        {isLoadingYearly ? (
+          <div className="flex items-center justify-center py-[40px]">
+            <div className="animate-spin w-8 h-8 border-4 border-[#4956D4] border-t-transparent rounded-full"></div>
+          </div>
+        ) : yearlySupplierRows.length === 0 ? (
+          <div className="text-center py-[40px] text-white/50 text-[15px]">
+            אין הוצאות לשנת {selectedYear}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table className="w-full min-w-[1000px] border-collapse">
+              <TableHeader>
+                <TableRow className="bg-[#1a1f4e]">
+                  <TableHead className="sticky right-0 z-10 bg-[#1a1f4e] text-right px-[10px] py-[10px] text-[13px] font-semibold border-b border-white/10 min-w-[160px]">שם ספק</TableHead>
+                  {hebrewMonthsShort.map((m, i) => (
+                    <TableHead key={i} className="text-center px-[4px] py-[10px] text-[12px] font-semibold border-b border-white/10 text-white/70 min-w-[78px]">
+                      {m}
+                    </TableHead>
+                  ))}
+                  <TableHead className="text-center px-[8px] py-[10px] text-[13px] font-semibold border-b border-white/10 text-[#17DB4E] min-w-[100px]">סה״כ</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {yearlySupplierRows
+                  .filter(r => !yearlySupplierSearch || r.name.toLowerCase().includes(yearlySupplierSearch.toLowerCase()))
+                  .map((row) => (
+                    <TableRow key={row.supplierId} className={`border-b border-white/5 hover:bg-white/[0.02] ${row.isFixed ? "bg-[#7C3AED]/10" : ""}`}>
+                      <TableCell className={`sticky right-0 z-10 px-[10px] py-[8px] text-[13px] font-medium ${row.isFixed ? "bg-[#7C3AED]/15 text-[#C084FC]" : "bg-[#0F1535] text-white/90"}`}>
+                        {row.name}
+                      </TableCell>
+                      {row.monthly.map((amount, i) => (
+                        <TableCell key={i} className={`px-[4px] py-[8px] text-center text-[12px] ltr-num ${amount > 0 ? "text-white" : "text-white/25"}`}>
+                          {amount > 0 ? `₪${Math.round(amount).toLocaleString("he-IL")}` : "—"}
+                        </TableCell>
+                      ))}
+                      <TableCell className="px-[8px] py-[8px] text-center text-[13px] font-semibold text-[#17DB4E] ltr-num">
+                        ₪{Math.round(row.total).toLocaleString("he-IL")}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+              <TableFooter>
+                <TableRow className="bg-[#1a1f4e]/60 border-t border-white/10">
+                  <TableCell className="sticky right-0 z-10 bg-[#1a1f4e] px-[10px] py-[10px] text-[13px] font-bold">סה״כ</TableCell>
+                  {yearlyMonthTotals.map((t, i) => (
+                    <TableCell key={i} className="px-[4px] py-[10px] text-center text-[12px] font-semibold text-white ltr-num">
+                      {t > 0 ? `₪${Math.round(t).toLocaleString("he-IL")}` : "—"}
+                    </TableCell>
+                  ))}
+                  <TableCell className="px-[8px] py-[10px] text-center text-[13px] font-bold text-[#17DB4E] ltr-num">
+                    ₪{Math.round(yearlyGrandTotal).toLocaleString("he-IL")}
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </div>
+        )}
+      </section>
+      )}
     </article>
   );
 }
