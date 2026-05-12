@@ -3873,6 +3873,39 @@ function ExpensesPageInner() {
     }
   };
 
+  // Unlink a payment from a specific invoice. Deletes only the
+  // payment_invoice_links row — the payment itself stays intact and
+  // resurfaces in the "unlinked payments" panel, so the user can relink it
+  // to the correct invoice without re-entering data.
+  // Gated by `canManage` at the call site (button is only rendered for
+  // admins/business owners) so regular employees can't break links by mistake.
+  const handleUnlinkPayment = async (
+    paymentId: string,
+    invoiceId: string,
+    paymentAmount: number,
+    paymentDate: string,
+  ) => {
+    const amountStr = paymentAmount % 1 === 0
+      ? paymentAmount.toLocaleString("he-IL")
+      : paymentAmount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (!confirm(`לנתק את התשלום ₪${amountStr} מתאריך ${paymentDate} מהחשבונית הזו?\nהתשלום עצמו לא יימחק — הוא יעבור לרשימת התשלומים הלא משויכים.`)) return;
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("payment_invoice_links")
+      .delete()
+      .eq("payment_id", paymentId)
+      .eq("invoice_id", invoiceId);
+
+    if (error) {
+      console.error("Error unlinking payment:", error);
+      showToast("שגיאה בניתוק התשלום", "error");
+      return;
+    }
+    showToast("התשלום נותק מהחשבונית", "success");
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   // Handle delete confirmation
   const handleDeleteClick = (invoiceId: string, documentType: "invoice" | "delivery_note" = "invoice") => {
     if (showSupplierBreakdownPopup) {
@@ -4953,6 +4986,7 @@ function ExpensesPageInner() {
                               <span className="text-[13px] min-w-[45px] text-center">תשלום</span>
                               <span className="text-[13px] w-[65px] text-center">סכום</span>
                               <span className="text-[13px] w-[30px] text-center">קבלה</span>
+                              {canManage && <span className="text-[13px] w-[24px] text-center" />}
                             </div>
                             {/* Payment rows — sorted by installment number first
                                 (so 1/12, 2/12, 3/12... appear in order), falling
@@ -5008,6 +5042,23 @@ function ExpensesPageInner() {
                                       <span className="text-[13px] text-white/30">-</span>
                                     )}
                                   </div>
+                                  {/* Unlink payment button — admins / business owners only.
+                                      Deletes the payment_invoice_links row but keeps the payment,
+                                      so it can be reattached to the correct invoice from the
+                                      "unlinked payments" panel. */}
+                                  {canManage && (
+                                    <Button
+                                      type="button"
+                                      title="ניתוק התשלום מהחשבונית"
+                                      onClick={() => handleUnlinkPayment(payment.paymentId, invoice.id, payment.amount, payment.date)}
+                                      className="w-[24px] h-[24px] p-0 bg-transparent text-white/60 hover:text-[#F64E60] transition-colors flex items-center justify-center"
+                                    >
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M18 6L6 18"/>
+                                        <path d="M6 6l12 12"/>
+                                      </svg>
+                                    </Button>
+                                  )}
                                 </div>
                                 {/* Payment notes — shown beneath the row if present */}
                                 {payment.notes && (
