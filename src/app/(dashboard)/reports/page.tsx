@@ -9,7 +9,6 @@ import { usePersistedState } from "@/hooks/usePersistedState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { ChevronDown } from "lucide-react";
 
 // Lazy loaded Recharts components
@@ -1600,9 +1599,14 @@ export default function ReportsPage() {
          variable budgets, just the raw spent-per-month so the user can scan
          each supplier across the whole year. */
       <section aria-label="פירוט שנתי לפי ספק" className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
-        <div className="flex flex-row-reverse items-center justify-between">
-          <span className="text-[18px] font-bold leading-[1.4]">פירוט הוצאות שנתי לפי ספק — {selectedYear}</span>
-          <span className="text-[14px] text-white/60 ltr-num">סה&quot;כ ₪{yearlyGrandTotal.toLocaleString("he-IL", { maximumFractionDigits: 0 })}</span>
+        {/* Title row — title on the right (RTL natural), grand total on the
+            left. flex-row-reverse + justify-between would push them apart in
+            visual-LTR, which read as the title floating away from its number.
+            Plain flex with the title declared first puts both at natural RTL
+            edges. */}
+        <div className="flex items-center justify-between gap-[10px]">
+          <span className="text-[14px] text-white/60 ltr-num shrink-0">סה&quot;כ ₪{yearlyGrandTotal.toLocaleString("he-IL", { maximumFractionDigits: 0 })}</span>
+          <span className="text-[18px] font-bold leading-[1.4] text-right">פירוט הוצאות שנתי לפי ספק — {selectedYear}</span>
         </div>
 
         <Input
@@ -1622,52 +1626,76 @@ export default function ReportsPage() {
             אין הוצאות לשנת {selectedYear}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table className="w-full min-w-[1000px] border-collapse">
-              <TableHeader>
-                <TableRow className="bg-[#1a1f4e]">
-                  <TableHead className="sticky right-0 z-10 bg-[#1a1f4e] text-right px-[10px] py-[10px] text-[13px] font-semibold border-b border-white/10 min-w-[160px]">שם ספק</TableHead>
-                  {hebrewMonthsShort.map((m, i) => (
-                    <TableHead key={i} className="text-center px-[4px] py-[10px] text-[12px] font-semibold border-b border-white/10 text-white/70 min-w-[78px]">
-                      {m}
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-center px-[8px] py-[10px] text-[13px] font-semibold border-b border-white/10 text-[#17DB4E] min-w-[100px]">סה״כ</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {yearlySupplierRows
-                  .filter(r => !yearlySupplierSearch || r.name.toLowerCase().includes(yearlySupplierSearch.toLowerCase()))
-                  .map((row) => (
-                    <TableRow key={row.supplierId} className={`border-b border-white/5 hover:bg-white/[0.02] ${row.isFixed ? "bg-[#7C3AED]/10" : ""}`}>
-                      <TableCell className={`sticky right-0 z-10 px-[10px] py-[8px] text-[13px] font-medium ${row.isFixed ? "bg-[#7C3AED]/15 text-[#C084FC]" : "bg-[#0F1535] text-white/90"}`}>
-                        {row.name}
-                      </TableCell>
-                      {row.monthly.map((amount, i) => (
-                        <TableCell key={i} className={`px-[4px] py-[8px] text-center text-[12px] ltr-num ${amount > 0 ? "text-white" : "text-white/25"}`}>
-                          {amount > 0 ? `₪${Math.round(amount).toLocaleString("he-IL")}` : "—"}
-                        </TableCell>
+          /* CSS grid for the table — every row (header / data / footer) uses
+             the exact same template-columns so header labels, numbers, and
+             footer totals stay aligned regardless of digit count. Outer
+             overflow-x-auto kicks in on narrow screens; the min-w on the
+             inner div sets the desktop width budget. */
+          <div className="overflow-x-auto" dir="rtl">
+            <div className="min-w-[1320px] flex flex-col gap-[2px]">
+              {(() => {
+                // First column = supplier name (180px), then 12 monthly columns
+                // (90px each, room for ₪50,000+ without truncation), then total.
+                const gridTemplate = "180px repeat(12, minmax(90px, 1fr)) 110px";
+
+                return (
+                  <>
+                    {/* Header */}
+                    <div className="grid items-center bg-[#1a1f4e] rounded-[7px] px-[8px] py-[10px]" style={{ gridTemplateColumns: gridTemplate }}>
+                      <div className="text-right text-[13px] font-semibold text-white pr-[5px]">שם ספק</div>
+                      {hebrewMonthsShort.map((m, i) => (
+                        <div key={i} className="text-center text-[12px] font-semibold text-white/70">
+                          {m}
+                        </div>
                       ))}
-                      <TableCell className="px-[8px] py-[8px] text-center text-[13px] font-semibold text-[#17DB4E] ltr-num">
-                        ₪{Math.round(row.total).toLocaleString("he-IL")}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-              <TableFooter>
-                <TableRow className="bg-[#1a1f4e]/60 border-t border-white/10">
-                  <TableCell className="sticky right-0 z-10 bg-[#1a1f4e] px-[10px] py-[10px] text-[13px] font-bold">סה״כ</TableCell>
-                  {yearlyMonthTotals.map((t, i) => (
-                    <TableCell key={i} className="px-[4px] py-[10px] text-center text-[12px] font-semibold text-white ltr-num">
-                      {t > 0 ? `₪${Math.round(t).toLocaleString("he-IL")}` : "—"}
-                    </TableCell>
-                  ))}
-                  <TableCell className="px-[8px] py-[10px] text-center text-[13px] font-bold text-[#17DB4E] ltr-num">
-                    ₪{Math.round(yearlyGrandTotal).toLocaleString("he-IL")}
-                  </TableCell>
-                </TableRow>
-              </TableFooter>
-            </Table>
+                      <div className="text-center text-[13px] font-semibold text-[#17DB4E]">סה״כ</div>
+                    </div>
+
+                    {/* Data rows */}
+                    {yearlySupplierRows
+                      .filter(r => !yearlySupplierSearch || r.name.toLowerCase().includes(yearlySupplierSearch.toLowerCase()))
+                      .map((row) => (
+                        <div
+                          key={row.supplierId}
+                          className={`grid items-center rounded-[5px] px-[8px] py-[8px] ${row.isFixed ? "bg-[#7C3AED]/12" : "bg-white/[0.02]"} hover:bg-white/[0.06] transition-colors`}
+                          style={{ gridTemplateColumns: gridTemplate }}
+                        >
+                          <div
+                            className={`text-right text-[13px] font-medium pr-[5px] truncate ${row.isFixed ? "text-[#C084FC]" : "text-white/90"}`}
+                            title={row.name}
+                          >
+                            {row.name}
+                          </div>
+                          {row.monthly.map((amount, i) => (
+                            <div
+                              key={i}
+                              className={`text-center text-[12px] ltr-num px-[2px] ${amount > 0 ? "text-white" : "text-white/20"}`}
+                            >
+                              {amount > 0 ? `₪${Math.round(amount).toLocaleString("he-IL")}` : "—"}
+                            </div>
+                          ))}
+                          <div className="text-center text-[13px] font-semibold text-[#17DB4E] ltr-num">
+                            ₪{Math.round(row.total).toLocaleString("he-IL")}
+                          </div>
+                        </div>
+                      ))}
+
+                    {/* Footer (totals row) */}
+                    <div className="grid items-center bg-[#1a1f4e] rounded-[7px] px-[8px] py-[10px] mt-[3px]" style={{ gridTemplateColumns: gridTemplate }}>
+                      <div className="text-right text-[13px] font-bold text-white pr-[5px]">סה״כ</div>
+                      {yearlyMonthTotals.map((t, i) => (
+                        <div key={i} className="text-center text-[12px] font-semibold text-white ltr-num px-[2px]">
+                          {t > 0 ? `₪${Math.round(t).toLocaleString("he-IL")}` : "—"}
+                        </div>
+                      ))}
+                      <div className="text-center text-[13px] font-bold text-[#17DB4E] ltr-num">
+                        ₪{Math.round(yearlyGrandTotal).toLocaleString("he-IL")}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
           </div>
         )}
       </section>
