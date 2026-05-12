@@ -1439,18 +1439,12 @@ export default function OCRForm({
           notes: d.notes,
         }));
         setOpenDeliveryNotes(mapped);
-        // Auto-select all
-        setSelectedDeliveryNoteIds(new Set(data.map(d => d.id)));
-        // Auto-expand the most recent month group so users see the list
-        if (mapped.length > 0) {
-          const newestKey = mapped
-            .map(n => getMonthYearKey(n.delivery_date))
-            .sort()
-            .pop()!;
-          setSummaryExpandedMonths(new Set([newestKey]));
-        } else {
-          setSummaryExpandedMonths(new Set());
-        }
+        // Start with nothing selected — the user picks which delivery notes
+        // belong on this markezet, the same as in /expenses ConsolidatedInvoiceModal.
+        setSelectedDeliveryNoteIds(new Set());
+        // Months are collapsed by default; the user expands one to see its
+        // delivery notes and either ticks individual rows or the whole month.
+        setSummaryExpandedMonths(new Set());
       }
       if (!cancelled) setIsLoadingDeliveryNotes(false);
     }
