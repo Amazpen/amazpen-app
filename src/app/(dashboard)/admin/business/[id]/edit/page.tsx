@@ -2266,6 +2266,11 @@ export default function EditBusinessPage({ params }: PageProps) {
               bimonthly: "דו-חודשי",
               custom: "קופון",
               custom_periods: "תקופות",
+              net_30: "שוטף 30",
+              net_45: "שוטף 45",
+              net_60: "שוטף 60",
+              net_90: "שוטף 90",
+              net_120: "שוטף 120",
             } as Record<string, string>)[pm.settlement_type || "daily"] || "יומי";
             const fee = Number(pm.commission_rate) || 0;
 

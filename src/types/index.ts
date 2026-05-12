@@ -73,7 +73,7 @@ export interface NavItem {
 export type InputType = "single" | "with_count";
 
 // Settlement type for income sources
-export type SettlementType = "daily" | "weekly" | "monthly" | "bimonthly" | "same_day" | "custom" | "custom_periods";
+export type SettlementType = "daily" | "weekly" | "monthly" | "bimonthly" | "same_day" | "custom" | "custom_periods" | "net_30" | "net_45" | "net_60" | "net_90" | "net_120";
 
 // Settlement period for multi-period settlement types (e.g., Wolt, 10bis)
 export interface SettlementPeriod {

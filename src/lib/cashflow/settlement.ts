@@ -98,6 +98,19 @@ function calculateSettlement(entryDate: string, rules: SettlementRules): Resolve
       return { settlement_date: formatDate(nextMonth), fee_rate_pct: defaultFeePct, fee_fixed: 0 };
     }
 
+    case "net_30":
+    case "net_45":
+    case "net_60":
+    case "net_90":
+    case "net_120": {
+      // שוטף N — Israeli "net N" terms: take the last day of the entry's
+      // month, then add N days. Entry on 2026-03-05 with net_30 → 2026-04-30.
+      const netDays = parseInt(type.slice(4), 10);
+      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      endOfMonth.setDate(endOfMonth.getDate() + netDays);
+      return { settlement_date: formatDate(endOfMonth), fee_rate_pct: defaultFeePct, fee_fixed: 0 };
+    }
+
     case "custom_periods": {
       // Wolt / 10bis style — multiple periods per month, each with its own
       // settlement date AND commission. Pick the period whose [range_start,

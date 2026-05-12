@@ -23,6 +23,11 @@ const settlementTypeLabels: Record<SettlementType, string> = {
   bimonthly: "דו-חודשי",
   custom: "מותאם (קופונים)",
   custom_periods: "תקופות מותאמות (וולט/תן ביס)",
+  net_30: "שוטף 30",
+  net_45: "שוטף 45",
+  net_60: "שוטף 60",
+  net_90: "שוטף 90",
+  net_120: "שוטף 120",
 };
 
 const dayOfWeekLabels = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
@@ -394,6 +399,23 @@ export function PaymentMethodSettlementEditor({ method, open, onClose, onSave }:
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Net N (שוטף 30/45/60/90/120) — explainer */}
+          {(settlementType === "net_30" || settlementType === "net_45" || settlementType === "net_60" || settlementType === "net_90" || settlementType === "net_120") && (
+            <div className="bg-[#4956D4]/10 rounded-[10px] p-[10px]">
+              <p className="text-[12px] text-white/70 text-right">
+                כל ההכנסות בחודש נכנסות לחשבון {settlementType.slice(4)} ימים לאחר סוף החודש
+              </p>
+              <p className="text-[11px] text-white/40 text-right mt-[4px]">
+                לדוגמה: הכנסה ב-5 במרץ עם שוטף {settlementType.slice(4)} → נכנסת ב-{(() => {
+                  const days = parseInt(settlementType.slice(4), 10);
+                  const eom = new Date(2026, 3, 0); // last day of March 2026
+                  eom.setDate(eom.getDate() + days);
+                  return `${eom.getDate()}/${eom.getMonth() + 1}/${eom.getFullYear()}`;
+                })()}
+              </p>
             </div>
           )}
 

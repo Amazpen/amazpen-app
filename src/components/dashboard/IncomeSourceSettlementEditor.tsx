@@ -22,6 +22,11 @@ const settlementTypeLabels: Record<SettlementType, string> = {
   bimonthly: "דו-חודשי",
   custom: "מותאם (קופונים)",
   custom_periods: "תקופות מותאמות (וולט/תן ביס)",
+  net_30: "שוטף 30",
+  net_45: "שוטף 45",
+  net_60: "שוטף 60",
+  net_90: "שוטף 90",
+  net_120: "שוטף 120",
 };
 
 const dayOfWeekLabels = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
