@@ -510,6 +510,88 @@ export default function OCRPage() {
             createdDeliveryNoteId = formData.attach_to_existing_id;
           } else {
             createdInvoiceId = formData.attach_to_existing_id;
+
+            // If the user marked the OCR doc as paid while attaching, we also
+            // need to record the payment AND flip the existing invoice's
+            // status — otherwise the receipt image lands on the row but the
+            // payment never exists in /payments and the invoice stays
+            // "pending", which is exactly what users hit before this fix.
+            if (formData.is_paid && formData.payment_methods && formData.payment_methods.length > 0) {
+              const paymentTotal = formData.payment_methods.reduce((sum, pm) => {
+                return sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0);
+              }, 0);
+
+              const { data: newPayment, error: paymentError } = await supabase
+                .from('payments')
+                .insert({
+                  business_id: formData.business_id,
+                  supplier_id: formData.supplier_id,
+                  payment_date: formData.payment_date || formData.document_date,
+                  total_amount: paymentTotal || parseFloat(formData.total_amount),
+                  invoice_id: formData.attach_to_existing_id,
+                  notes: formData.payment_notes || null,
+                  created_by: user?.id || null,
+                  receipt_url: ocrImageUrl,
+                })
+                .select()
+                .single();
+
+              if (paymentError) {
+                console.error('[OCR Approve] attach+pay: payment insert failed:', paymentError);
+                throw paymentError;
+              }
+              createdPaymentId = newPayment?.id || null;
+
+              if (newPayment) {
+                // Same payment_splits build-out as the "create new invoice"
+                // branch, kept in sync intentionally so attach-to-existing
+                // produces identical /payments rows for the same input.
+                for (const pm of formData.payment_methods) {
+                  const amount = parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0;
+                  if (amount > 0 && pm.method) {
+                    const installmentsCount = parseInt(pm.installments) || 1;
+                    const creditCardId = pm.method === 'credit_card' && pm.creditCardId ? pm.creditCardId : null;
+                    if (pm.customInstallments.length > 0) {
+                      for (const inst of pm.customInstallments) {
+                        await supabase.from('payment_splits').insert({
+                          payment_id: newPayment.id,
+                          payment_method: pm.method,
+                          amount: inst.amount,
+                          installments_count: installmentsCount,
+                          installment_number: inst.number,
+                          reference_number: formData.payment_reference || null,
+                          check_number: inst.checkNumber || pm.checkNumber || null,
+                          credit_card_id: creditCardId,
+                          due_date: inst.dateForInput || formData.payment_date || formData.document_date || null,
+                        });
+                      }
+                    } else {
+                      const dueDate = formData.payment_date || formData.document_date || null;
+                      await supabase.from('payment_splits').insert({
+                        payment_id: newPayment.id,
+                        payment_method: pm.method,
+                        amount: amount,
+                        installments_count: 1,
+                        installment_number: 1,
+                        reference_number: formData.payment_reference || null,
+                        check_number: pm.checkNumber || null,
+                        credit_card_id: creditCardId,
+                        due_date: dueDate,
+                      });
+                    }
+                  }
+                }
+              }
+
+              // Flip the existing invoice to paid.
+              const { error: statusError } = await supabase
+                .from('invoices')
+                .update({ status: 'paid' })
+                .eq('id', formData.attach_to_existing_id);
+              if (statusError) {
+                console.error('[OCR Approve] attach+pay: invoice status update failed:', statusError);
+              }
+            }
           }
         } else if (formData.document_type === 'invoice' || formData.document_type === 'credit_note' || formData.document_type === 'disputed_invoice') {
           let newInvoice: { id: string } | null = null;
