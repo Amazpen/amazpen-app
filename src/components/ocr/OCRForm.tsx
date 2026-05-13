@@ -1850,6 +1850,77 @@ export default function OCRForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [document?.id, restoreDraft]);
 
+  // Late-arriving supplier list — when the OCR doc loads BEFORE its business's
+  // supplier list has been fetched, the populate effect above runs against an
+  // empty / stale suppliers array and supplierId ends up empty. Once the real
+  // supplier list arrives we retry the match using the same logic, but ONLY
+  // while supplierId is still empty so we never clobber a user's manual pick.
+  useEffect(() => {
+    if (supplierId) return; // user already picked OR earlier match succeeded
+    if (suppliers.length === 0) return;
+    const ocrData = document?.ocr_data;
+    if (!ocrData) return;
+
+    // Prefer the AI's matched id when it points at a supplier in this list.
+    if (ocrData.matched_supplier_id && suppliers.some(s => s.id === ocrData.matched_supplier_id)) {
+      const sel = suppliers.find(s => s.id === ocrData.matched_supplier_id);
+      setSupplierId(ocrData.matched_supplier_id);
+      setPaymentTabSupplierId(ocrData.matched_supplier_id);
+      setSummarySupplierId(ocrData.matched_supplier_id);
+      if (sel?.default_discount_percentage && sel.default_discount_percentage > 0) {
+        setDiscountPercentage(sel.default_discount_percentage.toString());
+      }
+      return;
+    }
+
+    // Otherwise fall back to the same normalize + token scoring used in the
+    // populate effect. Kept inline rather than extracted because the two
+    // effects intentionally use slightly different snapshot semantics (this
+    // one reads `suppliers` directly so it re-runs as the list grows).
+    if (!ocrData.supplier_name) return;
+    const normalize = (s: string) =>
+      s
+        .replace(/["'״׳"'`]/g, '')
+        .replace(/[.,]/g, '')
+        .replace(/ /g, ' ')
+        .replace(/\s+/g, ' ')
+        .replace(/בע\s*מ/g, 'בעמ')
+        .trim()
+        .toLowerCase();
+    const ocrName = normalize(ocrData.supplier_name);
+    if (ocrName.length < 2) return;
+
+    const scored: { supplier: (typeof suppliers)[number]; score: number }[] = [];
+    for (const s of suppliers) {
+      const sName = normalize(s.name);
+      if (!sName) continue;
+      let score = 0;
+      if (sName === ocrName) score = 1000;
+      else if (sName.includes(ocrName)) score = 800 - Math.abs(sName.length - ocrName.length);
+      else if (ocrName.includes(sName) && sName.length >= 3) score = 700 - Math.abs(sName.length - ocrName.length);
+      else {
+        const ocrTokens = ocrName.split(' ').filter(t => t.length >= 2);
+        const sTokens = sName.split(' ').filter(t => t.length >= 2);
+        if (ocrTokens.length > 0 && sTokens.length > 0) {
+          const matched = ocrTokens.filter(t => sTokens.some(st => st === t || st.includes(t) || t.includes(st))).length;
+          if (matched > 0) score = 400 + (matched / Math.max(ocrTokens.length, sTokens.length)) * 200;
+        }
+      }
+      if (score > 0) scored.push({ supplier: s, score });
+    }
+    scored.sort((a, b) => b.score - a.score);
+    if (scored.length > 0 && scored[0].score >= 400) {
+      const id = scored[0].supplier.id;
+      const sel = scored[0].supplier;
+      setSupplierId(id);
+      setPaymentTabSupplierId(id);
+      setSummarySupplierId(id);
+      if (sel.default_discount_percentage && sel.default_discount_percentage > 0) {
+        setDiscountPercentage(sel.default_discount_percentage.toString());
+      }
+    }
+  }, [suppliers, document?.id, document?.ocr_data, supplierId]);
+
   // Calculator drag handlers
   const handleCalcDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
