@@ -515,6 +515,25 @@ export default function OCRPage() {
           let newInvoice: { id: string } | null = null;
           let invoiceError: unknown = null;
           if (formData.link_to_fixed_invoice_id) {
+            // Multi-month link mode — the document covers more than one
+            // billing period (e.g. electric bill spanning Feb + Mar). The
+            // primary invoice gets the slice the user typed for it; each
+            // extra invoice gets its own slice, the SAME attachment_url +
+            // invoice_number, with vat/total scaled proportionally so each
+            // row stays self-consistent.
+            const extras = formData.link_to_fixed_invoice_extras || [];
+            const docTotalAmount = parseFloat(formData.total_amount);
+            const docSubtotal = parseFloat(formData.amount_before_vat);
+            const docVat = parseFloat(formData.vat_amount);
+            // Ratio of total/vat per unit-of-subtotal — used to scale each
+            // month's vat and total from its allocated subtotal slice.
+            const totalRatio = docSubtotal > 0 ? docTotalAmount / docSubtotal : 1;
+            const vatRatio = docSubtotal > 0 ? docVat / docSubtotal : 0;
+            const primarySubtotal = extras.length > 0 && typeof formData.fixed_invoice_primary_subtotal === 'number'
+              ? formData.fixed_invoice_primary_subtotal
+              : docSubtotal;
+            const primaryVat = extras.length > 0 ? primarySubtotal * vatRatio : docVat;
+            const primaryTotal = extras.length > 0 ? primarySubtotal * totalRatio : docTotalAmount;
             const { data, error } = await supabase
               .from('invoices')
               .update({
@@ -523,9 +542,9 @@ export default function OCRPage() {
                 reference_date: formData.value_date || formData.document_date,
                 discount_amount: parseFloat(formData.discount_amount || '0') || 0,
                 discount_percentage: parseFloat(formData.discount_percentage || '0') || 0,
-                subtotal: parseFloat(formData.amount_before_vat),
-                vat_amount: parseFloat(formData.vat_amount),
-                total_amount: parseFloat(formData.total_amount),
+                subtotal: primarySubtotal,
+                vat_amount: primaryVat,
+                total_amount: primaryTotal,
                 status: formData.is_paid ? 'paid' : 'pending',
                 notes: formData.notes || null,
                 attachment_url: ocrImageUrl,
@@ -535,6 +554,35 @@ export default function OCRPage() {
               .single();
             newInvoice = data;
             invoiceError = error;
+
+            // Mirror the update onto each extra placeholder. We don't fail
+            // the whole save if one extra fails — we surface the error and
+            // continue, so the primary still goes through. Each extra keeps
+            // its own invoice_date/reference_date (the placeholder is the
+            // correct date for that month — we shouldn't override it with
+            // the document date which only matches the primary's month).
+            if (!error && extras.length > 0) {
+              for (const extra of extras) {
+                const exSubtotal = Number(extra.subtotal) || 0;
+                const exVat = exSubtotal * vatRatio;
+                const exTotal = exSubtotal * totalRatio;
+                const { error: exError } = await supabase
+                  .from('invoices')
+                  .update({
+                    invoice_number: formData.document_number || null,
+                    subtotal: exSubtotal,
+                    vat_amount: exVat,
+                    total_amount: exTotal,
+                    status: formData.is_paid ? 'paid' : 'pending',
+                    notes: formData.notes || null,
+                    attachment_url: ocrImageUrl,
+                  })
+                  .eq('id', extra.invoice_id);
+                if (exError) {
+                  console.error('[OCR Approve] extra fixed-invoice update failed:', extra.invoice_id, exError);
+                }
+              }
+            }
           } else {
             const isDisputed = formData.document_type === 'disputed_invoice';
             const { data, error } = await supabase

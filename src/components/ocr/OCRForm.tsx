@@ -266,8 +266,17 @@ export default function OCRForm({
   // Fixed-expense linking — when the selected supplier is marked as is_fixed_expense,
   // pull their currently-open monthly invoices so the user can attach this document
   // to an existing placeholder invoice instead of creating a duplicate.
+  //
+  // A single OCR document can span multiple billing periods (e.g. an electric
+  // bill that covers Feb + Mar), so the picker supports multi-select. The
+  // primary id stays in linkToFixedInvoiceId for backwards compat — when the
+  // user picks more than one month, additionalFixedInvoiceIds holds the rest.
+  // Each linked invoice gets its own subtotal slice from fixedInvoiceAllocations
+  // (defaults to even split), with the same attachment + invoice_number.
   const [fixedOpenInvoices, setFixedOpenInvoices] = useState<{ id: string; invoice_date: string; subtotal: number; total_amount: number; month: string }[]>([]);
   const [linkToFixedInvoiceId, setLinkToFixedInvoiceId] = useState<string | null>(null); // null = create new
+  const [additionalFixedInvoiceIds, setAdditionalFixedInvoiceIds] = useState<string[]>([]);
+  const [fixedInvoiceAllocations, setFixedInvoiceAllocations] = useState<Record<string, string>>({});
   const [showFixedInvoices, setShowFixedInvoices] = useState(false);
 
   // Unlinked payments — payments to the chosen supplier that have no invoice
@@ -286,6 +295,8 @@ export default function OCRForm({
     if (!supplierId || !selectedBusinessId || !sel?.is_fixed_expense) {
       setFixedOpenInvoices([]);
       setLinkToFixedInvoiceId(null);
+      setAdditionalFixedInvoiceIds([]);
+      setFixedInvoiceAllocations({});
       setShowFixedInvoices(false);
       return;
     }
@@ -1936,6 +1947,29 @@ export default function OCRForm({
       return;
     }
 
+    // Multi-month allocation validation — when the user picks more than one
+    // fixed-expense invoice to link, the sum of per-month allocations must
+    // match the document's amount-before-VAT (within 0.01 floor noise). The
+    // UI shows a red banner but we re-check at submit so the user can't slip
+    // past it by collapsing the picker.
+    if (linkToFixedInvoiceId && additionalFixedInvoiceIds.length > 0) {
+      const totalToSplit = parseFloat(amountBeforeVat) || 0;
+      const allIds = [linkToFixedInvoiceId, ...additionalFixedInvoiceIds];
+      const allocatedSum = allIds.reduce((sum, id) => sum + (parseFloat(fixedInvoiceAllocations[id] ?? '0') || 0), 0);
+      if (Math.abs(allocatedSum - totalToSplit) > 0.01) {
+        alert(`חלוקת הסכום בין החודשים לא תואמת לסכום החשבונית.\n\nסכום החשבונית: ₪${totalToSplit.toFixed(2)}\nסה"כ שהוקצה: ₪${allocatedSum.toFixed(2)}\n\nיש לעדכן את ההקצאות לפני שמירה.`);
+        return;
+      }
+      // Block save if any single allocation is zero — likely a forgotten input
+      for (const id of allIds) {
+        if ((parseFloat(fixedInvoiceAllocations[id] ?? '0') || 0) <= 0) {
+          const inv = fixedOpenInvoices.find(f => f.id === id);
+          alert(`לא הוקצה סכום ל${inv?.month || 'חודש אחד מהחודשים שנבחרו'}.\n\nנא למלא סכום לכל חודש שנבחר.`);
+          return;
+        }
+      }
+    }
+
     // Duplicate warning — ask for confirmation before proceeding.
     // Skip when the user explicitly chose "attach to existing" — that path
     // intentionally targets the duplicate row and shouldn't trigger a warning.
@@ -1950,7 +1984,10 @@ export default function OCRForm({
     // Fixed-expense overwrite guard — when the user chose to update an existing fixed-expense
     // invoice, warn if the OCR values look like a different invoice (different number, or >20%
     // amount delta). Prevents silently overwriting a legitimate Bubble-imported invoice.
-    if (linkToFixedInvoiceId && !fixedOverwriteConfirmedRef.current && (documentType === 'invoice' || documentType === 'credit_note' || documentType === 'disputed_invoice')) {
+    // Skipped in multi-month mode because the document total is intentionally
+    // larger than any single placeholder (it's the sum of all months), so the
+    // 20% delta heuristic would false-positive every time.
+    if (linkToFixedInvoiceId && additionalFixedInvoiceIds.length === 0 && !fixedOverwriteConfirmedRef.current && (documentType === 'invoice' || documentType === 'credit_note' || documentType === 'disputed_invoice')) {
       const target = fixedOpenInvoices.find(f => f.id === linkToFixedInvoiceId);
       if (target) {
         const targetTotal = Number(target.total_amount) || 0;
@@ -2148,6 +2185,22 @@ export default function OCRForm({
         notes,
         is_paid: isPaid,
         link_to_fixed_invoice_id: linkToFixedInvoiceId,
+        // Extra fixed-expense invoices that should receive the same
+        // attachment + invoice_number. Each carries its own subtotal slice
+        // from fixedInvoiceAllocations. Empty array = single-month flow.
+        link_to_fixed_invoice_extras: additionalFixedInvoiceIds.length > 0
+          ? additionalFixedInvoiceIds.map(id => ({
+              invoice_id: id,
+              subtotal: parseFloat(fixedInvoiceAllocations[id] ?? '0') || 0,
+            }))
+          : undefined,
+        // When extras exist, the primary's subtotal also comes from the
+        // allocation map instead of amountBeforeVat (which represents the
+        // document total). Always pass it so the server doesn't have to
+        // re-parse the allocation logic.
+        fixed_invoice_primary_subtotal: additionalFixedInvoiceIds.length > 0 && linkToFixedInvoiceId
+          ? (parseFloat(fixedInvoiceAllocations[linkToFixedInvoiceId] ?? '0') || 0)
+          : undefined,
         link_to_unlinked_payment_id: linkToUnlinkedPaymentId,
         line_items: lineItems.length > 0 ? lineItems : undefined,
         merged_document_ids: mergedDocuments.length > 0 ? mergedDocuments.map(d => d.id) : undefined,
@@ -2642,10 +2695,84 @@ export default function OCRForm({
         return null;
       })()}
 
-      {/* Fixed Expense — link to existing open monthly invoice (or create new) */}
+      {/* Fixed Expense — link to existing open monthly invoice(s) or create new.
+          Supports multi-select for documents that cover more than one billing
+          period (e.g. an electric bill spanning two months). The user picks the
+          months and types how much of the document's amount belongs to each.
+          All selected months end up with the same attachment + invoice_number;
+          subtotals are split per the allocation column. */}
       {fixedOpenInvoices.length > 0 && (() => {
         const selectedSupplier = suppliers.find(s => s.id === supplierId);
         if (!selectedSupplier?.is_fixed_expense) return null;
+
+        // Currently-selected ids: primary + extras. "Create new" mode = empty.
+        const selectedIds = linkToFixedInvoiceId
+          ? [linkToFixedInvoiceId, ...additionalFixedInvoiceIds]
+          : [];
+
+        const toggleSelection = (invId: string) => {
+          if (selectedIds.includes(invId)) {
+            // Deselect — if it was the primary, promote the next one.
+            if (invId === linkToFixedInvoiceId) {
+              const nextPrimary = additionalFixedInvoiceIds[0] || null;
+              setLinkToFixedInvoiceId(nextPrimary);
+              setAdditionalFixedInvoiceIds(additionalFixedInvoiceIds.slice(1));
+            } else {
+              setAdditionalFixedInvoiceIds(additionalFixedInvoiceIds.filter(id => id !== invId));
+            }
+            setFixedInvoiceAllocations(prev => {
+              const next = { ...prev };
+              delete next[invId];
+              return next;
+            });
+          } else {
+            // Add — first becomes primary if none picked yet.
+            if (linkToFixedInvoiceId === null) {
+              fixedOverwriteConfirmedRef.current = false;
+              setLinkToFixedInvoiceId(invId);
+              // Mimic single-select behaviour: seed amount-before-VAT from the
+              // first picked month, so users keeping the default single-month
+              // flow get the same prefill as before.
+              const inv = fixedOpenInvoices.find(f => f.id === invId);
+              if (inv) {
+                setAmountBeforeVat(String(inv.subtotal));
+                setTotalWithVatInput('');
+                if (selectedSupplier.vat_type === 'none') {
+                  setPartialVat(true);
+                  setVatAmount('0');
+                }
+              }
+            } else {
+              setAdditionalFixedInvoiceIds([...additionalFixedInvoiceIds, invId]);
+            }
+          }
+        };
+
+        // Total amount-before-VAT to split, from the user-entered field.
+        const totalToSplit = parseFloat(amountBeforeVat) || 0;
+        const allocatedSum = selectedIds.reduce((sum, id) => {
+          const raw = fixedInvoiceAllocations[id];
+          if (raw !== undefined) return sum + (parseFloat(raw) || 0);
+          // No explicit allocation yet → fall back to even split for the
+          // running total so the validation banner is honest before the user
+          // touches the inputs.
+          return sum + totalToSplit / selectedIds.length;
+        }, 0);
+        const allocationMismatch = selectedIds.length > 1
+          && totalToSplit > 0
+          && Math.abs(allocatedSum - totalToSplit) > 0.01;
+
+        // Default each newly-selected invoice's allocation to an even share
+        // of the total once we know how many are selected. Only fills empty
+        // entries — never overwrites a value the user typed.
+        const splitEvenly = () => {
+          if (selectedIds.length === 0 || totalToSplit <= 0) return;
+          const share = (totalToSplit / selectedIds.length).toFixed(2);
+          const next: Record<string, string> = {};
+          for (const id of selectedIds) next[id] = share;
+          setFixedInvoiceAllocations(next);
+        };
+
         return (
           <div className="flex flex-col gap-[8px]">
             <div
@@ -2658,51 +2785,107 @@ export default function OCRForm({
               </svg>
               <span className="text-[14px] font-medium text-[#bc76ff]">
                 הוצאה חודשית קבועה — {fixedOpenInvoices.length} חשבוניות פתוחות
+                {selectedIds.length > 1 ? ` · ${selectedIds.length} נבחרו` : ''}
               </span>
             </div>
             {showFixedInvoices && (
               <div className="flex flex-col gap-[6px] pr-[10px]">
                 <Button
                   type="button"
-                  onClick={() => setLinkToFixedInvoiceId(null)}
+                  onClick={() => {
+                    setLinkToFixedInvoiceId(null);
+                    setAdditionalFixedInvoiceIds([]);
+                    setFixedInvoiceAllocations({});
+                  }}
                   className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
-                    linkToFixedInvoiceId === null
+                    selectedIds.length === 0
                       ? 'bg-[#4F46E5] text-white border border-white/30'
                       : 'bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80'
                   }`}
                 >
                   פתח חשבונית חדשה
                 </Button>
-                {fixedOpenInvoices.map(inv => (
-                  <Button
-                    key={inv.id}
-                    type="button"
-                    onClick={() => {
-                      setLinkToFixedInvoiceId(inv.id);
-                      fixedOverwriteConfirmedRef.current = false;
-                      setAmountBeforeVat(String(inv.subtotal));
-                      setTotalWithVatInput('');
-                      // NEVER overwrite documentDate when picking a fixed-expense
-                      // month — even if it contains today's auto-default. The
-                      // actual invoice date (whether OCR-extracted or
-                      // user-typed) is always more accurate than the
-                      // placeholder's month-start date. The intake API will
-                      // update the placeholder's invoice_date to whatever the
-                      // user submits.
-                      if (selectedSupplier.vat_type === 'none') {
-                        setPartialVat(true);
-                        setVatAmount('0');
-                      }
-                    }}
-                    className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
-                      linkToFixedInvoiceId === inv.id
-                        ? 'bg-[#4F46E5] text-white border border-white/30'
-                        : 'bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80'
-                    }`}
-                  >
-                    {inv.month} — &#8362;{inv.total_amount.toLocaleString('he-IL')}
-                  </Button>
-                ))}
+                {fixedOpenInvoices.map(inv => {
+                  const isSelected = selectedIds.includes(inv.id);
+                  return (
+                    <Button
+                      key={inv.id}
+                      type="button"
+                      onClick={() => toggleSelection(inv.id)}
+                      className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all flex items-center gap-[8px] flex-row-reverse ${
+                        isSelected
+                          ? 'bg-[#4F46E5] text-white border border-white/30'
+                          : 'bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80'
+                      }`}
+                    >
+                      <span className="flex-1 text-right">
+                        {inv.month} — &#8362;{inv.total_amount.toLocaleString('he-IL')}
+                      </span>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="shrink-0">
+                        {isSelected ? (
+                          <>
+                            <rect x="3" y="3" width="18" height="18" rx="3" fill="currentColor" />
+                            <path d="M8 12l3 3 5-5" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </>
+                        ) : (
+                          <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2" />
+                        )}
+                      </svg>
+                    </Button>
+                  );
+                })}
+
+                {/* Allocation panel — only shows when 2+ months are picked. The
+                    document's amount-before-VAT gets sliced into per-month
+                    portions. Same attachment_url + invoice_number on all
+                    rows. */}
+                {selectedIds.length > 1 && (
+                  <div className="flex flex-col gap-[6px] bg-[#0F1535] rounded-[10px] p-[10px] border border-[#4C526B]" dir="rtl">
+                    <div className="flex items-center justify-between gap-[8px]">
+                      <span className="text-[13px] text-white font-medium">חלוקת סכום בין חודשים (לפני מע&quot;מ)</span>
+                      <Button
+                        type="button"
+                        onClick={splitEvenly}
+                        className="text-[12px] text-[#0075FF] hover:text-[#00D4FF] transition-colors px-[8px] py-[2px]"
+                      >
+                        חלוקה שווה
+                      </Button>
+                    </div>
+                    {selectedIds.map(id => {
+                      const inv = fixedOpenInvoices.find(f => f.id === id);
+                      if (!inv) return null;
+                      return (
+                        <div key={id} className="flex items-center gap-[8px]">
+                          <span className="text-[13px] text-white/80 flex-1 text-right">{inv.month}</span>
+                          <div className="border border-[#4C526B] rounded-[8px] h-[38px] w-[120px]">
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              dir="ltr"
+                              value={fixedInvoiceAllocations[id] ?? ''}
+                              onChange={(e) => setFixedInvoiceAllocations(prev => ({ ...prev, [id]: e.target.value }))}
+                              placeholder="0.00"
+                              className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[8px] border-none outline-none px-[8px] placeholder:text-white/30"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className={`flex items-center justify-between text-[12px] pt-[6px] border-t ${allocationMismatch ? 'border-[#F64E60]/40 text-[#F64E60]' : 'border-white/10 text-white/60'}`}>
+                      <span>סה&quot;כ הוקצה</span>
+                      <span className="ltr-num font-medium">
+                        &#8362;{allocatedSum.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {' / '}
+                        &#8362;{totalToSplit.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    {allocationMismatch && (
+                      <span className="text-[11px] text-[#F64E60] text-right">
+                        סכום ההקצאות חייב להיות שווה לסכום לפני מע&quot;מ של המסמך
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

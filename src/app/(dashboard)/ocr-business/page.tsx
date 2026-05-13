@@ -433,6 +433,21 @@ export default function OCRBusinessPage() {
           let newInvoice: { id: string } | null = null;
           let invoiceError: unknown = null;
           if (formData.link_to_fixed_invoice_id) {
+            // Multi-month link mode — see /ocr/page.tsx for the full rationale.
+            // The primary placeholder gets its own allocated subtotal slice;
+            // each extra placeholder gets the same attachment + invoice_number
+            // and its own slice, with vat/total scaled proportionally.
+            const extras = formData.link_to_fixed_invoice_extras || [];
+            const docTotalAmount = parseFloat(formData.total_amount);
+            const docSubtotal = parseFloat(formData.amount_before_vat);
+            const docVat = parseFloat(formData.vat_amount);
+            const totalRatio = docSubtotal > 0 ? docTotalAmount / docSubtotal : 1;
+            const vatRatio = docSubtotal > 0 ? docVat / docSubtotal : 0;
+            const primarySubtotal = extras.length > 0 && typeof formData.fixed_invoice_primary_subtotal === 'number'
+              ? formData.fixed_invoice_primary_subtotal
+              : docSubtotal;
+            const primaryVat = extras.length > 0 ? primarySubtotal * vatRatio : docVat;
+            const primaryTotal = extras.length > 0 ? primarySubtotal * totalRatio : docTotalAmount;
             const { data, error } = await supabase
               .from('invoices')
               .update({
@@ -441,9 +456,9 @@ export default function OCRBusinessPage() {
                 reference_date: formData.value_date || formData.document_date,
                 discount_amount: parseFloat(formData.discount_amount || '0') || 0,
                 discount_percentage: parseFloat(formData.discount_percentage || '0') || 0,
-                subtotal: parseFloat(formData.amount_before_vat),
-                vat_amount: parseFloat(formData.vat_amount),
-                total_amount: parseFloat(formData.total_amount),
+                subtotal: primarySubtotal,
+                vat_amount: primaryVat,
+                total_amount: primaryTotal,
                 status: formData.is_paid ? 'paid' : 'pending',
                 notes: formData.notes || null,
                 attachment_url: ocrImageUrl,
@@ -453,6 +468,29 @@ export default function OCRBusinessPage() {
               .single();
             newInvoice = data;
             invoiceError = error;
+
+            if (!error && extras.length > 0) {
+              for (const extra of extras) {
+                const exSubtotal = Number(extra.subtotal) || 0;
+                const exVat = exSubtotal * vatRatio;
+                const exTotal = exSubtotal * totalRatio;
+                const { error: exError } = await supabase
+                  .from('invoices')
+                  .update({
+                    invoice_number: formData.document_number || null,
+                    subtotal: exSubtotal,
+                    vat_amount: exVat,
+                    total_amount: exTotal,
+                    status: formData.is_paid ? 'paid' : 'pending',
+                    notes: formData.notes || null,
+                    attachment_url: ocrImageUrl,
+                  })
+                  .eq('id', extra.invoice_id);
+                if (exError) {
+                  console.error('[OCR Business Approve] extra fixed-invoice update failed:', extra.invoice_id, exError);
+                }
+              }
+            }
           } else {
             const isDisputed = formData.document_type === 'disputed_invoice';
             const { data, error } = await supabase
