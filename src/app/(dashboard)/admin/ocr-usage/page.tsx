@@ -228,24 +228,22 @@ export default function OcrUsageAdminPage() {
       className="text-white pt-0 px-[7px] pb-[80px] flex flex-col gap-[10px]"
       dir="rtl"
     >
-      {/* Title row */}
-      <section className="bg-[#0F1535] rounded-[10px] p-[12px] flex items-center justify-between gap-[10px]">
-        <h1 className="text-[20px] font-bold">מעקב שימוש ב-OCR</h1>
-        <div className="flex items-center gap-[8px]">
-          <span className="text-[13px] text-white/60">שנה</span>
-          <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(parseInt(v, 10))}>
-            <SelectTrigger className="w-[110px] h-[36px] bg-transparent border border-[#4C526B] rounded-[7px] text-[14px] text-white">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {yearOptions.map((y) => (
-                <SelectItem key={y} value={String(y)}>
-                  {y}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Year selector — title removed; the layout already renders
+          "מעקב שימוש ב-OCR" in the top bar via pageTitles. */}
+      <section className="bg-[#0F1535] rounded-[10px] p-[12px] flex items-center justify-end gap-[8px]">
+        <span className="text-[13px] text-white/60">שנה</span>
+        <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(parseInt(v, 10))}>
+          <SelectTrigger className="w-[110px] h-[36px] bg-transparent border border-[#4C526B] rounded-[7px] text-[14px] text-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {yearOptions.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </section>
 
       {/* KPI cards */}
