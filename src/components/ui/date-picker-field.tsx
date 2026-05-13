@@ -131,15 +131,21 @@ export function DatePickerField({
 
         <Calendar
           mode="single"
+          required
           selected={valueAsDate}
           onSelect={(date) => {
+            // react-day-picker passes `undefined` when the user clicks the
+            // already-selected day (toggle-off). For this field we never want
+            // to unselect — `required` keeps the date set, and we close the
+            // popover regardless so a confirming click on the same date still
+            // dismisses the picker.
             if (date) {
               const yyyy = date.getFullYear();
               const mm = String(date.getMonth() + 1).padStart(2, "0");
               const dd = String(date.getDate()).padStart(2, "0");
               onChange(`${yyyy}-${mm}-${dd}`);
-              setOpen(false);
             }
+            setOpen(false);
           }}
           month={displayMonth}
           onMonthChange={setDisplayMonth}
