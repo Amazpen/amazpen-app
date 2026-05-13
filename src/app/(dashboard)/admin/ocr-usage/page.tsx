@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "../../layout";
 import { createClient } from "@/lib/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 
 /**
  * Admin-only OCR usage tracker. Built to answer "how do we price Mistral
@@ -61,6 +62,11 @@ export default function OcrUsageAdminPage() {
   const [monthTotals, setMonthTotals] = useState<number[]>(Array(12).fill(0));
   const [monthApproved, setMonthApproved] = useState<number[]>(Array(12).fill(0));
   const [businessNamesLoading, setBusinessNamesLoading] = useState(true);
+  // Bumped by the realtime subscription to force the fetch effect to re-run
+  // whenever ocr_documents rows are inserted/updated/deleted. Cheaper than
+  // a per-event delta-merge because the dataset is small (a few thousand
+  // rows/year) and the fetch already debounces UI rendering itself.
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Redirect non-admins. Mirror of /admin/online-users guard.
   useEffect(() => {
@@ -68,6 +74,19 @@ export default function OcrUsageAdminPage() {
       router.replace("/");
     }
   }, [isAdmin, isProfileLoading, router]);
+
+  // Live updates — re-fetch whenever ocr_documents changes (new scan arrives,
+  // status flips to approved, doc deleted). Subscription is enabled only for
+  // admins so non-admins never even open the channel. ocr_documents is already
+  // in the supabase_realtime publication (verified via the publication list).
+  const handleRealtimeChange = useCallback(() => {
+    setRefreshTrigger((n) => n + 1);
+  }, []);
+  useRealtimeSubscription({
+    subscriptions: [{ table: "ocr_documents" }],
+    onDataChange: handleRealtimeChange,
+    enabled: !!isAdmin,
+  });
 
   // Pull every ocr_documents row for the chosen year, plus the business name
   // lookup. Two parallel queries. Bucket by month + business in-memory because
@@ -166,7 +185,7 @@ export default function OcrUsageAdminPage() {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, selectedYear]);
+  }, [isAdmin, selectedYear, refreshTrigger]);
 
   // KPI metrics — based on the current selected year. "currentMonth" is the
   // current calendar month if we're viewing this year, otherwise December of
