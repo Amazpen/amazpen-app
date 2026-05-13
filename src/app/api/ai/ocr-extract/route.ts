@@ -177,16 +177,51 @@ ${rawText}`,
     });
 
     // Step 3: Supplier matching
+    // Same normalize + token-scoring matcher as the Mistral OCR route — keep
+    // them in sync so both extraction engines surface the same matched
+    // supplier id for the same input. Bare String.includes used to miss any
+    // supplier where punctuation/quotes differed from the OCR output.
     let matchedSupplierId: string | undefined;
     if (extracted.supplier_name && suppliersJson) {
       try {
         const suppliers: SupplierInfo[] = JSON.parse(suppliersJson);
-        const extractedName = extracted.supplier_name.trim();
-        const matched = suppliers.find(
-          (s) => s.name.includes(extractedName) || extractedName.includes(s.name)
-        );
-        if (matched) {
-          matchedSupplierId = matched.id;
+        const normalize = (s: string) =>
+          s
+            .replace(/["'״׳"'`]/g, "")
+            .replace(/[.,]/g, "")
+            .replace(/ /g, " ")
+            .replace(/\s+/g, " ")
+            .replace(/בע\s*מ/g, "בעמ")
+            .trim()
+            .toLowerCase();
+        const ocrName = normalize(extracted.supplier_name);
+        if (ocrName.length >= 2) {
+          const scored: { id: string; score: number }[] = [];
+          for (const s of suppliers) {
+            const sName = normalize(s.name);
+            if (!sName) continue;
+            let score = 0;
+            if (sName === ocrName) score = 1000;
+            else if (sName.includes(ocrName)) score = 800 - Math.abs(sName.length - ocrName.length);
+            else if (ocrName.includes(sName) && sName.length >= 3) score = 700 - Math.abs(sName.length - ocrName.length);
+            else {
+              const ocrTokens = ocrName.split(" ").filter((t) => t.length >= 2);
+              const sTokens = sName.split(" ").filter((t) => t.length >= 2);
+              if (ocrTokens.length > 0 && sTokens.length > 0) {
+                const matched = ocrTokens.filter((t) =>
+                  sTokens.some((st) => st === t || st.includes(t) || t.includes(st)),
+                ).length;
+                if (matched > 0) {
+                  score = 400 + (matched / Math.max(ocrTokens.length, sTokens.length)) * 200;
+                }
+              }
+            }
+            if (score > 0) scored.push({ id: s.id, score });
+          }
+          scored.sort((a, b) => b.score - a.score);
+          if (scored.length > 0 && scored[0].score >= 400) {
+            matchedSupplierId = scored[0].id;
+          }
         }
       } catch {
         // Ignore parse errors
