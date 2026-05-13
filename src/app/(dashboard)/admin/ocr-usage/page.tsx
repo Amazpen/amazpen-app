@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useDashboard } from "../../layout";
 import { createClient } from "@/lib/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 
 /**
@@ -211,11 +212,21 @@ export default function OcrUsageAdminPage() {
     };
   }, [monthTotals, monthApproved, selectedYear, currentYear]);
 
+  // While we don't know yet whether the user is an admin, render a skeleton
+  // that mirrors the real page shape — top bar, four KPI cards, table. Avoids
+  // a spinner-then-layout-shift flash and gives the user a sense of scale.
   if (isProfileLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <div className="animate-spin w-8 h-8 border-4 border-[#4956D4] border-t-transparent rounded-full" />
-      </div>
+      <article className="text-white pt-0 px-[7px] pb-[80px] flex flex-col gap-[10px]" dir="rtl">
+        <section className="bg-[#0F1535] rounded-[10px] p-[12px] flex items-center justify-end gap-[8px]">
+          <Skeleton className="h-[18px] w-[40px] bg-white/10" />
+          <Skeleton className="h-[36px] w-[110px] bg-white/10 rounded-[7px]" />
+        </section>
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-[10px]">
+          {[0, 1, 2, 3].map((i) => <KpiCardSkeleton key={i} />)}
+        </section>
+        <YearlyTableSkeleton selectedYear={selectedYear} />
+      </article>
     );
   }
   if (!isAdmin) return null;
@@ -246,32 +257,46 @@ export default function OcrUsageAdminPage() {
         </Select>
       </section>
 
-      {/* KPI cards */}
+      {/* KPI cards — while loading the values would otherwise read "0" which
+          is misleading (looks like "no documents"), so we render skeletons
+          for the numbers instead. Labels stay visible so the user knows what
+          they're waiting on. */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-[10px]">
-        <KpiCard
-          label={`מסמכים החודש (${kpis.referenceMonthLabel})`}
-          value={kpis.thisMonthTotal}
-          sub={`${kpis.thisMonthApproved} אושרו`}
-          accent="#17DB4E"
-        />
-        <KpiCard
-          label="סה״כ מסמכים בשנה"
-          value={kpis.yearTotal}
-          sub={`${kpis.yearApproved} אושרו`}
-          accent="#0075FF"
-        />
-        <KpiCard
-          label="ממוצע חודשי"
-          value={kpis.monthlyAvg}
-          sub="לפי חודשים פעילים בלבד"
-          accent="#C084FC"
-        />
-        <KpiCard
-          label="עסקים פעילים"
-          value={rows.length}
-          sub={selectedYear === currentYear ? "השנה" : `בשנת ${selectedYear}`}
-          accent="#F59E0B"
-        />
+        {isLoading || businessNamesLoading ? (
+          <>
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+          </>
+        ) : (
+          <>
+            <KpiCard
+              label={`מסמכים החודש (${kpis.referenceMonthLabel})`}
+              value={kpis.thisMonthTotal}
+              sub={`${kpis.thisMonthApproved} אושרו`}
+              accent="#17DB4E"
+            />
+            <KpiCard
+              label="סה״כ מסמכים בשנה"
+              value={kpis.yearTotal}
+              sub={`${kpis.yearApproved} אושרו`}
+              accent="#0075FF"
+            />
+            <KpiCard
+              label="ממוצע חודשי"
+              value={kpis.monthlyAvg}
+              sub="לפי חודשים פעילים בלבד"
+              accent="#C084FC"
+            />
+            <KpiCard
+              label="עסקים פעילים"
+              value={rows.length}
+              sub={selectedYear === currentYear ? "השנה" : `בשנת ${selectedYear}`}
+              accent="#F59E0B"
+            />
+          </>
+        )}
       </section>
 
       {/* Table */}
@@ -284,9 +309,7 @@ export default function OcrUsageAdminPage() {
         </div>
 
         {isLoading || businessNamesLoading ? (
-          <div className="flex items-center justify-center py-[40px]">
-            <div className="animate-spin w-8 h-8 border-4 border-[#4956D4] border-t-transparent rounded-full" />
-          </div>
+          <YearlyTableSkeletonInner />
         ) : rows.length === 0 ? (
           <div className="text-center py-[40px] text-white/50 text-[14px]">אין נתונים לשנת {selectedYear}</div>
         ) : (
@@ -423,6 +446,90 @@ function KpiCard({
         {value.toLocaleString("he-IL")}
       </span>
       <span className="text-[11px] text-white/40">{sub}</span>
+    </div>
+  );
+}
+
+// Same outer dimensions as KpiCard so the skeleton doesn't shift layout
+// when the real numbers arrive. We deliberately reserve room for the label,
+// the big number, and the sub-line — three Skeleton bars stacked.
+function KpiCardSkeleton() {
+  return (
+    <div className="bg-[#0F1535] rounded-[10px] p-[14px] flex flex-col gap-[6px]">
+      <Skeleton className="h-[14px] w-[110px] bg-white/10" />
+      <Skeleton className="h-[32px] w-[80px] bg-white/15" />
+      <Skeleton className="h-[12px] w-[70px] bg-white/8" />
+    </div>
+  );
+}
+
+// Skeleton for the supplier × month matrix block — used during the initial
+// profile load. Renders the section wrapper, title placeholder, and 6 row
+// shimmers so the user sees structure instead of a void.
+function YearlyTableSkeleton({ selectedYear }: { selectedYear: number }) {
+  return (
+    <section className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+      <div className="flex items-center justify-between gap-[10px]">
+        <Skeleton className="h-[18px] w-[240px] bg-white/10" />
+        <Skeleton className="h-[12px] w-[160px] bg-white/8" />
+      </div>
+      <YearlyTableSkeletonInner />
+      {/* Anchor so React doesn't complain about an unused prop — and so the
+          aria label includes the year being loaded. */}
+      <span className="sr-only">טוען נתונים לשנת {selectedYear}</span>
+    </section>
+  );
+}
+
+// Just the inner grid of shimmer rows — used both during the full-page
+// profile-load skeleton and when only the table data is still loading.
+// Same gridTemplate as the real table so column widths line up perfectly
+// when the data swaps in.
+function YearlyTableSkeletonInner() {
+  const gridTemplate = "200px repeat(12, minmax(80px, 1fr)) 110px";
+  return (
+    <div className="overflow-x-auto" dir="rtl">
+      <div className="min-w-[1200px] flex flex-col gap-[2px]">
+        {/* Header shimmer */}
+        <div
+          className="grid items-center bg-[#1a1f4e] rounded-[7px] px-[8px] py-[10px]"
+          style={{ gridTemplateColumns: gridTemplate }}
+        >
+          <Skeleton className="h-[12px] w-[60px] bg-white/15" />
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="flex justify-center">
+              <Skeleton className="h-[12px] w-[48px] bg-white/15" />
+            </div>
+          ))}
+          <div className="flex justify-center">
+            <Skeleton className="h-[12px] w-[40px] bg-white/15" />
+          </div>
+        </div>
+        {/* Body rows shimmer */}
+        {Array.from({ length: 6 }).map((_, rowIdx) => (
+          <div
+            key={rowIdx}
+            className="grid items-center rounded-[5px] px-[8px] py-[8px] bg-white/[0.02]"
+            style={{ gridTemplateColumns: gridTemplate }}
+          >
+            <Skeleton className="h-[14px] w-[140px] bg-white/10" />
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="flex justify-center">
+                {/* Sparse cells so it doesn't look like every supplier has
+                    activity in every month — closer to the real distribution. */}
+                {(rowIdx + i) % 3 !== 0 ? (
+                  <Skeleton className="h-[12px] w-[36px] bg-white/8" />
+                ) : (
+                  <span className="text-white/15 text-[12px]">—</span>
+                )}
+              </div>
+            ))}
+            <div className="flex justify-center">
+              <Skeleton className="h-[14px] w-[50px] bg-white/12" />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
