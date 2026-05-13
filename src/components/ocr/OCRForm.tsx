@@ -3485,7 +3485,13 @@ export default function OCRForm({
                 : new Date().toISOString().split('T')[0];
               setInlinePaymentDate(smartDate);
               if (defaultMethod) setInlinePaymentMethod(defaultMethod);
-              const amount = totalWithVat > 0 ? totalWithVat.toString() : '';
+              // Round to 2 decimals before pushing into the payment-method
+              // input — totalWithVat is a float sum that picks up noise like
+              // 2724.5599999999999 when the user typed the total directly and
+              // we back-derived amountBeforeVat from it. Without the round the
+              // payment fields render with 10+ digits after the dot.
+              const roundedTotal = Math.round(totalWithVat * 100) / 100;
+              const amount = roundedTotal > 0 ? roundedTotal.toFixed(2) : '';
               setInlinePaymentMethods([{
                 id: 1,
                 method: defaultMethod,
@@ -3493,7 +3499,7 @@ export default function OCRForm({
                 installments: '1',
                 checkNumber: '',
                 creditCardId: defaultCardId,
-                customInstallments: amount ? generateInstallments(1, totalWithVat, smartDate) : [],
+                customInstallments: amount ? generateInstallments(1, roundedTotal, smartDate) : [],
               }]);
               if (!inlinePaymentReference.trim() && documentNumber.trim()) {
                 setInlinePaymentReference(documentNumber.trim());

@@ -5901,7 +5901,12 @@ function ExpensesPageInner() {
                         ? getSmartPaymentDate(defaultMethod, expenseDate, defaultCardId || undefined)
                         : toLocalDateStr(new Date());
                       setPaymentDate(smartDate);
-                      const amount = totalWithVat > 0 ? totalWithVat.toString() : "";
+                      // Round to 2 decimals so the payment-method input shows
+                      // ₪2,724.56 instead of 2724.5599999999999 when the user
+                      // entered the total-with-VAT directly and we back-derived
+                      // before-VAT from it.
+                      const roundedTotal = Math.round(totalWithVat * 100) / 100;
+                      const amount = roundedTotal > 0 ? roundedTotal.toFixed(2) : "";
                       setPopupPaymentMethods([{
                         id: 1,
                         method: defaultMethod,
@@ -5909,7 +5914,7 @@ function ExpensesPageInner() {
                         installments: "1",
                         checkNumber: "",
                         creditCardId: defaultCardId,
-                        customInstallments: amount ? generatePopupInstallments(1, totalWithVat, smartDate) : [],
+                        customInstallments: amount ? generatePopupInstallments(1, roundedTotal, smartDate) : [],
                       }]);
                       if (!paymentReference.trim() && invoiceNumber.trim()) {
                         setPaymentReference(invoiceNumber.trim());
