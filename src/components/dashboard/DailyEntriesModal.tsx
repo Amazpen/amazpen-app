@@ -2008,14 +2008,33 @@ export function DailyEntriesModal({
                           const foodMTD = revenueMTD * ((monthlyCumulative?.foodCostPct || 0) / 100);
                           const currentExpensesMTD = monthlyCumulative?.currentExpenses || 0;
                           const monthlyProfit = revenueMTD - laborMTD - foodMTD - currentExpensesMTD;
-                          const colorForValue = (v: number) => v < 0 ? "text-[#FF4D4D]" : v > 0 ? "text-green-400" : "text-white";
+                          // Revenue forecast colour matches the variance %
+                          // cell above it: red when pace is under target,
+                          // green when on/above target. Same comparison the
+                          // diffPct cell at line ~1896 uses, so the two
+                          // signals always agree visually. Falls back to
+                          // white when no target is configured (otherwise
+                          // we'd colour every pace red against target=0).
+                          const revenueTarget = goalsData?.revenueTarget || 0;
+                          const paceVsTargetColor = revenueTarget > 0
+                            ? (monthlyPace >= revenueTarget ? "text-green-400" : "text-red-400")
+                            : "text-white";
+                          // Profit stays on sign-based colouring — there's
+                          // no profit-target % cell on this screen, so the
+                          // old "positive=green, negative=red" rule is the
+                          // right cue for the user. Renamed for clarity.
+                          const profitColor = monthlyProfit < 0
+                            ? "text-[#FF4D4D]"
+                            : monthlyProfit > 0
+                              ? "text-green-400"
+                              : "text-white";
                           return (
                             <div className="flex flex-col border-2 border-[#FFCF00] rounded-[10px] p-[10px_7px] mt-[15px]" dir="rtl">
                               <div className="flex items-center w-full">
                                 <span className="text-white text-[18px] font-bold leading-[1.4] w-[230px] shrink-0">
                                   צפי הכנסות חודשי כולל מע&quot;מ:
                                 </span>
-                                <span className={`${colorForValue(monthlyPace)} text-[18px] font-medium leading-[1.4] ltr-num flex-1 text-center`}>
+                                <span className={`${paceVsTargetColor} text-[18px] font-medium leading-[1.4] ltr-num flex-1 text-center`}>
                                   {formatCurrency(Math.round(monthlyPace))}
                                 </span>
                               </div>
@@ -2023,7 +2042,7 @@ export function DailyEntriesModal({
                                 <span className="text-white text-[18px] font-bold leading-[1.4] w-[230px] shrink-0">
                                   צפי רווח החודש:
                                 </span>
-                                <span className={`${colorForValue(monthlyProfit)} text-[18px] font-medium leading-[1.4] ltr-num flex-1 text-center`}>
+                                <span className={`${profitColor} text-[18px] font-medium leading-[1.4] ltr-num flex-1 text-center`}>
                                   {formatCurrency(Math.round(monthlyProfit))}
                                 </span>
                               </div>
