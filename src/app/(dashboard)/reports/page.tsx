@@ -179,6 +179,10 @@ export default function ReportsPage() {
     expenseType: string | null;
     isFixed: boolean;
     monthly: number[]; // length 12, index 0 = Jan
+    // For fixed-expense suppliers — true when the invoice for that month is
+    // still a placeholder (no attachment AND no real invoice_number). Used to
+    // tint the cell purple, matching the supplier-card semantics elsewhere.
+    monthlyUnapproved: boolean[];
     total: number;
   }>>([]);
   const [yearlyMonthTotals, setYearlyMonthTotals] = useState<number[]>(Array(12).fill(0));
@@ -375,7 +379,11 @@ export default function ReportsPage() {
       const [{ data: invs }, { data: dns }] = await Promise.all([
         supabase
           .from("invoices")
-          .select("subtotal, reference_date, invoice_date, supplier_id, supplier:suppliers(name, expense_type, is_fixed_expense)")
+          // attachment_url + invoice_number drive the per-cell "open fixed
+          // expense" purple shading (matches the supplier-card / category
+          // row semantics: row counts as unapproved when ALL its invoices
+          // lack both an attachment AND a real invoice_number).
+          .select("subtotal, reference_date, invoice_date, supplier_id, attachment_url, invoice_number, supplier:suppliers(name, expense_type, is_fixed_expense)")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .in("invoice_type", ["current", "goods", "employees"])
@@ -399,22 +407,19 @@ export default function ReportsPage() {
         expenseType: string | null;
         isFixed: boolean;
         monthly: number[];
+        monthlyUnapproved: boolean[];
+        // Tracks per (supplier, month) whether ANY invoice in that bucket is
+        // approved (has attachment OR real invoice_number). Used to flip the
+        // unapproved flag back off as soon as one real invoice lands.
+        monthlyApproved: boolean[];
         total: number;
       };
       const rows = new Map<string, SupplierRow>();
 
-      const addAmount = (
-        supplierId: string | null | undefined,
+      const ensureRow = (
+        supplierId: string,
         supplier: { name: string | null; expense_type: string | null; is_fixed_expense: boolean | null } | null,
-        dateStr: string | null | undefined,
-        rawSubtotal: unknown,
-      ) => {
-        if (!supplierId || !dateStr) return;
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime()) || d.getFullYear() !== year) return;
-        const monthIdx = d.getMonth();
-        const amount = Number(rawSubtotal) || 0;
-        if (amount === 0) return;
+      ): SupplierRow => {
         let row = rows.get(supplierId);
         if (!row) {
           row = {
@@ -423,12 +428,31 @@ export default function ReportsPage() {
             expenseType: supplier?.expense_type ?? null,
             isFixed: !!supplier?.is_fixed_expense,
             monthly: Array(12).fill(0),
+            monthlyUnapproved: Array(12).fill(false),
+            monthlyApproved: Array(12).fill(false),
             total: 0,
           };
           rows.set(supplierId, row);
         }
+        return row;
+      };
+
+      const addAmount = (
+        supplierId: string | null | undefined,
+        supplier: { name: string | null; expense_type: string | null; is_fixed_expense: boolean | null } | null,
+        dateStr: string | null | undefined,
+        rawSubtotal: unknown,
+      ): { row: SupplierRow; monthIdx: number } | null => {
+        if (!supplierId || !dateStr) return null;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime()) || d.getFullYear() !== year) return null;
+        const monthIdx = d.getMonth();
+        const amount = Number(rawSubtotal) || 0;
+        if (amount === 0) return null;
+        const row = ensureRow(supplierId, supplier);
         row.monthly[monthIdx] += amount;
         row.total += amount;
+        return { row, monthIdx };
       };
 
       for (const inv of invs || []) {
@@ -436,7 +460,25 @@ export default function ReportsPage() {
         const sid = (inv as unknown as { supplier_id: string | null }).supplier_id;
         const dateStr = (inv as unknown as { reference_date: string | null; invoice_date: string | null }).reference_date
           || (inv as unknown as { reference_date: string | null; invoice_date: string | null }).invoice_date;
-        addAmount(sid, supplier, dateStr, inv.subtotal);
+        const added = addAmount(sid, supplier, dateStr, inv.subtotal);
+        // For fixed-expense suppliers, decide if THIS month's bucket is still
+        // an open placeholder. Mirror the supplier-card rule (#22): the cell
+        // is unapproved only when EVERY invoice in that bucket lacks both an
+        // attachment AND a real invoice_number. The moment a real invoice
+        // lands, the cell flips out of purple and stays out.
+        if (added && supplier?.is_fixed_expense) {
+          const invRaw = inv as unknown as { attachment_url: string | null; invoice_number: string | null };
+          const hasAttachment = invRaw.attachment_url && String(invRaw.attachment_url).trim() !== "";
+          const hasReference = invRaw.invoice_number && String(invRaw.invoice_number).trim() !== "" && invRaw.invoice_number !== "-";
+          const isApproved = !!(hasAttachment || hasReference);
+          if (isApproved) {
+            added.row.monthlyApproved[added.monthIdx] = true;
+            // An approved invoice overrides any earlier placeholder in the same month
+            added.row.monthlyUnapproved[added.monthIdx] = false;
+          } else if (!added.row.monthlyApproved[added.monthIdx]) {
+            added.row.monthlyUnapproved[added.monthIdx] = true;
+          }
+        }
       }
       for (const dn of dns || []) {
         const supplier = dn.supplier as unknown as { name: string | null; expense_type: string | null; is_fixed_expense: boolean | null } | null;
@@ -1655,29 +1697,51 @@ export default function ReportsPage() {
                     {yearlySupplierRows
                       .filter(r => !yearlySupplierSearch || r.name.toLowerCase().includes(yearlySupplierSearch.toLowerCase()))
                       .map((row) => (
-                        <div
-                          key={row.supplierId}
-                          className={`grid items-center rounded-[5px] px-[8px] py-[8px] ${row.isFixed ? "bg-[#7C3AED]/12" : "bg-white/[0.02]"} hover:bg-white/[0.06] transition-colors`}
-                          style={{ gridTemplateColumns: gridTemplate }}
-                        >
-                          <div
-                            className={`text-right text-[13px] font-medium pr-[5px] truncate ${row.isFixed ? "text-[#C084FC]" : "text-white/90"}`}
-                            title={row.name}
-                          >
-                            {row.name}
-                          </div>
-                          {row.monthly.map((amount, i) => (
+                        (() => {
+                          // Row helpers: is THIS row a fixed-expense supplier
+                          // and does it have at least one open-placeholder
+                          // month? When yes, we tint the supplier name purple
+                          // so the user can scan suppliers AND we tint each
+                          // unapproved cell purple so they know which months
+                          // are missing real documents. Real-invoice months
+                          // stay white.
+                          const hasAnyUnapproved = row.isFixed && row.monthlyUnapproved.some(Boolean);
+                          return (
                             <div
-                              key={i}
-                              className={`text-center text-[12px] ltr-num px-[2px] ${amount > 0 ? "text-white" : "text-white/20"}`}
+                              key={row.supplierId}
+                              className="grid items-center rounded-[5px] px-[8px] py-[8px] bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
+                              style={{ gridTemplateColumns: gridTemplate }}
                             >
-                              {amount > 0 ? `₪${Math.round(amount).toLocaleString("he-IL")}` : "—"}
+                              <div
+                                className={`text-right text-[13px] font-medium pr-[5px] truncate ${hasAnyUnapproved ? "text-[#C084FC]" : "text-white/90"}`}
+                                title={row.name}
+                              >
+                                {row.name}
+                              </div>
+                              {row.monthly.map((amount, i) => {
+                                const isUnapprovedCell = row.isFixed && row.monthlyUnapproved[i] && amount > 0;
+                                return (
+                                  <div
+                                    key={i}
+                                    className={`text-center text-[12px] ltr-num px-[2px] ${
+                                      isUnapprovedCell
+                                        ? "text-[#C084FC] font-medium"
+                                        : amount > 0
+                                          ? "text-white"
+                                          : "text-white/20"
+                                    }`}
+                                    title={isUnapprovedCell ? "הוצאה קבועה — טרם התקבל מסמך" : undefined}
+                                  >
+                                    {amount > 0 ? `₪${Math.round(amount).toLocaleString("he-IL")}` : "—"}
+                                  </div>
+                                );
+                              })}
+                              <div className="text-center text-[13px] font-semibold text-[#17DB4E] ltr-num">
+                                ₪{Math.round(row.total).toLocaleString("he-IL")}
+                              </div>
                             </div>
-                          ))}
-                          <div className="text-center text-[13px] font-semibold text-[#17DB4E] ltr-num">
-                            ₪{Math.round(row.total).toLocaleString("he-IL")}
-                          </div>
-                        </div>
+                          );
+                        })()
                       ))}
 
                     {/* Footer (totals row) */}
