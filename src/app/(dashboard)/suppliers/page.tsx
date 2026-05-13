@@ -110,10 +110,15 @@ function isPdfUrl(url: string): boolean {
 }
 
 export default function SuppliersPage() {
-  const { selectedBusinesses } = useDashboard();
+  const { selectedBusinesses, setSelectedBusinesses } = useDashboard();
   const { showToast } = useToast();
   const router = useRouter();
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  // When OCR redirects here with ?addSupplier=1 we open the modal and remember
+  // where to return. Stored in a ref (not state) because we read it from the
+  // save handler, and only ONE redirect-driven open is ever in flight at a
+  // time — survivors get cleared after the navigation.
+  const ocrReturnUrlRef = useRef<string | null>(null);
 
   // Draft persistence for add/edit supplier form
   const supplierDraftKey = `supplierForm:draft:${selectedBusinesses[0] || "none"}`;
@@ -364,6 +369,71 @@ export default function SuppliersPage() {
     });
   }, []);
 
+  // Handle deep-link from OCR (?addSupplier=1&name=X&taxId=Y&businessId=Z&returnTo=/ocr)
+  // Opens the full add-supplier modal with the OCR-extracted data pre-filled,
+  // so users get the EXACT same form as /suppliers (full category lists, all
+  // toggles, draft persistence) instead of the slimmed-down QuickAdd that
+  // was missing categories. After save we route back to returnTo with
+  // ?supplierAdded=<id> so OCR can auto-select the new row.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("addSupplier") !== "1") return;
+
+    const prefName = params.get("name") || "";
+    // /suppliers form doesn't currently surface a tax_id field, so we ignore
+    // ?taxId — OCR keeps the value in the document itself and applies it
+    // to the invoice it creates, not the supplier record.
+    const prefBusinessId = params.get("businessId") || "";
+    const returnTo = params.get("returnTo") || "";
+
+    // Strip query params immediately so refresh / accidental re-open doesn't
+    // re-trigger the modal with stale prefill values.
+    window.history.replaceState({}, "", "/suppliers");
+
+    // Switch the global business selection to the OCR document's business so
+    // the supplier gets created on the right business AND the category list
+    // the modal renders matches. We only do this if the user has access to
+    // that business — if not, leave their current selection alone and the
+    // duplicate-name guard / RLS will surface the issue.
+    if (prefBusinessId) {
+      setSelectedBusinesses([prefBusinessId]);
+    }
+
+    // Remember where to go back so handleSaveSupplier can route home with
+    // the newly-created supplier id.
+    ocrReturnUrlRef.current = returnTo || null;
+
+    // Reset form to clean defaults, then apply the OCR prefill. Mirrors the
+    // "+ הוספת ספק חדש" button click-handler so we get the same initial state.
+    clearSupplierDraft();
+    resetSupplierDraftCleared();
+    setSupplierName(prefName);
+    setHasPreviousObligations(false);
+    setWaitingForCoordinator(false);
+    setObligationTotalAmount("");
+    setObligationTerms("");
+    setObligationFirstChargeDate("");
+    setObligationNumPayments("");
+    setObligationMonthlyAmount("");
+    setCategory("");
+    setParentCategory("");
+    setPaymentTerms("");
+    setVatRequired("yes");
+    setIsFixedExpense(false);
+    setChargeDay("");
+    setMonthlyExpenseAmount("");
+    setPrimaryPaymentMethod("");
+    setSelectedCreditCardId("");
+    setDefaultDiscountPercentage("");
+    setFixedNote("");
+    setSupplierEmail(currentUserEmail || "");
+    setRequestKarteset(false);
+    setExpenseType("current");
+    setIsAddSupplierModalOpen(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserEmail]);
+
   // When the selected businesses change, clear the supplier list and flip
   // back to loading so the grid renders skeletons during the re-fetch instead
   // of briefly showing the previous business's suppliers. Realtime refreshes
@@ -596,6 +666,9 @@ export default function SuppliersPage() {
 
   const handleCloseAddSupplierModal = () => {
     setIsAddSupplierModalOpen(false);
+    // If the user cancels (rather than saving), drop the OCR return target so
+    // a future unrelated save doesn't accidentally push them to /ocr.
+    ocrReturnUrlRef.current = null;
     setSupplierName("");
     setHasPreviousObligations(false);
     setWaitingForCoordinator(false);
@@ -1149,6 +1222,16 @@ export default function SuppliersPage() {
       clearSupplierDraft();
       handleCloseAddSupplierModal();
       showToast("הספק נוצר בהצלחה!", "success");
+
+      // If we got here via the OCR deep-link, route back with the new
+      // supplier id so OCR can refresh + auto-select the new row. Sanity-
+      // restrict to same-origin paths so a crafted ?returnTo can't push the
+      // user to an external URL.
+      if (ocrReturnUrlRef.current && ocrReturnUrlRef.current.startsWith("/") && newSupplier?.id) {
+        const target = `${ocrReturnUrlRef.current}${ocrReturnUrlRef.current.includes("?") ? "&" : "?"}supplierAdded=${newSupplier.id}`;
+        ocrReturnUrlRef.current = null;
+        router.push(target);
+      }
     } catch (error) {
       console.error("Error creating supplier:", error);
       showToast(error instanceof Error ? error.message : "שגיאה ביצירת ספק. נסה שוב.", "error");

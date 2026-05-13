@@ -18,7 +18,6 @@ import DocumentQueue from '@/components/ocr/DocumentQueue';
 import OCRFormResizer from '@/components/ocr/OCRFormResizer';
 import OCRQueueResizer from '@/components/ocr/OCRQueueResizer';
 import { OCRQueueSkeleton, OCRViewerSkeleton, OCRFormSkeleton } from '@/components/ocr/OCRSkeletons';
-import QuickAddSupplierModal from '@/components/ocr/QuickAddSupplierModal';
 import { useMultiTableRealtime } from '@/hooks/useRealtimeSubscription';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
@@ -212,7 +211,6 @@ export default function OCRPage() {
   // here (not inside the form) so a successful insert can refresh the
   // suppliers list and bump pendingSupplierToSelect, which the form keys
   // off of to auto-select the new row without us having to remount.
-  const [showQuickAddSupplier, setShowQuickAddSupplier] = useState(false);
   const [pendingSupplierToSelect, setPendingSupplierToSelect] = useState<string | null>(null);
 
   // When admin picks a business in the form, persist business_id on the
@@ -321,6 +319,25 @@ export default function OCRPage() {
   useEffect(() => {
     fetchSuppliers();
   }, [fetchSuppliers]);
+
+  // Catch the return-trip from /suppliers (?supplierAdded=<id>). After
+  // routing here we strip the param, refresh the supplier list, and stash
+  // the new id in pendingSupplierToSelect so OCRForm auto-selects it the
+  // moment it appears in the suppliers prop. We wait for selectedBusinessId
+  // to hydrate from usePersistedState before fetching, otherwise the first
+  // call queries an empty business and returns nothing.
+  const consumedSupplierAddedRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (consumedSupplierAddedRef.current) return;
+    if (!selectedBusinessId) return; // wait for persisted state to hydrate
+    const params = new URLSearchParams(window.location.search);
+    const addedId = params.get("supplierAdded");
+    if (!addedId) return;
+    consumedSupplierAddedRef.current = true;
+    window.history.replaceState({}, "", "/ocr");
+    fetchSuppliers().then(() => setPendingSupplierToSelect(addedId));
+  }, [selectedBusinessId, fetchSuppliers]);
 
   // Realtime: when someone creates/edits/deletes a supplier in the selected
   // business, refresh the list so the OCR form dropdown stays in sync without
@@ -1479,7 +1496,24 @@ export default function OCRPage() {
               onMergeDocuments={setMergedDocuments}
               onRequestAddSupplier={
                 selectedBusinessId
-                  ? () => setShowQuickAddSupplier(true)
+                  ? () => {
+                      // Send the user to the full /suppliers add-form so they
+                      // get the same category dropdowns and full feature set
+                      // as the dedicated page (the prior QuickAdd modal was a
+                      // slimmed-down copy that lacked categories). /suppliers
+                      // honors ?addSupplier=1 with the prefill and routes
+                      // back with ?supplierAdded=<id> on save.
+                      const name = currentDocument?.ocr_data?.supplier_name || "";
+                      const taxId = currentDocument?.ocr_data?.supplier_tax_id || "";
+                      const params = new URLSearchParams({
+                        addSupplier: "1",
+                        businessId: selectedBusinessId,
+                        returnTo: "/ocr",
+                      });
+                      if (name) params.set("name", name);
+                      if (taxId) params.set("taxId", taxId);
+                      router.push(`/suppliers?${params.toString()}`);
+                    }
                   : undefined
               }
               pendingSupplierToSelect={pendingSupplierToSelect}
@@ -1489,21 +1523,10 @@ export default function OCRPage() {
         </div>
       </div>
 
-      {/* Quick add supplier — opened from inside OCRForm via the
-          "+ הוספת ספק חדש" link. After save we refresh the supplier list
-          and stash the new id in pendingSupplierToSelect; the form picks
-          it up the moment the suppliers prop contains the new row. */}
-      <QuickAddSupplierModal
-        open={showQuickAddSupplier}
-        onOpenChange={setShowQuickAddSupplier}
-        businessId={selectedBusinessId}
-        initialName={currentDocument?.ocr_data?.supplier_name}
-        initialTaxId={currentDocument?.ocr_data?.supplier_tax_id}
-        onCreated={async (newSupplierId) => {
-          await fetchSuppliers();
-          setPendingSupplierToSelect(newSupplierId);
-        }}
-      />
+      {/* The "+ הוספת ספק חדש" link now redirects to /suppliers with a
+          prefill instead of opening an inline modal — see onRequestAddSupplier
+          above. /suppliers routes back here with ?supplierAdded=<id> on save,
+          and the effect at the top of the file refreshes + auto-selects. */}
 
       {/* Document Queue - Bottom (mobile only) */}
       <div className="lg:hidden">
