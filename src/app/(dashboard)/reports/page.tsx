@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
@@ -126,6 +127,7 @@ function getProgressTooltip(actualRaw: number, targetRaw: number): string {
 }
 
 export default function ReportsPage() {
+  const router = useRouter();
   const { selectedBusinesses, globalMonth: selectedMonth, setGlobalMonth: setSelectedMonth, globalYear: selectedYear, setGlobalYear: setSelectedYear } = useDashboard();
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
   const [expandedSubcategories, setExpandedSubcategories] = useState<string[]>([]);
@@ -187,6 +189,10 @@ export default function ReportsPage() {
   }>>([]);
   const [yearlyMonthTotals, setYearlyMonthTotals] = useState<number[]>(Array(12).fill(0));
   const [yearlyGrandTotal, setYearlyGrandTotal] = useState(0);
+  // Revenue (before VAT) for the selected year. Shown at the top of the
+  // yearly view alongside the expense total so the user can scan profit at a
+  // glance without flipping to monthly view.
+  const [yearlyRevenueTotal, setYearlyRevenueTotal] = useState(0);
   const [yearlySupplierSearch, setYearlySupplierSearch] = useState("");
   const [isLoadingYearly, setIsLoadingYearly] = useState(false);
 
@@ -364,6 +370,7 @@ export default function ReportsPage() {
       setYearlySupplierRows([]);
       setYearlyMonthTotals(Array(12).fill(0));
       setYearlyGrandTotal(0);
+      setYearlyRevenueTotal(0);
       return;
     }
     const year = parseInt(selectedYear);
@@ -376,7 +383,7 @@ export default function ReportsPage() {
     const fetchYearly = async () => {
       setIsLoadingYearly(true);
       const supabase = createClient();
-      const [{ data: invs }, { data: dns }] = await Promise.all([
+      const [{ data: invs }, { data: dns }, { data: dailyEntries }, { data: bizVatData }, { data: goalsVatData }] = await Promise.all([
         supabase
           .from("invoices")
           // attachment_url + invoice_number drive the per-cell "open fixed
@@ -398,8 +405,53 @@ export default function ReportsPage() {
           .is("invoice_id", null)
           .gte("delivery_date", yearStart)
           .lte("delivery_date", yearEnd),
+        // Daily entries for revenue — `total_register` is gross (incl. VAT),
+        // divided by the business VAT divisor to match the monthly view's
+        // "totalRevenue = totalRegister / vatDivisor" formula.
+        supabase
+          .from("daily_entries")
+          .select("total_register, entry_date, business_id")
+          .in("business_id", selectedBusinesses)
+          .is("deleted_at", null)
+          .gte("entry_date", yearStart)
+          .lte("entry_date", yearEnd),
+        supabase
+          .from("businesses")
+          .select("id, vat_percentage")
+          .in("id", selectedBusinesses),
+        // Goal-level VAT override (year-scoped goal first; monthly fallback below).
+        supabase
+          .from("goals")
+          .select("business_id, vat_percentage, month")
+          .in("business_id", selectedBusinesses)
+          .eq("year", year),
       ]);
       if (cancelled) return;
+
+      // Per-business VAT divisor — prefer the most recent goal row that has a
+      // vat_percentage set, fall back to the business default.
+      const vatDivisorByBiz = new Map<string, number>();
+      for (const b of (bizVatData || [])) {
+        const goalRows = (goalsVatData || []).filter(g => g.business_id === b.id && g.vat_percentage != null);
+        // Latest month wins so a mid-year VAT change still applies.
+        goalRows.sort((a, b2) => (b2.month || 0) - (a.month || 0));
+        const vatPct = goalRows[0]?.vat_percentage != null
+          ? Number(goalRows[0].vat_percentage)
+          : Number(b.vat_percentage) || 0;
+        vatDivisorByBiz.set(b.id, vatPct > 0 ? 1 + vatPct : 1);
+      }
+
+      let revenueTotal = 0;
+      for (const entry of (dailyEntries || [])) {
+        const dateStr = (entry as { entry_date: string | null }).entry_date;
+        if (!dateStr) continue;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime()) || d.getFullYear() !== year) continue;
+        const bizId = (entry as { business_id: string }).business_id;
+        const divisor = vatDivisorByBiz.get(bizId) || 1;
+        revenueTotal += (Number((entry as { total_register: number | null }).total_register) || 0) / divisor;
+      }
+      setYearlyRevenueTotal(revenueTotal);
 
       type SupplierRow = {
         supplierId: string;
@@ -1646,9 +1698,16 @@ export default function ReportsPage() {
             visual-LTR, which read as the title floating away from its number.
             Plain flex with the title declared first puts both at natural RTL
             edges. */}
-        <div className="flex items-center justify-between gap-[10px]">
+        <div className="flex items-center justify-between gap-[10px] flex-wrap">
           <span className="text-[18px] font-bold leading-[1.4] text-right">פירוט הוצאות שנתי לפי ספק — {selectedYear}</span>
-          <span className="text-[14px] text-white/60 ltr-num shrink-0">סה&quot;כ ₪{yearlyGrandTotal.toLocaleString("he-IL", { maximumFractionDigits: 0 })}</span>
+          <div className="flex items-center gap-[16px] shrink-0">
+            <span className="text-[14px] text-white/60 ltr-num">
+              הכנסות (לא כולל מע&quot;מ): <span className="text-[#17DB4E] font-semibold">₪{Math.round(yearlyRevenueTotal).toLocaleString("he-IL")}</span>
+            </span>
+            <span className="text-[14px] text-white/60 ltr-num">
+              סה&quot;כ הוצאות: <span className="text-white font-semibold">₪{Math.round(yearlyGrandTotal).toLocaleString("he-IL")}</span>
+            </span>
+          </div>
         </div>
 
         <Input
@@ -1720,19 +1779,27 @@ export default function ReportsPage() {
                               </div>
                               {row.monthly.map((amount, i) => {
                                 const isUnapprovedCell = row.isFixed && row.monthlyUnapproved[i] && amount > 0;
+                                if (amount > 0) {
+                                  // Deep-link into /expenses with the supplier+month preselected,
+                                  // opening the same breakdown popup the suppliers page uses.
+                                  const monthParam = `${selectedYear}-${String(i + 1).padStart(2, '0')}`;
+                                  return (
+                                    <button
+                                      key={i}
+                                      type="button"
+                                      onClick={() => router.push(`/expenses?supplierId=${row.supplierId}&month=${monthParam}`)}
+                                      className={`text-center text-[12px] ltr-num px-[2px] hover:underline hover:bg-white/[0.06] rounded-[3px] py-[2px] transition-colors cursor-pointer ${
+                                        isUnapprovedCell ? "text-[#C084FC] font-medium" : "text-white"
+                                      }`}
+                                      title={isUnapprovedCell ? "הוצאה קבועה — טרם התקבל מסמך · לחץ לפירוט" : "לחץ לפירוט חשבוניות לחודש"}
+                                    >
+                                      ₪{Math.round(amount).toLocaleString("he-IL")}
+                                    </button>
+                                  );
+                                }
                                 return (
-                                  <div
-                                    key={i}
-                                    className={`text-center text-[12px] ltr-num px-[2px] ${
-                                      isUnapprovedCell
-                                        ? "text-[#C084FC] font-medium"
-                                        : amount > 0
-                                          ? "text-white"
-                                          : "text-white/20"
-                                    }`}
-                                    title={isUnapprovedCell ? "הוצאה קבועה — טרם התקבל מסמך" : undefined}
-                                  >
-                                    {amount > 0 ? `₪${Math.round(amount).toLocaleString("he-IL")}` : "—"}
+                                  <div key={i} className="text-center text-[12px] ltr-num px-[2px] text-white/20">
+                                    —
                                   </div>
                                 );
                               })}
