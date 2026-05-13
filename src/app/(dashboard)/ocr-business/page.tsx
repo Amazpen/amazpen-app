@@ -1494,6 +1494,7 @@ export default function OCRBusinessPage() {
                 return !d.business_id || !targetBiz || d.business_id === targetBiz;
               })}
               onMergeDocuments={setMergedDocuments}
+              hideLineItems
             />
           )}
         </div>
