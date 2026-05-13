@@ -116,6 +116,7 @@ const adminMenuGroups: Array<{
       { id: 102, label: "ניהול משתמשים", href: "/admin/users", key: "admin-users" },
       { id: 112, label: "משתמשים מחוברים", href: "/admin/online-users", key: "admin-online-users" },
       { id: 117, label: "שיחות AI", href: "/admin/ai-conversations", key: "admin-ai-conversations" },
+      { id: 121, label: "שימוש ב-OCR", href: "/admin/ocr-usage", key: "admin-ocr-usage" },
     ],
   },
   {
@@ -187,6 +188,7 @@ const pageTitles: Record<string, string> = {
   "/admin/online-users": "משתמשים מחוברים",
   "/admin/day-exceptions": "חריגות ימי עסקים",
   "/admin/bonus-plans": "תכניות בונוסים ותגמול",
+  "/admin/ocr-usage": "מעקב שימוש ב-OCR",
 };
 
 // Dashboard icon component
