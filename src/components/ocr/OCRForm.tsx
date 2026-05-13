@@ -27,6 +27,9 @@ interface Supplier {
   vat_type?: string | null;
   // DB values: 'current_expenses' | 'goods_purchases' | 'employee_costs'
   expense_type?: string | null;
+  // When false, hide the OCR items table for this supplier AND skip
+  // savePriceTrackingForLineItems server-side. Default true (matches DB).
+  track_prices?: boolean;
 }
 
 interface Business {
@@ -3230,8 +3233,13 @@ export default function OCRForm({
         </div>
       )}
 
-      {/* Line Items & Price Tracking — hidden in /ocr-business via hideLineItems */}
-      {!hideLineItems && (lineItems.length > 0 || documentType === 'invoice' || documentType === 'delivery_note') && (
+      {/* Line Items & Price Tracking — hidden when:
+            1. /ocr-business explicitly passes hideLineItems
+            2. The selected supplier has track_prices=false (opted out)
+          Either way the OCR-extracted line_items still ride with the payload;
+          they're just not surfaced for editing. */}
+      {!hideLineItems && (suppliers.find(s => s.id === supplierId)?.track_prices !== false)
+        && (lineItems.length > 0 || documentType === 'invoice' || documentType === 'delivery_note') && (
         <div className="flex flex-col gap-[8px] border border-[#4C526B] rounded-[10px] p-[10px]">
           <div className="flex items-center justify-between">
             <span className="text-[15px] font-medium text-white">פריטים ({lineItems.length})</span>

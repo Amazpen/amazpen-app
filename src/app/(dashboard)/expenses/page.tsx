@@ -47,6 +47,8 @@ interface Supplier {
   default_payment_method?: string | null;
   default_credit_card_id?: string | null;
   notes?: string | null;
+  // false = opt out of line-item price tracking; null/undefined treated as true
+  track_prices?: boolean;
 }
 
 // Expense category from database (used for type checking)
@@ -1284,7 +1286,7 @@ function ExpensesPageInner() {
         // Fetch suppliers for the selected businesses
         const { data: suppliersData } = await supabase
           .from("suppliers")
-          .select("id, name, expense_category_id, expense_type, waiting_for_coordinator, vat_type, is_fixed_expense, default_payment_method, default_credit_card_id, notes")
+          .select("id, name, expense_category_id, expense_type, waiting_for_coordinator, vat_type, is_fixed_expense, default_payment_method, default_credit_card_id, notes, track_prices")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .eq("is_active", true)
@@ -2518,15 +2520,19 @@ function ExpensesPageInner() {
           }
         }
 
-        // Price tracking: save line item prices for delivery notes too
+        // Price tracking: save line item prices for delivery notes too,
+        // unless the supplier explicitly opted out (track_prices=false).
         if (expenseType === 'goods' && newDeliveryNote && expenseLineItems.length > 0 && selectedSupplier) {
-          await savePriceTrackingForLineItems(supabase, {
-            businessId: selectedBusinesses[0],
-            supplierId: selectedSupplier,
-            invoiceId: null, // delivery note — no invoice FK
-            documentDate: expenseDate,
-            lineItems: expenseLineItems,
-          });
+          const sup = suppliers.find(s => s.id === selectedSupplier);
+          if (sup?.track_prices !== false) {
+            await savePriceTrackingForLineItems(supabase, {
+              businessId: selectedBusinesses[0],
+              supplierId: selectedSupplier,
+              invoiceId: null, // delivery note — no invoice FK
+              documentDate: expenseDate,
+              lineItems: expenseLineItems,
+            });
+          }
         }
 
         showToast("תעודת המשלוח נשמרה בהצלחה", "success");
@@ -2811,15 +2817,19 @@ function ExpensesPageInner() {
           }
         }
 
-        // Price tracking: save line item prices for goods expenses
+        // Price tracking: save line item prices for goods expenses, unless
+        // the supplier has opted out (track_prices=false).
         if (expenseType === 'goods' && newInvoice && expenseLineItems.length > 0 && selectedSupplier) {
-          await savePriceTrackingForLineItems(supabase, {
-            businessId: selectedBusinesses[0],
-            supplierId: selectedSupplier,
-            invoiceId: newInvoice.id,
-            documentDate: expenseDate,
-            lineItems: expenseLineItems,
-          });
+          const sup = suppliers.find(s => s.id === selectedSupplier);
+          if (sup?.track_prices !== false) {
+            await savePriceTrackingForLineItems(supabase, {
+              businessId: selectedBusinesses[0],
+              supplierId: selectedSupplier,
+              invoiceId: newInvoice.id,
+              documentDate: expenseDate,
+              lineItems: expenseLineItems,
+            });
+          }
         }
 
         showToast("ההוצאה נשמרה בהצלחה", "success");

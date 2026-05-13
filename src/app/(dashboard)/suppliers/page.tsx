@@ -66,6 +66,10 @@ interface Supplier {
   obligation_first_charge_date?: string;
   obligation_terms?: string;
   obligation_document_url?: string;
+  // Per-supplier opt-out for line-item price tracking. DB default TRUE, so
+  // null/undefined → treat as ON. Affects OCR line-items panel and the
+  // savePriceTrackingForLineItems write side.
+  track_prices?: boolean;
 }
 
 // Supplier document type from database
@@ -278,6 +282,11 @@ export default function SuppliersPage() {
   const [vatRequired, setVatRequired] = useState<"yes" | "no" | "partial">("yes");
   const [isFixedExpense, setIsFixedExpense] = useState(false);
   const [isSupplierActive, setIsSupplierActive] = useState(true);
+  // Per-supplier opt-out for line-item price tracking. Default ON to match
+  // the DB default + preserve behaviour for existing suppliers; users turn
+  // it OFF for suppliers whose invoices don't have meaningful itemised
+  // prices (fixed bills, one-off services, no-line-item invoices).
+  const [trackPrices, setTrackPrices] = useState(true);
   const [chargeDay, setChargeDay] = useState("");
   const [monthlyExpenseAmount, setMonthlyExpenseAmount] = useState("");
   const [primaryPaymentMethod, setPrimaryPaymentMethod] = useState("");
@@ -421,6 +430,7 @@ export default function SuppliersPage() {
     setPaymentTerms("");
     setVatRequired("yes");
     setIsFixedExpense(false);
+    setTrackPrices(true);
     setChargeDay("");
     setMonthlyExpenseAmount("");
     setPrimaryPaymentMethod("");
@@ -686,6 +696,7 @@ export default function SuppliersPage() {
     setPaymentTerms("");
     setVatRequired("yes");
     setIsFixedExpense(false);
+    setTrackPrices(true);
     setChargeDay("");
     setMonthlyExpenseAmount("");
     setPrimaryPaymentMethod("");
@@ -723,6 +734,8 @@ export default function SuppliersPage() {
       selectedSupplier.vat_type === "none" ? "no" : "partial"
     );
     setIsFixedExpense(selectedSupplier.is_fixed_expense || false);
+    // null/undefined from older rows → treat as ON (matches DB DEFAULT TRUE).
+    setTrackPrices(selectedSupplier.track_prices !== false);
     setChargeDay(selectedSupplier.charge_day?.toString() || "");
     setMonthlyExpenseAmount(selectedSupplier.monthly_expense_amount?.toString() || "");
     setPrimaryPaymentMethod(selectedSupplier.default_payment_method || "");
@@ -920,6 +933,7 @@ export default function SuppliersPage() {
           vat_type: vatTypeMap[vatRequired],
           requires_vat: vatRequired !== "no",
           is_fixed_expense: isFixedExpense,
+          track_prices: trackPrices,
           charge_day: chargeDay ? parseInt(chargeDay) : null,
           monthly_expense_amount: monthlyExpenseAmount ? parseFloat(monthlyExpenseAmount) : null,
           default_payment_method: primaryPaymentMethod || null,
@@ -1131,6 +1145,7 @@ export default function SuppliersPage() {
           vat_type: vatTypeMap[vatRequired],
           requires_vat: vatRequired !== "no",
           is_fixed_expense: isFixedExpense,
+          track_prices: trackPrices,
           charge_day: chargeDay ? parseInt(chargeDay) : null,
           monthly_expense_amount: monthlyExpenseAmount ? parseFloat(monthlyExpenseAmount) : null,
           default_payment_method: primaryPaymentMethod || null,
@@ -1967,6 +1982,7 @@ export default function SuppliersPage() {
             setPaymentTerms("");
             setVatRequired("yes");
             setIsFixedExpense(false);
+            setTrackPrices(true);
             setChargeDay("");
             setMonthlyExpenseAmount("");
             setPrimaryPaymentMethod("");
@@ -2287,6 +2303,33 @@ export default function SuppliersPage() {
                       )}
                     </svg>
                     <span className="text-[15px] font-semibold text-[#979797]">הוצאה קבועה</span>
+                  </Button>
+                )}
+
+                {/* Price tracking opt-in/opt-out. When ON, OCR + manual expense
+                    flows record line-item prices into supplier_items + the
+                    price_history table and surface "שינוי מחיר" alerts. When
+                    OFF, those writes are skipped and the OCR items panel is
+                    hidden for this supplier. Default ON to match the DB
+                    default and not regress anyone already relying on it. */}
+                {!hasPreviousObligations && (
+                  <Button
+                    type="button"
+                    onClick={() => setTrackPrices(!trackPrices)}
+                    className="flex items-center gap-[3px]"
+                    title="כאשר כבוי — מעקב פריטים והתראות שינוי מחיר לא יופעלו לספק זה"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 32 32" fill="none" className="text-[#979797]">
+                      {trackPrices ? (
+                        <>
+                          <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                          <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </>
+                      ) : (
+                        <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                    <span className="text-[15px] font-semibold text-[#979797]">מעקב מחירים</span>
                   </Button>
                 )}
 

@@ -173,17 +173,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Process line items for price tracking (non-blocking)
+    // Process line items for price tracking (non-blocking). Skip when the
+    // supplier has opted out via suppliers.track_prices=false.
     if (line_items && Array.isArray(line_items) && line_items.length > 0) {
       try {
-        const { savePriceTrackingForLineItems } = await import('@/lib/priceTracking');
-        await savePriceTrackingForLineItems(supabase, {
-          businessId: business_id,
-          supplierId: supplier_id,
-          invoiceId: invoice.id,
-          documentDate: invoice_date,
-          lineItems: line_items,
-        });
+        const { data: supplierRow } = await supabase
+          .from('suppliers')
+          .select('track_prices')
+          .eq('id', supplier_id)
+          .maybeSingle();
+        const shouldTrackPrices = supplierRow?.track_prices !== false;
+        if (shouldTrackPrices) {
+          const { savePriceTrackingForLineItems } = await import('@/lib/priceTracking');
+          await savePriceTrackingForLineItems(supabase, {
+            businessId: business_id,
+            supplierId: supplier_id,
+            invoiceId: invoice.id,
+            documentDate: invoice_date,
+            lineItems: line_items,
+          });
+        }
       } catch (priceError) {
         console.error('Error saving price tracking (non-blocking):', priceError);
       }

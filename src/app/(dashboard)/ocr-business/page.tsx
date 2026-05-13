@@ -49,6 +49,8 @@ interface Supplier {
   is_fixed_expense?: boolean;
   vat_type?: string | null;
   expense_type?: string | null;
+  // false = opt out of line-item price tracking; null/undefined treated as true
+  track_prices?: boolean;
 }
 
 export default function OCRBusinessPage() {
@@ -289,7 +291,7 @@ export default function OCRBusinessPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from('suppliers')
-      .select('id, name, waiting_for_coordinator, notes, default_payment_method, default_credit_card_id, default_discount_percentage, is_fixed_expense, vat_type, expense_type')
+      .select('id, name, waiting_for_coordinator, notes, default_payment_method, default_credit_card_id, default_discount_percentage, is_fixed_expense, vat_type, expense_type, track_prices')
       .eq('business_id', selectedBusinessId)
       .is('deleted_at', null)
       .eq('is_active', true)
@@ -974,14 +976,19 @@ export default function OCRBusinessPage() {
         }
 
         if (formData.line_items && formData.line_items.length > 0 && formData.supplier_id) {
-          await savePriceTrackingForLineItems(supabase, {
-            businessId: formData.business_id,
-            supplierId: formData.supplier_id,
-            invoiceId: createdInvoiceId || null,
-            ocrDocumentId: currentDocument.id,
-            documentDate: formData.document_date,
-            lineItems: formData.line_items,
-          });
+          // Skip price tracking when the supplier has opted out (track_prices=false).
+          const trackPricesSupplier = suppliers.find(s => s.id === formData.supplier_id);
+          const shouldTrackPrices = trackPricesSupplier?.track_prices !== false;
+          if (shouldTrackPrices) {
+            await savePriceTrackingForLineItems(supabase, {
+              businessId: formData.business_id,
+              supplierId: formData.supplier_id,
+              invoiceId: createdInvoiceId || null,
+              ocrDocumentId: currentDocument.id,
+              documentDate: formData.document_date,
+              lineItems: formData.line_items,
+            });
+          }
         }
 
         const mergedIds = formData.merged_document_ids || [];
