@@ -18,7 +18,7 @@
 // extend access.
 const ALLOWED_BUSINESS_IDS = ['bcd1d49d-1fb7-4f50-b202-e8eae1d9fe70'];
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDashboard } from '../layout';
 import { createClient } from '@/lib/supabase/client';
@@ -219,6 +219,11 @@ export default function OCRBusinessPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [coordinatorSuppliers, setCoordinatorSuppliers] = useState<Supplier[]>([]);
 
+  // "+ הוספת ספק חדש" — when /suppliers routes back with ?supplierAdded=<id>
+  // we stash the new id here so OCRForm auto-selects it as soon as it
+  // appears in the suppliers prop. Same pattern as the admin /ocr page.
+  const [pendingSupplierToSelect, setPendingSupplierToSelect] = useState<string | null>(null);
+
   // Wait for the profile fetch in the dashboard layout before evaluating
   // access; a fixed 500ms timeout used to race the fetch and bounce users
   // back to "/" when the profile arrived late.
@@ -307,6 +312,22 @@ export default function OCRBusinessPage() {
   useEffect(() => {
     fetchSuppliers();
   }, [fetchSuppliers]);
+
+  // Catch the return-trip from /suppliers (?supplierAdded=<id>). Mirrors the
+  // admin /ocr flow — after a new supplier is created we refresh the list and
+  // stash the new id in pendingSupplierToSelect so OCRForm auto-selects it.
+  const consumedSupplierAddedRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (consumedSupplierAddedRef.current) return;
+    if (!selectedBusinessId) return; // wait for persisted state to hydrate
+    const params = new URLSearchParams(window.location.search);
+    const addedId = params.get("supplierAdded");
+    if (!addedId) return;
+    consumedSupplierAddedRef.current = true;
+    window.history.replaceState({}, "", "/ocr-business");
+    fetchSuppliers().then(() => setPendingSupplierToSelect(addedId));
+  }, [selectedBusinessId, fetchSuppliers]);
 
   useMultiTableRealtime(
     ['suppliers'],
@@ -1553,6 +1574,29 @@ export default function OCRBusinessPage() {
                 return !d.business_id || !targetBiz || d.business_id === targetBiz;
               })}
               onMergeDocuments={setMergedDocuments}
+              onRequestAddSupplier={
+                selectedBusinessId
+                  ? () => {
+                      // Same flow as admin /ocr: route to /suppliers with a
+                      // prefill so the user gets the full add-supplier form
+                      // (categories, payment defaults, etc). /suppliers
+                      // returns here with ?supplierAdded=<id> which the
+                      // effect above catches.
+                      const name = currentDocument?.ocr_data?.supplier_name || "";
+                      const taxId = currentDocument?.ocr_data?.supplier_tax_id || "";
+                      const params = new URLSearchParams({
+                        addSupplier: "1",
+                        businessId: selectedBusinessId,
+                        returnTo: "/ocr-business",
+                      });
+                      if (name) params.set("name", name);
+                      if (taxId) params.set("taxId", taxId);
+                      router.push(`/suppliers?${params.toString()}`);
+                    }
+                  : undefined
+              }
+              pendingSupplierToSelect={pendingSupplierToSelect}
+              onSupplierAutoSelected={() => setPendingSupplierToSelect(null)}
               hideLineItems
             />
           )}
