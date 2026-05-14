@@ -1382,20 +1382,20 @@ export default function SuppliersPage() {
       expectedPaymentDate = expectedDate.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
     }
 
-    // amountToPay = sum of OPEN invoices (pending / clarification) for this month.
-    // This matches the "יתרה לתשלום" pill at the top of the supplier panel and
-    // intentionally ignores `monthlyPaid`. Reason: imported / legacy payments
+    // amountToPay = open invoices (pending / clarification) for this month
+    // PLUS unlinked delivery notes for this month. Reason for trusting
+    // `invoices.status` over `purchases - paid`: imported / legacy payments
     // often have no link to a specific invoice (no row in
-    // `payment_invoice_links` and no `payments.invoice_id` FK). When we
-    // computed "יתרה = purchases - paid" those payments were invisible here
-    // but counted in totalPaid above, so months whose invoices were actually
-    // settled showed a phantom unpaid balance and the breakdown total
-    // diverged from "יתרה לתשלום". Trusting `invoices.status` keeps the two
-    // numbers consistent and uses the same source of truth the payments page
-    // uses to decide what's outstanding.
-    const monthlyOpenBalance = (monthlyInvoices || [])
+    // `payment_invoice_links` and no `payments.invoice_id` FK), so the naive
+    // subtraction left phantom unpaid balances on months that were actually
+    // settled. The unlinked-DN top-up covers the inverse failure mode (this
+    // bug): months whose purchases came in as תעודות משלוח without an invoice
+    // yet — purchases > 0, no invoice row to flip to pending, so the old
+    // logic returned ₪0 even though the goods are unpaid by definition.
+    const openInvoicesInMonth = (monthlyInvoices || [])
       .filter((inv) => inv.status === "pending" || inv.status === "clarification")
       .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
+    const monthlyOpenBalance = openInvoicesInMonth + dnsSum;
 
     return { expectedPaymentDate, monthlyPurchases, monthlyPaid, amountToPay: monthlyOpenBalance, paymentsInMonthTotal };
   }, []);
@@ -1473,11 +1473,16 @@ export default function SuppliersPage() {
       const dnsPurchasesSum = unlinkedDnData?.reduce((sum, dn) => sum + Number(dn.total_amount), 0) || 0;
       const totalPurchases = invoicesPurchasesSum + dnsPurchasesSum;
 
-      // Open invoices total = same logic as payments page (pending + clarification only)
-      // This makes "יתרה לתשלום" match the payments page selection total exactly
-      const openInvoicesTotal = invoicesData
-        ?.filter((inv) => inv.status === "pending" || inv.status === "clarification")
-        .reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+      // Open balance = open invoices (pending + clarification) + unlinked
+      // delivery notes. Including DNs is critical for suppliers whose monthly
+      // activity comes in as תעודות משלוח first — without the DN top-up the
+      // pill stays at ₪0 even though the supplier is clearly owed money
+      // (matches the monthly breakdown row's "יתרה" column).
+      const openInvoicesTotal =
+        (invoicesData
+          ?.filter((inv) => inv.status === "pending" || inv.status === "clarification")
+          .reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0)
+        + dnsPurchasesSum;
 
       // Fetch total payments for this supplier
       const { data: paymentsData } = await supabase
