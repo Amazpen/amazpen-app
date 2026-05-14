@@ -233,7 +233,7 @@ export default function MarkezetImportPage() {
           <div className="bg-[#4956D4]/20 rounded-[15px] p-[15px]">
             <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">העלאת קובץ מרכזות</h3>
             <input type="file" accept=".csv" onChange={handleFile} disabled={isImporting} className="block w-full text-sm text-white/70 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#4956D4] file:text-white hover:file:bg-[#3946B4]" />
-            {fileName && <div className="mt-3 text-[13px] text-white/70 text-right">{fileName} - {rows.length} מרכזות נטענו, סה"כ ₪{totalSum.toLocaleString()}</div>}
+            {fileName && <div className="mt-3 text-[13px] text-white/70 text-right">{fileName} - {rows.length} מרכזות נטענו, סה&quot;כ ₪{totalSum.toLocaleString()}</div>}
           </div>
         )}
 
