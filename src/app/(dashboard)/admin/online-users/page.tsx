@@ -768,7 +768,7 @@ function DailyActivityChart({ data }: { data: Array<{ date: string; seconds: num
         <span>סה״כ {totalMinutes} דקות בטווח</span>
         {peakDay && (
           <span className="text-white/70">
-            יום שיא: {peakDay.date} · {Math.round(peakDay.seconds / 60)} דק'
+            יום שיא: {peakDay.date} · {Math.round(peakDay.seconds / 60)} דק&apos;
           </span>
         )}
       </div>
@@ -797,7 +797,7 @@ function DailyActivityChart({ data }: { data: Array<{ date: string; seconds: num
               >
                 {/* Tooltip on hover */}
                 <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-[#0F1535] border border-white/20 rounded px-2 py-1 text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
-                  {d.date}: {Math.round(d.seconds / 60)} דק'
+                  {d.date}: {Math.round(d.seconds / 60)} דק&apos;
                 </div>
               </div>
             );
