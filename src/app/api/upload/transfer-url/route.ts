@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
   }
 
-  let { url, bucket = "attachments", folder = "imported" } = body;
+  const { bucket = "attachments", folder = "imported" } = body;
+  let { url } = body;
 
   // Validate bucket against whitelist
   const ALLOWED_BUCKETS = ["assets", "attachments", "documents", "avatars", "ocr-documents"];
