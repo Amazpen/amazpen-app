@@ -1359,7 +1359,7 @@ function ExpensesPageInner() {
         if (stale) return;
 
         // Transform delivery notes to match InvoiceDisplay format
-        const transformedDeliveryNotes: InvoiceDisplay[] = (deliveryNotesData || []).map((dn: any) => ({
+        const transformedDeliveryNotes: InvoiceDisplay[] = (deliveryNotesData || []).map((dn: Record<string, unknown> & { supplier?: { name?: string; is_fixed_expense?: boolean } | null; creator?: { full_name?: string } | null }) => ({
           id: dn.id,
           date: formatDateString(dn.delivery_date),
           rawDate: dn.delivery_date ? toLocalDateStr(new Date(dn.delivery_date)) : "",
