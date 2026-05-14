@@ -1375,7 +1375,7 @@ function ExpensesPageInner() {
         };
         const transformedDeliveryNotes: InvoiceDisplay[] = (deliveryNotesData || []).map((dn: DeliveryNoteRow) => ({
           id: dn.id,
-          date: formatDateString(dn.delivery_date),
+          date: formatDateString(dn.delivery_date ?? ""),
           rawDate: dn.delivery_date ? toLocalDateStr(new Date(dn.delivery_date)) : "",
           supplier: dn.supplier?.name || "לא ידוע",
           reference: dn.delivery_note_number || "",
@@ -1384,7 +1384,7 @@ function ExpensesPageInner() {
           amountBeforeVat: Number(dn.subtotal),
           status: dn.is_verified ? "אומת" : "ת. משלוח",
           enteredBy: dn.creator?.full_name || "מערכת",
-          entryDate: formatDateString(dn.created_at),
+          entryDate: formatDateString(dn.created_at ?? ""),
           createdAt: dn.created_at || "",
           notes: dn.notes || "",
           attachmentUrl: dn.attachment_url || null,
