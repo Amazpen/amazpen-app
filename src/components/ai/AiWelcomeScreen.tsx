@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -188,16 +188,17 @@ export function AiWelcomeScreen({ isAdmin, adminViewAsOwner, onToggleAdminView, 
   // Start with the first 6 items (same on server and client) to avoid hydration mismatch,
   // then randomize after mount (client-only). Re-randomize whenever isAdmin changes.
   const pool = isAdmin ? ALL_ADMIN_SUGGESTIONS : ALL_USER_SUGGESTIONS;
-  const [suggestions, setSuggestions] = useState<AiSuggestedQuestion[]>(pool.slice(0, 6));
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
-  useEffect(() => {
-    if (hydrated) {
-      setSuggestions(pickRandom(isAdmin ? ALL_ADMIN_SUGGESTIONS : ALL_USER_SUGGESTIONS, 6));
-    }
-  }, [isAdmin, hydrated]);
+  // useSyncExternalStore lets us flip from server snapshot (false) to client snapshot (true)
+  // without an effect-driven setState, so suggestions are derived (not synced).
+  const hydrated = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+  const suggestions = useMemo<AiSuggestedQuestion[]>(
+    () => (hydrated ? pickRandom(pool, 6) : pool.slice(0, 6)),
+    [hydrated, pool],
+  );
   const [showImage, setShowImage] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const minTimeRef = useRef(false);
