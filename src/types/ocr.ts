@@ -123,11 +123,15 @@ export interface OCRFormData {
   // period (e.g. electric bill spanning two months). Each entry carries its
   // own subtotal slice; the primary in link_to_fixed_invoice_id keeps its
   // own slice in fixed_invoice_primary_subtotal.
-  link_to_fixed_invoice_extras?: Array<{ invoice_id: string; subtotal: number }>;
+  link_to_fixed_invoice_extras?: Array<{ invoice_id: string; subtotal: number; reference_date?: string | null }>;
   // When the multi-month flow is active this overrides the document-level
   // amount_before_vat for the primary invoice's subtotal. amount_before_vat
   // still represents the document total (the sum across all months).
   fixed_invoice_primary_subtotal?: number;
+  // Per-month date override for the primary invoice in the multi-month flow.
+  // YYYY-MM-DD. When omitted the existing placeholder date is kept (matches
+  // legacy single-month behaviour).
+  fixed_invoice_primary_date?: string | null;
   // Unlinked payment: when an existing payment to this supplier has no invoice yet,
   // the reviewer can pick it to attach the freshly created invoice to that payment.
   // Triggers a payment_invoice_links INSERT and flips the invoice to status=paid.

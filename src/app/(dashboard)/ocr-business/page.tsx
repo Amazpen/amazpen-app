@@ -529,12 +529,16 @@ export default function OCRBusinessPage() {
               : docSubtotal;
             const primaryVat = extras.length > 0 ? primarySubtotal * vatRatio : docVat;
             const primaryTotal = extras.length > 0 ? primarySubtotal * totalRatio : docTotalAmount;
+            // Per-month date override — see /ocr/page.tsx for full rationale.
+            const primaryDate = (extras.length > 0 && formData.fixed_invoice_primary_date)
+              ? formData.fixed_invoice_primary_date
+              : null;
             const { data, error } = await supabase
               .from('invoices')
               .update({
                 invoice_number: formData.document_number || null,
-                invoice_date: formData.document_date,
-                reference_date: formData.value_date || formData.document_date,
+                invoice_date: primaryDate || formData.document_date,
+                reference_date: primaryDate || formData.value_date || formData.document_date,
                 discount_amount: parseFloat(formData.discount_amount || '0') || 0,
                 discount_percentage: parseFloat(formData.discount_percentage || '0') || 0,
                 subtotal: primarySubtotal,
@@ -555,17 +559,23 @@ export default function OCRBusinessPage() {
                 const exSubtotal = Number(extra.subtotal) || 0;
                 const exVat = exSubtotal * vatRatio;
                 const exTotal = exSubtotal * totalRatio;
+                const exDate = extra.reference_date || null;
+                const update: Record<string, unknown> = {
+                  invoice_number: formData.document_number || null,
+                  subtotal: exSubtotal,
+                  vat_amount: exVat,
+                  total_amount: exTotal,
+                  status: formData.is_paid ? 'paid' : 'pending',
+                  notes: formData.notes || null,
+                  attachment_url: ocrImageUrl,
+                };
+                if (exDate) {
+                  update.invoice_date = exDate;
+                  update.reference_date = exDate;
+                }
                 const { error: exError } = await supabase
                   .from('invoices')
-                  .update({
-                    invoice_number: formData.document_number || null,
-                    subtotal: exSubtotal,
-                    vat_amount: exVat,
-                    total_amount: exTotal,
-                    status: formData.is_paid ? 'paid' : 'pending',
-                    notes: formData.notes || null,
-                    attachment_url: ocrImageUrl,
-                  })
+                  .update(update)
                   .eq('id', extra.invoice_id);
                 if (exError) {
                   console.error('[OCR Business Approve] extra fixed-invoice update failed:', extra.invoice_id, exError);

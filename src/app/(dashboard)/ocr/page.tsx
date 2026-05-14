@@ -619,12 +619,20 @@ export default function OCRPage() {
               : docSubtotal;
             const primaryVat = extras.length > 0 ? primarySubtotal * vatRatio : docVat;
             const primaryTotal = extras.length > 0 ? primarySubtotal * totalRatio : docTotalAmount;
+            // Per-month date override for the primary slice. When the user
+            // picked a date in the allocation row, use it for both
+            // invoice_date and reference_date so the slice falls on that
+            // exact day. Falls back to the legacy single-month behaviour
+            // (form-level document_date / value_date).
+            const primaryDate = (extras.length > 0 && formData.fixed_invoice_primary_date)
+              ? formData.fixed_invoice_primary_date
+              : null;
             const { data, error } = await supabase
               .from('invoices')
               .update({
                 invoice_number: formData.document_number || null,
-                invoice_date: formData.document_date,
-                reference_date: formData.value_date || formData.document_date,
+                invoice_date: primaryDate || formData.document_date,
+                reference_date: primaryDate || formData.value_date || formData.document_date,
                 discount_amount: parseFloat(formData.discount_amount || '0') || 0,
                 discount_percentage: parseFloat(formData.discount_percentage || '0') || 0,
                 subtotal: primarySubtotal,
@@ -642,26 +650,32 @@ export default function OCRPage() {
 
             // Mirror the update onto each extra placeholder. We don't fail
             // the whole save if one extra fails — we surface the error and
-            // continue, so the primary still goes through. Each extra keeps
-            // its own invoice_date/reference_date (the placeholder is the
-            // correct date for that month — we shouldn't override it with
-            // the document date which only matches the primary's month).
+            // continue. When the user picked a per-month date in the
+            // allocation row we apply it; otherwise the placeholder keeps
+            // its existing date (legacy behaviour — the placeholder date is
+            // already the right month).
             if (!error && extras.length > 0) {
               for (const extra of extras) {
                 const exSubtotal = Number(extra.subtotal) || 0;
                 const exVat = exSubtotal * vatRatio;
                 const exTotal = exSubtotal * totalRatio;
+                const exDate = extra.reference_date || null;
+                const update: Record<string, unknown> = {
+                  invoice_number: formData.document_number || null,
+                  subtotal: exSubtotal,
+                  vat_amount: exVat,
+                  total_amount: exTotal,
+                  status: formData.is_paid ? 'paid' : 'pending',
+                  notes: formData.notes || null,
+                  attachment_url: ocrImageUrl,
+                };
+                if (exDate) {
+                  update.invoice_date = exDate;
+                  update.reference_date = exDate;
+                }
                 const { error: exError } = await supabase
                   .from('invoices')
-                  .update({
-                    invoice_number: formData.document_number || null,
-                    subtotal: exSubtotal,
-                    vat_amount: exVat,
-                    total_amount: exTotal,
-                    status: formData.is_paid ? 'paid' : 'pending',
-                    notes: formData.notes || null,
-                    attachment_url: ocrImageUrl,
-                  })
+                  .update(update)
                   .eq('id', extra.invoice_id);
                 if (exError) {
                   console.error('[OCR Approve] extra fixed-invoice update failed:', extra.invoice_id, exError);

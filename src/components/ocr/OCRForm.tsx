@@ -289,6 +289,13 @@ export default function OCRForm({
   const [linkToFixedInvoiceId, setLinkToFixedInvoiceId] = useState<string | null>(null); // null = create new
   const [additionalFixedInvoiceIds, setAdditionalFixedInvoiceIds] = useState<string[]>([]);
   const [fixedInvoiceAllocations, setFixedInvoiceAllocations] = useState<Record<string, string>>({});
+  // Per-month reference-date override (YYYY-MM-DD). Defaults to each
+  // placeholder invoice's existing invoice_date so the legacy flow is
+  // unchanged unless the user picks a different day. Lets the reviewer set
+  // exactly which day in each month the slice should land on (e.g. when an
+  // arnona document covers Jan + Feb and the user wants the Feb slice dated
+  // 14/02 instead of 01/02).
+  const [fixedInvoiceDates, setFixedInvoiceDates] = useState<Record<string, string>>({});
   const [showFixedInvoices, setShowFixedInvoices] = useState(false);
 
   // Unlinked payments — payments to the chosen supplier that have no invoice
@@ -309,6 +316,7 @@ export default function OCRForm({
       setLinkToFixedInvoiceId(null);
       setAdditionalFixedInvoiceIds([]);
       setFixedInvoiceAllocations({});
+      setFixedInvoiceDates({});
       setShowFixedInvoices(false);
       return;
     }
@@ -2275,6 +2283,8 @@ export default function OCRForm({
           ? additionalFixedInvoiceIds.map(id => ({
               invoice_id: id,
               subtotal: parseFloat(fixedInvoiceAllocations[id] ?? '0') || 0,
+              // Per-month date override. null = keep the placeholder's existing date.
+              reference_date: fixedInvoiceDates[id] || null,
             }))
           : undefined,
         // When extras exist, the primary's subtotal also comes from the
@@ -2283,6 +2293,12 @@ export default function OCRForm({
         // re-parse the allocation logic.
         fixed_invoice_primary_subtotal: additionalFixedInvoiceIds.length > 0 && linkToFixedInvoiceId
           ? (parseFloat(fixedInvoiceAllocations[linkToFixedInvoiceId] ?? '0') || 0)
+          : undefined,
+        // Per-month date override for the primary invoice. Only set when the
+        // user actually picked a date in the allocation row (otherwise the
+        // server keeps the legacy formData.document_date / placeholder date).
+        fixed_invoice_primary_date: linkToFixedInvoiceId
+          ? (fixedInvoiceDates[linkToFixedInvoiceId] || null)
           : undefined,
         link_to_unlinked_payment_id: linkToUnlinkedPaymentId,
         line_items: lineItems.length > 0 ? lineItems : undefined,
@@ -2808,6 +2824,11 @@ export default function OCRForm({
               delete next[invId];
               return next;
             });
+            setFixedInvoiceDates(prev => {
+              const next = { ...prev };
+              delete next[invId];
+              return next;
+            });
           } else {
             // Add — first becomes primary if none picked yet.
             if (linkToFixedInvoiceId === null) {
@@ -2827,6 +2848,13 @@ export default function OCRForm({
               }
             } else {
               setAdditionalFixedInvoiceIds([...additionalFixedInvoiceIds, invId]);
+            }
+            // Seed the per-month date from the placeholder invoice's existing
+            // invoice_date (YYYY-MM-DD). The user can override per row below.
+            const inv = fixedOpenInvoices.find(f => f.id === invId);
+            if (inv?.invoice_date) {
+              const isoDate = inv.invoice_date.length > 10 ? inv.invoice_date.slice(0, 10) : inv.invoice_date;
+              setFixedInvoiceDates(prev => ({ ...prev, [invId]: isoDate }));
             }
           }
         };
@@ -2879,6 +2907,7 @@ export default function OCRForm({
                     setLinkToFixedInvoiceId(null);
                     setAdditionalFixedInvoiceIds([]);
                     setFixedInvoiceAllocations({});
+                    setFixedInvoiceDates({});
                   }}
                   className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
                     selectedIds.length === 0
@@ -2937,9 +2966,18 @@ export default function OCRForm({
                     {selectedIds.map(id => {
                       const inv = fixedOpenInvoices.find(f => f.id === id);
                       if (!inv) return null;
+                      const dateValue = fixedInvoiceDates[id]
+                        ?? (inv.invoice_date ? (inv.invoice_date.length > 10 ? inv.invoice_date.slice(0, 10) : inv.invoice_date) : '');
                       return (
                         <div key={id} className="flex items-center gap-[8px]">
-                          <span className="text-[13px] text-white/80 flex-1 text-right">{inv.month}</span>
+                          <span className="text-[12px] text-white/80 flex-1 text-right">{inv.month}</span>
+                          <div className="w-[130px] shrink-0">
+                            <DatePickerField
+                              value={dateValue}
+                              onChange={(val) => setFixedInvoiceDates(prev => ({ ...prev, [id]: val }))}
+                              buttonClassName="h-[38px] rounded-[8px] text-[13px]"
+                            />
+                          </div>
                           <div className="border border-[#4C526B] rounded-[8px] h-[38px] w-[120px]">
                             <Input
                               type="text"
