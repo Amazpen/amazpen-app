@@ -13,7 +13,7 @@ interface BusinessOption {
 export default function AiPage() {
   const { isAdmin, selectedBusinesses, userAvatarUrl } = useDashboard();
   const [allBusinesses, setAllBusinesses] = useState<BusinessOption[]>([]);
-  const [aiSelectedBusinessId, setAiSelectedBusinessId] = useState<string | undefined>(selectedBusinesses[0]);
+  const [adminSelectedBusinessId, setAdminSelectedBusinessId] = useState<string | undefined>(undefined);
 
   // For admin: fetch all businesses so they can pick which one to ask about
   useEffect(() => {
@@ -30,19 +30,15 @@ export default function AiPage() {
       });
   }, [isAdmin]);
 
-  // Sync with dashboard selection when it changes (non-admin always uses dashboard selection)
-  useEffect(() => {
-    if (!isAdmin) {
-      setAiSelectedBusinessId(selectedBusinesses[0]);
-    }
-  }, [isAdmin, selectedBusinesses]);
+  // Non-admin always tracks dashboard selection — derive instead of syncing via effect
+  const aiSelectedBusinessId = isAdmin ? adminSelectedBusinessId : selectedBusinesses[0];
 
   return (
     <AiChatContainer
       isAdmin={isAdmin}
       businessId={aiSelectedBusinessId}
       allBusinesses={isAdmin ? allBusinesses : undefined}
-      onBusinessChange={isAdmin ? setAiSelectedBusinessId : undefined}
+      onBusinessChange={isAdmin ? setAdminSelectedBusinessId : undefined}
       userAvatarUrl={userAvatarUrl}
     />
   );
