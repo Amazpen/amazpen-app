@@ -53,11 +53,10 @@ export default function SupplierSearchSelect({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Focus input when dropdown opens, reset highlight
+  // Focus input when dropdown opens
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
-      setHighlightIndex(-1);
     }
   }, [isOpen]);
 
@@ -112,7 +111,11 @@ export default function SupplierSearchSelect({
       <div ref={containerRef} className="relative">
         {/* Trigger / Display */}
         <div
-          onClick={() => { if (!disabled) setIsOpen(!isOpen); }}
+          onClick={() => {
+            if (disabled) return;
+            setIsOpen(!isOpen);
+            setHighlightIndex(-1);
+          }}
           className={`flex items-center justify-between border border-[#4C526B] rounded-[10px] h-[50px] bg-[#0F1535] px-[12px] cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <span className={`text-[16px] flex-1 text-center ${selectedSupplier ? 'text-white' : 'text-white/40'}`}>
