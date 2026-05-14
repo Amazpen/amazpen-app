@@ -10,6 +10,7 @@ import { CookingPot, Receipt, UsersThree } from "@phosphor-icons/react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
+import { fireBudgetAlert } from "@/lib/budget-alert";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useMultiTableRealtime } from "@/hooks/useRealtimeSubscription";
 import { useToast } from "@/components/ui/toast";
@@ -2836,15 +2837,11 @@ function ExpensesPageInner() {
 
         // Check budget excess and send alert (fire-and-forget)
         if (newInvoice && selectedSupplier) {
-          fetch("/api/budget-alert", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              business_id: selectedBusinesses[0],
-              supplier_id: selectedSupplier,
-              invoice_subtotal: parseFloat(amountBeforeVat),
-            }),
-          }).catch((err) => console.warn("[Budget Alert] Failed:", err));
+          fireBudgetAlert({
+            businessId: selectedBusinesses[0],
+            supplierId: selectedSupplier,
+            invoiceSubtotal: amountBeforeVat,
+          });
         }
       }
 

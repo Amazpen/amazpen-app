@@ -33,6 +33,7 @@ import { usePersistedState } from '@/hooks/usePersistedState';
 import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
 import { Button } from "@/components/ui/button";
 import { savePriceTrackingForLineItems } from '@/lib/priceTracking';
+import { fireBudgetAlert } from '@/lib/budget-alert';
 import { uploadFile } from '@/lib/uploadFile';
 import { useToast } from "@/components/ui/toast";
 
@@ -602,6 +603,17 @@ export default function OCRBusinessPage() {
           if (invoiceError) throw invoiceError;
           createdInvoiceId = newInvoice?.id || null;
 
+          // Budget-overage alert (fire-and-forget). Skipped for
+          // `link_to_fixed_invoice_id` because that path doesn't add new
+          // monthly spend, it just back-fills an existing placeholder.
+          if (newInvoice && !formData.link_to_fixed_invoice_id) {
+            fireBudgetAlert({
+              businessId: formData.business_id,
+              supplierId: formData.supplier_id,
+              invoiceSubtotal: formData.amount_before_vat,
+            });
+          }
+
           if (formData.is_paid && newInvoice && formData.payment_methods) {
             const paymentTotal = formData.payment_methods.reduce((sum, pm) => {
               return sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, '')) || 0);
@@ -844,6 +856,15 @@ export default function OCRBusinessPage() {
 
           if (invoiceError) throw invoiceError;
           createdInvoiceId = invoice?.id || null;
+
+          // Budget-overage alert for markezet/summary invoices too.
+          if (invoice) {
+            fireBudgetAlert({
+              businessId: formData.business_id,
+              supplierId: formData.supplier_id,
+              invoiceSubtotal: subtotal,
+            });
+          }
 
           if (formData.summary_existing_delivery_note_ids && formData.summary_existing_delivery_note_ids.length > 0 && invoice) {
             const { error: linkError } = await supabase

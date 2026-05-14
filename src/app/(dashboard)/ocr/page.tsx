@@ -23,6 +23,7 @@ import { usePersistedState } from '@/hooks/usePersistedState';
 import type { OCRDocument, OCRFormData, DocumentStatus, OCRExtractedData, DocumentType } from '@/types/ocr';
 import { Button } from "@/components/ui/button";
 import { savePriceTrackingForLineItems } from '@/lib/priceTracking';
+import { fireBudgetAlert } from '@/lib/budget-alert';
 import { uploadFile } from '@/lib/uploadFile';
 import { useToast } from "@/components/ui/toast";
 
@@ -698,6 +699,19 @@ export default function OCRPage() {
           if (invoiceError) throw invoiceError;
           createdInvoiceId = newInvoice?.id || null;
 
+          // Budget-overage alert (fire-and-forget). Runs for both goods and
+          // current-expense suppliers — the API checks if a supplier_budget
+          // row exists and is exceeded, then dedups by (business, supplier,
+          // month). Skipped for `link_to_fixed_invoice_id` because no new
+          // monthly spend is being booked there.
+          if (newInvoice && !formData.link_to_fixed_invoice_id) {
+            fireBudgetAlert({
+              businessId: formData.business_id,
+              supplierId: formData.supplier_id,
+              invoiceSubtotal: formData.amount_before_vat,
+            });
+          }
+
           // Attach a previously-unlinked payment to this fresh invoice if the
           // reviewer picked one. Mirrors the /expenses save flow: link row +
           // payments.invoice_id FK + flip invoice to paid.
@@ -959,6 +973,15 @@ export default function OCRPage() {
 
           if (invoiceError) throw invoiceError;
           createdInvoiceId = invoice?.id || null;
+
+          // Budget-overage alert for markezet/summary invoices too.
+          if (invoice) {
+            fireBudgetAlert({
+              businessId: formData.business_id,
+              supplierId: formData.supplier_id,
+              invoiceSubtotal: subtotal,
+            });
+          }
 
           if (formData.summary_existing_delivery_note_ids && formData.summary_existing_delivery_note_ids.length > 0 && invoice) {
             const { error: linkError } = await supabase
