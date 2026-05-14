@@ -61,11 +61,6 @@ export default function SupplierSearchSelect({
     }
   }, [isOpen]);
 
-  // Reset highlight when search changes
-  useEffect(() => {
-    setHighlightIndex(-1);
-  }, [search]);
-
   // Scroll highlighted item into view
   useEffect(() => {
     if (highlightIndex >= 0 && listRef.current) {
@@ -157,7 +152,10 @@ export default function SupplierSearchSelect({
                   ref={inputRef}
                   type="text"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setHighlightIndex(-1);
+                  }}
                   onKeyDown={handleKeyDown}
                   placeholder="חפש ספק..."
                   className="flex-1 bg-transparent text-white text-[14px] text-right outline-none placeholder:text-white/30"
