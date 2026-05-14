@@ -1719,6 +1719,23 @@ export default function OCRForm({
       setPaymentTabSupplierId(matchedId);
       setSummarySupplierId(matchedId);
 
+      // Re-evaluate "שייך למרכזת (תעודת משלוח)" once the supplier is actually
+      // resolved. The document_type branch above ran BEFORE the name-matching
+      // algorithm wrote matchedId, so when Mistral didn't pre-populate
+      // matched_supplier_id (common — the name is extracted but no FK is
+      // returned), it couldn't tell whether the supplier was a מרכזת and left
+      // the toggle off. We now check again against matchedId so a פטור
+      // delivery-note for a waiting_for_coordinator supplier auto-ticks the
+      // box, matching David's expectation. The user can still untoggle.
+      if (matchedId && document.document_type) {
+        const matched = currentSuppliers.find(s => s.id === matchedId);
+        const rawDocType = document.document_type as DocumentType;
+        const wantsCoordinatorToggle = rawDocType === 'delivery_note' || rawDocType === 'summary';
+        if (wantsCoordinatorToggle && matched?.waiting_for_coordinator) {
+          setIsSummaryLinked(true);
+        }
+      }
+
       // Auto-fill discount from supplier defaults
       if (matchedId) {
         const matched = currentSuppliers.find(s => s.id === matchedId);
