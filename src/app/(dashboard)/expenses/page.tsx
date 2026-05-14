@@ -5733,6 +5733,10 @@ function ExpensesPageInner() {
                     title="סכום כולל מע״מ"
                     placeholder="0.00"
                     value={totalWithVatInput !== "" ? totalWithVatInput : totalWithVat.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    // Select existing content on focus so typing overwrites
+                    // the auto-calculated number instead of being appended to
+                    // it (David: "0.00-3557.58" shaped values).
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => {
                       const raw = e.target.value.replace(/,/g, "");
                       setTotalWithVatInput(raw);
@@ -6575,6 +6579,7 @@ function ExpensesPageInner() {
                     value={totalWithVatInput !== ""
                       ? totalWithVatInput
                       : ((parseFloat(amountBeforeVat) || 0) + (partialVat ? (parseFloat(vatAmount) || 0) : calculatedVat)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => {
                       const raw = e.target.value.replace(/,/g, "");
                       setTotalWithVatInput(raw);

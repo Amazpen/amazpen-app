@@ -3187,6 +3187,9 @@ export default function OCRForm({
             title="סכום כולל מע״מ"
             placeholder="0.00"
             value={totalWithVatInput !== '' ? totalWithVatInput : totalWithVat.toFixed(2)}
+            // Select existing content on focus so typing overwrites the
+            // auto-calculated number instead of being appended to it.
+            onFocus={(e) => e.target.select()}
             onChange={(e) => {
               const raw = e.target.value;
               setTotalWithVatInput(raw);
@@ -4427,6 +4430,7 @@ export default function OCRForm({
             type="text"
             inputMode="decimal"
             value={summaryTotalAmount}
+            onFocus={(e) => e.target.select()}
             onChange={(e) => setSummaryTotalAmount(e.target.value)}
             placeholder="0.00"
             className="w-full h-full bg-transparent text-white text-[16px] text-center rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
