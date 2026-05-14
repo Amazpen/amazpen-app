@@ -95,8 +95,10 @@ export function DatePickerField({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-0 bg-[#0f1535] border-[#4C526B]"
+        className="w-auto p-0 bg-[#0f1535] border-[#4C526B] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto"
         align="center"
+        sideOffset={4}
+        collisionPadding={8}
       >
         {/* Manual typing row — jump straight to any date without months of
             clicking. Accepts DD/MM/YYYY or DD/MM/YY; commits on Enter or
