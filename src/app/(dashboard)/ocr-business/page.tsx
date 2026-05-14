@@ -36,6 +36,7 @@ import { savePriceTrackingForLineItems } from '@/lib/priceTracking';
 import { fireBudgetAlert } from '@/lib/budget-alert';
 import { uploadFile } from '@/lib/uploadFile';
 import { useToast } from "@/components/ui/toast";
+import ScannedDocumentsButton from '@/components/ocr/ScannedDocumentsButton';
 
 interface Business {
   id: string;
@@ -1410,9 +1411,29 @@ export default function OCRBusinessPage() {
       {/* Page header - mobile only */}
       <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-[#0F1535] border-b border-[#4C526B]">
         <h1 className="text-[18px] font-bold text-white">קליטת מסמכים OCR</h1>
-        <span className="text-[14px] text-white/60">
-          {pendingCount} ממתינים
-        </span>
+        <div className="flex items-center gap-2">
+          <ScannedDocumentsButton
+            businessId={selectedBusinessId || undefined}
+            suppliers={suppliers}
+          />
+          <span className="text-[14px] text-white/60">
+            {pendingCount} ממתינים
+          </span>
+        </div>
+      </div>
+
+      {/* Page header - desktop only */}
+      <div className="hidden lg:flex items-center justify-between px-4 py-2 bg-[#0F1535] border-b border-[#4C526B]">
+        <div className="flex items-center gap-3">
+          <h1 className="text-[16px] font-bold text-white">קליטת מסמכים OCR</h1>
+          <span className="text-[13px] text-white/60">
+            {pendingCount} ממתינים
+          </span>
+        </div>
+        <ScannedDocumentsButton
+          businessId={selectedBusinessId || undefined}
+          suppliers={suppliers}
+        />
       </div>
 
       {/* Mobile tabs */}
