@@ -3009,6 +3009,18 @@ function ExpensesPageInner() {
     // Set existing attachment previews
     setEditAttachmentPreviews(invoice.attachmentUrls);
     setEditAttachmentFiles([]);
+    // Reset paid-in-full payment state — the edit popup mirrors the add flow's
+    // "התעודה שולמה במלואה" affordance. We always start unchecked: if the
+    // invoice already has linked payments, the UI hides the checkbox entirely
+    // (see editingInvoiceHasPayments below); if it doesn't, the user can opt
+    // in to attach a fresh payment alongside the edit.
+    setIsPaidInFull(false);
+    setPaymentDate("");
+    setPaymentReference("");
+    setPaymentNotes("");
+    setPaymentReceiptFile(null);
+    setPaymentReceiptPreview(null);
+    setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }]);
     setShowEditPopup(true);
   };
 
@@ -3092,6 +3104,13 @@ function ExpensesPageInner() {
         } else if (editingInvoice.isFixed && attachmentUrl && invoiceNumber) {
           updateData.status = "pending";
         }
+
+        // "החשבונית שולמה במלואה" was ticked in the edit popup — force status
+        // to 'paid'. The actual payment row + link are created after the
+        // update lands (mirrors the add-expense flow).
+        if (isPaidInFull && (editingInvoice.linkedPayments?.length || 0) === 0) {
+          updateData.status = "paid";
+        }
       }
 
       const { error } = await supabase
@@ -3100,6 +3119,98 @@ function ExpensesPageInner() {
         .eq("id", editingInvoice.id);
 
       if (error) throw error;
+
+      // Create real payment + payment_invoice_links when user ticked
+      // "החשבונית שולמה במלואה" in the edit popup. Same shape as the
+      // add-expense flow above — keeps supplier balance, reports, and the
+      // /payments page consistent. Guarded against already-paid invoices.
+      if (!isDN && isPaidInFull && (editingInvoice.linkedPayments?.length || 0) === 0) {
+        const paymentTotal = popupPaymentMethods.reduce((sum, pm) => {
+          return sum + (parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0);
+        }, 0);
+
+        let editReceiptUrl: string | null = null;
+        if (paymentReceiptFile) {
+          setIsUploadingPaymentReceipt(true);
+          const fileExt = paymentReceiptFile.name.split('.').pop();
+          const fileName = `receipt-${Date.now()}.${fileExt}`;
+          const filePath = `payments/${fileName}`;
+          const uploadResult = await uploadFile(paymentReceiptFile, filePath, "attachments");
+          if (uploadResult.success) {
+            editReceiptUrl = uploadResult.publicUrl || null;
+          }
+          setIsUploadingPaymentReceipt(false);
+        }
+
+        const paymentAmount = paymentTotal > 0 ? paymentTotal : totalWithVatEdit;
+
+        const { data: { user: payUser } } = await supabase.auth.getUser();
+
+        const { data: newPayment, error: payErr } = await supabase
+          .from("payments")
+          .insert({
+            business_id: selectedBusinesses[0],
+            supplier_id: selectedSupplier,
+            payment_date: paymentDate || expenseDate,
+            total_amount: paymentAmount,
+            invoice_id: editingInvoice.id,
+            notes: paymentNotes || null,
+            created_by: payUser?.id || null,
+            receipt_url: editReceiptUrl,
+          })
+          .select()
+          .single();
+
+        if (payErr) {
+          console.error("[Edit Expense] Payment insert error:", payErr);
+          showToast("שגיאה ביצירת תשלום — הסטטוס עודכן אך התשלום לא נשמר", "error");
+        } else if (newPayment) {
+          // Mirror the link the add-flow creates so supplier-balance queries
+          // that read payment_invoice_links (and not just payments.invoice_id)
+          // see the allocation too.
+          await supabase.from("payment_invoice_links").insert({
+            payment_id: newPayment.id,
+            invoice_id: editingInvoice.id,
+            amount_allocated: paymentAmount,
+          });
+
+          for (const pm of popupPaymentMethods) {
+            const pmAmount = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
+            if (pmAmount > 0 && pm.method) {
+              const installmentsCount = parseInt(pm.installments) || 1;
+              const creditCardId = pm.method === "credit_card" && pm.creditCardId ? pm.creditCardId : null;
+
+              if (pm.customInstallments.length > 0) {
+                for (const inst of pm.customInstallments) {
+                  await supabase.from("payment_splits").insert({
+                    payment_id: newPayment.id,
+                    payment_method: pm.method,
+                    amount: inst.amount,
+                    installments_count: installmentsCount,
+                    installment_number: inst.number,
+                    reference_number: paymentReference || null,
+                    check_number: pm.method === "check" ? (inst.checkNumber || pm.checkNumber || null) : null,
+                    credit_card_id: creditCardId,
+                    due_date: inst.dateForInput || paymentDate || expenseDate || null,
+                  });
+                }
+              } else {
+                await supabase.from("payment_splits").insert({
+                  payment_id: newPayment.id,
+                  payment_method: pm.method,
+                  amount: pmAmount,
+                  installments_count: 1,
+                  installment_number: 1,
+                  reference_number: paymentReference || null,
+                  check_number: pm.method === "check" ? (pm.checkNumber || null) : null,
+                  credit_card_id: creditCardId,
+                  due_date: paymentDate || expenseDate || null,
+                });
+              }
+            }
+          }
+        }
+      }
 
       // Sync linked payments only for invoices (DNs don't get directly paid —
       // they flow through a consolidating invoice).
@@ -3269,6 +3380,14 @@ function ExpensesPageInner() {
     // Reset attachments
     setEditAttachmentFiles([]);
     setEditAttachmentPreviews([]);
+    // Reset paid-in-full payment state
+    setIsPaidInFull(false);
+    setPaymentDate("");
+    setPaymentReference("");
+    setPaymentNotes("");
+    setPaymentReceiptFile(null);
+    setPaymentReceiptPreview(null);
+    setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }]);
     // Return to supplier breakdown if we came from there
     if (returnToBreakdownRef.current) {
       returnToBreakdownRef.current = false;
@@ -6680,6 +6799,365 @@ function ExpensesPageInner() {
                   />
                 </div>
               </div>
+
+              {/* Paid in Full checkbox + payment form — only when the invoice
+                  has no linked payments yet. Mirrors the add-expense flow so
+                  the user can settle a pending invoice with a real payment
+                  record (and its payment_invoice_links row) instead of just
+                  flipping invoices.status to 'paid' via the select below. */}
+              {editingInvoice && editingInvoice.documentType === "invoice" && (editingInvoice.linkedPayments?.length || 0) === 0 && (
+                <div className="flex flex-col gap-[3px]" dir="rtl">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      const newVal = !isPaidInFull;
+                      setIsPaidInFull(newVal);
+                      if (newVal) {
+                        const sup = suppliers.find(s => s.id === selectedSupplier);
+                        const defaultMethod = sup?.default_payment_method || "";
+                        const defaultCardId = sup?.default_credit_card_id || "";
+                        const smartDate = defaultMethod
+                          ? getSmartPaymentDate(defaultMethod, expenseDate, defaultCardId || undefined)
+                          : toLocalDateStr(new Date());
+                        setPaymentDate(smartDate);
+                        const editTotal = (parseFloat(amountBeforeVat) || 0) + (partialVat ? (parseFloat(vatAmount) || 0) : ((parseFloat(amountBeforeVat) || 0) * businessVatRate));
+                        const roundedTotal = Math.round(editTotal * 100) / 100;
+                        const amount = roundedTotal > 0 ? roundedTotal.toFixed(2) : "";
+                        setPopupPaymentMethods([{
+                          id: 1,
+                          method: defaultMethod,
+                          amount,
+                          installments: "1",
+                          checkNumber: "",
+                          creditCardId: defaultCardId,
+                          customInstallments: amount ? generatePopupInstallments(1, roundedTotal, smartDate) : [],
+                        }]);
+                        if (!paymentReference.trim() && invoiceNumber.trim()) {
+                          setPaymentReference(invoiceNumber.trim());
+                        }
+                      }
+                    }}
+                    className="flex items-center gap-[3px] min-h-[35px]"
+                  >
+                    <svg width="21" height="21" viewBox="0 0 32 32" fill="none" className="text-[#979797]">
+                      {isPaidInFull ? (
+                        <>
+                          <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                          <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </>
+                      ) : (
+                        <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                    <span className="text-[15px] font-medium text-white">החשבונית שולמה במלואה</span>
+                  </Button>
+
+                  {isPaidInFull && (
+                    <div className="bg-[#0F1535] rounded-[10px] p-[25px_5px_5px] mt-[15px]">
+                      <h3 className="text-[18px] font-semibold text-white text-center mb-[20px]">קליטת תשלום</h3>
+
+                      <div className="flex flex-col gap-[15px]">
+                        {/* Payment Date */}
+                        <div className="flex flex-col gap-[3px]">
+                          <label className="text-[15px] font-medium text-white text-right">תאריך תשלום</label>
+                          <DatePickerField
+                            value={paymentDate}
+                            onChange={(val) => {
+                              setPaymentDate(val);
+                              setPopupPaymentMethods(prev => prev.map(p => {
+                                const numInstallments = parseInt(p.installments) || 1;
+                                const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
+                                if (numInstallments >= 1 && totalAmount > 0) {
+                                  const card = p.creditCardId ? businessCreditCards.find(c => c.id === p.creditCardId) : null;
+                                  if (card) {
+                                    return { ...p, customInstallments: generateCreditCardInstallments(numInstallments, totalAmount, val, card.billing_day) };
+                                  }
+                                  return { ...p, customInstallments: generatePopupInstallments(numInstallments, totalAmount, val) };
+                                }
+                                return { ...p, customInstallments: [] };
+                              }));
+                            }}
+                          />
+                        </div>
+
+                        {/* Payment Methods */}
+                        <div className="flex flex-col gap-[15px]">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[15px] font-medium text-white">אמצעי תשלום</span>
+                            <Button
+                              type="button"
+                              onClick={addPopupPaymentMethodEntry}
+                              className="bg-[#29318A] text-white text-[14px] font-medium px-[12px] py-[6px] rounded-[7px] hover:bg-[#3D44A0] transition-colors"
+                            >
+                              + הוסף אמצעי תשלום
+                            </Button>
+                          </div>
+
+                          {popupPaymentMethods.map((pm, pmIndex) => (
+                            <div key={pm.id} className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+                              {popupPaymentMethods.length > 1 && (
+                                <div className="flex items-center justify-between mb-[5px]">
+                                  <span className="text-[14px] text-white/70">אמצעי תשלום {pmIndex + 1}</span>
+                                  <Button
+                                    type="button"
+                                    onClick={() => removePopupPaymentMethodEntry(pm.id)}
+                                    className="text-[14px] text-red-400 hover:text-red-300 transition-colors"
+                                  >
+                                    הסר
+                                  </Button>
+                                </div>
+                              )}
+
+                              <Select value={pm.method || "__none__"} onValueChange={(val) => updatePopupPaymentMethodField(pm.id, "method", val === "__none__" ? "" : val)}>
+                                <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                                  <SelectValue placeholder="בחר אמצעי תשלום..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__none__" disabled>בחר אמצעי תשלום...</SelectItem>
+                                  {paymentMethodOptions.map((method) => (
+                                    <SelectItem key={method.value} value={method.value}>{method.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+
+                              {pm.method === "credit_card" && businessCreditCards.length > 0 && (
+                                <Select value={pm.creditCardId || "__none__"} onValueChange={(cardId) => {
+                                  const val = cardId === "__none__" ? "" : cardId;
+                                  setPopupPaymentMethods(prev => prev.map(p => {
+                                    if (p.id !== pm.id) return p;
+                                    const updated = { ...p, creditCardId: val };
+                                    const card = businessCreditCards.find(c => c.id === val);
+                                    const effectiveDate = paymentDate || expenseDate;
+                                    if (card && effectiveDate) {
+                                      const numInstallments = parseInt(p.installments) || 1;
+                                      const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
+                                      if (numInstallments > 1 && totalAmount > 0) {
+                                        updated.customInstallments = generateCreditCardInstallments(numInstallments, totalAmount, effectiveDate, card.billing_day);
+                                      }
+                                    }
+                                    return updated;
+                                  }));
+                                }}>
+                                  <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                                    <SelectValue placeholder="בחר כרטיס..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__none__">בחר כרטיס...</SelectItem>
+                                    {businessCreditCards.map(card => (
+                                      <SelectItem key={card.id} value={card.id}>
+                                        {card.card_name} (יורד ב-{card.billing_day} לחודש)
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+
+                              <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                                <Input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={pm.amount}
+                                  onFocus={(e) => e.target.select()}
+                                  onChange={(e) => {
+                                    let val = e.target.value.replace(/[^\d.-]/g, "");
+                                    const firstDot = val.indexOf(".");
+                                    if (firstDot !== -1) {
+                                      val = val.slice(0, firstDot + 1) + val.slice(firstDot + 1).replace(/\./g, "");
+                                    }
+                                    updatePopupPaymentMethodField(pm.id, "amount", val);
+                                  }}
+                                  placeholder="סכום"
+                                  className="w-full h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none px-[10px] rounded-[10px] ltr-num"
+                                />
+                              </div>
+
+                              <div className="flex flex-col gap-[3px]">
+                                <span className="text-[14px] text-white/70">כמות תשלומים</span>
+                                <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
+                                  <Button
+                                    type="button"
+                                    title="הפחת תשלום"
+                                    onClick={() => updatePopupPaymentMethodField(pm.id, "installments", String(Math.max(1, parseInt(pm.installments) - 1)))}
+                                    className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
+                                  >
+                                    -
+                                  </Button>
+                                  <Input
+                                    type="text"
+                                    inputMode="numeric"
+                                    title="כמות תשלומים"
+                                    value={pm.installments}
+                                    onChange={(e) => updatePopupPaymentMethodField(pm.id, "installments", e.target.value.replace(/\D/g, "") || "1")}
+                                    className="flex-1 h-[50px] bg-transparent text-[18px] text-white text-center focus:outline-none"
+                                  />
+                                  <Button
+                                    type="button"
+                                    title="הוסף תשלום"
+                                    onClick={() => updatePopupPaymentMethodField(pm.id, "installments", String(parseInt(pm.installments) + 1))}
+                                    className="w-[50px] h-[50px] flex items-center justify-center text-white text-[24px] font-bold"
+                                  >
+                                    +
+                                  </Button>
+                                </div>
+
+                                {pm.customInstallments.length > 0 && (
+                                  <div className="mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+                                    <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
+                                      <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
+                                      <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
+                                      {pm.method === "check" && <span className="text-[14px] font-medium text-white/70 flex-1 text-center">מס׳ צ׳ק</span>}
+                                      <span className="text-[14px] font-medium text-white/70 flex-1 text-center">סכום</span>
+                                    </div>
+                                    <div className="flex flex-col gap-[8px] max-h-[200px] overflow-y-auto">
+                                      {pm.customInstallments.map((item, index) => (
+                                        <div key={`${pm.id}-${item.number}`} className="flex items-center gap-[8px]">
+                                          <span className="text-[14px] text-white ltr-num flex-1 text-center">{item.number}/{pm.installments}</span>
+                                          <div className="flex-1">
+                                            <DatePickerField
+                                              value={item.dateForInput}
+                                              onChange={(val) => handlePopupInstallmentDateChange(pm.id, index, val)}
+                                              className="h-[36px] rounded-[7px] text-[14px]"
+                                            />
+                                          </div>
+                                          {pm.method === "check" && (
+                                            <div className="flex-1">
+                                              <Input
+                                                type="text"
+                                                inputMode="numeric"
+                                                title={`מספר צ׳ק תשלום ${item.number}`}
+                                                value={item.checkNumber || ""}
+                                                onChange={(e) => handlePopupInstallmentCheckNumberChange(pm.id, index, e.target.value)}
+                                                placeholder="מס׳ צ׳ק"
+                                                className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                              />
+                                            </div>
+                                          )}
+                                          <div className="flex-1 relative">
+                                            <Input
+                                              type="text"
+                                              inputMode="decimal"
+                                              title={`סכום תשלום ${item.number}`}
+                                              value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
+                                              onFocus={(e) => e.target.select()}
+                                              onChange={(e) => handlePopupInstallmentAmountChange(pm.id, index, e.target.value)}
+                                              className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                            />
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {(() => {
+                                      const installmentsTotal = getPopupInstallmentsTotal(pm.customInstallments);
+                                      const pmTotal = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
+                                      const isMismatch = Math.abs(installmentsTotal - pmTotal) > 0.01;
+                                      return (
+                                        <div className="flex items-center gap-[8px] border-t border-[#4C526B] pt-[8px] mt-[8px]">
+                                          <span className="text-[14px] font-bold text-white w-[50px] text-center flex-shrink-0">סה&quot;כ</span>
+                                          <span className="flex-1"></span>
+                                          {pm.method === "check" && <span className="flex-1"></span>}
+                                          <span className={`text-[14px] font-bold ltr-num flex-1 text-center ${isMismatch ? 'text-red-400' : 'text-white'}`}>
+                                            ₪{installmentsTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                          </span>
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Payment Reference */}
+                        <div className="flex flex-col gap-[3px]">
+                          <label className="text-[15px] font-medium text-white text-right">אסמכתא</label>
+                          <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                            <Input
+                              type="text"
+                              placeholder="מספר אסמכתא..."
+                              value={paymentReference}
+                              onChange={(e) => setPaymentReference(e.target.value)}
+                              className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Receipt Upload */}
+                        <div className="flex flex-col gap-[3px]">
+                          <label className="text-[15px] font-medium text-white text-right">קבלת תשלום</label>
+                          {paymentReceiptPreview ? (
+                            <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex items-center justify-between">
+                              <Button
+                                type="button"
+                                onClick={() => { setPaymentReceiptFile(null); setPaymentReceiptPreview(null); }}
+                                className="text-[#F64E60] text-[14px] hover:underline"
+                              >
+                                הסר
+                              </Button>
+                              <div className="flex items-center gap-[10px]">
+                                <span className="text-[14px] text-white/70 truncate max-w-[150px]">
+                                  {paymentReceiptFile?.name || "קובץ"}
+                                </span>
+                                <Button
+                                  type="button"
+                                  title="צפייה בקובץ"
+                                  onClick={() => window.open(paymentReceiptPreview, '_blank')}
+                                  className="text-white/70 hover:text-white"
+                                >
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                                    <polyline points="21 15 16 10 5 21"/>
+                                  </svg>
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[60px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
+                              <div className="flex items-center gap-[10px]">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
+                                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                  <polyline points="17 8 12 3 7 8"/>
+                                  <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                                <span className="text-[14px] text-white/50">לחץ להעלאת תמונה/מסמך</span>
+                              </div>
+                              <input
+                                type="file"
+                                accept="image/*,.pdf,.heic,.heif,.avif,.bmp,.tiff,.tif"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    setPaymentReceiptFile(file);
+                                    setPaymentReceiptPreview(URL.createObjectURL(file));
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                          )}
+                          {isUploadingPaymentReceipt && (
+                            <span className="text-[12px] text-white/50 text-center">מעלה קובץ...</span>
+                          )}
+                        </div>
+
+                        {/* Payment Notes */}
+                        <div className="flex flex-col gap-[3px]">
+                          <label className="text-[15px] font-medium text-white text-right">הערות</label>
+                          <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
+                            <Textarea
+                              value={paymentNotes}
+                              onChange={(e) => setPaymentNotes(e.target.value)}
+                              placeholder="הערות..."
+                              className="w-full h-[100px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] py-[10px] rounded-[10px] resize-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Clarification Reason - only show for invoices with "בבירור" status */}
               {editingInvoice?.status === "בבירור" && (

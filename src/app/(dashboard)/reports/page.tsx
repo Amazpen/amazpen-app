@@ -185,6 +185,10 @@ export default function ReportsPage() {
     // still a placeholder (no attachment AND no real invoice_number). Used to
     // tint the cell purple, matching the supplier-card semantics elsewhere.
     monthlyUnapproved: boolean[];
+    // Per-cell payment status, used to colour the amount: 'paid' (green),
+    // 'pending' (white), 'clarification' (orange — wins if ANY invoice in the
+    // bucket is in clarification), 'unapproved' (purple — placeholder).
+    monthlyStatus: Array<'paid' | 'pending' | 'clarification' | 'unapproved' | null>;
     total: number;
   }>>([]);
   const [yearlyMonthTotals, setYearlyMonthTotals] = useState<number[]>(Array(12).fill(0));
@@ -193,6 +197,10 @@ export default function ReportsPage() {
   // yearly view alongside the expense total so the user can scan profit at a
   // glance without flipping to monthly view.
   const [yearlyRevenueTotal, setYearlyRevenueTotal] = useState(0);
+  // Per-month revenue (before VAT) — populates the dedicated "הכנסות" row at
+  // the top of the yearly matrix so the user can scan revenue against
+  // expenses month-by-month without flipping the view.
+  const [yearlyMonthlyRevenue, setYearlyMonthlyRevenue] = useState<number[]>(Array(12).fill(0));
   const [yearlySupplierSearch, setYearlySupplierSearch] = useState("");
   const [isLoadingYearly, setIsLoadingYearly] = useState(false);
 
@@ -371,6 +379,7 @@ export default function ReportsPage() {
       setYearlyMonthTotals(Array(12).fill(0));
       setYearlyGrandTotal(0);
       setYearlyRevenueTotal(0);
+      setYearlyMonthlyRevenue(Array(12).fill(0));
       return;
     }
     const year = parseInt(selectedYear);
@@ -390,7 +399,7 @@ export default function ReportsPage() {
           // expense" purple shading (matches the supplier-card / category
           // row semantics: row counts as unapproved when ALL its invoices
           // lack both an attachment AND a real invoice_number).
-          .select("subtotal, reference_date, invoice_date, supplier_id, attachment_url, invoice_number, supplier:suppliers(name, expense_type, is_fixed_expense)")
+          .select("subtotal, reference_date, invoice_date, supplier_id, attachment_url, invoice_number, status, supplier:suppliers(name, expense_type, is_fixed_expense)")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .in("invoice_type", ["current", "goods", "employees"])
@@ -442,6 +451,7 @@ export default function ReportsPage() {
       }
 
       let revenueTotal = 0;
+      const monthlyRevenue = Array(12).fill(0);
       for (const entry of (dailyEntries || [])) {
         const dateStr = (entry as { entry_date: string | null }).entry_date;
         if (!dateStr) continue;
@@ -449,10 +459,14 @@ export default function ReportsPage() {
         if (isNaN(d.getTime()) || d.getFullYear() !== year) continue;
         const bizId = (entry as { business_id: string }).business_id;
         const divisor = vatDivisorByBiz.get(bizId) || 1;
-        revenueTotal += (Number((entry as { total_register: number | null }).total_register) || 0) / divisor;
+        const beforeVat = (Number((entry as { total_register: number | null }).total_register) || 0) / divisor;
+        revenueTotal += beforeVat;
+        monthlyRevenue[d.getMonth()] += beforeVat;
       }
       setYearlyRevenueTotal(revenueTotal);
+      setYearlyMonthlyRevenue(monthlyRevenue);
 
+      type CellStatus = 'paid' | 'pending' | 'clarification' | 'unapproved' | null;
       type SupplierRow = {
         supplierId: string;
         name: string;
@@ -464,6 +478,14 @@ export default function ReportsPage() {
         // approved (has attachment OR real invoice_number). Used to flip the
         // unapproved flag back off as soon as one real invoice lands.
         monthlyApproved: boolean[];
+        // Per-cell counters used to derive `monthlyStatus` once all invoices
+        // for the year are scanned. We can't decide the colour mid-loop
+        // because a single clarification overrides paid+pending and a single
+        // unpaid demotes a would-be green to white.
+        monthlyClarification: boolean[];
+        monthlyHasUnpaid: boolean[];
+        monthlyHasPaid: boolean[];
+        monthlyStatus: CellStatus[];
         total: number;
       };
       const rows = new Map<string, SupplierRow>();
@@ -482,6 +504,10 @@ export default function ReportsPage() {
             monthly: Array(12).fill(0),
             monthlyUnapproved: Array(12).fill(false),
             monthlyApproved: Array(12).fill(false),
+            monthlyClarification: Array(12).fill(false),
+            monthlyHasUnpaid: Array(12).fill(false),
+            monthlyHasPaid: Array(12).fill(false),
+            monthlyStatus: Array(12).fill(null),
             total: 0,
           };
           rows.set(supplierId, row);
@@ -531,15 +557,58 @@ export default function ReportsPage() {
             added.row.monthlyUnapproved[added.monthIdx] = true;
           }
         }
+        // Track per-cell invoice statuses so we can colour the amount:
+        //   any 'clarification' wins → orange
+        //   all 'paid' (no unpaid) → green
+        //   any other (pending) → white
+        if (added) {
+          const status = (inv as unknown as { status: string | null }).status;
+          if (status === 'clarification') {
+            added.row.monthlyClarification[added.monthIdx] = true;
+          } else if (status === 'paid') {
+            added.row.monthlyHasPaid[added.monthIdx] = true;
+          } else {
+            // pending / null / anything else counts as "still owed"
+            added.row.monthlyHasUnpaid[added.monthIdx] = true;
+          }
+        }
       }
       for (const dn of dns || []) {
         const supplier = dn.supplier as unknown as { name: string | null; expense_type: string | null; is_fixed_expense: boolean | null } | null;
         const sid = (dn as unknown as { supplier_id: string | null }).supplier_id;
         const dateStr = (dn as unknown as { delivery_date: string | null }).delivery_date;
-        addAmount(sid, supplier, dateStr, dn.subtotal);
+        const added = addAmount(sid, supplier, dateStr, dn.subtotal);
+        // Unlinked delivery notes are owed by definition — they bump the cell
+        // into "pending" territory regardless of the invoice statuses already
+        // bucketed there.
+        if (added) {
+          added.row.monthlyHasUnpaid[added.monthIdx] = true;
+        }
       }
 
       const rowsArr = Array.from(rows.values()).sort((a, b) => b.total - a.total);
+      // Resolve per-cell status now that every invoice/DN has been bucketed.
+      // Priority: clarification > unapproved-placeholder > paid > pending.
+      // "Unapproved" wins over paid because a placeholder row hasn't really
+      // been settled even if a phantom payment was attached (matches the
+      // supplier-card semantics — purple still means "no real document yet").
+      for (const r of rowsArr) {
+        for (let i = 0; i < 12; i++) {
+          if (r.monthly[i] <= 0) {
+            r.monthlyStatus[i] = null;
+            continue;
+          }
+          if (r.monthlyClarification[i]) {
+            r.monthlyStatus[i] = 'clarification';
+          } else if (r.isFixed && r.monthlyUnapproved[i]) {
+            r.monthlyStatus[i] = 'unapproved';
+          } else if (r.monthlyHasPaid[i] && !r.monthlyHasUnpaid[i]) {
+            r.monthlyStatus[i] = 'paid';
+          } else {
+            r.monthlyStatus[i] = 'pending';
+          }
+        }
+      }
       const monthTotals = Array(12).fill(0);
       let grand = 0;
       for (const r of rowsArr) {
@@ -1710,6 +1779,30 @@ export default function ReportsPage() {
           </div>
         </div>
 
+        {/* Legend — colour key for the amount cells below. Mirrors the
+            invoice-status semantics: orange clarification overrides paid
+            because even one disputed invoice in a month is enough to flag
+            the whole bucket. */}
+        <div className="flex items-center gap-[14px] flex-wrap text-[12px] text-white/70" dir="rtl">
+          <span className="font-semibold text-white/60">מקרא:</span>
+          <span className="flex items-center gap-[5px]">
+            <span className="inline-block w-[10px] h-[10px] rounded-[2px] bg-[#C084FC]"></span>
+            הערכה
+          </span>
+          <span className="flex items-center gap-[5px]">
+            <span className="inline-block w-[10px] h-[10px] rounded-[2px] bg-white"></span>
+            ממתין לתשלום
+          </span>
+          <span className="flex items-center gap-[5px]">
+            <span className="inline-block w-[10px] h-[10px] rounded-[2px] bg-[#17DB4E]"></span>
+            שולם
+          </span>
+          <span className="flex items-center gap-[5px]">
+            <span className="inline-block w-[10px] h-[10px] rounded-[2px] bg-[#FFA500]"></span>
+            בבירור
+          </span>
+        </div>
+
         <Input
           type="text"
           placeholder="חיפוש ספק..."
@@ -1752,6 +1845,30 @@ export default function ReportsPage() {
                       <div className="text-center text-[13px] font-semibold text-[#17DB4E]">סה״כ</div>
                     </div>
 
+                    {/* Monthly revenue row — pinned right under the header so
+                        the user can scan income vs expenses per month. Always
+                        coloured green to distinguish it from expense rows. */}
+                    <div
+                      className="grid items-center rounded-[5px] px-[8px] py-[8px] bg-[#17DB4E]/[0.06]"
+                      style={{ gridTemplateColumns: gridTemplate }}
+                    >
+                      <div className="text-right text-[13px] font-semibold text-[#17DB4E] pr-[5px] truncate">
+                        הכנסות (לא כולל מע&quot;מ)
+                      </div>
+                      {yearlyMonthlyRevenue.map((amount, i) => (
+                        <div key={i} className="text-center text-[12px] ltr-num px-[2px]">
+                          {amount > 0 ? (
+                            <span className="text-[#17DB4E] font-medium">₪{Math.round(amount).toLocaleString("he-IL")}</span>
+                          ) : (
+                            <span className="text-white/20">—</span>
+                          )}
+                        </div>
+                      ))}
+                      <div className="text-center text-[13px] font-semibold text-[#17DB4E] ltr-num">
+                        ₪{Math.round(yearlyRevenueTotal).toLocaleString("he-IL")}
+                      </div>
+                    </div>
+
                     {/* Data rows */}
                     {yearlySupplierRows
                       .filter(r => !yearlySupplierSearch || r.name.toLowerCase().includes(yearlySupplierSearch.toLowerCase()))
@@ -1778,20 +1895,31 @@ export default function ReportsPage() {
                                 {row.name}
                               </div>
                               {row.monthly.map((amount, i) => {
-                                const isUnapprovedCell = row.isFixed && row.monthlyUnapproved[i] && amount > 0;
                                 if (amount > 0) {
                                   // Deep-link into /expenses with the supplier+month preselected,
                                   // opening the same breakdown popup the suppliers page uses.
                                   const monthParam = `${selectedYear}-${String(i + 1).padStart(2, '0')}`;
+                                  const cellStatus = row.monthlyStatus[i];
+                                  // Status → colour. Falls back to white so a
+                                  // missing/unknown status still reads as
+                                  // "ממתין" rather than disappearing.
+                                  const colorClass =
+                                    cellStatus === 'clarification' ? "text-[#FFA500] font-medium"
+                                    : cellStatus === 'unapproved' ? "text-[#C084FC] font-medium"
+                                    : cellStatus === 'paid' ? "text-[#17DB4E] font-medium"
+                                    : "text-white";
+                                  const titleText =
+                                    cellStatus === 'clarification' ? "יש חשבונית בבירור · לחץ לפירוט"
+                                    : cellStatus === 'unapproved' ? "הוצאה קבועה — טרם התקבל מסמך · לחץ לפירוט"
+                                    : cellStatus === 'paid' ? "כל החשבוניות שולמו · לחץ לפירוט"
+                                    : "לחץ לפירוט חשבוניות לחודש";
                                   return (
                                     <button
                                       key={i}
                                       type="button"
                                       onClick={() => router.push(`/expenses?supplierId=${row.supplierId}&month=${monthParam}`)}
-                                      className={`text-center text-[12px] ltr-num px-[2px] hover:underline hover:bg-white/[0.06] rounded-[3px] py-[2px] transition-colors cursor-pointer ${
-                                        isUnapprovedCell ? "text-[#C084FC] font-medium" : "text-white"
-                                      }`}
-                                      title={isUnapprovedCell ? "הוצאה קבועה — טרם התקבל מסמך · לחץ לפירוט" : "לחץ לפירוט חשבוניות לחודש"}
+                                      className={`text-center text-[12px] ltr-num px-[2px] hover:underline hover:bg-white/[0.06] rounded-[3px] py-[2px] transition-colors cursor-pointer ${colorClass}`}
+                                      title={titleText}
                                     >
                                       ₪{Math.round(amount).toLocaleString("he-IL")}
                                     </button>

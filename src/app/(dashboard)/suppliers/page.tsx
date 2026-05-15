@@ -561,8 +561,15 @@ export default function SuppliersPage() {
           const totalPaid = balance?.total_paid || 0;
           remainingPayment = supplier.obligation_total_amount - totalPaid;
         } else {
-          const bal = (balance?.total_invoiced || 0) - (balance?.total_paid || 0);
-          remainingPayment = Math.max(bal, 0);
+          // Use the view's `pending_balance` (sum of invoices whose status is
+          // NOT in [paid, cancelled, credited]). The naive
+          // total_invoiced - total_paid path silently included old invoices
+          // that were already flipped to 'paid' but had no matching payments
+          // row — common after the Bubble import — and inflated the
+          // remaining balance by the value of every legacy paid invoice.
+          // Example: water supplier showed ₪2,478 (₪3,954 invoiced − ₪1,476
+          // paid) instead of the correct ₪413 — the one truly-pending row.
+          remainingPayment = Math.max(Number(balance?.pending_balance || 0), 0);
         }
 
         // For suppliers with monthly_expense_amount, add current month expected expense

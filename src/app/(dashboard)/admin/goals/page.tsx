@@ -611,9 +611,14 @@ export default function AdminGoalsPage() {
     const supabase = createClient();
     const conflicts: InvoiceConflict[] = [];
 
+    // Scan EVERY month in the loaded year — the UI lets the admin edit all
+    // 12 columns in one shot, so a conflict on January is just as relevant as
+    // one on the currently-selected month. (Earlier this filtered by
+    // `b.month === selectedMonth`, which silently dropped 11/12 of the edits
+    // and skipped their conflict popup too.)
     const eligibleBudgets = supplierBudgets.filter(b => {
       const supplier = suppliers.find(s => s.id === b.supplier_id);
-      return supplier && isInvoiceEligible(supplier) && b.budget_amount > 0 && b.month === selectedMonth;
+      return supplier && isInvoiceEligible(supplier) && b.budget_amount > 0;
     });
 
     if (eligibleBudgets.length === 0) return conflicts;
@@ -748,8 +753,9 @@ export default function AdminGoalsPage() {
         const override = skippedBudgetOverrides.get(`${b.supplier_id}|${b.month}`);
         return override !== undefined ? override : b.budget_amount;
       };
+      // Persist budgets for ALL months in the loaded year, not just the one
+      // in the dropdown — the table renders 12 editable columns at once.
       for (const b of supplierBudgets) {
-        if (b.month !== selectedMonth) continue;
         const amount = effectiveBudget(b);
         if (b.id) {
           await supabase
@@ -772,7 +778,6 @@ export default function AdminGoalsPage() {
       // invoice → nothing to update. Skip the whole iteration to avoid no-op
       // round-trips.
       for (const b of supplierBudgets) {
-        if (b.month !== selectedMonth) continue;
         const supplier = suppliers.find((s) => s.id === b.supplier_id);
         if (!supplier || !isInvoiceEligible(supplier)) continue;
         if (skippedBudgetOverrides.has(`${b.supplier_id}|${b.month}`)) continue;
