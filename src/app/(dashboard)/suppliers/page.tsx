@@ -1279,6 +1279,17 @@ export default function SuppliersPage() {
     };
     const startStr = fmt(monthStart);
     const endStr = fmt(monthEnd);
+    // For timestamptz columns (invoices.invoice_date, delivery_notes.delivery_date),
+    // the DB stores UTC but invoices originating from Bubble land at
+    // local-midnight-IL which becomes 22:00:00Z the day before. A naive
+    // `lte(..., 'YYYY-MM-DD')` filter parses the bound as UTC midnight and
+    // drops every end-of-month row (e.g. 28.02 22:00:00Z = 01.03 in IL but
+    // skipped by both the Feb filter — out of range — and the Mar filter —
+    // before its lower bound, since gte uses 01.03 UTC midnight too). The
+    // fix is to send IL-anchored timestamps so the filter covers exactly
+    // local-IL [start-of-first-day, end-of-last-day].
+    const startIsoIL = `${startStr}T00:00:00+02:00`;
+    const endIsoIL = `${endStr}T23:59:59.999+02:00`;
 
     // 1. Fetch invoices for this supplier IN THIS BUSINESS for the month (by invoice_date, not reference_date — matches what the user sees)
     const { data: monthlyInvoices } = await supabase
@@ -1287,8 +1298,8 @@ export default function SuppliersPage() {
       .eq("supplier_id", supplier.id)
       .eq("business_id", supplier.business_id)
       .is("deleted_at", null)
-      .gte("invoice_date", startStr)
-      .lte("invoice_date", endStr);
+      .gte("invoice_date", startIsoIL)
+      .lte("invoice_date", endIsoIL);
 
     // Also include unlinked delivery notes that landed in this month — they
     // are purchases from the supplier too, just not yet consolidated into an
@@ -1300,8 +1311,8 @@ export default function SuppliersPage() {
       .eq("supplier_id", supplier.id)
       .eq("business_id", supplier.business_id)
       .is("invoice_id", null)
-      .gte("delivery_date", startStr)
-      .lte("delivery_date", endStr);
+      .gte("delivery_date", startIsoIL)
+      .lte("delivery_date", endIsoIL);
 
     const invoicesSum = monthlyInvoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
     const dnsSum = monthlyDNs?.reduce((sum, dn) => sum + Number(dn.total_amount), 0) || 0;
@@ -1377,8 +1388,8 @@ export default function SuppliersPage() {
       .eq("supplier_id", supplier.id)
       .eq("business_id", supplier.business_id)
       .is("deleted_at", null)
-      .gte("payment_date", startStr)
-      .lte("payment_date", endStr);
+      .gte("payment_date", startIsoIL)
+      .lte("payment_date", endIsoIL);
     const paymentsInMonthTotal = (paymentsInMonth || [])
       .reduce((sum, p) => sum + (Number(p.total_amount) || 0), 0);
 
