@@ -621,6 +621,25 @@ export default function SuppliersPage() {
     fetchSuppliers();
   }, [selectedBusinesses, refreshTrigger]);
 
+  // Re-open the supplier detail card when arriving with ?supplierCardId=...
+  // (back-nav from /expenses month drill-down). Clears the param after opening
+  // so a manual refresh doesn't re-trigger it.
+  const supplierCardAutoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (suppliers.length === 0) return;
+    if (supplierCardAutoOpenedRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const cardId = params.get("supplierCardId");
+    if (!cardId) return;
+    const supplier = suppliers.find((s) => s.id === cardId);
+    if (!supplier) return;
+    supplierCardAutoOpenedRef.current = true;
+    window.history.replaceState({}, "", "/suppliers");
+    handleOpenSupplierDetail(supplier);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suppliers]);
+
   // Fetch prior commitments from database
   useEffect(() => {
     async function fetchPriorCommitments() {
@@ -3387,6 +3406,12 @@ export default function SuppliersPage() {
                           type="button"
                           onClick={() => {
                             if (!selectedSupplier) return;
+                            // Stamp the current /suppliers entry with the open card id so
+                            // router.back() from /expenses lands back on the same supplier
+                            // card instead of the bare suppliers list.
+                            if (typeof window !== "undefined") {
+                              window.history.replaceState({}, "", `/suppliers?supplierCardId=${selectedSupplier.id}`);
+                            }
                             router.push(`/expenses?supplierId=${selectedSupplier.id}&month=${m.monthKey}`);
                           }}
                           className="grid grid-cols-[1.2fr_1fr_1fr_1fr] p-[5px] bg-white/5 rounded-[5px] text-[12px] text-white hover:bg-white/10 transition-colors cursor-pointer text-right"
