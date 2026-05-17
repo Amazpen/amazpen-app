@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useDashboard } from "../../layout";
@@ -154,6 +154,12 @@ export default function AdminGoalsPage() {
   const [supplierBudgets, setSupplierBudgets] = useState<SupplierBudget[]>([]);
   const [managedProducts, setManagedProducts] = useState<ManagedProduct[]>([]);
 
+  // Track which (supplier_id|month) cells the user actually edited this session.
+  // Without this, detectInvoiceConflicts() pops up the "existing invoices" dialog
+  // for any pre-existing budget row that happens not to match its month's invoice
+  // total — even rows the user never touched. Reset on load and after a successful save.
+  const editedBudgetKeysRef = useRef<Set<string>>(new Set());
+
   // Tabs
   const [activeTab, setActiveTab] = usePersistedState<"kpi" | "suppliers" | "goods">("admin-goals:tab", "kpi");
   const [supplierSearch, setSupplierSearch] = useState("");
@@ -271,6 +277,8 @@ export default function AdminGoalsPage() {
         expense_type: (b.suppliers as Record<string, string>)?.expense_type || "",
       }));
       setSupplierBudgets(mappedBudgets);
+      // Fresh load = no edits yet. Anything detected from now on is the user's doing.
+      editedBudgetKeysRef.current = new Set();
 
       // Load managed products for this business
       const { data: productsData } = await supabase
@@ -564,6 +572,7 @@ export default function AdminGoalsPage() {
 
   // Update supplier budget for a specific month
   const updateSupplierBudget = (supplierId: string, month: number, value: number) => {
+    editedBudgetKeysRef.current.add(`${supplierId}|${month}`);
     setSupplierBudgets((prev) => {
       const existing = prev.find((b) => b.supplier_id === supplierId && b.month === month);
       if (existing) {
@@ -611,14 +620,17 @@ export default function AdminGoalsPage() {
     const supabase = createClient();
     const conflicts: InvoiceConflict[] = [];
 
-    // Scan EVERY month in the loaded year — the UI lets the admin edit all
-    // 12 columns in one shot, so a conflict on January is just as relevant as
-    // one on the currently-selected month. (Earlier this filtered by
-    // `b.month === selectedMonth`, which silently dropped 11/12 of the edits
-    // and skipped their conflict popup too.)
+    // Scan EVERY month in the loaded year for cells the user actually edited
+    // in this session — the UI lets the admin edit all 12 columns in one shot,
+    // so a conflict on January is just as relevant as one on the currently-selected
+    // month. (Earlier this filtered by `b.month === selectedMonth`, which silently
+    // dropped 11/12 of the edits.) But scanning *all* loaded rows pops a confusing
+    // dialog for suppliers the user never touched — e.g. a pre-existing Feb row
+    // that doesn't match its Feb invoice — so gate on editedBudgetKeysRef.
     const eligibleBudgets = supplierBudgets.filter(b => {
       const supplier = suppliers.find(s => s.id === b.supplier_id);
-      return supplier && isInvoiceEligible(supplier) && b.budget_amount > 0;
+      if (!supplier || !isInvoiceEligible(supplier) || b.budget_amount <= 0) return false;
+      return editedBudgetKeysRef.current.has(`${b.supplier_id}|${b.month}`);
     });
 
     if (eligibleBudgets.length === 0) return conflicts;
