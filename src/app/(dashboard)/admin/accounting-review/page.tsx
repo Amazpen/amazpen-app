@@ -768,9 +768,19 @@ export default function AccountingReviewPage() {
         {/* Actions + Date Range */}
         <div className="flex items-center justify-between gap-4 flex-shrink-0">
           {selectedIds.size > 0 ? (
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-white/70 bg-white/5 px-3 py-1.5 rounded-md border border-white/10">
-                {selectedIds.size} נבחרו
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-sm font-medium text-white/70 bg-white/5 px-3 py-1.5 rounded-md border border-white/10 inline-flex items-center gap-2">
+                <span>{selectedIds.size} נבחרו</span>
+                <span className="text-white/30">·</span>
+                <span className="text-white/60">לפני מע&quot;מ:</span>
+                <span className="font-bold text-white ltr-num">
+                  {formatCurrency(selectedInvoices.reduce((sum, i) => sum + (Number(i.subtotal) || 0), 0))}
+                </span>
+                <span className="text-white/30">·</span>
+                <span className="text-white/60">כולל מע&quot;מ:</span>
+                <span className="font-bold text-white ltr-num">
+                  {formatCurrency(selectedInvoices.reduce((sum, i) => sum + (Number(i.total_amount) || 0), 0))}
+                </span>
               </span>
               <Button
                 className="inline-flex items-center gap-2 h-9 px-4 rounded-md border border-green-500/30 bg-green-500/10 text-sm font-medium text-green-400 hover:bg-green-500/20 hover:border-green-500/40 transition-colors"
