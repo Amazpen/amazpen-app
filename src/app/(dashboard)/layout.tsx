@@ -268,6 +268,10 @@ export default function DashboardLayout({
   const [openAdminGroups, setOpenAdminGroups] = useState<Record<string, boolean>>({});
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [businessName, setBusinessName] = useState<string | null>(null);
+  // Full names of every currently-selected business — used by the sidebar
+  // header so users can see at a glance which businesses are active when
+  // they've selected more than one.
+  const [selectedBusinessNames, setSelectedBusinessNames] = useState<string[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isCoordinatorModalOpen, setIsCoordinatorModalOpen] = useState(false);
@@ -416,6 +420,7 @@ export default function DashboardLayout({
     const fetchBusinessName = async () => {
       if (selectedBusinesses.length === 0) {
         setBusinessName(null);
+        setSelectedBusinessNames([]);
         setSelectedBusinessModels([]);
         return;
       }
@@ -429,6 +434,12 @@ export default function DashboardLayout({
       if (businessesData && businessesData.length > 0) {
         const first = businessesData.find(b => b.id === selectedBusinesses[0]) || businessesData[0];
         setBusinessName(first.name);
+        // Preserve the user's click order so the sidebar reads like "the
+        // first one I picked, then the next..." instead of DB order.
+        const namesByOrder = selectedBusinesses
+          .map(id => businessesData.find(b => b.id === id)?.name)
+          .filter((n): n is string => !!n);
+        setSelectedBusinessNames(namesByOrder);
         setSelectedBusinessModels(businessesData.map(b => b.business_model || "regular"));
       }
     };
@@ -746,21 +757,48 @@ export default function DashboardLayout({
               />
             </div>
 
-            {/* Business Name */}
-            <div className="flex items-center justify-end gap-[10px] p-[7px] rounded-[10px] mb-[10px]">
+            {/* Business Name(s) — when multiple businesses are selected,
+                show every name stacked so the user knows exactly which
+                businesses the screen is aggregating (used to silently
+                truncate to the first one, which felt like data was missing). */}
+            <div
+              className={`flex items-start justify-end gap-[10px] p-[7px] rounded-[10px] mb-[10px] ${
+                selectedBusinessNames.length > 1
+                  ? "bg-[#8328f8]/15 border border-[#8328f8]/40"
+                  : ""
+              }`}
+              title={selectedBusinessNames.length > 1 ? selectedBusinessNames.join(" + ") : undefined}
+            >
               <Image
                 src="https://ae8ccc76b2d94d531551691b1d6411c9.cdn.bubble.io/f1725470298167x485496868385594050/userlogin.svg"
                 alt=""
-                className="w-[30px] h-[30px] rounded-[5px]"
+                className="w-[30px] h-[30px] rounded-[5px] mt-[2px]"
                 width={30}
                 height={30}
                 unoptimized
                 priority
                 loading="eager"
               />
-              <span className="text-white text-[16px] font-medium text-right flex-1" suppressHydrationWarning>
-                {businessName || "עסק"}
-              </span>
+              <div className="flex-1 flex flex-col items-end gap-[2px]" suppressHydrationWarning>
+                {selectedBusinessNames.length === 0 ? (
+                  <span className="text-white text-[16px] font-medium text-right">עסק</span>
+                ) : selectedBusinessNames.length === 1 ? (
+                  <span className="text-white text-[16px] font-medium text-right">
+                    {selectedBusinessNames[0]}
+                  </span>
+                ) : (
+                  <>
+                    <span className="text-[#d9b8ff] text-[10px] font-bold text-right uppercase tracking-wide">
+                      {selectedBusinessNames.length} עסקים נבחרו
+                    </span>
+                    {selectedBusinessNames.map((name) => (
+                      <span key={name} className="text-white text-[13px] font-medium text-right leading-[1.3]">
+                        {name}
+                      </span>
+                    ))}
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-col gap-[5px]">

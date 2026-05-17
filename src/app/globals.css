@@ -408,11 +408,11 @@ input[inputmode="numeric"] {
 }
 
 .business-card.business-card-expanded {
-  background-color: #3845c4 !important;
+  background-color: #6b2bd9 !important;
   position: relative;
   overflow: hidden;
   z-index: 0;
-  box-shadow: 0 0 8px rgba(85, 96, 221, 0.25), 0 0 18px rgba(56, 69, 196, 0.15), 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  box-shadow: 0 0 0 2px #b18cf7, 0 0 12px rgba(131, 40, 248, 0.45), 0 0 24px rgba(131, 40, 248, 0.25), 0 2px 8px rgba(0, 0, 0, 0.2) !important;
 }
 
 .business-card.business-card-expanded::before {
@@ -422,11 +422,11 @@ input[inputmode="numeric"] {
   z-index: -1;
   background: conic-gradient(
     from var(--gradient-angle, 0deg),
-    #1a2070,
-    #3845c4,
-    #5560dd,
-    #3845c4,
-    #1a2070
+    #4a1494,
+    #8328f8,
+    #b18cf7,
+    #8328f8,
+    #4a1494
   );
   animation: card-glow-rotate 3s linear infinite;
 }
@@ -436,7 +436,7 @@ input[inputmode="numeric"] {
   position: absolute;
   inset: 3px;
   border-radius: 8px;
-  background: #3040b0;
+  background: #6b2bd9;
   z-index: -1;
 }
 
