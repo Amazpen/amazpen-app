@@ -428,15 +428,17 @@ export default function QuickAddSupplierModal({
             </Select>
           </div>
 
-          {/* Category */}
+          {/* Category — children are scoped to the selected parent so the
+              user can't accidentally tag a "עלות מכר" supplier with a
+              "הוצאות שוטפות" subcategory (matches /suppliers form). */}
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">קטגוריה</label>
             <Select value={categoryId || "__none__"} onValueChange={(v) => setCategoryId(v === "__none__" ? "" : v)}>
               <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
-                <SelectValue placeholder="בחר קטגוריה" />
+                <SelectValue placeholder={parentCategoryId ? "בחר קטגוריה" : "יש לבחור קטגוריית אב תחילה"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">בחר קטגוריה</SelectItem>
+                <SelectItem value="__none__">{parentCategoryId ? "בחר קטגוריה" : "יש לבחור קטגוריית אב תחילה"}</SelectItem>
                 {filteredCategories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                 ))}

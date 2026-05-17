@@ -2695,7 +2695,20 @@ export default function SuppliersPage() {
                     </Button>
                   </div>
                 ) : (
-                  <Select value={parentCategory || "__none__"} onValueChange={(val) => setParentCategory(val === "__none__" ? "" : val)}>
+                  <Select
+                    value={parentCategory || "__none__"}
+                    onValueChange={(val) => {
+                      const next = val === "__none__" ? "" : val;
+                      setParentCategory(next);
+                      // Drop the child category whenever the parent changes so
+                      // a stale "הוצאות שוטפות" child can't linger after the
+                      // user switches the parent to "עלות מכר".
+                      if (category) {
+                        const stillValid = categories.some(c => c.id === category && c.parent_id === next);
+                        if (!stillValid) setCategory("");
+                      }
+                    }}
+                  >
                     <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                       <SelectValue placeholder="בחר קטגוריית אב" />
                     </SelectTrigger>
@@ -2745,21 +2758,32 @@ export default function SuppliersPage() {
                       הוסף
                     </Button>
                   </div>
-                ) : (
+                ) : (() => {
+                  // Restrict the category dropdown to children of the selected
+                  // parent so picking a "עלות מכר" supplier can't accidentally
+                  // bucket its expense under "הוצאות שוטפות". When no parent is
+                  // chosen yet we surface nothing — forcing the user to pick a
+                  // parent first (matches how the OCR add-supplier form works
+                  // too, after the same fix).
+                  const filteredCategories = parentCategory
+                    ? categories.filter(c => c.parent_id === parentCategory)
+                    : [];
+                  return (
                   <Select value={category || "__none__"} onValueChange={(val) => setCategory(val === "__none__" ? "" : val)}>
                     <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
-                      <SelectValue placeholder="בחר קטגוריה" />
+                      <SelectValue placeholder={parentCategory ? "בחר קטגוריה" : "יש לבחור קטגוריית אב תחילה"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">בחר קטגוריה</SelectItem>
-                      {categories.map((cat) => (
+                      <SelectItem value="__none__">{parentCategory ? "בחר קטגוריה" : "יש לבחור קטגוריית אב תחילה"}</SelectItem>
+                      {filteredCategories.map((cat) => (
                         <SelectItem key={cat.id} value={cat.id}>
                           {cat.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                )}
+                  );
+                })()}
               </div>
 
               {/* Payment Terms (hidden for previous obligations) */}
