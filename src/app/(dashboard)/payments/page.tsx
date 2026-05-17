@@ -2177,6 +2177,102 @@ function PaymentsPageInner() {
         receiptUrl = existingUrls.length === 1 ? existingUrls[0] : JSON.stringify(existingUrls);
       }
 
+      // ------------------------------------------------------------------
+      // Unlinked-payment branch (advance / rent flow).
+      // When unlinkedMode is on we create ONE payment row per payment-method
+      // entry (so each future invoice can close its own payment cleanly),
+      // tagging each with the user's intent. All 'shared'-tagged splits get
+      // a common shared_invoice_group_id so the OCR/expenses flow can offer
+      // to close them as a group.
+      // ------------------------------------------------------------------
+      if (unlinkedMode) {
+        const sharedGroupId = crypto.randomUUID();
+        const insertedIds: string[] = [];
+        let firstError: unknown = null;
+
+        for (const pm of paymentMethods) {
+          const pmAmount = parseFloat(pm.amount.replace(/[^\d.-]/g, "")) || 0;
+          if (pmAmount <= 0) continue;
+          const intent = pm.invoiceLinkIntent ?? 'dedicated';
+          const kind = intent === 'shared' ? 'shared_pool' : 'expects_dedicated';
+
+          const { data: p, error: pErr } = await supabase
+            .from("payments")
+            .insert({
+              business_id: selectedBusinesses[0],
+              supplier_id: selectedSupplier,
+              payment_date: paymentDate,
+              total_amount: pmAmount,
+              invoice_id: null,
+              notes: notes || null,
+              created_by: user?.id || null,
+              receipt_url: receiptUrl,
+              payment_kind: kind,
+              shared_invoice_group_id: kind === 'shared_pool' ? sharedGroupId : null,
+            })
+            .select()
+            .single();
+
+          if (pErr) { firstError = pErr; break; }
+          if (!p) { firstError = new Error("Failed to create payment"); break; }
+          insertedIds.push(p.id);
+
+          // Splits for this payment — mirror the linked-flow logic but scoped
+          // to a single payment-method entry (so each row gets exactly its
+          // own splits).
+          const installmentsCount = parseInt(pm.installments) || 1;
+          const creditCardId = pm.method === "credit_card" && pm.creditCardId ? pm.creditCardId : null;
+          if (pm.customInstallments.length > 0) {
+            for (const inst of pm.customInstallments) {
+              await supabase.from("payment_splits").insert({
+                payment_id: p.id,
+                payment_method: pm.method || "other",
+                amount: inst.amount,
+                installments_count: installmentsCount,
+                installment_number: inst.number,
+                reference_number: reference || null,
+                check_number: (pm.method === "check" && inst.checkNumber) ? inst.checkNumber : (pm.checkNumber || null),
+                credit_card_id: creditCardId,
+                due_date: inst.dateForInput || paymentDate || null,
+              });
+            }
+          } else {
+            await supabase.from("payment_splits").insert({
+              payment_id: p.id,
+              payment_method: pm.method || "other",
+              amount: pmAmount,
+              installments_count: 1,
+              installment_number: 1,
+              reference_number: reference || null,
+              check_number: pm.checkNumber || null,
+              credit_card_id: creditCardId,
+              due_date: paymentDate || null,
+            });
+          }
+        }
+
+        if (firstError) {
+          console.error("Unlinked payment creation failed:", firstError);
+          // Best-effort rollback of any payments already inserted in this batch.
+          if (insertedIds.length > 0) {
+            await supabase.from("payments").delete().in("id", insertedIds);
+          }
+          showToast("שגיאה ביצירת תשלום ללא חשבונית", "error");
+          setIsSaving(false);
+          savingPaymentRef.current = false;
+          return;
+        }
+
+        clearPaymentDraft();
+        showToast(`נוצרו ${insertedIds.length} תשלומים ללא חשבונית. כשהחשבונית תגיע — סגור איתה את התשלום מ-${suppliers.find(s => s.id === selectedSupplier)?.name || "הספק"}.`, "success");
+        setShowAddPaymentPopup(false);
+        resetForm();
+        setRefreshTrigger(t => t + 1);
+        setIsSaving(false);
+        savingPaymentRef.current = false;
+        return;
+      }
+
       // Create ONE payment that aggregates all selected invoices, then
       // link it to each invoice via payment_invoice_links with amount_allocated.
       const selectedInvoicesArr = Array.from(selectedInvoiceIds);
@@ -2844,11 +2940,25 @@ function PaymentsPageInner() {
       checkNumber?: string;
       manuallyEdited?: boolean;
     }>;
+    // Unlinked-payment intent: how the user expects this split to be
+    // reconciled when the invoice eventually arrives. Only meaningful when
+    // unlinkedMode is true (see below).
+    //   'dedicated' = invoice will arrive specifically for this single split
+    //   'shared'    = this split is part of a multi-payment plan; all splits
+    //                 tagged 'shared' on this form share one invoice group
+    //   null        = no intent recorded yet (default; behaves like 'dedicated')
+    invoiceLinkIntent?: 'dedicated' | 'shared' | null;
   }
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodEntry[]>([
-    { id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }
+    { id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [], invoiceLinkIntent: null }
   ]);
+
+  // "תשלום ללא חשבונית" mode: when on, the form bypasses the invoice picker
+  // entirely. Used for advance/rent-style payments where the invoice will
+  // arrive later and the user wants to record the payments now so cashflow
+  // forecasting stays accurate.
+  const [unlinkedMode, setUnlinkedMode] = useState(false);
 
   // Business credit cards
   const [businessCreditCards, setBusinessCreditCards] = useState<{id: string, card_name: string, billing_day: number}[]>([]);
@@ -3386,7 +3496,7 @@ function PaymentsPageInner() {
     setExpenseType("purchases");
     setSelectedSupplier("");
     const todayStr = toLocalDateStr(new Date());
-    setPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: generateInstallments(1, 0, todayStr) }]);
+    setPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: generateInstallments(1, 0, todayStr), invoiceLinkIntent: null }]);
     setReference("");
     setNotes("");
     setReceiptFiles([]);
@@ -3395,6 +3505,7 @@ function PaymentsPageInner() {
     setShowOpenInvoices(false);
     setSelectedInvoiceIds(new Set());
     setExpandedMonths(new Set());
+    setUnlinkedMode(false);
     clearPaymentDraft();
   };
 
@@ -4872,8 +4983,56 @@ function PaymentsPageInner() {
                 );
               })()}
 
-              {/* Open Invoices Section */}
-              {openInvoices.length > 0 && (
+              {/* Unlinked-payment toggle — for advance payments (like rent) where
+                  the invoice hasn't arrived yet. Hidden in edit mode and when
+                  no supplier is selected. */}
+              {selectedSupplier && !editingPaymentId && (
+                <div className="flex flex-col gap-[8px]">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setUnlinkedMode(v => {
+                        const next = !v;
+                        if (next) {
+                          // Entering unlinked mode: clear any selected invoices and
+                          // collapse the invoice picker so the UI doesn't lie about
+                          // what will happen on save.
+                          setSelectedInvoiceIds(new Set());
+                          setShowOpenInvoices(false);
+                        } else {
+                          // Leaving unlinked mode: drop per-split intent so we don't
+                          // persist stale 'dedicated'/'shared' flags onto a normal
+                          // invoice-linked payment.
+                          setPaymentMethods(prev => prev.map(pm => ({ ...pm, invoiceLinkIntent: null })));
+                        }
+                        return next;
+                      });
+                    }}
+                    className={`text-white text-[16px] font-semibold py-[10px] px-[20px] rounded-[7px] transition-colors flex items-center justify-center gap-[8px] border ${
+                      unlinkedMode
+                        ? "bg-[#7e3af2] border-[#a78bfa] hover:bg-[#9333ea]"
+                        : "bg-[#0f1535] border-[#7e3af2]/60 hover:bg-[#7e3af2]/20"
+                    }`}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M16 12l-4-4-4 4"/>
+                      <path d="M12 16V8"/>
+                      <circle cx="12" cy="12" r="10"/>
+                    </svg>
+                    <span>{unlinkedMode ? "✓ תשלום ללא חשבונית" : "תשלום ללא חשבונית"}</span>
+                  </Button>
+                  {unlinkedMode && (
+                    <div className="bg-[#7e3af2]/10 border border-[#7e3af2]/30 rounded-[8px] px-[10px] py-[8px] text-[13px] text-white/85 leading-[1.5]">
+                      התשלום ייווצר ללא קישור לחשבונית. כשהחשבונית תגיע (OCR או הוספה ידנית) — תוכל לבחור אם לסגור איתה תשלום זה.
+                      <br />
+                      בכל שורת תשלום ניתן לסמן: <span className="text-emerald-300 font-bold">V</span> = חשבונית נפרדת לתשלום זה · <span className="text-orange-300 font-bold">X</span> = חלק מחשבונית אחת משותפת.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Open Invoices Section — hidden when in unlinked mode */}
+              {!unlinkedMode && openInvoices.length > 0 && (
                 <div className="flex flex-col gap-[10px]">
                   <Button
                     type="button"
@@ -5141,7 +5300,13 @@ function PaymentsPageInner() {
 
                 {paymentMethods.map((pm, pmIndex) => (
                   <Fragment key={pm.id}>
-                  <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+                  <div className={`border rounded-[10px] p-[10px] flex flex-col gap-[10px] ${
+                    unlinkedMode
+                      ? pm.invoiceLinkIntent === 'dedicated' ? "border-emerald-500/60 bg-emerald-500/5"
+                      : pm.invoiceLinkIntent === 'shared' ? "border-orange-400/60 bg-orange-400/5"
+                      : "border-[#7e3af2]/40 bg-[#7e3af2]/5"
+                      : "border-[#4C526B]"
+                  }`}>
                     {/* Header with remove button */}
                     {paymentMethods.length > 1 && (
                       <div className="flex items-center justify-between mb-[5px]">
@@ -5153,6 +5318,43 @@ function PaymentsPageInner() {
                         >
                           הסר
                         </Button>
+                      </div>
+                    )}
+
+                    {/* V/X invoice-link intent selector — only shown in unlinkedMode.
+                        V = a dedicated invoice will arrive for this split.
+                        X = this split is part of a multi-payment plan against
+                            one future invoice (all X-tagged splits in this form
+                            share the same shared_invoice_group_id at save time). */}
+                    {unlinkedMode && (
+                      <div className="flex items-center justify-between gap-[8px] bg-[#0f1535] border border-white/10 rounded-[8px] px-[10px] py-[6px]">
+                        <span className="text-[13px] text-white/70">קישור עתידי לחשבונית:</span>
+                        <div className="flex items-center gap-[6px]">
+                          <Button
+                            type="button"
+                            onClick={() => setPaymentMethods(prev => prev.map(p => p.id === pm.id ? { ...p, invoiceLinkIntent: p.invoiceLinkIntent === 'dedicated' ? null : 'dedicated' } : p))}
+                            className={`text-[14px] font-bold w-[36px] h-[32px] rounded-[6px] border transition-colors ${
+                              pm.invoiceLinkIntent === 'dedicated'
+                                ? "bg-emerald-500/30 border-emerald-400 text-emerald-200"
+                                : "bg-transparent border-white/20 text-white/50 hover:border-emerald-400/60 hover:text-emerald-300"
+                            }`}
+                            title="חשבונית נפרדת לתשלום זה"
+                          >
+                            V
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => setPaymentMethods(prev => prev.map(p => p.id === pm.id ? { ...p, invoiceLinkIntent: p.invoiceLinkIntent === 'shared' ? null : 'shared' } : p))}
+                            className={`text-[14px] font-bold w-[36px] h-[32px] rounded-[6px] border transition-colors ${
+                              pm.invoiceLinkIntent === 'shared'
+                                ? "bg-orange-400/30 border-orange-300 text-orange-200"
+                                : "bg-transparent border-white/20 text-white/50 hover:border-orange-300/60 hover:text-orange-300"
+                            }`}
+                            title="חלק מחשבונית משותפת (קיבוץ עם תשלומים אחרים על אותה חשבונית)"
+                          >
+                            X
+                          </Button>
+                        </div>
                       </div>
                     )}
 
