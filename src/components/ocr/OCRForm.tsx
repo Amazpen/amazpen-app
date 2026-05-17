@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { X } from 'lucide-react';
 import type { OCRDocument, OCRFormData, DocumentType, ExpenseType, OCRLineItem } from '@/types/ocr';
+import KartesetCheckPanel from '@/components/ocr/KartesetCheckPanel';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useFormDraft } from '@/hooks/useFormDraft';
 import { createClient } from '@/lib/supabase/client';
@@ -232,6 +233,10 @@ export default function OCRForm({
 
   // Form state
   const [documentType, setDocumentType] = useState<DocumentType>('invoice');
+  // Top-level view switch: the 4 document-type tabs all share documentType,
+  // but "בדיקת כרטסת" is a parallel tool (statement reconciliation) that
+  // takes over the form body without touching the doc-type selection.
+  const [activeView, setActiveView] = useState<'document' | 'karteset_check'>('document');
   const [expenseType, setExpenseType] = useState<ExpenseType>('goods');
   const [supplierId, setSupplierId] = useState('');
 
@@ -4954,9 +4959,9 @@ export default function OCRForm({
             key={tab.value}
             type="button"
             variant="ghost"
-            onClick={() => setDocumentType(tab.value)}
+            onClick={() => { setActiveView('document'); setDocumentType(tab.value); }}
             className={`flex-1 py-[12px] text-[12px] font-medium transition-colors ${
-              documentType === tab.value
+              activeView === 'document' && documentType === tab.value
                 ? 'text-white border-b-2 border-[#29318A] bg-[#29318A]/10'
                 : 'text-white/50 border-b-2 border-transparent hover:text-white/70'
             }`}
@@ -4964,6 +4969,19 @@ export default function OCRForm({
             {tab.label}
           </Button>
         ))}
+        {/* "בדיקת כרטסת" — statement reconciliation tool, not a doc type. */}
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setActiveView('karteset_check')}
+          className={`flex-1 py-[12px] text-[12px] font-medium transition-colors ${
+            activeView === 'karteset_check'
+              ? 'text-emerald-300 border-b-2 border-emerald-400 bg-emerald-500/10'
+              : 'text-white/50 border-b-2 border-transparent hover:text-white/70'
+          }`}
+        >
+          בדיקת כרטסת
+        </Button>
       </div>
 
       {/* Merge documents section */}
@@ -5243,10 +5261,20 @@ export default function OCRForm({
 
       {/* Form content - scrollable */}
       <div className="flex-1 overflow-y-auto px-4 py-4" dir="rtl">
-        {(documentType === 'invoice' || documentType === 'credit_note') && renderInvoiceForm()}
-        {documentType === 'payment' && renderPaymentForm()}
-        {documentType === 'summary' && renderSummaryForm()}
-        {documentType === 'daily_entry' && renderDailyEntryForm()}
+        {activeView === 'karteset_check' ? (
+          <KartesetCheckPanel
+            businessId={selectedBusinessId}
+            suppliers={suppliers.map(s => ({ id: s.id, name: s.name }))}
+            initialSupplierId={supplierId || undefined}
+          />
+        ) : (
+          <>
+            {(documentType === 'invoice' || documentType === 'credit_note') && renderInvoiceForm()}
+            {documentType === 'payment' && renderPaymentForm()}
+            {documentType === 'summary' && renderSummaryForm()}
+            {documentType === 'daily_entry' && renderDailyEntryForm()}
+          </>
+        )}
       </div>
 
       {/* Calculator popup — draggable */}
