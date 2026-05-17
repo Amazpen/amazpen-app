@@ -410,7 +410,13 @@ export default function SettingsPage() {
             />
           </div>
 
-          <p className="text-white/50 text-[12px]">לחץ על הכפתור להחלפת תמונת פרופיל</p>
+          <p className="text-white/50 text-[12px]">לחצו על כפתור המצלמה הכתום להחלפת תמונת הפרופיל</p>
+          {hasChanges && (
+            <p className="text-[#FFA412] text-[12px] mt-[8px] flex items-center gap-[6px]">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              יש שינויים שלא נשמרו — גללו למטה ולחצו &quot;שמור שינויים&quot;
+            </p>
+          )}
         </div>
 
         {/* Profile Info Section */}
@@ -632,7 +638,8 @@ export default function SettingsPage() {
           <>
             <div className="border-t border-white/10 my-[25px]" />
             <div id="onboarding-settings-businesses">
-              <h3 className="text-white text-[16px] font-bold mb-[12px]">עסקים</h3>
+              <h3 className="text-white text-[16px] font-bold mb-[4px]">העסקים שלי</h3>
+              <p className="text-white/50 text-[13px] mb-[12px]">העסקים שאליהם יש לכם גישה והתפקיד שלכם בכל אחד. לשינוי הרשאות פנו לבעלים של העסק.</p>
               <div className="space-y-[8px]">
                 {businesses.map((biz) => (
                   <div
@@ -654,8 +661,19 @@ export default function SettingsPage() {
         <div className="border-t border-white/10 my-[25px]" />
         <div>
           <div className="flex items-center justify-between mb-[4px]">
-            <h3 className="text-white text-[16px] font-bold">התראות פוש</h3>
-            {isSupported && (
+            <div className="flex items-center gap-[8px]">
+              <h3 className="text-white text-[16px] font-bold">התראות פוש</h3>
+              {isSupported && (
+                <span className={`text-[11px] font-medium px-[8px] py-[2px] rounded-full ${
+                  isSubscribed ? 'bg-[#3CD856]/15 text-[#3CD856]' :
+                  permission === 'denied' ? 'bg-[#F64E60]/15 text-[#F64E60]' :
+                  'bg-white/10 text-white/50'
+                }`}>
+                  {isSubscribed ? 'פעיל' : permission === 'denied' ? 'חסום' : 'כבוי'}
+                </span>
+              )}
+            </div>
+            {isSupported && permission !== 'denied' && (
               <Button
                 type="button"
                 variant="ghost"
@@ -665,11 +683,13 @@ export default function SettingsPage() {
                 disabled={pushLoading}
                 onClick={async () => {
                   if (isSubscribed) {
+                    const confirmed = window.confirm("לבטל את התראות הפוש? לא תקבלו עוד התראות גם כשהאפליקציה סגורה.");
+                    if (!confirmed) return;
                     const ok = await unsubscribe();
                     showToast(ok ? 'התראות פוש בוטלו' : 'שגיאה בביטול התראות', ok ? 'info' : 'error');
                   } else {
                     const ok = await subscribe();
-                    showToast(ok ? 'התראות פוש הופעלו!' : 'שגיאה בהפעלת התראות', ok ? 'success' : 'error');
+                    showToast(ok ? 'התראות פוש הופעלו!' : 'שגיאה בהפעלת התראות. ייתכן שחסום בהגדרות הדפדפן.', ok ? 'success' : 'error');
                   }
                 }}
                 className={`relative w-[52px] h-[28px] rounded-full transition-colors duration-200 p-0 ${pushLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isSubscribed ? 'bg-[#3CD856]' : 'bg-white/20'}`}
@@ -681,6 +701,14 @@ export default function SettingsPage() {
           <p className="text-white/50 text-[13px]">קבלו התראות גם כשהאפליקציה סגורה</p>
           {!isSupported && (
             <p className="text-white/40 text-[13px] mt-[8px]">הדפדפן אינו תומך בהתראות פוש</p>
+          )}
+          {isSupported && permission === 'denied' && (
+            <div className="mt-[8px] bg-[#F64E60]/10 border border-[#F64E60]/30 rounded-[8px] px-[12px] py-[10px]">
+              <p className="text-[#F64E60] text-[13px] font-medium mb-[4px]">ההתראות חסומות בדפדפן</p>
+              <p className="text-white/60 text-[12px] leading-[1.5]">
+                לחצו על סמל ההגדרות 🔒 בכתובת האתר → התראות → אפשרו, ואז רעננו את הדף.
+              </p>
+            </div>
           )}
         </div>
 
