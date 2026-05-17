@@ -227,6 +227,10 @@ export default function SuppliersPage() {
   const [expandedSupplierPaymentId, setExpandedSupplierPaymentId] = useState<string | null>(null);
   const [supplierInvoicesLimit, setSupplierInvoicesLimit] = useState<number>(20);
   const [supplierInvoicesHasMore, setSupplierInvoicesHasMore] = useState<boolean>(false);
+  // Default-show only unpaid invoices in the supplier detail invoices tab —
+  // the supplier card is for actionable balance ("what still needs paying"),
+  // not a full audit log. Toggle re-includes paid rows on demand.
+  const [showOnlyUnpaidInvoices, setShowOnlyUnpaidInvoices] = useState<boolean>(true);
   const [isLoadingMoreInvoices, setIsLoadingMoreInvoices] = useState<boolean>(false);
   const supplierInvoicesLimitRef = useRef<number>(20);
   useEffect(() => { supplierInvoicesLimitRef.current = supplierInvoicesLimit; }, [supplierInvoicesLimit]);
@@ -3514,6 +3518,18 @@ export default function SuppliersPage() {
               {/* Invoices Table */}
               {detailActiveTab === "invoices" && (
                 <div className="w-full flex flex-col gap-[5px]">
+                  {/* Filter toggle */}
+                  <div className="flex items-center justify-end gap-[8px] pb-[5px]">
+                    <label className="flex items-center gap-[6px] cursor-pointer text-[12px] text-white/70 hover:text-white">
+                      <input
+                        type="checkbox"
+                        checked={showOnlyUnpaidInvoices}
+                        onChange={(e) => setShowOnlyUnpaidInvoices(e.target.checked)}
+                        className="w-[14px] h-[14px] accent-[#3F97FF]"
+                      />
+                      <span>הצג רק לא שולמו{showOnlyUnpaidInvoices && supplierInvoices.filter(i => i.status === "paid").length > 0 ? ` (${supplierInvoices.filter(i => i.status === "paid").length} מוסתרות)` : ""}</span>
+                    </label>
+                  </div>
                   {/* Table Header */}
                   <div className="grid grid-cols-[0.7fr_0.9fr_0.7fr_0.7fr_0.7fr] bg-white/5 rounded-t-[7px] p-[10px_5px] items-center">
                     <span className="text-[12px] font-medium text-center">תאריך</span>
@@ -3537,12 +3553,16 @@ export default function SuppliersPage() {
                           </div>
                         </div>
                       ))
-                    ) : supplierInvoices.length === 0 ? (
+                    ) : (showOnlyUnpaidInvoices ? supplierInvoices.filter(i => i.status !== "paid") : supplierInvoices).length === 0 ? (
                       <div className="flex items-center justify-center py-[30px]">
-                        <span className="text-[14px] text-white/50">אין חשבוניות להצגה</span>
+                        <span className="text-[14px] text-white/50">
+                          {showOnlyUnpaidInvoices && supplierInvoices.length > 0
+                            ? "אין חשבוניות לא שולמו"
+                            : "אין חשבוניות להצגה"}
+                        </span>
                       </div>
                     ) : (
-                      supplierInvoices.map((invoice) => (
+                      (showOnlyUnpaidInvoices ? supplierInvoices.filter(i => i.status !== "paid") : supplierInvoices).map((invoice) => (
                         <div
                           key={invoice.id}
                           className={`rounded-[7px] p-[7px_3px] transition-colors ${
