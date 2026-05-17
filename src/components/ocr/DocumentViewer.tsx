@@ -56,10 +56,18 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
     setImageError(false);
   }, [currentPageIndex]);
 
-  // Reset page index when URLs change
+  // Reset page index when the actual URL list changes — compare by value,
+  // not by reference. The parent rebuilds `imageUrls` as a new array literal
+  // on every render (and the OCR queue's realtime subscription triggers
+  // re-renders every few seconds even when the document hasn't changed),
+  // so a naive `[imageUrls, imageUrl]` dep would yank the user back to
+  // page 1 mid-flip. Join into a stable key so the effect fires only when
+  // the underlying URLs really differ.
+  const urlsKey = (resolvedUrls.length ? resolvedUrls : [imageUrl || ""]).join("|");
   useEffect(() => {
     setCurrentPageIndex(0);
-  }, [imageUrls, imageUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlsKey]);
 
   const handlePrevPage = useCallback(() => {
     setCurrentPageIndex(prev => Math.max(0, prev - 1));
