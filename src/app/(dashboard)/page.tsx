@@ -545,9 +545,8 @@ export default function DashboardPage() {
         // hundreds of thousands.
         supabase
           .from("supplier_balance")
-          .select("supplier_id, pending_balance, supplier:suppliers!inner(expense_type)")
-          .eq("business_id", businessId)
-          .in("supplier.expense_type", ["goods_purchases", "current_expenses"]),
+          .select("supplier_id, pending_balance")
+          .eq("business_id", businessId),
         // All prior commitments (from prior_commitments table)
         supabase
           .from("prior_commitments")
@@ -560,8 +559,14 @@ export default function DashboardPage() {
         (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
       );
       // Per-supplier max(0, pending_balance), exactly like the suppliers page.
+      // We filter to goods + current expenses suppliers client-side because
+      // PostgREST's embedded `!inner` filter against the supplier_balance
+      // VIEW silently returned zero rows (FK relationships aren't inferred
+      // through views the same way as tables).
       let openSuppliersTotal = 0;
       for (const row of (supplierBalanceResult.data || []) as Record<string, unknown>[]) {
+        const sid = String(row.supplier_id);
+        if (!goodsSupplierIdSet.has(sid) && !currentExpensesSupplierIdSet.has(sid)) continue;
         const balance = Number(row.pending_balance) || 0;
         if (balance > 0) openSuppliersTotal += balance;
       }
