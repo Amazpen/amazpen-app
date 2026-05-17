@@ -2974,12 +2974,13 @@ function ExpensesPageInner() {
     else if (supplier?.expense_type === "employee_costs") setExpenseType("employees");
     else setExpenseType("current");
     // Pre-fill VAT from the existing invoice; enable manual mode when the saved VAT differs from auto-calc.
-    const existingVat = Math.max(0, (invoice.amountWithVat || 0) - (invoice.amountBeforeVat || 0));
+    // Credit notes have negative amounts — preserve sign so we don't lose the VAT row.
+    const existingVat = (invoice.amountWithVat || 0) - (invoice.amountBeforeVat || 0);
     const autoCalcVat = (invoice.amountBeforeVat || 0) * businessVatRate;
     const vatMismatch = Math.abs(existingVat - autoCalcVat) > 0.01;
     if (supplier?.vat_type === "none" || vatMismatch) {
       setPartialVat(true);
-      setVatAmount(existingVat.toFixed(2));
+      setVatAmount(Math.abs(existingVat).toFixed(2));
     } else {
       setPartialVat(false);
       setVatAmount("");
@@ -3035,8 +3036,13 @@ function ExpensesPageInner() {
     const supabase = createClient();
 
     try {
-      const calculatedVatEdit = partialVat ? parseFloat(vatAmount) || 0 : (parseFloat(amountBeforeVat) || 0) * businessVatRate;
-      const totalWithVatEdit = (parseFloat(amountBeforeVat) || 0) + calculatedVatEdit;
+      const amountBeforeVatEdit = parseFloat(amountBeforeVat) || 0;
+      // Credit notes: amountBeforeVat is negative — match the VAT sign so the saved total stays negative.
+      const vatSign = amountBeforeVatEdit < 0 ? -1 : 1;
+      const calculatedVatEdit = partialVat
+        ? (parseFloat(vatAmount) || 0) * vatSign
+        : amountBeforeVatEdit * businessVatRate;
+      const totalWithVatEdit = amountBeforeVatEdit + calculatedVatEdit;
 
       // Build final attachment URLs list from existing previews + new uploads
       const finalUrls: string[] = [...editAttachmentPreviews.filter(u => u.startsWith("http"))];

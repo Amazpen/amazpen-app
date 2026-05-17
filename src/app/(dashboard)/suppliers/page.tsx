@@ -1532,26 +1532,26 @@ export default function SuppliersPage() {
       const monthlyData = await fetchMonthlyData(supplier, new Date(now.getFullYear(), now.getMonth(), 1));
 
       // Fetch last 6 months breakdown.
-      // "שולם" = `monthlyPaid` (allocations against THAT month's invoices) —
-      //   keeps back-payments bookkept against the month they actually
-      //   settled (David #14: previously used paymentsInMonthTotal and
-      //   January looked like a -75K credit because of an 88K Oct–Dec
-      //   back-payment).
-      // "יתרה" = open invoices (pending/clarification) for the month —
-      //   matches the "יתרה לתשלום" pill at the top, and survives imported
-      //   payments that have no link row.
+      // "שולם" = `paymentsInMonthTotal` (payments whose payment_date falls in
+      //   the month) — answers "how much money went out this month from this
+      //   supplier" regardless of which invoice it settled. The prior
+      //   per-invoice-month logic always showed paid == purchases for
+      //   imported suppliers where every invoice is status=paid, hiding the
+      //   actual cash-out timing.
+      // "יתרה" = monthly purchases minus monthly payments — a straight
+      //   month-by-month delta that matches the column labels.
       const breakdownMonths: Array<{ month: string; monthKey: string; purchases: number; paid: number; amountToPay: number }> = [];
       for (let i = 0; i < 6; i++) {
         const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const mData = await fetchMonthlyData(supplier, mDate);
-        const hasActivity = mData.monthlyPurchases !== 0 || mData.monthlyPaid !== 0;
+        const hasActivity = mData.monthlyPurchases !== 0 || mData.paymentsInMonthTotal !== 0;
         if (hasActivity) {
           breakdownMonths.push({
             month: mDate.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
             monthKey: `${mDate.getFullYear()}-${String(mDate.getMonth() + 1).padStart(2, '0')}`,
             purchases: mData.monthlyPurchases,
-            paid: mData.monthlyPaid,
-            amountToPay: mData.amountToPay,
+            paid: mData.paymentsInMonthTotal,
+            amountToPay: mData.monthlyPurchases - mData.paymentsInMonthTotal,
           });
         }
       }
@@ -1879,13 +1879,13 @@ export default function SuppliersPage() {
       for (let i = 0; i < 6; i++) {
         const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const mData = await fetchMonthlyData(selectedSupplier, mDate);
-        if (mData.monthlyPurchases !== 0 || mData.monthlyPaid !== 0) {
+        if (mData.monthlyPurchases !== 0 || mData.paymentsInMonthTotal !== 0) {
           breakdown.push({
             month: mDate.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
             monthKey: `${mDate.getFullYear()}-${String(mDate.getMonth() + 1).padStart(2, '0')}`,
             purchases: mData.monthlyPurchases,
-            paid: mData.monthlyPaid,
-            amountToPay: mData.amountToPay,
+            paid: mData.paymentsInMonthTotal,
+            amountToPay: mData.monthlyPurchases - mData.paymentsInMonthTotal,
           });
         }
       }
