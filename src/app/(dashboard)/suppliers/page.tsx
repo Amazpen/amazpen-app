@@ -2280,14 +2280,26 @@ export default function SuppliersPage() {
             </svg>
           </Button>
           {isSearchOpen ? (
-            <Input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="חיפוש ספק..."
-              className="bg-[#29318A]/30 border border-[#6B6B6B] rounded-[7px] px-[12px] py-[6px] text-white text-[14px] placeholder:text-white/50 focus:outline-none focus:border-[#29318A] flex-1 text-right"
-              autoFocus
-            />
+            <div className="relative flex-1">
+              <Input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="חיפוש ספק..."
+                className="bg-[#29318A]/30 border border-[#6B6B6B] rounded-[7px] px-[12px] py-[6px] ps-[34px] text-white text-[14px] placeholder:text-white/50 focus:outline-none focus:border-[#29318A] w-full text-right"
+                autoFocus
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  title="נקה חיפוש"
+                  className="absolute start-[8px] top-1/2 -translate-y-1/2 w-[20px] h-[20px] flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+                >
+                  <X className="w-[14px] h-[14px]" />
+                </button>
+              )}
+            </div>
           ) : (
             <span className="text-[18px] font-bold text-white flex items-center gap-[6px]">{activeTab === "previous" ? `${suppliersCount} התחייבויות קודמות` : `${suppliersCount} ספקים`}</span>
           )}
