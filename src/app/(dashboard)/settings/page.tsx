@@ -250,6 +250,7 @@ export default function SettingsPage() {
   const hasChanges = fullName.trim() !== (profile?.full_name || "") || phone.trim() !== (profile?.phone || "");
 
   const roleLabels: Record<string, string> = {
+    admin: "מנהל מערכת",
     owner: "בעלים",
     manager: "מנהל",
     employee: "עובד",
