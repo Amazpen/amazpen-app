@@ -3060,9 +3060,14 @@ function ExpensesPageInner() {
       const amountBeforeVatEdit = parseFloat(amountBeforeVat) || 0;
       // Credit notes: amountBeforeVat is negative — match the VAT sign so the saved total stays negative.
       const vatSign = amountBeforeVatEdit < 0 ? -1 : 1;
+      // "מע"מ 2/3" suppliers: reclaim is only 2/3 of the business rate.
+      const editingSupplierVatType = suppliers.find(s => s.id === selectedSupplier)?.vat_type;
+      const editEffectiveVatRate = editingSupplierVatType === "two_thirds"
+        ? businessVatRate * (2 / 3)
+        : businessVatRate;
       const calculatedVatEdit = partialVat
         ? (parseFloat(vatAmount) || 0) * vatSign
-        : amountBeforeVatEdit * businessVatRate;
+        : amountBeforeVatEdit * editEffectiveVatRate;
       const totalWithVatEdit = amountBeforeVatEdit + calculatedVatEdit;
 
       // Build final attachment URLs list from existing previews + new uploads
@@ -5907,7 +5912,9 @@ function ExpensesPageInner() {
                         const vat = parseFloat(vatAmount) || 0;
                         newBeforeVat = total - vat;
                       } else {
-                        newBeforeVat = total / (1 + businessVatRate);
+                        // effectiveVatRate already accounts for "מע"מ 2/3"
+                        // suppliers (×2/3 of the business rate).
+                        newBeforeVat = total / (1 + effectiveVatRate);
                       }
                       setAmountBeforeVat(newBeforeVat.toFixed(2));
                     }}
@@ -6750,7 +6757,9 @@ function ExpensesPageInner() {
                         const vat = parseFloat(vatAmount) || 0;
                         newBeforeVat = total - vat;
                       } else {
-                        newBeforeVat = total / (1 + businessVatRate);
+                        // effectiveVatRate already accounts for "מע"מ 2/3"
+                        // suppliers (×2/3 of the business rate).
+                        newBeforeVat = total / (1 + effectiveVatRate);
                       }
                       setAmountBeforeVat(newBeforeVat.toFixed(2));
                     }}
@@ -6847,7 +6856,7 @@ function ExpensesPageInner() {
                           ? getSmartPaymentDate(defaultMethod, expenseDate, defaultCardId || undefined)
                           : toLocalDateStr(new Date());
                         setPaymentDate(smartDate);
-                        const editTotal = (parseFloat(amountBeforeVat) || 0) + (partialVat ? (parseFloat(vatAmount) || 0) : ((parseFloat(amountBeforeVat) || 0) * businessVatRate));
+                        const editTotal = (parseFloat(amountBeforeVat) || 0) + (partialVat ? (parseFloat(vatAmount) || 0) : ((parseFloat(amountBeforeVat) || 0) * effectiveVatRate));
                         const roundedTotal = Math.round(editTotal * 100) / 100;
                         const amount = roundedTotal > 0 ? roundedTotal.toFixed(2) : "";
                         setPopupPaymentMethods([{

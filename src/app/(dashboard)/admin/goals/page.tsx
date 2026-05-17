@@ -642,7 +642,12 @@ export default function AdminGoalsPage() {
 
       if (existingInvoices && existingInvoices.length > 0) {
         const subtotal = b.budget_amount;
-        const vatAmount = supplier.vat_type === "full" ? subtotal * 0.18 : 0;
+        // "מע"מ 2/3" (Israeli vehicle-expense rule): reclaim 2/3 of the VAT.
+        const vatAmount = supplier.vat_type === "full"
+          ? subtotal * 0.18
+          : supplier.vat_type === "two_thirds"
+            ? subtotal * 0.18 * (2 / 3)
+            : 0;
         const newTotal = subtotal + vatAmount;
         const existingTotal = existingInvoices.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
 
@@ -708,7 +713,9 @@ export default function AdminGoalsPage() {
           // using the same vat assumption the detector used.
           const subtotal = supplier.vat_type === "full"
             ? c.existingTotal / 1.18
-            : c.existingTotal;
+            : supplier.vat_type === "two_thirds"
+              ? c.existingTotal / (1 + 0.18 * (2 / 3))
+              : c.existingTotal;
           skippedBudgetOverrides.set(key, Math.round(subtotal * 100) / 100);
         }
       }
@@ -783,7 +790,12 @@ export default function AdminGoalsPage() {
         if (skippedBudgetOverrides.has(`${b.supplier_id}|${b.month}`)) continue;
 
         const subtotal = b.budget_amount;
-        const vatAmount = supplier.vat_type === "full" ? subtotal * 0.18 : 0;
+        // "מע"מ 2/3" (Israeli vehicle-expense rule): reclaim 2/3 of the VAT.
+        const vatAmount = supplier.vat_type === "full"
+          ? subtotal * 0.18
+          : supplier.vat_type === "two_thirds"
+            ? subtotal * 0.18 * (2 / 3)
+            : 0;
         const totalAmount = subtotal + vatAmount;
 
         const monthStart = `${b.year || selectedYear}-${String(b.month).padStart(2, "0")}-01`;

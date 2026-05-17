@@ -734,7 +734,7 @@ ${getRoleInstructions(userRole)}
   invoices.status: 'pending' | 'paid' | 'clarification' (בבירור — חשבונית שלא מאושרת לתשלום)
   invoices.invoice_type: 'current' | 'goods'
   payment_splits.payment_method: 'credit_card' | 'check' | 'cash' | 'standing_order' | 'paybox'
-  suppliers.vat_type: 'full' | 'none'
+  suppliers.vat_type: 'full' | 'none' | 'partial' | 'two_thirds' (vehicle expenses: reclaim 2/3 of VAT)
 - **תשלומים ותזרים:** כשהמשתמש שואל "כמה שילמנו החודש" / "כמה כסף יצא" / תזרים מזומנים — סנן לפי payment_splits.due_date (תאריך הורדת הכסף מהבנק), לא לפי payments.payment_date (תאריך הרישום). JOIN עם payments דרך payment_id.
 - **סינון תאריכים לחודש:** השתמש ב-BETWEEN 'YYYY-MM-01' AND 'YYYY-MM-28/29/30/31' או: EXTRACT(YEAR FROM date_col)=YYYY AND EXTRACT(MONTH FROM date_col)=MM.
 - **⚠️ כלל ברזל — reference_date, לא invoice_date!** כששואלים על הוצאות/חשבוניות של חודש מסוים, **חובה** לסנן לפי **i.reference_date** ולא i.invoice_date. reference_date הוא התאריך שמשמש את האפליקציה. שימוש ב-invoice_date יגרום למספרים שונים ממה שהמשתמש רואה בדשבורד!
@@ -1107,7 +1107,7 @@ GROUP BY s.name, inv.total_invoiced, inv.clarification_amount, pay.total_paid, i
 --   expense_type (text: 'goods_purchases'|'current_expenses'),
 --   expense_category_id (uuid FK→expense_categories), parent_category_id (uuid FK→expense_categories),
 --   expense_nature (text), contact_name (text), phone (text), email (text), tax_id (text),
---   payment_terms_days (int), requires_vat (boolean), vat_type (text: 'full'|'none'),
+--   payment_terms_days (int), requires_vat (boolean), vat_type (text: 'full'|'none'|'partial'|'two_thirds'),
 --   is_fixed_expense (boolean), monthly_expense_amount (numeric),
 --   default_payment_method (text), default_credit_card_id (uuid FK→business_credit_cards),
 --   charge_day (int), is_active (boolean),
