@@ -2702,6 +2702,24 @@ export default function OCRForm({
             valueDateManuallySet.current = true;
           }}
         />
+        {(() => {
+          // Stale-year warning: OCR occasionally pulls a date from a prior
+          // year (handwritten/blurry digits, or a date printed elsewhere on
+          // the document). Flag it so the user notices before saving — does
+          // not block submission.
+          if (!documentDate) return null;
+          const parsed = new Date(documentDate);
+          if (Number.isNaN(parsed.getTime())) return null;
+          const docYear = parsed.getFullYear();
+          const currentYear = new Date().getFullYear();
+          if (docYear >= currentYear) return null;
+          const yearsBack = currentYear - docYear;
+          return (
+            <span className="text-[12px] text-[#F2C94C] font-medium text-right">
+              ⚠️ תאריך משנה {docYear} ({yearsBack === 1 ? 'שנה' : `${yearsBack} שנים`} אחורה) — לאמת מול המסמך
+            </span>
+          );
+        })()}
         <span className="text-[12px] text-white/50 text-right">עבור הנהלת חשבונות</span>
       </div>
 
