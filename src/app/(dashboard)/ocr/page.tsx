@@ -423,6 +423,35 @@ export default function OCRPage() {
     }
   }, [selectedBusinessId, currentDocument]);
 
+  // Direct business reassignment from the card's business-name dropdown.
+  // Lets the admin move a document to ANY business in one click without
+  // first having to set the picker at the top of the form — David found the
+  // existing "✓ שייך לעסק הנבחר" affordance confusing because clicking a
+  // card also retargets the picker to the card's current business, which
+  // hides the confirm button (David: "I press the doc and the confirm
+  // disappears"). Replacing that flow with a per-card dropdown side-steps
+  // the issue: source-of-truth for assignment lives on the card itself.
+  const handleReassignBusinessForDoc = useCallback(async (document: OCRDocument, newBusinessId: string) => {
+    if (!newBusinessId) return;
+    if (document.business_id === newBusinessId) return;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('ocr_documents')
+      .update({ business_id: newBusinessId, updated_at: new Date().toISOString() })
+      .eq('id', document.id);
+    if (error) {
+      console.error('Failed to reassign business for OCR doc:', error);
+      return;
+    }
+    setDocuments(prev => prev.map(d => d.id === document.id ? { ...d, business_id: newBusinessId } : d));
+    if (currentDocument?.id === document.id) {
+      setCurrentDocument(prev => prev ? { ...prev, business_id: newBusinessId } : prev);
+      // Keep the form picker in sync with the open doc — clicking through
+      // the dropdown on the active card otherwise leaves the picker stale.
+      setSelectedBusinessId(newBusinessId);
+    }
+  }, [currentDocument, setSelectedBusinessId]);
+
   // Handle form approval - saves to Supabase based on document type
   const handleApprove = useCallback(
     async (formData: OCRFormData) => {
@@ -1612,6 +1641,7 @@ export default function OCRPage() {
               onBusinessFilterChange={setBusinessFilter}
               targetBusinessId={selectedBusinessId}
               onConfirmBusiness={handleConfirmBusinessForDoc}
+              onReassignBusiness={handleReassignBusinessForDoc}
             />
           )}
         </div>

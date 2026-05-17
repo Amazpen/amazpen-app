@@ -2233,6 +2233,7 @@ export default function DashboardPage() {
         historicalEntriesResult,
         historicalGoalsResult,
         historicalGoodsInvoicesResult,
+        historicalGoodsDeliveryNotesResult,
         historicalBreakdownResult,
         historicalProductUsageResult,
         historicalDayExceptionsResult
@@ -2254,15 +2255,32 @@ export default function DashboardPage() {
           .gte("year", historicalStartDate.getFullYear())
           .is("deleted_at", null),
 
-        // All goods invoices for last 6 months — supplier filter applied in memory
+        // All goods invoices for last 6 months — supplier filter applied in
+        // memory. Select reference_date too so the chart can bucket the same
+        // way the dashboard card does (it groups by reference_date, falling
+        // back to invoice_date) — without it the chart was missing invoices
+        // whose value-date sat in a different month than their issue-date.
         goodsSupplierIds.length > 0
           ? supabase
               .from("invoices")
-              .select("supplier_id, business_id, invoice_date, subtotal")
+              .select("supplier_id, business_id, invoice_date, reference_date, subtotal")
               .in("business_id", selectedBusinesses)
               .gte("reference_date", historicalStartStr)
               .lte("reference_date", historicalEndStr)
               .is("deleted_at", null)
+          : Promise.resolve({ data: [] }),
+
+        // All unlinked goods delivery notes for last 6 months — the dashboard
+        // card includes these in `totalGoodsPurchases`. Omitting them here is
+        // why the chart's food-cost % for May was lower than the card's.
+        goodsSupplierIds.length > 0
+          ? supabase
+              .from("delivery_notes")
+              .select("supplier_id, business_id, delivery_date, subtotal")
+              .in("business_id", selectedBusinesses)
+              .gte("delivery_date", historicalStartStr)
+              .lte("delivery_date", historicalEndStr)
+              .is("invoice_id", null)
           : Promise.resolve({ data: [] }),
 
         // All income breakdowns (we'll filter by entry IDs after)
@@ -2291,8 +2309,30 @@ export default function DashboardPage() {
       const historicalGoals = historicalGoalsResult.data || [];
       // Filter goods invoices by goods supplier set in memory
       // (query was on business_id only — see goods-purchases query above).
-      const historicalGoodsInvoices = ((historicalGoodsInvoicesResult.data as Array<{ supplier_id: string; business_id: string; invoice_date: string; subtotal: number }>) || [])
-        .filter(row => goodsSupplierIdSetForFilter.has(row.supplier_id));
+      // Use reference_date as the bucketing date (matches the card's
+      // gte/lte filter); fall back to invoice_date when reference_date is
+      // missing on a legacy row.
+      const historicalGoodsInvoices = ((historicalGoodsInvoicesResult.data as Array<{ supplier_id: string; business_id: string; invoice_date: string; reference_date: string | null; subtotal: number }>) || [])
+        .filter(row => goodsSupplierIdSetForFilter.has(row.supplier_id))
+        .map(row => ({
+          supplier_id: row.supplier_id,
+          business_id: row.business_id,
+          // Normalise to a single date field so downstream grouping doesn't
+          // have to branch on which one to use.
+          invoice_date: row.reference_date || row.invoice_date,
+          subtotal: row.subtotal,
+        }));
+      // Merge unlinked goods delivery notes into the same shape so they
+      // bucket into the same month as their delivery_date.
+      const historicalGoodsDNs = ((historicalGoodsDeliveryNotesResult.data as Array<{ supplier_id: string; business_id: string; delivery_date: string; subtotal: number }>) || [])
+        .filter(row => goodsSupplierIdSetForFilter.has(row.supplier_id))
+        .map(row => ({
+          supplier_id: row.supplier_id,
+          business_id: row.business_id,
+          invoice_date: row.delivery_date,
+          subtotal: row.subtotal,
+        }));
+      const historicalGoodsCombined = [...historicalGoodsInvoices, ...historicalGoodsDNs];
       const allBreakdownData = historicalBreakdownResult.data || [];
       const allProductUsageData = historicalProductUsageResult.data || [];
       // Build historical exception map
@@ -2324,9 +2364,10 @@ export default function DashboardPage() {
         entriesByMonth[monthKey].push(entry);
       });
 
-      // Group invoices by month
-      const invoicesByMonth: Record<string, typeof historicalGoodsInvoices> = {};
-      historicalGoodsInvoices.forEach(inv => {
+      // Group invoices+DNs by month — keyed by the normalised date field
+      // above, so the bucket lines up with `totalGoodsPurchases` on the card.
+      const invoicesByMonth: Record<string, typeof historicalGoodsCombined> = {};
+      historicalGoodsCombined.forEach(inv => {
         const monthKey = getMonthKey(inv.invoice_date);
         if (!invoicesByMonth[monthKey]) invoicesByMonth[monthKey] = [];
         invoicesByMonth[monthKey].push(inv);

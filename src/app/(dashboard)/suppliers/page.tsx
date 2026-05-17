@@ -135,10 +135,16 @@ export default function SuppliersPage() {
   const [isAddSupplierModalOpen, setIsAddSupplierModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  // Separate counter for the open supplier-detail card. Bumping it from
+  // realtime forces the popup to re-pull its aggregates, monthly breakdown,
+  // and invoice/payment lists so editing/deleting a payment elsewhere is
+  // reflected without having to close and reopen the card.
+  const [detailRefreshTrigger, setDetailRefreshTrigger] = useState(0);
 
   // Realtime subscription
   const handleRealtimeChange = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
+    setDetailRefreshTrigger(prev => prev + 1);
   }, []);
 
   useMultiTableRealtime(
@@ -1806,6 +1812,84 @@ export default function SuppliersPage() {
       setIsLoadingSupplierDetail(false);
     }
   };
+
+  // Refresh the open supplier-detail card in place (preserves the
+  // currently-viewed month). Called whenever realtime fires on
+  // invoices/payments so that editing/deleting a payment elsewhere is
+  // reflected without forcing the user to close and reopen the card.
+  const refreshOpenSupplierDetail = useCallback(async () => {
+    if (!selectedSupplier || !showSupplierDetailPopup) return;
+    const supabase = createClient();
+    try {
+      const [{ data: invoicesData }, { data: unlinkedDnData }, { data: paymentsData }] = await Promise.all([
+        supabase
+          .from("invoices")
+          .select("subtotal, total_amount, status, amount_paid")
+          .eq("supplier_id", selectedSupplier.id)
+          .is("deleted_at", null),
+        supabase
+          .from("delivery_notes")
+          .select("total_amount")
+          .eq("supplier_id", selectedSupplier.id)
+          .is("invoice_id", null),
+        supabase
+          .from("payments")
+          .select("total_amount")
+          .eq("supplier_id", selectedSupplier.id)
+          .is("deleted_at", null),
+      ]);
+      const invSum = invoicesData?.reduce((s, i) => s + Number(i.total_amount), 0) || 0;
+      const dnSum = unlinkedDnData?.reduce((s, d) => s + Number(d.total_amount), 0) || 0;
+      const openInvoicesTotal =
+        (invoicesData?.filter(i => i.status === "pending" || i.status === "clarification")
+          .reduce((s, i) => s + Number(i.total_amount), 0) || 0) + dnSum;
+      const totalPaid = paymentsData?.reduce((s, p) => s + Number(p.total_amount), 0) || 0;
+
+      let displayTotalPurchases = invSum + dnSum;
+      const advance = Math.max(0, totalPaid - displayTotalPurchases);
+      let displayRemainingBalance = openInvoicesTotal - advance;
+      if (selectedSupplier.has_previous_obligations && selectedSupplier.obligation_total_amount) {
+        displayTotalPurchases = selectedSupplier.obligation_total_amount;
+        displayRemainingBalance = selectedSupplier.obligation_total_amount - totalPaid;
+      }
+
+      const monthlyData = await fetchMonthlyData(selectedSupplier, detailMonth);
+      setSupplierDetailData({
+        totalPurchases: displayTotalPurchases,
+        totalPaid,
+        remainingBalance: displayRemainingBalance,
+        monthlyData,
+      });
+
+      // Refresh the last-6-months breakdown too — a deleted payment can flip
+      // a month's status counters.
+      const now = new Date();
+      const breakdown: Array<{ month: string; monthKey: string; purchases: number; paid: number; amountToPay: number }> = [];
+      for (let i = 0; i < 6; i++) {
+        const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const mData = await fetchMonthlyData(selectedSupplier, mDate);
+        if (mData.monthlyPurchases !== 0 || mData.monthlyPaid !== 0) {
+          breakdown.push({
+            month: mDate.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
+            monthKey: `${mDate.getFullYear()}-${String(mDate.getMonth() + 1).padStart(2, '0')}`,
+            purchases: mData.monthlyPurchases,
+            paid: mData.monthlyPaid,
+            amountToPay: mData.amountToPay,
+          });
+        }
+      }
+      setMonthlyBreakdown(breakdown);
+    } catch (err) {
+      console.error("refreshOpenSupplierDetail error:", err);
+    }
+  }, [selectedSupplier, showSupplierDetailPopup, detailMonth, fetchMonthlyData]);
+
+  // Refresh the open card when realtime fires (invoices/payments/links changed
+  // elsewhere — e.g. user deleted a payment in /payments and switched back).
+  useEffect(() => {
+    if (detailRefreshTrigger === 0) return;
+    refreshOpenSupplierDetail();
+  }, [detailRefreshTrigger, refreshOpenSupplierDetail]);
 
   // Handle closing supplier detail popup
   const handleCloseSupplierDetail = () => {

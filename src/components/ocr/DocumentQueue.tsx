@@ -32,6 +32,12 @@ interface DocumentQueueProps {
    * the document to targetBusinessId.
    */
   onConfirmBusiness?: (document: OCRDocument) => void;
+  /**
+   * Direct reassignment from the per-card business-name dropdown. Replaces
+   * the older "select-then-confirm" two-step (which broke as soon as the
+   * admin clicked the card and the picker followed along).
+   */
+  onReassignBusiness?: (document: OCRDocument, newBusinessId: string) => void;
 }
 
 // 'reviewing' removed from the filter list — selecting a document no longer
@@ -57,6 +63,7 @@ export default function DocumentQueue({
   onBusinessFilterChange,
   targetBusinessId,
   onConfirmBusiness,
+  onReassignBusiness,
 }: DocumentQueueProps) {
   // Map business_id -> name for card lookups
   const businessNameById = new Map(businesses.map(b => [b.id, b.name]));
@@ -370,6 +377,8 @@ export default function DocumentQueue({
                   targetBusinessId={targetBusinessId}
                   targetBusinessName={targetBusinessId ? businessNameById.get(targetBusinessId) : undefined}
                   onConfirmBusiness={onConfirmBusiness}
+                  onReassignBusiness={onReassignBusiness}
+                  businesses={businesses}
                 />
               ))
             )}
@@ -498,6 +507,10 @@ interface DocumentCardProps {
   targetBusinessName?: string;
   /** Reassigns the doc's business_id to targetBusinessId. */
   onConfirmBusiness?: (document: OCRDocument) => void;
+  /** Full business list used to render the per-card reassignment dropdown. */
+  businesses?: QueueBusiness[];
+  /** Direct reassignment from the card's business-name dropdown. */
+  onReassignBusiness?: (document: OCRDocument, newBusinessId: string) => void;
 }
 
 // Format upload time: "לפני 3 שעות" / "לפני 2 ימים" / DD/MM HH:mm
@@ -542,10 +555,25 @@ function PdfThumbnail({ url: _url }: { url: string }) {
 }
 
 // Horizontal card for bottom queue
-function DocumentCard({ document, isSelected, onClick, businessName, serial, targetBusinessId, targetBusinessName, onConfirmBusiness }: DocumentCardProps) {
+function DocumentCard({ document, isSelected, onClick, businessName, serial, targetBusinessId, targetBusinessName, onConfirmBusiness, businesses, onReassignBusiness }: DocumentCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const isPdf = isPdfDocument(document);
+
+  // Per-card business-name dropdown (mirrors the vertical card).
+  const [bizMenuOpen, setBizMenuOpen] = useState(false);
+  const bizMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!bizMenuOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (bizMenuRef.current && !bizMenuRef.current.contains(e.target as Node)) {
+        setBizMenuOpen(false);
+      }
+    };
+    window.document.addEventListener('mousedown', onDocClick);
+    return () => window.document.removeEventListener('mousedown', onDocClick);
+  }, [bizMenuOpen]);
+  const canReassign = !!(onReassignBusiness && businesses && businesses.length > 0);
 
   const showConfirmButton = !!(
     onConfirmBusiness &&
@@ -625,10 +653,53 @@ function DocumentCard({ document, isSelected, onClick, businessName, serial, tar
 
       {/* Info */}
       <div className="p-2 bg-[#0F1535]">
-        {/* Business name - primary label */}
-        <p className="text-[12px] font-semibold text-white truncate" title={businessName || 'עסק לא ידוע'}>
-          {businessName || 'עסק לא ידוע'}
-        </p>
+        {/* Business name — clickable dropdown when reassignment is available */}
+        {canReassign ? (
+          <div className="relative" ref={bizMenuRef}>
+            <button
+              type="button"
+              title={`שייך לעסק (${businessName || 'עסק לא ידוע'})`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setBizMenuOpen(o => !o);
+              }}
+              className="w-full flex items-center gap-1 text-[12px] font-semibold text-white truncate text-right px-1 py-[2px] rounded border border-dashed border-white/20 hover:border-white/40 hover:bg-white/[0.04] transition-colors"
+            >
+              <span className="flex-1 truncate text-right">{businessName || 'עסק לא ידוע'}</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="flex-shrink-0 opacity-70">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {bizMenuOpen && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute top-full right-0 left-0 mt-1 bg-[#0F1535] border border-[#4C526B] rounded-md shadow-lg max-h-[260px] overflow-y-auto z-50 p-1"
+              >
+                {(businesses || []).map(b => {
+                  const isCurrent = b.id === document.business_id;
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBizMenuOpen(false);
+                        if (!isCurrent) onReassignBusiness?.(document, b.id);
+                      }}
+                      className={`block w-full text-right px-2 py-1.5 text-[11px] rounded ${isCurrent ? 'text-[#34d399] bg-[#34d399]/10 cursor-default' : 'text-white hover:bg-white/[0.06] cursor-pointer'}`}
+                    >
+                      {isCurrent ? '✓ ' : ''}{b.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-[12px] font-semibold text-white truncate" title={businessName || 'עסק לא ידוע'}>
+            {businessName || 'עסק לא ידוע'}
+          </p>
+        )}
 
         {/* Upload time */}
         <p className="text-[10px] text-white/40 truncate">
@@ -682,7 +753,7 @@ function DocumentCard({ document, isSelected, onClick, businessName, serial, tar
 }
 
 // Vertical card for sidebar - business name is the primary label
-function DocumentCardVertical({ document, isSelected, onClick, businessName, serial, targetBusinessId, targetBusinessName, onConfirmBusiness }: DocumentCardProps) {
+function DocumentCardVertical({ document, isSelected, onClick, businessName, serial, targetBusinessId, targetBusinessName, onConfirmBusiness, businesses, onReassignBusiness }: DocumentCardProps) {
   const supplierName = document.ocr_data?.supplier_name || 'ממתין לזיהוי';
   const docTypeLabel = document.document_type
     ? getDocumentTypeLabel(document.document_type)
@@ -691,6 +762,26 @@ function DocumentCardVertical({ document, isSelected, onClick, businessName, ser
   const documentNumber = document.ocr_data?.document_number;
   const bizLabel = businessName || 'עסק לא ידוע';
   const uploadedAt = formatUploadedAt(document.created_at);
+
+  // Per-card business-name dropdown state (David's request). Closed by
+  // default; clicking the business label flips it open without firing the
+  // card's own onClick. Once an option is picked we call back into
+  // onReassignBusiness and close immediately.
+  const [bizMenuOpen, setBizMenuOpen] = useState(false);
+  const bizMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!bizMenuOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (bizMenuRef.current && !bizMenuRef.current.contains(e.target as Node)) {
+        setBizMenuOpen(false);
+      }
+    };
+    // `document` is shadowed by the OCRDocument prop in this component, so
+    // reach the DOM Document through window.document explicitly.
+    window.document.addEventListener('mousedown', onDocClick);
+    return () => window.document.removeEventListener('mousedown', onDocClick);
+  }, [bizMenuOpen]);
+  const canReassign = !!(onReassignBusiness && businesses && businesses.length > 0);
 
   // Show the confirm-business button when an admin has a business selected
   // in the form's top picker AND that business doesn't already match this
@@ -721,8 +812,8 @@ function DocumentCardVertical({ document, isSelected, onClick, businessName, ser
         direction: 'rtl',
       }}
     >
-      {/* Serial number badge + business name */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+      {/* Serial number badge + business name (clickable dropdown) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, position: 'relative' }} ref={bizMenuRef}>
         {serial != null && (
           <span
             title="מספר סידורי (סדר העלאה)"
@@ -742,12 +833,98 @@ function DocumentCardVertical({ document, isSelected, onClick, businessName, ser
             #{serial}
           </span>
         )}
-        <div
-          title={bizLabel}
-          style={{ color: '#fff', fontSize: '13px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}
-        >
-          {bizLabel}
-        </div>
+        {canReassign ? (
+          <button
+            type="button"
+            title={`שייך לעסק (${bizLabel})`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setBizMenuOpen(o => !o);
+            }}
+            style={{
+              all: 'unset',
+              cursor: 'pointer',
+              color: '#fff',
+              fontSize: '13px',
+              fontWeight: 700,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '2px 4px',
+              borderRadius: '4px',
+              border: '1px dashed rgba(255,255,255,0.18)',
+            }}
+          >
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{bizLabel}</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, opacity: 0.7 }}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        ) : (
+          <div
+            title={bizLabel}
+            style={{ color: '#fff', fontSize: '13px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}
+          >
+            {bizLabel}
+          </div>
+        )}
+        {bizMenuOpen && canReassign && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              left: 0,
+              marginTop: '4px',
+              backgroundColor: '#0F1535',
+              border: '1px solid #4C526B',
+              borderRadius: '6px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+              maxHeight: '260px',
+              overflowY: 'auto',
+              zIndex: 50,
+              padding: '4px',
+            }}
+          >
+            {(businesses || []).map(b => {
+              const isCurrent = b.id === document.business_id;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setBizMenuOpen(false);
+                    if (!isCurrent) onReassignBusiness?.(document, b.id);
+                  }}
+                  style={{
+                    all: 'unset',
+                    display: 'block',
+                    width: '100%',
+                    padding: '6px 8px',
+                    fontSize: '12px',
+                    color: isCurrent ? '#34d399' : '#fff',
+                    backgroundColor: isCurrent ? 'rgba(52,211,153,0.12)' : 'transparent',
+                    borderRadius: '4px',
+                    cursor: isCurrent ? 'default' : 'pointer',
+                    boxSizing: 'border-box',
+                    textAlign: 'right',
+                  }}
+                  onMouseEnter={(e) => { if (!isCurrent) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
+                  onMouseLeave={(e) => { if (!isCurrent) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent'; }}
+                >
+                  {isCurrent ? '✓ ' : ''}{b.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Upload time */}
