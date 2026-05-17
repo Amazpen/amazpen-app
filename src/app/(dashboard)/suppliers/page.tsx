@@ -1544,12 +1544,12 @@ export default function SuppliersPage() {
       const [{ data: invoicesData }, { data: unlinkedDnData }] = await Promise.all([
         supabase
           .from("invoices")
-          .select("subtotal, total_amount, status, amount_paid")
+          .select("subtotal, total_amount, status, amount_paid, invoice_date")
           .eq("supplier_id", supplier.id)
           .is("deleted_at", null),
         supabase
           .from("delivery_notes")
-          .select("total_amount")
+          .select("total_amount, delivery_date")
           .eq("supplier_id", supplier.id)
           .is("invoice_id", null),
       ]);
@@ -1572,7 +1572,7 @@ export default function SuppliersPage() {
       // Fetch total payments for this supplier
       const { data: paymentsData } = await supabase
         .from("payments")
-        .select("total_amount")
+        .select("total_amount, payment_date")
         .eq("supplier_id", supplier.id)
         .is("deleted_at", null);
 
@@ -1581,7 +1581,11 @@ export default function SuppliersPage() {
       // Fetch monthly data for current month
       const monthlyData = await fetchMonthlyData(supplier, new Date(now.getFullYear(), now.getMonth(), 1));
 
-      // Fetch last 6 months breakdown.
+      // Build the breakdown for every month that has activity (invoice, DN, or
+      // payment) — earlier this was capped at the last 6 months, which made the
+      // "סה"כ" row diverge from the top "סה"כ קניות / תשלום / יתרה" pills that
+      // sum over the full history.
+      //
       // "שולם" = `paymentsInMonthTotal` (payments whose payment_date falls in
       //   the month) — answers "how much money went out this month from this
       //   supplier" regardless of which invoice it settled. The prior
@@ -1590,21 +1594,51 @@ export default function SuppliersPage() {
       //   actual cash-out timing.
       // "יתרה" = monthly purchases minus monthly payments — a straight
       //   month-by-month delta that matches the column labels.
-      const breakdownMonths: Array<{ month: string; monthKey: string; purchases: number; paid: number; amountToPay: number }> = [];
-      for (let i = 0; i < 6; i++) {
-        const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const mData = await fetchMonthlyData(supplier, mDate);
-        const hasActivity = mData.monthlyPurchases !== 0 || mData.paymentsInMonthTotal !== 0;
-        if (hasActivity) {
-          breakdownMonths.push({
-            month: mDate.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
-            monthKey: `${mDate.getFullYear()}-${String(mDate.getMonth() + 1).padStart(2, '0')}`,
+      const monthKeySet = new Set<string>();
+      const monthKeyOf = (iso: string | null | undefined): string | null => {
+        if (!iso) return null;
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return null;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      };
+      for (const inv of invoicesData || []) {
+        const k = monthKeyOf((inv as { invoice_date?: string }).invoice_date);
+        if (k) monthKeySet.add(k);
+      }
+      for (const dn of unlinkedDnData || []) {
+        const k = monthKeyOf((dn as { delivery_date?: string }).delivery_date);
+        if (k) monthKeySet.add(k);
+      }
+      for (const pay of paymentsData || []) {
+        const k = monthKeyOf((pay as { payment_date?: string }).payment_date);
+        if (k) monthKeySet.add(k);
+      }
+      // Always include the current month so an empty supplier still gets a row.
+      monthKeySet.add(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+
+      // Sort newest → oldest for display.
+      const monthKeys = Array.from(monthKeySet).sort((a, b) => b.localeCompare(a));
+      const monthDates = monthKeys.map((k) => {
+        const [y, m] = k.split("-").map(Number);
+        return { key: k, date: new Date(y, m - 1, 1) };
+      });
+      // Run the per-month fetches in parallel — sequential was fine for 6
+      // months but full-history can be 24+ and the round-trip latency stacks.
+      const monthResults = await Promise.all(
+        monthDates.map(async ({ key, date }) => {
+          const mData = await fetchMonthlyData(supplier, date);
+          const hasActivity = mData.monthlyPurchases !== 0 || mData.paymentsInMonthTotal !== 0;
+          if (!hasActivity) return null;
+          return {
+            month: date.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
+            monthKey: key,
             purchases: mData.monthlyPurchases,
             paid: mData.paymentsInMonthTotal,
             amountToPay: mData.monthlyPurchases - mData.paymentsInMonthTotal,
-          });
-        }
-      }
+          };
+        }),
+      );
+      const breakdownMonths = monthResults.filter((m): m is NonNullable<typeof m> => m !== null);
       setMonthlyBreakdown(breakdownMonths);
 
       // Remaining balance = sum of open invoices (pending + clarification) minus any advance payments.
@@ -1885,17 +1919,17 @@ export default function SuppliersPage() {
       const [{ data: invoicesData }, { data: unlinkedDnData }, { data: paymentsData }] = await Promise.all([
         supabase
           .from("invoices")
-          .select("subtotal, total_amount, status, amount_paid")
+          .select("subtotal, total_amount, status, amount_paid, invoice_date")
           .eq("supplier_id", selectedSupplier.id)
           .is("deleted_at", null),
         supabase
           .from("delivery_notes")
-          .select("total_amount")
+          .select("total_amount, delivery_date")
           .eq("supplier_id", selectedSupplier.id)
           .is("invoice_id", null),
         supabase
           .from("payments")
-          .select("total_amount")
+          .select("total_amount, payment_date")
           .eq("supplier_id", selectedSupplier.id)
           .is("deleted_at", null),
       ]);
@@ -1922,23 +1956,49 @@ export default function SuppliersPage() {
         monthlyData,
       });
 
-      // Refresh the last-6-months breakdown too — a deleted payment can flip
-      // a month's status counters.
+      // Refresh the full-history breakdown too — a deleted payment can flip a
+      // month's status counters. Same month-discovery approach as the initial
+      // load so the "סה"כ" row stays in sync with the top pills.
       const now = new Date();
-      const breakdown: Array<{ month: string; monthKey: string; purchases: number; paid: number; amountToPay: number }> = [];
-      for (let i = 0; i < 6; i++) {
-        const mDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const mData = await fetchMonthlyData(selectedSupplier, mDate);
-        if (mData.monthlyPurchases !== 0 || mData.paymentsInMonthTotal !== 0) {
-          breakdown.push({
-            month: mDate.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
-            monthKey: `${mDate.getFullYear()}-${String(mDate.getMonth() + 1).padStart(2, '0')}`,
+      const monthKeySet = new Set<string>();
+      const monthKeyOf = (iso: string | null | undefined): string | null => {
+        if (!iso) return null;
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return null;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      };
+      for (const inv of invoicesData || []) {
+        const k = monthKeyOf((inv as { invoice_date?: string }).invoice_date);
+        if (k) monthKeySet.add(k);
+      }
+      for (const dn of unlinkedDnData || []) {
+        const k = monthKeyOf((dn as { delivery_date?: string }).delivery_date);
+        if (k) monthKeySet.add(k);
+      }
+      for (const pay of paymentsData || []) {
+        const k = monthKeyOf((pay as { payment_date?: string }).payment_date);
+        if (k) monthKeySet.add(k);
+      }
+      monthKeySet.add(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+      const monthKeys = Array.from(monthKeySet).sort((a, b) => b.localeCompare(a));
+      const monthDates = monthKeys.map((k) => {
+        const [y, m] = k.split("-").map(Number);
+        return { key: k, date: new Date(y, m - 1, 1) };
+      });
+      const monthResults = await Promise.all(
+        monthDates.map(async ({ key, date }) => {
+          const mData = await fetchMonthlyData(selectedSupplier, date);
+          if (mData.monthlyPurchases === 0 && mData.paymentsInMonthTotal === 0) return null;
+          return {
+            month: date.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
+            monthKey: key,
             purchases: mData.monthlyPurchases,
             paid: mData.paymentsInMonthTotal,
             amountToPay: mData.monthlyPurchases - mData.paymentsInMonthTotal,
-          });
-        }
-      }
+          };
+        }),
+      );
+      const breakdown = monthResults.filter((m): m is NonNullable<typeof m> => m !== null);
       setMonthlyBreakdown(breakdown);
     } catch (err) {
       console.error("refreshOpenSupplierDetail error:", err);
