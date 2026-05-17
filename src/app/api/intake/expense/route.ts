@@ -91,9 +91,19 @@ export async function POST(request: NextRequest) {
       .select('vat_percentage')
       .eq('id', business_id)
       .maybeSingle();
+    // "Effective" VAT rate after applying the supplier's vat_type:
+    //  - 'none'        → 0 (no VAT line item)
+    //  - 'two_thirds'  → 2/3 of the business rate; only 66.67% of the VAT
+    //                    portion on the invoice is reclaimable (a standard
+    //                    Israeli tax rule for vehicle expenses), so the
+    //                    effective rate at intake is rate × 2/3.
+    //  - 'full' / 'partial' / undefined → use the business rate.
+    const baseVatRate = biz?.vat_percentage != null ? Number(biz.vat_percentage) : 0.18;
     const vatRate = sup?.vat_type === 'none'
       ? 0
-      : (biz?.vat_percentage != null ? Number(biz.vat_percentage) : 0.18);
+      : sup?.vat_type === 'two_thirds'
+        ? baseVatRate * (2 / 3)
+        : baseVatRate;
     const subtotalComputed = vatRate > 0 ? totalNum / (1 + vatRate) : totalNum;
     const vatAmountComputed = totalNum - subtotalComputed;
 

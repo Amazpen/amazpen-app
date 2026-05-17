@@ -289,7 +289,7 @@ export default function SuppliersPage() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newParentCategoryName, setNewParentCategoryName] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
-  const [vatRequired, setVatRequired] = useState<"yes" | "no" | "partial">("yes");
+  const [vatRequired, setVatRequired] = useState<"yes" | "no" | "partial" | "two_thirds">("yes");
   const [isFixedExpense, setIsFixedExpense] = useState(false);
   const [isSupplierActive, setIsSupplierActive] = useState(true);
   // Per-supplier opt-out for line-item price tracking. Default ON to match
@@ -363,7 +363,7 @@ export default function SuppliersPage() {
           if (draft.category) setCategory(draft.category as string);
           if (draft.parentCategory) setParentCategory(draft.parentCategory as string);
           if (draft.paymentTerms) setPaymentTerms(draft.paymentTerms as string);
-          if (draft.vatRequired) setVatRequired(draft.vatRequired as "yes" | "no" | "partial");
+          if (draft.vatRequired) setVatRequired(draft.vatRequired as "yes" | "no" | "partial" | "two_thirds");
           if (draft.isFixedExpense !== undefined) setIsFixedExpense(draft.isFixedExpense as boolean);
           if (draft.chargeDay) setChargeDay(draft.chargeDay as string);
           if (draft.monthlyExpenseAmount) setMonthlyExpenseAmount(draft.monthlyExpenseAmount as string);
@@ -759,7 +759,8 @@ export default function SuppliersPage() {
     setPaymentTerms(selectedSupplier.payment_terms_days?.toString() || "");
     setVatRequired(
       selectedSupplier.vat_type === "full" ? "yes" :
-      selectedSupplier.vat_type === "none" ? "no" : "partial"
+      selectedSupplier.vat_type === "none" ? "no" :
+      selectedSupplier.vat_type === "two_thirds" ? "two_thirds" : "partial"
     );
     setIsFixedExpense(selectedSupplier.is_fixed_expense || false);
     // null/undefined from older rows → treat as ON (matches DB DEFAULT TRUE).
@@ -959,6 +960,7 @@ export default function SuppliersPage() {
         yes: "full",
         no: "none",
         partial: "partial",
+        two_thirds: "two_thirds",
       };
 
       // Auto-assign parent category if not manually selected
@@ -1170,6 +1172,7 @@ export default function SuppliersPage() {
         yes: "full",
         no: "none",
         partial: "partial",
+        two_thirds: "two_thirds",
       };
 
       // 3. Auto-assign parent category if not manually selected
@@ -2854,7 +2857,29 @@ export default function SuppliersPage() {
                       מע&quot;מ חלקי
                     </span>
                   </Button>
+                  <Button
+                    type="button"
+                    onClick={() => setVatRequired("two_thirds")}
+                    className="flex items-center gap-[3px]"
+                    title='מע"מ 2/3 — החזר 66.67% מהמע"מ (לרוב על הוצאות רכב לעסק)'
+                  >
+                    <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className={vatRequired === "two_thirds" ? "text-white" : "text-[#979797]"}>
+                      {vatRequired === "two_thirds" ? (
+                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                      ) : (
+                        <circle cx="16" cy="16" r="10" stroke="currentColor" strokeWidth="2"/>
+                      )}
+                    </svg>
+                    <span className={`text-[15px] font-semibold ${vatRequired === "two_thirds" ? "text-white" : "text-[#979797]"}`}>
+                      מע&quot;מ 2/3
+                    </span>
+                  </Button>
                 </div>
+                {vatRequired === "two_thirds" && (
+                  <p className="text-[12px] text-white/60 mt-[2px]">
+                    בחישוב המע&quot;מ — רק 2/3 מהמע&quot;מ של החשבונית יוחזר (נהוג בהוצאות רכב לעסק).
+                  </p>
+                )}
               </div>
 
               {/* Charge Day & Monthly Amount - only when fixed expense */}
@@ -3187,7 +3212,9 @@ export default function SuppliersPage() {
                 <div className="flex flex-col items-center text-center">
                   <span className="text-[12px] text-white/60">נדרש מע&quot;מ</span>
                   <span className="text-[14px] text-white font-medium">
-                    {selectedSupplier.vat_type === "full" ? "כן" : selectedSupplier.vat_type === "none" ? "לא" : "חלקי"}
+                    {selectedSupplier.vat_type === "full" ? "כן" :
+                     selectedSupplier.vat_type === "none" ? "לא" :
+                     selectedSupplier.vat_type === "two_thirds" ? 'מע"מ 2/3' : "חלקי"}
                   </span>
                 </div>
               </div>

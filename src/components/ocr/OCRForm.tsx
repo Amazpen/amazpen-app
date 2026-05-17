@@ -883,6 +883,35 @@ export default function OCRForm({
   const isPearla = selectedBusinessName?.includes("פרלה") || false;
   const businessVatRate = Number(selectedBusiness?.vat_percentage) || DEFAULT_businessVatRate;
 
+  // Resolve how a supplier's vat_type should drive the form's VAT fields.
+  // Returns null when the supplier is regular ('full' / unset) → form falls
+  // back to auto-calculated VAT at the business rate.
+  // Returns { partialVat: true, vatAmount } for any override case:
+  //   none        → vat=0
+  //   two_thirds  → vat = subtotal * rate * (2/3) (vehicle expenses)
+  //   partial     → vat=0 by default (user types the actual amount)
+  const resolveSupplierVatOverride = (
+    vatType: string | null | undefined,
+    subtotal: number
+  ): { partialVat: boolean; vatAmount: string } | null => {
+    switch (vatType) {
+      case 'none':
+        return { partialVat: true, vatAmount: '0' };
+      case 'two_thirds': {
+        const vat = (Number.isFinite(subtotal) ? subtotal : 0) * businessVatRate * (2 / 3);
+        return { partialVat: true, vatAmount: vat.toFixed(2) };
+      }
+      case 'partial':
+        return { partialVat: true, vatAmount: '0' };
+      case 'full':
+      case '':
+      case null:
+      case undefined:
+      default:
+        return null;
+    }
+  };
+
   // Load credit cards for all document types (needed for payment methods)
   const loadCreditCards = useCallback(async () => {
     if (!selectedBusinessId) return;
@@ -1742,12 +1771,14 @@ export default function OCRForm({
         if (matched?.default_discount_percentage && matched.default_discount_percentage > 0) {
           setDiscountPercentage(matched.default_discount_percentage.toString());
         }
-        // VAT-exempt supplier override. If the supplier is flagged vat_type='none',
-        // the matched supplier's status wins over anything OCR extracted. Use the
-        // invoice's total as the before-VAT amount (OCR may have split a gross
-        // price into subtotal+vat even though the document has no VAT line) and
-        // force the VAT override to 0.
+        // Supplier vat_type override. The matched supplier's status wins over
+        // anything OCR extracted (e.g. a פטור supplier whose document still
+        // lists a theoretical VAT line, or a vehicle vendor that should be
+        // capped at 2/3 VAT regardless of what's printed).
         if (matched?.vat_type === 'none') {
+          // Use the invoice's total as the before-VAT amount (OCR may have
+          // split a gross price into subtotal+vat even though the document has
+          // no VAT line) and force the VAT override to 0.
           const total = data.total_amount !== undefined && data.total_amount !== null
             ? Number(data.total_amount)
             : (data.subtotal !== undefined && data.subtotal !== null ? Number(data.subtotal) : null);
@@ -1757,6 +1788,26 @@ export default function OCRForm({
           }
           setPartialVat(true);
           setVatAmount('0');
+        } else {
+          // For two_thirds / partial / full: reconcile the freshly-extracted
+          // subtotal against the supplier's vat_type. We keep OCR's subtotal
+          // intact and only override the VAT field per supplier policy.
+          const subtotalNum = data.subtotal !== undefined && data.subtotal !== null
+            ? Number(data.subtotal)
+            : 0;
+          const override = resolveSupplierVatOverride(matched?.vat_type, subtotalNum);
+          if (override) {
+            setPartialVat(override.partialVat);
+            setVatAmount(override.vatAmount);
+          } else if (matched?.vat_type === 'full' || !matched?.vat_type) {
+            // Regular VAT supplier: if OCR didn't return a vat_amount, drop
+            // back to auto-calculation (partialVat=false, vatAmount=''). If
+            // OCR did return one, the earlier block already populated it.
+            if (data.vat_amount === undefined || data.vat_amount === null) {
+              setPartialVat(false);
+              setVatAmount('');
+            }
+          }
         }
       }
 
@@ -2709,12 +2760,16 @@ export default function OCRForm({
               } else {
                 setDiscountPercentage('');
               }
-              if (sel?.vat_type === 'none') {
-                setPartialVat(true);
-                setVatAmount('0');
-              } else {
-                setPartialVat(false);
-                setVatAmount('');
+              {
+                const subtotalNum = parseFloat(amountBeforeVat) || 0;
+                const override = resolveSupplierVatOverride(sel?.vat_type, subtotalNum);
+                if (override) {
+                  setPartialVat(override.partialVat);
+                  setVatAmount(override.vatAmount);
+                } else {
+                  setPartialVat(false);
+                  setVatAmount('');
+                }
               }
               if (sel?.expense_type) {
                 const mapped: ExpenseType | null =
@@ -2742,14 +2797,19 @@ export default function OCRForm({
           } else {
             setDiscountPercentage('');
           }
-          // VAT-exempt supplier (vat_type='none'): force VAT amount to 0
-          if (sel?.vat_type === 'none') {
-            setPartialVat(true);
-            setVatAmount('0');
-          } else {
-            // Reset to standard VAT calculation when switching to a regular supplier
-            setPartialVat(false);
-            setVatAmount('');
+          // Apply the supplier's vat_type policy: 'none' → 0, 'two_thirds' →
+          // 2/3 of the calculated VAT, 'partial' → manual entry (defaults to
+          // 0), 'full' / unset → standard auto-calculated VAT.
+          {
+            const subtotalNum = parseFloat(amountBeforeVat) || 0;
+            const override = resolveSupplierVatOverride(sel?.vat_type, subtotalNum);
+            if (override) {
+              setPartialVat(override.partialVat);
+              setVatAmount(override.vatAmount);
+            } else {
+              setPartialVat(false);
+              setVatAmount('');
+            }
           }
           // Auto-sync expense type to match the supplier's classification so
           // the created invoice lands under the right bucket in the P&L
@@ -2858,9 +2918,13 @@ export default function OCRForm({
               if (inv) {
                 setAmountBeforeVat(String(inv.subtotal));
                 setTotalWithVatInput('');
-                if (selectedSupplier.vat_type === 'none') {
-                  setPartialVat(true);
-                  setVatAmount('0');
+                const override = resolveSupplierVatOverride(
+                  selectedSupplier.vat_type,
+                  Number(inv.subtotal) || 0
+                );
+                if (override) {
+                  setPartialVat(override.partialVat);
+                  setVatAmount(override.vatAmount);
                 }
               }
             } else {

@@ -2012,7 +2012,15 @@ function ExpensesPageInner() {
     }
   }, [showAddExpensePopup, editingInvoice, restoreExpenseDraft]);
 
-  const calculatedVat = partialVat ? parseFloat(vatAmount) || 0 : (parseFloat(amountBeforeVat) || 0) * businessVatRate;
+  // Effective VAT rate for the currently selected supplier. "מע"מ 2/3"
+  // (Israeli vehicle-expense rule) reclaims only 2/3 of the standard rate,
+  // so any total↔subtotal conversion needs to use rate × 2/3 instead of
+  // the business default.
+  const selectedSupplierVatType = suppliers.find(s => s.id === selectedSupplier)?.vat_type;
+  const effectiveVatRate = selectedSupplierVatType === "two_thirds"
+    ? businessVatRate * (2 / 3)
+    : businessVatRate;
+  const calculatedVat = partialVat ? parseFloat(vatAmount) || 0 : (parseFloat(amountBeforeVat) || 0) * effectiveVatRate;
   const totalWithVat = (parseFloat(amountBeforeVat) || 0) + calculatedVat;
 
   // Chart data source: categories for expenses/employees tabs, suppliers for purchases tab
@@ -2150,6 +2158,16 @@ function ExpensesPageInner() {
     if (supplier.vat_type === "none") {
       setPartialVat(true);
       setVatAmount("0");
+    } else if (supplier.vat_type === "two_thirds") {
+      // "מע"מ 2/3" — vehicle expense rule: VAT reclaim is 2/3 of the
+      // standard rate. We can't compute the absolute amount yet because
+      // the user hasn't typed `amountBeforeVat`; flip into manual ("חלקי")
+      // mode and clear the amount so the field shows up. The downstream
+      // code that converts a total-with-VAT to subtotal will apply the
+      // 2/3 factor when it sees vat_type==='two_thirds' (see total→subtotal
+      // handlers further down in this file).
+      setPartialVat(true);
+      setVatAmount("");
     } else if (supplier.vat_type === "full" || !supplier.vat_type) {
       setPartialVat(false);
       setVatAmount("");
@@ -2976,7 +2994,10 @@ function ExpensesPageInner() {
     // Pre-fill VAT from the existing invoice; enable manual mode when the saved VAT differs from auto-calc.
     // Credit notes have negative amounts — preserve sign so we don't lose the VAT row.
     const existingVat = (invoice.amountWithVat || 0) - (invoice.amountBeforeVat || 0);
-    const autoCalcVat = (invoice.amountBeforeVat || 0) * businessVatRate;
+    // Use the supplier's effective VAT rate for auto-calc detection so a
+    // "מע"מ 2/3" supplier's invoices aren't falsely flagged as mismatched.
+    const editVatRate = supplier?.vat_type === "two_thirds" ? businessVatRate * (2 / 3) : businessVatRate;
+    const autoCalcVat = (invoice.amountBeforeVat || 0) * editVatRate;
     const vatMismatch = Math.abs(existingVat - autoCalcVat) > 0.01;
     if (supplier?.vat_type === "none" || vatMismatch) {
       setPartialVat(true);

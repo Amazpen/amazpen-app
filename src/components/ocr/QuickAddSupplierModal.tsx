@@ -26,7 +26,7 @@ interface QuickAddSupplierModalProps {
 }
 
 type ExpenseType = "current" | "goods" | "employees";
-type VatRequired = "yes" | "no" | "partial";
+type VatRequired = "yes" | "no" | "partial" | "two_thirds";
 type PaymentMethod = "" | "credit" | "bank_transfer" | "cash" | "check" | "direct_debit";
 
 type ParentCategory = { id: string; name: string; business_id: string };
@@ -56,6 +56,7 @@ const VAT_TO_DB: Record<VatRequired, string> = {
   yes: "full",
   no: "none",
   partial: "partial",
+  two_thirds: "two_thirds",
 };
 
 /**
@@ -491,10 +492,10 @@ export default function QuickAddSupplierModal({
             </div>
           )}
 
-          {/* VAT — radios with all 3 options */}
+          {/* VAT — radios: full, none, partial, two_thirds (66.67% — vehicle expenses) */}
           <div className="flex flex-col gap-[3px]">
             <label className="text-[15px] font-medium text-white text-right">נדרש מע&quot;מ</label>
-            <div className="flex items-center justify-start gap-[20px]" dir="rtl">
+            <div className="flex items-center justify-start gap-[20px] flex-wrap" dir="rtl">
               <Button type="button" onClick={() => setVatRequired("yes")} className="flex items-center gap-[3px]">
                 <Radio active={vatRequired === "yes"} />
                 <span className={`text-[15px] font-semibold ${vatRequired === "yes" ? "text-white" : "text-[#979797]"}`}>כן</span>
@@ -507,7 +508,21 @@ export default function QuickAddSupplierModal({
                 <Radio active={vatRequired === "partial"} />
                 <span className={`text-[15px] font-semibold ${vatRequired === "partial" ? "text-white" : "text-[#979797]"}`}>חלקי</span>
               </Button>
+              <Button
+                type="button"
+                onClick={() => setVatRequired("two_thirds")}
+                className="flex items-center gap-[3px]"
+                title='מע"מ 2/3 — החזר 66.67% מהמע"מ (לרוב על הוצאות רכב לעסק)'
+              >
+                <Radio active={vatRequired === "two_thirds"} />
+                <span className={`text-[15px] font-semibold ${vatRequired === "two_thirds" ? "text-white" : "text-[#979797]"}`}>מע&quot;מ 2/3</span>
+              </Button>
             </div>
+            {vatRequired === "two_thirds" && (
+              <p className="text-[12px] text-white/60 mt-[2px]">
+                בחישוב המע&quot;מ — רק 2/3 מהמע&quot;מ של החשבונית יוחזר (נהוג בהוצאות רכב לעסק).
+              </p>
+            )}
           </div>
 
           {/* Default payment method */}

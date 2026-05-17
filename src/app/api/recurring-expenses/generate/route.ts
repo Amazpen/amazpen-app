@@ -14,10 +14,14 @@ function mapExpenseType(expenseType: string): string {
   }
 }
 
-// Calculate VAT amount based on supplier vat_type
+// Calculate VAT amount based on supplier vat_type.
+// 'two_thirds' is the Israeli "מע"מ 2/3" rule (vehicle expenses):
+// only 66.67% of the VAT line is reclaimable, so we record exactly
+// that as vat_amount on the recurring invoice.
 function calculateVat(subtotal: number, vatType: string): number {
   switch (vatType) {
     case "full": return subtotal * 0.18;
+    case "two_thirds": return subtotal * 0.18 * (2 / 3);
     case "none": return 0;
     default: return 0;
   }
