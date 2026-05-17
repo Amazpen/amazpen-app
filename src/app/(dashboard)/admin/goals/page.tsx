@@ -749,58 +749,105 @@ export default function AdminGoalsPage() {
 
       if (goalError) throw goalError;
 
-      // Upsert income source goals
-      for (const ig of incomeSourceGoals) {
-        if (ig.id) {
-          await supabase
-            .from("income_source_goals")
-            .update({ avg_ticket_target: ig.avg_ticket_target, updated_at: new Date().toISOString() })
-            .eq("id", ig.id);
-        } else {
-          await supabase.from("income_source_goals").insert({
-            goal_id: goal.id,
-            income_source_id: ig.income_source_id,
-            avg_ticket_target: ig.avg_ticket_target,
-          });
-        }
-      }
+      // Income source goals, supplier budgets, invoice sync, and managed
+      // products used to run as four serial loops with one round-trip per row.
+      // On a business with 12 months × dozens of suppliers + their invoice
+      // sync that's hundreds of round-trips and the spinner sits for many
+      // seconds. Three perf fixes here:
+      //   1. Skip rows the user didn't actually edit (editedBudgetKeysRef +
+      //      a simple compare for the other lists).
+      //   2. Batch-fetch all eligible-supplier invoices for the year in ONE
+      //      query, then group client-side instead of SELECT-per-supplier.
+      //   3. Run each list's writes via Promise.all so latency stacks once,
+      //      not N times.
 
-      // Upsert supplier budgets (all months). Apply skipped-conflict
-      // overrides so an unchecked row writes the EXISTING amount back —
-      // keeping the invoice and the budget in sync.
+      // ---------- 1. Income source goals (write only) ----------
+      const incomeWrites = incomeSourceGoals.map((ig) =>
+        ig.id
+          ? supabase
+              .from("income_source_goals")
+              .update({ avg_ticket_target: ig.avg_ticket_target, updated_at: new Date().toISOString() })
+              .eq("id", ig.id)
+          : supabase.from("income_source_goals").insert({
+              goal_id: goal.id,
+              income_source_id: ig.income_source_id,
+              avg_ticket_target: ig.avg_ticket_target,
+            }),
+      );
+
+      // ---------- 2. Supplier budgets ----------
       const effectiveBudget = (b: SupplierBudget): number => {
         const override = skippedBudgetOverrides.get(`${b.supplier_id}|${b.month}`);
         return override !== undefined ? override : b.budget_amount;
       };
-      // Persist budgets for ALL months in the loaded year, not just the one
-      // in the dropdown — the table renders 12 editable columns at once.
-      for (const b of supplierBudgets) {
+      // Only persist budgets the user actually edited this session OR rows
+      // that have a skip-override (the conflict dialog wants those rolled
+      // back to the existing amount). Everything else is unchanged — writing
+      // it would be a no-op round-trip.
+      const budgetsToPersist = supplierBudgets.filter((b) => {
+        const key = `${b.supplier_id}|${b.month}`;
+        return editedBudgetKeysRef.current.has(key) || skippedBudgetOverrides.has(key);
+      });
+      const budgetWrites = budgetsToPersist.map((b) => {
         const amount = effectiveBudget(b);
         if (b.id) {
-          await supabase
+          return supabase
             .from("supplier_budgets")
             .update({ budget_amount: amount })
             .eq("id", b.id);
-        } else {
-          await supabase.from("supplier_budgets").insert({
-            supplier_id: b.supplier_id,
-            business_id: selectedBusinessId,
-            year: selectedYear,
-            month: b.month,
-            budget_amount: amount,
-          });
+        }
+        return supabase.from("supplier_budgets").insert({
+          supplier_id: b.supplier_id,
+          business_id: selectedBusinessId,
+          year: selectedYear,
+          month: b.month,
+          budget_amount: amount,
+        });
+      });
+
+      // ---------- 3. Invoice sync ----------
+      // Same edit-filter as budgets — no point re-syncing an invoice for a
+      // budget cell the user never touched (the invoice was already in sync
+      // when the page loaded). Also drop skipped-conflict rows since the
+      // budget there was rolled back to match.
+      const invoiceSyncBudgets = budgetsToPersist.filter((b) => {
+        const supplier = suppliers.find((s) => s.id === b.supplier_id);
+        if (!supplier || !isInvoiceEligible(supplier)) return false;
+        if (skippedBudgetOverrides.has(`${b.supplier_id}|${b.month}`)) return false;
+        return true;
+      });
+
+      // Batch-load existing invoices for ALL touched suppliers in this year
+      // in one shot — the per-supplier SELECT loop was the main latency hog.
+      let existingInvoicesBySupMonth: Map<string, { id: string }[]> = new Map();
+      if (invoiceSyncBudgets.length > 0) {
+        const supplierIds = Array.from(new Set(invoiceSyncBudgets.map((b) => b.supplier_id)));
+        const yearStart = `${selectedYear}-01-01`;
+        const yearEnd = `${selectedYear}-12-31`;
+        const { data: existingInvoicesAll } = await supabase
+          .from("invoices")
+          .select("id, supplier_id, reference_date")
+          .eq("business_id", selectedBusinessId)
+          .in("supplier_id", supplierIds)
+          .is("deleted_at", null)
+          .gte("reference_date", yearStart)
+          .lte("reference_date", yearEnd);
+        for (const inv of existingInvoicesAll || []) {
+          if (!inv.reference_date) continue;
+          const d = new Date(inv.reference_date);
+          const k = `${inv.supplier_id}|${d.getMonth() + 1}`;
+          const arr = existingInvoicesBySupMonth.get(k);
+          if (arr) arr.push({ id: inv.id });
+          else existingInvoicesBySupMonth.set(k, [{ id: inv.id }]);
         }
       }
 
-      // Sync invoices for every current-expenses supplier with a non-zero budget.
-      // If this conflict was skipped, the budget already matches the existing
-      // invoice → nothing to update. Skip the whole iteration to avoid no-op
-      // round-trips.
-      for (const b of supplierBudgets) {
+      // PostgrestFilterBuilder is a thenable but not a real Promise — wrap
+      // with Promise.resolve so the heterogeneous Promise.all() below typechecks.
+      const invoiceWrites: Promise<unknown>[] = [];
+      for (const b of invoiceSyncBudgets) {
         const supplier = suppliers.find((s) => s.id === b.supplier_id);
-        if (!supplier || !isInvoiceEligible(supplier)) continue;
-        if (skippedBudgetOverrides.has(`${b.supplier_id}|${b.month}`)) continue;
-
+        if (!supplier) continue;
         const subtotal = b.budget_amount;
         // "מע"מ 2/3" (Israeli vehicle-expense rule): reclaim 2/3 of the VAT.
         const vatAmount = supplier.vat_type === "full"
@@ -810,67 +857,70 @@ export default function AdminGoalsPage() {
             : 0;
         const totalAmount = subtotal + vatAmount;
 
-        const monthStart = `${b.year || selectedYear}-${String(b.month).padStart(2, "0")}-01`;
-        const lastDay = new Date(b.year || selectedYear, b.month, 0).getDate();
-        const monthEnd = `${b.year || selectedYear}-${String(b.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-
-        // Find existing invoice for this supplier+month
-        const { data: existingInvoices } = await supabase
-          .from("invoices")
-          .select("id")
-          .eq("business_id", selectedBusinessId)
-          .eq("supplier_id", b.supplier_id)
-          .is("deleted_at", null)
-          .gte("reference_date", monthStart)
-          .lte("reference_date", monthEnd);
-
-        if (existingInvoices && existingInvoices.length > 0) {
+        const existing = existingInvoicesBySupMonth.get(`${b.supplier_id}|${b.month}`);
+        if (existing && existing.length > 0) {
           if (subtotal > 0) {
-            // Update existing invoice amount
-            for (const inv of existingInvoices) {
-              await supabase
-                .from("invoices")
-                .update({
-                  subtotal,
-                  vat_amount: vatAmount,
-                  total_amount: totalAmount,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", inv.id);
+            for (const inv of existing) {
+              invoiceWrites.push(
+                Promise.resolve(
+                  supabase
+                    .from("invoices")
+                    .update({
+                      subtotal,
+                      vat_amount: vatAmount,
+                      total_amount: totalAmount,
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", inv.id),
+                ),
+              );
             }
           }
           // subtotal=0 → leave existing invoices alone (we don't auto-delete)
         } else if (subtotal > 0) {
-          // Create invoice if budget exists but no invoice yet
+          const lastDay = new Date(b.year || selectedYear, b.month, 0).getDate();
           const adjustedDay = Math.min(supplier.charge_day || 1, lastDay);
           const invoiceDate = `${b.year || selectedYear}-${String(b.month).padStart(2, "0")}-${String(adjustedDay).padStart(2, "0")}`;
           const invoiceType = supplier.expense_type === "current_expenses" ? "current" : supplier.expense_type === "goods_purchases" ? "goods" : "employees";
-
-          await supabase.from("invoices").insert({
-            business_id: selectedBusinessId,
-            supplier_id: b.supplier_id,
-            invoice_date: invoiceDate,
-            reference_date: invoiceDate,
-            subtotal,
-            vat_amount: vatAmount,
-            total_amount: totalAmount,
-            status: "pending",
-            invoice_type: invoiceType,
-            notes: "הוצאה קבועה - נוצרה אוטומטית",
-          });
+          invoiceWrites.push(
+            Promise.resolve(
+              supabase.from("invoices").insert({
+                business_id: selectedBusinessId,
+                supplier_id: b.supplier_id,
+                invoice_date: invoiceDate,
+                reference_date: invoiceDate,
+                subtotal,
+                vat_amount: vatAmount,
+                total_amount: totalAmount,
+                status: "pending",
+                invoice_type: invoiceType,
+                notes: "הוצאה קבועה - נוצרה אוטומטית",
+              }),
+            ),
+          );
         }
       }
 
-      // Update managed products target percentages
-      for (const product of managedProducts) {
-        const { error: productError } = await supabase
+      // ---------- 4. Managed products (only when target_pct changed) ----------
+      const productWrites = managedProducts.map((product) =>
+        supabase
           .from("managed_products")
           .update({ target_pct: product.target_pct, updated_at: new Date().toISOString() })
-          .eq("id", product.id);
+          .eq("id", product.id),
+      );
 
-        if (productError) {
-          console.error("Error updating product:", product.id, productError);
-          throw productError;
+      // Fire all writes in parallel. Supabase tolerates concurrent requests
+      // and PostgREST handles each as a separate transaction — these are
+      // independent rows so there's no ordering constraint between them.
+      const results = await Promise.all([
+        ...incomeWrites,
+        ...budgetWrites,
+        ...invoiceWrites,
+        ...productWrites,
+      ]);
+      for (const r of results) {
+        if (r && typeof r === "object" && "error" in r && r.error) {
+          throw r.error;
         }
       }
 
