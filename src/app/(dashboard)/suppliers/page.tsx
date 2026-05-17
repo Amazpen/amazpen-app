@@ -578,9 +578,20 @@ export default function SuppliersPage() {
           remainingPayment = Math.max(Number(balance?.pending_balance || 0), 0);
         }
 
-        // For suppliers with monthly_expense_amount, add current month expected expense
-        // if no invoice exists yet for the current month
-        if (supplier.monthly_expense_amount && Number(supplier.monthly_expense_amount) > 0) {
+        // For fixed-expense suppliers with monthly_expense_amount, add the
+        // current month's expected expense if no invoice exists yet for that
+        // month. Variable-expense suppliers can also carry a
+        // monthly_expense_amount (used elsewhere as a forecast/budget
+        // anchor), but adding it to "נותר לתשלום" inflated the pill by the
+        // forecast amount even when the supplier had zero open invoices —
+        // e.g. רשת אסיה קיטשן at אושי אושי דימונה showed ₪50,000 to pay
+        // with no invoices at all on file. Restrict the top-up to fixed-
+        // expense rows, where the monthly amount IS the expected charge.
+        if (
+          supplier.is_fixed_expense &&
+          supplier.monthly_expense_amount &&
+          Number(supplier.monthly_expense_amount) > 0
+        ) {
           const hasCurrentMonthInvoice = supplierMonthlyPurchases.has(supplier.id);
           if (!hasCurrentMonthInvoice) {
             remainingPayment += Number(supplier.monthly_expense_amount);
