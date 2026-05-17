@@ -63,6 +63,7 @@ interface InvoiceRow {
   supplier_id: string;
   invoice_number: string | null;
   invoice_date: string;
+  reference_date: string | null;
   subtotal: number;
   vat_amount: number | null;
   total_amount: number;
@@ -245,7 +246,7 @@ export default function AccountingReviewPage() {
       let q = supabase
         .from("invoices")
         .select(
-          `id, business_id, supplier_id, invoice_number, invoice_date, subtotal, vat_amount, total_amount, attachment_url, notes, approval_status, clarification_reason, bookkeeping_registered, bookkeeping_registered_by, bookkeeping_registered_at,
+          `id, business_id, supplier_id, invoice_number, invoice_date, reference_date, subtotal, vat_amount, total_amount, attachment_url, notes, approval_status, clarification_reason, bookkeeping_registered, bookkeeping_registered_by, bookkeeping_registered_at,
            supplier:suppliers!inner(name),
            payments!payments_invoice_id_fkey(id, total_amount, payment_date, receipt_url, payment_splits(payment_method, check_number, reference_number, due_date)),
            payment_invoice_links(payment:payments(id, total_amount, payment_date, receipt_url, payment_splits(payment_method, check_number, reference_number, due_date)))`
@@ -259,7 +260,12 @@ export default function AccountingReviewPage() {
       if (!dateFilterDisabled) {
         const startStr = toLocalDateStr(dateRange.start);
         const endStr = toLocalDateStr(dateRange.end);
-        q = q.gte("invoice_date", startStr).lte("invoice_date", endStr);
+        // Filter by document date (reference_date). Fall back to invoice_date
+        // only when reference_date is NULL — otherwise invoices entered with a
+        // value date in a different month would slip through the window.
+        q = q.or(
+          `and(reference_date.gte.${startStr},reference_date.lte.${endStr}),and(reference_date.is.null,invoice_date.gte.${startStr},invoice_date.lte.${endStr})`,
+        );
       }
 
       // Push the reference filter to the server so we don't pull every invoice
@@ -267,9 +273,12 @@ export default function AccountingReviewPage() {
       if (debouncedReference) {
         q = q.ilike("invoice_number", `%${debouncedReference}%`);
       }
-      // Tie-break by id so paging is stable even when multiple invoices share
-      // the same invoice_date.
+      // Sort by document date (reference_date) — the column the user sees in
+      // the table. Fall back to invoice_date when reference_date is NULL so
+      // legacy rows still land somewhere sensible. Tie-break by id so paging
+      // stays stable when multiple invoices share a date.
       return q
+        .order("reference_date", { ascending: sortAsc, nullsFirst: false })
         .order("invoice_date", { ascending: sortAsc })
         .order("id", { ascending: true });
     };
@@ -557,7 +566,7 @@ export default function AccountingReviewPage() {
     };
 
     const rows = selectedInvoices.map((inv) => [
-      formatDate(inv.invoice_date),
+      formatDate(inv.reference_date || inv.invoice_date),
       inv.supplier_name,
       inv.invoice_number || "-",
       inv.subtotal.toString(),
@@ -669,7 +678,7 @@ export default function AccountingReviewPage() {
             const ext = extractExt(inv.attachment_url!);
             const supplier = sanitizeFileName(inv.supplier_name || "ספק");
             const docNum = sanitizeFileName(String(inv.invoice_number || idx));
-            const date = sanitizeFileName(formatDate(inv.invoice_date));
+            const date = sanitizeFileName(formatDate(inv.reference_date || inv.invoice_date));
             const base = `${supplier}_${docNum}_${date}`;
             const filename = uniqueName(base, ext);
             // unicodePath option writes a UTF-8 path entry alongside the
@@ -682,7 +691,7 @@ export default function AccountingReviewPage() {
               filename,
               supplier: inv.supplier_name || "",
               invoiceNumber: String(inv.invoice_number || ""),
-              date: formatDate(inv.invoice_date) || "",
+              date: formatDate(inv.reference_date || inv.invoice_date) || "",
             });
             successCount++;
           } catch {
@@ -961,7 +970,7 @@ export default function AccountingReviewPage() {
                       />
                     </TableCell>
                     <TableCell className="text-center font-medium">
-                      {formatDate(inv.invoice_date)}
+                      {formatDate(inv.reference_date || inv.invoice_date)}
                     </TableCell>
                     <TableCell className="text-center">
                       {inv.supplier_name}
@@ -1072,7 +1081,7 @@ export default function AccountingReviewPage() {
               <div>
                 <span className="text-white/50">תאריך</span>
                 <p className="font-medium">
-                  {formatDate(detailInvoice.invoice_date)}
+                  {formatDate(detailInvoice.reference_date || detailInvoice.invoice_date)}
                 </p>
               </div>
               <div>
