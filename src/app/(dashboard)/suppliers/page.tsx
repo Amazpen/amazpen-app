@@ -895,6 +895,30 @@ export default function SuppliersPage() {
     const supabase = createClient();
 
     try {
+      // Duplicate-name guard when renaming — keep the same business from
+      // ending up with two suppliers under one name. Match the create flow:
+      // ilike + trim, exclude the current row, confirm if the user really
+      // wants the duplicate.
+      const trimmedNewName = supplierName.trim();
+      if (trimmedNewName.toLowerCase() !== editingSupplierData.name.trim().toLowerCase()) {
+        const { data: nameDupes } = await supabase
+          .from("suppliers")
+          .select("id, name")
+          .eq("business_id", editingSupplierData.business_id)
+          .is("deleted_at", null)
+          .ilike("name", trimmedNewName)
+          .neq("id", editingSupplierData.id);
+        if (nameDupes && nameDupes.length > 0) {
+          const proceed = window.confirm(
+            `ספק בשם "${trimmedNewName}" כבר קיים בעסק זה. לעדכן בכל זאת?`
+          );
+          if (!proceed) {
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
       // Check if trying to deactivate supplier with open invoices
       if (editingSupplierData.is_active !== false && !isSupplierActive) {
         const { data: openInvoices } = await supabase
@@ -2326,8 +2350,7 @@ export default function SuppliersPage() {
                     title={hasPreviousObligations ? "שם התחייבות" : "שם הספק"}
                     value={supplierName}
                     onChange={(e) => setSupplierName(e.target.value)}
-                    readOnly={isEditingSupplier}
-                    className={`w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px] ${isEditingSupplier ? "opacity-60 cursor-not-allowed" : ""}`}
+                    className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[10px] border-none outline-none px-[10px]"
                   />
                 </div>
               </div>
