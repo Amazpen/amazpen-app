@@ -200,10 +200,7 @@ export default function ReportsPage() {
   // Per-month revenue (before VAT) — populates the dedicated "הכנסות" row at
   // the top of the yearly matrix so the user can scan revenue against
   // expenses month-by-month without flipping the view.
-  // Per-month revenue setter — value is no longer rendered (the inline green
-  // row was lifted into a separate summary card above the table) but the
-  // setter still runs inside the yearly loader so the fetch path stays uniform.
-  const [, setYearlyMonthlyRevenue] = useState<number[]>(Array(12).fill(0));
+  const [yearlyMonthlyRevenue, setYearlyMonthlyRevenue] = useState<number[]>(Array(12).fill(0));
   const [yearlySupplierSearch, setYearlySupplierSearch] = useState("");
   const [isLoadingYearly, setIsLoadingYearly] = useState(false);
 
@@ -1765,44 +1762,29 @@ export default function ReportsPage() {
          variable budgets, just the raw spent-per-month so the user can scan
          each supplier across the whole year. */
       <>
-      {/* Yearly revenue summary card — same visual treatment as the monthly
-          "סיכום הכנסות" pill at the top of the monthly view. Lifts what used
-          to be a thin green row inside the supplier table up to a proper
-          header so the user sees revenue vs target side-by-side. Target is
-          the monthly goal × 12. */}
-      {(() => {
-        const yearlyRevenueTarget = summary.revenueTarget * 12;
-        const diff = yearlyRevenueTotal - yearlyRevenueTarget;
-        const diffPct = yearlyRevenueTarget > 0 ? (yearlyRevenueTotal / yearlyRevenueTarget) * 100 : 0;
-        const diffClass = diff > 0 ? "text-[#17DB4E]" : diff < 0 ? "text-[#F64E60]" : "text-white";
-        return (
-          <section aria-label="סיכום הכנסות שנתי" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[80px] flex flex-row-reverse items-center justify-between gap-[5px]">
-            <div className="flex flex-row-reverse items-center gap-[5px] flex-1 min-w-0">
-              <div className="flex flex-col items-center flex-1 min-w-0">
-                <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4] whitespace-nowrap">הפרש ב-%</span>
-                <span className={`text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${diffClass}`}>
-                  {yearlyRevenueTarget > 0 ? diffPct.toFixed(2) : "0.00"}%
-                </span>
-              </div>
-              <div className="flex flex-col items-center flex-1 min-w-0">
-                <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4] whitespace-nowrap">הפרש ב-₪</span>
-                <span className={`text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap ${diffClass}`}>
-                  {formatCurrency(diff)}
-                </span>
-              </div>
-              <div className="flex flex-col items-center flex-1 min-w-0">
-                <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4]">בפועל</span>
-                <span className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(yearlyRevenueTotal)}</span>
-              </div>
-              <div className="flex flex-col items-center flex-1 min-w-0">
-                <span className="text-[12px] sm:text-[14px] font-medium leading-[1.4]">יעד</span>
-                <span className="text-[13px] sm:text-[15px] font-bold ltr-num leading-[1.4] whitespace-nowrap">{formatCurrency(yearlyRevenueTarget)}</span>
-              </div>
+      {/* Yearly revenue summary card — same visual shell as the monthly
+          "סיכום הכנסות" pill (rounded blue strip with right-aligned title
+          label), but each cell is one calendar month's actual revenue plus a
+          final סה"כ. No target / diff columns — just actuals across the year. */}
+      <section aria-label="סיכום הכנסות שנתי" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[80px] flex flex-row-reverse items-center justify-between gap-[5px]">
+        <div className="flex flex-row-reverse items-center gap-[5px] flex-1 min-w-0">
+          {yearlyMonthlyRevenue.map((amount, i) => (
+            <div key={i} className="flex flex-col items-center flex-1 min-w-0">
+              <span className="text-[11px] sm:text-[13px] font-medium leading-[1.4] whitespace-nowrap">{hebrewMonthsShort[i]}</span>
+              <span className="text-[12px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap">
+                {amount > 0 ? formatCurrency(amount) : "—"}
+              </span>
             </div>
-            <span className="text-[14px] sm:text-[16px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ הכנסות ללא מע&quot;מ</span>
-          </section>
-        );
-      })()}
+          ))}
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[11px] sm:text-[13px] font-semibold leading-[1.4] whitespace-nowrap text-[#17DB4E]">סה&quot;כ</span>
+            <span className="text-[12px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap text-[#17DB4E]">
+              {formatCurrency(yearlyRevenueTotal)}
+            </span>
+          </div>
+        </div>
+        <span className="text-[14px] sm:text-[16px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ הכנסות ללא מע&quot;מ</span>
+      </section>
 
       <section aria-label="פירוט שנתי לפי ספק" className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
         {/* Title row — title on the right (RTL natural), grand total on the
