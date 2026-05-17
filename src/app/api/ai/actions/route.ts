@@ -120,14 +120,21 @@ export async function POST(request: NextRequest) {
     if (actionType === "expense") {
       const d = validated as z.infer<typeof expenseSchema>;
 
-      // Auto-detect invoice_type from supplier's expense_type if not provided
+      // Auto-detect invoice_type from supplier's expense_type if not provided.
+      // Also guard against inactive suppliers — once deactivated from the
+      // suppliers page, no further automated expense should land in the books
+      // for them. We always pull the supplier row here (was conditional on
+      // missing invoice_type before) so the active check runs regardless.
+      const { data: sup } = await supabase
+        .from("suppliers")
+        .select("expense_type, is_active")
+        .eq("id", d.supplier_id)
+        .maybeSingle();
+      if (sup?.is_active === false) {
+        return json({ error: "הספק לא פעיל — לא ניתן ליצור חשבונית" }, 409);
+      }
       let invoiceType = d.invoice_type || null;
       if (!invoiceType) {
-        const { data: sup } = await supabase
-          .from("suppliers")
-          .select("expense_type")
-          .eq("id", d.supplier_id)
-          .maybeSingle();
         invoiceType = sup?.expense_type === "goods_purchases" ? "goods" : "current";
       }
 

@@ -57,9 +57,21 @@ export async function POST(request: NextRequest) {
     // We also pull vat_type to decide how to split subtotal vs VAT below.
     const { data: sup } = await supabase
       .from('suppliers')
-      .select('expense_type, is_fixed_expense, vat_type')
+      .select('expense_type, is_fixed_expense, vat_type, is_active')
       .eq('id', supplier_id)
       .maybeSingle();
+
+    // Block intake for inactive suppliers — once a supplier is deactivated
+    // from the suppliers page, no further automated expense should land in
+    // the books for them (OCR/webhook auto-fills, n8n workflows, etc.). The
+    // UI already hides inactive suppliers from manual create dropdowns;
+    // this closes the server-side door behind it.
+    if (sup && sup.is_active === false) {
+      return NextResponse.json(
+        { error: 'Supplier is inactive — cannot accept new expenses for this supplier' },
+        { status: 409 }
+      );
+    }
     const invoiceType = sup?.expense_type === 'goods_purchases'
       ? 'goods'
       : sup?.expense_type === 'employee_costs'

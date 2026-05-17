@@ -2934,6 +2934,7 @@ function buildTools(
             .select("id, name, expense_type")
             .eq("business_id", businessId)
             .ilike("name", `%${supplierName}%`)
+            .eq("is_active", true)
             .is("deleted_at", null)
             .limit(1);
 
