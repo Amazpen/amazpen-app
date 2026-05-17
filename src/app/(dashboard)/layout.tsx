@@ -267,7 +267,6 @@ export default function DashboardLayout({
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const [openAdminGroups, setOpenAdminGroups] = useState<Record<string, boolean>>({});
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [businessName, setBusinessName] = useState<string | null>(null);
   // Full names of every currently-selected business — used by the sidebar
   // header so users can see at a glance which businesses are active when
   // they've selected more than one.
@@ -419,7 +418,6 @@ export default function DashboardLayout({
   useEffect(() => {
     const fetchBusinessName = async () => {
       if (selectedBusinesses.length === 0) {
-        setBusinessName(null);
         setSelectedBusinessNames([]);
         setSelectedBusinessModels([]);
         return;
@@ -432,8 +430,6 @@ export default function DashboardLayout({
         .in("id", selectedBusinesses);
 
       if (businessesData && businessesData.length > 0) {
-        const first = businessesData.find(b => b.id === selectedBusinesses[0]) || businessesData[0];
-        setBusinessName(first.name);
         // Preserve the user's click order so the sidebar reads like "the
         // first one I picked, then the next..." instead of DB order.
         const namesByOrder = selectedBusinesses

@@ -536,10 +536,16 @@ export default function DashboardPage() {
           .is("payments.deleted_at", null)
           .gte("due_date", todayStr),
         // Supplier balance view — same source the suppliers page uses,
-        // filtered to goods + current expenses tabs only.
+        // filtered to goods + current expenses tabs only. We read
+        // `pending_balance` (sum of invoices whose status is NOT in
+        // [paid, cancelled, credited]) instead of total_invoiced-total_paid,
+        // matching the suppliers-page fix. The naive subtraction silently
+        // included legacy paid invoices that had no matching payments row
+        // (common after the Bubble import) and inflated this pill by
+        // hundreds of thousands.
         supabase
           .from("supplier_balance")
-          .select("supplier_id, total_invoiced, total_paid, supplier:suppliers!inner(expense_type)")
+          .select("supplier_id, pending_balance, supplier:suppliers!inner(expense_type)")
           .eq("business_id", businessId)
           .in("supplier.expense_type", ["goods_purchases", "current_expenses"]),
         // All prior commitments (from prior_commitments table)
@@ -553,10 +559,10 @@ export default function DashboardPage() {
       const openPaymentsTotal = (openPaymentSplitsResult.data || []).reduce(
         (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
       );
-      // Per-supplier max(0, invoiced - paid), exactly like the suppliers page.
+      // Per-supplier max(0, pending_balance), exactly like the suppliers page.
       let openSuppliersTotal = 0;
       for (const row of (supplierBalanceResult.data || []) as Record<string, unknown>[]) {
-        const balance = (Number(row.total_invoiced) || 0) - (Number(row.total_paid) || 0);
+        const balance = Number(row.pending_balance) || 0;
         if (balance > 0) openSuppliersTotal += balance;
       }
       // Calculate open commitments from prior_commitments table
