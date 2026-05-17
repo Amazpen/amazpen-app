@@ -321,6 +321,7 @@ interface PendingPaymentsReportProps {
   rows: PendingPaymentRow[];
   isLoading: boolean;
   dateRange: { start: Date; end: Date };
+  onDateRangeChange: (range: { start: Date; end: Date }) => void;
   totalBalance: number;
   availableCategories: string[];
   categoryFilter: Set<string>;
@@ -338,6 +339,7 @@ function PendingPaymentsReport({
   rows,
   isLoading,
   dateRange,
+  onDateRangeChange,
   totalBalance: _totalBalance,
   availableCategories,
   categoryFilter,
@@ -412,11 +414,9 @@ function PendingPaymentsReport({
     <div className="bg-[#0F1535] rounded-[20px] mt-[10px] mb-[10px] p-[15px] flex flex-col gap-[12px]">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-[10px]">
-        <div className="flex items-center gap-[10px]">
+        <div className="flex items-center gap-[10px] flex-wrap">
           <h2 className="text-[22px] font-bold text-white">דו&quot;ח ממתינים לתשלום</h2>
-          <span className="text-[13px] text-white/50 ltr-num">
-            {toLocalDateStr(dateRange.start)} — {toLocalDateStr(dateRange.end)}
-          </span>
+          <DateRangePicker dateRange={dateRange} onChange={onDateRangeChange} />
         </div>
         <Button
           type="button"
@@ -1802,7 +1802,7 @@ function PaymentsPageInner() {
           .in("business_id", selectedBusinesses),
         supabase
           .from("business_credit_cards")
-          .select("id, card_name, last_4_digits, business_id")
+          .select("id, card_name, last_four_digits, business_id")
           .in("business_id", selectedBusinesses)
           .eq("is_active", true),
         supabase
@@ -1843,8 +1843,8 @@ function PaymentsPageInner() {
       const cards = cardsRes.data || [];
       const parentCats = parentCatsRes.data || [];
 
-      const cardById = new Map<string, { card_name: string | null; last_4_digits: string | null }>();
-      for (const c of cards) cardById.set(c.id, { card_name: c.card_name, last_4_digits: c.last_4_digits });
+      const cardById = new Map<string, { card_name: string | null; last_four_digits: string | null }>();
+      for (const c of cards) cardById.set(c.id, { card_name: c.card_name, last_four_digits: c.last_four_digits });
 
       const parentCatById = new Map<string, string>();
       for (const c of parentCats) parentCatById.set(c.id, c.name);
@@ -1879,7 +1879,7 @@ function PaymentsPageInner() {
         let methodLabel = paymentMethodNames[methodKey] || "אחר";
         if (methodKey === "credit_card" && supplier?.default_credit_card_id) {
           const card = cardById.get(supplier.default_credit_card_id);
-          const last4 = card?.last_4_digits ? ` ${card.last_4_digits}` : "";
+          const last4 = card?.last_four_digits ? ` ${card.last_four_digits}` : "";
           methodLabel = `כ.אשראי${last4}`;
         } else if (isStandingOrder) {
           methodLabel = "ה.קבע";
@@ -3640,6 +3640,7 @@ function PaymentsPageInner() {
           rows={pendingRows}
           isLoading={isLoadingPending}
           dateRange={dateRange}
+          onDateRangeChange={handleDateRangeChange}
           totalBalance={pendingTotalSelectedRange}
           availableCategories={pendingAvailableCategories}
           categoryFilter={pendingCategoryFilter}
