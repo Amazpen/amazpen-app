@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
 import { X } from "lucide-react";
-import { Wallet } from "@phosphor-icons/react";
 import { useDashboard } from "../layout";
 import { createClient } from "@/lib/supabase/client";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -14,7 +13,6 @@ import { useToast } from "@/components/ui/toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { uploadFile } from "@/lib/uploadFile";
 import { convertPdfToImage } from "@/lib/pdfToImage";
-import { usePersistedState } from "@/hooks/usePersistedState";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import SupplierSearchSelect from "@/components/ui/SupplierSearchSelect";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -153,6 +151,28 @@ interface MethodSupplierEntry {
   amount: number;
 }
 
+// Pending payment row for "דו"ח ממתינים לתשלום"
+// One row per unpaid (or partially paid) invoice in the selected date range.
+interface PendingPaymentRow {
+  invoiceId: string;
+  supplierId: string;
+  supplierName: string;
+  invoiceNumber: string | null;
+  invoiceDate: string;          // YYYY-MM-DD
+  totalAmount: number;          // חשבונית כולל מע"מ
+  paidAmount: number;           // amount_paid
+  balance: number;              // total - paid
+  paymentTermsDays: number | null;
+  paymentTermsLabel: string;    // "שוטף 30" / "ה.קבע" / ...
+  dueDate: string;              // YYYY-MM-DD (computed)
+  paymentMethodKey: string;     // "credit_card" / "bank_transfer" / "standing_order" / ...
+  paymentMethodLabel: string;   // "כ.אשראי 4466" / "העברה בנקאית" / "ה.קבע"
+  isStandingOrder: boolean;     // true => render as "ה.קבע" (status בירור in purple)
+  verifiedAt: string | null;    // payment_verified_at
+  starred: boolean;             // has a payment_priority_marks row
+  parentCategoryName: string | null;
+}
+
 // Payment method colors
 const paymentMethodColors: Record<string, { color: string; colorClass: string }> = {
   "check": { color: "#00DD23", colorClass: "bg-[#00DD23]" },
@@ -285,6 +305,281 @@ function PdfThumbnail({ url, className, onClick }: { url: string; className?: st
   );
 }
 
+// ---------------------------------------------------------------------------
+// PendingPaymentsReport
+// ---------------------------------------------------------------------------
+// "דו"ח ממתינים לתשלום" — table of unpaid (or partially paid) invoices in the
+// selected date range, with star/queue pinning, "כרטיס נבדקה" toggle, and
+// parent-category filtering. Standing-order rows render with status "בירור"
+// in purple (matching the rest of the app's convention for ה.קבע).
+//
+// The component is presentational — the parent owns the data and the
+// star/verify mutation handlers.
+// ---------------------------------------------------------------------------
+
+interface PendingPaymentsReportProps {
+  rows: PendingPaymentRow[];
+  isLoading: boolean;
+  dateRange: { start: Date; end: Date };
+  totalBalance: number;
+  availableCategories: string[];
+  categoryFilter: Set<string>;
+  onToggleCategory: (name: string) => void;
+  sortColumn: "supplier" | "total" | "paid" | "balance" | "terms" | "dueDate" | "method" | "verified" | "starred" | null;
+  sortOrder: "asc" | "desc";
+  onSort: (col: "supplier" | "total" | "paid" | "balance" | "terms" | "dueDate" | "method" | "verified" | "starred") => void;
+  onToggleStar: (row: PendingPaymentRow) => void;
+  onToggleVerified: (row: PendingPaymentRow) => void;
+  onClose: () => void;
+  formatDate: (s: string) => string;
+}
+
+function PendingPaymentsReport({
+  rows,
+  isLoading,
+  dateRange,
+  totalBalance: _totalBalance,
+  availableCategories,
+  categoryFilter,
+  onToggleCategory,
+  sortColumn,
+  sortOrder,
+  onSort,
+  onToggleStar,
+  onToggleVerified,
+  onClose,
+  formatDate,
+}: PendingPaymentsReportProps) {
+  // Filter: empty set => show only default categories (when seeded) OR show all
+  // when there are zero available categories. Otherwise show rows whose
+  // parent_category_name is in the filter set, plus any row with no category
+  // (so unclassified suppliers aren't silently hidden).
+  const filtered = rows.filter(r => {
+    if (categoryFilter.size === 0) return true;
+    if (!r.parentCategoryName) return true;
+    return categoryFilter.has(r.parentCategoryName);
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sortOrder === "asc" ? 1 : -1;
+    switch (sortColumn) {
+      case "supplier":  return a.supplierName.localeCompare(b.supplierName, "he") * dir;
+      case "total":     return (a.totalAmount - b.totalAmount) * dir;
+      case "paid":      return (a.paidAmount - b.paidAmount) * dir;
+      case "balance":   return (a.balance - b.balance) * dir;
+      case "terms":     return ((a.paymentTermsDays ?? -1) - (b.paymentTermsDays ?? -1)) * dir;
+      case "dueDate":   return a.dueDate.localeCompare(b.dueDate) * dir;
+      case "method":    return a.paymentMethodLabel.localeCompare(b.paymentMethodLabel, "he") * dir;
+      case "verified": {
+        const av = a.verifiedAt ? 1 : 0;
+        const bv = b.verifiedAt ? 1 : 0;
+        return (av - bv) * dir;
+      }
+      case "starred": {
+        const av = a.starred ? 1 : 0;
+        const bv = b.starred ? 1 : 0;
+        if (av !== bv) return (bv - av); // starred always first when this column is active
+        return a.supplierName.localeCompare(b.supplierName, "he");
+      }
+      default:          return 0;
+    }
+  });
+
+  const totalRow = sorted.reduce(
+    (acc, r) => {
+      acc.total += r.totalAmount;
+      acc.paid  += r.paidAmount;
+      acc.balance += r.balance;
+      return acc;
+    },
+    { total: 0, paid: 0, balance: 0 }
+  );
+
+  const fmtMoney = (n: number) =>
+    n.toLocaleString("he-IL", { minimumFractionDigits: n % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
+
+  const sortChevron = (col: string) => {
+    if (sortColumn !== col) return <span className="opacity-30">↕</span>;
+    return <span className="opacity-90">{sortOrder === "asc" ? "▲" : "▼"}</span>;
+  };
+
+  // Grid template — fixed widths for numeric columns, flex for supplier name.
+  // RTL-friendly: header and body share the same template so columns align.
+  const gridCols =
+    "grid-cols-[40px_1.6fr_90px_80px_90px_90px_100px_120px_90px]";
+
+  return (
+    <div className="bg-[#0F1535] rounded-[20px] mt-[10px] mb-[10px] p-[15px] flex flex-col gap-[12px]">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-[10px]">
+        <div className="flex items-center gap-[10px]">
+          <h2 className="text-[22px] font-bold text-white">דו&quot;ח ממתינים לתשלום</h2>
+          <span className="text-[13px] text-white/50 ltr-num">
+            {toLocalDateStr(dateRange.start)} — {toLocalDateStr(dateRange.end)}
+          </span>
+        </div>
+        <Button
+          type="button"
+          onClick={onClose}
+          className="opacity-60 hover:opacity-100 transition-opacity"
+          aria-label="סגירה"
+        >
+          <X size={22} className="text-white" />
+        </Button>
+      </div>
+
+      {/* Category filter chips */}
+      {availableCategories.length > 0 && (
+        <div className="flex items-center gap-[8px] flex-wrap">
+          <span className="text-[13px] text-white/60">סינון לפי קטגוריה:</span>
+          {availableCategories.map(cat => {
+            const active = categoryFilter.has(cat);
+            return (
+              <Button
+                key={cat}
+                type="button"
+                onClick={() => onToggleCategory(cat)}
+                className={`text-[13px] px-[10px] py-[4px] rounded-full border transition-colors ${
+                  active
+                    ? "bg-[#3D44A0] border-white text-white"
+                    : "bg-transparent border-white/25 text-white/70 hover:border-white/50"
+                }`}
+              >
+                {cat}
+              </Button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="w-full flex flex-col">
+        {/* Header row */}
+        <div className={`grid ${gridCols} bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[13px] font-semibold text-white gap-[4px]`}>
+          {/* Star */}
+          <Button type="button" onClick={() => onSort("starred")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
+            ★ {sortChevron("starred")}
+          </Button>
+          <Button type="button" onClick={() => onSort("supplier")} className="flex items-center justify-start gap-[3px] hover:opacity-80 ps-[5px]">
+            שם הספק {sortChevron("supplier")}
+          </Button>
+          <Button type="button" onClick={() => onSort("total")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
+            סכום לתשלום {sortChevron("total")}
+          </Button>
+          <Button type="button" onClick={() => onSort("paid")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
+            שולם {sortChevron("paid")}
+          </Button>
+          <Button type="button" onClick={() => onSort("balance")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
+            הפרש {sortChevron("balance")}
+          </Button>
+          <Button type="button" onClick={() => onSort("terms")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
+            תנאי תשלום {sortChevron("terms")}
+          </Button>
+          <Button type="button" onClick={() => onSort("dueDate")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
+            תאריך לתשלום {sortChevron("dueDate")}
+          </Button>
+          <Button type="button" onClick={() => onSort("method")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
+            אמצעי תשלום {sortChevron("method")}
+          </Button>
+          <Button type="button" onClick={() => onSort("verified")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
+            כרטיס נבדקה {sortChevron("verified")}
+          </Button>
+        </div>
+
+        {/* Body */}
+        <div className="max-h-[500px] overflow-y-auto flex flex-col gap-[3px]">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-[40px]">
+              <div className="w-[24px] h-[24px] border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
+            </div>
+          ) : sorted.length === 0 ? (
+            <div className="flex items-center justify-center py-[40px]">
+              <span className="text-[15px] text-white/50">אין חשבוניות ממתינות לתשלום בטווח התאריכים שנבחר</span>
+            </div>
+          ) : (
+            sorted.map(row => (
+              <div
+                key={row.invoiceId}
+                className={`grid ${gridCols} w-full p-[8px_5px] items-center text-[13px] text-white border-b border-white/5 hover:bg-white/[0.03] transition-colors gap-[4px] ${
+                  row.starred ? "bg-[#3D44A0]/10" : ""
+                }`}
+              >
+                {/* Star toggle */}
+                <button
+                  type="button"
+                  onClick={() => onToggleStar(row)}
+                  className={`flex items-center justify-center text-[18px] transition-colors ${
+                    row.starred ? "text-[#FFCF00]" : "text-white/25 hover:text-white/60"
+                  }`}
+                  aria-label={row.starred ? "הסר סימון" : "סמן בכוכב"}
+                >
+                  {row.starred ? "★" : "☆"}
+                </button>
+                {/* Supplier name */}
+                <span className="text-right ps-[5px] truncate" title={row.supplierName}>
+                  {row.supplierName}
+                  {row.invoiceNumber && (
+                    <span className="text-white/40 text-[11px] ltr-num"> · {row.invoiceNumber}</span>
+                  )}
+                </span>
+                {/* Total */}
+                <span className="text-center ltr-num">{fmtMoney(row.totalAmount)}</span>
+                {/* Paid */}
+                <span className="text-center ltr-num">{fmtMoney(row.paidAmount)}</span>
+                {/* Balance */}
+                <span className="text-center ltr-num font-semibold">{fmtMoney(row.balance)}</span>
+                {/* Terms */}
+                <span className={`text-center ${row.isStandingOrder ? "text-purple-400 font-medium" : ""}`}>
+                  {row.paymentTermsLabel}
+                </span>
+                {/* Due date */}
+                <span className="text-center ltr-num">{formatDate(row.dueDate)}</span>
+                {/* Payment method */}
+                <span className={`text-center truncate ${row.isStandingOrder ? "text-purple-400" : ""}`} title={row.paymentMethodLabel}>
+                  {row.paymentMethodLabel}
+                </span>
+                {/* Verified toggle */}
+                <button
+                  type="button"
+                  onClick={() => onToggleVerified(row)}
+                  className={`text-center text-[12px] px-[6px] py-[3px] rounded transition-colors ${
+                    row.verifiedAt
+                      ? "bg-green-500/20 text-green-300 hover:bg-green-500/30"
+                      : "bg-white/5 text-white/50 hover:bg-white/10"
+                  }`}
+                >
+                  {row.verifiedAt
+                    ? new Date(row.verifiedAt).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })
+                    : "לא"}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Footer totals */}
+        {!isLoading && sorted.length > 0 && (
+          <div className={`grid ${gridCols} bg-[#29318A]/60 rounded-b-[7px] p-[10px_5px] items-center text-[13px] font-bold text-white border-t-2 border-white/30 gap-[4px]`}>
+            <span></span>
+            <span className="text-right ps-[5px]">סה&quot;כ ({sorted.length} חשבוניות)</span>
+            <span className="text-center ltr-num">₪{fmtMoney(totalRow.total)}</span>
+            <span className="text-center ltr-num">₪{fmtMoney(totalRow.paid)}</span>
+            <span className="text-center ltr-num">₪{fmtMoney(totalRow.balance)}</span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        )}
+      </div>
+
+      <p className="text-[11px] text-white/40 text-center">
+        הסכום מסונכרן עם עמוד &quot;ניהול הוצאות&quot; — כל חשבונית שמסומנת שולמה (גם חלקית) יורדת בהתאם.
+      </p>
+    </div>
+  );
+}
+
 export default function PaymentsPage() {
   return (
     <Suspense fallback={null}>
@@ -317,7 +612,7 @@ function PaymentsPageInner() {
   const [filterValue, setFilterValue] = useState<string>("");
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [globalPaymentResults, setGlobalPaymentResults] = useState<RecentPaymentDisplay[] | null>(null);
-  const [isGlobalPaymentSearching, setIsGlobalPaymentSearching] = useState(false);
+  const [_isGlobalPaymentSearching, setIsGlobalPaymentSearching] = useState(false);
   const [sortColumn, setSortColumn] = useState<"date" | "supplier" | "reference" | "installments" | "method" | "amount" | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(null);
   const handleColumnSort = (col: "date" | "supplier" | "reference" | "installments" | "method" | "amount") => {
@@ -724,6 +1019,21 @@ function PaymentsPageInner() {
   const [pastCommitments, setPastCommitments] = useState<PriorCommitment[]>([]);
   const [showPastCommitments, setShowPastCommitments] = useState(false);
 
+  // Pending payments report state ("דו"ח ממתינים לתשלום")
+  // Default category filter = "הוצאות שוטפות/תפעול" + "עלות מכר" (David's spec).
+  const [showPendingReport, setShowPendingReport] = useState(false);
+  const [pendingRows, setPendingRows] = useState<PendingPaymentRow[]>([]);
+  const [pendingTotalSelectedRange, setPendingTotalSelectedRange] = useState(0);
+  const [isLoadingPending, setIsLoadingPending] = useState(false);
+  const [pendingCategoryFilter, setPendingCategoryFilter] = useState<Set<string>>(new Set());
+  const [pendingAvailableCategories, setPendingAvailableCategories] = useState<string[]>([]);
+  const [pendingSortColumn, setPendingSortColumn] = useState<"supplier" | "total" | "paid" | "balance" | "terms" | "dueDate" | "method" | "verified" | "starred" | null>("starred");
+  const [pendingSortOrder, setPendingSortOrder] = useState<"asc" | "desc">("desc");
+  const isDefaultCategory = useCallback((name: string) => {
+    const n = (name || "").trim();
+    return n.startsWith("הוצאות שוטפ") || n.startsWith("הוצאות תפעול") || n.startsWith("עלות מכר");
+  }, []);
+
   // Format date string from database
   const formatDateString = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -938,9 +1248,6 @@ function PaymentsPageInner() {
             const supplierMap = methodSuppliers.get(method)!;
             supplierMap.set(supplierName, (supplierMap.get(supplierName) || 0) + amount);
           }
-
-          // Calculate total for percentages
-          const grandTotal = Array.from(methodTotals.values()).reduce((sum, val) => sum + val, 0);
 
           // Transform to display format
           const methodsSummary: PaymentMethodSummary[] = Array.from(methodTotals.entries())
@@ -1451,6 +1758,285 @@ function PaymentsPageInner() {
       fetchPastPayments();
     }
   }, [showPastPayments, refreshTrigger, fetchPastPayments]);
+
+  // Fetch pending-payment report rows for the selected dateRange.
+  // "Pending" = invoices with balance > 0 (amount_paid < total_amount), excluding
+  // cancelled. The "תאריך לביצוע" column is computed: invoice_date + supplier
+  // payment_terms_days. Standing-order rows are flagged separately and shown
+  // with status "בירור" (purple) in the table, mirroring the rest of the app.
+  const fetchPendingPayments = useCallback(async () => {
+    if (selectedBusinesses.length === 0) {
+      setPendingRows([]);
+      setPendingTotalSelectedRange(0);
+      setPendingAvailableCategories([]);
+      return;
+    }
+    if (!dateRange?.start || !dateRange?.end) return;
+
+    setIsLoadingPending(true);
+    const supabase = createClient();
+    const startStr = toLocalDateStr(dateRange.start);
+    const endStr = toLocalDateStr(dateRange.end);
+
+    try {
+      const [invoicesRes, marksRes, cardsRes, parentCatsRes] = await Promise.all([
+        supabase
+          .from("invoices")
+          .select(`
+            id, business_id, supplier_id, invoice_number, invoice_date, total_amount,
+            amount_paid, status, payment_verified_at,
+            supplier:suppliers(
+              id, name, payment_terms_days, default_payment_method, default_credit_card_id, parent_category_id
+            )
+          `)
+          .in("business_id", selectedBusinesses)
+          .is("deleted_at", null)
+          .neq("status", "cancelled")
+          .gte("invoice_date", startStr)
+          .lte("invoice_date", endStr)
+          .order("invoice_date", { ascending: true })
+          .limit(2000),
+        supabase
+          .from("payment_priority_marks")
+          .select("supplier_id, invoice_id")
+          .in("business_id", selectedBusinesses),
+        supabase
+          .from("business_credit_cards")
+          .select("id, card_name, last_4_digits, business_id")
+          .in("business_id", selectedBusinesses)
+          .eq("is_active", true),
+        supabase
+          .from("expense_categories")
+          .select("id, name, business_id")
+          .in("business_id", selectedBusinesses)
+          .is("parent_id", null)
+          .is("deleted_at", null),
+      ]);
+
+      if (invoicesRes.error) {
+        showToast("שגיאה בטעינת ממתינים לתשלום", "error");
+        setIsLoadingPending(false);
+        return;
+      }
+
+      type InvoiceRow = {
+        id: string;
+        supplier_id: string | null;
+        invoice_number: string | null;
+        invoice_date: string;
+        total_amount: number | string;
+        amount_paid: number | string | null;
+        status: string | null;
+        payment_verified_at: string | null;
+        supplier: {
+          id: string;
+          name: string;
+          payment_terms_days: number | null;
+          default_payment_method: string | null;
+          default_credit_card_id: string | null;
+          parent_category_id: string | null;
+        } | null;
+      };
+
+      const invoices = (invoicesRes.data || []) as unknown as InvoiceRow[];
+      const marks = marksRes.data || [];
+      const cards = cardsRes.data || [];
+      const parentCats = parentCatsRes.data || [];
+
+      const cardById = new Map<string, { card_name: string | null; last_4_digits: string | null }>();
+      for (const c of cards) cardById.set(c.id, { card_name: c.card_name, last_4_digits: c.last_4_digits });
+
+      const parentCatById = new Map<string, string>();
+      for (const c of parentCats) parentCatById.set(c.id, c.name);
+
+      // Mark lookup: supplier-level (invoice_id NULL) marks the whole supplier.
+      const supplierLevelStarred = new Set<string>();
+      const invoiceLevelStarred = new Set<string>();
+      for (const m of marks) {
+        if (m.invoice_id) invoiceLevelStarred.add(m.invoice_id);
+        else if (m.supplier_id) supplierLevelStarred.add(m.supplier_id);
+      }
+
+      const rows: PendingPaymentRow[] = [];
+      const categoriesSeen = new Set<string>();
+      let totalBalance = 0;
+
+      for (const inv of invoices) {
+        const total = Number(inv.total_amount) || 0;
+        const paid = Number(inv.amount_paid) || 0;
+        const balance = total - paid;
+        // Skip fully-paid invoices (use 0.01 epsilon to ignore rounding crumbs)
+        if (balance < 0.01) continue;
+
+        const supplier = inv.supplier;
+        const supplierName = supplier?.name || "לא ידוע";
+        const supplierId = supplier?.id || inv.supplier_id || "";
+        const terms = supplier?.payment_terms_days ?? null;
+        const methodKey = supplier?.default_payment_method || "other";
+        const isStandingOrder = methodKey === "standing_order";
+
+        // Payment method label
+        let methodLabel = paymentMethodNames[methodKey] || "אחר";
+        if (methodKey === "credit_card" && supplier?.default_credit_card_id) {
+          const card = cardById.get(supplier.default_credit_card_id);
+          const last4 = card?.last_4_digits ? ` ${card.last_4_digits}` : "";
+          methodLabel = `כ.אשראי${last4}`;
+        } else if (isStandingOrder) {
+          methodLabel = "ה.קבע";
+        }
+
+        // Terms label
+        let termsLabel: string;
+        if (isStandingOrder) termsLabel = "ה.קבע";
+        else if (terms && terms > 0) termsLabel = `שוטף ${terms}`;
+        else termsLabel = "מיידי";
+
+        // Due date = invoice_date + payment_terms_days. For standing-order rows
+        // we still show the invoice_date as the reference — the actual debit is
+        // unknown until reconciliation.
+        let dueDate = inv.invoice_date;
+        if (!isStandingOrder && terms && terms > 0) {
+          const [y, m, d] = inv.invoice_date.split("T")[0].split("-").map(Number);
+          const base = new Date(y, (m || 1) - 1, d || 1);
+          base.setDate(base.getDate() + terms);
+          dueDate = toLocalDateStr(base);
+        }
+
+        const parentCategoryName = supplier?.parent_category_id
+          ? (parentCatById.get(supplier.parent_category_id) || null)
+          : null;
+        if (parentCategoryName) categoriesSeen.add(parentCategoryName);
+
+        const starred = (supplierId && supplierLevelStarred.has(supplierId)) || invoiceLevelStarred.has(inv.id);
+
+        rows.push({
+          invoiceId: inv.id,
+          supplierId,
+          supplierName,
+          invoiceNumber: inv.invoice_number,
+          invoiceDate: inv.invoice_date,
+          totalAmount: total,
+          paidAmount: paid,
+          balance,
+          paymentTermsDays: terms,
+          paymentTermsLabel: termsLabel,
+          dueDate,
+          paymentMethodKey: methodKey,
+          paymentMethodLabel: methodLabel,
+          isStandingOrder,
+          verifiedAt: inv.payment_verified_at,
+          starred,
+          parentCategoryName,
+        });
+        totalBalance += balance;
+      }
+
+      setPendingRows(rows);
+      setPendingTotalSelectedRange(totalBalance);
+
+      const sortedCats = Array.from(categoriesSeen).sort((a, b) => a.localeCompare(b, "he"));
+      setPendingAvailableCategories(sortedCats);
+
+      // First-time / business-switch: seed default category filter
+      // (הוצאות שוטפות/תפעול + עלות מכר). If the set is empty after this,
+      // user hasn't manually filtered yet — accept the default.
+      setPendingCategoryFilter(prev => {
+        if (prev.size > 0) return prev;
+        return new Set(sortedCats.filter(isDefaultCategory));
+      });
+    } catch (err) {
+      console.error("Error fetching pending payments:", err);
+      showToast("שגיאה בטעינת ממתינים לתשלום", "error");
+    } finally {
+      setIsLoadingPending(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBusinesses, dateRange?.start?.getTime(), dateRange?.end?.getTime()]);
+
+  // Re-fetch when toggled on, when date range changes, or when realtime fires
+  useEffect(() => {
+    if (showPendingReport) {
+      fetchPendingPayments();
+    }
+  }, [showPendingReport, refreshTrigger, fetchPendingPayments]);
+
+  // Reset category filter when switching businesses so defaults re-seed.
+  useEffect(() => {
+    setPendingCategoryFilter(new Set());
+  }, [selectedBusinesses]);
+
+  // Toggle star on a row. Stored at invoice-level so different invoices of
+  // the same supplier can be queued independently.
+  const togglePendingStar = useCallback(async (row: PendingPaymentRow) => {
+    const supabase = createClient();
+    const businessId = selectedBusinesses[0];
+    if (!businessId || !row.supplierId) return;
+
+    // Optimistic update
+    setPendingRows(prev => prev.map(r => r.invoiceId === row.invoiceId ? { ...r, starred: !r.starred } : r));
+
+    try {
+      if (row.starred) {
+        await supabase
+          .from("payment_priority_marks")
+          .delete()
+          .eq("business_id", businessId)
+          .eq("supplier_id", row.supplierId)
+          .eq("invoice_id", row.invoiceId);
+      } else {
+        await supabase
+          .from("payment_priority_marks")
+          .insert({
+            business_id: businessId,
+            supplier_id: row.supplierId,
+            invoice_id: row.invoiceId,
+          });
+      }
+    } catch (err) {
+      console.error("toggle star failed", err);
+      showToast("שגיאה בעדכון סימון", "error");
+      // Rollback
+      setPendingRows(prev => prev.map(r => r.invoiceId === row.invoiceId ? { ...r, starred: row.starred } : r));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBusinesses]);
+
+  // Toggle "כרטיס נבדקה" — sets/clears invoices.payment_verified_at.
+  const togglePendingVerified = useCallback(async (row: PendingPaymentRow) => {
+    const supabase = createClient();
+    const nextVal = row.verifiedAt ? null : new Date().toISOString();
+
+    // Optimistic
+    setPendingRows(prev => prev.map(r => r.invoiceId === row.invoiceId ? { ...r, verifiedAt: nextVal } : r));
+
+    try {
+      await supabase
+        .from("invoices")
+        .update({ payment_verified_at: nextVal })
+        .eq("id", row.invoiceId);
+    } catch (err) {
+      console.error("toggle verified failed", err);
+      showToast("שגיאה בעדכון כרטיס נבדקה", "error");
+      setPendingRows(prev => prev.map(r => r.invoiceId === row.invoiceId ? { ...r, verifiedAt: row.verifiedAt } : r));
+    }
+  }, [showToast]);
+
+  const togglePendingCategory = useCallback((name: string) => {
+    setPendingCategoryFilter(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
+
+  const handlePendingSort = useCallback((col: "supplier" | "total" | "paid" | "balance" | "terms" | "dueDate" | "method" | "verified" | "starred") => {
+    setPendingSortColumn(prev => {
+      if (prev !== col) { setPendingSortOrder("asc"); return col; }
+      setPendingSortOrder(o => o === "asc" ? "desc" : "asc");
+      return col;
+    });
+  }, []);
 
   const togglePastMonth = useCallback((key: string) => {
     setExpandedPastMonths(prev => {
@@ -2059,7 +2645,6 @@ function PaymentsPageInner() {
         if (amount > 0) {
           const installmentsCount = parseInt(pm.installments) || 1;
           const creditCardId = pm.method === "credit_card" && pm.creditCardId ? pm.creditCardId : null;
-          const card = creditCardId ? businessCreditCards.find(c => c.id === creditCardId) : null;
 
           if (pm.customInstallments.length > 0) {
             for (const inst of pm.customInstallments) {
@@ -2636,7 +3221,7 @@ function PaymentsPageInner() {
         // Distribute remainder only among non-edited installments
         const remaining = Math.max(0, Math.round((totalAmount - manualTotal) * 100) / 100);
         const autoIndices = updatedInstallments
-          .map((inst, idx) => idx)
+          .map((_inst, idx) => idx)
           .filter(idx => idx !== installmentIndex && !updatedInstallments[idx].manuallyEdited);
         if (autoIndices.length > 0) {
           const perOther = Math.floor((remaining / autoIndices.length) * 100) / 100;
@@ -2908,19 +3493,55 @@ function PaymentsPageInner() {
       <ConfirmDialog />
       {/* Date Range and Add Button */}
       <div className="flex items-center justify-between mb-[10px]">
-        <Button
-          id="onboarding-payments-import"
-          type="button"
-          onClick={() => setShowAddPaymentPopup(true)}
-          className="bg-[#29318A] text-white text-[16px] font-semibold px-[20px] py-[10px] rounded-[7px] transition-colors hover:bg-[#3D44A0]"
-        >
-          הוספת תשלום
-        </Button>
+        <div className="flex items-center gap-[8px] flex-wrap">
+          <Button
+            id="onboarding-payments-import"
+            type="button"
+            onClick={() => setShowAddPaymentPopup(true)}
+            className="bg-[#29318A] text-white text-[16px] font-semibold px-[20px] py-[10px] rounded-[7px] transition-colors hover:bg-[#3D44A0]"
+          >
+            הוספת תשלום
+          </Button>
+          <Button
+            id="onboarding-payments-pending"
+            type="button"
+            onClick={() => setShowPendingReport(v => !v)}
+            className={`text-white text-[16px] font-semibold px-[20px] py-[10px] rounded-[7px] transition-colors flex items-center gap-[6px] ${
+              showPendingReport ? "bg-[#3D44A0]" : "bg-[#29318A] hover:bg-[#3D44A0]"
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <span>דו&quot;ח ממתינים לתשלום</span>
+          </Button>
+        </div>
         <div className="flex items-center gap-[8px]">
             <span className="text-[13px] text-white/50 font-medium hidden sm:inline">תקופה מוצגת:</span>
             <DateRangePicker dateRange={dateRange} onChange={handleDateRangeChange} />
           </div>
       </div>
+
+      {/* Pending Payments Report — דו"ח ממתינים לתשלום */}
+      {showPendingReport && (
+        <PendingPaymentsReport
+          rows={pendingRows}
+          isLoading={isLoadingPending}
+          dateRange={dateRange}
+          totalBalance={pendingTotalSelectedRange}
+          availableCategories={pendingAvailableCategories}
+          categoryFilter={pendingCategoryFilter}
+          onToggleCategory={togglePendingCategory}
+          sortColumn={pendingSortColumn}
+          sortOrder={pendingSortOrder}
+          onSort={handlePendingSort}
+          onToggleStar={togglePendingStar}
+          onToggleVerified={togglePendingVerified}
+          onClose={() => setShowPendingReport(false)}
+          formatDate={formatDateString}
+        />
+      )}
 
       {/* Chart and Summary Section */}
       <div id="onboarding-payments-chart" className="bg-[#0F1535] rounded-[20px] p-[20px_0px_10px] mt-[10px]">
@@ -3646,7 +4267,6 @@ function PaymentsPageInner() {
                   default: return true;
                 }
               });
-              const isShowingGlobal = hasActiveFilter && globalPaymentResults && globalPaymentResults.length > 0;
               const installmentNum = (s: string) => {
                 const n = parseInt(s.split("/")[0], 10);
                 return Number.isFinite(n) ? n : 0;
@@ -4334,7 +4954,6 @@ function PaymentsPageInner() {
                                 {/* Invoice Rows */}
                                 {monthInvoices.map((inv) => {
                                   const attachmentUrls = parseAttachmentUrls(inv.attachment_url);
-                                  const hasDetails = attachmentUrls.length > 0 || inv.notes;
                                   return (
                                   <div key={inv.id} className="flex flex-col">
                                     <div
