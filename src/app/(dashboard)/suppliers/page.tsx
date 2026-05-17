@@ -1586,14 +1586,15 @@ export default function SuppliersPage() {
       // "סה"כ" row diverge from the top "סה"כ קניות / תשלום / יתרה" pills that
       // sum over the full history.
       //
-      // "שולם" = `paymentsInMonthTotal` (payments whose payment_date falls in
-      //   the month) — answers "how much money went out this month from this
-      //   supplier" regardless of which invoice it settled. The prior
-      //   per-invoice-month logic always showed paid == purchases for
-      //   imported suppliers where every invoice is status=paid, hiding the
-      //   actual cash-out timing.
-      // "יתרה" = monthly purchases minus monthly payments — a straight
-      //   month-by-month delta that matches the column labels.
+      // "שולם" = `monthlyPaid` (per-invoice allocations attributed to this
+      //   month's invoices via payment_invoice_links + direct FKs + the
+      //   imported-status=paid top-up). This is what the user expects when a
+      //   single payment settles invoices spanning several months: the row of
+      //   each invoice's month shows its share, not the whole payment lumped
+      //   into the payment_date month. fetchMonthlyData also handles legacy
+      //   imports where status=paid invoices have no link rows.
+      // "יתרה" = monthly purchases minus monthly allocated payments — keeps
+      //   each month's balance correct even when payments cross months.
       const monthKeySet = new Set<string>();
       const monthKeyOf = (iso: string | null | undefined): string | null => {
         if (!iso) return null;
@@ -1627,14 +1628,18 @@ export default function SuppliersPage() {
       const monthResults = await Promise.all(
         monthDates.map(async ({ key, date }) => {
           const mData = await fetchMonthlyData(supplier, date);
-          const hasActivity = mData.monthlyPurchases !== 0 || mData.paymentsInMonthTotal !== 0;
+          // Keep rows whose purchases or allocations are non-zero. We also keep
+          // months that had a payment_date hit even with no allocations yet
+          // (advance / standalone payments) so they don't silently vanish.
+          const hasActivity =
+            mData.monthlyPurchases !== 0 || mData.monthlyPaid !== 0 || mData.paymentsInMonthTotal !== 0;
           if (!hasActivity) return null;
           return {
             month: date.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
             monthKey: key,
             purchases: mData.monthlyPurchases,
-            paid: mData.paymentsInMonthTotal,
-            amountToPay: mData.monthlyPurchases - mData.paymentsInMonthTotal,
+            paid: mData.monthlyPaid,
+            amountToPay: mData.monthlyPurchases - mData.monthlyPaid,
           };
         }),
       );
@@ -1988,13 +1993,22 @@ export default function SuppliersPage() {
       const monthResults = await Promise.all(
         monthDates.map(async ({ key, date }) => {
           const mData = await fetchMonthlyData(selectedSupplier, date);
-          if (mData.monthlyPurchases === 0 && mData.paymentsInMonthTotal === 0) return null;
+          // Same "שולם = allocations" rule as the initial load — keeps the
+          // breakdown internally consistent and the "סה"כ" row aligned with
+          // the top "סה"כ תשלום" pill once a multi-month payment is recorded.
+          if (
+            mData.monthlyPurchases === 0 &&
+            mData.monthlyPaid === 0 &&
+            mData.paymentsInMonthTotal === 0
+          ) {
+            return null;
+          }
           return {
             month: date.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
             monthKey: key,
             purchases: mData.monthlyPurchases,
-            paid: mData.paymentsInMonthTotal,
-            amountToPay: mData.monthlyPurchases - mData.paymentsInMonthTotal,
+            paid: mData.monthlyPaid,
+            amountToPay: mData.monthlyPurchases - mData.monthlyPaid,
           };
         }),
       );
