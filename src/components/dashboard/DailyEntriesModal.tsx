@@ -776,19 +776,25 @@ export function DailyEntriesModal({
         .eq("payments.business_id", businessId)
         .is("payments.deleted_at", null)
         .gt("due_date", currentEntry?.entry_date || ""),
-      // 14. All invoices total (for open suppliers calculation)
+      // 14. Open supplier balance — pull pending_balance from the
+      // supplier_balance view, scoped to goods + current expenses, matching
+      // the suppliers page header and the main dashboard pill. The previous
+      // naive (sum(invoices.total_amount) − sum(payment_splits.amount))
+      // counted legacy status='paid' invoices that had no matching payment
+      // row (a Bubble import artifact) and inflated this pill by ~₪150K
+      // for Fargo Ness Ziona.
       supabase
-        .from("invoices")
-        .select("total_amount")
+        .from("supplier_balance")
+        .select("pending_balance, supplier:suppliers!inner(expense_type)")
         .eq("business_id", businessId)
-        .is("deleted_at", null),
-      // 15. Paid splits (due_date <= entry date) for open suppliers calculation
+        .in("supplier.expense_type", ["goods_purchases", "current_expenses"]),
+      // 15. (placeholder — was the paid-splits side of the old naive calc;
+      // kept as an empty-ish result so the destructuring index stays aligned.
+      // The actual open-suppliers number comes from #14 now.)
       supabase
         .from("payment_splits")
-        .select("amount, payments!inner(business_id, deleted_at)")
-        .eq("payments.business_id", businessId)
-        .is("payments.deleted_at", null)
-        .lte("due_date", currentEntry?.entry_date || new Date().toISOString().split("T")[0]),
+        .select("amount")
+        .eq("payment_id", "00000000-0000-0000-0000-000000000000"),
       // 16. Prior commitments from dedicated table
       supabase
         .from("prior_commitments")
@@ -995,14 +1001,19 @@ export function DailyEntriesModal({
     );
     setOpenPaymentsTotal(openPayments);
 
-    // Calculate open suppliers: total invoices - total payments (no date filter)
-    const totalInvoices = (allInvoicesData || []).reduce(
-      (sum: number, inv: Record<string, unknown>) => sum + (Number(inv.total_amount) || 0), 0
-    );
-    const paidSplits = (allPaymentsData || []).reduce(
-      (sum: number, s: Record<string, unknown>) => sum + (Number(s.amount) || 0), 0
-    );
-    setOpenSuppliersTotal(() => totalInvoices - paidSplits);
+    // Open suppliers — sum of per-supplier pending_balance from the
+    // supplier_balance view, restricted to goods + current expenses. Same
+    // source the suppliers page header uses, so the three places (suppliers
+    // page, dashboard tile, this daily modal) finally agree.
+    let openSuppliers = 0;
+    for (const row of (allInvoicesData || []) as Record<string, unknown>[]) {
+      const pb = Number(row.pending_balance) || 0;
+      if (pb > 0) openSuppliers += pb;
+    }
+    setOpenSuppliersTotal(() => openSuppliers);
+    // Silence the unused-variable warning for the leftover slot from the
+    // old naive calc — we'll remove the placeholder query separately.
+    void allPaymentsData;
 
     // Calculate open commitments from prior_commitments table
     const entryDateStr = currentEntry?.entry_date || new Date().toISOString().split("T")[0];

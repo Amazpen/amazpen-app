@@ -775,7 +775,7 @@ export default function DashboardLayout({
                 priority
                 loading="eager"
               />
-              <div className="flex-1 flex flex-col items-end gap-[2px]" suppressHydrationWarning>
+              <div dir="rtl" className="flex-1 flex flex-col items-start gap-[2px]" suppressHydrationWarning>
                 {selectedBusinessNames.length === 0 ? (
                   <span className="text-white text-[16px] font-medium text-right">עסק</span>
                 ) : selectedBusinessNames.length === 1 ? (
