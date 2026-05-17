@@ -44,12 +44,15 @@ interface Supplier {
   expense_type?: string | null;
   waiting_for_coordinator: boolean;
   is_fixed_expense?: boolean;
-  vat_type?: string; // "full" | "none" | "partial"
+  vat_type?: string; // "full" | "none" | "partial" | "two_thirds"
   default_payment_method?: string | null;
   default_credit_card_id?: string | null;
   notes?: string | null;
   // false = opt out of line-item price tracking; null/undefined treated as true
   track_prices?: boolean;
+  // "שוטף + N" — used by getSmartPaymentDate to auto-fill payment date
+  // when the user marks an invoice as paid in full with a non-credit method.
+  payment_terms_days?: number | null;
 }
 
 // Expense category from database (used for type checking)
@@ -963,10 +966,17 @@ function ExpensesPageInner() {
     return result;
   };
 
-  // Calculate smart default payment date based on method
-  // Cash/bank/bit/check → invoice date
-  // Credit card → billing day from card, or 10th of month if no card info
-  const getSmartPaymentDate = (method: string, invoiceDate: string, creditCardId?: string): string => {
+  // Calculate smart default payment date based on method.
+  // Credit card → billing day from card, or 10th of month if no card info.
+  // Cash / bank_transfer / bit / check / paybox / standing_order / other →
+  // invoiceDate + supplier.payment_terms_days when set (e.g. "שוטף + 30");
+  // falls back to the invoice date when terms aren't configured.
+  const getSmartPaymentDate = (
+    method: string,
+    invoiceDate: string,
+    creditCardId?: string,
+    supplierPaymentTermsDays?: number | null,
+  ): string => {
     if (!method) return "";
     if (method === "credit_card") {
       if (creditCardId) {
@@ -984,8 +994,14 @@ function ExpensesPageInner() {
         return toLocalDateStr(new Date(today.getFullYear(), today.getMonth() + 1, 10));
       }
     }
-    // Cash, bank_transfer, bit, check, paybox, etc. → invoice date
-    return invoiceDate || toLocalDateStr(new Date());
+    // Non-credit methods: invoiceDate + supplier.payment_terms_days when set.
+    const baseStr = invoiceDate || toLocalDateStr(new Date());
+    const terms = Number(supplierPaymentTermsDays);
+    if (!Number.isFinite(terms) || terms <= 0) return baseStr;
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(baseStr);
+    const base = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(baseStr);
+    base.setDate(base.getDate() + terms);
+    return toLocalDateStr(base);
   };
 
   // Calculate due date based on credit card billing day.
@@ -1071,10 +1087,12 @@ function ExpensesPageInner() {
 
   // Update payment method field in popup
   const updatePopupPaymentMethodField = (id: number, field: keyof PaymentMethodEntry, value: string) => {
-    // Auto-set payment date when first payment method is selected
+    // Auto-set payment date when first payment method is selected.
+    // Non-credit methods respect supplier.payment_terms_days ("שוטף + N").
+    const popupSup = suppliers.find(s => s.id === selectedSupplier);
     if (field === "method" && value) {
       const invoiceDate = paymentInvoice ? paymentInvoice.rawDate : expenseDate;
-      const smartDate = getSmartPaymentDate(value, invoiceDate);
+      const smartDate = getSmartPaymentDate(value, invoiceDate, undefined, popupSup?.payment_terms_days ?? null);
       if (smartDate) setPaymentDate(smartDate);
     }
     // Auto-set payment date when credit card is selected (refine with billing day)
@@ -1287,7 +1305,7 @@ function ExpensesPageInner() {
         // Fetch suppliers for the selected businesses
         const { data: suppliersData } = await supabase
           .from("suppliers")
-          .select("id, name, expense_category_id, expense_type, waiting_for_coordinator, vat_type, is_fixed_expense, default_payment_method, default_credit_card_id, notes, track_prices")
+          .select("id, name, expense_category_id, expense_type, waiting_for_coordinator, vat_type, is_fixed_expense, default_payment_method, default_credit_card_id, notes, track_prices, payment_terms_days")
           .in("business_id", selectedBusinesses)
           .is("deleted_at", null)
           .eq("is_active", true)
@@ -6076,7 +6094,7 @@ function ExpensesPageInner() {
                       const defaultMethod = sup?.default_payment_method || "";
                       const defaultCardId = sup?.default_credit_card_id || "";
                       const smartDate = defaultMethod
-                        ? getSmartPaymentDate(defaultMethod, expenseDate, defaultCardId || undefined)
+                        ? getSmartPaymentDate(defaultMethod, expenseDate, defaultCardId || undefined, sup?.payment_terms_days ?? null)
                         : toLocalDateStr(new Date());
                       setPaymentDate(smartDate);
                       // Round to 2 decimals so the payment-method input shows
@@ -6853,7 +6871,7 @@ function ExpensesPageInner() {
                         const defaultMethod = sup?.default_payment_method || "";
                         const defaultCardId = sup?.default_credit_card_id || "";
                         const smartDate = defaultMethod
-                          ? getSmartPaymentDate(defaultMethod, expenseDate, defaultCardId || undefined)
+                          ? getSmartPaymentDate(defaultMethod, expenseDate, defaultCardId || undefined, sup?.payment_terms_days ?? null)
                           : toLocalDateStr(new Date());
                         setPaymentDate(smartDate);
                         const editTotal = (parseFloat(amountBeforeVat) || 0) + (partialVat ? (parseFloat(vatAmount) || 0) : ((parseFloat(amountBeforeVat) || 0) * effectiveVatRate));

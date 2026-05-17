@@ -30,6 +30,10 @@ interface Supplier {
   // When false, hide the OCR items table for this supplier AND skip
   // savePriceTrackingForLineItems server-side. Default true (matches DB).
   track_prices?: boolean;
+  // "שוטף + N" — how many days after the invoice date the payment is due
+  // for non-credit-card methods. Used by getSmartPaymentDate to auto-fill
+  // the payment date when the user marks the invoice as paid in full.
+  payment_terms_days?: number | null;
 }
 
 interface Business {
@@ -1154,8 +1158,19 @@ export default function OCRForm({
     }
   };
 
-  // Calculate smart default payment date based on method
-  const getSmartPaymentDate = (method: string, invoiceDate: string, creditCardId?: string): string => {
+  // Calculate smart default payment date based on method.
+  // For credit_card the date follows the card's billing-day rule.
+  // For any other method (check / cash / bank transfer / paybox / standing
+  // order / "other") we honor the supplier's payment_terms_days (e.g.
+  // "שוטף + 30") so flipping "התעודה שולמה במלואה" lands on the date the
+  // money actually leaves the bank — previously we always echoed the
+  // invoice date back, which was right only for cash.
+  const getSmartPaymentDate = (
+    method: string,
+    invoiceDate: string,
+    creditCardId?: string,
+    supplierPaymentTermsDays?: number | null,
+  ): string => {
     if (!method) return "";
     if (method === "credit_card") {
       if (creditCardId) {
@@ -1172,7 +1187,17 @@ export default function OCRForm({
         return new Date(today.getFullYear(), today.getMonth() + 1, 10).toISOString().split("T")[0];
       }
     }
-    return invoiceDate || new Date().toISOString().split("T")[0];
+    // Non-credit methods: invoiceDate + supplier.payment_terms_days when set.
+    const baseStr = invoiceDate || new Date().toISOString().split("T")[0];
+    const terms = Number(supplierPaymentTermsDays);
+    if (!Number.isFinite(terms) || terms <= 0) return baseStr;
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(baseStr);
+    const base = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(baseStr);
+    base.setDate(base.getDate() + terms);
+    const y = base.getFullYear();
+    const mo = String(base.getMonth() + 1).padStart(2, "0");
+    const d = String(base.getDate()).padStart(2, "0");
+    return `${y}-${mo}-${d}`;
   };
 
   // Generate installments with credit card billing day logic.
@@ -1220,13 +1245,18 @@ export default function OCRForm({
   };
 
   const updatePaymentMethodField = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, methods: PaymentMethodEntry[], id: number, field: keyof PaymentMethodEntry, value: string, dateStr: string, dateSetter?: (d: string) => void, presetCreditCardId?: string, referenceNumber?: string) => {
-    // Auto-set payment date when payment method is selected
+    // Auto-set payment date when payment method is selected.
+    // Non-credit-card methods respect the selected supplier's
+    // payment_terms_days (e.g. "שוטף + 30"); credit-card has its own
+    // billing-day rule.
+    const currentSupplier = suppliers.find(s => s.id === supplierId);
+    const supplierTerms = currentSupplier?.payment_terms_days ?? null;
     if (dateSetter && field === 'method' && value) {
       // If we're picking credit_card and have a preset card (supplier default),
       // use the card-aware smart date instead of the generic one.
       const smartDate = value === 'credit_card' && presetCreditCardId
         ? getSmartPaymentDate('credit_card', documentDate, presetCreditCardId)
-        : getSmartPaymentDate(value, documentDate);
+        : getSmartPaymentDate(value, documentDate, undefined, supplierTerms);
       if (smartDate) dateSetter(smartDate);
     }
     if (dateSetter && field === 'creditCardId' && value) {
@@ -3716,8 +3746,9 @@ export default function OCRForm({
               const selectedSupplier = suppliers.find(s => s.id === supplierId);
               const defaultMethod = selectedSupplier?.default_payment_method || '';
               const defaultCardId = selectedSupplier?.default_credit_card_id || '';
+              const supplierTerms = selectedSupplier?.payment_terms_days ?? null;
               const smartDate = defaultMethod
-                ? getSmartPaymentDate(defaultMethod, documentDate, defaultCardId || undefined)
+                ? getSmartPaymentDate(defaultMethod, documentDate, defaultCardId || undefined, supplierTerms)
                 : new Date().toISOString().split('T')[0];
               setInlinePaymentDate(smartDate);
               if (defaultMethod) setInlinePaymentMethod(defaultMethod);
@@ -4221,7 +4252,7 @@ export default function OCRForm({
           if (sup?.default_payment_method && paymentMethods.length > 0 && !paymentMethods[0].method) {
             const defaultMethod = sup.default_payment_method;
             const defaultCardId = sup.default_credit_card_id || '';
-            const smartDate = getSmartPaymentDate(defaultMethod, paymentTabDate, defaultCardId || undefined);
+            const smartDate = getSmartPaymentDate(defaultMethod, paymentTabDate, defaultCardId || undefined, sup.payment_terms_days ?? null);
             if (smartDate) setPaymentTabDate(smartDate);
             setPaymentMethods(prev => prev.map((pm, i) => i === 0 ? { ...pm, method: defaultMethod, creditCardId: defaultCardId } : pm));
           }
