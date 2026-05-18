@@ -5470,7 +5470,7 @@ function ExpensesPageInner() {
                     {newAttachmentPreviews.map((preview, idx) => {
                       return (
                       <div key={`new-preview-${preview}`} className="flex flex-col items-center gap-[4px]">
-                        <div className="relative border border-[#4C526B] rounded-[8px] overflow-hidden w-[100px] h-[100px]">
+                        <div className="relative border border-[#727BA0] rounded-[8px] overflow-hidden w-[100px] h-[100px]">
                           <Image src={preview} alt={`תמונה ${idx + 1}`} className="w-full h-full object-cover cursor-pointer" onClick={() => window.open(preview, '_blank')} width={100} height={100} unoptimized />
                         </div>
                         <Button
@@ -5494,7 +5494,7 @@ function ExpensesPageInner() {
                     })}
                   </div>
                 )}
-                <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[50px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
+                <label className="border border-[#727BA0] border-dashed rounded-[10px] h-[50px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
                   <div className="flex items-center gap-[10px]">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -5839,7 +5839,7 @@ function ExpensesPageInner() {
               {/* Amount Before VAT */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="text"
                     inputMode="decimal"
@@ -5856,7 +5856,7 @@ function ExpensesPageInner() {
               <div className="flex items-center justify-between gap-[15px]">
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[15px] font-medium text-white text-right">מע&quot;מ</label>
-                  <div className="border border-[#4C526B] rounded-[10px] h-[50px] w-[148px]">
+                  <div className="border border-[#727BA0] rounded-[10px] h-[50px] w-[148px]">
                     <Input
                       type="text"
                       inputMode="decimal"
@@ -5909,7 +5909,7 @@ function ExpensesPageInner() {
                   directly and have the before-VAT amount back-derived. */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="text"
                     inputMode="decimal"
@@ -5947,7 +5947,7 @@ function ExpensesPageInner() {
                   <Button
                     type="button"
                     onClick={() => setShowLineItems(!showLineItems)}
-                    className="flex items-center justify-between w-full border border-[#4C526B] rounded-[10px] h-[50px] px-[15px] bg-transparent hover:bg-[#29318A]/10"
+                    className="flex items-center justify-between w-full border border-[#727BA0] rounded-[10px] h-[50px] px-[15px] bg-transparent hover:bg-[#29318A]/10"
                   >
                     <span className="text-[15px] font-medium text-white">פריטים (מעקב מחירים)</span>
                     <span className="text-[13px] text-white/50">
@@ -5958,7 +5958,7 @@ function ExpensesPageInner() {
                   </Button>
 
                   {showLineItems && (
-                    <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[8px]">
+                    <div className="border border-[#727BA0] rounded-[10px] p-[10px] flex flex-col gap-[8px]">
                       {/* Price alerts banner */}
                       {lineItemsPriceCheckDone && expenseLineItems.some(li => li.price_change_pct != null && li.price_change_pct !== 0) && (
                         <div className="bg-[#F64E60]/10 border border-[#F64E60]/30 rounded-[8px] p-[8px]">
@@ -6026,7 +6026,7 @@ function ExpensesPageInner() {
                           value={newLineItemDesc}
                           onChange={(e) => setNewLineItemDesc(e.target.value)}
                           placeholder="שם פריט"
-                          className="flex-1 h-[40px] bg-transparent border border-[#4C526B] rounded-[8px] text-white text-[14px] text-right px-[8px]"
+                          className="flex-1 h-[40px] bg-transparent border border-[#727BA0] rounded-[8px] text-white text-[14px] text-right px-[8px]"
                         />
                         <Input
                           type="text"
@@ -6034,7 +6034,7 @@ function ExpensesPageInner() {
                           value={newLineItemQty}
                           onChange={(e) => setNewLineItemQty(e.target.value)}
                           placeholder="כמות"
-                          className="w-[60px] h-[40px] bg-transparent border border-[#4C526B] rounded-[8px] text-white text-[14px] text-center px-[4px] ltr-num"
+                          className="w-[60px] h-[40px] bg-transparent border border-[#727BA0] rounded-[8px] text-white text-[14px] text-center px-[4px] ltr-num"
                         />
                         <Input
                           type="text"
@@ -6042,7 +6042,7 @@ function ExpensesPageInner() {
                           value={newLineItemPrice}
                           onChange={(e) => setNewLineItemPrice(e.target.value)}
                           placeholder="מחיר"
-                          className="w-[70px] h-[40px] bg-transparent border border-[#4C526B] rounded-[8px] text-white text-[14px] text-center px-[4px] ltr-num"
+                          className="w-[70px] h-[40px] bg-transparent border border-[#727BA0] rounded-[8px] text-white text-[14px] text-center px-[4px] ltr-num"
                         />
                         <Button
                           type="button"
@@ -6071,7 +6071,7 @@ function ExpensesPageInner() {
               {/* Notes */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">הערות למסמך</label>
-                <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
+                <div className="border border-[#727BA0] rounded-[10px] min-h-[100px]">
                   <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -6175,7 +6175,7 @@ function ExpensesPageInner() {
                         </div>
 
                         {popupPaymentMethods.map((pm, pmIndex) => (
-                          <div key={pm.id} className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+                          <div key={pm.id} className="border border-[#727BA0] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
                             {popupPaymentMethods.length > 1 && (
                               <div className="flex items-center justify-between mb-[5px]">
                                 <span className="text-[14px] text-white/70">אמצעי תשלום {pmIndex + 1}</span>
@@ -6190,7 +6190,7 @@ function ExpensesPageInner() {
                             )}
 
                             <Select value={pm.method || "__none__"} onValueChange={(val) => updatePopupPaymentMethodField(pm.id, "method", val === "__none__" ? "" : val)}>
-                              <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                              <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
                                 <SelectValue placeholder="בחר אמצעי תשלום..." />
                               </SelectTrigger>
                               <SelectContent>
@@ -6220,7 +6220,7 @@ function ExpensesPageInner() {
                                   return updated;
                                 }));
                               }}>
-                                <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                                <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
                                   <SelectValue placeholder="בחר כרטיס..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -6234,7 +6234,7 @@ function ExpensesPageInner() {
                               </Select>
                             )}
 
-                            <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                            <div className="border border-[#727BA0] rounded-[10px] min-h-[50px]">
                               <Input
                                 type="text"
                                 inputMode="decimal"
@@ -6260,7 +6260,7 @@ function ExpensesPageInner() {
 
                             <div className="flex flex-col gap-[3px]">
                               <span className="text-[14px] text-white/70">כמות תשלומים</span>
-                              <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
+                              <div className="border border-[#727BA0] rounded-[10px] min-h-[50px] flex items-center">
                                 <Button
                                   type="button"
                                   title="הפחת תשלום"
@@ -6288,7 +6288,7 @@ function ExpensesPageInner() {
                               </div>
 
                               {pm.customInstallments.length > 0 && (
-                                <div className="mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+                                <div className="mt-[10px] border border-[#727BA0] rounded-[10px] p-[10px]">
                                   <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
                                     <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
                                     <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
@@ -6315,7 +6315,7 @@ function ExpensesPageInner() {
                                               value={item.checkNumber || ""}
                                               onChange={(e) => handlePopupInstallmentCheckNumberChange(pm.id, index, e.target.value)}
                                               placeholder="מס׳ צ׳ק"
-                                              className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                              className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                                             />
                                           </div>
                                         )}
@@ -6327,7 +6327,7 @@ function ExpensesPageInner() {
                                             value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
                                             onFocus={(e) => e.target.select()}
                                             onChange={(e) => handlePopupInstallmentAmountChange(pm.id, index, e.target.value)}
-                                            className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                            className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                                           />
                                         </div>
                                       </div>
@@ -6358,7 +6358,7 @@ function ExpensesPageInner() {
                       {/* Payment Reference */}
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[15px] font-medium text-white text-right">אסמכתא</label>
-                        <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                        <div className="border border-[#727BA0] rounded-[10px] min-h-[50px]">
                           <Input
                             type="text"
                             placeholder="מספר אסמכתא..."
@@ -6373,7 +6373,7 @@ function ExpensesPageInner() {
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[15px] font-medium text-white text-right">קבלת תשלום</label>
                         {paymentReceiptPreview ? (
-                          <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex items-center justify-between">
+                          <div className="border border-[#727BA0] rounded-[10px] p-[10px] flex items-center justify-between">
                             <Button
                               type="button"
                               onClick={() => { setPaymentReceiptFile(null); setPaymentReceiptPreview(null); }}
@@ -6400,7 +6400,7 @@ function ExpensesPageInner() {
                             </div>
                           </div>
                         ) : (
-                          <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[60px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
+                          <label className="border border-[#727BA0] border-dashed rounded-[10px] h-[60px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
                             <div className="flex items-center gap-[10px]">
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -6431,7 +6431,7 @@ function ExpensesPageInner() {
                       {/* Payment Notes */}
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[15px] font-medium text-white text-right">הערות</label>
-                        <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
+                        <div className="border border-[#727BA0] rounded-[10px] min-h-[100px]">
                           <Textarea
                             value={paymentNotes}
                             onChange={(e) => setPaymentNotes(e.target.value)}
@@ -6476,7 +6476,7 @@ function ExpensesPageInner() {
 
                     {/* Clarification Menu */}
                     {showClarificationMenu && (
-                      <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[8px]">
+                      <div className="bg-[#0F1535] border border-[#727BA0] rounded-[10px] p-[10px] flex flex-col gap-[8px]">
                         {["הזמנה לא סופקה במלואה", "טעות במחיר", "תעודת משלוח", "אחר (פרט/י)"].map((option) => (
                           <Button
                             key={option}
@@ -6495,7 +6495,7 @@ function ExpensesPageInner() {
 
                     {/* Clarification Reason Textarea - shown after selection */}
                     {needsClarification && !showClarificationMenu && (
-                      <div className="border border-[#4C526B] rounded-[10px] min-h-[75px]">
+                      <div className="border border-[#727BA0] rounded-[10px] min-h-[75px]">
                         <Textarea
                           title="סיבת בירור"
                           value={clarificationReason}
@@ -6522,7 +6522,7 @@ function ExpensesPageInner() {
                 <Button
                   type="button"
                   onClick={handleClosePopup}
-                  className="flex-1 bg-transparent border border-[#4C526B] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
+                  className="flex-1 bg-transparent border border-[#727BA0] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
                 >
                   ביטול
                 </Button>
@@ -6690,7 +6690,7 @@ function ExpensesPageInner() {
               {/* Amount Before VAT */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="text"
                     inputMode="decimal"
@@ -6707,7 +6707,7 @@ function ExpensesPageInner() {
               <div className="flex items-center justify-between gap-[15px]">
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[15px] font-medium text-white text-right">מע&quot;מ</label>
-                  <div className="border border-[#4C526B] rounded-[10px] h-[50px] w-[148px]">
+                  <div className="border border-[#727BA0] rounded-[10px] h-[50px] w-[148px]">
                     <Input
                       type="text"
                       inputMode="decimal"
@@ -6755,7 +6755,7 @@ function ExpensesPageInner() {
               {/* Total with VAT — editable; back-derives amountBeforeVat. */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="text"
                     inputMode="decimal"
@@ -6794,7 +6794,7 @@ function ExpensesPageInner() {
                   <div className="flex flex-wrap gap-[8px] mb-[5px]">
                     {editAttachmentPreviews.map((preview, idx) => (
                       <div key={`edit-preview-${preview}`} className="flex flex-col items-center gap-[4px]">
-                        <div className="relative border border-[#4C526B] rounded-[8px] overflow-hidden w-[100px] h-[100px]">
+                        <div className="relative border border-[#727BA0] rounded-[8px] overflow-hidden w-[100px] h-[100px]">
                           {isPdfUrl(preview) ? (
                             <PdfThumbnail url={preview} className="w-full h-full cursor-pointer" onClick={() => window.open(preview, '_blank')} />
                           ) : (
@@ -6819,7 +6819,7 @@ function ExpensesPageInner() {
                   </div>
                 )}
                 {/* Add more button */}
-                <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[50px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
+                <label className="border border-[#727BA0] border-dashed rounded-[10px] h-[50px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
                   <div className="flex items-center gap-[10px]">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -6844,7 +6844,7 @@ function ExpensesPageInner() {
               {/* Notes */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">הערות למסמך</label>
-                <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
+                <div className="border border-[#727BA0] rounded-[10px] min-h-[100px]">
                   <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -6948,7 +6948,7 @@ function ExpensesPageInner() {
                           </div>
 
                           {popupPaymentMethods.map((pm, pmIndex) => (
-                            <div key={pm.id} className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+                            <div key={pm.id} className="border border-[#727BA0] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
                               {popupPaymentMethods.length > 1 && (
                                 <div className="flex items-center justify-between mb-[5px]">
                                   <span className="text-[14px] text-white/70">אמצעי תשלום {pmIndex + 1}</span>
@@ -6963,7 +6963,7 @@ function ExpensesPageInner() {
                               )}
 
                               <Select value={pm.method || "__none__"} onValueChange={(val) => updatePopupPaymentMethodField(pm.id, "method", val === "__none__" ? "" : val)}>
-                                <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                                <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
                                   <SelectValue placeholder="בחר אמצעי תשלום..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -6992,7 +6992,7 @@ function ExpensesPageInner() {
                                     return updated;
                                   }));
                                 }}>
-                                  <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                                  <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
                                     <SelectValue placeholder="בחר כרטיס..." />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -7006,7 +7006,7 @@ function ExpensesPageInner() {
                                 </Select>
                               )}
 
-                              <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                              <div className="border border-[#727BA0] rounded-[10px] min-h-[50px]">
                                 <Input
                                   type="text"
                                   inputMode="decimal"
@@ -7027,7 +7027,7 @@ function ExpensesPageInner() {
 
                               <div className="flex flex-col gap-[3px]">
                                 <span className="text-[14px] text-white/70">כמות תשלומים</span>
-                                <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
+                                <div className="border border-[#727BA0] rounded-[10px] min-h-[50px] flex items-center">
                                   <Button
                                     type="button"
                                     title="הפחת תשלום"
@@ -7055,7 +7055,7 @@ function ExpensesPageInner() {
                                 </div>
 
                                 {pm.customInstallments.length > 0 && (
-                                  <div className="mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+                                  <div className="mt-[10px] border border-[#727BA0] rounded-[10px] p-[10px]">
                                     <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
                                       <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
                                       <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
@@ -7082,7 +7082,7 @@ function ExpensesPageInner() {
                                                 value={item.checkNumber || ""}
                                                 onChange={(e) => handlePopupInstallmentCheckNumberChange(pm.id, index, e.target.value)}
                                                 placeholder="מס׳ צ׳ק"
-                                                className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                                className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                                               />
                                             </div>
                                           )}
@@ -7094,7 +7094,7 @@ function ExpensesPageInner() {
                                               value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
                                               onFocus={(e) => e.target.select()}
                                               onChange={(e) => handlePopupInstallmentAmountChange(pm.id, index, e.target.value)}
-                                              className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                              className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                                             />
                                           </div>
                                         </div>
@@ -7125,7 +7125,7 @@ function ExpensesPageInner() {
                         {/* Payment Reference */}
                         <div className="flex flex-col gap-[3px]">
                           <label className="text-[15px] font-medium text-white text-right">אסמכתא</label>
-                          <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                          <div className="border border-[#727BA0] rounded-[10px] min-h-[50px]">
                             <Input
                               type="text"
                               placeholder="מספר אסמכתא..."
@@ -7140,7 +7140,7 @@ function ExpensesPageInner() {
                         <div className="flex flex-col gap-[3px]">
                           <label className="text-[15px] font-medium text-white text-right">קבלת תשלום</label>
                           {paymentReceiptPreview ? (
-                            <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex items-center justify-between">
+                            <div className="border border-[#727BA0] rounded-[10px] p-[10px] flex items-center justify-between">
                               <Button
                                 type="button"
                                 onClick={() => { setPaymentReceiptFile(null); setPaymentReceiptPreview(null); }}
@@ -7167,7 +7167,7 @@ function ExpensesPageInner() {
                               </div>
                             </div>
                           ) : (
-                            <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[60px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
+                            <label className="border border-[#727BA0] border-dashed rounded-[10px] h-[60px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
                               <div className="flex items-center gap-[10px]">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
                                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -7198,7 +7198,7 @@ function ExpensesPageInner() {
                         {/* Payment Notes */}
                         <div className="flex flex-col gap-[3px]">
                           <label className="text-[15px] font-medium text-white text-right">הערות</label>
-                          <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
+                          <div className="border border-[#727BA0] rounded-[10px] min-h-[100px]">
                             <Textarea
                               value={paymentNotes}
                               onChange={(e) => setPaymentNotes(e.target.value)}
@@ -7231,7 +7231,7 @@ function ExpensesPageInner() {
               {/* Status Select */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">סטטוס</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <select
                     value={editStatus}
                     onChange={(e) => setEditStatus(e.target.value)}
@@ -7270,7 +7270,7 @@ function ExpensesPageInner() {
                 <Button
                   type="button"
                   onClick={handleCloseEditPopup}
-                  className="flex-1 bg-transparent border border-[#4C526B] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
+                  className="flex-1 bg-transparent border border-[#727BA0] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
                 >
                   ביטול
                 </Button>
@@ -7326,7 +7326,7 @@ function ExpensesPageInner() {
               <Button
                 type="button"
                 onClick={handleCancelDelete}
-                className="flex-1 bg-transparent border border-[#4C526B] text-white text-[16px] font-semibold py-[12px] rounded-[10px] transition-colors hover:bg-white/10"
+                className="flex-1 bg-transparent border border-[#727BA0] text-white text-[16px] font-semibold py-[12px] rounded-[10px] transition-colors hover:bg-white/10"
               >
                 ביטול
               </Button>
@@ -7416,7 +7416,7 @@ function ExpensesPageInner() {
                 </div>
 
                 {popupPaymentMethods.map((pm, pmIndex) => (
-                  <div key={pm.id} className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+                  <div key={pm.id} className="border border-[#727BA0] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
                     {/* Header with remove button */}
                     {popupPaymentMethods.length > 1 && (
                       <div className="flex items-center justify-between mb-[5px]">
@@ -7433,7 +7433,7 @@ function ExpensesPageInner() {
 
                     {/* Payment Method Select */}
                     <Select value={pm.method || "__none__"} onValueChange={(val) => updatePopupPaymentMethodField(pm.id, "method", val === "__none__" ? "" : val)}>
-                      <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                      <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
                         <SelectValue placeholder="בחר אמצעי תשלום..." />
                       </SelectTrigger>
                       <SelectContent>
@@ -7462,7 +7462,7 @@ function ExpensesPageInner() {
                           return updated;
                         }));
                       }}>
-                        <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
+                        <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[18px] text-white text-center">
                           <SelectValue placeholder="בחר כרטיס..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -7477,7 +7477,7 @@ function ExpensesPageInner() {
                     )}
 
                     {/* Payment Amount */}
-                    <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                    <div className="border border-[#727BA0] rounded-[10px] min-h-[50px]">
                       <Input
                         type="text"
                         inputMode="decimal"
@@ -7501,7 +7501,7 @@ function ExpensesPageInner() {
                     {/* Installments */}
                     <div className="flex flex-col gap-[3px]">
                       <span className="text-[14px] text-white/70">כמות תשלומים</span>
-                      <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
+                      <div className="border border-[#727BA0] rounded-[10px] min-h-[50px] flex items-center">
                         <Button
                           type="button"
                           title="הפחת תשלום"
@@ -7530,7 +7530,7 @@ function ExpensesPageInner() {
 
                       {/* Installments Breakdown */}
                       {pm.customInstallments.length > 0 && (
-                        <div className="mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+                        <div className="mt-[10px] border border-[#727BA0] rounded-[10px] p-[10px]">
                           <div className="flex items-center border-b border-[#4C526B] pb-[8px] mb-[8px]">
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
                             <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
@@ -7557,7 +7557,7 @@ function ExpensesPageInner() {
                                       value={item.checkNumber || ""}
                                       onChange={(e) => handlePopupInstallmentCheckNumberChange(pm.id, index, e.target.value)}
                                       placeholder="מס׳ צ׳ק"
-                                      className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                      className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                                     />
                                   </div>
                                 )}
@@ -7569,7 +7569,7 @@ function ExpensesPageInner() {
                                     value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
                                     onFocus={(e) => e.target.select()}
                                     onChange={(e) => handlePopupInstallmentAmountChange(pm.id, index, e.target.value)}
-                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                                   />
                                 </div>
                               </div>
@@ -7600,7 +7600,7 @@ function ExpensesPageInner() {
               {/* Payment Reference */}
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">מספר אסמכתא</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="text"
                     title="מספר אסמכתא"
@@ -7615,7 +7615,7 @@ function ExpensesPageInner() {
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">קבלת תשלום</label>
                 {paymentReceiptPreview ? (
-                  <div className="border border-[#4C526B] rounded-[10px] p-[10px] flex items-center justify-between">
+                  <div className="border border-[#727BA0] rounded-[10px] p-[10px] flex items-center justify-between">
                     <Button
                       type="button"
                       onClick={() => { setPaymentReceiptFile(null); setPaymentReceiptPreview(null); }}
@@ -7642,7 +7642,7 @@ function ExpensesPageInner() {
                     </div>
                   </div>
                 ) : (
-                  <label className="border border-[#4C526B] border-dashed rounded-[10px] h-[60px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
+                  <label className="border border-[#727BA0] border-dashed rounded-[10px] h-[60px] flex items-center justify-center px-[10px] cursor-pointer hover:bg-white/5 transition-colors">
                     <div className="flex items-center gap-[10px]">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -7673,7 +7673,7 @@ function ExpensesPageInner() {
               {/* Payment Notes */}
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">הערות לתשלום</label>
-                <div className="border border-[#4C526B] rounded-[10px] min-h-[75px]">
+                <div className="border border-[#727BA0] rounded-[10px] min-h-[75px]">
                   <Textarea
                     title="הערות לתשלום"
                     value={paymentNotes}
@@ -7696,7 +7696,7 @@ function ExpensesPageInner() {
                 <Button
                   type="button"
                   onClick={handleClosePaymentPopup}
-                  className="flex-1 bg-transparent border border-[#4C526B] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
+                  className="flex-1 bg-transparent border border-[#727BA0] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
                 >
                   ביטול
                 </Button>
@@ -7867,7 +7867,7 @@ function ExpensesPageInner() {
                               </svg>
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="bg-[#1A1F3D] border border-[#4C526B] rounded-[8px] p-[12px] max-w-[250px] text-right" dir="rtl" side="top">
+                          <PopoverContent className="bg-[#1A1F3D] border border-[#727BA0] rounded-[8px] p-[12px] max-w-[250px] text-right" dir="rtl" side="top">
                             {inv.clarificationReason && inv.clarificationReason.trim() && (
                               <>
                                 <p className="text-[12px] text-[#FFA500] font-semibold mb-[4px]">סיבת בירור</p>
@@ -8089,7 +8089,7 @@ function ExpensesPageInner() {
                     onChange={(e) => setStatusClarificationReason(e.target.value)}
                     placeholder="פרט/י את הסיבה..."
                     rows={3}
-                    className="w-full bg-[#0F1535] text-white text-[14px] text-right rounded-[8px] border border-[#4C526B] outline-none p-[10px] resize-none"
+                    className="w-full bg-[#0F1535] text-white text-[14px] text-right rounded-[8px] border border-[#727BA0] outline-none p-[10px] resize-none"
                   />
                 </div>
 
@@ -8097,7 +8097,7 @@ function ExpensesPageInner() {
                 <div>
                   <span className="text-[13px] text-white/60 block mb-[5px]">צירוף מסמך (אופציונלי):</span>
                   {statusClarificationFilePreview ? (
-                    <div className="flex items-center gap-[8px] bg-[#0F1535] border border-[#4C526B] rounded-[8px] p-[8px]">
+                    <div className="flex items-center gap-[8px] bg-[#0F1535] border border-[#727BA0] rounded-[8px] p-[8px]">
                       {statusClarificationFile?.type.startsWith("image/") ? (
                         <Image src={statusClarificationFilePreview} alt="תצוגה מקדימה" className="w-[50px] h-[50px] object-cover rounded-[6px]" width={50} height={50} unoptimized />
                       ) : (

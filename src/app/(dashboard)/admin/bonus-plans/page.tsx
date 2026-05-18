@@ -563,7 +563,7 @@ export default function BonusPlansPage() {
           </button>
           <div className="flex items-center gap-2">
             <Select dir="rtl" value={selectedMonth.toString()} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
-              <SelectTrigger className="w-[100px] bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[36px] px-[10px] text-[13px] text-white text-center">
+              <SelectTrigger className="w-[100px] bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[36px] px-[10px] text-[13px] text-white text-center">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -573,7 +573,7 @@ export default function BonusPlansPage() {
               </SelectContent>
             </Select>
             <Select dir="rtl" value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-              <SelectTrigger className="w-[80px] bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[36px] px-[10px] text-[13px] text-white text-center">
+              <SelectTrigger className="w-[80px] bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[36px] px-[10px] text-[13px] text-white text-center">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -619,7 +619,7 @@ export default function BonusPlansPage() {
                 <div>
                   <label className="text-white/70 text-sm mb-1.5 block">עובד</label>
                   <Select dir="rtl" value={formEmployeeId} onValueChange={setFormEmployeeId}>
-                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
+                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
                       <SelectValue placeholder="בחר עובד..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -640,7 +640,7 @@ export default function BonusPlansPage() {
                     value={formAreaName}
                     onChange={(e) => setFormAreaName(e.target.value)}
                     placeholder="למשל: ניהול עלות עובדים"
-                    className="h-[42px] sm:h-[50px] w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-right placeholder:text-white/30"
+                    className="h-[42px] sm:h-[50px] w-full bg-[#0F1535] border border-[#727BA0] text-white rounded-[10px] px-3 outline-none text-right placeholder:text-white/30"
                   />
                 </div>
 
@@ -648,7 +648,7 @@ export default function BonusPlansPage() {
                 <div>
                   <label className="text-white/70 text-sm mb-1.5 block">מקור נתונים</label>
                   <Select dir="rtl" value={formDataSource} onValueChange={handleDataSourceChange}>
-                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
+                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
                       <SelectValue placeholder="בחר מקור נתונים..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -670,7 +670,7 @@ export default function BonusPlansPage() {
                       value={formCustomLabel}
                       onChange={(e) => setFormCustomLabel(e.target.value)}
                       placeholder="למשל: מספר אפסיילים יומי"
-                      className="h-[42px] sm:h-[50px] w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-right placeholder:text-white/30"
+                      className="h-[42px] sm:h-[50px] w-full bg-[#0F1535] border border-[#727BA0] text-white rounded-[10px] px-3 outline-none text-right placeholder:text-white/30"
                     />
                   </div>
                 )}
@@ -681,7 +681,7 @@ export default function BonusPlansPage() {
                     <div>
                       <label className="text-white/70 text-sm mb-1.5 block">סוג מדידה</label>
                       <Select dir="rtl" value={formMeasurementType} onValueChange={(v) => setFormMeasurementType(v as "percentage" | "currency" | "quantity")}>
-                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
+                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -698,7 +698,7 @@ export default function BonusPlansPage() {
                         value={formIsLowerBetter ? "lower" : "higher"}
                         onValueChange={(v) => setFormIsLowerBetter(v === "lower")}
                       >
-                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
+                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -713,7 +713,7 @@ export default function BonusPlansPage() {
                 {/* Tiers (#37 — range support) */}
                 <div>
                   <label className="text-white/70 text-sm mb-2 block">רמות בונוס</label>
-                  <div className="rounded-[10px] border border-[#4C526B] overflow-hidden">
+                  <div className="rounded-[10px] border border-[#727BA0] overflow-hidden">
                     {/* Header */}
                     <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] gap-0 bg-[#29318A]/40 text-[11px] sm:text-[12px] text-white/50">
                       <div className="p-2 text-center border-l border-white/10">שם רמה</div>
@@ -755,7 +755,7 @@ export default function BonusPlansPage() {
                         value={formPushEnabled ? "on" : "off"}
                         onValueChange={(v) => setFormPushEnabled(v === "on")}
                       >
-                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
+                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -767,7 +767,7 @@ export default function BonusPlansPage() {
                     <div>
                       <label className="text-white/70 text-sm mb-1.5 block">שעת שליחה</label>
                       <Select dir="rtl" value={formPushHour} onValueChange={setFormPushHour}>
-                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
+                        <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[42px] sm:h-[50px] px-[12px] text-[13px] sm:text-[14px] text-white">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -805,7 +805,7 @@ export default function BonusPlansPage() {
                             className={`w-[36px] h-[36px] rounded-lg text-[13px] font-medium transition-colors ${
                               formPushDays.includes(day)
                                 ? "bg-[#4A56D4] text-white border border-[#4A56D4]"
-                                : "bg-[#0F1535] text-white/40 border border-[#4C526B] hover:text-white/70"
+                                : "bg-[#0F1535] text-white/40 border border-[#727BA0] hover:text-white/70"
                             }`}
                           >
                             {label}
@@ -825,7 +825,7 @@ export default function BonusPlansPage() {
                     onChange={(e) => setFormTips(e.target.value)}
                     placeholder={"לדוגמא: להציע ללקוח זיוה שוקולד ב-15₪ במקום 29.90₪ בכל הזמנה מעל 100₪\nלשאול כמה סועדים, מבוגרים/ילדים, ולהתאים את ההזמנה"}
                     rows={3}
-                    className="w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 py-2.5 outline-none resize-none placeholder:text-white/30 text-right text-[13px]"
+                    className="w-full bg-[#0F1535] border border-[#727BA0] text-white rounded-[10px] px-3 py-2.5 outline-none resize-none placeholder:text-white/30 text-right text-[13px]"
                   />
                 </div>
 
@@ -838,7 +838,7 @@ export default function BonusPlansPage() {
                     onChange={(e) => setFormDailyActions(e.target.value)}
                     placeholder={"להציע קינוח על כל הזמנה מעל ₪80\nלשאול בטלפון כמה סועדים מבוגרים וכמה ילדים\nלעודד אפסייל של תוספות (פטריות, גבינה כפולה)"}
                     rows={3}
-                    className="w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 py-2.5 outline-none resize-none placeholder:text-white/30 text-right text-[13px]"
+                    className="w-full bg-[#0F1535] border border-[#727BA0] text-white rounded-[10px] px-3 py-2.5 outline-none resize-none placeholder:text-white/30 text-right text-[13px]"
                   />
                 </div>
 
@@ -851,7 +851,7 @@ export default function BonusPlansPage() {
                     onChange={(e) => setFormBusinessNotes(e.target.value)}
                     placeholder={"לדוגמה: מנת היום היא פסטה ברוטב פטריות. יש מבצע 1+1 על קינוחים עד 18:00."}
                     rows={3}
-                    className="w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 py-2.5 outline-none resize-none placeholder:text-white/30 text-right text-[13px]"
+                    className="w-full bg-[#0F1535] border border-[#727BA0] text-white rounded-[10px] px-3 py-2.5 outline-none resize-none placeholder:text-white/30 text-right text-[13px]"
                   />
                 </div>
 
@@ -863,7 +863,7 @@ export default function BonusPlansPage() {
                     onChange={(e) => setFormNotes(e.target.value)}
                     placeholder="הערות נוספות..."
                     rows={2}
-                    className="w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 py-2.5 outline-none resize-none placeholder:text-white/30 text-right"
+                    className="w-full bg-[#0F1535] border border-[#727BA0] text-white rounded-[10px] px-3 py-2.5 outline-none resize-none placeholder:text-white/30 text-right"
                   />
                 </div>
 

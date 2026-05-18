@@ -912,13 +912,13 @@ export function HistoryModal({
               type="button"
               variant="ghost"
               onClick={() => setYearDropdownOpen(!yearDropdownOpen)}
-              className="flex items-center gap-[8px] text-white text-[18px] font-normal leading-none rounded-[7px] py-[7px] px-[12px] cursor-pointer border border-[#4C526B]"
+              className="flex items-center gap-[8px] text-white text-[18px] font-normal leading-none rounded-[7px] py-[7px] px-[12px] cursor-pointer border border-[#727BA0]"
             >
               <ChevronDown className="w-[11px] h-[11px] text-white" />
               <span className="ltr-num">{year}</span>
             </Button>
             {yearDropdownOpen && (
-              <div className="absolute top-full mt-1 left-0 z-50 bg-[rgb(41,49,138)] rounded-[7px] border border-[#4C526B] shadow-lg max-h-[200px] overflow-y-auto min-w-[80px]">
+              <div className="absolute top-full mt-1 left-0 z-50 bg-[rgb(41,49,138)] rounded-[7px] border border-[#727BA0] shadow-lg max-h-[200px] overflow-y-auto min-w-[80px]">
                 {availableYears.map(y => (
                   <Button
                     key={y}

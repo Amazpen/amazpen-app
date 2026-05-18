@@ -1150,7 +1150,7 @@ export function DailyEntriesModal({
                     placeholder="0"
                     value={editFormData.total_register}
                     onChange={(v) => setEditFormData({ ...editFormData, total_register: v })}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </div>
 
@@ -1167,7 +1167,7 @@ export function DailyEntriesModal({
                       max="1"
                       value={editFormData.day_factor}
                       onChange={(e) => setEditFormData({ ...editFormData, day_factor: e.target.value })}
-                      className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                      className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                     />
                   </div>
                 )}
@@ -1189,7 +1189,7 @@ export function DailyEntriesModal({
                               ...prev,
                               [source.id]: { ...prev[source.id], amount: v },
                             }))}
-                            className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                            className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                           />
                         </div>
                         <div className="flex flex-col gap-[3px]">
@@ -1203,7 +1203,7 @@ export function DailyEntriesModal({
                               ...prev,
                               [source.id]: { ...prev[source.id], orders_count: e.target.value },
                             }))}
-                            className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                            className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                           />
                         </div>
                       </div>
@@ -1224,7 +1224,7 @@ export function DailyEntriesModal({
                           placeholder="0"
                           value={receiptData[receipt.id] || ""}
                           onChange={(v) => setReceiptData((prev) => ({ ...prev, [receipt.id]: v }))}
-                          className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                          className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                         />
                       </div>
                     ))}
@@ -1244,7 +1244,7 @@ export function DailyEntriesModal({
                           placeholder="0"
                           value={parameterData[param.id] || ""}
                           onChange={(v) => setParameterData((prev) => ({ ...prev, [param.id]: v }))}
-                          className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                          className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                         />
                       </div>
                     ))}
@@ -1258,7 +1258,7 @@ export function DailyEntriesModal({
                     placeholder="0"
                     value={editFormData.labor_cost}
                     onChange={(v) => setEditFormData({ ...editFormData, labor_cost: v })}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </div>
 
@@ -1282,7 +1282,7 @@ export function DailyEntriesModal({
                           type="text"
                           disabled
                           value={laborWithMarkup > 0 ? laborWithMarkup.toFixed(2) : "—"}
-                          className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px] font-semibold disabled:opacity-100"
+                          className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px] font-semibold disabled:opacity-100"
                         />
                       </div>
                       <div className="bg-transparent rounded-[7px] flex flex-col gap-[3px]">
@@ -1349,7 +1349,7 @@ export function DailyEntriesModal({
                           type="text"
                           disabled
                           value={dailyManagerWithMarkup > 0 ? `₪ ${dailyManagerWithMarkup.toFixed(2)}` : "—"}
-                          className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px] font-semibold disabled:opacity-100"
+                          className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px] font-semibold disabled:opacity-100"
                         />
                       </div>
                     </>
@@ -1364,7 +1364,7 @@ export function DailyEntriesModal({
                     placeholder="0"
                     value={editFormData.labor_hours}
                     onChange={(e) => setEditFormData({ ...editFormData, labor_hours: e.target.value })}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </div>
 
@@ -1374,7 +1374,7 @@ export function DailyEntriesModal({
                     placeholder="0"
                     value={editFormData.discounts}
                     onChange={(v) => setEditFormData({ ...editFormData, discounts: v })}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </div>
 
@@ -1387,7 +1387,7 @@ export function DailyEntriesModal({
                     {managedProducts.map((product) => (
                       <div
                         key={product.id}
-                        className="border border-[#4C526B] rounded-[10px] p-4 flex flex-col gap-3"
+                        className="border border-[#727BA0] rounded-[10px] p-4 flex flex-col gap-3"
                       >
                         <div className="text-white font-medium text-right">
                           <span>{product.name}</span>
@@ -1404,7 +1404,7 @@ export function DailyEntriesModal({
                               ...prev,
                               [product.id]: { ...prev[product.id], opening_stock: e.target.value },
                             }))}
-                            className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                            className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                           />
                         </div>
 
@@ -1419,7 +1419,7 @@ export function DailyEntriesModal({
                               ...prev,
                               [product.id]: { ...prev[product.id], received_quantity: e.target.value },
                             }))}
-                            className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                            className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                           />
                         </div>
 
@@ -1434,7 +1434,7 @@ export function DailyEntriesModal({
                               ...prev,
                               [product.id]: { ...prev[product.id], closing_stock: e.target.value },
                             }))}
-                            className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                            className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                           />
                         </div>
 
@@ -1451,7 +1451,7 @@ export function DailyEntriesModal({
                                 type="text"
                                 disabled
                                 value={actualUsage > 0 ? `${actualUsage.toFixed(2)} ${product.unit}` : "—"}
-                                className="bg-transparent border border-[#4C526B] text-white text-right h-[40px] rounded-[10px] px-[10px] font-semibold disabled:opacity-100"
+                                className="bg-transparent border border-[#727BA0] text-white text-right h-[40px] rounded-[10px] px-[10px] font-semibold disabled:opacity-100"
                               />
                             </div>
                           );
@@ -1482,7 +1482,7 @@ export function DailyEntriesModal({
                     type="button"
                     variant="outline"
                     onClick={handleCancelEdit}
-                    className="flex-1 h-[50px] border border-[#4C526B] text-[#7B91B0] hover:text-white hover:border-white font-bold text-lg rounded-[10px] transition-all"
+                    className="flex-1 h-[50px] border border-[#727BA0] text-[#7B91B0] hover:text-white hover:border-white font-bold text-lg rounded-[10px] transition-all"
                   >
                     ביטול
                   </Button>

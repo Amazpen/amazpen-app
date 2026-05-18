@@ -116,7 +116,7 @@ export default function SupplierSearchSelect({
             setIsOpen(!isOpen);
             setHighlightIndex(-1);
           }}
-          className={`flex items-center justify-between border border-[#4C526B] rounded-[10px] h-[50px] bg-[#0F1535] px-[12px] cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`flex items-center justify-between border border-[#727BA0] rounded-[10px] h-[50px] bg-[#0F1535] px-[12px] cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <span className={`text-[16px] flex-1 text-center ${selectedSupplier ? 'text-white' : 'text-white/40'}`}>
             {selectedSupplier ? selectedSupplier.name : (emptyMessage && suppliers.length === 0 ? emptyMessage : placeholder)}
@@ -143,7 +143,7 @@ export default function SupplierSearchSelect({
 
         {/* Dropdown */}
         {isOpen && (
-          <div className="absolute top-[52px] left-0 right-0 z-50 bg-[#0F1535] border border-[#4C526B] rounded-[10px] shadow-lg shadow-black/40 overflow-hidden">
+          <div className="absolute top-[52px] left-0 right-0 z-50 bg-[#0F1535] border border-[#727BA0] rounded-[10px] shadow-lg shadow-black/40 overflow-hidden">
             {/* Search input */}
             <div className="p-[8px] border-b border-[#4C526B]/50">
               <div className="flex items-center gap-[8px] bg-[#1a2044] rounded-[8px] px-[10px] h-[40px]">

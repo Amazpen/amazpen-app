@@ -1307,7 +1307,7 @@ export default function ReportsPage() {
             reads as part of the "what am I looking at" controls. Monthly is
             the default (and what the rest of the report was built around);
             yearly swaps the report body for a 12-month supplier breakdown. */}
-        <div className="flex flex-row-reverse items-center w-full gap-[5px] p-[3px] bg-[#1a1f4e] rounded-[7px] border border-[#4C526B]">
+        <div className="flex flex-row-reverse items-center w-full gap-[5px] p-[3px] bg-[#1a1f4e] rounded-[7px] border border-[#727BA0]">
           <button
             type="button"
             onClick={() => setViewMode("monthly")}
@@ -1334,7 +1334,7 @@ export default function ReportsPage() {
           {viewMode === "monthly" && (
           <div className="flex-1">
             <Select value={selectedMonth || "__none__"} onValueChange={(val) => setSelectedMonth(val === "__none__" ? "" : val)}>
-              <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[7px] h-[50px] px-[12px] text-[18px] text-white font-bold text-right">
+              <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[7px] h-[50px] px-[12px] text-[18px] text-white font-bold text-right">
                 <SelectValue placeholder="בחר/י חודש" />
               </SelectTrigger>
               <SelectContent>
@@ -1350,7 +1350,7 @@ export default function ReportsPage() {
           )}
           <div className="flex-1">
             <Select value={selectedYear || "__none__"} onValueChange={(val) => setSelectedYear(val === "__none__" ? "" : val)}>
-              <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[7px] h-[50px] px-[12px] text-[18px] text-white font-bold text-right">
+              <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[7px] h-[50px] px-[12px] text-[18px] text-white font-bold text-right">
                 <SelectValue placeholder="בחר/י שנה" />
               </SelectTrigger>
               <SelectContent>

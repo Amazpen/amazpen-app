@@ -1280,7 +1280,7 @@ export default function CustomersPage() {
             {/* שם החברה */}
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">שם החברה</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                 <Input
                   type="text"
                   title="שם החברה"
@@ -1295,7 +1295,7 @@ export default function CustomersPage() {
             {/* ע.מ/ח.פ */}
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">ע.מ/ח.פ</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                 <Input
                   type="tel"
                   title="ע.מ/ח.פ"
@@ -1324,7 +1324,7 @@ export default function CustomersPage() {
             {/* דמי הקמה */}
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">דמי הקמה</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                 <Input
                   type="text"
                   title="דמי הקמה"
@@ -1340,7 +1340,7 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">סוג עסק</label>
               <Select value={fCustomerBusinessType || "__none__"} onValueChange={(val) => setFCustomerBusinessType(val === "__none__" ? "" : val)}>
-                <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
                   <SelectValue placeholder="בחר סוג עסק" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1351,7 +1351,7 @@ export default function CustomersPage() {
                 </SelectContent>
               </Select>
               {fCustomerBusinessType === "other" && (
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px] mt-[5px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px] mt-[5px]">
                   <Input
                     type="text"
                     title="פרט סוג עסק"
@@ -1368,7 +1368,7 @@ export default function CustomersPage() {
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">אמצעי תשלום</label>
               <Select value={fCustomerPaymentMethod || "__none__"} onValueChange={(val) => setFCustomerPaymentMethod(val === "__none__" ? "" : val)}>
-                <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
                   <SelectValue placeholder="בחר אמצעי תשלום" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1402,7 +1402,7 @@ export default function CustomersPage() {
             {/* הסכם עבודה - file upload */}
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">הסכם עבודה</label>
-              <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[80px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#6B21A8] transition-colors">
+              <label className="border border-[#727BA0] border-dashed rounded-[10px] min-h-[80px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#6B21A8] transition-colors">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-[#979797]">
                   <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M3 15V16C3 18.2091 4.79086 20 7 20H17C19.2091 20 21 18.2091 21 16V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1432,7 +1432,7 @@ export default function CustomersPage() {
             {/* הערות */}
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">הערות</label>
-              <div className="border border-[#4C526B] rounded-[10px] min-h-[80px] px-[10px] py-[8px]">
+              <div className="border border-[#727BA0] rounded-[10px] min-h-[80px] px-[10px] py-[8px]">
                 <Textarea
                   title="הערות"
                   value={fNotes}
@@ -1450,7 +1450,7 @@ export default function CustomersPage() {
               {/* סכום */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white/80 text-right">{fIsForeign ? 'סכום (ללא מע"מ)' : 'סכום לפני מע"מ'}</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="tel"
                     title="סכום ריטיינר"
@@ -1474,7 +1474,7 @@ export default function CustomersPage() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white/80 text-right">סוג תשלום</label>
                 <Select value={fRetainerType || "__none__"} onValueChange={(val) => setFRetainerType(val === "__none__" ? "" : val)}>
-                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
                     <SelectValue placeholder="בחר סוג" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1490,7 +1490,7 @@ export default function CustomersPage() {
               {fRetainerType === "fixed_term" && (
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[14px] font-medium text-white/80 text-right">כמות חודשים</label>
-                  <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                  <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                     <Input
                       type="tel"
                       title="כמות חודשים"
@@ -1508,7 +1508,7 @@ export default function CustomersPage() {
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[14px] font-medium text-white/80 text-right">יום חיוב בחודש</label>
                   <Select value={fRetainerDayOfMonth} onValueChange={setFRetainerDayOfMonth}>
-                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
                       <SelectValue placeholder="בחר יום" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1538,7 +1538,7 @@ export default function CustomersPage() {
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white/80 text-right">מקור הכנסה מקושר</label>
                     <Select value={fLinkedIncomeSourceId || "__none__"} onValueChange={(val) => setFLinkedIncomeSourceId(val === "__none__" ? "" : val)}>
-                      <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
+                      <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[10px] text-[14px] text-white text-center">
                         <SelectValue placeholder="ייצור אוטומטי" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1606,7 +1606,7 @@ export default function CustomersPage() {
                 type="button"
                 onClick={handleCloseForm}
                 disabled={isSubmitting}
-                className="flex-1 bg-transparent border border-[#4C526B] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10 disabled:opacity-50"
+                className="flex-1 bg-transparent border border-[#727BA0] text-white text-[18px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10 disabled:opacity-50"
               >
                 ביטול
               </Button>
@@ -1764,7 +1764,7 @@ export default function CustomersPage() {
                     )}
                     {/* Notes */}
                     {selectedItem.customer.notes && (
-                      <div className="mt-[10px] bg-[#6B21A8]/20 rounded-[10px] p-[10px] border border-[#4C526B]">
+                      <div className="mt-[10px] bg-[#6B21A8]/20 rounded-[10px] p-[10px] border border-[#727BA0]">
                         <span className="text-[12px] text-white/60">הערות</span>
                         <p className="text-[14px] text-white mt-[4px] text-right whitespace-pre-wrap">{selectedItem.customer.notes}</p>
                       </div>
@@ -1978,10 +1978,10 @@ export default function CustomersPage() {
 
                   {/* Add Service Sub-form */}
                   {isAddServiceOpen && (
-                    <div className="flex flex-col gap-[8px] mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+                    <div className="flex flex-col gap-[8px] mt-[10px] border border-[#727BA0] rounded-[10px] p-[10px]">
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">שם השירות/מוצר</label>
-                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
+                        <div className="border border-[#727BA0] rounded-[7px] h-[40px]">
                           <Input
                             type="text"
                             title="שם שירות"
@@ -1994,7 +1994,7 @@ export default function CustomersPage() {
                       </div>
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">סכום (₪) לפני מע&quot;מ</label>
-                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
+                        <div className="border border-[#727BA0] rounded-[7px] h-[40px]">
                           <Input
                             type="tel"
                             title="סכום"
@@ -2020,7 +2020,7 @@ export default function CustomersPage() {
                       </div>
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">הערות</label>
-                        <div className="border border-[#4C526B] rounded-[7px] min-h-[40px] px-[8px] py-[6px]">
+                        <div className="border border-[#727BA0] rounded-[7px] min-h-[40px] px-[8px] py-[6px]">
                           <Textarea
                             title="הערות"
                             value={newServiceNotes}
@@ -2207,7 +2207,7 @@ export default function CustomersPage() {
                         onChange={(e) => setNewDocDescription(e.target.value)}
                         className="bg-transparent border-[#4C526B] text-white text-[14px] h-[40px] text-right placeholder:text-white/30"
                       />
-                      <label className="border border-[#4C526B] border-dashed rounded-[8px] h-[40px] px-[10px] flex items-center justify-center cursor-pointer hover:border-[#6B21A8] transition-colors">
+                      <label className="border border-[#727BA0] border-dashed rounded-[8px] h-[40px] px-[10px] flex items-center justify-center cursor-pointer hover:border-[#6B21A8] transition-colors">
                         <span className="text-[13px] text-[#979797]">
                           {newDocFile ? newDocFile.name : "לחץ לבחירת קובץ"}
                         </span>
@@ -2426,7 +2426,7 @@ export default function CustomersPage() {
 
                   {/* Add Payment Sub-form */}
                   {isAddPaymentOpen && (
-                    <div className="flex flex-col gap-[8px] mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+                    <div className="flex flex-col gap-[8px] mt-[10px] border border-[#727BA0] rounded-[10px] p-[10px]">
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">תאריך</label>
                         <DatePickerField
@@ -2437,7 +2437,7 @@ export default function CustomersPage() {
                       </div>
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">סכום (₪)</label>
-                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
+                        <div className="border border-[#727BA0] rounded-[7px] h-[40px]">
                           <Input
                             type="tel"
                             title="סכום"
@@ -2450,7 +2450,7 @@ export default function CustomersPage() {
                       </div>
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">עבור מה</label>
-                        <div className="border border-[#4C526B] rounded-[7px] h-[40px]">
+                        <div className="border border-[#727BA0] rounded-[7px] h-[40px]">
                           <Input
                             type="text"
                             title="תיאור"
@@ -2464,7 +2464,7 @@ export default function CustomersPage() {
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">אמצעי תשלום</label>
                         <Select value={newPaymentMethod || "__none__"} onValueChange={(val) => setNewPaymentMethod(val === "__none__" ? "" : val)}>
-                          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[7px] h-[40px] px-[8px] text-[13px] text-white text-center">
+                          <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[7px] h-[40px] px-[8px] text-[13px] text-white text-center">
                             <SelectValue placeholder="בחר" />
                           </SelectTrigger>
                           <SelectContent>
@@ -2481,7 +2481,7 @@ export default function CustomersPage() {
                       </div>
                       <div className="flex flex-col gap-[3px]">
                         <label className="text-[13px] text-white/70 text-right">הערות</label>
-                        <div className="border border-[#4C526B] rounded-[7px] min-h-[40px] px-[8px] py-[6px]">
+                        <div className="border border-[#727BA0] rounded-[7px] min-h-[40px] px-[8px] py-[6px]">
                           <Textarea
                             title="הערות"
                             value={newPaymentNotes}

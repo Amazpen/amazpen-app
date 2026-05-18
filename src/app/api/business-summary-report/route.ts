@@ -192,19 +192,30 @@ export async function GET(request: NextRequest) {
       scheduleByDow[s.day_of_week] = Number(s.day_factor) || 0;
     }
     let expectedWorkDays = 0;
+    let expectedWorkDaysElapsed = 0;
     const iterDate = new Date(monthStartDate);
     while (iterDate <= lastDayOfMonth) {
       const key = fmtLocal(iterDate);
-      if (exceptionMap[key] !== undefined) {
-        expectedWorkDays += exceptionMap[key];
-      } else {
-        expectedWorkDays += scheduleByDow[iterDate.getDay()] || 0;
+      const factor =
+        exceptionMap[key] !== undefined
+          ? exceptionMap[key]
+          : scheduleByDow[iterDate.getDay()] || 0;
+      expectedWorkDays += factor;
+      if (iterDate <= endDate) {
+        expectedWorkDaysElapsed += factor;
       }
       iterDate.setDate(iterDate.getDate() + 1);
     }
     const effectiveWorkDays = expectedWorkDays > 0 ? expectedWorkDays : 26;
     const managerDailyCost =
       effectiveWorkDays > 0 ? (Number(business.manager_monthly_salary) || 0) / effectiveWorkDays : 0;
+
+    // Pro-rata factor: ratio of day-factor elapsed (1st → endDate) to full month.
+    // Used to scale monthly targets (revenue, current expenses, profit) so the
+    // email compares partial-month actuals against partial-month targets — same
+    // mental model David asked for: "split the target by the days elapsed".
+    const periodFactor =
+      expectedWorkDays > 0 ? expectedWorkDaysElapsed / expectedWorkDays : 1;
 
     // ===== Labor cost =====
     const rawLaborCost = entries.reduce((s, e) => s + (Number(e.labor_cost) || 0), 0);
@@ -267,7 +278,10 @@ export async function GET(request: NextRequest) {
     // Current expenses = invoices from non-goods suppliers. Falls back to the
     // legacy invoice_type='current' filter for invoices whose supplier was
     // deleted / has no expense_type, so they still get bucketed somewhere.
-    const currentExpensesTarget = Number(goal?.current_expenses_target) || 0;
+    // Target is scaled by periodFactor so partial-month actuals are compared
+    // against partial-month targets (David's request: split by days elapsed).
+    const currentExpensesTargetFull = Number(goal?.current_expenses_target) || 0;
+    const currentExpensesTarget = currentExpensesTargetFull * periodFactor;
     const currentExpensesActual = (invoices as InvRow[])
       .filter((inv) => !inv.supplier_id || !goodsSupplierIds.has(inv.supplier_id))
       .reduce((s, inv) => s + (Number(inv.subtotal) || 0), 0);
@@ -317,20 +331,24 @@ export async function GET(request: NextRequest) {
         name: src.name,
         ordersCount: actual.orders,
         totalAmount: Math.round(actual.amount),
-        avgTicketTarget: Math.round(avgTicketTarget),
-        avgTicketActual: Math.round(actualAvgTicket),
+        avgTicketTarget: Math.round(avgTicketTarget * 100) / 100,
+        avgTicketActual: Math.round(actualAvgTicket * 100) / 100,
         diffAvgPct: Math.round(diffAvgPct * 100) / 100,
         diffAvgNis: Math.round(diffAvgNis),
       };
     });
 
     // ===== Revenue target & diff =====
-    const revenueTarget = Number(goal?.revenue_target) || 0;
+    // Scale full-month target by periodFactor for fair partial-period comparison.
+    const revenueTargetFull = Number(goal?.revenue_target) || 0;
+    const revenueTarget = revenueTargetFull * periodFactor;
     const revenueDiffNis = incomeBeforeVat - revenueTarget;
     const revenueDiffPct =
       revenueTarget > 0 ? ((incomeBeforeVat - revenueTarget) / revenueTarget) * 100 : 0;
 
     // ===== Profit =====
+    // Profit target is rebuilt from period-scaled revenue & current-expenses
+    // targets so it stays consistent with the partial period.
     const totalExpenses = laborCost + foodCost + currentExpensesActual;
     const profitActual = incomeBeforeVat - totalExpenses;
     const profitTarget =
@@ -340,7 +358,17 @@ export async function GET(request: NextRequest) {
         currentExpensesTarget);
     const profitDiffNis = profitActual - profitTarget;
     const profitActualPct = incomeBeforeVat > 0 ? (profitActual / incomeBeforeVat) * 100 : 0;
-    const profitTargetPct = revenueTarget > 0 ? (profitTarget / revenueTarget) * 100 : 0;
+    // profitTargetPct is a ratio (%), so it stays the same whether scaled or not:
+    // use revenueTargetFull to keep the displayed % stable across the month.
+    const profitTargetPct =
+      revenueTargetFull > 0
+        ? ((revenueTargetFull -
+            ((laborTargetPct / 100) * revenueTargetFull +
+              (foodTargetPct / 100) * revenueTargetFull +
+              currentExpensesTargetFull)) /
+            revenueTargetFull) *
+          100
+        : 0;
     const profitDiffPct = profitActualPct - profitTargetPct;
 
     // ===== Prior commitments (loans/installments for this month) =====

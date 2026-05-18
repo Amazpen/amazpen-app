@@ -5053,7 +5053,7 @@ function PaymentsPageInner() {
                   </Button>
 
                   {showOpenInvoices && (
-                    <div dir="rtl" className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+                    <div dir="rtl" className="border border-[#727BA0] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
                       {isLoadingInvoices ? (
                         <div className="text-center text-white/70 py-[20px]">טוען חשבוניות...</div>
                       ) : (
@@ -5361,7 +5361,7 @@ function PaymentsPageInner() {
 
                     {/* Payment Method Select */}
                     <Select value={pm.method || "__none__"} onValueChange={(val) => updatePaymentMethodField(pm.id, "method", val === "__none__" ? "" : val)}>
-                      <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] !h-[50px] px-[12px] text-[18px] text-white text-center">
+                      <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] !h-[50px] px-[12px] text-[18px] text-white text-center">
                         <SelectValue placeholder="...בחר אמצעי תשלום" />
                       </SelectTrigger>
                       <SelectContent>
@@ -5390,7 +5390,7 @@ function PaymentsPageInner() {
                           return updated;
                         }));
                       }}>
-                        <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] !h-[50px] px-[12px] text-[18px] text-white text-center">
+                        <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] !h-[50px] px-[12px] text-[18px] text-white text-center">
                           <SelectValue placeholder="בחר כרטיס..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -5405,7 +5405,7 @@ function PaymentsPageInner() {
                     )}
 
                     {/* Payment Amount */}
-                    <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                    <div className="border border-[#727BA0] rounded-[10px] min-h-[50px]">
                       <Input
                         type="text"
                         inputMode="decimal"
@@ -5439,7 +5439,7 @@ function PaymentsPageInner() {
                     {/* Installments */}
                     <div className="flex flex-col gap-[3px]">
                       <span className="text-[14px] text-white/70">כמות תשלומים</span>
-                      <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
+                      <div className="border border-[#727BA0] rounded-[10px] min-h-[50px] flex items-center">
                         <Button
                           type="button"
                           title="הפחת תשלום"
@@ -5468,7 +5468,7 @@ function PaymentsPageInner() {
 
                       {/* Installments Breakdown */}
                       {pm.customInstallments.length > 0 && (
-                        <div className="mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+                        <div className="mt-[10px] border border-[#727BA0] rounded-[10px] p-[10px]">
                           <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
                             {pm.customInstallments.length > 1 && (
                               <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
@@ -5501,7 +5501,7 @@ function PaymentsPageInner() {
                                       value={item.checkNumber || ""}
                                       onChange={(e) => handleInstallmentCheckNumberChange(pm.id, index, e.target.value)}
                                       placeholder="מס׳ צ׳ק"
-                                      className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                      className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                                     />
                                   </div>
                                 )}
@@ -5513,7 +5513,7 @@ function PaymentsPageInner() {
                                     value={item.amount === 0 ? "" : (item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2))}
                                     onFocus={(e) => e.target.select()}
                                     onChange={(e) => handleInstallmentAmountChange(pm.id, index, e.target.value)}
-                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                                    className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                                   />
                                 </div>
                               </div>
@@ -5556,7 +5556,7 @@ function PaymentsPageInner() {
                   <span className="text-[16px] font-medium text-white">אסמכתא</span>
                 </div>
                 <div className="flex gap-[8px] items-center">
-                  <div className="flex-1 border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                  <div className="flex-1 border border-[#727BA0] rounded-[10px] min-h-[50px]">
                     <Input
                       type="text"
                       value={reference}
@@ -5565,7 +5565,7 @@ function PaymentsPageInner() {
                       className="w-full h-[50px] bg-transparent text-[18px] text-white text-right focus:outline-none px-[10px] rounded-[10px]"
                     />
                   </div>
-                  <label className="shrink-0 border border-[#4C526B] border-dashed rounded-[10px] w-[50px] h-[50px] flex items-center justify-center cursor-pointer hover:bg-white/5 transition-colors" onPointerDown={(e) => e.stopPropagation()}>
+                  <label className="shrink-0 border border-[#727BA0] border-dashed rounded-[10px] w-[50px] h-[50px] flex items-center justify-center cursor-pointer hover:bg-white/5 transition-colors" onPointerDown={(e) => e.stopPropagation()}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/50">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                       <polyline points="17 8 12 3 7 8"/>
@@ -5603,7 +5603,7 @@ function PaymentsPageInner() {
                     {receiptFiles.map((entry, idx) => {
                       const isPdf = entry.preview.toLowerCase().includes(".pdf") || (entry.file?.type === "application/pdf");
                       return (
-                        <div key={`receipt-${entry.preview}`} className="relative group border border-[#4C526B] rounded-[7px] w-[80px] h-[80px] overflow-hidden flex items-center justify-center bg-white/5">
+                        <div key={`receipt-${entry.preview}`} className="relative group border border-[#727BA0] rounded-[7px] w-[80px] h-[80px] overflow-hidden flex items-center justify-center bg-white/5">
                           <Button type="button" onClick={() => { setViewerDocIsPdf(isPdf); setViewerDocUrl(entry.preview); }} className="w-full h-full cursor-pointer">
                             {isPdf ? (
                               <PdfThumbnail url={entry.preview} className="w-full h-full" />
@@ -5645,7 +5645,7 @@ function PaymentsPageInner() {
                 <div className="flex items-start">
                   <span className="text-[16px] font-medium text-white">הערות</span>
                 </div>
-                <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
+                <div className="border border-[#727BA0] rounded-[10px] min-h-[100px]">
                   <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -5841,7 +5841,7 @@ function PaymentsPageInner() {
 
               <div className="flex flex-col gap-[10px] mb-[20px]">
                 {updateConfirmation.changes.map((change) => (
-                  <div key={`change-${change.label}`} className="bg-[#0F1535] rounded-[10px] p-[10px] border border-[#4C526B]">
+                  <div key={`change-${change.label}`} className="bg-[#0F1535] rounded-[10px] p-[10px] border border-[#727BA0]">
                     <span className="text-[13px] font-medium text-white/70 block mb-[6px]">{change.label}</span>
                     <div className="flex items-center gap-[8px]">
                       <span className="text-[14px] text-red-400 ltr-num flex-1 text-center line-through">{change.before}</span>
@@ -5863,7 +5863,7 @@ function PaymentsPageInner() {
                 <Button
                   type="button"
                   onClick={() => setUpdateConfirmation(null)}
-                  className="flex-1 bg-transparent border border-[#4C526B] text-white text-[14px] font-bold py-[10px] rounded-[10px] hover:bg-white/10 transition-colors cursor-pointer"
+                  className="flex-1 bg-transparent border border-[#727BA0] text-white text-[14px] font-bold py-[10px] rounded-[10px] hover:bg-white/10 transition-colors cursor-pointer"
                 >
                   ביטול
                 </Button>

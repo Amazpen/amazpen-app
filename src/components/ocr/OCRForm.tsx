@@ -2454,7 +2454,7 @@ export default function OCRForm({
       </div>
 
       {methods.map((pm, pmIndex) => (
-        <div key={pm.id} className="border border-[#4C526B] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
+        <div key={pm.id} className="border border-[#727BA0] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
           {methods.length > 1 && (
             <div className="flex items-center justify-between mb-[5px]">
               <span className="text-[14px] text-white/70">אמצעי תשלום {pmIndex + 1}</span>
@@ -2543,7 +2543,7 @@ export default function OCRForm({
           )}
 
           {/* Payment Amount */}
-          <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+          <div className="border border-[#727BA0] rounded-[10px] min-h-[50px]">
             <Input
               type="text"
               inputMode="decimal"
@@ -2573,7 +2573,7 @@ export default function OCRForm({
           {/* Installments */}
           <div className="flex flex-col gap-[3px]">
             <span className="text-[14px] text-white/70">כמות תשלומים</span>
-            <div className="border border-[#4C526B] rounded-[10px] min-h-[50px] flex items-center">
+            <div className="border border-[#727BA0] rounded-[10px] min-h-[50px] flex items-center">
               <Button
                 type="button"
                 variant="ghost"
@@ -2606,7 +2606,7 @@ export default function OCRForm({
 
             {/* Installments Breakdown */}
             {pm.customInstallments.length > 0 && (
-              <div className="mt-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+              <div className="mt-[10px] border border-[#727BA0] rounded-[10px] p-[10px]">
                 <div className="flex items-center gap-[8px] border-b border-[#4C526B] pb-[8px] mb-[8px]">
                   <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תשלום</span>
                   <span className="text-[14px] font-medium text-white/70 flex-1 text-center">תאריך</span>
@@ -2640,7 +2640,7 @@ export default function OCRForm({
                             value={item.checkNumber || ''}
                             onChange={(e) => handleInstallmentCheckNumberChange(setter, pm.id, index, e.target.value)}
                             placeholder="מס׳ צ׳ק"
-                            className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                            className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                           />
                         </div>
                       )}
@@ -2652,7 +2652,7 @@ export default function OCRForm({
                           value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => handleInstallmentAmountChange(setter, pm.id, index, e.target.value)}
-                          className="w-full h-[36px] bg-[#29318A]/30 border border-[#4C526B] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
+                          className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
                         />
                       </div>
                     </div>
@@ -3086,7 +3086,7 @@ export default function OCRForm({
                     portions. Same attachment_url + invoice_number on all
                     rows. */}
                 {selectedIds.length > 1 && (
-                  <div className="flex flex-col gap-[6px] bg-[#0F1535] rounded-[10px] p-[10px] border border-[#4C526B]" dir="rtl">
+                  <div className="flex flex-col gap-[6px] bg-[#0F1535] rounded-[10px] p-[10px] border border-[#727BA0]" dir="rtl">
                     <div className="flex items-center justify-between gap-[8px]">
                       <span className="text-[13px] text-white font-medium">חלוקת סכום בין חודשים (לפני מע&quot;מ)</span>
                       <Button
@@ -3112,7 +3112,7 @@ export default function OCRForm({
                               buttonClassName="h-[38px] rounded-[8px] text-[13px]"
                             />
                           </div>
-                          <div className="border border-[#4C526B] rounded-[8px] h-[38px] w-[120px]">
+                          <div className="border border-[#727BA0] rounded-[8px] h-[38px] w-[120px]">
                             <Input
                               type="text"
                               inputMode="decimal"
@@ -3214,7 +3214,7 @@ export default function OCRForm({
       {/* Document Number */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-normal text-white text-right">מספר חשבונית / תעודת משלוח</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="text"
             value={documentNumber}
@@ -3231,7 +3231,7 @@ export default function OCRForm({
           input, which looks like it's on the wrong side of the digits. */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">סכום לפני מע&apos;&apos;מ</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="text"
             inputMode="decimal"
@@ -3255,7 +3255,7 @@ export default function OCRForm({
       <div className="flex items-center justify-between gap-[15px]">
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">מע&quot;מ</label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px] w-[148px]">
+          <div className="border border-[#727BA0] rounded-[10px] h-[50px] w-[148px]">
             <Input
               type="text"
               inputMode="decimal"
@@ -3313,7 +3313,7 @@ export default function OCRForm({
           moment they touch the before-VAT field we drop back to forward mode. */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="text"
             inputMode="decimal"
@@ -3357,10 +3357,10 @@ export default function OCRForm({
           shouldn't see the admin-only price-tracking machinery). Reduces the
           before-VAT amount and cascades into VAT and total. */}
       {(documentType === 'invoice' || documentType === 'delivery_note') && (
-        <div className="flex flex-col gap-[4px] border border-[#4C526B] rounded-[10px] p-[10px]">
+        <div className="flex flex-col gap-[4px] border border-[#727BA0] rounded-[10px] p-[10px]">
           <label className="text-[13px] font-medium text-white/80 text-right">הנחה כללית</label>
           <div className="flex items-center gap-[5px]">
-            <div className="border border-[#4C526B] rounded-[8px] h-[40px] flex-1">
+            <div className="border border-[#727BA0] rounded-[8px] h-[40px] flex-1">
               <Input
                 type="text"
                 inputMode="decimal"
@@ -3382,7 +3382,7 @@ export default function OCRForm({
               />
             </div>
             <span className="text-white/60 text-[13px]">או</span>
-            <div className="border border-[#4C526B] rounded-[8px] h-[40px] w-[90px] flex items-center">
+            <div className="border border-[#727BA0] rounded-[8px] h-[40px] w-[90px] flex items-center">
               <Input
                 type="text"
                 inputMode="decimal"
@@ -3415,7 +3415,7 @@ export default function OCRForm({
           they're just not surfaced for editing. */}
       {!hideLineItems && (suppliers.find(s => s.id === supplierId)?.track_prices !== false)
         && (lineItems.length > 0 || documentType === 'invoice' || documentType === 'delivery_note') && (
-        <div className="flex flex-col gap-[8px] border border-[#4C526B] rounded-[10px] p-[10px]">
+        <div className="flex flex-col gap-[8px] border border-[#727BA0] rounded-[10px] p-[10px]">
           <div className="flex items-center justify-between">
             <span className="text-[15px] font-medium text-white">פריטים ({lineItems.length})</span>
             <div className="flex items-center gap-[8px]">
@@ -3487,7 +3487,7 @@ export default function OCRForm({
                       onChange={(e) => {
                         setLineItems(prev => prev.map((item, i) => i !== idx ? item : { ...item, description: e.target.value }));
                       }}
-                      className="flex-1 min-w-0 bg-transparent border border-[#4C526B]/50 focus:border-[#29318A] rounded-[4px] text-right text-white text-[13px] h-[28px] px-[3px] outline-none overflow-hidden text-ellipsis"
+                      className="flex-1 min-w-0 bg-transparent border border-[#727BA0]/50 focus:border-[#29318A] rounded-[4px] text-right text-white text-[13px] h-[28px] px-[3px] outline-none overflow-hidden text-ellipsis"
                       title={li.description || '-'}
                       dir="rtl"
                     />
@@ -3498,7 +3498,7 @@ export default function OCRForm({
                           setPickerOpenIdx(pickerOpenIdx === idx ? null : idx);
                           setPickerQuery('');
                         }}
-                        className="flex-shrink-0 w-[24px] h-[28px] flex items-center justify-center bg-[#29318A]/40 hover:bg-[#29318A] border border-[#4C526B]/50 rounded-[4px] text-white/70 hover:text-white transition-colors"
+                        className="flex-shrink-0 w-[24px] h-[28px] flex items-center justify-center bg-[#29318A]/40 hover:bg-[#29318A] border border-[#727BA0]/50 rounded-[4px] text-white/70 hover:text-white transition-colors"
                         title="בחר ממוצרים קיימים"
                         aria-label="בחר ממוצרים קיימים"
                       >
@@ -3514,14 +3514,14 @@ export default function OCRForm({
                         className="fixed inset-0 z-40"
                         onClick={() => setPickerOpenIdx(null)}
                       />
-                      <div className="absolute z-50 top-full right-0 mt-[3px] w-[280px] max-w-[90vw] bg-[#0f1231] border border-[#4C526B] rounded-[8px] shadow-xl overflow-hidden">
+                      <div className="absolute z-50 top-full right-0 mt-[3px] w-[280px] max-w-[90vw] bg-[#0f1231] border border-[#727BA0] rounded-[8px] shadow-xl overflow-hidden">
                         <div className="p-[6px] border-b border-[#4C526B]/50">
                           <input
                             type="text"
                             value={pickerQuery}
                             onChange={(e) => setPickerQuery(e.target.value)}
                             placeholder="חיפוש מוצר..."
-                            className="w-full h-[30px] bg-transparent border border-[#4C526B] rounded-[5px] px-[8px] text-white text-[12px] text-right outline-none focus:border-[#29318A]"
+                            className="w-full h-[30px] bg-transparent border border-[#727BA0] rounded-[5px] px-[8px] text-white text-[12px] text-right outline-none focus:border-[#29318A]"
                             dir="rtl"
                             autoFocus
                           />
@@ -3596,7 +3596,7 @@ export default function OCRForm({
                         total: calcLineTotal(qty, item.unit_price, item.discount_amount, item.discount_type),
                       }));
                     }}
-                    className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[12px] h-[28px] px-[2px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full bg-transparent border border-[#727BA0]/50 rounded-[4px] text-center text-white ltr-num text-[12px] h-[28px] px-[2px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     dir="ltr"
                   />
                 </span>
@@ -3630,7 +3630,7 @@ export default function OCRForm({
                           };
                         }));
                       }}
-                      className="w-full bg-transparent border border-[#4C526B]/50 rounded-[4px] text-center text-white ltr-num text-[12px] h-[28px] px-[2px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-full bg-transparent border border-[#727BA0]/50 rounded-[4px] text-center text-white ltr-num text-[12px] h-[28px] px-[2px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       dir="ltr"
                     />
                     {/* Always-rendered badge slot keeps the cell a stable 40px tall so toggling the badge doesn't jitter the row. */}
@@ -3661,7 +3661,7 @@ export default function OCRForm({
                           total: calcLineTotal(item.quantity, item.unit_price, disc, dType),
                         }));
                       }}
-                      className="w-[42px] bg-transparent border border-[#4C526B]/50 rounded-r-[4px] rounded-l-none text-center text-white ltr-num text-[12px] h-[28px] px-[1px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-[42px] bg-transparent border border-[#727BA0]/50 rounded-r-[4px] rounded-l-none text-center text-white ltr-num text-[12px] h-[28px] px-[1px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       dir="ltr"
                     />
                     <button
@@ -3674,7 +3674,7 @@ export default function OCRForm({
                           total: calcLineTotal(item.quantity, item.unit_price, item.discount_amount, newType),
                         }));
                       }}
-                      className="h-[28px] w-[28px] flex items-center justify-center bg-[#29318A]/50 hover:bg-[#29318A] border border-[#4C526B]/50 rounded-l-[4px] rounded-r-none text-[10px] text-white/70 hover:text-white transition-colors flex-shrink-0"
+                      className="h-[28px] w-[28px] flex items-center justify-center bg-[#29318A]/50 hover:bg-[#29318A] border border-[#727BA0]/50 rounded-l-[4px] rounded-r-none text-[10px] text-white/70 hover:text-white transition-colors flex-shrink-0"
                       title={`לחץ להחלפה: ${(li.discount_type || 'percent') === 'amount' ? '₪ → %' : '% → ₪'}`}
                     >
                       {(li.discount_type || 'percent') === 'amount' ? '₪' : '%'}
@@ -3729,7 +3729,7 @@ export default function OCRForm({
       {/* Notes */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">הערות למסמך</label>
-        <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
+        <div className="border border-[#727BA0] rounded-[10px] min-h-[100px]">
           <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -3825,7 +3825,7 @@ export default function OCRForm({
                   className={`h-[32px] px-[10px] rounded-[8px] text-[12px] font-medium transition-colors ${
                     disputeReason === reason
                       ? 'bg-[#F59E0B] text-[#0F1535] border border-[#F59E0B]'
-                      : 'bg-transparent text-white/60 border border-[#4C526B] hover:border-[#F59E0B]/50'
+                      : 'bg-transparent text-white/60 border border-[#727BA0] hover:border-[#F59E0B]/50'
                   }`}
                 >
                   {reason}
@@ -3836,7 +3836,7 @@ export default function OCRForm({
               placeholder="או כתוב סיבה אחרת..."
               value={!['מחיר שגוי', 'כמות לא תואמת', 'פריט חסר', 'חשבונית כפולה', 'סחורה לא התקבלה'].includes(disputeReason) ? disputeReason : ''}
               onChange={(e) => setDisputeReason(e.target.value)}
-              className="w-full h-[60px] bg-transparent text-white text-[13px] text-right border border-[#4C526B] rounded-[8px] p-2 resize-none placeholder:text-white/30"
+              className="w-full h-[60px] bg-transparent text-white text-[13px] text-right border border-[#727BA0] rounded-[8px] p-2 resize-none placeholder:text-white/30"
             />
           </div>
         )}
@@ -3874,7 +3874,7 @@ export default function OCRForm({
               {/* Payment Reference */}
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">אסמכתא</label>
-                <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] min-h-[50px]">
                   <Input
                     type="text"
                     placeholder="מספר אסמכתא..."
@@ -3888,7 +3888,7 @@ export default function OCRForm({
               {/* Payment Notes */}
               <div className="flex flex-col gap-[3px]">
                 <label className="text-[15px] font-medium text-white text-right">הערות</label>
-                <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
+                <div className="border border-[#727BA0] rounded-[10px] min-h-[100px]">
                   <Textarea
                     value={inlinePaymentNotes}
                     onChange={(e) => setInlinePaymentNotes(e.target.value)}
@@ -3951,7 +3951,7 @@ export default function OCRForm({
                 setDailyDayFactor(e.target.value);
               }
             }}
-            className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+            className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
           />
         </div>
 
@@ -3965,7 +3965,7 @@ export default function OCRForm({
                 inputMode="decimal"
                 value={dailyPearlaData.portions_count}
                 onChange={(e) => handleDailyPearlaChange('portions_count', e.target.value)}
-                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
               />
             </div>
 
@@ -3976,7 +3976,7 @@ export default function OCRForm({
                 inputMode="numeric"
                 value={dailyPearlaData.serving_supplement}
                 onChange={(e) => handleDailyPearlaChange('serving_supplement', e.target.value)}
-                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
               />
             </div>
 
@@ -3987,7 +3987,7 @@ export default function OCRForm({
                 inputMode="decimal"
                 value={dailyPearlaData.extras_income}
                 onChange={(e) => handleDailyPearlaChange('extras_income', e.target.value)}
-                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
               />
             </div>
 
@@ -3998,7 +3998,7 @@ export default function OCRForm({
                 inputMode="decimal"
                 value={dailyPearlaData.salaried_labor_cost}
                 onChange={(e) => handleDailyPearlaChange('salaried_labor_cost', e.target.value)}
-                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
               />
             </div>
 
@@ -4009,7 +4009,7 @@ export default function OCRForm({
                 inputMode="decimal"
                 value={dailyPearlaData.manpower_labor_cost}
                 onChange={(e) => handleDailyPearlaChange('manpower_labor_cost', e.target.value)}
-                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
               />
             </div>
           </>
@@ -4024,7 +4024,7 @@ export default function OCRForm({
                 placeholder="0"
                 value={dailyTotalRegister}
                 onChange={(e) => setDailyTotalRegister(e.target.value)}
-                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
               />
             </div>
 
@@ -4042,7 +4042,7 @@ export default function OCRForm({
                         placeholder="0"
                         value={dailyIncomeData[source.id]?.amount || ''}
                         onChange={(e) => setDailyIncomeData(prev => ({ ...prev, [source.id]: { ...prev[source.id], amount: e.target.value } }))}
-                        className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                        className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
                       />
                     </div>
                     <div className="flex flex-col gap-[3px]">
@@ -4053,7 +4053,7 @@ export default function OCRForm({
                         placeholder="0"
                         value={dailyIncomeData[source.id]?.orders_count || ''}
                         onChange={(e) => setDailyIncomeData(prev => ({ ...prev, [source.id]: { ...prev[source.id], orders_count: e.target.value } }))}
-                        className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                        className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
                       />
                     </div>
                   </div>
@@ -4074,7 +4074,7 @@ export default function OCRForm({
                       placeholder="0"
                       value={dailyReceiptData[receipt.id] || ''}
                       onChange={(e) => setDailyReceiptData(prev => ({ ...prev, [receipt.id]: e.target.value }))}
-                      className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                      className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
                     />
                   </div>
                 ))}
@@ -4094,7 +4094,7 @@ export default function OCRForm({
                       placeholder="0"
                       value={dailyParameterData[param.id] || ''}
                       onChange={(e) => setDailyParameterData(prev => ({ ...prev, [param.id]: e.target.value }))}
-                      className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                      className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
                     />
                   </div>
                 ))}
@@ -4110,7 +4110,7 @@ export default function OCRForm({
                 placeholder="0"
                 value={dailyLaborCost}
                 onChange={(e) => setDailyLaborCost(e.target.value)}
-                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
               />
             </div>
 
@@ -4122,7 +4122,7 @@ export default function OCRForm({
                 placeholder="0"
                 value={dailyLaborHours}
                 onChange={(e) => setDailyLaborHours(e.target.value)}
-                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
               />
             </div>
 
@@ -4134,7 +4134,7 @@ export default function OCRForm({
                 placeholder="0"
                 value={dailyDiscounts}
                 onChange={(e) => setDailyDiscounts(e.target.value)}
-                className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
               />
             </div>
 
@@ -4143,7 +4143,7 @@ export default function OCRForm({
               <div className="flex flex-col gap-4 mt-2">
                 <div className="text-[#7B91B0] border-b border-[#4C526B] pb-2 text-right"><span className="font-medium">מוצרים מנוהלים</span></div>
                 {dailyManagedProducts.map((product) => (
-                  <div key={product.id} className="border border-[#4C526B] rounded-[10px] p-4 flex flex-col gap-3">
+                  <div key={product.id} className="border border-[#727BA0] rounded-[10px] p-4 flex flex-col gap-3">
                     <div className="text-white font-medium text-right"><span>{product.name}</span></div>
                     <div className="flex flex-col gap-[3px]">
                       <label className="text-white text-[15px] font-medium text-right">מלאי פתיחה ({product.unit})</label>
@@ -4153,7 +4153,7 @@ export default function OCRForm({
                         placeholder="0"
                         value={dailyProductUsage[product.id]?.opening_stock || ''}
                         onChange={(e) => setDailyProductUsage(prev => ({ ...prev, [product.id]: { ...prev[product.id], opening_stock: e.target.value } }))}
-                        className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                        className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
                       />
                     </div>
                     <div className="flex flex-col gap-[3px]">
@@ -4164,7 +4164,7 @@ export default function OCRForm({
                         placeholder="0"
                         value={dailyProductUsage[product.id]?.received_quantity || ''}
                         onChange={(e) => setDailyProductUsage(prev => ({ ...prev, [product.id]: { ...prev[product.id], received_quantity: e.target.value } }))}
-                        className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                        className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
                       />
                     </div>
                     <div className="flex flex-col gap-[3px]">
@@ -4175,7 +4175,7 @@ export default function OCRForm({
                         placeholder="0"
                         value={dailyProductUsage[product.id]?.closing_stock || ''}
                         onChange={(e) => setDailyProductUsage(prev => ({ ...prev, [product.id]: { ...prev[product.id], closing_stock: e.target.value } }))}
-                        className="w-full h-[50px] bg-transparent border border-[#4C526B] text-white text-right rounded-[10px] px-[10px]"
+                        className="w-full h-[50px] bg-transparent border border-[#727BA0] text-white text-right rounded-[10px] px-[10px]"
                       />
                     </div>
                   </div>
@@ -4282,7 +4282,7 @@ export default function OCRForm({
 
       {/* Open invoices to link payment to — grouped by month */}
       {paymentTabSupplierId && (
-        <div className="flex flex-col gap-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+        <div className="flex flex-col gap-[10px] border border-[#727BA0] rounded-[10px] p-[10px]">
           {/* Label on the right (DOM order first inside dir="rtl"),
               selection summary on the left. */}
           <div className="flex items-center justify-between">
@@ -4374,7 +4374,7 @@ export default function OCRForm({
                             ? 'rounded-[10px] border border-[#F59E0B]/40 bg-[#1a1f42] overflow-hidden'
                             : isSelected
                               ? 'rounded-[10px] border border-[#29318A] bg-[#29318A]/30 overflow-hidden'
-                              : 'rounded-[10px] border border-[#4C526B]/40 bg-[#1a1f42] hover:border-white/20 overflow-hidden';
+                              : 'rounded-[10px] border border-[#727BA0]/40 bg-[#1a1f42] hover:border-white/20 overflow-hidden';
                           return (
                             <div key={inv.id} className={`flex flex-col ${outerClasses}`}>
                               <button
@@ -4447,7 +4447,7 @@ export default function OCRForm({
                                       () => updateOpenInvoiceStatus(inv.id, newStatus)
                                     );
                                   }}
-                                  className="bg-transparent border border-[#4C526B]/60 text-white/90 text-[11px] rounded-[6px] px-[8px] py-[3px] cursor-pointer focus:outline-none focus:border-[#29318A] hover:border-white/40 transition-colors"
+                                  className="bg-transparent border border-[#727BA0]/60 text-white/90 text-[11px] rounded-[6px] px-[8px] py-[3px] cursor-pointer focus:outline-none focus:border-[#29318A] hover:border-white/40 transition-colors"
                                 >
                                   <option value="pending" className="bg-[#1A1F3D]">ממתין לתשלום</option>
                                   <option value="paid" className="bg-[#1A1F3D]">שולם</option>
@@ -4473,7 +4473,7 @@ export default function OCRForm({
       {/* Reference (upload button removed — the receipt is already attached from OCR) */}
       <div className="flex flex-col gap-[3px]">
         <label className="text-[16px] font-medium text-white text-right">אסמכתא</label>
-        <div className="border border-[#4C526B] rounded-[10px] min-h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] min-h-[50px]">
           <Input
             type="text"
             value={paymentTabReference}
@@ -4487,7 +4487,7 @@ export default function OCRForm({
       {/* Notes */}
       <div className="flex flex-col gap-[3px]">
         <label className="text-[16px] font-medium text-white text-right">הערות</label>
-        <div className="border border-[#4C526B] rounded-[10px] min-h-[100px]">
+        <div className="border border-[#727BA0] rounded-[10px] min-h-[100px]">
           <Textarea
             value={paymentTabNotes}
             onChange={(e) => setPaymentTabNotes(e.target.value)}
@@ -4546,7 +4546,7 @@ export default function OCRForm({
       {/* Invoice Number */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">מספר חשבונית מרכזת</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="text"
             value={summaryInvoiceNumber}
@@ -4560,7 +4560,7 @@ export default function OCRForm({
       {/* Total Amount */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">סכום כולל מע&quot;מ</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="text"
             inputMode="decimal"
@@ -4574,7 +4574,7 @@ export default function OCRForm({
       </div>
 
       {/* Open Delivery Notes from DB */}
-      <div className="flex flex-col gap-[10px] border border-[#4C526B] rounded-[10px] p-[10px]">
+      <div className="flex flex-col gap-[10px] border border-[#727BA0] rounded-[10px] p-[10px]">
         {/* Label on the right (RTL natural), action button on the left. */}
         <div className="flex items-center justify-between">
           <label className="text-[15px] font-medium text-white">תעודות משלוח פתוחות ({openDeliveryNotes.length})</label>
@@ -4717,7 +4717,7 @@ export default function OCRForm({
       </div>
 
       {/* Manual Delivery Notes (legacy) */}
-      <div className="flex flex-col gap-[10px] border border-[#4C526B] rounded-[10px] p-[10px]" style={{ display: openDeliveryNotes.length > 0 ? 'none' : undefined }}>
+      <div className="flex flex-col gap-[10px] border border-[#727BA0] rounded-[10px] p-[10px]" style={{ display: openDeliveryNotes.length > 0 ? 'none' : undefined }}>
         {/* Label on the right, action button on the left (RTL natural). */}
         <div className="flex items-center justify-between">
           <label className="text-[15px] font-medium text-white">תעודות משלוח</label>
@@ -4742,7 +4742,7 @@ export default function OCRForm({
                   value={newDeliveryNote.delivery_note_number}
                   onChange={(e) => setNewDeliveryNote(prev => ({ ...prev, delivery_note_number: e.target.value }))}
                   placeholder="מספר..."
-                  className="h-[40px] bg-[#0F1535] border border-[#4C526B] rounded-[8px] text-white text-[14px] text-center px-[8px] placeholder:text-white/30"
+                  className="h-[40px] bg-[#0F1535] border border-[#727BA0] rounded-[8px] text-white text-[14px] text-center px-[8px] placeholder:text-white/30"
                 />
               </div>
               <div className="flex flex-col gap-[3px]">
@@ -4763,7 +4763,7 @@ export default function OCRForm({
                   value={newDeliveryNote.total_amount}
                   onChange={(e) => setNewDeliveryNote(prev => ({ ...prev, total_amount: e.target.value }))}
                   placeholder="0.00"
-                  className="h-[40px] bg-[#0F1535] border border-[#4C526B] rounded-[8px] text-white text-[14px] text-center px-[8px] placeholder:text-white/30"
+                  className="h-[40px] bg-[#0F1535] border border-[#727BA0] rounded-[8px] text-white text-[14px] text-center px-[8px] placeholder:text-white/30"
                 />
               </div>
               <div className="flex flex-col gap-[3px]">
@@ -4773,7 +4773,7 @@ export default function OCRForm({
                   value={newDeliveryNote.notes}
                   onChange={(e) => setNewDeliveryNote(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="הערה..."
-                  className="h-[40px] bg-[#0F1535] border border-[#4C526B] rounded-[8px] text-white text-[14px] text-center px-[8px] placeholder:text-white/30"
+                  className="h-[40px] bg-[#0F1535] border border-[#727BA0] rounded-[8px] text-white text-[14px] text-center px-[8px] placeholder:text-white/30"
                 />
               </div>
             </div>
@@ -4860,7 +4860,7 @@ export default function OCRForm({
           value={summaryIsClosed || "__none__"}
           onValueChange={(val) => setSummaryIsClosed(val === "__none__" ? "" : val)}
         >
-          <SelectTrigger className="w-full h-[48px] bg-[#0F1535] text-[16px] text-center rounded-[10px] border-[#4C526B]">
+          <SelectTrigger className="w-full h-[48px] bg-[#0F1535] text-[16px] text-center rounded-[10px] border-[#727BA0]">
             <SelectValue placeholder="כן/לא" />
           </SelectTrigger>
           <SelectContent>
@@ -4873,7 +4873,7 @@ export default function OCRForm({
       {/* Notes */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">הערות</label>
-        <div className="border border-[#4C526B] rounded-[10px]">
+        <div className="border border-[#727BA0] rounded-[10px]">
           <Textarea
             value={summaryNotes}
             onChange={(e) => setSummaryNotes(e.target.value)}
@@ -5099,7 +5099,7 @@ export default function OCRForm({
                   <label
                     key={pd.id}
                     className={`flex flex-col gap-2 p-2 rounded-[8px] cursor-pointer transition-colors ${
-                      mergeSelectedIds.has(pd.id) ? 'bg-[#29318A]/30 border border-[#29318A]' : 'bg-[#1A1F3D] border border-[#4C526B]/50 hover:border-[#4C526B]'
+                      mergeSelectedIds.has(pd.id) ? 'bg-[#29318A]/30 border border-[#29318A]' : 'bg-[#1A1F3D] border border-[#727BA0]/50 hover:border-[#4C526B]'
                     }`}
                   >
                     {/* Top: checkbox + meta */}
@@ -5281,7 +5281,7 @@ export default function OCRForm({
       {showCalculator && (
         <div
           data-calc-popup
-          className="z-50 bg-[#1A1F3D] border border-[#4C526B] rounded-[12px] shadow-2xl p-3 w-[240px]"
+          className="z-50 bg-[#1A1F3D] border border-[#727BA0] rounded-[12px] shadow-2xl p-3 w-[240px]"
           dir="rtl"
           style={calcPos ? { position: 'fixed', left: calcPos.x, top: calcPos.y } : { position: 'fixed', top: 60, left: 16 }}
         >
@@ -5419,7 +5419,7 @@ export default function OCRForm({
                 className={`h-[44px] rounded-[10px] text-[14px] font-medium transition-colors ${
                   rejectReason === reason
                     ? 'bg-[#29318A] text-white border border-[#29318A]'
-                    : 'bg-transparent text-white/60 border border-[#4C526B] hover:border-[#29318A]/50'
+                    : 'bg-transparent text-white/60 border border-[#727BA0] hover:border-[#29318A]/50'
                 }`}
               >
                 {reason}
@@ -5431,7 +5431,7 @@ export default function OCRForm({
                   placeholder="פרט את סיבת הדחייה..."
                   value={rejectCustomText}
                   onChange={(e) => setRejectCustomText(e.target.value)}
-                  className="w-full h-[80px] bg-transparent text-white text-[14px] text-right border border-[#4C526B] rounded-[10px] p-3 resize-none"
+                  className="w-full h-[80px] bg-transparent text-white text-[14px] text-right border border-[#727BA0] rounded-[10px] p-3 resize-none"
                 />
               </div>
             )}

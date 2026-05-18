@@ -982,7 +982,7 @@ export default function AdminPaymentsPage() {
             </div>
           ) : (
             <Select value={selectedBusinessId || "__none__"} onValueChange={(val) => { setSelectedBusinessId(val === "__none__" ? "" : val); handleClear(); }}>
-              <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+              <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                 <SelectValue placeholder="-- בחר עסק --" />
               </SelectTrigger>
               <SelectContent>
@@ -1036,7 +1036,7 @@ export default function AdminPaymentsPage() {
                   </Button>
                 </div>
               ) : (
-                <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[100px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[6px] cursor-pointer hover:border-[#4956D4] transition-colors">
+                <label className="border border-[#727BA0] border-dashed rounded-[10px] min-h-[100px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[6px] cursor-pointer hover:border-[#4956D4] transition-colors">
                   {fileIcon}
                   <span className="text-[14px] text-[#979797]">העלה קובץ תשלומים ראשיים</span>
                   <span className="text-[11px] text-[#979797]/60">
@@ -1081,7 +1081,7 @@ export default function AdminPaymentsPage() {
                   </Button>
                 </div>
               ) : (
-                <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[100px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[6px] cursor-pointer hover:border-[#4956D4] transition-colors">
+                <label className="border border-[#727BA0] border-dashed rounded-[10px] min-h-[100px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[6px] cursor-pointer hover:border-[#4956D4] transition-colors">
                   {fileIcon}
                   <span className="text-[14px] text-[#979797]">העלה קובץ תשלומי משנה</span>
                   <span className="text-[11px] text-[#979797]/60">

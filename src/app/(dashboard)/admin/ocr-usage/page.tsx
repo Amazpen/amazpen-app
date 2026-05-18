@@ -244,7 +244,7 @@ export default function OcrUsageAdminPage() {
       <section className="bg-[#0F1535] rounded-[10px] p-[12px] flex items-center justify-end gap-[8px]">
         <span className="text-[13px] text-white/60">שנה</span>
         <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(parseInt(v, 10))}>
-          <SelectTrigger className="w-[110px] h-[36px] bg-transparent border border-[#4C526B] rounded-[7px] text-[14px] text-white">
+          <SelectTrigger className="w-[110px] h-[36px] bg-transparent border border-[#727BA0] rounded-[7px] text-[14px] text-white">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

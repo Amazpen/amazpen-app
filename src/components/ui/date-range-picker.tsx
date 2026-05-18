@@ -120,7 +120,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
 
   if (variant === "button") {
     return (
-      <div ref={triggerRef} className={`relative flex items-center gap-[8px] border border-[#4C526B] rounded-[7px] px-[12px] py-[8px] cursor-pointer ${className}`} onClick={toggleDropdown}>
+      <div ref={triggerRef} className={`relative flex items-center gap-[8px] border border-[#727BA0] rounded-[7px] px-[12px] py-[8px] cursor-pointer ${className}`} onClick={toggleDropdown}>
         <svg width="16" height="16" viewBox="0 0 32 32" fill="none" className="text-[#4C526B]">
           <path d="M10 13L16 19L22 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
@@ -156,7 +156,7 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
         type="button"
         variant="ghost"
         onClick={toggleDropdown}
-        className={`inline-flex items-center border border-[#4C526B] rounded-[7px] px-3 py-2 sm:px-[8px] sm:py-[5px] cursor-pointer hover:border-[#29318A] transition-colors touch-manipulation min-h-[44px] sm:min-h-0 ${className}`}
+        className={`inline-flex items-center border border-[#727BA0] rounded-[7px] px-3 py-2 sm:px-[8px] sm:py-[5px] cursor-pointer hover:border-[#29318A] transition-colors touch-manipulation min-h-[44px] sm:min-h-0 ${className}`}
       >
         <svg width="14" height="14" viewBox="0 0 32 32" fill="none" className="text-[#4C526B] ml-1 sm:w-3 sm:h-3">
           <path d="M10 13L16 19L22 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

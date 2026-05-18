@@ -522,7 +522,7 @@ export default function AdminUsersPage() {
       <div className="mb-[20px]">
         <label className="text-[14px] font-medium text-white/70 block mb-[8px]">סינון לפי</label>
         <Select value={selectedBusinessId} onValueChange={(val) => setSelectedBusinessId(val)}>
-          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+          <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
             <SelectValue placeholder="בחר סינון" />
           </SelectTrigger>
           <SelectContent>
@@ -767,7 +767,7 @@ export default function AdminUsersPage() {
                 <label className="text-[14px] font-medium text-white text-right">
                   אימייל <span className="text-[#F64E60]">*</span>
                 </label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="email"
                     value={newUserEmail}
@@ -783,7 +783,7 @@ export default function AdminUsersPage() {
                 <label className="text-[14px] font-medium text-white text-right">
                   סיסמה <span className="text-[#F64E60]">*</span>
                 </label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="password"
                     value={newUserPassword}
@@ -797,7 +797,7 @@ export default function AdminUsersPage() {
               {/* Name */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white text-right">שם מלא</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="text"
                     value={newUserName}
@@ -811,7 +811,7 @@ export default function AdminUsersPage() {
               {/* Phone */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white text-right">מספר טלפון</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="tel"
                     value={newUserPhone}
@@ -859,7 +859,7 @@ export default function AdminUsersPage() {
                     type="button"
                     onClick={() => newAvatarInputRef.current?.click()}
                     disabled={isUploadingNewAvatar}
-                    className="flex-1 border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center gap-[8px] text-white/70 hover:text-white hover:border-white/50 transition-colors disabled:opacity-50"
+                    className="flex-1 border border-[#727BA0] rounded-[10px] h-[50px] flex items-center justify-center gap-[8px] text-white/70 hover:text-white hover:border-white/50 transition-colors disabled:opacity-50"
                   >
                     {isUploadingNewAvatar ? (
                       <>
@@ -917,7 +917,7 @@ export default function AdminUsersPage() {
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white text-right">שיוך לעסק (אופציונלי)</label>
                 <Select value={newUserBusinessId || "__none__"} onValueChange={(val) => setNewUserBusinessId(val === "__none__" ? "" : val)}>
-                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                     <SelectValue placeholder="בחר עסק לשיוך" />
                   </SelectTrigger>
                   <SelectContent>
@@ -936,7 +936,7 @@ export default function AdminUsersPage() {
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[14px] font-medium text-white text-right">תפקיד בעסק</label>
                   <Select value={newUserRole} onValueChange={(val) => setNewUserRole(val as "owner" | "manager" | "employee")}>
-                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                    <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                       <SelectValue placeholder="בחר תפקיד" />
                     </SelectTrigger>
                     <SelectContent>
@@ -961,7 +961,7 @@ export default function AdminUsersPage() {
                   variant="outline"
                   type="button"
                   onClick={() => setIsCreateDialogOpen(false)}
-                  className="flex-1 bg-transparent border border-[#4C526B] text-white text-[14px] font-semibold py-[12px] rounded-[10px] transition-colors hover:bg-white/10"
+                  className="flex-1 bg-transparent border border-[#727BA0] text-white text-[14px] font-semibold py-[12px] rounded-[10px] transition-colors hover:bg-white/10"
                 >
                   ביטול
                 </Button>
@@ -1045,7 +1045,7 @@ export default function AdminUsersPage() {
               {/* Name */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white text-right">שם מלא</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="text"
                     value={editUserName}
@@ -1059,7 +1059,7 @@ export default function AdminUsersPage() {
               {/* Phone */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white text-right">מספר טלפון</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="tel"
                     value={editUserPhone}
@@ -1107,7 +1107,7 @@ export default function AdminUsersPage() {
                     type="button"
                     onClick={() => editAvatarInputRef.current?.click()}
                     disabled={isUploadingEditAvatar}
-                    className="flex-1 border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center gap-[8px] text-white/70 hover:text-white hover:border-white/50 transition-colors disabled:opacity-50"
+                    className="flex-1 border border-[#727BA0] rounded-[10px] h-[50px] flex items-center justify-center gap-[8px] text-white/70 hover:text-white hover:border-white/50 transition-colors disabled:opacity-50"
                   >
                     {isUploadingEditAvatar ? (
                       <>
@@ -1148,7 +1148,7 @@ export default function AdminUsersPage() {
               {/* New Password */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white text-right">סיסמה חדשה (השאר ריק לשמירת הקיימת)</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="password"
                     value={editUserNewPassword}
@@ -1188,7 +1188,7 @@ export default function AdminUsersPage() {
                   variant="outline"
                   type="button"
                   onClick={() => setIsEditDialogOpen(false)}
-                  className="flex-1 bg-transparent border border-[#4C526B] text-white text-[14px] font-semibold py-[12px] rounded-[10px] transition-colors hover:bg-white/10"
+                  className="flex-1 bg-transparent border border-[#727BA0] text-white text-[14px] font-semibold py-[12px] rounded-[10px] transition-colors hover:bg-white/10"
                 >
                   ביטול
                 </Button>

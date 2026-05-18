@@ -118,7 +118,7 @@ export default function EditBusinessSelectPage() {
 
       {/* Search */}
       <div className="mb-[20px]">
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center px-[15px] gap-[10px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px] flex items-center px-[15px] gap-[10px]">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white/50">
             <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
             <path d="M21 21L16.5 16.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>

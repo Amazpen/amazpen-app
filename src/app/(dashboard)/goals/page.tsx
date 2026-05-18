@@ -1188,7 +1188,7 @@ export default function GoalsPage() {
           <div className="flex-1 flex flex-col gap-[3px]">
             <label className="text-[14px] text-white text-right">בחר/י חודש:</label>
             <Select value={selectedMonth} onValueChange={(val) => setSelectedMonth(val)}>
-              <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[7px] h-[40px] px-[12px] text-[14px] text-white font-semibold text-right">
+              <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[7px] h-[40px] px-[12px] text-[14px] text-white font-semibold text-right">
                 <SelectValue placeholder="בחר חודש" />
               </SelectTrigger>
               <SelectContent>
@@ -1205,7 +1205,7 @@ export default function GoalsPage() {
           <div className="flex-1 flex flex-col gap-[3px]">
             <label className="text-[14px] text-white text-right">בחר/י שנה:</label>
             <Select value={selectedYear} onValueChange={(val) => setSelectedYear(val)}>
-              <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[7px] h-[40px] px-[12px] text-[14px] text-white font-semibold text-right">
+              <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[7px] h-[40px] px-[12px] text-[14px] text-white font-semibold text-right">
                 <SelectValue placeholder="בחר שנה" />
               </SelectTrigger>
               <SelectContent>
@@ -1232,7 +1232,7 @@ export default function GoalsPage() {
                   max={daysInMonth}
                   value={expectedWorkDaysInput}
                   onChange={(e) => handleExpectedWorkDaysChange(e.target.value)}
-                  className="w-[60px] h-[32px] bg-[#0F1535] text-white text-[14px] text-center rounded-[6px] border border-[#4C526B] outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  className="w-[60px] h-[32px] bg-[#0F1535] text-white text-[14px] text-center rounded-[6px] border border-[#727BA0] outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   title="ימי עבודה צפויים"
                 />
                 <span className="text-[12px] text-white/50">(מתוך {daysInMonth} ימים)</span>

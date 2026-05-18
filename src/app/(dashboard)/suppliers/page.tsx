@@ -2548,7 +2548,7 @@ export default function SuppliersPage() {
               {/* Supplier Name */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">{hasPreviousObligations ? "שם התחייבות" : "שם הספק"}</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="text"
                     title={hasPreviousObligations ? "שם התחייבות" : "שם הספק"}
@@ -2562,7 +2562,7 @@ export default function SuppliersPage() {
               {/* Email */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">כתובת מייל</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="email"
                     dir="ltr"
@@ -2704,13 +2704,13 @@ export default function SuppliersPage() {
 
               {/* Previous Obligations Fields - shown when hasPreviousObligations is true */}
               {hasPreviousObligations && (
-                <div className="flex flex-col gap-[10px] p-[10px] bg-[#29318A]/20 rounded-[10px] border border-[#4C526B]">
+                <div className="flex flex-col gap-[10px] p-[10px] bg-[#29318A]/20 rounded-[10px] border border-[#727BA0]">
                   <p className="text-[14px] font-bold text-white text-right">פרטי התחייבות קודמת</p>
 
                   {/* Total Amount */}
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white/80 text-right">סה״כ סכום שנלקח כולל ריבית</label>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                    <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                       <Input
                         title="סכום כולל"
                         type="tel"
@@ -2725,7 +2725,7 @@ export default function SuppliersPage() {
                   {/* Terms */}
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white/80 text-right">תנאים</label>
-                    <div className="border border-[#4C526B] rounded-[10px] min-h-[60px] px-[10px] py-[8px]">
+                    <div className="border border-[#727BA0] rounded-[10px] min-h-[60px] px-[10px] py-[8px]">
                       <Textarea
                         title="תנאים"
                         value={obligationTerms}
@@ -2749,7 +2749,7 @@ export default function SuppliersPage() {
                   {/* Number of Payments */}
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white/80 text-right">כמות תשלומים</label>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                    <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                       <Input
                         title="כמות תשלומים"
                         type="tel"
@@ -2764,7 +2764,7 @@ export default function SuppliersPage() {
                   {/* Monthly Amount */}
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white/80 text-right">סכום חיוב חודשי כולל ריבית (משוער)</label>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                    <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                       <Input
                         title="סכום חיוב חודשי"
                         type="tel"
@@ -2779,7 +2779,7 @@ export default function SuppliersPage() {
                   {/* Document Upload */}
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[14px] font-medium text-white/80 text-right">תמונה/מסמך מצורף</label>
-                    <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[60px] px-[10px] py-[10px] flex flex-col items-center justify-center gap-[5px] cursor-pointer hover:border-[#29318A] transition-colors">
+                    <label className="border border-[#727BA0] border-dashed rounded-[10px] min-h-[60px] px-[10px] py-[10px] flex flex-col items-center justify-center gap-[5px] cursor-pointer hover:border-[#29318A] transition-colors">
                       {obligationDocument ? (
                         <span className="text-[13px] text-white">{obligationDocument.name}</span>
                       ) : (
@@ -2874,7 +2874,7 @@ export default function SuppliersPage() {
                 </div>
                 {isAddingParentCategory ? (
                   <div className="flex gap-[8px]">
-                    <div className="flex-1 border border-[#4C526B] rounded-[10px] h-[50px]">
+                    <div className="flex-1 border border-[#727BA0] rounded-[10px] h-[50px]">
                       <Input
                         type="text"
                         title="שם קטגוריית אב חדשה"
@@ -2909,7 +2909,7 @@ export default function SuppliersPage() {
                       }
                     }}
                   >
-                    <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                    <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                       <SelectValue placeholder="בחר קטגוריית אב" />
                     </SelectTrigger>
                     <SelectContent>
@@ -2938,7 +2938,7 @@ export default function SuppliersPage() {
                 </div>
                 {isAddingCategory ? (
                   <div className="flex gap-[8px]">
-                    <div className="flex-1 border border-[#4C526B] rounded-[10px] h-[50px]">
+                    <div className="flex-1 border border-[#727BA0] rounded-[10px] h-[50px]">
                       <Input
                         type="text"
                         title="שם קטגוריה חדשה"
@@ -2970,7 +2970,7 @@ export default function SuppliersPage() {
                     : [];
                   return (
                   <Select value={category || "__none__"} onValueChange={(val) => setCategory(val === "__none__" ? "" : val)}>
-                    <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                    <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                       <SelectValue placeholder={parentCategory ? "בחר קטגוריה" : "יש לבחור קטגוריית אב תחילה"} />
                     </SelectTrigger>
                     <SelectContent>
@@ -2990,7 +2990,7 @@ export default function SuppliersPage() {
               {!hasPreviousObligations && (
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[15px] font-medium text-white text-right">תנאי תשלום (שוטף +)</label>
-                  <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                  <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                     <Input
                       type="tel"
                       title="תנאי תשלום"
@@ -3084,7 +3084,7 @@ export default function SuppliersPage() {
                 <>
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[15px] font-medium text-white text-right">מתי יורד החיוב בחודש?</label>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
+                    <div className="border border-[#727BA0] rounded-[10px] h-[50px] px-[10px]">
                       <Input
                         type="tel"
                         title="מתי יורד החיוב בחודש"
@@ -3098,7 +3098,7 @@ export default function SuppliersPage() {
 
                   <div className="flex flex-col gap-[5px]">
                     <label className="text-[15px] font-medium text-white text-right">סכום הוצאה עבור כל חודש</label>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
+                    <div className="border border-[#727BA0] rounded-[10px] h-[50px] px-[10px]">
                       <Input
                         type="tel"
                         title="סכום הוצאה עבור כל חודש"
@@ -3128,7 +3128,7 @@ export default function SuppliersPage() {
                     setSelectedCreditCardId(businessCreditCards[0].id);
                   }
                 }}>
-                  <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                  <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                     <SelectValue placeholder="אמצעי תשלום ראשי" />
                   </SelectTrigger>
                   <SelectContent>
@@ -3151,7 +3151,7 @@ export default function SuppliersPage() {
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[15px] font-medium text-white text-right">בחירת כרטיס אשראי</label>
                   <Select value={selectedCreditCardId || "__none__"} onValueChange={(val) => setSelectedCreditCardId(val === "__none__" ? "" : val)}>
-                    <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                    <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                       <SelectValue placeholder="בחר כרטיס" />
                     </SelectTrigger>
                     <SelectContent>
@@ -3169,7 +3169,7 @@ export default function SuppliersPage() {
               {/* Default Discount Percentage */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">אחוז הנחה קבוע (%)</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px] px-[10px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px] px-[10px]">
                   <Input
                     type="text"
                     inputMode="decimal"
@@ -3185,7 +3185,7 @@ export default function SuppliersPage() {
               {/* Fixed Note */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">הערה קבועה לספק</label>
-                <div className="border border-[#4C526B] rounded-[10px] min-h-[80px] px-[10px] py-[10px]">
+                <div className="border border-[#727BA0] rounded-[10px] min-h-[80px] px-[10px] py-[10px]">
                   <Textarea
                     title="הערה קבועה לספק"
                     value={fixedNote}
@@ -3199,7 +3199,7 @@ export default function SuppliersPage() {
               {!hasPreviousObligations && (
                 <div className="flex flex-col gap-[5px]">
                   <label className="text-[15px] font-medium text-white text-right">הצעת מחיר/תקנון/תנאים שסוכמו וכדומה</label>
-                  <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[80px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#29318A] transition-colors">
+                  <label className="border border-[#727BA0] border-dashed rounded-[10px] min-h-[80px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#29318A] transition-colors">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="text-[#979797]">
                       <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       <path d="M3 15V16C3 18.2091 4.79086 20 7 20H17C19.2091 20 21 18.2091 21 16V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -3251,7 +3251,7 @@ export default function SuppliersPage() {
                     }
                   }}
                   disabled={isSubmitting}
-                  className="flex-1 bg-transparent border border-[#4C526B] text-white text-[18px] font-semibold h-[50px] rounded-[10px] transition-colors hover:bg-white/10 disabled:opacity-50"
+                  className="flex-1 bg-transparent border border-[#727BA0] text-white text-[18px] font-semibold h-[50px] rounded-[10px] transition-colors hover:bg-white/10 disabled:opacity-50"
                 >
                   {isEditingSupplier ? "חזרה" : "ביטול"}
                 </Button>
@@ -3349,7 +3349,7 @@ export default function SuppliersPage() {
                   <select
                     value={kartesetPeriodYear}
                     onChange={(e) => setKartesetPeriodYear(Number(e.target.value))}
-                    className="bg-[#1B2559] text-white text-[14px] text-center rounded-[8px] border border-[#4C526B] px-[10px] h-[36px] outline-none"
+                    className="bg-[#1B2559] text-white text-[14px] text-center rounded-[8px] border border-[#727BA0] px-[10px] h-[36px] outline-none"
                   >
                     {[2024, 2025, 2026, 2027].map((y) => (
                       <option key={y} value={y}>{y}</option>
@@ -3358,7 +3358,7 @@ export default function SuppliersPage() {
                   <select
                     value={kartesetPeriodMonth}
                     onChange={(e) => setKartesetPeriodMonth(Number(e.target.value))}
-                    className="bg-[#1B2559] text-white text-[14px] text-center rounded-[8px] border border-[#4C526B] px-[10px] h-[36px] outline-none"
+                    className="bg-[#1B2559] text-white text-[14px] text-center rounded-[8px] border border-[#727BA0] px-[10px] h-[36px] outline-none"
                   >
                     {["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"].map((m, i) => (
                       <option key={i} value={i}>{m}</option>
@@ -3473,7 +3473,7 @@ export default function SuppliersPage() {
 
               {/* Notes - only show if exists */}
               {selectedSupplier.notes && (
-                <div className="mt-[10px] bg-[#29318A]/20 rounded-[10px] p-[10px] border border-[#4C526B]">
+                <div className="mt-[10px] bg-[#29318A]/20 rounded-[10px] p-[10px] border border-[#727BA0]">
                   <span className="text-[12px] text-white/60">הערות</span>
                   <p className="text-[14px] text-white mt-[4px] text-right whitespace-pre-wrap">{selectedSupplier.notes}</p>
                 </div>
@@ -4595,7 +4595,7 @@ export default function SuppliersPage() {
                   {/* שם הספק */}
                   <div className="flex flex-col gap-[3px]">
                     <span className="text-[15px] font-medium text-white text-right">שם הספק</span>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center">
+                    <div className="border border-[#727BA0] rounded-[10px] h-[50px] flex items-center justify-center">
                       <Input
                         type="text"
                         title="שם הספק"
@@ -4610,7 +4610,7 @@ export default function SuppliersPage() {
                   {selectedSupplier.email && (
                     <div className="flex flex-col gap-[3px]">
                       <span className="text-[15px] font-medium text-white text-right">כתובת מייל</span>
-                      <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center">
+                      <div className="border border-[#727BA0] rounded-[10px] h-[50px] flex items-center justify-center">
                         <Input
                           type="email"
                           dir="ltr"
@@ -4626,7 +4626,7 @@ export default function SuppliersPage() {
                   {/* סכום שנלקח */}
                   <div className="flex flex-col gap-[3px]">
                     <span className="text-[15px] font-medium text-white text-right">סכום שנלקח</span>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center px-[10px]">
+                    <div className="border border-[#727BA0] rounded-[10px] h-[50px] flex items-center justify-center px-[10px]">
                       <Input
                         type="text"
                         title="סכום שנלקח"
@@ -4640,7 +4640,7 @@ export default function SuppliersPage() {
                   {/* תנאים */}
                   <div className="flex flex-col gap-[3px]">
                     <span className="text-[15px] font-medium text-white text-right">תנאים</span>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center px-[10px]">
+                    <div className="border border-[#727BA0] rounded-[10px] h-[50px] flex items-center justify-center px-[10px]">
                       <Input
                         type="text"
                         title="תנאים"
@@ -4654,7 +4654,7 @@ export default function SuppliersPage() {
                   {/* כמות תשלומים */}
                   <div className="flex flex-col gap-[3px]">
                     <span className="text-[15px] font-medium text-white text-right">כמות תשלומים</span>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center">
+                    <div className="border border-[#727BA0] rounded-[10px] h-[50px] flex items-center justify-center">
                       <span className="text-[14px] text-white">{numPayments}</span>
                     </div>
                   </div>
@@ -4662,7 +4662,7 @@ export default function SuppliersPage() {
                   {/* סכום חיוב חודשי כולל ריבית (משוער) */}
                   <div className="flex flex-col gap-[3px]">
                     <span className="text-[15px] font-medium text-white text-right">סכום חיוב חודשי כולל ריבית (משוער)</span>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center px-[10px]">
+                    <div className="border border-[#727BA0] rounded-[10px] h-[50px] flex items-center justify-center px-[10px]">
                       <Input
                         type="text"
                         title="סכום חיוב חודשי"
@@ -4676,7 +4676,7 @@ export default function SuppliersPage() {
                   {/* תאריך חיוב ראשון */}
                   <div className="flex flex-col gap-[3px]">
                     <span className="text-[15px] font-medium text-white text-right">תאריך חיוב ראשון</span>
-                    <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-between px-[10px]">
+                    <div className="border border-[#727BA0] rounded-[10px] h-[50px] flex items-center justify-between px-[10px]">
                       <Input
                         type="text"
                         title="תאריך חיוב ראשון"
@@ -4753,7 +4753,7 @@ export default function SuppliersPage() {
                           href={selectedSupplier.obligation_document_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="border border-[#4C526B] rounded-[10px] overflow-hidden flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors"
+                          className="border border-[#727BA0] rounded-[10px] overflow-hidden flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors"
                         >
                           <Image
                             src={selectedSupplier.obligation_document_url}
@@ -4895,7 +4895,7 @@ export default function SuppliersPage() {
           <div className="flex flex-col gap-[15px] p-[15px]" dir="rtl">
             <div className="flex flex-col gap-[5px]">
               <label className="text-[14px] font-medium text-white/80 text-right">שם ההתחייבות</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                 <Input
                   title="שם ההתחייבות"
                   value={commitmentName}
@@ -4908,7 +4908,7 @@ export default function SuppliersPage() {
 
             <div className="flex flex-col gap-[5px]">
               <label className="text-[14px] font-medium text-white/80 text-right">סכום חודשי</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                 <Input
                   title="סכום חודשי"
                   type="tel"
@@ -4922,7 +4922,7 @@ export default function SuppliersPage() {
 
             <div className="flex flex-col gap-[5px]">
               <label className="text-[14px] font-medium text-white/80 text-right">מספר תשלומים</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                 <Input
                   title="מספר תשלומים"
                   type="tel"
@@ -4979,7 +4979,7 @@ export default function SuppliersPage() {
 
             <div className="flex flex-col gap-[5px]">
               <label className="text-[14px] font-medium text-white/80 text-right">תנאי הלוואה</label>
-              <div className="border border-[#4C526B] rounded-[10px] min-h-[70px]">
+              <div className="border border-[#727BA0] rounded-[10px] min-h-[70px]">
                 <textarea
                   title="תנאי הלוואה"
                   value={commitmentTerms}
@@ -5060,7 +5060,7 @@ export default function SuppliersPage() {
                   </div>
                 </SheetHeader>
 
-                <div className="flex flex-col gap-[10px] bg-[#29318A]/20 rounded-[10px] p-[15px] border border-[#4C526B]">
+                <div className="flex flex-col gap-[10px] bg-[#29318A]/20 rounded-[10px] p-[15px] border border-[#727BA0]">
                   <div className="flex justify-between items-center">
                     <span className="text-[14px] text-white/70">סכום חודשי:</span>
                     <span dir="ltr" className="text-[16px] font-bold text-white">₪{c.monthly_amount.toLocaleString("he-IL")}</span>

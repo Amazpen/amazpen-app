@@ -1059,7 +1059,7 @@ export default function AdminGoalsPage() {
         <div>
           <label className="block text-sm text-white/70 mb-2">עסק</label>
           <Select value={selectedBusinessId} onValueChange={(val) => setSelectedBusinessId(val)}>
-            <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+            <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
               <SelectValue placeholder="בחר עסק" />
             </SelectTrigger>
             <SelectContent>
@@ -1076,7 +1076,7 @@ export default function AdminGoalsPage() {
         <div>
           <label className="block text-sm text-white/70 mb-2">שנה</label>
           <Select value={String(selectedYear)} onValueChange={(val) => setSelectedYear(parseInt(val))}>
-            <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+            <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
               <SelectValue placeholder="בחר שנה" />
             </SelectTrigger>
             <SelectContent>
@@ -1093,7 +1093,7 @@ export default function AdminGoalsPage() {
         <div>
           <label className="block text-sm text-white/70 mb-2">חודש</label>
           <Select value={String(selectedMonth)} onValueChange={(val) => setSelectedMonth(parseInt(val))}>
-            <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+            <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
               <SelectValue placeholder="בחר חודש" />
             </SelectTrigger>
             <SelectContent>
@@ -1697,7 +1697,7 @@ export default function AdminGoalsPage() {
                       value={sendOverrideTo}
                       onChange={(e) => setSendOverrideTo(e.target.value)}
                       placeholder="example@biz.co.il"
-                      className="bg-[#0F1535] border border-[#4C526B] text-white text-right rounded-[10px] h-[44px] px-[12px]"
+                      className="bg-[#0F1535] border border-[#727BA0] text-white text-right rounded-[10px] h-[44px] px-[12px]"
                       disabled={sendInProgress}
                       autoFocus
                     />

@@ -1186,14 +1186,14 @@ export default function OnlineUsersPage() {
         <button
           type="button"
           onClick={() => setActiveTab("online")}
-          className={`px-4 py-2 rounded-lg text-[14px] transition ${activeTab === "online" ? "bg-[#29318A] text-white border border-white" : "bg-transparent text-white/60 border border-[#4C526B] hover:border-white/50"}`}
+          className={`px-4 py-2 rounded-lg text-[14px] transition ${activeTab === "online" ? "bg-[#29318A] text-white border border-white" : "bg-transparent text-white/60 border border-[#727BA0] hover:border-white/50"}`}
         >
           מחוברים עכשיו ({onlineUsers.length})
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("all")}
-          className={`px-4 py-2 rounded-lg text-[14px] transition ${activeTab === "all" ? "bg-[#29318A] text-white border border-white" : "bg-transparent text-white/60 border border-[#4C526B] hover:border-white/50"}`}
+          className={`px-4 py-2 rounded-lg text-[14px] transition ${activeTab === "all" ? "bg-[#29318A] text-white border border-white" : "bg-transparent text-white/60 border border-[#727BA0] hover:border-white/50"}`}
         >
           כל המשתמשים
         </button>

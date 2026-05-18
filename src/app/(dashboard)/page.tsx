@@ -2981,7 +2981,7 @@ export default function DashboardPage() {
                   placeholder="חיפוש עסק, שם לקוח..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-transparent border border-[#4C526B] rounded-[7px] px-3 py-2 sm:py-1 text-white text-[15px] sm:text-[14px] placeholder:text-[#7B91B0] focus:outline-none focus:border-[#7B91B0] flex-1 min-w-0 max-w-[200px] min-h-[44px] sm:min-h-0"
+                  className="bg-transparent border border-[#727BA0] rounded-[7px] px-3 py-2 sm:py-1 text-white text-[15px] sm:text-[14px] placeholder:text-[#7B91B0] focus:outline-none focus:border-[#7B91B0] flex-1 min-w-0 max-w-[200px] min-h-[44px] sm:min-h-0"
                   autoFocus
                 />
               </div>
@@ -4183,7 +4183,7 @@ export default function DashboardPage() {
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">מגמות</h3>
                   <Select value={trendsChartPeriod} onValueChange={(v) => setTrendsChartPeriod(v as "year" | "month")}>
-                    <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
+                    <SelectTrigger className="bg-transparent border border-[#727BA0] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -4331,7 +4331,7 @@ export default function DashboardPage() {
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">ממוצע הכנסה</h3>
                   <Select value={orderAvgChartPeriod} onValueChange={(v) => setOrderAvgChartPeriod(v as "year" | "month")}>
-                    <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
+                    <SelectTrigger className="bg-transparent border border-[#727BA0] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -4456,7 +4456,7 @@ export default function DashboardPage() {
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">ניהול עלות מכר</h3>
                   <Select value={foodCostChartPeriod} onValueChange={(v) => setFoodCostChartPeriod(v as "year" | "month")}>
-                    <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
+                    <SelectTrigger className="bg-transparent border border-[#727BA0] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -4546,7 +4546,7 @@ export default function DashboardPage() {
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">עלות עבודה</h3>
                   <Select value={laborCostChartPeriod} onValueChange={(v) => setLaborCostChartPeriod(v as "year" | "month")}>
-                    <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
+                    <SelectTrigger className="bg-transparent border border-[#727BA0] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -4682,7 +4682,7 @@ export default function DashboardPage() {
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-white font-bold text-[18px]">{managedProductsSummary[0]?.name || 'מוצר מנוהל'}</h3>
                   <Select value={managedProductChartPeriod} onValueChange={(v) => setManagedProductChartPeriod(v as "year" | "month")}>
-                    <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
+                    <SelectTrigger className="bg-transparent border border-[#727BA0] rounded-[5px] text-[#7B91B0] text-[12px] px-3 py-1 h-auto w-auto">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

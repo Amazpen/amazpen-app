@@ -673,7 +673,7 @@ function DocumentCard({ document, isSelected, onClick, businessName, serial, tar
             {bizMenuOpen && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="absolute top-full right-0 left-0 mt-1 bg-[#0F1535] border border-[#4C526B] rounded-md shadow-lg max-h-[260px] overflow-y-auto z-50 p-1"
+                className="absolute top-full right-0 left-0 mt-1 bg-[#0F1535] border border-[#727BA0] rounded-md shadow-lg max-h-[260px] overflow-y-auto z-50 p-1"
               >
                 {(businesses || []).map(b => {
                   const isCurrent = b.id === document.business_id;

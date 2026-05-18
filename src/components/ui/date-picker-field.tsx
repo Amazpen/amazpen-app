@@ -84,7 +84,7 @@ export function DatePickerField({
           type="button"
           disabled={disabled}
           className={cn(
-            "flex items-center justify-center w-full h-[50px] rounded-[10px] border border-[#4C526B] bg-transparent text-[16px] font-semibold cursor-pointer transition-colors hover:border-white/50",
+            "flex items-center justify-center w-full h-[50px] rounded-[10px] border border-[#727BA0] bg-transparent text-[16px] font-semibold cursor-pointer transition-colors hover:border-white/50",
             value ? "text-white" : "text-white/40",
             disabled && "opacity-50 cursor-not-allowed",
             buttonClassName,
@@ -127,7 +127,7 @@ export function DatePickerField({
                 e.preventDefault();
               }
             }}
-            className="w-full h-9 rounded-md bg-[#0a0e2a] border border-[#4C526B] text-white text-center text-[14px] px-2 placeholder:text-white/30 focus:outline-none focus:border-white/40"
+            className="w-full h-9 rounded-md bg-[#0a0e2a] border border-[#727BA0] text-white text-center text-[14px] px-2 placeholder:text-white/30 focus:outline-none focus:border-white/40"
           />
         </div>
 

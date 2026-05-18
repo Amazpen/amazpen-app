@@ -116,6 +116,9 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Validation: fields the user tried to submit while empty. Used to paint
+  // their borders red until the user types a value (or submits successfully).
+  const [missingFields, setMissingFields] = useState<Set<string>>(new Set());
 
   // Dynamic data from database
   const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
@@ -709,6 +712,20 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate required fields (entry_date is the only hard requirement —
+    // total_register / labor_cost legitimately stay 0 on slow days).
+    const missing = new Set<string>();
+    if (!formData.entry_date) missing.add("entry_date");
+    const parsedDayFactor = parseFloat(formData.day_factor);
+    if (!Number.isFinite(parsedDayFactor) || parsedDayFactor <= 0) missing.add("day_factor");
+    if (missing.size > 0) {
+      setMissingFields(missing);
+      setError("יש למלא את השדות המסומנים באדום");
+      return;
+    }
+    setMissingFields(new Set());
+
     setIsSubmitting(true);
     setError(null);
 
@@ -1063,7 +1080,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     <PopoverTrigger asChild>
                       <button
                         type="button"
-                        className={`flex items-center justify-center w-full h-[50px] rounded-[10px] border ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} bg-transparent text-[16px] font-semibold cursor-pointer transition-colors hover:border-white/50 ${formData.entry_date ? 'text-white' : 'text-white/40'}`}
+                        className={`flex items-center justify-center w-full h-[50px] rounded-[10px] border ${missingFields.has('entry_date') ? 'border-red-500' : dateWarning ? 'border-[#FFA500]' : 'border-[#727BA0]'} bg-transparent text-[16px] font-semibold cursor-pointer transition-colors hover:border-white/50 ${formData.entry_date ? 'text-white' : 'text-white/40'}`}
                       >
                         {formData.entry_date
                           ? new Date(formData.entry_date + "T00:00:00").toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -1119,7 +1136,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     max="1"
                     value={formData.day_factor}
                     onChange={(e) => handleChange("day_factor", e.target.value)}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                    className={`bg-transparent border ${missingFields.has('day_factor') ? 'border-red-500' : 'border-[#727BA0]'} text-white text-right h-[50px] rounded-[10px] px-[10px]`}
                   />
                 </FormField>
 
@@ -1130,7 +1147,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     placeholder=""
                     value={pearlaData.portions_count}
                     onChange={(e) => handlePearlaChange("portions_count", e.target.value)}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </FormField>
 
@@ -1140,7 +1157,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     disabled
                     value={pearlaData.portions_income}
                     onChange={() => {}}
-                    className="bg-transparent border border-[#4C526B] text-white/50 text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white/50 text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </FormField>
 
@@ -1150,7 +1167,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     inputMode="numeric"
                     value={pearlaData.serving_supplement}
                     onChange={(v) => handlePearlaChange("serving_supplement", v)}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </FormField>
 
@@ -1160,7 +1177,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     disabled
                     value={pearlaData.serving_income}
                     onChange={() => {}}
-                    className="bg-transparent border border-[#4C526B] text-white/50 text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white/50 text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </FormField>
 
@@ -1169,7 +1186,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     placeholder=""
                     value={pearlaData.extras_income}
                     onChange={(v) => handlePearlaChange("extras_income", v)}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </FormField>
 
@@ -1179,7 +1196,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     disabled
                     value={pearlaData.total_income}
                     onChange={() => {}}
-                    className="bg-transparent border border-[#4C526B] text-white/50 text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white/50 text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </FormField>
 
@@ -1188,7 +1205,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     placeholder=""
                     value={pearlaData.salaried_labor_cost}
                     onChange={(v) => handlePearlaChange("salaried_labor_cost", v)}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </FormField>
 
@@ -1198,7 +1215,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     disabled
                     value={pearlaData.salaried_labor_overhead}
                     onChange={() => {}}
-                    className="bg-transparent border border-[#4C526B] text-white/50 text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white/50 text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </FormField>
 
@@ -1207,7 +1224,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     placeholder=""
                     value={pearlaData.manpower_labor_cost}
                     onChange={(v) => handlePearlaChange("manpower_labor_cost", v)}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </FormField>
               </>
@@ -1219,7 +1236,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     <PopoverTrigger asChild>
                       <button
                         type="button"
-                        className={`flex items-center justify-center w-full h-[50px] rounded-[10px] border ${dateWarning ? 'border-[#FFA500]' : 'border-[#4C526B]'} bg-transparent text-[16px] font-semibold cursor-pointer transition-colors hover:border-white/50 ${formData.entry_date ? 'text-white' : 'text-white/40'}`}
+                        className={`flex items-center justify-center w-full h-[50px] rounded-[10px] border ${missingFields.has('entry_date') ? 'border-red-500' : dateWarning ? 'border-[#FFA500]' : 'border-[#727BA0]'} bg-transparent text-[16px] font-semibold cursor-pointer transition-colors hover:border-white/50 ${formData.entry_date ? 'text-white' : 'text-white/40'}`}
                       >
                         {formData.entry_date
                           ? new Date(formData.entry_date + "T00:00:00").toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -1279,7 +1296,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     max="1"
                     value={formData.day_factor}
                     onChange={(e) => handleChange("day_factor", e.target.value)}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                    className={`bg-transparent border ${missingFields.has('day_factor') ? 'border-red-500' : 'border-[#727BA0]'} text-white text-right h-[50px] rounded-[10px] px-[10px]`}
                   />
                 </FormField>
 
@@ -1288,7 +1305,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                     placeholder="0"
                     value={formData.total_register}
                     onChange={(v) => handleChange("total_register", v)}
-                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                    className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                   />
                 </FormField>
 
@@ -1306,7 +1323,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                                   placeholder="0"
                                   value={incomeData[source.id]?.amount || ""}
                                   onChange={(v) => handleIncomeChange(source.id, "amount", v)}
-                                  className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                                  className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                                 />
                               </FormField>
                               <FormField label={`כמות הזמנות ${source.name}`}>
@@ -1316,7 +1333,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                                   placeholder="0"
                                   value={incomeData[source.id]?.orders_count || ""}
                                   onChange={(e) => handleIncomeChange(source.id, "orders_count", e.target.value)}
-                                  className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                                  className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                                 />
                               </FormField>
                             </div>
@@ -1334,7 +1351,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                                 placeholder="0"
                                 value={paymentData[pm.id] || ""}
                                 onChange={(v) => setPaymentData((prev) => ({ ...prev, [pm.id]: v }))}
-                                className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                                className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                               />
                             </FormField>
                           ))}
@@ -1349,7 +1366,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                               placeholder="0"
                               value={formData.labor_cost}
                               onChange={(v) => handleChange("labor_cost", v)}
-                              className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                              className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                             />
                           </FormField>
 
@@ -1368,7 +1385,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                                     type="text"
                                     disabled
                                     value={laborWithMarkup > 0 ? laborWithMarkup.toFixed(2) : "—"}
-                                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold disabled:opacity-100"
+                                    className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] font-semibold disabled:opacity-100"
                                   />
                                 </FormField>
                                 <div className="flex flex-col gap-[3px]">
@@ -1407,7 +1424,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                                     type="text"
                                     disabled
                                     value={dailyManagerCost > 0 ? `₪ ${dailyManagerCost.toFixed(2)}` : "—"}
-                                    className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] font-semibold disabled:opacity-100"
+                                    className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] font-semibold disabled:opacity-100"
                                   />
                                 </div>
                               </>
@@ -1421,7 +1438,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                               placeholder="0"
                               value={formData.labor_hours}
                               onChange={(e) => handleChange("labor_hours", e.target.value)}
-                              className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                              className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                             />
                           </FormField>
                         </div>
@@ -1437,7 +1454,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                                 placeholder="0"
                                 value={parameterData[param.id] || ""}
                                 onChange={(v) => handleParameterChange(param.id, v)}
-                                className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                                className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                               />
                             </FormField>
                           ))}
@@ -1451,7 +1468,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                             placeholder="0"
                             value={formData.discounts}
                             onChange={(v) => handleChange("discounts", v)}
-                            className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                            className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                           />
                         </FormField>
                       );
@@ -1463,7 +1480,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                           {managedProducts.map((product) => (
                             <div
                               key={product.id}
-                              className="border border-[#4C526B] rounded-[10px] p-4 flex flex-col gap-3"
+                              className="border border-[#727BA0] rounded-[10px] p-4 flex flex-col gap-3"
                             >
                               <div className="text-white font-medium text-right">
                                 <span>{product.name}</span>
@@ -1478,7 +1495,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                                   onChange={(e) =>
                                     handleProductUsageChange(product.id, "opening_stock", e.target.value)
                                   }
-                                  className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                                  className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                                 />
                               </FormField>
 
@@ -1491,7 +1508,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                                   onChange={(e) =>
                                     handleProductUsageChange(product.id, "received_quantity", e.target.value)
                                   }
-                                  className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                                  className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                                 />
                               </FormField>
 
@@ -1504,7 +1521,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                                   onChange={(e) =>
                                     handleProductUsageChange(product.id, "closing_stock", e.target.value)
                                   }
-                                  className="bg-transparent border border-[#4C526B] text-white text-right h-[50px] rounded-[10px] px-[10px]"
+                                  className="bg-transparent border border-[#727BA0] text-white text-right h-[50px] rounded-[10px] px-[10px]"
                                 />
                               </FormField>
 
@@ -1520,7 +1537,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                                       type="text"
                                       disabled
                                       value={actualUsage > 0 ? `${actualUsage.toFixed(2)} ${product.unit}` : "—"}
-                                      className="bg-transparent border border-[#4C526B] text-white text-right h-[40px] rounded-[10px] px-[10px] font-semibold disabled:opacity-100"
+                                      className="bg-transparent border border-[#727BA0] text-white text-right h-[40px] rounded-[10px] px-[10px] font-semibold disabled:opacity-100"
                                     />
                                   </div>
                                 );
@@ -1559,7 +1576,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
                 type="button"
                 variant="outline"
                 onClick={() => setIsOpen(false)}
-                className="flex-1 h-[50px] border border-[#4C526B] text-[#7B91B0] hover:text-white hover:border-white font-bold text-lg rounded-[10px] transition-all"
+                className="flex-1 h-[50px] border border-[#727BA0] text-[#7B91B0] hover:text-white hover:border-white font-bold text-lg rounded-[10px] transition-all"
               >
                 ביטול
               </Button>

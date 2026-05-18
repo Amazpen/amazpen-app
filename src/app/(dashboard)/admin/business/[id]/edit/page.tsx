@@ -1469,7 +1469,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         <label className="text-[15px] font-medium text-white text-right">
           <span className="text-[#F64E60]">*</span> שם העסק
         </label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="text"
             value={businessName}
@@ -1486,7 +1486,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           <span className="text-[#F64E60]">*</span> סוג עסק
         </label>
         <Select value={businessType || "__none__"} onValueChange={(val) => { const v = val === "__none__" ? "" : val; setBusinessType(v); if (v !== "other") { setCustomBusinessType(""); } }}>
-          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+          <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
             <SelectValue placeholder="בחר סוג עסק" />
           </SelectTrigger>
           <SelectContent>
@@ -1506,7 +1506,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           <label className="text-[15px] font-medium text-white text-right">
             <span className="text-[#F64E60]">*</span> שם סוג העסק
           </label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+          <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
             <Input
               type="text"
               value={customBusinessType}
@@ -1523,7 +1523,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         <label className="text-[15px] font-medium text-white text-right">
           <span className="text-[#F64E60]">*</span> מספר עוסק / ח.פ
         </label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="text"
             value={taxId}
@@ -1537,7 +1537,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       {/* Address */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">כתובת</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="text"
             value={address}
@@ -1551,7 +1551,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       {/* City */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">עיר</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="text"
             value={city}
@@ -1566,7 +1566,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       <div className="grid grid-cols-2 gap-[10px]">
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">טלפון</label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+          <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
             <Input
               type="tel"
               value={phone}
@@ -1578,7 +1578,7 @@ export default function EditBusinessPage({ params }: PageProps) {
         </div>
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">אימייל</label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+          <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
             <Input
               type="email"
               value={email}
@@ -1591,9 +1591,9 @@ export default function EditBusinessPage({ params }: PageProps) {
       </div>
 
       {/* Documents Email Settings */}
-      <div className="flex flex-col gap-[10px] p-[15px] border border-[#4C526B] rounded-[10px] bg-[#1a1f3a]/30">
+      <div className="flex flex-col gap-[10px] p-[15px] border border-[#727BA0] rounded-[10px] bg-[#1a1f3a]/30">
         <label className="text-[15px] font-medium text-white text-right">שליחת מסמכי OCR למייל (אופציונלי)</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="email"
             value={documentsEmail}
@@ -1660,7 +1660,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       </div>
 
       {/* OCR Intake Phones — phone-based document routing */}
-      <div className="flex flex-col gap-[10px] p-[15px] border border-[#4C526B] rounded-[10px] bg-[#1a1f3a]/30">
+      <div className="flex flex-col gap-[10px] p-[15px] border border-[#727BA0] rounded-[10px] bg-[#1a1f3a]/30">
         <label className="text-[15px] font-medium text-white text-right">
           ניתוב מסמכי OCR לפי מספר טלפון
         </label>
@@ -1715,7 +1715,7 @@ export default function EditBusinessPage({ params }: PageProps) {
 
         {/* Add new phone */}
         <div className="flex flex-col gap-[8px] pt-[8px] border-t border-[#4C526B]/50">
-          <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+          <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
             <Input
               type="tel"
               value={newIntakePhone}
@@ -1742,7 +1742,7 @@ export default function EditBusinessPage({ params }: PageProps) {
               </button>
             ))}
           </div>
-          <div className="border border-[#4C526B] rounded-[10px] h-[40px]">
+          <div className="border border-[#727BA0] rounded-[10px] h-[40px]">
             <Input
               type="text"
               value={newIntakeNotes}
@@ -1771,7 +1771,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           top-level field + effective-month picker were removed. */}
 
       {/* Per-month markup + VAT + manager salary table — full width */}
-      <div dir="rtl" className="w-full flex flex-col gap-[10px] p-[14px] bg-[#0f1231] rounded-[10px] border border-[#4C526B]/50">
+      <div dir="rtl" className="w-full flex flex-col gap-[10px] p-[14px] bg-[#0f1231] rounded-[10px] border border-[#727BA0]/50">
         <div className="flex flex-col gap-[4px] text-right">
           <span className="text-[14px] font-medium text-white">שכר מנהל, אחוז העמסה ומע&quot;מ לפי חודש</span>
           <span className="text-[11px] text-white/60 leading-[1.5]">
@@ -2056,7 +2056,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       {/* Logo Upload */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">לוגו העסק</label>
-        <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[120px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#29318A] transition-colors">
+        <label className="border border-[#727BA0] border-dashed rounded-[10px] min-h-[120px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#29318A] transition-colors">
           {logoPreview ? (
             <div className="relative">
               {logoFile?.type === 'application/pdf' ? (
@@ -2133,7 +2133,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 onChange={(e) => setSchedule({ ...schedule, [day.id]: e.target.value })}
                 aria-label={`מקדם פעילות יום ${day.label}`}
                 title={`הזן מקדם פעילות ליום ${day.label} (0-1)`}
-                className="w-full h-[40px] bg-[#0F1535] text-white text-[14px] text-center rounded-[8px] border border-[#4C526B] outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="w-full h-[40px] bg-[#0F1535] text-white text-[14px] text-center rounded-[8px] border border-[#727BA0] outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
           ))}
@@ -2186,7 +2186,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           >
             הוסף
           </Button>
-          <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
+          <div className="flex-1 border border-[#727BA0] rounded-[8px] h-[42px]">
             <Input
               type="text"
               value={newIncomeSource}
@@ -2240,7 +2240,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           >
             הוסף
           </Button>
-          <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
+          <div className="flex-1 border border-[#727BA0] rounded-[8px] h-[42px]">
             <Input
               type="text"
               value={newPaymentMethodName}
@@ -2365,7 +2365,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           >
             הוסף
           </Button>
-          <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
+          <div className="flex-1 border border-[#727BA0] rounded-[8px] h-[42px]">
             <Input
               type="text"
               value={newCustomParameter}
@@ -2420,7 +2420,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           >
             הוסף
           </Button>
-          <div className="w-[80px] border border-[#4C526B] rounded-[8px] h-[42px]">
+          <div className="w-[80px] border border-[#727BA0] rounded-[8px] h-[42px]">
             <Input
               type="number"
               min="1"
@@ -2432,7 +2432,7 @@ export default function EditBusinessPage({ params }: PageProps) {
               className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[8px] border-none outline-none px-[8px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
-          <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
+          <div className="flex-1 border border-[#727BA0] rounded-[8px] h-[42px]">
             <Input
               type="text"
               value={newCardName}
@@ -2479,7 +2479,7 @@ export default function EditBusinessPage({ params }: PageProps) {
 
         <div className="flex flex-col gap-[10px] mb-[10px]">
           <div className="flex gap-[10px]">
-            <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
+            <div className="flex-1 border border-[#727BA0] rounded-[8px] h-[42px]">
               <Input
                 type="text"
                 value={newProductName}
@@ -2500,7 +2500,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             >
               הוסף
             </Button>
-            <div className="w-[100px] border border-[#4C526B] rounded-[8px] h-[42px]">
+            <div className="w-[100px] border border-[#727BA0] rounded-[8px] h-[42px]">
               <Input
                 type="number"
                 min="0"
@@ -2513,7 +2513,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                 className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[8px] border-none outline-none px-[8px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-white/30"
               />
             </div>
-            <div className="w-[120px] border border-[#4C526B] rounded-[8px] h-[42px]">
+            <div className="w-[120px] border border-[#727BA0] rounded-[8px] h-[42px]">
               <Input
                 type="text"
                 value={newProductUnit}
@@ -2598,7 +2598,7 @@ export default function EditBusinessPage({ params }: PageProps) {
           {formSectionOrder.map((sectionKey, index) => (
             <div
               key={sectionKey}
-              className="flex items-center gap-[8px] bg-[#1a1f3d] border border-[#4C526B] rounded-[10px] px-[12px] py-[10px]"
+              className="flex items-center gap-[8px] bg-[#1a1f3d] border border-[#727BA0] rounded-[10px] px-[12px] py-[10px]"
             >
               <div className="flex flex-col gap-[2px]">
                 <Button
@@ -2717,7 +2717,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
               addMode === "existing"
                 ? "bg-[#00B894] text-white"
-                : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                : "bg-[#1A1F37] text-white/60 border border-[#727BA0]"
             }`}
           >
             משתמש קיים
@@ -2729,7 +2729,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
               addMode === "new"
                 ? "bg-[#0075FF] text-white"
-                : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                : "bg-[#1A1F37] text-white/60 border border-[#727BA0]"
             }`}
           >
             משתמש חדש
@@ -2741,7 +2741,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             {/* Search Existing Users */}
             <div className="flex flex-col gap-[5px] mb-[10px]">
               <label className="text-[14px] font-medium text-white text-right">חיפוש משתמש</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                 <Input
                   type="text"
                   value={existingUserSearch}
@@ -2818,7 +2818,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                   className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
                     newMemberRole === "owner"
                       ? "bg-[#9B59B6] text-white"
-                      : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                      : "bg-[#1A1F37] text-white/60 border border-[#727BA0]"
                   }`}
                 >
                   בעל עסק
@@ -2830,7 +2830,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                   className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
                     newMemberRole === "employee"
                       ? "bg-[#3498DB] text-white"
-                      : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                      : "bg-[#1A1F37] text-white/60 border border-[#727BA0]"
                   }`}
                 >
                   עובד
@@ -2856,7 +2856,7 @@ export default function EditBusinessPage({ params }: PageProps) {
               <label className="text-[14px] font-medium text-white text-right">
                 <span className="text-[#F64E60]">*</span> אימייל
               </label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                 <Input
                   type="email"
                   value={newMemberEmail}
@@ -2872,7 +2872,7 @@ export default function EditBusinessPage({ params }: PageProps) {
               <label className="text-[14px] font-medium text-white text-right">
                 <span className="text-[#F64E60]">*</span> סיסמה
               </label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                 <Input
                   type="password"
                   autoComplete="new-password"
@@ -2887,7 +2887,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             {/* Name */}
             <div className="flex flex-col gap-[5px] mb-[10px]">
               <label className="text-[14px] font-medium text-white text-right">שם מלא</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                 <Input
                   type="text"
                   value={newMemberName}
@@ -2901,7 +2901,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             {/* Phone */}
             <div className="flex flex-col gap-[5px] mb-[10px]">
               <label className="text-[14px] font-medium text-white text-right">מספר טלפון</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                 <Input
                   type="tel"
                   value={newMemberPhone}
@@ -2948,7 +2948,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                   type="button"
                   onClick={() => memberAvatarInputRef.current?.click()}
                   disabled={isUploadingMemberAvatar}
-                  className="flex-1 border border-[#4C526B] rounded-[10px] h-[45px] flex items-center justify-center gap-[8px] text-white/70 hover:text-white hover:border-white/50 transition-colors disabled:opacity-50"
+                  className="flex-1 border border-[#727BA0] rounded-[10px] h-[45px] flex items-center justify-center gap-[8px] text-white/70 hover:text-white hover:border-white/50 transition-colors disabled:opacity-50"
                 >
                   {isUploadingMemberAvatar ? (
                     <>
@@ -2997,7 +2997,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                   className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
                     newMemberRole === "owner"
                       ? "bg-[#9B59B6] text-white"
-                      : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                      : "bg-[#1A1F37] text-white/60 border border-[#727BA0]"
                   }`}
                 >
                   בעל עסק
@@ -3009,7 +3009,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                   className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
                     newMemberRole === "employee"
                       ? "bg-[#3498DB] text-white"
-                      : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                      : "bg-[#1A1F37] text-white/60 border border-[#727BA0]"
                   }`}
                 >
                   עובד
@@ -3186,7 +3186,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                   variant="outline"
                   type="button"
                   onClick={() => setShowStatusConfirm(false)}
-                  className="flex-1 bg-transparent border border-[#4C526B] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-white/10"
+                  className="flex-1 bg-transparent border border-[#727BA0] text-white text-[14px] font-semibold py-[10px] rounded-[10px] hover:bg-white/10"
                 >
                   ביטול
                 </Button>
@@ -3284,7 +3284,7 @@ export default function EditBusinessPage({ params }: PageProps) {
             variant="outline"
             type="button"
             onClick={() => setCurrentStep(prev => prev - 1)}
-            className="flex-1 bg-transparent border border-[#4C526B] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
+            className="flex-1 bg-transparent border border-[#727BA0] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
           >
             חזרה
           </Button>

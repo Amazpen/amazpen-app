@@ -967,7 +967,7 @@ function NewBusinessPage() {
         <label className="text-[15px] font-medium text-white text-right">
           <span className="text-[#F64E60]">*</span> שם העסק
         </label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="text"
             value={businessName}
@@ -983,7 +983,7 @@ function NewBusinessPage() {
         <label className="text-[15px] font-medium text-white text-right">
           <span className="text-[#F64E60]">*</span> סוג עסק
         </label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
         <Select value={businessType || "__none__"} onValueChange={(val) => { const v = val === "__none__" ? "" : val; setBusinessType(v); if (v !== "other") { setCustomBusinessType(""); } }}>
           <SelectTrigger className="w-full !h-full bg-transparent border-none shadow-none rounded-[10px] px-[15px] text-[14px] text-white text-right">
             <SelectValue placeholder="בחר סוג עסק" />
@@ -1006,7 +1006,7 @@ function NewBusinessPage() {
           <label className="text-[15px] font-medium text-white text-right">
             <span className="text-[#F64E60]">*</span> שם סוג העסק
           </label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+          <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
             <Input
               type="text"
               value={customBusinessType}
@@ -1023,7 +1023,7 @@ function NewBusinessPage() {
         <label className="text-[15px] font-medium text-white text-right">
           <span className="text-[#F64E60]">*</span> מספר עוסק / ח.פ
         </label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="text"
             value={taxId}
@@ -1037,7 +1037,7 @@ function NewBusinessPage() {
       {/* Address */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">כתובת</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="text"
             value={address}
@@ -1051,7 +1051,7 @@ function NewBusinessPage() {
       {/* City */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">עיר</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="text"
             value={city}
@@ -1066,7 +1066,7 @@ function NewBusinessPage() {
       <div className="grid grid-cols-2 gap-[10px]">
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">טלפון</label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+          <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
             <Input
               type="tel"
               value={phone}
@@ -1078,7 +1078,7 @@ function NewBusinessPage() {
         </div>
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">אימייל</label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+          <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
             <Input
               type="email"
               value={email}
@@ -1091,9 +1091,9 @@ function NewBusinessPage() {
       </div>
 
       {/* Documents Email Settings */}
-      <div className="flex flex-col gap-[10px] p-[15px] border border-[#4C526B] rounded-[10px] bg-[#1a1f3a]/30">
+      <div className="flex flex-col gap-[10px] p-[15px] border border-[#727BA0] rounded-[10px] bg-[#1a1f3a]/30">
         <label className="text-[15px] font-medium text-white text-right">שליחת מסמכי OCR למייל (אופציונלי)</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
           <Input
             type="email"
             value={documentsEmail}
@@ -1162,7 +1162,7 @@ function NewBusinessPage() {
       {/* Manager Salary */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">שכר מנהל חודשי</label>
-        <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px] flex items-center">
           <Input
             type="text"
             inputMode="numeric"
@@ -1179,7 +1179,7 @@ function NewBusinessPage() {
       <div className="grid grid-cols-2 gap-[10px]">
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">אחוז העמסה</label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
+          <div className="border border-[#727BA0] rounded-[10px] h-[50px] flex items-center">
             <span className="text-white/50 text-[14px] pr-[10px]">%</span>
             <Input
               type="number"
@@ -1195,7 +1195,7 @@ function NewBusinessPage() {
         </div>
         <div className="flex flex-col gap-[5px]">
           <label className="text-[15px] font-medium text-white text-right">אחוז מע&quot;מ</label>
-          <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
+          <div className="border border-[#727BA0] rounded-[10px] h-[50px] flex items-center">
             <span className="text-white/50 text-[14px] pr-[10px]">%</span>
             <Input
               type="number"
@@ -1214,7 +1214,7 @@ function NewBusinessPage() {
       {/* Logo Upload */}
       <div className="flex flex-col gap-[5px]">
         <label className="text-[15px] font-medium text-white text-right">לוגו העסק</label>
-        <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[120px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#29318A] transition-colors">
+        <label className="border border-[#727BA0] border-dashed rounded-[10px] min-h-[120px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#29318A] transition-colors">
           {logoPreview ? (
             <div className="relative">
               {logoFile?.type === 'application/pdf' ? (
@@ -1304,7 +1304,7 @@ function NewBusinessPage() {
                 onChange={(e) => setSchedule({ ...schedule, [day.id]: e.target.value })}
                 aria-label={`מקדם פעילות יום ${day.label}`}
                 title={`הזן מקדם פעילות ליום ${day.label} (0-1)`}
-                className="w-full h-[40px] bg-[#0F1535] text-white text-[14px] text-center rounded-[8px] border border-[#4C526B] outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className="w-full h-[40px] bg-[#0F1535] text-white text-[14px] text-center rounded-[8px] border border-[#727BA0] outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
           ))}
@@ -1357,7 +1357,7 @@ function NewBusinessPage() {
           >
             הוסף
           </Button>
-          <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
+          <div className="flex-1 border border-[#727BA0] rounded-[8px] h-[42px]">
             <Input
               type="text"
               value={newIncomeSource}
@@ -1409,7 +1409,7 @@ function NewBusinessPage() {
           >
             הוסף
           </Button>
-          <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
+          <div className="flex-1 border border-[#727BA0] rounded-[8px] h-[42px]">
             <Input
               type="text"
               value={newReceiptType}
@@ -1464,7 +1464,7 @@ function NewBusinessPage() {
           >
             הוסף
           </Button>
-          <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
+          <div className="flex-1 border border-[#727BA0] rounded-[8px] h-[42px]">
             <Input
               type="text"
               value={newCustomParameter}
@@ -1519,7 +1519,7 @@ function NewBusinessPage() {
           >
             הוסף
           </Button>
-          <div className="w-[80px] border border-[#4C526B] rounded-[8px] h-[42px]">
+          <div className="w-[80px] border border-[#727BA0] rounded-[8px] h-[42px]">
             <Input
               type="number"
               min="1"
@@ -1531,7 +1531,7 @@ function NewBusinessPage() {
               className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[8px] border-none outline-none px-[8px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
-          <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
+          <div className="flex-1 border border-[#727BA0] rounded-[8px] h-[42px]">
             <Input
               type="text"
               value={newCardName}
@@ -1578,7 +1578,7 @@ function NewBusinessPage() {
 
         <div className="flex flex-col gap-[10px] mb-[10px]">
           <div className="flex gap-[10px]">
-            <div className="flex-1 border border-[#4C526B] rounded-[8px] h-[42px]">
+            <div className="flex-1 border border-[#727BA0] rounded-[8px] h-[42px]">
               <Input
                 type="text"
                 value={newProductName}
@@ -1599,7 +1599,7 @@ function NewBusinessPage() {
             >
               הוסף
             </Button>
-            <div className="w-[100px] border border-[#4C526B] rounded-[8px] h-[42px]">
+            <div className="w-[100px] border border-[#727BA0] rounded-[8px] h-[42px]">
               <Input
                 type="number"
                 min="0"
@@ -1612,7 +1612,7 @@ function NewBusinessPage() {
                 className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[8px] border-none outline-none px-[8px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-white/30"
               />
             </div>
-            <div className="w-[120px] border border-[#4C526B] rounded-[8px] h-[42px]">
+            <div className="w-[120px] border border-[#727BA0] rounded-[8px] h-[42px]">
               <Input
                 type="text"
                 value={newProductUnit}
@@ -1688,7 +1688,7 @@ function NewBusinessPage() {
             className={`flex-1 h-[38px] rounded-[10px] text-[13px] font-medium transition-all ${
               addMode === "new"
                 ? "bg-[#29318A] text-white"
-                : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                : "bg-[#1A1F37] text-white/60 border border-[#727BA0]"
             }`}
           >
             משתמש חדש
@@ -1700,7 +1700,7 @@ function NewBusinessPage() {
             className={`flex-1 h-[38px] rounded-[10px] text-[13px] font-medium transition-all ${
               addMode === "existing"
                 ? "bg-gradient-to-r from-[#0075FF] to-[#00D4FF] text-white"
-                : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                : "bg-[#1A1F37] text-white/60 border border-[#727BA0]"
             }`}
           >
             משתמש קיים
@@ -1714,7 +1714,7 @@ function NewBusinessPage() {
               <label className="text-[14px] font-medium text-white text-right">
                 <span className="text-[#F64E60]">*</span> חיפוש משתמש
               </label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px] flex items-center">
+              <div className="border border-[#727BA0] rounded-[10px] h-[45px] flex items-center">
                 <Input
                   type="text"
                   value={existingUserSearch}
@@ -1744,7 +1744,7 @@ function NewBusinessPage() {
                       setExistingUserSearch(user.email);
                       setExistingUserResults([]);
                     }}
-                    className="flex items-center gap-[10px] bg-[#1A1F37] hover:bg-[#29318A]/50 border border-[#4C526B] rounded-[10px] p-[10px] transition-colors text-right w-full h-auto"
+                    className="flex items-center gap-[10px] bg-[#1A1F37] hover:bg-[#29318A]/50 border border-[#727BA0] rounded-[10px] p-[10px] transition-colors text-right w-full h-auto"
                   >
                     <div className="w-[36px] h-[36px] rounded-full bg-[#4A56D4] flex items-center justify-center overflow-hidden flex-shrink-0">
                       {user.avatar_url ? (
@@ -1823,7 +1823,7 @@ function NewBusinessPage() {
                   className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
                     newMemberRole === "owner"
                       ? "bg-[#9B59B6] text-white"
-                      : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                      : "bg-[#1A1F37] text-white/60 border border-[#727BA0]"
                   }`}
                 >
                   בעל עסק
@@ -1835,7 +1835,7 @@ function NewBusinessPage() {
                   className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
                     newMemberRole === "employee"
                       ? "bg-[#3498DB] text-white"
-                      : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                      : "bg-[#1A1F37] text-white/60 border border-[#727BA0]"
                   }`}
                 >
                   עובד
@@ -1861,7 +1861,7 @@ function NewBusinessPage() {
               <label className="text-[14px] font-medium text-white text-right">
                 <span className="text-[#F64E60]">*</span> אימייל
               </label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                 <Input
                   type="email"
                   value={newMemberEmail}
@@ -1877,7 +1877,7 @@ function NewBusinessPage() {
               <label className="text-[14px] font-medium text-white text-right">
                 <span className="text-[#F64E60]">*</span> סיסמה
               </label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                 <Input
                   type="password"
                   autoComplete="new-password"
@@ -1892,7 +1892,7 @@ function NewBusinessPage() {
             {/* Name */}
             <div className="flex flex-col gap-[5px] mb-[10px]">
               <label className="text-[14px] font-medium text-white text-right">שם מלא</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                 <Input
                   type="text"
                   value={newMemberName}
@@ -1906,7 +1906,7 @@ function NewBusinessPage() {
             {/* Phone */}
             <div className="flex flex-col gap-[5px] mb-[10px]">
               <label className="text-[14px] font-medium text-white text-right">מספר טלפון</label>
-              <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+              <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                 <Input
                   type="tel"
                   value={newMemberPhone}
@@ -1953,7 +1953,7 @@ function NewBusinessPage() {
                   type="button"
                   onClick={() => memberAvatarInputRef.current?.click()}
                   disabled={isUploadingMemberAvatar}
-                  className="flex-1 border border-[#4C526B] rounded-[10px] h-[45px] flex items-center justify-center gap-[8px] text-white/70 hover:text-white hover:border-white/50 transition-colors disabled:opacity-50"
+                  className="flex-1 border border-[#727BA0] rounded-[10px] h-[45px] flex items-center justify-center gap-[8px] text-white/70 hover:text-white hover:border-white/50 transition-colors disabled:opacity-50"
                 >
                   {isUploadingMemberAvatar ? (
                     <>
@@ -2002,7 +2002,7 @@ function NewBusinessPage() {
                   className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
                     newMemberRole === "owner"
                       ? "bg-[#9B59B6] text-white"
-                      : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                      : "bg-[#1A1F37] text-white/60 border border-[#727BA0]"
                   }`}
                 >
                   בעל עסק
@@ -2014,7 +2014,7 @@ function NewBusinessPage() {
                   className={`flex-1 h-[40px] rounded-[10px] text-[14px] font-medium transition-all ${
                     newMemberRole === "employee"
                       ? "bg-[#3498DB] text-white"
-                      : "bg-[#1A1F37] text-white/60 border border-[#4C526B]"
+                      : "bg-[#1A1F37] text-white/60 border border-[#727BA0]"
                   }`}
                 >
                   עובד
@@ -2224,7 +2224,7 @@ function NewBusinessPage() {
 
         {!csvParsingDone ? (
           <>
-            <label className="border border-[#4C526B] border-dashed rounded-[10px] min-h-[120px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#4956D4] transition-colors">
+            <label className="border border-[#727BA0] border-dashed rounded-[10px] min-h-[120px] px-[10px] py-[15px] flex flex-col items-center justify-center gap-[8px] cursor-pointer hover:border-[#4956D4] transition-colors">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-[#979797]">
                 <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M14 2V8H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -2602,7 +2602,7 @@ function NewBusinessPage() {
               variant="outline"
               type="button"
               onClick={() => currentStep === 1 ? setCurrentStep(0) : setCurrentStep(getPrevStep(currentStep))}
-              className="flex-1 bg-transparent border border-[#4C526B] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
+              className="flex-1 bg-transparent border border-[#727BA0] text-white text-[16px] font-semibold py-[14px] rounded-[10px] transition-colors hover:bg-white/10"
             >
               חזרה
             </Button>

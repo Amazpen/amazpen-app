@@ -220,7 +220,7 @@ export default function MarkezetImportPage() {
         <div className="bg-[#4956D4]/20 rounded-[15px] p-[15px]">
           <h3 className="text-[16px] font-bold text-white text-right mb-[10px]">בחר עסק</h3>
           <Select value={selectedBusinessId || "__none__"} onValueChange={(val) => { setSelectedBusinessId(val === "__none__" ? "" : val); setRows([]); setFileName(""); }}>
-            <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+            <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
               <SelectValue placeholder="בחר עסק" />
             </SelectTrigger>
             <SelectContent>

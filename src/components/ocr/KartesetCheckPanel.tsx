@@ -260,7 +260,7 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
   return (
     <div dir="rtl" className="flex flex-col gap-[12px] p-[4px]">
       {/* Filters */}
-      <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-[12px] flex flex-col gap-[10px]">
+      <div className="bg-[#0F1535] border border-[#727BA0] rounded-[10px] p-[12px] flex flex-col gap-[10px]">
         <h3 className="text-[16px] font-bold text-white">בדיקת כרטסת</h3>
         <p className="text-[12px] text-white/60 leading-[1.5]">
           טען את כל החשבוניות והתשלומים של ספק לטווח תאריכים, וסמן ✓ כל שורה שמופיעה גם בכרטסת שקיבלת מהספק.
@@ -272,7 +272,7 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
           <div className="flex flex-col gap-[4px]">
             <label className="text-[12px] text-white/70">שם הספק</label>
             <Select value={supplierId || "__none__"} onValueChange={(v) => setSupplierId(v === "__none__" ? "" : v)}>
-              <SelectTrigger className="bg-transparent border border-[#4C526B] rounded-[8px] h-[40px] px-[10px] text-[14px] text-white text-right">
+              <SelectTrigger className="bg-transparent border border-[#727BA0] rounded-[8px] h-[40px] px-[10px] text-[14px] text-white text-right">
                 <SelectValue placeholder="בחר ספק..." />
               </SelectTrigger>
               <SelectContent>
@@ -291,7 +291,7 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
               value={dateFrom}
               onChange={setDateFrom}
               placeholder="מתאריך"
-              className="bg-transparent border border-[#4C526B] rounded-[8px] h-[40px] px-[10px] text-[14px] text-white"
+              className="bg-transparent border border-[#727BA0] rounded-[8px] h-[40px] px-[10px] text-[14px] text-white"
             />
           </div>
 
@@ -302,7 +302,7 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
               value={dateTo}
               onChange={setDateTo}
               placeholder="עד תאריך"
-              className="bg-transparent border border-[#4C526B] rounded-[8px] h-[40px] px-[10px] text-[14px] text-white"
+              className="bg-transparent border border-[#727BA0] rounded-[8px] h-[40px] px-[10px] text-[14px] text-white"
             />
           </div>
 
@@ -323,7 +323,7 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
 
       {/* Results */}
       {hasFetched && (
-        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-[12px] flex flex-col gap-[10px]">
+        <div className="bg-[#0F1535] border border-[#727BA0] rounded-[10px] p-[12px] flex flex-col gap-[10px]">
           <div className="flex items-center justify-between flex-wrap gap-[8px]">
             <div className="flex items-center gap-[10px]">
               <span className="text-[14px] font-bold text-white">{supplierName}</span>

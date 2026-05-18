@@ -23,10 +23,10 @@ function Calendar({
         caption_label: "text-sm font-medium text-white",
         nav: "flex items-center gap-1",
         button_previous: cn(
-          "absolute right-1 top-0 z-10 flex h-7 w-7 items-center justify-center rounded-md border border-[#4C526B] bg-transparent text-white hover:bg-white/10 transition-colors"
+          "absolute right-1 top-0 z-10 flex h-7 w-7 items-center justify-center rounded-md border border-[#727BA0] bg-transparent text-white hover:bg-white/10 transition-colors"
         ),
         button_next: cn(
-          "absolute left-1 top-0 z-10 flex h-7 w-7 items-center justify-center rounded-md border border-[#4C526B] bg-transparent text-white hover:bg-white/10 transition-colors"
+          "absolute left-1 top-0 z-10 flex h-7 w-7 items-center justify-center rounded-md border border-[#727BA0] bg-transparent text-white hover:bg-white/10 transition-colors"
         ),
         month_grid: "w-full border-collapse",
         weekdays: "flex",

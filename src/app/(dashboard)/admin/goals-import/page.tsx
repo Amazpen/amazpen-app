@@ -244,7 +244,7 @@ export default function GoalsImportPage() {
             value={selectedBusinessId || "__none__"}
             onValueChange={(v) => setSelectedBusinessId(v === "__none__" ? "" : v)}
           >
-            <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+            <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
               <SelectValue placeholder="-- בחר עסק --" />
             </SelectTrigger>
             <SelectContent>

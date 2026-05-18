@@ -699,7 +699,7 @@ export function ConsolidatedInvoiceModal({
               onValueChange={(val) => setSelectedBusinessId(val === "__none__" ? "" : val)}
               disabled={isLoadingBusinesses}
             >
-              <SelectTrigger className="w-full h-[48px] bg-[#0F1535] text-[16px] text-center rounded-[10px] border-[#4C526B]">
+              <SelectTrigger className="w-full h-[48px] bg-[#0F1535] text-[16px] text-center rounded-[10px] border-[#727BA0]">
                 <SelectValue placeholder={isLoadingBusinesses ? "טוען..." : "בחר/י עסק..."} />
               </SelectTrigger>
               <SelectContent>
@@ -771,7 +771,7 @@ export function ConsolidatedInvoiceModal({
                 const groupTotal = notes.reduce((sum, n) => sum + Number(n.total_amount), 0);
 
                 return (
-                  <div key={monthKey} className="flex flex-col border border-[#4C526B] rounded-[10px] overflow-hidden">
+                  <div key={monthKey} className="flex flex-col border border-[#727BA0] rounded-[10px] overflow-hidden">
                     {/* Month Header - clickable to expand/collapse */}
                     <button
                       type="button"
@@ -910,7 +910,7 @@ export function ConsolidatedInvoiceModal({
               {/* Invoice Number */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">מספר חשבונית מרכזת:</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="text"
                     value={invoiceNumber}
@@ -924,7 +924,7 @@ export function ConsolidatedInvoiceModal({
               {/* Total Amount */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">סכום מרכזת כולל מע&quot;מ:</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
                   <Input
                     type="text"
                     inputMode="decimal"
@@ -943,7 +943,7 @@ export function ConsolidatedInvoiceModal({
                   value={isClosed || "__none__"}
                   onValueChange={(val) => setIsClosed(val === "__none__" ? "" : val)}
                 >
-                  <SelectTrigger className="w-full h-[48px] bg-[#0F1535] text-[16px] text-center rounded-[5px] border-[#4C526B]">
+                  <SelectTrigger className="w-full h-[48px] bg-[#0F1535] text-[16px] text-center rounded-[5px] border-[#727BA0]">
                     <SelectValue placeholder="כן/לא" />
                   </SelectTrigger>
                   <SelectContent>
@@ -956,7 +956,7 @@ export function ConsolidatedInvoiceModal({
               {/* Notes */}
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[15px] font-medium text-white text-right">הערות:</label>
-                <div className="border border-[#4C526B] rounded-[10px]">
+                <div className="border border-[#727BA0] rounded-[10px]">
                   <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
@@ -992,7 +992,7 @@ export function ConsolidatedInvoiceModal({
                   </div>
                 </div>
 
-                <div className="relative border border-[#4C526B] rounded-[10px] h-[50px] flex items-center justify-center cursor-pointer hover:border-white/30 transition-colors">
+                <div className="relative border border-[#727BA0] rounded-[10px] h-[50px] flex items-center justify-center cursor-pointer hover:border-white/30 transition-colors">
                   <span className="text-[14px] text-white/40">
                     {isUploading ? "מעלה..." : "הוסף תמונה/מסמך"}
                   </span>

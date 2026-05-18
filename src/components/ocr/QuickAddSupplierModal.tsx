@@ -312,7 +312,7 @@ export default function QuickAddSupplierModal({
           {/* Name */}
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">שם הספק</label>
-            <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+            <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
               <Input
                 type="text"
                 value={name}
@@ -326,7 +326,7 @@ export default function QuickAddSupplierModal({
           {/* Tax ID */}
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">ח.פ / עוסק מורשה</label>
-            <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+            <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
               <Input
                 type="text"
                 dir="ltr"
@@ -341,7 +341,7 @@ export default function QuickAddSupplierModal({
           {/* Email */}
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">כתובת מייל</label>
-            <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+            <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
               <Input
                 type="email"
                 dir="ltr"
@@ -370,7 +370,7 @@ export default function QuickAddSupplierModal({
           {/* Phone */}
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">טלפון</label>
-            <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+            <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
               <Input
                 type="tel"
                 dir="ltr"
@@ -417,7 +417,7 @@ export default function QuickAddSupplierModal({
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">קטגוריית אב</label>
             <Select value={parentCategoryId || "__none__"} onValueChange={(v) => { setParentCategoryId(v === "__none__" ? "" : v); setCategoryId(""); }}>
-              <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+              <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                 <SelectValue placeholder="בחר קטגוריית אב" />
               </SelectTrigger>
               <SelectContent>
@@ -435,7 +435,7 @@ export default function QuickAddSupplierModal({
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">קטגוריה</label>
             <Select value={categoryId || "__none__"} onValueChange={(v) => setCategoryId(v === "__none__" ? "" : v)}>
-              <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+              <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                 <SelectValue placeholder={parentCategoryId ? "בחר קטגוריה" : "יש לבחור קטגוריית אב תחילה"} />
               </SelectTrigger>
               <SelectContent>
@@ -450,7 +450,7 @@ export default function QuickAddSupplierModal({
           {/* Payment terms */}
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">תנאי תשלום (שוטף +)</label>
-            <div className="border border-[#4C526B] rounded-[10px] h-[50px]">
+            <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
               <Input
                 type="tel"
                 value={paymentTermsDays}
@@ -463,11 +463,11 @@ export default function QuickAddSupplierModal({
 
           {/* Fixed-expense extras */}
           {isFixedExpense && (
-            <div className="flex flex-col gap-[10px] p-[10px] bg-[#29318A]/20 rounded-[10px] border border-[#4C526B]">
+            <div className="flex flex-col gap-[10px] p-[10px] bg-[#29318A]/20 rounded-[10px] border border-[#727BA0]">
               <p className="text-[14px] font-bold text-white text-right">פרטי הוצאה קבועה</p>
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white/80 text-right">יום חיוב חודשי</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                   <Input
                     type="tel"
                     value={chargeDay}
@@ -479,7 +479,7 @@ export default function QuickAddSupplierModal({
               </div>
               <div className="flex flex-col gap-[5px]">
                 <label className="text-[14px] font-medium text-white/80 text-right">סכום חודשי משוער</label>
-                <div className="border border-[#4C526B] rounded-[10px] h-[45px]">
+                <div className="border border-[#727BA0] rounded-[10px] h-[45px]">
                   <Input
                     type="tel"
                     value={monthlyExpenseAmount}
@@ -529,7 +529,7 @@ export default function QuickAddSupplierModal({
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">אמצעי תשלום ברירת מחדל</label>
             <Select value={defaultPaymentMethod || "__none__"} onValueChange={(v) => setDefaultPaymentMethod((v === "__none__" ? "" : v) as PaymentMethod)}>
-              <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+              <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                 <SelectValue placeholder="בחר אמצעי תשלום" />
               </SelectTrigger>
               <SelectContent>
@@ -545,7 +545,7 @@ export default function QuickAddSupplierModal({
             <div className="flex flex-col gap-[5px]">
               <label className="text-[15px] font-medium text-white text-right">כרטיס אשראי</label>
               <Select value={defaultCreditCardId || "__none__"} onValueChange={(v) => setDefaultCreditCardId(v === "__none__" ? "" : v)}>
-                <SelectTrigger className="w-full bg-transparent border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+                <SelectTrigger className="w-full bg-transparent border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
                   <SelectValue placeholder="בחר כרטיס" />
                 </SelectTrigger>
                 <SelectContent>
@@ -561,7 +561,7 @@ export default function QuickAddSupplierModal({
           {/* Default discount */}
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">אחוז הנחה ברירת מחדל</label>
-            <div className="border border-[#4C526B] rounded-[10px] h-[50px] flex items-center">
+            <div className="border border-[#727BA0] rounded-[10px] h-[50px] flex items-center">
               <span className="text-white/50 text-[14px] pr-[10px]">%</span>
               <Input
                 type="number"
@@ -579,7 +579,7 @@ export default function QuickAddSupplierModal({
           {/* Notes */}
           <div className="flex flex-col gap-[5px]">
             <label className="text-[15px] font-medium text-white text-right">הערות</label>
-            <div className="border border-[#4C526B] rounded-[10px] min-h-[80px] px-[10px] py-[8px]">
+            <div className="border border-[#727BA0] rounded-[10px] min-h-[80px] px-[10px] py-[8px]">
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -608,7 +608,7 @@ export default function QuickAddSupplierModal({
               type="button"
               onClick={() => onOpenChange(false)}
               disabled={isSaving}
-              className="flex-1 h-[50px] bg-transparent border border-[#4C526B] text-white text-[16px] rounded-[10px] hover:bg-white/10"
+              className="flex-1 h-[50px] bg-transparent border border-[#727BA0] text-white text-[16px] rounded-[10px] hover:bg-white/10"
             >
               ביטול
             </Button>

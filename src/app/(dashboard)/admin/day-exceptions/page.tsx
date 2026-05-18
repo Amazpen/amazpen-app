@@ -449,7 +449,7 @@ export default function DayExceptionsPage() {
           value={selectedBusinessId}
           onValueChange={(val) => setSelectedBusinessId(val)}
         >
-          <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
+          <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[50px] px-[12px] text-[14px] text-white text-right">
             <SelectValue placeholder="בחר עסק..." />
           </SelectTrigger>
           <SelectContent>
@@ -498,7 +498,7 @@ export default function DayExceptionsPage() {
                   step="0.05"
                   value={newFactor}
                   onChange={(e) => setNewFactor(e.target.value)}
-                  className="h-[50px] w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center"
+                  className="h-[50px] w-full bg-[#0F1535] border border-[#727BA0] text-white rounded-[10px] px-3 outline-none text-center"
                   inputMode="decimal"
                 />
               </div>
@@ -513,7 +513,7 @@ export default function DayExceptionsPage() {
                   onChange={(e) => setNewNote(e.target.value)}
                   placeholder="למשל: ראש השנה, יום שישי קצר..."
                   rows={2}
-                  className="w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 py-2.5 outline-none resize-none placeholder:text-white/30 text-right"
+                  className="w-full bg-[#0F1535] border border-[#727BA0] text-white rounded-[10px] px-3 py-2.5 outline-none resize-none placeholder:text-white/30 text-right"
                 />
               </div>
 
@@ -539,7 +539,7 @@ export default function DayExceptionsPage() {
               <div className="flex-1">
                 <label className="text-white/70 text-sm mb-1.5 block">חודש</label>
                 <Select value={summaryMonth} onValueChange={setSummaryMonth}>
-                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] px-[12px] text-[14px] text-white text-right">
+                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[42px] px-[12px] text-[14px] text-white text-right">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -552,7 +552,7 @@ export default function DayExceptionsPage() {
               <div className="flex-1">
                 <label className="text-white/70 text-sm mb-1.5 block">שנה</label>
                 <Select value={summaryYear} onValueChange={setSummaryYear}>
-                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#4C526B] rounded-[10px] h-[42px] px-[12px] text-[14px] text-white text-right">
+                  <SelectTrigger className="w-full bg-[#0F1535] border border-[#727BA0] rounded-[10px] h-[42px] px-[12px] text-[14px] text-white text-right">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -631,7 +631,7 @@ export default function DayExceptionsPage() {
                             step="0.05"
                             value={editFactor}
                             onChange={(e) => setEditFactor(e.target.value)}
-                            className="h-[42px] w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 outline-none text-center"
+                            className="h-[42px] w-full bg-[#0F1535] border border-[#727BA0] text-white rounded-[10px] px-3 outline-none text-center"
                             inputMode="decimal"
                           />
                         </div>
@@ -641,7 +641,7 @@ export default function DayExceptionsPage() {
                             value={editNote}
                             onChange={(e) => setEditNote(e.target.value)}
                             rows={2}
-                            className="w-full bg-[#0F1535] border border-[#4C526B] text-white rounded-[10px] px-3 py-2 outline-none resize-none placeholder:text-white/30 text-right text-sm"
+                            className="w-full bg-[#0F1535] border border-[#727BA0] text-white rounded-[10px] px-3 py-2 outline-none resize-none placeholder:text-white/30 text-right text-sm"
                           />
                         </div>
                         <div className="flex gap-2">

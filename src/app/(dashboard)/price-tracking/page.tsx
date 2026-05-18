@@ -485,7 +485,7 @@ export default function PriceTrackingPage() {
       {/* Insight cards — money/action-oriented */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 px-4 py-3">
         {/* Card 1: monthly cost impact */}
-        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-center flex flex-col gap-[4px] min-h-[92px] justify-between">
+        <div className="bg-[#0F1535] border border-[#727BA0] rounded-[10px] p-3 text-center flex flex-col gap-[4px] min-h-[92px] justify-between">
           <p className="text-[11px] text-white/50">השפעת השינויים החודש</p>
           {insights.monthAlertCount === 0 ? (
             <>
@@ -515,7 +515,7 @@ export default function PriceTrackingPage() {
         </div>
 
         {/* Card 2: supplier with biggest impact */}
-        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-center flex flex-col gap-[4px] min-h-[92px] justify-between">
+        <div className="bg-[#0F1535] border border-[#727BA0] rounded-[10px] p-3 text-center flex flex-col gap-[4px] min-h-[92px] justify-between">
           <p className="text-[11px] text-white/50">הספק עם ההשפעה הגדולה</p>
           {!insights.topSupplier ? (
             <>
@@ -554,7 +554,7 @@ export default function PriceTrackingPage() {
         </div>
 
         {/* Card 3: biggest single jump */}
-        <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-3 text-center flex flex-col gap-[4px] min-h-[92px] justify-between">
+        <div className="bg-[#0F1535] border border-[#727BA0] rounded-[10px] p-3 text-center flex flex-col gap-[4px] min-h-[92px] justify-between">
           <p className="text-[11px] text-white/50">הקפיצה הגדולה ביותר</p>
           {!insights.biggestSpike ? (
             <>
@@ -582,7 +582,7 @@ export default function PriceTrackingPage() {
       {(insights.biggestLeak || insights.biggestSaving || insights.mostActiveSupplier) && (
         <div className="px-4 pb-2">
           <h2 className="text-[14px] font-semibold text-white/70 mb-2">מומלץ לבדוק</h2>
-          <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] divide-y divide-[#4C526B]/40">
+          <div className="bg-[#0F1535] border border-[#727BA0] rounded-[10px] divide-y divide-[#4C526B]/40">
             {insights.biggestLeak && (
               <div className="p-3 flex items-start gap-3">
                 <div className="w-[28px] h-[28px] flex-shrink-0 rounded-full bg-[#F64E60]/20 flex items-center justify-center text-[14px]" title="הפסד גדול">
@@ -649,7 +649,7 @@ export default function PriceTrackingPage() {
             <div className="w-8 h-8 border-4 border-white/20 border-t-white/60 rounded-full animate-spin" />
           </div>
         ) : recentAlerts.length === 0 ? (
-          <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-6 text-center">
+          <div className="bg-[#0F1535] border border-[#727BA0] rounded-[10px] p-6 text-center">
             <p className="text-white/40 text-[14px]">אין שינויי מחיר</p>
           </div>
         ) : (
@@ -764,7 +764,7 @@ export default function PriceTrackingPage() {
           onClick={() => { setSelectedSupplierId(''); setSelectedItemId(null); setItemSearchQuery(''); }}
         >
           <div
-            className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] max-w-[820px] w-full max-h-[88vh] overflow-hidden flex flex-col"
+            className="bg-[#0F1535] border border-[#727BA0] rounded-[10px] max-w-[820px] w-full max-h-[88vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
             dir="rtl"
           >
@@ -792,18 +792,18 @@ export default function PriceTrackingPage() {
                 value={itemSearchQuery}
                 onChange={(e) => setItemSearchQuery(e.target.value)}
                 placeholder="חיפוש פריט מהרשימה..."
-                className="w-full h-[42px] bg-[#0F1535] border border-[#4C526B] rounded-[8px] px-3 text-[14px] text-white placeholder-white/30 outline-none focus:border-[#29318A]"
+                className="w-full h-[42px] bg-[#0F1535] border border-[#727BA0] rounded-[8px] px-3 text-[14px] text-white placeholder-white/30 outline-none focus:border-[#29318A]"
                 dir="rtl"
               />
             </div>
 
             <div className="flex-1 overflow-y-auto -mx-[14px] px-[14px]">
             {supplierItems.length === 0 ? (
-              <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-6 text-center">
+              <div className="bg-[#0F1535] border border-[#727BA0] rounded-[10px] p-6 text-center">
                 <p className="text-white/40 text-[14px]">אין פריטים מעוקבים לספק זה</p>
               </div>
             ) : filteredItems.length === 0 ? (
-              <div className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] p-4 text-center">
+              <div className="bg-[#0F1535] border border-[#727BA0] rounded-[10px] p-4 text-center">
                 <p className="text-white/40 text-[14px]">לא נמצאו פריטים תואמים</p>
               </div>
             ) : (
@@ -956,7 +956,7 @@ export default function PriceTrackingPage() {
           onClick={() => setHistoryModalAlert(null)}
         >
           <div
-            className="bg-[#0F1535] border border-[#4C526B] rounded-[10px] max-w-[640px] w-full max-h-[85vh] overflow-hidden flex flex-col"
+            className="bg-[#0F1535] border border-[#727BA0] rounded-[10px] max-w-[640px] w-full max-h-[85vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
             dir="rtl"
           >
@@ -1038,7 +1038,7 @@ export default function PriceTrackingPage() {
                               min="0"
                               value={editPrice}
                               onChange={(e) => setEditPrice(e.target.value)}
-                              className="w-full bg-transparent border border-[#4C526B] rounded-[4px] text-center text-white text-[12px] h-[26px] px-[4px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="w-full bg-transparent border border-[#727BA0] rounded-[4px] text-center text-white text-[12px] h-[26px] px-[4px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               dir="ltr"
                               autoFocus
                             />
@@ -1054,7 +1054,7 @@ export default function PriceTrackingPage() {
                               min="0"
                               value={editQty}
                               onChange={(e) => setEditQty(e.target.value)}
-                              className="w-full bg-transparent border border-[#4C526B] rounded-[4px] text-center text-white text-[12px] h-[26px] px-[4px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="w-full bg-transparent border border-[#727BA0] rounded-[4px] text-center text-white text-[12px] h-[26px] px-[4px] outline-none focus:border-[#29318A] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               dir="ltr"
                             />
                           </span>
