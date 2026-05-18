@@ -1959,6 +1959,22 @@ export default function DashboardPage() {
       const prevMonthStartStr = formatLocalDate(prevMonthStart);
       const prevMonthEndStr = formatLocalDate(prevMonthEnd);
 
+      // Fair-compare cutoff: when comparing the current (partial) month to the
+      // previous month, only count the *same number of days* in the prev month.
+      // Otherwise a partial-month foodCost (e.g. through day 15) gets divided
+      // by a partial-month income and compared against a full prev month —
+      // which inflates the "change from previous month" line.
+      // We measure progress by the max calendar-day-of-month of current
+      // entries. If there are no entries yet, fall back to the full prev month.
+      const currentMonthMaxDay = (entries || []).reduce((max, e) => {
+        const d = new Date(e.entry_date).getDate();
+        return d > max ? d : max;
+      }, 0);
+      const prevMonthFairEnd = currentMonthMaxDay > 0
+        ? new Date(prevMonthStart.getFullYear(), prevMonthStart.getMonth(), Math.min(currentMonthMaxDay, prevMonthEnd.getDate()))
+        : prevMonthEnd;
+      const prevMonthFairEndStr = formatLocalDate(prevMonthFairEnd);
+
       const prevYearStart = new Date(dateRange.start);
       prevYearStart.setFullYear(prevYearStart.getFullYear() - 1);
       // Use full calendar month for prev year (not partial dateRange.end)
@@ -1979,13 +1995,14 @@ export default function DashboardPage() {
         prevMonthCurrentExpensesInvoicesResult,
         prevYearCurrentExpensesInvoicesResult
       ] = await Promise.all([
-        // Previous month entries
+        // Previous month entries — capped at fair-compare cutoff so the
+        // partial-current-month is compared to the same partial-prev-month
         supabase
           .from("daily_entries")
           .select("id, total_register, labor_cost, manager_daily_cost, day_factor")
           .in("business_id", selectedBusinesses)
           .gte("entry_date", prevMonthStartStr)
-          .lte("entry_date", prevMonthEndStr)
+          .lte("entry_date", prevMonthFairEndStr)
           .is("deleted_at", null),
 
         // Previous year entries
@@ -2005,14 +2022,16 @@ export default function DashboardPage() {
           .eq("year", prevYearYear)
           .eq("month", prevYearMonth),
 
-        // Previous month goods invoices — filter by supplier set in memory
+        // Previous month goods invoices — filter by supplier set in memory.
+        // Capped at fair-compare cutoff (same day-of-month as current entries)
+        // so a partial month is compared to a partial prev month.
         goodsSupplierIds.length > 0
           ? supabase
               .from("invoices")
               .select("subtotal, supplier_id")
               .in("business_id", selectedBusinesses)
               .gte("reference_date", prevMonthStartStr)
-              .lte("reference_date", prevMonthEndStr)
+              .lte("reference_date", prevMonthFairEndStr)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
@@ -2027,14 +2046,14 @@ export default function DashboardPage() {
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
-        // Previous month current expenses invoices
+        // Previous month current expenses invoices — capped at fair cutoff
         currentExpensesSupplierIds.length > 0
           ? supabase
               .from("invoices")
               .select("subtotal, supplier_id")
               .in("business_id", selectedBusinesses)
               .gte("reference_date", prevMonthStartStr)
-              .lte("reference_date", prevMonthEndStr)
+              .lte("reference_date", prevMonthFairEndStr)
               .is("deleted_at", null)
           : Promise.resolve({ data: [] }),
 
