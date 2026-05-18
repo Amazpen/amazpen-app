@@ -1957,7 +1957,6 @@ export default function DashboardPage() {
       const prevMonthEnd = new Date(dateRange.start);
       prevMonthEnd.setDate(0); // Last day of previous month
       const prevMonthStartStr = formatLocalDate(prevMonthStart);
-      const prevMonthEndStr = formatLocalDate(prevMonthEnd);
 
       // Fair-compare cutoff: when comparing the current (partial) month to the
       // previous month, only count the *same number of days* in the prev month.
