@@ -1040,7 +1040,8 @@ export default function SuppliersPage() {
 
   // Add new category to database
   const handleAddCategory = async () => {
-    if (!newCategoryName.trim()) {
+    const trimmedName = newCategoryName.trim();
+    if (!trimmedName) {
       showToast("יש להזין שם קטגוריה", "warning");
       return;
     }
@@ -1051,12 +1052,55 @@ export default function SuppliersPage() {
     }
 
     const supabase = createClient();
+    const businessId = selectedBusinesses[0];
+
+    // Check for existing row with same name in this business (active or soft-deleted)
+    const { data: existing } = await supabase
+      .from("expense_categories")
+      .select("id, deleted_at, is_active, parent_id")
+      .eq("business_id", businessId)
+      .eq("name", trimmedName)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      if (existing.deleted_at === null && existing.is_active) {
+        showToast(`קטגוריה בשם "${trimmedName}" כבר קיימת בעסק זה`, "warning");
+        return;
+      }
+      // Resurrect soft-deleted / inactive row
+      const { data: revived, error: reviveError } = await supabase
+        .from("expense_categories")
+        .update({
+          deleted_at: null,
+          is_active: true,
+          parent_id: parentCategory || null,
+        })
+        .eq("id", existing.id)
+        .select()
+        .single();
+
+      if (reviveError || !revived) {
+        console.error("Error reviving category:", reviveError);
+        showToast("שגיאה בהוספת קטגוריה", "error");
+        return;
+      }
+
+      setCategories((prev) => {
+        const without = prev.filter((c) => c.id !== revived.id);
+        return [...without, revived as ExpenseCategory];
+      });
+      setCategory(revived.id);
+      setNewCategoryName("");
+      setIsAddingCategory(false);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("expense_categories")
       .insert({
-        business_id: selectedBusinesses[0],
-        name: newCategoryName.trim(),
+        business_id: businessId,
+        name: trimmedName,
         parent_id: parentCategory || null, // Link to parent category if selected
         is_active: true,
       })
@@ -1065,11 +1109,14 @@ export default function SuppliersPage() {
 
     if (error) {
       console.error("Error adding category:", error);
-      showToast("שגיאה בהוספת קטגוריה", "error");
+      if (error.code === "23505") {
+        showToast(`קטגוריה בשם "${trimmedName}" כבר קיימת בעסק זה`, "warning");
+      } else {
+        showToast("שגיאה בהוספת קטגוריה", "error");
+      }
       return;
     }
 
-    // Add to categories list and select it
     setCategories((prev) => [...prev, data as ExpenseCategory]);
     setCategory(data.id);
     setNewCategoryName("");
@@ -1078,7 +1125,8 @@ export default function SuppliersPage() {
 
   // Add new parent category to database
   const handleAddParentCategory = async () => {
-    if (!newParentCategoryName.trim()) {
+    const trimmedName = newParentCategoryName.trim();
+    if (!trimmedName) {
       showToast("יש להזין שם קטגוריית אב", "warning");
       return;
     }
@@ -1089,12 +1137,53 @@ export default function SuppliersPage() {
     }
 
     const supabase = createClient();
+    const businessId = selectedBusinesses[0];
+
+    const { data: existing } = await supabase
+      .from("expense_categories")
+      .select("id, deleted_at, is_active, parent_id")
+      .eq("business_id", businessId)
+      .eq("name", trimmedName)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      if (existing.deleted_at === null && existing.is_active && existing.parent_id === null) {
+        showToast(`קטגוריית אב בשם "${trimmedName}" כבר קיימת בעסק זה`, "warning");
+        return;
+      }
+      const { data: revived, error: reviveError } = await supabase
+        .from("expense_categories")
+        .update({
+          deleted_at: null,
+          is_active: true,
+          parent_id: null,
+        })
+        .eq("id", existing.id)
+        .select()
+        .single();
+
+      if (reviveError || !revived) {
+        console.error("Error reviving parent category:", reviveError);
+        showToast("שגיאה בהוספת קטגוריית אב", "error");
+        return;
+      }
+
+      setParentCategories((prev) => {
+        const without = prev.filter((c) => c.id !== revived.id);
+        return [...without, revived as ExpenseCategory];
+      });
+      setParentCategory(revived.id);
+      setNewParentCategoryName("");
+      setIsAddingParentCategory(false);
+      return;
+    }
 
     const { data, error } = await supabase
       .from("expense_categories")
       .insert({
-        business_id: selectedBusinesses[0],
-        name: newParentCategoryName.trim(),
+        business_id: businessId,
+        name: trimmedName,
         parent_id: null, // Parent categories have no parent
         is_active: true,
       })
@@ -1103,11 +1192,14 @@ export default function SuppliersPage() {
 
     if (error) {
       console.error("Error adding parent category:", error);
-      showToast("שגיאה בהוספת קטגוריית אב", "error");
+      if (error.code === "23505") {
+        showToast(`קטגוריית אב בשם "${trimmedName}" כבר קיימת בעסק זה`, "warning");
+      } else {
+        showToast("שגיאה בהוספת קטגוריית אב", "error");
+      }
       return;
     }
 
-    // Add to parent categories list and select it
     setParentCategories((prev) => [...prev, data as ExpenseCategory]);
     setParentCategory(data.id);
     setNewParentCategoryName("");
