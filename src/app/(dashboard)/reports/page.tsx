@@ -1766,8 +1766,21 @@ export default function ReportsPage() {
           "סיכום הכנסות" pill (rounded blue strip with right-aligned title
           label), but each cell is one calendar month's actual revenue plus a
           final סה"כ. No target / diff columns — just actuals across the year. */}
-      <section aria-label="סיכום הכנסות שנתי" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[80px] flex flex-row-reverse items-center justify-between gap-[5px]">
-        <div className="flex flex-row-reverse items-center gap-[5px] flex-1 min-w-0">
+      {/* dir="rtl" turns the row into a true RTL flex: children in source
+          order map to right→left visually. Sequence is intentionally:
+          [סה"כ, ינואר…דצמבר] so סה"כ pins to the right edge (next to the
+          label "סה"כ הכנסות ללא מע"מ" which sits at the far right of the
+          card) and the months read ינואר→דצמבר from right to left like the
+          rest of the report. */}
+      <section aria-label="סיכום הכנסות שנתי" dir="rtl" className="bg-[#2C3595] rounded-[10px] p-[7px] min-h-[80px] flex items-center justify-between gap-[5px]">
+        <span className="text-[14px] sm:text-[16px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ הכנסות ללא מע&quot;מ</span>
+        <div className="flex items-center gap-[5px] flex-1 min-w-0">
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <span className="text-[11px] sm:text-[13px] font-semibold leading-[1.4] whitespace-nowrap text-[#17DB4E]">סה&quot;כ</span>
+            <span className="text-[12px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap text-[#17DB4E]">
+              {formatCurrency(yearlyRevenueTotal)}
+            </span>
+          </div>
           {yearlyMonthlyRevenue.map((amount, i) => (
             <div key={i} className="flex flex-col items-center flex-1 min-w-0">
               <span className="text-[11px] sm:text-[13px] font-medium leading-[1.4] whitespace-nowrap">{hebrewMonthsShort[i]}</span>
@@ -1776,14 +1789,7 @@ export default function ReportsPage() {
               </span>
             </div>
           ))}
-          <div className="flex flex-col items-center flex-1 min-w-0">
-            <span className="text-[11px] sm:text-[13px] font-semibold leading-[1.4] whitespace-nowrap text-[#17DB4E]">סה&quot;כ</span>
-            <span className="text-[12px] sm:text-[14px] font-bold ltr-num leading-[1.4] whitespace-nowrap text-[#17DB4E]">
-              {formatCurrency(yearlyRevenueTotal)}
-            </span>
-          </div>
         </div>
-        <span className="text-[14px] sm:text-[16px] font-bold text-right leading-[1.4] shrink-0 w-[90px] sm:w-[140px]">סה&quot;כ הכנסות ללא מע&quot;מ</span>
       </section>
 
       <section aria-label="פירוט שנתי לפי ספק" className="bg-[#0F1535] rounded-[10px] p-[10px] flex flex-col gap-[10px]">
