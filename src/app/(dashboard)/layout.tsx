@@ -507,26 +507,27 @@ export default function DashboardLayout({
     }
   }, [isMounted, fetchNotifications]);
 
-  // Auto-generate recurring fixed expenses for current month + backfill last 6 months (fire-and-forget)
+  // Auto-generate recurring fixed expenses for the CURRENT month only.
+  // Previously this also back-filled the last 6 months — but when a brand-new
+  // business is created (or an existing one adds a fixed-expense supplier),
+  // the back-fill produces six retroactive "ממתין לתשלום" invoices that the
+  // owner never agreed to and have no real-world basis. Recurring expenses
+  // should grow from the current month forward only; the per-month cron /
+  // payments-page button can still produce older months on demand if needed.
   useEffect(() => {
     if (!isMounted || selectedBusinesses.length === 0) return;
     const now = new Date();
-    const months: { year: number; month: number }[] = [];
-    for (let i = 0; i < 6; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push({ year: d.getFullYear(), month: d.getMonth() + 1 });
-    }
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
     for (const bizId of selectedBusinesses) {
-      for (const { year, month } of months) {
-        const key = `recurring-expenses-generated-${bizId}-${year}-${month}`;
-        if (localStorage.getItem(key)) continue;
-        localStorage.setItem(key, "true");
-        fetch("/api/recurring-expenses/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ business_id: bizId, year, month }),
-        }).catch(() => {}); // Fire-and-forget
-      }
+      const key = `recurring-expenses-generated-${bizId}-${year}-${month}`;
+      if (localStorage.getItem(key)) continue;
+      localStorage.setItem(key, "true");
+      fetch("/api/recurring-expenses/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ business_id: bizId, year, month }),
+      }).catch(() => {}); // Fire-and-forget
     }
   }, [isMounted, selectedBusinesses]);
 
