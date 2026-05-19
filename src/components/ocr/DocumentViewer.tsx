@@ -8,6 +8,10 @@ interface DocumentViewerProps {
   imageUrls?: string[];
   fileType?: string;
   onCrop?: (croppedImageUrl: string) => void;
+  // Persist a rotation the user applied so the saved image (and any re-OCR
+  // we run later) reflects the orientation the user sees on screen. Same
+  // shape as onCrop — we hand back a data URL of the rotated image.
+  onRotate?: (rotatedImageUrl: string) => void;
   // Re-run OCR extraction on the existing image without cropping. Useful when
   // the model missed line items / extracted wrong amounts on the first pass.
   onReExtract?: () => void;
@@ -27,7 +31,7 @@ function isPdfUrl(url: string, fileType?: string): boolean {
   }
 }
 
-export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, onReExtract, isReExtracting, showCalculator, onCalculatorToggle, calcButtonRef }: DocumentViewerProps) {
+export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, onRotate, onReExtract, isReExtracting, showCalculator, onCalculatorToggle, calcButtonRef }: DocumentViewerProps) {
   // Resolve URLs: prefer imageUrls array, fall back to single imageUrl
   const resolvedUrls = imageUrls?.length ? imageUrls : (imageUrl ? [imageUrl] : []);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -115,6 +119,32 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
   const handleRotateCCW = useCallback(() => {
     setRotation(prev => (prev - 90 + 360) % 360);
   }, []);
+
+  // Persist the current rotation: draw the rotated image to a canvas and hand
+  // the result back to the parent via onRotate, which uploads it as the new
+  // image_url. Without this the rotation only lived in component state and
+  // was lost on the next render (a different supplier, a reload, etc.).
+  const handleSaveRotation = useCallback(() => {
+    if (!onRotate || rotation === 0 || isPdf || !imageRef.current) return;
+    const img = imageRef.current;
+    const naturalW = img.naturalWidth;
+    const naturalH = img.naturalHeight;
+    if (!naturalW || !naturalH) return;
+    const rot = ((rotation % 360) + 360) % 360;
+    const swapped = rot === 90 || rot === 270;
+    const outW = swapped ? naturalH : naturalW;
+    const outH = swapped ? naturalW : naturalH;
+    const canvas = document.createElement('canvas');
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.translate(outW / 2, outH / 2);
+    ctx.rotate((rot * Math.PI) / 180);
+    ctx.drawImage(img, -naturalW / 2, -naturalH / 2);
+    onRotate(canvas.toDataURL('image/jpeg', 0.92));
+    setRotation(0);
+  }, [onRotate, rotation]);
 
   // Pan/Drag functionality (image only — PDF uses its own drag-to-scroll handlers)
   // Extract client coords from either a mouse or touch event so one set of handlers
@@ -524,6 +554,27 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
             </svg>
           </Button>
+
+          {/* Save rotation — only when the user has actually rotated, the
+              parent provided onRotate, and we're on an image (PDFs have their
+              own rotation that we don't persist). Without this the rotation
+              lived only in component state and the saved file in storage
+              stayed in the original orientation. */}
+          {onRotate && rotation !== 0 && !isPdf && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSaveRotation}
+              className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#3CD856]/30 hover:bg-[#3CD856]/50 text-white transition-colors"
+              title="שמור סיבוב"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <polyline points="17 21 17 13 7 13 7 21" />
+                <polyline points="7 3 7 8 15 8" />
+              </svg>
+            </Button>
+          )}
 
           <div className="w-px h-6 bg-[#4C526B] mx-1" />
 

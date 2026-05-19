@@ -1359,6 +1359,40 @@ export default function OCRPage() {
   // Crop → re-OCR via Mistral pipeline. Same response contract as the legacy
   // Google route, so all downstream behavior (form refresh, supplier match,
   // line items) works unchanged.
+  // Persist a rotation: same flow as handleCrop but no re-OCR (rotating the
+  // image doesn't change its content, just the orientation, so the existing
+  // extracted_data stays valid). We just upload the rotated canvas as the
+  // new image_url so every later view + the saved invoice attachment shows
+  // the document the way the user oriented it.
+  const handleRotateSave = useCallback(async (rotatedImageDataUrl: string) => {
+    if (!currentDocument) return;
+    showToast("שומר סיבוב...", "info");
+    try {
+      const blobRes = await fetch(rotatedImageDataUrl);
+      const blob = await blobRes.blob();
+      const fileName = `rotated-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+      const storagePath = `rotated/${fileName}`;
+      const file = new File([blob], fileName, { type: "image/jpeg" });
+      const uploadRes = await uploadFile(file, storagePath, "ocr-documents");
+      if (!uploadRes.success || !uploadRes.publicUrl) {
+        throw new Error(uploadRes.error || "שגיאה בהעלאת התמונה");
+      }
+      const newImageUrl = uploadRes.publicUrl;
+      const supabase = createClient();
+      const { error: updateErr } = await supabase
+        .from("ocr_documents")
+        .update({ image_url: newImageUrl, image_storage_path: storagePath, file_type: "image", updated_at: new Date().toISOString() })
+        .eq("id", currentDocument.id);
+      if (updateErr) throw updateErr;
+      setDocuments((prev) => prev.map((doc) => doc.id === currentDocument.id ? { ...doc, image_url: newImageUrl } : doc));
+      setCurrentDocument((prev) => prev ? { ...prev, image_url: newImageUrl } : null);
+      showToast("הסיבוב נשמר", "success");
+    } catch (err) {
+      console.error("[Rotate] Save failed:", err);
+      showToast(err instanceof Error ? err.message : "שגיאה בשמירת הסיבוב", "error");
+    }
+  }, [currentDocument, showToast]);
+
   const handleCrop = useCallback(async (croppedImageDataUrl: string) => {
     if (!currentDocument) return;
     showToast("שומר חיתוך ומריץ OCR מחדש...", "info");
@@ -1663,6 +1697,7 @@ export default function OCRPage() {
               imageUrls={[currentDocument.image_url, ...mergedDocuments.map(d => d.image_url)]}
               fileType={currentDocument.file_type}
               onCrop={handleCrop}
+              onRotate={handleRotateSave}
               onReExtract={handleReExtract}
               isReExtracting={isReExtracting}
               showCalculator={showCalculator}

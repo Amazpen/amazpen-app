@@ -1194,6 +1194,36 @@ export default function OCRBusinessPage() {
     }
   }, [currentDocument, documents]);
 
+  // Persist a rotation: same flow as handleCrop but no re-OCR.
+  const handleRotateSave = useCallback(async (rotatedImageDataUrl: string) => {
+    if (!currentDocument) return;
+    showToast("שומר סיבוב...", "info");
+    try {
+      const blobRes = await fetch(rotatedImageDataUrl);
+      const blob = await blobRes.blob();
+      const fileName = `rotated-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+      const storagePath = `rotated/${fileName}`;
+      const file = new File([blob], fileName, { type: "image/jpeg" });
+      const uploadRes = await uploadFile(file, storagePath, "ocr-documents");
+      if (!uploadRes.success || !uploadRes.publicUrl) {
+        throw new Error(uploadRes.error || "שגיאה בהעלאת התמונה");
+      }
+      const newImageUrl = uploadRes.publicUrl;
+      const supabase = createClient();
+      const { error: updateErr } = await supabase
+        .from("ocr_documents")
+        .update({ image_url: newImageUrl, image_storage_path: storagePath, file_type: "image", updated_at: new Date().toISOString() })
+        .eq("id", currentDocument.id);
+      if (updateErr) throw updateErr;
+      setDocuments((prev) => prev.map((doc) => doc.id === currentDocument.id ? { ...doc, image_url: newImageUrl } : doc));
+      setCurrentDocument((prev) => prev ? { ...prev, image_url: newImageUrl } : null);
+      showToast("הסיבוב נשמר", "success");
+    } catch (err) {
+      console.error("[Rotate] Save failed:", err);
+      showToast(err instanceof Error ? err.message : "שגיאה בשמירת הסיבוב", "error");
+    }
+  }, [currentDocument, showToast]);
+
   // Crop → re-OCR via MISTRAL pipeline. This is the only line that differs
   // from /ocr — fetch goes to /api/ai/ocr-extract-mistral instead of
   // /api/ai/ocr-extract. Same response contract, same downstream behavior.
@@ -1522,6 +1552,7 @@ export default function OCRBusinessPage() {
               imageUrls={[currentDocument.image_url, ...mergedDocuments.map(d => d.image_url)]}
               fileType={currentDocument.file_type}
               onCrop={handleCrop}
+              onRotate={handleRotateSave}
               onReExtract={handleReExtract}
               isReExtracting={isReExtracting}
               showCalculator={showCalculator}
