@@ -619,8 +619,15 @@ export function HistoryModal({
         const businessData = businessDataResult.data || [];
         const defaultVatPct = businessData.reduce((sum, b) => sum + (Number(b.vat_percentage) || 0), 0) / Math.max(businessData.length, 1);
 
-        // Fetch invoices
-        const [invoicesResult, prevInvoicesResult] = await Promise.all([
+        // Fetch invoices + unlinked delivery notes. The dashboard cards already
+        // merge DNs into foodCost (see page.tsx goodsInvoices array); this
+        // history modal was only pulling invoices, so months with significant
+        // ת.משלוח activity (like אושי אושי דימונה אפר' 2026 — ₪52k of unlinked
+        // DNs on top of ₪119k invoices) under-reported here vs. the card.
+        // Only foodCost needs DN aggregation — current_expenses suppliers
+        // don't use delivery notes.
+        const needsDeliveryNotes = cardType === 'foodCost';
+        const [invoicesResult, prevInvoicesResult, dnsResult, prevDnsResult] = await Promise.all([
           supplierIds.length > 0
             ? supabase
                 .from("invoices")
@@ -641,10 +648,32 @@ export function HistoryModal({
                 .lte("invoice_date", prevYearEnd)
                 .is("deleted_at", null)
             : Promise.resolve({ data: [] }),
+          needsDeliveryNotes && supplierIds.length > 0
+            ? supabase
+                .from("delivery_notes")
+                .select("delivery_date, subtotal")
+                .in("supplier_id", supplierIds)
+                .in("business_id", businessIds)
+                .gte("delivery_date", yearStart)
+                .lte("delivery_date", yearEnd)
+                .is("invoice_id", null)
+            : Promise.resolve({ data: [] }),
+          needsDeliveryNotes && supplierIds.length > 0
+            ? supabase
+                .from("delivery_notes")
+                .select("delivery_date, subtotal")
+                .in("supplier_id", supplierIds)
+                .in("business_id", businessIds)
+                .gte("delivery_date", prevYearStart)
+                .lte("delivery_date", prevYearEnd)
+                .is("invoice_id", null)
+            : Promise.resolve({ data: [] }),
         ]);
 
         const invoices = invoicesResult.data || [];
         const prevInvoices = prevInvoicesResult.data || [];
+        const dns = dnsResult.data || [];
+        const prevDns = prevDnsResult.data || [];
 
         // Group invoices by month
         const invByMonth: Record<number, number> = {};
@@ -652,11 +681,21 @@ export function HistoryModal({
           const m = parseInt(inv.invoice_date.substring(5, 7));
           invByMonth[m] = (invByMonth[m] || 0) + (Number(inv.subtotal) || 0);
         });
+        // Add unlinked DNs to the same month buckets — DN delivery_date is the
+        // canonical month boundary, same convention as the dashboard card.
+        dns.forEach((dn: { delivery_date: string; subtotal: number }) => {
+          const m = parseInt(dn.delivery_date.substring(5, 7));
+          invByMonth[m] = (invByMonth[m] || 0) + (Number(dn.subtotal) || 0);
+        });
 
         const prevInvByMonth: Record<number, number> = {};
         prevInvoices.forEach(inv => {
           const m = parseInt(inv.invoice_date.substring(5, 7));
           prevInvByMonth[m] = (prevInvByMonth[m] || 0) + (Number(inv.subtotal) || 0);
+        });
+        prevDns.forEach((dn: { delivery_date: string; subtotal: number }) => {
+          const m = parseInt(dn.delivery_date.substring(5, 7));
+          prevInvByMonth[m] = (prevInvByMonth[m] || 0) + (Number(dn.subtotal) || 0);
         });
 
         // Group income by month
