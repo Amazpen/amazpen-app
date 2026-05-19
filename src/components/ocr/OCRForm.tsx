@@ -2345,7 +2345,12 @@ export default function OCRForm({
       return;
     } else {
       // Invoice / Delivery Note / Credit Note
-      if (!supplierId || !documentDate || !amountBeforeVat) {
+      // Skip required-field validation when we're attaching to an existing
+      // invoice/DN — the existing row already has supplier/date/amount, and
+      // the current form's fields are irrelevant (we only use the OCR image).
+      // Without this skip, an attach with empty fields silently fails on the
+      // "fill required" alert and looks like the button does nothing.
+      if (!attachToExistingId && (!supplierId || !documentDate || !amountBeforeVat)) {
         alert('נא למלא את כל השדות הנדרשים');
         return;
       }
