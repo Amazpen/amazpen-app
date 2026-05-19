@@ -1540,18 +1540,29 @@ export default function SuppliersPage() {
     const paymentsInMonthTotal = (paymentsInMonth || [])
       .reduce((sum, p) => sum + (Number(p.total_amount) || 0), 0);
 
-    // Per David's rule: "every payment closes its own month". Default to the
-    // real payments-in-month total (matches what the user sees on /payments).
-    // The legacy `status=paid` top-up for Bubble-imported invoices runs as a
-    // SECOND PASS at the aggregate level (see fetchSupplierDetail) so we can
-    // cap the top-up by `total_paid - sum(monthlyPaid)` and avoid the
-    // double-count we hit when one big payment settled several legacy months
-    // at once (e.g. גד פרגו ינואר 2026 — ₪88,422 single payment covered
-    // 09–12/2025 + Jan, but a per-month top-up tried to add each month again).
-    monthlyPaid = paymentsInMonthTotal;
-    const unaccountedPaidInvoicesTotal = (monthlyInvoices || [])
-      .filter((inv) => inv.status === "paid" && !accountedInvoiceIds.has(inv.id))
+    // "שולם" by invoice status: every invoice whose status is 'paid' counts
+    // toward the month of the invoice (its own month), regardless of when the
+    // actual payment was recorded. This matches the user's mental model of
+    // "this month's invoices are settled" and stays in sync with total_paid
+    // automatically — the sum of paid-status invoices for a supplier equals
+    // the sum of payments to that supplier (verified for גד פרגו and the
+    // other consolidated suppliers).
+    //
+    // This avoids the two failure modes we hit earlier:
+    //  - allocation-based (status=paid top-up + payment_invoice_links) double-
+    //    counted legacy imports against real payments.
+    //  - paymentsInMonthTotal-only zeroed legacy months that never had a
+    //    standalone payment row.
+    monthlyPaid = (monthlyInvoices || [])
+      .filter((inv) => inv.status === "paid")
       .reduce((sum, inv) => sum + (Number(inv.total_amount) || 0), 0);
+    // Plus any standalone payment in this month that isn't attached to an
+    // invoice we already counted above (e.g. advance / no-invoice payment).
+    // We approximate this as the gap between paymentsInMonthTotal and the
+    // already-credited paid-status invoices — if positive, it represents a
+    // payment without a matching paid invoice that we'd otherwise lose.
+    const advancePaymentInMonth = Math.max(0, paymentsInMonthTotal - monthlyPaid);
+    monthlyPaid += advancePaymentInMonth;
 
     let expectedPaymentDate: string | null = null;
     if (supplier.payment_terms_days) {
@@ -1575,7 +1586,7 @@ export default function SuppliersPage() {
       .reduce((sum, inv) => sum + Number(inv.total_amount), 0);
     const monthlyOpenBalance = openInvoicesInMonth + dnsSum;
 
-    return { expectedPaymentDate, monthlyPurchases, monthlyPaid, amountToPay: monthlyOpenBalance, paymentsInMonthTotal, unaccountedPaidInvoicesTotal };
+    return { expectedPaymentDate, monthlyPurchases, monthlyPaid, amountToPay: monthlyOpenBalance, paymentsInMonthTotal };
   }, []);
 
   // Handle opening supplier detail popup
@@ -1725,48 +1736,18 @@ export default function SuppliersPage() {
           // months that had a payment_date hit even with no allocations yet
           // (advance / standalone payments) so they don't silently vanish.
           const hasActivity =
-            mData.monthlyPurchases !== 0 ||
-            mData.monthlyPaid !== 0 ||
-            mData.paymentsInMonthTotal !== 0 ||
-            mData.unaccountedPaidInvoicesTotal !== 0;
+            mData.monthlyPurchases !== 0 || mData.monthlyPaid !== 0 || mData.paymentsInMonthTotal !== 0;
           if (!hasActivity) return null;
           return {
             month: date.toLocaleDateString("he-IL", { month: "short", year: "numeric" }),
             monthKey: key,
             purchases: mData.monthlyPurchases,
             paid: mData.monthlyPaid,
-            paymentsInMonthTotal: mData.paymentsInMonthTotal,
-            unaccountedPaidInvoicesTotal: mData.unaccountedPaidInvoicesTotal,
             amountToPay: mData.monthlyPurchases - mData.monthlyPaid,
           };
         }),
       );
-      const rawBreakdown = monthResults.filter((m): m is NonNullable<typeof m> => m !== null);
-
-      // Pass-2 top-up: distribute the gap between `total_paid` (real payments
-      // total for the supplier) and the sum of monthlyPaid across legacy
-      // `status=paid` invoices in months that have NO real payment. This
-      // re-credits Bubble-imported invoices without double-counting against
-      // months that DO have a real payment. Cap = remaining gap; once exhausted
-      // remaining legacy months stay at שולם=0 (they were already covered by a
-      // bigger payment elsewhere — typical pattern: one ₪88k payment settling
-      // 4 months of legacy paid invoices at once).
-      const sumMonthlyPaid = rawBreakdown.reduce((s, m) => s + m.paid, 0);
-      let topUpBudget = Math.max(0, totalPaid - sumMonthlyPaid);
-      // Distribute oldest-first so legacy imported months get credit before
-      // we run out of budget (sort ascending by monthKey).
-      const distributionOrder = [...rawBreakdown].sort((a, b) => a.monthKey.localeCompare(b.monthKey));
-      for (const row of distributionOrder) {
-        if (topUpBudget <= 0) break;
-        if (row.paymentsInMonthTotal > 0) continue; // never top up a month with real payments
-        if (row.unaccountedPaidInvoicesTotal <= 0) continue;
-        const credit = Math.min(row.unaccountedPaidInvoicesTotal, topUpBudget);
-        row.paid += credit;
-        row.amountToPay = row.purchases - row.paid;
-        topUpBudget -= credit;
-      }
-
-      const breakdownMonths = rawBreakdown.map(({ paymentsInMonthTotal: _p, unaccountedPaidInvoicesTotal: _u, ...rest }) => rest);
+      const breakdownMonths = monthResults.filter((m): m is NonNullable<typeof m> => m !== null);
       setMonthlyBreakdown(breakdownMonths);
 
       // Remaining balance = sum of open invoices (pending + clarification) minus any advance payments.
@@ -2116,13 +2097,10 @@ export default function SuppliersPage() {
       const monthResults = await Promise.all(
         monthDates.map(async ({ key, date }) => {
           const mData = await fetchMonthlyData(selectedSupplier, date);
-          // Same activity filter as the initial load — include months with
-          // legacy paid invoices so the pass-2 top-up can re-credit them.
           if (
             mData.monthlyPurchases === 0 &&
             mData.monthlyPaid === 0 &&
-            mData.paymentsInMonthTotal === 0 &&
-            mData.unaccountedPaidInvoicesTotal === 0
+            mData.paymentsInMonthTotal === 0
           ) {
             return null;
           }
@@ -2131,31 +2109,11 @@ export default function SuppliersPage() {
             monthKey: key,
             purchases: mData.monthlyPurchases,
             paid: mData.monthlyPaid,
-            paymentsInMonthTotal: mData.paymentsInMonthTotal,
-            unaccountedPaidInvoicesTotal: mData.unaccountedPaidInvoicesTotal,
             amountToPay: mData.monthlyPurchases - mData.monthlyPaid,
           };
         }),
       );
-      const rawBreakdown = monthResults.filter((m): m is NonNullable<typeof m> => m !== null);
-
-      // Pass-2 top-up — same logic as fetchSupplierDetail. Distribute the gap
-      // between real total_paid and sum(monthlyPaid) across legacy paid months
-      // (oldest-first), skipping months that already have a real payment.
-      const sumMonthlyPaid = rawBreakdown.reduce((s, m) => s + m.paid, 0);
-      let topUpBudget = Math.max(0, totalPaid - sumMonthlyPaid);
-      const distributionOrder = [...rawBreakdown].sort((a, b) => a.monthKey.localeCompare(b.monthKey));
-      for (const row of distributionOrder) {
-        if (topUpBudget <= 0) break;
-        if (row.paymentsInMonthTotal > 0) continue;
-        if (row.unaccountedPaidInvoicesTotal <= 0) continue;
-        const credit = Math.min(row.unaccountedPaidInvoicesTotal, topUpBudget);
-        row.paid += credit;
-        row.amountToPay = row.purchases - row.paid;
-        topUpBudget -= credit;
-      }
-
-      const breakdown = rawBreakdown.map(({ paymentsInMonthTotal: _p, unaccountedPaidInvoicesTotal: _u, ...rest }) => rest);
+      const breakdown = monthResults.filter((m): m is NonNullable<typeof m> => m !== null);
       setMonthlyBreakdown(breakdown);
     } catch (err) {
       console.error("refreshOpenSupplierDetail error:", err);
