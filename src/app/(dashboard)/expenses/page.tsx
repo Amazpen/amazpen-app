@@ -5567,7 +5567,16 @@ function ExpensesPageInner() {
                   value={expenseDate}
                   onChange={(val) => {
                     setExpenseDate(val);
-                    setReferenceDate(val);
+                    // Cascade to reference (תאריך ערך) ONLY when the user hasn't
+                    // touched it manually. Unconditional cascade silently
+                    // overwrote a manually-edited value-date the moment the
+                    // user re-touched invoice-date — both fields ended up
+                    // identical even though they were saved as different
+                    // columns. Sticky flag once true so later invoice-date
+                    // tweaks don't undo the user's explicit choice.
+                    if (!referenceDateManuallySet.current) {
+                      setReferenceDate(val);
+                    }
                   }}
                 />
               </div>
@@ -6568,7 +6577,16 @@ function ExpensesPageInner() {
                   value={expenseDate}
                   onChange={(val) => {
                     setExpenseDate(val);
-                    setReferenceDate(val);
+                    // Cascade to reference (תאריך ערך) ONLY when the user hasn't
+                    // touched it manually. Unconditional cascade silently
+                    // overwrote a manually-edited value-date the moment the
+                    // user re-touched invoice-date — both fields ended up
+                    // identical even though they were saved as different
+                    // columns. Sticky flag once true so later invoice-date
+                    // tweaks don't undo the user's explicit choice.
+                    if (!referenceDateManuallySet.current) {
+                      setReferenceDate(val);
+                    }
                   }}
                 />
               </div>
