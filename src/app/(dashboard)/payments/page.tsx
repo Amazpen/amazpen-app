@@ -452,8 +452,12 @@ function PendingPaymentsReport({
         </div>
       )}
 
-      {/* Table */}
-      <div className="w-full flex flex-col">
+      {/* Table — wrapped in overflow-x-auto so the 9-column grid scrolls
+          horizontally on mobile instead of crushing column widths to nothing
+          and overlapping into garbage. min-w on the inner div locks the
+          horizontal budget at the desktop layout width. */}
+      <div className="w-full overflow-x-auto">
+      <div className="min-w-[890px] flex flex-col">
         {/* Header row */}
         <div className={`grid ${gridCols} bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[13px] font-semibold text-white gap-[4px]`}>
           {/* Star */}
@@ -571,6 +575,7 @@ function PendingPaymentsReport({
             <span></span>
           </div>
         )}
+      </div>
       </div>
 
       <p className="text-[11px] text-white/40 text-center">
