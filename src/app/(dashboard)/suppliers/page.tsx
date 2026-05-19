@@ -1525,19 +1525,7 @@ export default function SuppliersPage() {
       }
     }
 
-    // 3. Imported / legacy `status=paid` invoices have neither a link row nor
-    // a direct FK on payments. Without this top-up the column shows ₪0 for
-    // months that are actually settled in the books (e.g. קוקה קולה דצמ–פבר
-    // imported from Patrones — invoices.status=paid but payment_invoice_links
-    // is empty). We trust `invoices.status` as the source of truth, the same
-    // way `amountToPay` does below.
-    for (const inv of monthlyInvoices || []) {
-      if (inv.status === "paid" && !accountedInvoiceIds.has(inv.id)) {
-        monthlyPaid += Number(inv.total_amount) || 0;
-      }
-    }
-
-    // Also look at payments whose payment_date is in this month — some months have
+    // Look at payments whose payment_date is in this month — some months have
     // no new invoices but include a payment that settled an older invoice (or an
     // advance / standalone payment). Without this the month would silently disappear
     // from the breakdown even though the user sees the payment on the card.
@@ -1551,6 +1539,17 @@ export default function SuppliersPage() {
       .lte("payment_date", endIsoIL);
     const paymentsInMonthTotal = (paymentsInMonth || [])
       .reduce((sum, p) => sum + (Number(p.total_amount) || 0), 0);
+
+    // Per David's rule: "every payment closes its own month". The "שולם"
+    // column shows what was actually paid in this month (sum of payments
+    // whose payment_date falls in this month), not per-invoice allocations.
+    // The earlier per-invoice allocation logic stayed in place above to keep
+    // `accountedInvoiceIds` populated for the cancelled top-up code, but the
+    // displayed value for the breakdown row is the payments-in-month total —
+    // matching what the user sees on /payments and avoiding the double-count
+    // that inflated "סה"כ שולם" past the true `payments.total_amount` sum
+    // (e.g. גד פרגו נס ציונה: real ₪181,874, breakdown was showing ₪235,862).
+    monthlyPaid = paymentsInMonthTotal;
 
     let expectedPaymentDate: string | null = null;
     if (supplier.payment_terms_days) {
