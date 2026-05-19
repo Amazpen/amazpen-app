@@ -1561,12 +1561,15 @@ export default function SuppliersPage() {
     // total locked to total_paid without double-counting cross-month
     // settlements (e.g. one ₪88k payment covering 4 legacy months).
     //
-    // Standalone payments with no invoice (true advances) fall back to the
-    // payment-in-month total so they don't vanish.
-    const paidInvoicesInMonth = (monthlyInvoices || [])
+    // No fallback to paymentsInMonthTotal: if a month has only "ממתין" /
+    // "ת.משלוח" invoices, the שולם column reads 0 even when a payment was
+    // recorded that month for a different month's invoice. The payment shows
+    // up against ITS invoice's month, not the payment-date month. This is
+    // what the user requested after seeing אפר/מאי 2026 show "שולם" for
+    // invoices that are clearly still ממתין/ת.משלוח.
+    monthlyPaid = (monthlyInvoices || [])
       .filter((inv) => inv.status === "paid")
       .reduce((sum, inv) => sum + (Number(inv.total_amount) || 0), 0);
-    monthlyPaid = paidInvoicesInMonth > 0 ? paidInvoicesInMonth : paymentsInMonthTotal;
 
     let expectedPaymentDate: string | null = null;
     if (supplier.payment_terms_days) {
