@@ -2996,9 +2996,14 @@ function ExpensesPageInner() {
     }
     setEditingInvoice(invoice);
     setEditStatus(invoice.statusRaw || '');
-    // Pre-fill form with invoice data
-    // Convert date from display format (DD.MM.YY) to input format (YYYY-MM-DD)
-    const dateParts = invoice.date.split('.');
+    // Pre-fill form with invoice data.
+    // IMPORTANT: invoice.date is `reference_date || invoice_date` for display
+    // purposes — using it for expenseDate clobbered invoice_date with the
+    // reference_date value the moment the user opened edit. Use invoiceDate
+    // (the real invoice_date column) so the two date fields stay independent
+    // and editing tאריך ערך alone no longer overwrites תאריך חשבונית.
+    const invoiceDateStr = invoice.invoiceDate || invoice.date;
+    const dateParts = invoiceDateStr.split('.');
     if (dateParts.length === 3) {
       const year = dateParts[2].length === 2 ? `20${dateParts[2]}` : dateParts[2];
       setExpenseDate(`${year}-${dateParts[1]}-${dateParts[0]}`);

@@ -1000,7 +1000,7 @@ export default function OCRPage() {
               business_id: formData.business_id,
               supplier_id: formData.supplier_id,
               invoice_date: formData.document_date,
-              reference_date: formData.document_date,
+              reference_date: formData.value_date || formData.document_date,
               invoice_number: formData.document_number,
               subtotal: subtotal,
               vat_amount: vatAmount,

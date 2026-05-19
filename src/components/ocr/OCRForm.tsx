@@ -2732,9 +2732,16 @@ export default function OCRForm({
           value={documentDate}
           onChange={(val) => {
             setDocumentDate(val);
-            // Invoice-date change always cascades to value-date
-            setValueDate(val);
-            valueDateManuallySet.current = true;
+            // Cascade to value-date ONLY when the user hasn't set it manually.
+            // The previous unconditional cascade silently overwrote a manually-
+            // edited "תאריך ערך" the moment the user touched "תאריך חשבונית" —
+            // both fields ended up showing the same value even though they were
+            // saved as different columns. valueDateManuallySet stays sticky
+            // once true so subsequent invoice-date edits don't undo the user's
+            // explicit choice.
+            if (!valueDateManuallySet.current) {
+              setValueDate(val);
+            }
           }}
         />
         {(() => {
