@@ -1553,16 +1553,20 @@ export default function SuppliersPage() {
     //    counted legacy imports against real payments.
     //  - paymentsInMonthTotal-only zeroed legacy months that never had a
     //    standalone payment row.
-    monthlyPaid = (monthlyInvoices || [])
+    // monthlyPaid = sum of paid-status invoices for this month. Since every
+    // payment is tied to an invoice (FK on payments.invoice_id) and the DB
+    // flips the invoice to status='paid' when fully settled, the per-supplier
+    // sum of paid-status invoices equals the per-supplier sum of payments
+    // (verified for גד פרגו and החברה המרכזית). This keeps the breakdown
+    // total locked to total_paid without double-counting cross-month
+    // settlements (e.g. one ₪88k payment covering 4 legacy months).
+    //
+    // Standalone payments with no invoice (true advances) fall back to the
+    // payment-in-month total so they don't vanish.
+    const paidInvoicesInMonth = (monthlyInvoices || [])
       .filter((inv) => inv.status === "paid")
       .reduce((sum, inv) => sum + (Number(inv.total_amount) || 0), 0);
-    // Plus any standalone payment in this month that isn't attached to an
-    // invoice we already counted above (e.g. advance / no-invoice payment).
-    // We approximate this as the gap between paymentsInMonthTotal and the
-    // already-credited paid-status invoices — if positive, it represents a
-    // payment without a matching paid invoice that we'd otherwise lose.
-    const advancePaymentInMonth = Math.max(0, paymentsInMonthTotal - monthlyPaid);
-    monthlyPaid += advancePaymentInMonth;
+    monthlyPaid = paidInvoicesInMonth > 0 ? paidInvoicesInMonth : paymentsInMonthTotal;
 
     let expectedPaymentDate: string | null = null;
     if (supplier.payment_terms_days) {
