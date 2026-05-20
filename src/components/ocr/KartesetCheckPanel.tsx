@@ -58,6 +58,19 @@ const formatDateDisplay = (s: string) => {
 const fmtMoney = (n: number) =>
   n.toLocaleString("he-IL", { minimumFractionDigits: n % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
 
+// Auto-check rule: treat a row as "verified by the system" when at least 2 of
+// the 3 key data points were captured cleanly — date, document number
+// (reference) and a non-zero amount. This mimics the manual statement check:
+// if the OCR pulled enough of the line in, we tick it off automatically so the
+// user only has to eyeball the rows that are missing data.
+const qualifiesForAutoCheck = (row: { date: string | null; reference: string | null; total: number }) => {
+  let points = 0;
+  if (row.date && row.date.trim() !== "") points++;
+  if (row.reference && row.reference.trim() !== "") points++;
+  if (Number.isFinite(row.total) && row.total > 0) points++;
+  return points >= 2;
+};
+
 export default function KartesetCheckPanel({ businessId, suppliers, initialSupplierId }: KartesetCheckPanelProps) {
   const { showToast } = useToast();
 
@@ -163,8 +176,37 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
         return 0;
       });
 
+      // Auto-check: rows the OCR captured well enough (2 of 3 — date / number /
+      // amount) get ticked automatically so the user only reviews the gaps.
+      // Only touch rows that aren't already checked, then persist the new
+      // marks to the DB so they stick on the next visit (same column the
+      // manual toggle writes).
+      const autoTs = new Date().toISOString();
+      const autoInvoiceIds: string[] = [];
+      const autoPaymentIds: string[] = [];
+      for (const r of merged) {
+        if (!r.isChecked && qualifiesForAutoCheck(r)) {
+          r.isChecked = true;
+          r.checkedAt = autoTs;
+          if (r.kind === "invoice") autoInvoiceIds.push(r.id);
+          else autoPaymentIds.push(r.id);
+        }
+      }
+      if (autoInvoiceIds.length > 0) {
+        const { error: aiErr } = await supabase.from("invoices").update({ karteset_checked_at: autoTs }).in("id", autoInvoiceIds);
+        if (aiErr) console.error("Karteset auto-check (invoices) failed:", aiErr);
+      }
+      if (autoPaymentIds.length > 0) {
+        const { error: apErr } = await supabase.from("payments").update({ karteset_checked_at: autoTs }).in("id", autoPaymentIds);
+        if (apErr) console.error("Karteset auto-check (payments) failed:", apErr);
+      }
+
       setRows(merged);
       setHasFetched(true);
+      const autoCount = autoInvoiceIds.length + autoPaymentIds.length;
+      if (autoCount > 0) {
+        showToast(`${autoCount} שורות סומנו אוטומטית (זוהו 2 מתוך 3: תאריך/מספר/סכום)`, "success");
+      }
     } catch (err) {
       console.error("Karteset fetch failed:", err);
       showToast("שגיאה בטעינת הכרטסת", "error");
@@ -228,6 +270,32 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
     } catch (err) {
       console.error("Karteset bulk mark failed:", err);
       showToast("שגיאה בסימון מרוכז", "error");
+    }
+  }, [rows, showToast]);
+
+  // Bulk: clear the check mark on every row at once (undo for "סמן הכל כנבדק"
+  // and for the auto-check — lets the user reset and re-verify from scratch).
+  const markAllUnchecked = useCallback(async () => {
+    if (rows.length === 0) return;
+    const supabase = createClient();
+    const invoiceIds = rows.filter(r => r.kind === "invoice" && r.isChecked).map(r => r.id);
+    const paymentIds = rows.filter(r => r.kind === "payment" && r.isChecked).map(r => r.id);
+    if (invoiceIds.length === 0 && paymentIds.length === 0) {
+      showToast("אין שורות מסומנות", "info");
+      return;
+    }
+    setRows(prev => prev.map(r => r.isChecked ? { ...r, isChecked: false, checkedAt: null } : r));
+    try {
+      if (invoiceIds.length > 0) {
+        await supabase.from("invoices").update({ karteset_checked_at: null }).in("id", invoiceIds);
+      }
+      if (paymentIds.length > 0) {
+        await supabase.from("payments").update({ karteset_checked_at: null }).in("id", paymentIds);
+      }
+      showToast(`בוטל הסימון של ${invoiceIds.length + paymentIds.length} שורות`, "success");
+    } catch (err) {
+      console.error("Karteset bulk unmark failed:", err);
+      showToast("שגיאה בביטול סימון מרוכז", "error");
     }
   }, [rows, showToast]);
 
@@ -331,14 +399,27 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
                 {formatDateDisplay(dateFrom)} — {formatDateDisplay(dateTo)}
               </span>
             </div>
-            {rows.length > 0 && totals.uncheckedCount > 0 && (
-              <Button
-                type="button"
-                onClick={markAllChecked}
-                className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 text-[12px] font-semibold px-[12px] py-[6px] rounded-[6px] transition-colors"
-              >
-                ✓ סמן הכל כנבדק
-              </Button>
+            {rows.length > 0 && (
+              <div className="flex items-center gap-[8px]">
+                {totals.uncheckedCount > 0 && (
+                  <Button
+                    type="button"
+                    onClick={markAllChecked}
+                    className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 text-[12px] font-semibold px-[12px] py-[6px] rounded-[6px] transition-colors"
+                  >
+                    ✓ סמן הכל כנבדק
+                  </Button>
+                )}
+                {totals.uncheckedCount < rows.length && (
+                  <Button
+                    type="button"
+                    onClick={markAllUnchecked}
+                    className="bg-white/5 hover:bg-white/10 text-white/70 text-[12px] font-semibold px-[12px] py-[6px] rounded-[6px] transition-colors"
+                  >
+                    ✕ בטל סימון להכל
+                  </Button>
+                )}
+              </div>
             )}
           </div>
 
@@ -359,7 +440,7 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
               </div>
 
               {/* Rows */}
-              <div className="max-h-[450px] overflow-y-auto flex flex-col gap-[2px]">
+              <div className="max-h-[70vh] min-h-[300px] overflow-y-auto flex flex-col gap-[2px]">
                 {rows.map(row => (
                   <div
                     key={`${row.kind}-${row.id}`}

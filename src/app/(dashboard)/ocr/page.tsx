@@ -405,24 +405,6 @@ export default function OCRPage() {
   // (not necessarily the currently-open one) to whatever business is
   // selected in the form's top picker, so admins can claim a misrouted
   // doc without opening it first. David's request from the meeting.
-  const handleConfirmBusinessForDoc = useCallback(async (document: OCRDocument) => {
-    if (!selectedBusinessId) return;
-    if (document.business_id === selectedBusinessId) return;
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('ocr_documents')
-      .update({ business_id: selectedBusinessId, updated_at: new Date().toISOString() })
-      .eq('id', document.id);
-    if (error) {
-      console.error('Failed to confirm business for OCR doc:', error);
-      return;
-    }
-    setDocuments(prev => prev.map(d => d.id === document.id ? { ...d, business_id: selectedBusinessId } : d));
-    if (currentDocument?.id === document.id) {
-      setCurrentDocument(prev => prev ? { ...prev, business_id: selectedBusinessId } : prev);
-    }
-  }, [selectedBusinessId, currentDocument]);
-
   // Direct business reassignment from the card's business-name dropdown.
   // Lets the admin move a document to ANY business in one click without
   // first having to set the picker at the top of the form — David found the
@@ -671,6 +653,9 @@ export default function OCRPage() {
                 status: formData.is_paid ? 'paid' : 'pending',
                 notes: formData.notes || null,
                 attachment_url: ocrImageUrl,
+                // Approving via OCR counts as the statement check ("כרטסת
+                // נבדקה") — surfaces as נבדקה=כן in the pending-payments report.
+                payment_verified_at: new Date().toISOString(),
               })
               .eq('id', formData.link_to_fixed_invoice_id)
               .select()
@@ -698,6 +683,7 @@ export default function OCRPage() {
                   status: formData.is_paid ? 'paid' : 'pending',
                   notes: formData.notes || null,
                   attachment_url: ocrImageUrl,
+                  payment_verified_at: new Date().toISOString(),
                 };
                 if (exDate) {
                   update.invoice_date = exDate;
@@ -733,6 +719,9 @@ export default function OCRPage() {
                 created_by: user?.id || null,
                 invoice_type: formData.expense_type === 'goods' ? 'goods' : 'current',
                 attachment_url: ocrImageUrl,
+                // Approving via OCR counts as the statement check ("כרטסת
+                // נבדקה") — surfaces as נבדקה=כן in the pending-payments report.
+                payment_verified_at: new Date().toISOString(),
               })
               .select()
               .single();
@@ -1011,6 +1000,9 @@ export default function OCRPage() {
               notes: formData.notes || null,
               created_by: user?.id || null,
               attachment_url: ocrImageUrl,
+              // Mark a CLOSED markezet as statement-checked ("כרטסת נבדקה")
+              // on intake. A needs_review markezet stays unverified.
+              payment_verified_at: isClosed ? new Date().toISOString() : null,
             })
             .select()
             .single();
@@ -1673,8 +1665,6 @@ export default function OCRPage() {
               businesses={businesses}
               businessFilter={businessFilter}
               onBusinessFilterChange={setBusinessFilter}
-              targetBusinessId={selectedBusinessId}
-              onConfirmBusiness={handleConfirmBusinessForDoc}
               onReassignBusiness={handleReassignBusinessForDoc}
             />
           )}
@@ -1799,8 +1789,7 @@ export default function OCRPage() {
             businesses={businesses}
             businessFilter={businessFilter}
             onBusinessFilterChange={setBusinessFilter}
-            targetBusinessId={selectedBusinessId}
-            onConfirmBusiness={handleConfirmBusinessForDoc}
+            onReassignBusiness={handleReassignBusinessForDoc}
           />
         )}
       </div>
