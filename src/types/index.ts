@@ -38,6 +38,9 @@ export interface Business {
   documents_send_mode?: "individual" | "zip";
   documents_send_types?: Array<"invoice" | "payment" | "delivery_note">;
   documents_last_sent_at?: string;
+  surveys_google_sheet_url?: string;
+  surveys_sheet_gid?: string;
+  surveys_last_synced_at?: string;
   created_at: string;
   updated_at: string;
   deleted_at?: string;

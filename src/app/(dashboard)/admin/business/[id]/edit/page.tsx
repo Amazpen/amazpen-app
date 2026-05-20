@@ -91,6 +91,9 @@ export default function EditBusinessPage({ params }: PageProps) {
   const [documentsSendFrequency, setDocumentsSendFrequency] = useState<"daily" | "weekly" | "monthly">("daily");
   const [documentsSendMode, setDocumentsSendMode] = useState<"individual" | "zip">("individual");
   const [documentsSendTypes, setDocumentsSendTypes] = useState<Array<"invoice" | "payment" | "delivery_note">>(["invoice", "payment", "delivery_note"]);
+  // Surveys — admin pastes a Google Sheet URL; the generic n8n workflow syncs its rows.
+  const [surveysSheetUrl, setSurveysSheetUrl] = useState("");
+  const [surveysLastSyncedAt, setSurveysLastSyncedAt] = useState<string | null>(null);
   // OCR intake phones — phone numbers that route incoming WhatsApp/Telegram
   // documents to this business. n8n workflow checks this before AI tax-id matching.
   type IntakePhone = { id: string; phone: string; source: "whatsapp" | "telegram" | "any"; notes: string | null; derived_from_user_id?: string | null };
@@ -299,6 +302,8 @@ export default function EditBusinessPage({ params }: PageProps) {
           ? business.documents_send_types as Array<"invoice" | "payment" | "delivery_note">
           : ["invoice", "payment", "delivery_note"]
       );
+      setSurveysSheetUrl(business.surveys_google_sheet_url || "");
+      setSurveysLastSyncedAt(business.surveys_last_synced_at || null);
       setExistingLogoUrl(business.logo_url || null);
       setLogoPreview(business.logo_url || null);
       const _managerSalary = business.manager_monthly_salary || 0;
@@ -920,6 +925,8 @@ export default function EditBusinessPage({ params }: PageProps) {
           documents_send_frequency: documentsSendFrequency,
           documents_send_mode: documentsSendFrequency === "daily" ? "individual" : documentsSendMode,
           documents_send_types: documentsSendTypes.length > 0 ? documentsSendTypes : ["invoice", "payment", "delivery_note"],
+          surveys_google_sheet_url: surveysSheetUrl.trim() || null,
+          surveys_sheet_gid: surveysSheetUrl.trim() ? (surveysSheetUrl.match(/[#&?]gid=(\d+)/)?.[1] || "0") : null,
           logo_url: logoUrl,
           manager_monthly_salary: _effectiveSalaryNow,
           // markup_percentage on businesses is intentionally not written here.
@@ -1656,6 +1663,32 @@ export default function EditBusinessPage({ params }: PageProps) {
               המסמכים שיישמרו בעמוד OCR (מהסוגים שנבחרו) יישלחו אוטומטית לכתובת זו לפי התדירות שנבחרה. ברירת מחדל: כל הסוגים.
             </p>
           </>
+        )}
+      </div>
+
+      {/* Surveys — Google Sheet sync */}
+      <div className="flex flex-col gap-[10px] p-[15px] border border-[#727BA0] rounded-[10px] bg-[#1a1f3a]/30">
+        <label className="text-[15px] font-medium text-white text-right">סנכרון סקרים מ-Google Sheet (אופציונלי)</label>
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
+          <Input
+            type="url"
+            dir="ltr"
+            value={surveysSheetUrl}
+            onChange={(e) => setSurveysSheetUrl(e.target.value)}
+            placeholder="https://docs.google.com/spreadsheets/d/..."
+            className="w-full h-full bg-transparent text-white text-[14px] text-left rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+          />
+        </div>
+        <p className="text-[11px] text-white/40 text-right mt-[3px]">
+          הדביקו את הקישור לגיליון Google של תשובות הסקר. ודאו ששיתפתם את הגיליון להרשאת קריאה ושמבנה העמודות זהה לתבנית הסקר. תשובות הסקר יסונכרנו אוטומטית כל שעה ויוצגו בעמוד &quot;סקרים&quot;.
+        </p>
+        {surveysLastSyncedAt && (
+          <p className="text-[11px] text-white/50 text-right">
+            סונכרן לאחרונה:{" "}
+            {new Date(surveysLastSyncedAt).toLocaleString("he-IL", {
+              day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+            })}
+          </p>
         )}
       </div>
 

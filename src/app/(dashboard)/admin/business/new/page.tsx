@@ -107,6 +107,7 @@ function NewBusinessPage() {
   const [documentsSendFrequency, setDocumentsSendFrequency] = useState<"daily" | "weekly" | "monthly">("daily");
   const [documentsSendMode, setDocumentsSendMode] = useState<"individual" | "zip">("individual");
   const [documentsSendTypes, setDocumentsSendTypes] = useState<Array<"invoice" | "payment" | "delivery_note">>(["invoice", "payment", "delivery_note"]);
+  const [surveysSheetUrl, setSurveysSheetUrl] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [managerSalary, setManagerSalary] = useState<number>(0);
@@ -704,6 +705,8 @@ function NewBusinessPage() {
           documents_send_frequency: documentsSendFrequency,
           documents_send_mode: documentsSendFrequency === "daily" ? "individual" : documentsSendMode,
           documents_send_types: documentsSendTypes.length > 0 ? documentsSendTypes : ["invoice", "payment", "delivery_note"],
+          surveys_google_sheet_url: surveysSheetUrl.trim() || null,
+          surveys_sheet_gid: surveysSheetUrl.trim() ? (surveysSheetUrl.match(/[#&?]gid=(\d+)/)?.[1] || "0") : null,
           logo_url: logoUrl,
           status: "active",
           send_to_accountant: sendToAccountant,
@@ -1157,6 +1160,24 @@ function NewBusinessPage() {
             </p>
           </>
         )}
+      </div>
+
+      {/* Surveys — Google Sheet sync */}
+      <div className="flex flex-col gap-[10px] p-[15px] border border-[#727BA0] rounded-[10px] bg-[#1a1f3a]/30">
+        <label className="text-[15px] font-medium text-white text-right">סנכרון סקרים מ-Google Sheet (אופציונלי)</label>
+        <div className="border border-[#727BA0] rounded-[10px] h-[50px]">
+          <Input
+            type="url"
+            dir="ltr"
+            value={surveysSheetUrl}
+            onChange={(e) => setSurveysSheetUrl(e.target.value)}
+            placeholder="https://docs.google.com/spreadsheets/d/..."
+            className="w-full h-full bg-transparent text-white text-[14px] text-left rounded-[10px] border-none outline-none px-[10px] placeholder:text-white/30"
+          />
+        </div>
+        <p className="text-[11px] text-white/40 text-right mt-[3px]">
+          הדביקו את הקישור לגיליון Google של תשובות הסקר. ודאו ששיתפתם את הגיליון להרשאת קריאה ושמבנה העמודות זהה לתבנית הסקר. תשובות הסקר יסונכרנו אוטומטית כל שעה ויוצגו בעמוד &quot;סקרים&quot;.
+        </p>
       </div>
 
       {/* Manager Salary */}
