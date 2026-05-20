@@ -597,11 +597,11 @@ function PendingPaymentsReport({
       {/* Category filter chips — with a default "הכל" option (#2) */}
       {availableCategories.length > 0 && (
         <div className="flex items-center gap-[8px] flex-wrap">
-          <span className="text-[13px] text-white/60">סינון לפי קטגוריה:</span>
+          <span className="text-[14px] text-white/60">סינון לפי קטגוריה:</span>
           <Button
             type="button"
             onClick={() => { categoryFilter.forEach(c => onToggleCategory(c)); }}
-            className={`text-[13px] px-[10px] py-[4px] rounded-full border transition-colors ${
+            className={`text-[14px] px-[10px] py-[4px] rounded-full border transition-colors ${
               categoryFilter.size === 0
                 ? "bg-[#3D44A0] border-white text-white"
                 : "bg-transparent border-white/25 text-white/70 hover:border-white/50"
@@ -616,7 +616,7 @@ function PendingPaymentsReport({
                 key={cat}
                 type="button"
                 onClick={() => onToggleCategory(cat)}
-                className={`text-[13px] px-[10px] py-[4px] rounded-full border transition-colors ${
+                className={`text-[14px] px-[10px] py-[4px] rounded-full border transition-colors ${
                   active
                     ? "bg-[#3D44A0] border-white text-white"
                     : "bg-transparent border-white/25 text-white/70 hover:border-white/50"
@@ -630,7 +630,7 @@ function PendingPaymentsReport({
           <Button
             type="button"
             onClick={() => setStarredOnly(v => !v)}
-            className={`text-[13px] px-[10px] py-[4px] rounded-full border transition-colors flex items-center gap-[4px] ${
+            className={`text-[14px] px-[10px] py-[4px] rounded-full border transition-colors flex items-center gap-[4px] ${
               starredOnly
                 ? "bg-[#FFCF00]/20 border-[#FFCF00] text-[#FFCF00]"
                 : "bg-transparent border-white/25 text-white/70 hover:border-white/50"
@@ -645,7 +645,7 @@ function PendingPaymentsReport({
       <div className="w-full overflow-x-auto">
       <div className="min-w-[900px] flex flex-col">
         {/* Header row — clickable column headers sort the table (#1) */}
-        <div className={`grid ${gridCols} bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[13px] font-semibold text-white gap-[4px]`}>
+        <div className={`grid ${gridCols} bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[15px] font-semibold text-white gap-[4px]`}>
           <span className="text-center">★</span>
           <button type="button" onClick={() => onSort("supplier")} className="text-right ps-[5px] hover:opacity-80 cursor-pointer">שם הספק{sortArrow("supplier")}</button>
           <span className="text-center">חשבוניות</span>
@@ -675,7 +675,7 @@ function PendingPaymentsReport({
               <div key={g.key} className={`rounded-[5px] ${g.starred ? "bg-[#3D44A0]/10" : ""}`}>
                 {/* Group row — clickable to expand the breakdown (#4) */}
                 <div
-                  className={`grid ${gridCols} w-full p-[8px_5px] items-center text-[13px] text-white border-b border-white/5 hover:bg-white/[0.03] transition-colors gap-[4px] cursor-pointer`}
+                  className={`grid ${gridCols} w-full p-[8px_5px] items-center text-[15px] text-white border-b border-white/5 hover:bg-white/[0.03] transition-colors gap-[4px] cursor-pointer`}
                   onClick={() => toggleExpanded(g.key)}
                 >
                   {/* Star toggle — toggles the first invoice / supplier */}
@@ -696,7 +696,7 @@ function PendingPaymentsReport({
                     </svg>
                     <span className="truncate">
                       {g.supplierName}
-                      <span className="text-white/45 text-[11px]"> – {g.monthLabel}</span>
+                      <span className="text-white/45 text-[13px]"> – {g.monthLabel}</span>
                     </span>
                   </span>
                   {/* Invoice count */}
@@ -717,7 +717,7 @@ function PendingPaymentsReport({
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); g.invoices.forEach(inv => onToggleVerified(inv)); }}
-                    className={`text-center text-[12px] px-[6px] py-[3px] rounded transition-colors ${
+                    className={`text-center text-[14px] px-[6px] py-[3px] rounded transition-colors ${
                       g.verified
                         ? "bg-green-500/20 text-green-300 hover:bg-green-500/30"
                         : "bg-white/5 text-white/50 hover:bg-white/10"
@@ -730,7 +730,7 @@ function PendingPaymentsReport({
                 {/* Expanded breakdown — one line per invoice (#4) */}
                 {isOpen && (
                   <div className="bg-black/20 px-[10px] py-[6px] flex flex-col gap-[2px]">
-                    <div className="grid grid-cols-[1fr_90px_90px_90px_50px] text-[11px] text-white/45 font-medium pb-[3px] border-b border-white/10">
+                    <div className="grid grid-cols-[1fr_90px_90px_90px_50px] text-[13px] text-white/45 font-medium pb-[3px] border-b border-white/10">
                       <span className="text-right">מספר חשבונית · תאריך</span>
                       <span className="text-center">סה&quot;כ</span>
                       <span className="text-center">שולם</span>
@@ -738,7 +738,7 @@ function PendingPaymentsReport({
                       <span className="text-center">מסמך</span>
                     </div>
                     {g.invoices.map(inv => (
-                      <div key={inv.invoiceId} className="grid grid-cols-[1fr_90px_90px_90px_50px] text-[12px] text-white/80 py-[3px] items-center">
+                      <div key={inv.invoiceId} className="grid grid-cols-[1fr_90px_90px_90px_50px] text-[14px] text-white/80 py-[3px] items-center">
                         <span className="text-right ltr-num truncate">
                           {inv.invoiceNumber || "—"}
                           <span className="text-white/40"> · {formatDate(inv.invoiceDate)}</span>
@@ -785,7 +785,7 @@ function PendingPaymentsReport({
 
         {/* Footer totals */}
         {!isLoading && groups.length > 0 && (
-          <div className={`grid ${gridCols} bg-[#29318A]/60 rounded-b-[7px] p-[10px_5px] items-center text-[13px] font-bold text-white border-t-2 border-white/30 gap-[4px]`}>
+          <div className={`grid ${gridCols} bg-[#29318A]/60 rounded-b-[7px] p-[10px_5px] items-center text-[15px] font-bold text-white border-t-2 border-white/30 gap-[4px]`}>
             <span></span>
             <span className="text-right ps-[5px]">סה&quot;כ ({totalInvoices} חשבוניות)</span>
             <span></span>
@@ -1282,10 +1282,6 @@ function PaymentsPageInner() {
   const [isLoadingPending, setIsLoadingPending] = useState(false);
   const [pendingCategoryFilter, setPendingCategoryFilter] = useState<Set<string>>(new Set());
   const [pendingAvailableCategories, setPendingAvailableCategories] = useState<string[]>([]);
-  const isDefaultCategory = useCallback((name: string) => {
-    const n = (name || "").trim();
-    return n.startsWith("הוצאות שוטפ") || n.startsWith("הוצאות תפעול") || n.startsWith("עלות מכר");
-  }, []);
 
   // Format date string from database
   const formatDateString = (dateStr: string) => {
@@ -2244,13 +2240,9 @@ function PaymentsPageInner() {
       const sortedCats = Array.from(categoriesSeen).sort((a, b) => a.localeCompare(b, "he"));
       setPendingAvailableCategories(sortedCats);
 
-      // First-time / business-switch: seed default category filter
-      // (הוצאות שוטפות/תפעול + עלות מכר). If the set is empty after this,
-      // user hasn't manually filtered yet — accept the default.
-      setPendingCategoryFilter(prev => {
-        if (prev.size > 0) return prev;
-        return new Set(sortedCats.filter(isDefaultCategory));
-      });
+      // Default category filter = "הכל" (empty set => show every category).
+      // We no longer seed a subset on first load; the user picks specific
+      // categories only when they want to narrow the view.
     } catch (err) {
       console.error("Error fetching pending payments:", err);
       showToast("שגיאה בטעינת ממתינים לתשלום", "error");
@@ -2287,28 +2279,34 @@ function PaymentsPageInner() {
     setPendingRows(prev => prev.map(r => r.supplierId === row.supplierId ? { ...r, starred: nextStarred } : r));
 
     try {
+      // supabase-js does NOT throw on a DB/RLS failure — it returns { error }.
+      // We must inspect it explicitly, otherwise a failed write is swallowed and
+      // the star stays lit in the UI while nothing was persisted (#3).
       if (!nextStarred) {
         // Remove ALL marks for this supplier (supplier-level + any legacy
         // per-invoice rows) so the star fully clears.
-        await supabase
+        const { error } = await supabase
           .from("payment_priority_marks")
           .delete()
           .eq("business_id", businessId)
           .eq("supplier_id", row.supplierId);
+        if (error) throw error;
       } else {
         // Clear stale rows first, then insert a single supplier-level mark.
-        await supabase
+        const { error: delError } = await supabase
           .from("payment_priority_marks")
           .delete()
           .eq("business_id", businessId)
           .eq("supplier_id", row.supplierId);
-        await supabase
+        if (delError) throw delError;
+        const { error: insError } = await supabase
           .from("payment_priority_marks")
           .insert({
             business_id: businessId,
             supplier_id: row.supplierId,
             invoice_id: null,
           });
+        if (insError) throw insError;
       }
     } catch (err) {
       console.error("toggle star failed", err);
