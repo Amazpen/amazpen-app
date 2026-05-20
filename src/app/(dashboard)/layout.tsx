@@ -87,10 +87,9 @@ const menuItems = [
   { id: 2, label: "ניהול הוצאות", href: "/expenses", key: "expenses", requiresBusiness: true },
   { id: 3, label: "ניהול ספקים", href: "/suppliers", key: "suppliers", requiresBusiness: true },
   { id: 4, label: "ניהול תשלומים", href: "/payments", key: "payments", requiresBusiness: true },
-  { id: 5, label: "תזרים מזומנים", href: "/cashflow", key: "cashflow", requiresBusiness: true, adminOnly: true },
+  { id: 5, label: "תזרים מזומנים", href: "/cashflow", key: "cashflow", requiresBusiness: true },
   { id: 7, label: "דוח רווח הפסד", href: "/reports", key: "reports", requiresBusiness: true },
   { id: 8, label: "יעדים", href: "/goals", key: "goals", requiresBusiness: true },
-  { id: 9, label: "תובנות", href: "/insights", key: "insights", requiresBusiness: true, adminOnly: true },
   { id: 14, label: "סקרים", href: "/surveys", key: "surveys", requiresBusiness: true },
   { id: 13, label: "תכניות בונוסים", href: "/admin/bonus-plans", key: "bonus-plans", requiresBusiness: true },
   // Per-business OCR portal. Visible and clickable to everyone — the
@@ -132,6 +131,7 @@ const adminMenuGroups: Array<{
     title: "תפעול יומיומי",
     items: [
       { id: 104, label: "קליטת מסמכים OCR", href: "/ocr", key: "admin-ocr" },
+      { id: 9, label: "תובנות", href: "/insights", key: "insights" },
       { id: 120, label: "מעקב מחירי ספקים", href: "/price-tracking", key: "admin-price-tracking" },
       { id: 111, label: "בדיקה ורישום בהנה\"ח", href: "/admin/accounting-review", key: "admin-accounting-review" },
       { id: 113, label: "חריגות ימי עסקים", href: "/admin/day-exceptions", key: "admin-day-exceptions" },
@@ -837,7 +837,7 @@ export default function DashboardLayout({
                 // lockedUnlessBusinessId items appear as "בקרוב" unless the
                 // user is admin OR member of one of the listed businesses
                 // (per-tenant features like the OCR portal for אושי אושי).
-                const lockedByAdmin = !!item.adminOnly && !isAdmin;
+                const lockedByAdmin = !!(item as { adminOnly?: boolean }).adminOnly && !isAdmin;
                 const allowedForBiz = (item as { lockedUnlessBusinessId?: string[] }).lockedUnlessBusinessId;
                 const lockedByBiz = !!(allowedForBiz && allowedForBiz.length > 0)
                   && !isAdmin
