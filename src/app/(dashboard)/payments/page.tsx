@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, Suspense, Fragment } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector, type PieSectorDataItem } from "recharts";
@@ -173,6 +174,7 @@ interface PendingPaymentRow {
   verifiedAt: string | null;    // payment_verified_at
   starred: boolean;             // has a payment_priority_marks row
   parentCategoryName: string | null;
+  attachmentUrl: string | null; // invoice scan(s) — for the inline preview (#4)
 }
 
 // Payment method colors
@@ -370,6 +372,24 @@ function PendingPaymentsReport({
 }: PendingPaymentsReportProps) {
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Full-screen document preview (#4).
+  const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
+  // Show only starred suppliers when on (#2).
+  const [starredOnly, setStarredOnly] = useState(false);
+  // Sort column + direction (#1). null = default (starred-first, then name).
+  type SortCol = "supplier" | "total" | "paid" | "balance" | "dueDate" | null;
+  const [sortCol, setSortCol] = useState<SortCol>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const onSort = (col: Exclude<SortCol, null>) => {
+    if (sortCol === col) {
+      setSortDir(d => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir("desc");
+    }
+  };
+  const sortArrow = (col: Exclude<SortCol, null>) =>
+    sortCol === col ? (sortDir === "asc" ? " ▲" : " ▼") : "";
 
   const toggleExpanded = (key: string) => {
     setExpanded(prev => {
@@ -388,9 +408,12 @@ function PendingPaymentsReport({
   });
 
   // Supplier-name search (#12).
-  const searchFiltered = search.trim()
+  const nameFiltered = search.trim()
     ? categoryFiltered.filter(r => r.supplierName.toLowerCase().includes(search.trim().toLowerCase()))
     : categoryFiltered;
+
+  // Starred-only filter (#2).
+  const searchFiltered = starredOnly ? nameFiltered.filter(r => r.starred) : nameFiltered;
 
   // Group by supplier + accounting month (#3, #4).
   const groups: SupplierMonthGroup[] = (() => {
@@ -426,13 +449,30 @@ function PendingPaymentsReport({
       if (!r.verifiedAt) g.verified = false;
       if (r.starred) g.starred = true;
     }
-    // Sort: starred first, then supplier name, then month (newest first).
-    return Array.from(map.values()).sort((a, b) => {
-      if (a.starred !== b.starred) return a.starred ? -1 : 1;
-      const nameCmp = a.supplierName.localeCompare(b.supplierName, "he");
-      if (nameCmp !== 0) return nameCmp;
-      return b.monthKey.localeCompare(a.monthKey);
-    });
+    const list = Array.from(map.values());
+    // Explicit column sort (#1) when the user clicked a header; otherwise the
+    // default: starred first, then supplier name, then month (newest first).
+    if (sortCol) {
+      const dir = sortDir === "asc" ? 1 : -1;
+      list.sort((a, b) => {
+        switch (sortCol) {
+          case "supplier": return a.supplierName.localeCompare(b.supplierName, "he") * dir;
+          case "total": return (a.totalAmount - b.totalAmount) * dir;
+          case "paid": return (a.paidAmount - b.paidAmount) * dir;
+          case "balance": return (a.balance - b.balance) * dir;
+          case "dueDate": return a.dueDate.localeCompare(b.dueDate) * dir;
+          default: return 0;
+        }
+      });
+    } else {
+      list.sort((a, b) => {
+        if (a.starred !== b.starred) return a.starred ? -1 : 1;
+        const nameCmp = a.supplierName.localeCompare(b.supplierName, "he");
+        if (nameCmp !== 0) return nameCmp;
+        return b.monthKey.localeCompare(a.monthKey);
+      });
+    }
+    return list;
   })();
 
   const grandTotal = groups.reduce(
@@ -586,22 +626,34 @@ function PendingPaymentsReport({
               </Button>
             );
           })}
+          {/* Starred-only filter (#2) */}
+          <Button
+            type="button"
+            onClick={() => setStarredOnly(v => !v)}
+            className={`text-[13px] px-[10px] py-[4px] rounded-full border transition-colors flex items-center gap-[4px] ${
+              starredOnly
+                ? "bg-[#FFCF00]/20 border-[#FFCF00] text-[#FFCF00]"
+                : "bg-transparent border-white/25 text-white/70 hover:border-white/50"
+            }`}
+          >
+            {starredOnly ? "★" : "☆"} מסומנים בכוכב
+          </Button>
         </div>
       )}
 
       {/* Table */}
       <div className="w-full overflow-x-auto">
       <div className="min-w-[900px] flex flex-col">
-        {/* Header row */}
+        {/* Header row — clickable column headers sort the table (#1) */}
         <div className={`grid ${gridCols} bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[13px] font-semibold text-white gap-[4px]`}>
           <span className="text-center">★</span>
-          <span className="text-right ps-[5px]">שם הספק</span>
+          <button type="button" onClick={() => onSort("supplier")} className="text-right ps-[5px] hover:opacity-80 cursor-pointer">שם הספק{sortArrow("supplier")}</button>
           <span className="text-center">חשבוניות</span>
-          <span className="text-center">סה&quot;כ רכישות</span>
-          <span className="text-center">שולם</span>
-          <span className="text-center">מאושר לתשלום</span>
+          <button type="button" onClick={() => onSort("total")} className="text-center hover:opacity-80 cursor-pointer">סה&quot;כ רכישות{sortArrow("total")}</button>
+          <button type="button" onClick={() => onSort("paid")} className="text-center hover:opacity-80 cursor-pointer">שולם{sortArrow("paid")}</button>
+          <button type="button" onClick={() => onSort("balance")} className="text-center hover:opacity-80 cursor-pointer">מאושר לתשלום{sortArrow("balance")}</button>
           <span className="text-center">תנאי תשלום</span>
-          <span className="text-center">תאריך לתשלום</span>
+          <button type="button" onClick={() => onSort("dueDate")} className="text-center hover:opacity-80 cursor-pointer">תאריך לתשלום{sortArrow("dueDate")}</button>
           <span className="text-center">אמצעי תשלום</span>
           <span className="text-center">כרטסת נבדקה</span>
         </div>
@@ -678,14 +730,15 @@ function PendingPaymentsReport({
                 {/* Expanded breakdown — one line per invoice (#4) */}
                 {isOpen && (
                   <div className="bg-black/20 px-[10px] py-[6px] flex flex-col gap-[2px]">
-                    <div className="grid grid-cols-[1fr_90px_90px_90px] text-[11px] text-white/45 font-medium pb-[3px] border-b border-white/10">
+                    <div className="grid grid-cols-[1fr_90px_90px_90px_50px] text-[11px] text-white/45 font-medium pb-[3px] border-b border-white/10">
                       <span className="text-right">מספר חשבונית · תאריך</span>
                       <span className="text-center">סה&quot;כ</span>
                       <span className="text-center">שולם</span>
                       <span className="text-center">נותר</span>
+                      <span className="text-center">מסמך</span>
                     </div>
                     {g.invoices.map(inv => (
-                      <div key={inv.invoiceId} className="grid grid-cols-[1fr_90px_90px_90px] text-[12px] text-white/80 py-[3px]">
+                      <div key={inv.invoiceId} className="grid grid-cols-[1fr_90px_90px_90px_50px] text-[12px] text-white/80 py-[3px] items-center">
                         <span className="text-right ltr-num truncate">
                           {inv.invoiceNumber || "—"}
                           <span className="text-white/40"> · {formatDate(inv.invoiceDate)}</span>
@@ -693,6 +746,33 @@ function PendingPaymentsReport({
                         <span className="text-center ltr-num">{fmtMoney(inv.totalAmount)}</span>
                         <span className="text-center ltr-num">{fmtMoney(inv.paidAmount)}</span>
                         <span className="text-center ltr-num font-semibold">{fmtMoney(inv.balance)}</span>
+                        {/* Document preview (#4): open the invoice scan. Multi-page
+                            attachments are stored as a JSON array — open the first. */}
+                        <span className="flex justify-center">
+                          {inv.attachmentUrl ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                let url = inv.attachmentUrl as string;
+                                if (url.trim().startsWith("[")) {
+                                  try { const arr = JSON.parse(url); if (Array.isArray(arr) && arr[0]) url = arr[0]; } catch {}
+                                }
+                                setPendingPreviewUrl(url);
+                              }}
+                              className="text-white/50 hover:text-white transition-colors"
+                              title="צפה במסמך"
+                            >
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+                                <path d="M21 15l-5-5L5 21" />
+                              </svg>
+                            </button>
+                          ) : (
+                            <span className="text-white/20">—</span>
+                          )}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -724,6 +804,33 @@ function PendingPaymentsReport({
       <p className="text-[11px] text-white/40 text-center">
         הסכום מסונכרן עם עמוד &quot;ניהול הוצאות&quot; — כל חשבונית שמסומנת שולמה (גם חלקית) יורדת בהתאם.
       </p>
+
+      {/* Document preview overlay (#4) — portal to body so it stacks above
+          everything regardless of where this report is mounted. */}
+      {pendingPreviewUrl && typeof document !== "undefined" && createPortal(
+        <div
+          role="dialog"
+          aria-label="תצוגת מסמך"
+          onClick={() => setPendingPreviewUrl(null)}
+          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setPendingPreviewUrl(null); }}
+            className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center transition-colors z-[10000]"
+            aria-label="סגור"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+          </button>
+          {pendingPreviewUrl.toLowerCase().includes(".pdf") ? (
+            <iframe src={pendingPreviewUrl} title="מסמך" className="w-full h-full max-w-[900px] rounded-[8px] bg-white" onClick={(e) => e.stopPropagation()} />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={pendingPreviewUrl} alt="מסמך" onClick={(e) => e.stopPropagation()} className="max-w-full max-h-full object-contain rounded-[8px] cursor-default" />
+          )}
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
@@ -1930,7 +2037,7 @@ function PaymentsPageInner() {
           .from("invoices")
           .select(`
             id, business_id, supplier_id, invoice_number, invoice_date, reference_date, total_amount,
-            amount_paid, status, payment_verified_at,
+            amount_paid, status, payment_verified_at, attachment_url,
             supplier:suppliers(
               id, name, payment_terms_days, default_payment_method, default_credit_card_id, parent_category_id
             )
@@ -1975,6 +2082,7 @@ function PaymentsPageInner() {
         amount_paid: number | string | null;
         status: string | null;
         payment_verified_at: string | null;
+        attachment_url: string | null;
         supplier: {
           id: string;
           name: string;
@@ -2125,6 +2233,7 @@ function PaymentsPageInner() {
           verifiedAt: inv.payment_verified_at,
           starred,
           parentCategoryName,
+          attachmentUrl: inv.attachment_url,
         });
         totalBalance += balance;
       }
@@ -2170,31 +2279,42 @@ function PaymentsPageInner() {
     const businessId = selectedBusinesses[0];
     if (!businessId || !row.supplierId) return;
 
-    // Optimistic update
-    setPendingRows(prev => prev.map(r => r.invoiceId === row.invoiceId ? { ...r, starred: !r.starred } : r));
+    // Star at the SUPPLIER level (invoice_id = null) so the mark sticks across
+    // every invoice of that supplier and survives into future months (#3) —
+    // the report groups by supplier+month, so a per-invoice mark would only
+    // light up one bucket. Toggle every row of the supplier optimistically.
+    const nextStarred = !row.starred;
+    setPendingRows(prev => prev.map(r => r.supplierId === row.supplierId ? { ...r, starred: nextStarred } : r));
 
     try {
-      if (row.starred) {
+      if (!nextStarred) {
+        // Remove ALL marks for this supplier (supplier-level + any legacy
+        // per-invoice rows) so the star fully clears.
         await supabase
           .from("payment_priority_marks")
           .delete()
           .eq("business_id", businessId)
-          .eq("supplier_id", row.supplierId)
-          .eq("invoice_id", row.invoiceId);
+          .eq("supplier_id", row.supplierId);
       } else {
+        // Clear stale rows first, then insert a single supplier-level mark.
+        await supabase
+          .from("payment_priority_marks")
+          .delete()
+          .eq("business_id", businessId)
+          .eq("supplier_id", row.supplierId);
         await supabase
           .from("payment_priority_marks")
           .insert({
             business_id: businessId,
             supplier_id: row.supplierId,
-            invoice_id: row.invoiceId,
+            invoice_id: null,
           });
       }
     } catch (err) {
       console.error("toggle star failed", err);
       showToast("שגיאה בעדכון סימון", "error");
       // Rollback
-      setPendingRows(prev => prev.map(r => r.invoiceId === row.invoiceId ? { ...r, starred: row.starred } : r));
+      setPendingRows(prev => prev.map(r => r.supplierId === row.supplierId ? { ...r, starred: row.starred } : r));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBusinesses]);
