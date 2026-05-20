@@ -393,7 +393,7 @@ export function ConsolidatedInvoiceModal({
   };
 
   // Toggle select all notes (all months)
-  const toggleSelectAll = () => {
+  const _toggleSelectAll = () => {
     const allSelected = allDeliveryNotes.length > 0 && allDeliveryNotes.every(n => selectedNoteIds.has(n.id));
     if (allSelected) {
       setSelectedNoteIds(new Set());

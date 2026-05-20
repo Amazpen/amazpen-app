@@ -60,7 +60,7 @@ function parseDate(raw: string): string {
 }
 
 // Determine month from creation date (month after creation)
-function monthFromCreationDate(creationDate: string): { year: number; month: number } | null {
+function _monthFromCreationDate(creationDate: string): { year: number; month: number } | null {
   const parsed = parseDate(creationDate);
   if (!parsed) return null;
   const d = new Date(parsed);

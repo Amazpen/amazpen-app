@@ -17,7 +17,7 @@ export function UpdatePrompt() {
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const [visible, setVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [isVersionUpdate, setIsVersionUpdate] = useState(false);
+  const [, setIsVersionUpdate] = useState(false);
 
   // Check sw.js BUILD_TIME against stored version
   const checkSwVersion = useCallback(async () => {

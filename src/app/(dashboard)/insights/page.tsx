@@ -394,7 +394,7 @@ export default function InsightsPage() {
 
       const totalGoods = goodsInvoices.reduce((s, i) => s + (Number(i.subtotal) || 0), 0);
       const totalCurrentExp = currentExpInvoices.reduce((s, i) => s + (Number(i.subtotal) || 0), 0);
-      const totalAllExpenses = totalGoods + totalCurrentExp;
+      const _totalAllExpenses = totalGoods + totalCurrentExp;
 
       const prevGoods = prevInvoiceList.filter((i) => (i.suppliers as unknown as { expense_type: string }).expense_type === "goods_purchases").reduce((s, i) => s + (Number(i.subtotal) || 0), 0);
       const prevCurrentExp = prevInvoiceList.filter((i) => (i.suppliers as unknown as { expense_type: string }).expense_type === "current_expenses").reduce((s, i) => s + (Number(i.subtotal) || 0), 0);

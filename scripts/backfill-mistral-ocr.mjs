@@ -21,7 +21,7 @@ try {
     const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^"|"$/g, '');
   }
-} catch (e) { /* env file is optional */ }
+} catch { /* env file is optional */ }
 
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://db.amazpenbiz.co.il';
 const SK = process.env.SUPABASE_SERVICE_ROLE_KEY;

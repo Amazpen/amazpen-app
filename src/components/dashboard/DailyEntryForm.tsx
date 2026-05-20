@@ -20,7 +20,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { useDashboard } from "@/app/(dashboard)/layout";
 import { useToast } from "@/components/ui/toast";
@@ -134,7 +133,7 @@ export function DailyEntryForm({ businessId, businessName, onSuccess, editingEnt
   // Monthly settings for admin calculated fields
   const [monthlyMarkup, setMonthlyMarkup] = useState<number>(1);
   const [managerMonthlySalary, setManagerMonthlySalary] = useState<number>(0);
-  const [workingDaysUpToDate, setWorkingDaysUpToDate] = useState<number>(0);
+  const [, setWorkingDaysUpToDate] = useState<number>(0);
 
   // Form state
   const [incomeData, setIncomeData] = useState<Record<string, IncomeData>>({});

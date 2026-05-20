@@ -27,6 +27,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Vendored/minified files
     "public/pdf.worker.min.mjs",
+    // Claude Code worktrees carry their own built .next output — never lint
+    // those compiled artifacts (they generate thousands of noise warnings).
+    ".claude/**",
+    "**/.next/**",
   ]),
 ]);
 

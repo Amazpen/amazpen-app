@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   }
 
   // 2. Sum actual spending per (business, supplier) this month
-  const keys = budgets.map((b) => `${b.business_id}|${b.supplier_id}`);
+  const _keys = budgets.map((b) => `${b.business_id}|${b.supplier_id}`);
   const { data: invoices } = await supabase
     .from("invoices")
     .select("business_id, supplier_id, subtotal")

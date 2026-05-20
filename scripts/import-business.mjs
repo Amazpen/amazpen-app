@@ -132,7 +132,7 @@ for (const r of suppRows) {
       const existing = await client.query(`SELECT id FROM suppliers WHERE business_id = $1 AND name = $2`, [BUSINESS_ID, name]);
       if (existing.rows[0]) supplierMap[name] = existing.rows[0].id;
     }
-  } catch (e) {
+  } catch {
     // supplier might already exist
     const existing = await client.query(`SELECT id FROM suppliers WHERE business_id = $1 AND name = $2`, [BUSINESS_ID, name]);
     if (existing.rows[0]) supplierMap[name] = existing.rows[0].id;
@@ -182,7 +182,7 @@ for (const r of invRows) {
     );
     invOk++;
     if (bubbleId) invoiceLookup[bubbleId] = { supplier, amount, date: invDate };
-  } catch (e) {
+  } catch {
     invErr++;
     if (invErr <= 3) console.error(`  Error: ${e.message.substring(0, 80)}`);
   }
@@ -283,7 +283,7 @@ for (const pay of payRows) {
       splitCount++;
     }
     payOk++;
-  } catch (e) {
+  } catch {
     payErr++;
     if (payErr <= 3) console.error(`  Error: ${e.message.substring(0, 80)}`);
   }
@@ -322,7 +322,7 @@ for (const [date, e] of Object.entries(dailyByDate)) {
       [BUSINESS_ID, date, e.zDaily || e.revenue, e.laborCost, e.laborHours, e.managerCost, e.discounts, e.factor]
     );
     dailyOk++;
-  } catch (e2) {}
+  } catch {}
 }
 console.log(`  Daily: ${dailyOk} (from ${dailyRows.length} rows)`);
 
@@ -366,7 +366,7 @@ if (incomeSources.length > 0) {
         await client.query('INSERT INTO daily_income_breakdown (daily_entry_id, income_source_id, amount, orders_count) VALUES ($1,$2,$3,$4)',
           [entryId, source.id, data.amount, data.orders]);
         brkOk++;
-      } catch (e) {}
+      } catch {}
     }
   }
   console.log(`  Breakdowns: ${brkOk}`);
@@ -395,7 +395,7 @@ for (const r of goalRows) {
       [BUSINESS_ID, month, year, revenueTarget, vat > 1 ? vat - 1 : vat, foodPct || null, laborPct || null, currentTarget || null]
     );
     goalsOk++;
-  } catch (e) {}
+  } catch {}
 }
 console.log(`  Goals: ${goalsOk}`);
 
@@ -416,7 +416,7 @@ for (const r of sbRows) {
   try {
     await client.query(`INSERT INTO supplier_budgets (business_id, supplier_id, month, year, budget_amount) VALUES ($1,$2,$3,$4,$5)`, [BUSINESS_ID, sid, month, year, amount]);
     sbOk++;
-  } catch (e) {}
+  } catch {}
 }
 console.log(`  Supplier budgets: ${sbOk}`);
 
@@ -442,7 +442,7 @@ for (const [name, payments] of Object.entries(commitGroups)) {
     await client.query(`INSERT INTO prior_commitments (business_id, name, monthly_amount, total_installments, start_date, end_date) VALUES ($1,$2,$3,$4,$5,$6)`,
       [BUSINESS_ID, name, first?.amount || 0, Math.max(...payments.map(p => p.num), payments.length), startDate, endDate]);
     commitOk++;
-  } catch (e) {}
+  } catch {}
 }
 console.log(`  Commitments: ${commitOk}`);
 
@@ -460,7 +460,7 @@ for (const r of histRows) {
     await client.query(`INSERT INTO monthly_summaries (business_id, year, month, total_income, food_cost_pct, food_cost_amount, food_cost_budget_diff, labor_cost_pct, labor_cost_amount, labor_budget_diff_pct, avg_income_1, avg_income_2, avg_income_3, avg_income_4, sales_budget_diff_pct, sales_yoy_change_pct) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
       [BUSINESS_ID, year, month, p(r['מכירות ברוטו']), p(r['עלות מכר באחוזים']), p(r['עלות מכר בש"ח']), p(r['עלות מכר הפרש מתקציב']), p(r['עלות עבודה באחוזים']), p(r['עלות עבודה בש"ח']), p(r['ע. עבודה הפרש מתקציב באחוזים']), p(r['ממוצע הכנסה 1 בש"ח']), p(r['ממוצע הכנסה 2 בש"ח']), p(r['ממוצע הכנסה 3 בש"ח']), p(r['ממוצע הכנסה 4 בש"ח']), p(r['הפרש מתקציב מכירות באחוז']), p(r['שינוי משנה שעברה מכירות באחוזים'])]);
     histOk++;
-  } catch (e) {}
+  } catch {}
 }
 console.log(`  History: ${histOk}`);
 
@@ -499,7 +499,7 @@ for (const r of invRows) {
       );
       imgOk++;
     }
-  } catch (e) { imgSkip++; }
+  } catch { imgSkip++; }
   if ((imgOk + imgSkip) % 50 === 0 && (imgOk + imgSkip) > 0) console.log(`  Progress: ${imgOk} ok, ${imgSkip} skip`);
 }
 console.log(`  Images: ${imgOk} uploaded, ${imgSkip} skipped`);

@@ -11,7 +11,6 @@ import {
   PresentationChart,
   LightbulbFilament,
   GearSix,
-  type Icon as PhosphorIcon,
 } from "@phosphor-icons/react";
 
 export const METRIC_ICONS = {

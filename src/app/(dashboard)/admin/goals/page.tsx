@@ -819,7 +819,7 @@ export default function AdminGoalsPage() {
 
       // Batch-load existing invoices for ALL touched suppliers in this year
       // in one shot — the per-supplier SELECT loop was the main latency hog.
-      let existingInvoicesBySupMonth: Map<string, { id: string }[]> = new Map();
+      const existingInvoicesBySupMonth: Map<string, { id: string }[]> = new Map();
       if (invoiceSyncBudgets.length > 0) {
         const supplierIds = Array.from(new Set(invoiceSyncBudgets.map((b) => b.supplier_id)));
         const yearStart = `${selectedYear}-01-01`;

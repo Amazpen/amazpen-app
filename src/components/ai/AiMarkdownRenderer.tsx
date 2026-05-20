@@ -249,7 +249,7 @@ function buildComponents(searchQuery?: string): Components {
       // Only color cells that have explicit ✅/⚠️ markers from the AI
       const hasGood = text.includes("✅");
       const hasBad = text.includes("⚠️");
-      const isColored = hasGood || hasBad;
+      const _isColored = hasGood || hasBad;
 
       let cellClass = "px-1 sm:px-2 py-1.5 sm:py-2 text-center";
       if (isNumeric) cellClass += " font-medium tabular-nums";

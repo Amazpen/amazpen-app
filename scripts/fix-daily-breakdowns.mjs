@@ -101,7 +101,7 @@ for (const [date, sourceData] of Object.entries(accumulator)) {
         [entryId, source.id, data.amount, data.orders]
       );
       inserted++;
-    } catch (e) {
+    } catch {
       // Might be duplicate, skip
     }
   }

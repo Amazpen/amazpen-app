@@ -69,9 +69,9 @@ export default function BonusPlansPage() {
 
   // Auth & access
   const [hasAccess, setHasAccess] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [, setUserId] = useState<string | null>(null);
 
   // Employees for selected business
   const [employees, setEmployees] = useState<Employee[]>([]);

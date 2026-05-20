@@ -352,7 +352,7 @@ export default function PriceTrackingPage() {
   };
 
   // Stats
-  const unreadAlerts = useMemo(() => alerts.filter(a => a.status === 'unread'), [alerts]);
+  const _unreadAlerts = useMemo(() => alerts.filter(a => a.status === 'unread'), [alerts]);
   const recentAlerts = useMemo(() => alerts.slice(0, 10), [alerts]);
 
   // Business-actionable insights (replaces the previous "alerts/items/suppliers"
@@ -439,7 +439,7 @@ export default function PriceTrackingPage() {
     return supplierItems.filter(si => si.item_name.toLowerCase().includes(q));
   }, [supplierItems, itemSearchQuery]);
 
-  const selectedItem = supplierItems.find(si => si.id === selectedItemId);
+  const _selectedItem = supplierItems.find(si => si.id === selectedItemId);
   // Up to 10 price history columns (most recent first) (#43)
   const historyColumns = priceHistory.slice(0, 10);
 

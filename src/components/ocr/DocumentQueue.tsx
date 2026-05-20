@@ -70,8 +70,8 @@ export default function DocumentQueue({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const [canScrollUp, setCanScrollUp] = useState(false);
-  const [canScrollDown, setCanScrollDown] = useState(false);
+  const [, setCanScrollUp] = useState(false);
+  const [, setCanScrollDown] = useState(false);
 
   // Check scroll position
   const checkScrollPosition = useCallback(() => {

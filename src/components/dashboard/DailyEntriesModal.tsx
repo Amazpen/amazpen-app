@@ -175,7 +175,7 @@ export function DailyEntriesModal({
   // Admin calculated fields
   const [monthlyMarkup, setMonthlyMarkup] = useState<number>(1);
   const [managerMonthlySalary, setManagerMonthlySalary] = useState<number>(0);
-  const [workingDaysUpToDate, setWorkingDaysUpToDate] = useState<number>(0);
+  const [, setWorkingDaysUpToDate] = useState<number>(0);
   const [freshWorkDaysInMonth, setFreshWorkDaysInMonth] = useState<number | null>(null);
 
   // Save draft on edit form changes

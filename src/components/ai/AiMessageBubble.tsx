@@ -149,7 +149,7 @@ function stripMarkdownTables(text: string): string {
 }
 
 /** Transform getMonthlySummary tool output into AiDataTable sections — approved format */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 function buildDashboardFromToolOutput(message: UIMessage): { sections: AiDataSection[]; businessName?: string; period?: string } | null {
   if (message.role !== "assistant") return null;
   if (!message.parts || !Array.isArray(message.parts)) return null;

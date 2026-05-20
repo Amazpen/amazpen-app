@@ -18,7 +18,7 @@ import { useApprovals } from '@/hooks/useApprovals';
 import ApprovalModal from '@/components/dashboard/ApprovalModal';
 import { CARD_FIELD_MAP } from '@/types/approvals';
 import { MetricIcon, getIconBgColor } from '@/lib/metric-icons';
-import { PresentationChart, CookingPot, Scales } from '@phosphor-icons/react';
+import { PresentationChart, Scales } from '@phosphor-icons/react';
 import { Clock } from 'lucide-react';
 
 // ============================================================================
@@ -676,7 +676,7 @@ export default function DashboardPage() {
       }
       const totalManagerSalary = businessData.reduce((sum, b) => sum + (Number(b.manager_monthly_salary) || 0), 0);
       // Manager salary spreads over WORK days, not calendar days — matches reports/dashboard/goals formulas
-      const managerDailyCost = expectedWorkDaysInMonth > 0 ? totalManagerSalary / expectedWorkDaysInMonth : 0;
+      const _managerDailyCost = expectedWorkDaysInMonth > 0 ? totalManagerSalary / expectedWorkDaysInMonth : 0;
 
       // VAT calculation — normalize: if stored as multiplier (>1), convert to fraction
       const rawAvgVatPct = businessData.reduce((sum, b) => {
@@ -749,8 +749,8 @@ export default function DashboardPage() {
       const businessSource = allIncomeSources.find((src: { income_type: string }) => src.income_type === 'business');
       const privateAvgTarget = privateSource ? (avgTicketTargetMap[privateSource.id] || 0) : 0;
       const businessAvgTarget = businessSource ? (avgTicketTargetMap[businessSource.id] || 0) : 0;
-      const todayPrivateDiff = privateAvgTarget ? todayPrivateAvg - privateAvgTarget : 0;
-      const todayBusinessDiff = businessAvgTarget ? todayBusinessAvg - businessAvgTarget : 0;
+      const _todayPrivateDiff = privateAvgTarget ? todayPrivateAvg - privateAvgTarget : 0;
+      const _todayBusinessDiff = businessAvgTarget ? todayBusinessAvg - businessAvgTarget : 0;
 
 
       // Inline styles for email compatibility (Gmail strips CSS classes)
@@ -1522,7 +1522,7 @@ export default function DashboardPage() {
       // Calculate totals from entries (if any)
       const totalIncome = (entries || []).reduce((sum, e) => sum + (Number(e.total_register) || 0), 0);
       const rawLaborCost = (entries || []).reduce((sum, e) => sum + (Number(e.labor_cost) || 0), 0);
-      const rawManagerCostFromEntries = (entries || []).reduce((sum, e) => sum + (Number(e.manager_daily_cost) || 0), 0);
+      const _rawManagerCostFromEntries = (entries || []).reduce((sum, e) => sum + (Number(e.manager_daily_cost) || 0), 0);
 
       // Labor markup: labor * markup_percentage + manager (already loaded in daily_entries)
       const totalMarkup = (businessData || []).reduce((sum, b) => {
@@ -1925,7 +1925,7 @@ export default function DashboardPage() {
 
       // Current expenses target %: sum of current_expenses budgets / MTD income before VAT × 100
       // Matches Bubble formula exactly: diff_pct = (actual − target) / incomeBeforeVat_MTD × 100
-      const monthlyPaceBeforeVat = vatDivisorForFood > 0 ? monthlyPace / vatDivisorForFood : 0;
+      const _monthlyPaceBeforeVat = vatDivisorForFood > 0 ? monthlyPace / vatDivisorForFood : 0;
       const currentExpensesTargetPct = incomeBeforeVatForFood > 0 ? (currentExpensesTargetAmount / incomeBeforeVatForFood) * 100 : 0;
       // (actual_amount − target_amount) / incomeBeforeVat_MTD × 100 = actual_pct − target_pct
       const currentExpensesDiffPct = currentExpensesPct - currentExpensesTargetPct;
@@ -3684,7 +3684,7 @@ export default function DashboardPage() {
                 const effectiveCount = source.ordersCount > 0 ? source.ordersCount : source.entriesCount;
                 const isCouponLike = source.ordersCount === 0 && source.entriesCount > 0;
                 const countLabel = isCouponLike ? "מספר ימים" : "כמות הזמנות";
-                const avgLabel = isCouponLike ? `ממוצע יומי` : "ממוצע הזמנה";
+                const _avgLabel = isCouponLike ? `ממוצע יומי` : "ממוצע הזמנה";
 
                 return (
                   <div key={source.id} className="data-card-new flex flex-col justify-center gap-[10px] rounded-[10px] p-0 min-h-[155px] w-full cursor-pointer hover:brightness-110 transition-all" onClick={() => openHistoryModal('incomeSource', source.name, source.id)}>
@@ -4072,7 +4072,7 @@ export default function DashboardPage() {
                 const expDiffValue = detailedSummary?.currentExpensesDiffPct || 0;
                 // Match Bubble colors: negative diff (over budget) = green, positive (under budget) = red
                 const expPctColor = (noExpData || noTarget) ? 'text-white' : expDiffValue < 0 ? 'text-green-500' : expDiffValue > 0 ? 'text-red-400' : 'text-white';
-                const expDiffColor = (noExpData || noTarget) ? 'text-white' : (detailedSummary?.currentExpensesDiffPct || 0) < 0 ? 'text-green-500' : (detailedSummary?.currentExpensesDiffPct || 0) > 0 ? 'text-red-400' : 'text-white';
+                const _expDiffColor = (noExpData || noTarget) ? 'text-white' : (detailedSummary?.currentExpensesDiffPct || 0) < 0 ? 'text-green-500' : (detailedSummary?.currentExpensesDiffPct || 0) > 0 ? 'text-red-400' : 'text-white';
                 const expPrevMonthColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevMonthChange || 0) > 0 ? 'text-red-400' : (detailedSummary?.currentExpensesPrevMonthChange || 0) < 0 ? 'text-green-500' : 'text-white';
                 const expPrevYearColor = noExpData ? 'text-white' : (detailedSummary?.currentExpensesPrevYearChange || 0) > 0 ? 'text-red-400' : (detailedSummary?.currentExpensesPrevYearChange || 0) < 0 ? 'text-green-500' : 'text-white';
                 return (

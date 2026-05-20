@@ -70,7 +70,7 @@ export default function DocumentViewer({ imageUrl, imageUrls, fileType, onCrop, 
   const urlsKey = (resolvedUrls.length ? resolvedUrls : [imageUrl || ""]).join("|");
   useEffect(() => {
     setCurrentPageIndex(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [urlsKey]);
 
   const handlePrevPage = useCallback(() => {

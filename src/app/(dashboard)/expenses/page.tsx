@@ -28,8 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { DatePickerField } from "@/components/ui/date-picker-field";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import type { OCRLineItem, OCRExtractedData } from '@/types/ocr';
+import type { OCRLineItem } from '@/types/ocr';
 import { savePriceTrackingForLineItems } from '@/lib/priceTracking';
 
 // Format date as YYYY-MM-DD using local timezone (avoids UTC shift from toISOString)
@@ -56,12 +55,6 @@ interface Supplier {
 }
 
 // Expense category from database (used for type checking)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface ExpenseCategory {
-  id: string;
-  name: string;
-}
-
 // Invoice from database
 interface Invoice {
   id: string;
@@ -89,16 +82,6 @@ interface Invoice {
 }
 
 // Linked payment from database (used for type checking)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface LinkedPayment {
-  id: string;
-  payment_id: string;
-  payment_method: string;
-  amount: number;
-  installments_count: number | null;
-  check_date: string | null;
-}
-
 // Parse attachment_url: supports both single URL string and JSON array of URLs
 function parseAttachmentUrls(raw: string | null): string[] {
   if (!raw) return [];
@@ -261,7 +244,7 @@ function ExpensesPageInner() {
   const searchParams = useSearchParams();
   const highlightInvoiceId = searchParams.get("invoiceId");
   const { selectedBusinesses, canManage, globalDateRange, setGlobalDateRange, openCoordinatorEdit } = useDashboard();
-  const { approveInvoice, approvePayment } = useApprovals(selectedBusinesses);
+  const { approveInvoice } = useApprovals(selectedBusinesses);
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = usePersistedState<"expenses" | "purchases" | "employees">("expenses:tab", "expenses");
   const dateRange = globalDateRange;
@@ -553,7 +536,7 @@ function ExpensesPageInner() {
             // date/reference_date/creditCard — not directly supported here; skip DN fetch
             return;
           }
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           const { data: dnData } = await dnQuery;
           deliveryNoteResults = (dnData || []).map((dn: Record<string, unknown>) => {
             const supplier = dn.supplier as { name?: string; is_fixed_expense?: boolean } | null;
@@ -805,14 +788,14 @@ function ExpensesPageInner() {
   // payments change in the DB (realtime bumps refreshTrigger). Without this,
   // editing an invoice didn't update the active search results — users had
   // to clear and re-type the query to see the change.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [filterBy, filterValue, selectedBusinesses, refreshTrigger]);
 
   // Supplier detail popup state (from expenses breakdown)
   const [showSupplierBreakdownPopup, setShowSupplierBreakdownPopup] = useState(false);
   const [breakdownSupplierName, setBreakdownSupplierName] = useState("");
   const [breakdownSupplierCategory, setBreakdownSupplierCategory] = useState("");
-  const [breakdownSupplierTotalWithVat, setBreakdownSupplierTotalWithVat] = useState(0);
+  const [, setBreakdownSupplierTotalWithVat] = useState(0);
   const [breakdownSupplierInvoices, setBreakdownSupplierInvoices] = useState<InvoiceDisplay[]>([]);
   const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
   const returnToBreakdownRef = useRef(false);
@@ -1267,10 +1250,6 @@ function ExpensesPageInner() {
   };
 
   // Format date for display (kept for potential future use)
-  const _formatDate = (date: Date) => {
-    return date.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
-  };
-
   // Format date string from database
   const formatDateString = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -2817,7 +2796,6 @@ function ExpensesPageInner() {
                 const installmentsCount = parseInt(pm.installments) || 1;
 
                 const creditCardId = pm.method === "credit_card" && pm.creditCardId ? pm.creditCardId : null;
-                const card = creditCardId ? businessCreditCards.find(c => c.id === creditCardId) : null;
 
                 if (pm.customInstallments.length > 0) {
                   for (const inst of pm.customInstallments) {
@@ -3898,7 +3876,6 @@ function ExpensesPageInner() {
           if (amount > 0 && pm.method) {
             const installmentsCount = parseInt(pm.installments) || 1;
             const creditCardId = pm.method === "credit_card" && pm.creditCardId ? pm.creditCardId : null;
-            const card = creditCardId ? businessCreditCards.find(c => c.id === creditCardId) : null;
 
             if (installmentsCount > 1 && pm.customInstallments.length > 0) {
               // Create split for each installment
