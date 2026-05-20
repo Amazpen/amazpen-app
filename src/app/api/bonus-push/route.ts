@@ -246,10 +246,21 @@ function buildConsolidatedEmailHtml(
   const MUTED = "rgba(255,255,255,0.5)";
   const ACCENT = totalBonus > 0 ? GREEN : "#FFA412";
 
-  // Build KPI rows — all in one table.
-  // Each row also carries a "mobile-card" class so the @media block at the
-  // top of the document can flip rows into stacked cards on small screens.
-  let tableRowsHtml = "";
+  // Build one self-contained CARD per KPI instead of a 5-column table.
+  // Why: Gmail's mobile app strips the whole <style> block whenever it sees
+  // CSS it can't parse, which killed the @media rules that were supposed to
+  // reflow the table — leaving a squished tower of columns on phones. Cards
+  // built from single-column, inline-styled tables need NO media query: each
+  // metric sits on its own labeled row, so the layout reads correctly at any
+  // width and in any client. Each KPI is a header (name) + four label/value
+  // rows (יעד / בפועל / הפרש % / הפרש ₪).
+  const metricRow = (label: string, value: string, valueColor: string, bold = false) => `
+    <tr>
+      <td style="padding: 6px 0; font-size: 13px; color: ${MUTED}; text-align: right; white-space: nowrap;">${label}</td>
+      <td style="padding: 6px 0; font-size: 15px; color: ${valueColor}; text-align: left; font-weight: ${bold ? "bold" : "normal"}; direction: ltr;">${value}</td>
+    </tr>`;
+
+  let kpiCardsHtml = "";
   for (const kpi of kpis) {
     const { plan, status, displayName, diffPct, diffAmount } = kpi;
 
@@ -258,11 +269,11 @@ function buildConsolidatedEmailHtml(
 
     let diffPctStr = "—";
     let diffAmountStr = "—";
-    let rowColor = TEXT;
+    let valueColor = TEXT;
 
     if (diffPct !== null) {
       const good = isGood(plan, diffPct);
-      rowColor = good ? GREEN : RED;
+      valueColor = good ? GREEN : RED;
       diffPctStr = formatPctDiff(diffPct);
     }
 
@@ -270,14 +281,20 @@ function buildConsolidatedEmailHtml(
       diffAmountStr = formatCurrency(diffAmount);
     }
 
-    tableRowsHtml += `
-      <tr class="kpi-row" style="border-bottom: 1px solid rgba(255,255,255,0.08);">
-        <td class="kpi-cell kpi-name" data-label="פרמטר" style="padding: 10px 12px; color: ${TEXT}; font-size: 14px; text-align: right;">${displayName}</td>
-        <td class="kpi-cell" data-label="יעד" style="padding: 10px 8px; color: ${MUTED}; font-size: 14px; text-align: center;">${goalStr}</td>
-        <td class="kpi-cell" data-label="בפועל" style="padding: 10px 8px; color: ${rowColor}; font-size: 14px; text-align: center; font-weight: bold;">${currentStr}</td>
-        <td class="kpi-cell" data-label="הפרש %" style="padding: 10px 8px; color: ${rowColor}; font-size: 14px; text-align: center;">${diffPctStr}</td>
-        <td class="kpi-cell" data-label="הפרש ₪" style="padding: 10px 8px; color: ${rowColor}; font-size: 14px; text-align: center;">${diffAmountStr}</td>
-      </tr>`;
+    kpiCardsHtml += `
+      <table dir="rtl" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; background: ${ROW_BG}; border-radius: 8px; margin: 0 0 10px 0; border: 1px solid rgba(255,255,255,0.08);">
+        <tr>
+          <td style="padding: 12px 16px;">
+            <div style="font-size: 15px; font-weight: bold; color: ${TEXT}; text-align: right; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.10);">${displayName}</div>
+            <table dir="rtl" cellpadding="0" cellspacing="0" width="100%" style="width: 100%;">
+              ${metricRow("יעד", goalStr, MUTED)}
+              ${metricRow("בפועל", currentStr, valueColor, true)}
+              ${metricRow("הפרש ב-%", diffPctStr, valueColor)}
+              ${metricRow("הפרש ב-₪", diffAmountStr, valueColor)}
+            </table>
+          </td>
+        </tr>
+      </table>`;
   }
 
   const planNames = [...new Set(kpis.map(k => k.plan.area_name))];
@@ -317,30 +334,6 @@ function buildConsolidatedEmailHtml(
       </div>`
     : "";
 
-  // David's responsive request: the table breaks badly on phones — narrow
-  // viewport collapses every cell into a tower of 2-character columns.
-  // The @media block flips rows into stacked cards (label : value pairs
-  // using data-label) on screens < 480px. Older email clients just ignore
-  // the styles and keep the desktop table layout, so it's a safe upgrade.
-  const styleBlock = `
-    <style>
-      @media (max-width: 480px) {
-        .container { padding: 16px !important; }
-        .header-title { font-size: 20px !important; }
-        .header-business { font-size: 14px !important; }
-        .plan-names span { font-size: 12px !important; padding: 3px 10px !important; }
-        .kpi-table thead { display: none !important; }
-        .kpi-table, .kpi-table tbody, .kpi-row, .kpi-cell { display: block !important; width: 100% !important; }
-        .kpi-row { background: ${ROW_BG} !important; border-radius: 8px !important; margin-bottom: 10px !important; padding: 10px 12px !important; border: 1px solid rgba(255,255,255,0.08) !important; }
-        .kpi-cell { display: flex !important; justify-content: space-between !important; align-items: center !important; padding: 5px 0 !important; text-align: right !important; border: none !important; }
-        .kpi-cell::before { content: attr(data-label); color: ${MUTED}; font-size: 12px; }
-        .kpi-cell.kpi-name { font-weight: bold; font-size: 15px !important; padding-bottom: 8px !important; border-bottom: 1px solid rgba(255,255,255,0.08) !important; margin-bottom: 5px !important; }
-        .kpi-cell.kpi-name::before { display: none !important; }
-        .cta { padding: 14px 20px !important; font-size: 14px !important; }
-      }
-    </style>
-  `;
-
   const businessHeader = businessLabel
     ? `<p class="header-business" style="margin: 4px 0 0 0; font-size: 15px; color: ${MUTED};">${businessLabel}</p>`
     : "";
@@ -355,10 +348,15 @@ function buildConsolidatedEmailHtml(
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      ${styleBlock}
     </head>
     <body style="margin: 0; padding: 0; background: ${BG};">
-      <div class="container" dir="rtl" style="font-family: Assistant, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: ${BG}; border-radius: 12px; padding: 28px; color: ${TEXT};">
+      <!-- Outer wrapper table: full-width on phones, capped at 600px on desktop.
+           The whole layout is responsive WITHOUT media queries (Gmail's mobile
+           app strips <style> blocks), so it renders identically everywhere. -->
+      <table dir="rtl" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; background: ${BG};">
+        <tr>
+          <td align="center" style="padding: 16px;">
+      <div class="container" dir="rtl" style="font-family: Assistant, Arial, sans-serif; width: 100%; max-width: 600px; margin: 0 auto; background: ${BG}; border-radius: 12px; padding: 20px; color: ${TEXT}; box-sizing: border-box;">
         <!-- Header -->
         <div style="text-align: center; margin-bottom: 22px;">
           <h2 class="header-title" style="margin: 0 0 6px 0; font-size: 22px; color: ${ACCENT};">🎯 עדכון בונוס יומי</h2>
@@ -371,21 +369,11 @@ function buildConsolidatedEmailHtml(
           ${planNamesHtml}
         </div>
 
-        <!-- KPI Table -->
-        <table class="kpi-table" dir="rtl" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; background: ${ROW_BG}; border-radius: 8px; overflow: hidden;">
-          <thead>
-            <tr style="background: ${HEADER_BG};">
-              <th style="padding: 12px; font-size: 13px; color: ${MUTED}; text-align: right; font-weight: 600;">פרמטר שנמדד</th>
-              <th style="padding: 12px 8px; font-size: 13px; color: ${MUTED}; text-align: center; font-weight: 600;">יעד</th>
-              <th style="padding: 12px 8px; font-size: 13px; color: ${MUTED}; text-align: center; font-weight: 600;">בפועל</th>
-              <th style="padding: 12px 8px; font-size: 13px; color: ${MUTED}; text-align: center; font-weight: 600;">הפרש ב%</th>
-              <th style="padding: 12px 8px; font-size: 13px; color: ${MUTED}; text-align: center; font-weight: 600;">הפרש ב-₪</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRowsHtml}
-          </tbody>
-        </table>
+        <!-- KPI Cards (one per parameter — no media query needed) -->
+        <div style="background: ${HEADER_BG}; border-radius: 8px; padding: 10px 16px; margin-bottom: 12px; text-align: right;">
+          <span style="font-size: 14px; font-weight: 600; color: ${TEXT};">פרמטרים שנמדדו</span>
+        </div>
+        ${kpiCardsHtml}
 
         <!-- Bonus Status -->
         <div style="text-align: center; margin: 22px 0; padding: 18px; background: ${ROW_BG}; border-radius: 8px; border: 1px solid ${ACCENT}40;">
@@ -406,6 +394,9 @@ function buildConsolidatedEmailHtml(
           <p style="font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 8px;">המצפן — מערכת ניהול עסקית</p>
         </div>
       </div>
+          </td>
+        </tr>
+      </table>
     </body>
     </html>
   `;
