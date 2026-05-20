@@ -159,8 +159,10 @@ interface PendingPaymentRow {
   supplierName: string;
   invoiceNumber: string | null;
   invoiceDate: string;          // YYYY-MM-DD
+  monthKey: string;             // YYYY-MM (grouping key — by reference/value date)
+  monthLabel: string;           // "אפריל 26" (display)
   totalAmount: number;          // חשבונית כולל מע"מ
-  paidAmount: number;           // amount_paid
+  paidAmount: number;           // computed paid (links + direct FK)
   balance: number;              // total - paid
   paymentTermsDays: number | null;
   paymentTermsLabel: string;    // "שוטף 30" / "ה.קבע" / ...
@@ -326,13 +328,30 @@ interface PendingPaymentsReportProps {
   availableCategories: string[];
   categoryFilter: Set<string>;
   onToggleCategory: (name: string) => void;
-  sortColumn: "supplier" | "total" | "paid" | "balance" | "terms" | "dueDate" | "method" | "verified" | "starred" | null;
-  sortOrder: "asc" | "desc";
-  onSort: (col: "supplier" | "total" | "paid" | "balance" | "terms" | "dueDate" | "method" | "verified" | "starred") => void;
   onToggleStar: (row: PendingPaymentRow) => void;
   onToggleVerified: (row: PendingPaymentRow) => void;
   onClose: () => void;
   formatDate: (s: string) => string;
+}
+
+// One grouped line in the report = supplier + accounting month, holding all
+// the unpaid invoices for that bucket.
+interface SupplierMonthGroup {
+  key: string;            // supplierId|monthKey
+  supplierId: string;
+  supplierName: string;
+  monthKey: string;       // YYYY-MM
+  monthLabel: string;     // "אפריל 26"
+  invoices: PendingPaymentRow[];
+  totalAmount: number;    // sum total (סה"כ רכישות)
+  paidAmount: number;     // sum paid (שולם)
+  balance: number;        // sum balance (נותר לתשלום / מאושר לתשלום)
+  termsLabel: string;     // representative terms label
+  dueDate: string;        // representative due date (latest in group)
+  methodLabel: string;    // representative payment method
+  isStandingOrder: boolean;
+  verified: boolean;      // true when ALL invoices in the group are verified
+  starred: boolean;       // true when any invoice/supplier is starred
 }
 
 function PendingPaymentsReport({
@@ -344,54 +363,83 @@ function PendingPaymentsReport({
   availableCategories,
   categoryFilter,
   onToggleCategory,
-  sortColumn,
-  sortOrder,
-  onSort,
   onToggleStar,
   onToggleVerified,
   onClose,
   formatDate,
 }: PendingPaymentsReportProps) {
-  // Filter: empty set => show only default categories (when seeded) OR show all
-  // when there are zero available categories. Otherwise show rows whose
-  // parent_category_name is in the filter set, plus any row with no category
-  // (so unclassified suppliers aren't silently hidden).
-  const filtered = rows.filter(r => {
+  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (key: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  // Category filter: empty set => show all. Otherwise show rows whose
+  // parent_category_name is in the set, plus uncategorized rows.
+  const categoryFiltered = rows.filter(r => {
     if (categoryFilter.size === 0) return true;
     if (!r.parentCategoryName) return true;
     return categoryFilter.has(r.parentCategoryName);
   });
 
-  const sorted = [...filtered].sort((a, b) => {
-    const dir = sortOrder === "asc" ? 1 : -1;
-    switch (sortColumn) {
-      case "supplier":  return a.supplierName.localeCompare(b.supplierName, "he") * dir;
-      case "total":     return (a.totalAmount - b.totalAmount) * dir;
-      case "paid":      return (a.paidAmount - b.paidAmount) * dir;
-      case "balance":   return (a.balance - b.balance) * dir;
-      case "terms":     return ((a.paymentTermsDays ?? -1) - (b.paymentTermsDays ?? -1)) * dir;
-      case "dueDate":   return a.dueDate.localeCompare(b.dueDate) * dir;
-      case "method":    return a.paymentMethodLabel.localeCompare(b.paymentMethodLabel, "he") * dir;
-      case "verified": {
-        const av = a.verifiedAt ? 1 : 0;
-        const bv = b.verifiedAt ? 1 : 0;
-        return (av - bv) * dir;
-      }
-      case "starred": {
-        const av = a.starred ? 1 : 0;
-        const bv = b.starred ? 1 : 0;
-        if (av !== bv) return (bv - av); // starred always first when this column is active
-        return a.supplierName.localeCompare(b.supplierName, "he");
-      }
-      default:          return 0;
-    }
-  });
+  // Supplier-name search (#12).
+  const searchFiltered = search.trim()
+    ? categoryFiltered.filter(r => r.supplierName.toLowerCase().includes(search.trim().toLowerCase()))
+    : categoryFiltered;
 
-  const totalRow = sorted.reduce(
-    (acc, r) => {
-      acc.total += r.totalAmount;
-      acc.paid  += r.paidAmount;
-      acc.balance += r.balance;
+  // Group by supplier + accounting month (#3, #4).
+  const groups: SupplierMonthGroup[] = (() => {
+    const map = new Map<string, SupplierMonthGroup>();
+    for (const r of searchFiltered) {
+      const key = `${r.supplierId}|${r.monthKey}`;
+      let g = map.get(key);
+      if (!g) {
+        g = {
+          key,
+          supplierId: r.supplierId,
+          supplierName: r.supplierName,
+          monthKey: r.monthKey,
+          monthLabel: r.monthLabel,
+          invoices: [],
+          totalAmount: 0,
+          paidAmount: 0,
+          balance: 0,
+          termsLabel: r.paymentTermsLabel,
+          dueDate: r.dueDate,
+          methodLabel: r.paymentMethodLabel,
+          isStandingOrder: r.isStandingOrder,
+          verified: true,
+          starred: false,
+        };
+        map.set(key, g);
+      }
+      g.invoices.push(r);
+      g.totalAmount += r.totalAmount;
+      g.paidAmount += r.paidAmount;
+      g.balance += r.balance;
+      if (r.dueDate > g.dueDate) g.dueDate = r.dueDate; // latest due date in bucket
+      if (!r.verifiedAt) g.verified = false;
+      if (r.starred) g.starred = true;
+    }
+    // Sort: starred first, then supplier name, then month (newest first).
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.starred !== b.starred) return a.starred ? -1 : 1;
+      const nameCmp = a.supplierName.localeCompare(b.supplierName, "he");
+      if (nameCmp !== 0) return nameCmp;
+      return b.monthKey.localeCompare(a.monthKey);
+    });
+  })();
+
+  const grandTotal = groups.reduce(
+    (acc, g) => {
+      acc.total += g.totalAmount;
+      acc.paid += g.paidAmount;
+      acc.balance += g.balance;
       return acc;
     },
     { total: 0, paid: 0, balance: 0 }
@@ -400,15 +448,56 @@ function PendingPaymentsReport({
   const fmtMoney = (n: number) =>
     n.toLocaleString("he-IL", { minimumFractionDigits: n % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
 
-  const sortChevron = (col: string) => {
-    if (sortColumn !== col) return <span className="opacity-30">↕</span>;
-    return <span className="opacity-90">{sortOrder === "asc" ? "▲" : "▼"}</span>;
+  // Export to CSV (Excel-friendly, UTF-8 BOM) for sending to the client (#6, #7).
+  const handleExport = () => {
+    const headers = [
+      "שם ספק", "חודש", "מספר חשבוניות",
+      "סה\"כ רכישות", "שולם", "מאושר לתשלום",
+      "תנאי תשלום", "תאריך לתשלום", "אמצעי תשלום", "כרטסת נבדקה",
+    ];
+    const csvCell = (v: string | number) => {
+      const s = String(v ?? "");
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [headers.map(csvCell).join(",")];
+    for (const g of groups) {
+      lines.push([
+        g.supplierName,
+        g.monthLabel,
+        g.invoices.length,
+        g.totalAmount.toFixed(2),
+        g.paidAmount.toFixed(2),
+        g.balance.toFixed(2),
+        g.termsLabel,
+        formatDate(g.dueDate),
+        g.methodLabel,
+        g.verified ? "כן" : "לא",
+      ].map(csvCell).join(","));
+    }
+    lines.push("");
+    lines.push([
+      "סה\"כ", "", String(groups.reduce((s, g) => s + g.invoices.length, 0)),
+      grandTotal.total.toFixed(2), grandTotal.paid.toFixed(2), grandTotal.balance.toFixed(2),
+      "", "", "", "",
+    ].map(csvCell).join(","));
+
+    const csv = "﻿" + lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const rangeLabel = `${toLocalDateStr(dateRange.start)}_${toLocalDateStr(dateRange.end)}`;
+    a.href = url;
+    a.download = `דוח_ממתינים_לתשלום_${rangeLabel}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
-  // Grid template — fixed widths for numeric columns, flex for supplier name.
-  // RTL-friendly: header and body share the same template so columns align.
-  const gridCols =
-    "grid-cols-[40px_1.6fr_90px_80px_90px_90px_100px_120px_90px]";
+  // Grid template: name (flex) | חשבוניות | סה"כ רכישות | שולם | מאושר לתשלום
+  //                | תנאי תשלום | תאריך | אמצעי | נבדקה | חץ-הרחבה
+  const gridCols = "grid-cols-[40px_1.6fr_70px_95px_80px_95px_90px_100px_110px_80px]";
+  const totalInvoices = groups.reduce((s, g) => s + g.invoices.length, 0);
 
   return (
     <div className="bg-[#0F1535] rounded-[20px] mt-[10px] mb-[10px] p-[15px] flex flex-col gap-[12px]">
@@ -416,22 +505,70 @@ function PendingPaymentsReport({
       <div className="flex items-center justify-between flex-wrap gap-[10px]">
         <div className="flex items-center gap-[10px] flex-wrap">
           <h2 className="text-[22px] font-bold text-white">דו&quot;ח ממתינים לתשלום</h2>
-          <DateRangePicker dateRange={dateRange} onChange={onDateRangeChange} />
+          <DateRangePicker dateRange={dateRange} onChange={onDateRangeChange} allowCustomRange />
         </div>
-        <Button
-          type="button"
-          onClick={onClose}
-          className="opacity-60 hover:opacity-100 transition-opacity"
-          aria-label="סגירה"
-        >
-          <X size={22} className="text-white" />
-        </Button>
+        <div className="flex items-center gap-[8px]">
+          <Button
+            type="button"
+            onClick={handleExport}
+            disabled={groups.length === 0}
+            className="flex items-center gap-[6px] bg-[#0BB783] hover:bg-[#0aa676] disabled:opacity-40 text-white text-[13px] font-semibold px-[12px] py-[7px] rounded-[7px] transition-colors"
+            title="הורד דוח לשליחה ללקוח"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            הורד דוח
+          </Button>
+          <Button
+            type="button"
+            onClick={onClose}
+            className="opacity-60 hover:opacity-100 transition-opacity"
+            aria-label="סגירה"
+          >
+            <X size={22} className="text-white" />
+          </Button>
+        </div>
       </div>
 
-      {/* Category filter chips */}
+      {/* Supplier search (#12) */}
+      <div className="relative max-w-[320px]">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="חיפוש לפי שם ספק..."
+          className="w-full bg-[#1a1f4e] border border-[#727BA0] rounded-[7px] px-[12px] h-[38px] text-white text-right text-[14px] placeholder:text-white/30 focus:outline-none focus:border-[#4956D4]"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch("")}
+            className="absolute left-[10px] top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+            aria-label="נקה חיפוש"
+          >
+            <X size={16} />
+          </button>
+        )}
+      </div>
+
+      {/* Category filter chips — with a default "הכל" option (#2) */}
       {availableCategories.length > 0 && (
         <div className="flex items-center gap-[8px] flex-wrap">
           <span className="text-[13px] text-white/60">סינון לפי קטגוריה:</span>
+          <Button
+            type="button"
+            onClick={() => { categoryFilter.forEach(c => onToggleCategory(c)); }}
+            className={`text-[13px] px-[10px] py-[4px] rounded-full border transition-colors ${
+              categoryFilter.size === 0
+                ? "bg-[#3D44A0] border-white text-white"
+                : "bg-transparent border-white/25 text-white/70 hover:border-white/50"
+            }`}
+          >
+            הכל
+          </Button>
           {availableCategories.map(cat => {
             const active = categoryFilter.has(cat);
             return (
@@ -452,42 +589,21 @@ function PendingPaymentsReport({
         </div>
       )}
 
-      {/* Table — wrapped in overflow-x-auto so the 9-column grid scrolls
-          horizontally on mobile instead of crushing column widths to nothing
-          and overlapping into garbage. min-w on the inner div locks the
-          horizontal budget at the desktop layout width. */}
+      {/* Table */}
       <div className="w-full overflow-x-auto">
-      <div className="min-w-[890px] flex flex-col">
+      <div className="min-w-[900px] flex flex-col">
         {/* Header row */}
         <div className={`grid ${gridCols} bg-[#29318A] rounded-t-[7px] p-[10px_5px] pe-[13px] items-center text-[13px] font-semibold text-white gap-[4px]`}>
-          {/* Star */}
-          <Button type="button" onClick={() => onSort("starred")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
-            ★ {sortChevron("starred")}
-          </Button>
-          <Button type="button" onClick={() => onSort("supplier")} className="flex items-center justify-start gap-[3px] hover:opacity-80 ps-[5px]">
-            שם הספק {sortChevron("supplier")}
-          </Button>
-          <Button type="button" onClick={() => onSort("total")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
-            סכום לתשלום {sortChevron("total")}
-          </Button>
-          <Button type="button" onClick={() => onSort("paid")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
-            שולם {sortChevron("paid")}
-          </Button>
-          <Button type="button" onClick={() => onSort("balance")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
-            הפרש {sortChevron("balance")}
-          </Button>
-          <Button type="button" onClick={() => onSort("terms")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
-            תנאי תשלום {sortChevron("terms")}
-          </Button>
-          <Button type="button" onClick={() => onSort("dueDate")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
-            תאריך לתשלום {sortChevron("dueDate")}
-          </Button>
-          <Button type="button" onClick={() => onSort("method")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
-            אמצעי תשלום {sortChevron("method")}
-          </Button>
-          <Button type="button" onClick={() => onSort("verified")} className="flex items-center justify-center gap-[3px] hover:opacity-80">
-            כרטיס נבדקה {sortChevron("verified")}
-          </Button>
+          <span className="text-center">★</span>
+          <span className="text-right ps-[5px]">שם הספק</span>
+          <span className="text-center">חשבוניות</span>
+          <span className="text-center">סה&quot;כ רכישות</span>
+          <span className="text-center">שולם</span>
+          <span className="text-center">מאושר לתשלום</span>
+          <span className="text-center">תנאי תשלום</span>
+          <span className="text-center">תאריך לתשלום</span>
+          <span className="text-center">אמצעי תשלום</span>
+          <span className="text-center">כרטסת נבדקה</span>
         </div>
 
         {/* Body */}
@@ -496,79 +612,106 @@ function PendingPaymentsReport({
             <div className="flex items-center justify-center py-[40px]">
               <div className="w-[24px] h-[24px] border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
             </div>
-          ) : sorted.length === 0 ? (
+          ) : groups.length === 0 ? (
             <div className="flex items-center justify-center py-[40px]">
               <span className="text-[15px] text-white/50">אין חשבוניות ממתינות לתשלום בטווח התאריכים שנבחר</span>
             </div>
           ) : (
-            sorted.map(row => (
-              <div
-                key={row.invoiceId}
-                className={`grid ${gridCols} w-full p-[8px_5px] items-center text-[13px] text-white border-b border-white/5 hover:bg-white/[0.03] transition-colors gap-[4px] ${
-                  row.starred ? "bg-[#3D44A0]/10" : ""
-                }`}
-              >
-                {/* Star toggle */}
-                <button
-                  type="button"
-                  onClick={() => onToggleStar(row)}
-                  className={`flex items-center justify-center text-[18px] transition-colors ${
-                    row.starred ? "text-[#FFCF00]" : "text-white/25 hover:text-white/60"
-                  }`}
-                  aria-label={row.starred ? "הסר סימון" : "סמן בכוכב"}
+            groups.map(g => {
+              const isOpen = expanded.has(g.key);
+              return (
+              <div key={g.key} className={`rounded-[5px] ${g.starred ? "bg-[#3D44A0]/10" : ""}`}>
+                {/* Group row — clickable to expand the breakdown (#4) */}
+                <div
+                  className={`grid ${gridCols} w-full p-[8px_5px] items-center text-[13px] text-white border-b border-white/5 hover:bg-white/[0.03] transition-colors gap-[4px] cursor-pointer`}
+                  onClick={() => toggleExpanded(g.key)}
                 >
-                  {row.starred ? "★" : "☆"}
-                </button>
-                {/* Supplier name */}
-                <span className="text-right ps-[5px] truncate" title={row.supplierName}>
-                  {row.supplierName}
-                  {row.invoiceNumber && (
-                    <span className="text-white/40 text-[11px] ltr-num"> · {row.invoiceNumber}</span>
-                  )}
-                </span>
-                {/* Total */}
-                <span className="text-center ltr-num">{fmtMoney(row.totalAmount)}</span>
-                {/* Paid */}
-                <span className="text-center ltr-num">{fmtMoney(row.paidAmount)}</span>
-                {/* Balance */}
-                <span className="text-center ltr-num font-semibold">{fmtMoney(row.balance)}</span>
-                {/* Terms */}
-                <span className={`text-center ${row.isStandingOrder ? "text-purple-400 font-medium" : ""}`}>
-                  {row.paymentTermsLabel}
-                </span>
-                {/* Due date */}
-                <span className="text-center ltr-num">{formatDate(row.dueDate)}</span>
-                {/* Payment method */}
-                <span className={`text-center truncate ${row.isStandingOrder ? "text-purple-400" : ""}`} title={row.paymentMethodLabel}>
-                  {row.paymentMethodLabel}
-                </span>
-                {/* Verified toggle */}
-                <button
-                  type="button"
-                  onClick={() => onToggleVerified(row)}
-                  className={`text-center text-[12px] px-[6px] py-[3px] rounded transition-colors ${
-                    row.verifiedAt
-                      ? "bg-green-500/20 text-green-300 hover:bg-green-500/30"
-                      : "bg-white/5 text-white/50 hover:bg-white/10"
-                  }`}
-                >
-                  {row.verifiedAt
-                    ? new Date(row.verifiedAt).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" })
-                    : "לא"}
-                </button>
+                  {/* Star toggle — toggles the first invoice / supplier */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onToggleStar(g.invoices[0]); }}
+                    className={`flex items-center justify-center text-[18px] transition-colors ${
+                      g.starred ? "text-[#FFCF00]" : "text-white/25 hover:text-white/60"
+                    }`}
+                    aria-label={g.starred ? "הסר סימון" : "סמן בכוכב"}
+                  >
+                    {g.starred ? "★" : "☆"}
+                  </button>
+                  {/* Supplier + month (#3) */}
+                  <span className="text-right ps-[5px] truncate flex items-center gap-[5px]" title={`${g.supplierName} – ${g.monthLabel}`}>
+                    <svg width="11" height="11" viewBox="0 0 32 32" fill="none" className={`flex-shrink-0 text-white/40 transition-transform ${isOpen ? "rotate-90" : ""}`}>
+                      <path d="M20 10L14 16L20 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span className="truncate">
+                      {g.supplierName}
+                      <span className="text-white/45 text-[11px]"> – {g.monthLabel}</span>
+                    </span>
+                  </span>
+                  {/* Invoice count */}
+                  <span className="text-center text-white/70">{g.invoices.length}</span>
+                  {/* סה"כ רכישות (#8) */}
+                  <span className="text-center ltr-num">{fmtMoney(g.totalAmount)}</span>
+                  {/* שולם (#5) */}
+                  <span className="text-center ltr-num">{fmtMoney(g.paidAmount)}</span>
+                  {/* מאושר לתשלום (#9) */}
+                  <span className="text-center ltr-num font-semibold">{fmtMoney(g.balance)}</span>
+                  {/* תנאי תשלום */}
+                  <span className={`text-center ${g.isStandingOrder ? "text-purple-400 font-medium" : ""}`}>{g.termsLabel}</span>
+                  {/* תאריך לתשלום (#11) */}
+                  <span className="text-center ltr-num">{formatDate(g.dueDate)}</span>
+                  {/* אמצעי תשלום */}
+                  <span className={`text-center truncate ${g.isStandingOrder ? "text-purple-400" : ""}`} title={g.methodLabel}>{g.methodLabel}</span>
+                  {/* כרטסת נבדקה — toggles every invoice in the group */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); g.invoices.forEach(inv => onToggleVerified(inv)); }}
+                    className={`text-center text-[12px] px-[6px] py-[3px] rounded transition-colors ${
+                      g.verified
+                        ? "bg-green-500/20 text-green-300 hover:bg-green-500/30"
+                        : "bg-white/5 text-white/50 hover:bg-white/10"
+                    }`}
+                  >
+                    {g.verified ? "כן" : "לא"}
+                  </button>
+                </div>
+
+                {/* Expanded breakdown — one line per invoice (#4) */}
+                {isOpen && (
+                  <div className="bg-black/20 px-[10px] py-[6px] flex flex-col gap-[2px]">
+                    <div className="grid grid-cols-[1fr_90px_90px_90px] text-[11px] text-white/45 font-medium pb-[3px] border-b border-white/10">
+                      <span className="text-right">מספר חשבונית · תאריך</span>
+                      <span className="text-center">סה&quot;כ</span>
+                      <span className="text-center">שולם</span>
+                      <span className="text-center">נותר</span>
+                    </div>
+                    {g.invoices.map(inv => (
+                      <div key={inv.invoiceId} className="grid grid-cols-[1fr_90px_90px_90px] text-[12px] text-white/80 py-[3px]">
+                        <span className="text-right ltr-num truncate">
+                          {inv.invoiceNumber || "—"}
+                          <span className="text-white/40"> · {formatDate(inv.invoiceDate)}</span>
+                        </span>
+                        <span className="text-center ltr-num">{fmtMoney(inv.totalAmount)}</span>
+                        <span className="text-center ltr-num">{fmtMoney(inv.paidAmount)}</span>
+                        <span className="text-center ltr-num font-semibold">{fmtMoney(inv.balance)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            ))
+              );
+            })
           )}
         </div>
 
         {/* Footer totals */}
-        {!isLoading && sorted.length > 0 && (
+        {!isLoading && groups.length > 0 && (
           <div className={`grid ${gridCols} bg-[#29318A]/60 rounded-b-[7px] p-[10px_5px] items-center text-[13px] font-bold text-white border-t-2 border-white/30 gap-[4px]`}>
             <span></span>
-            <span className="text-right ps-[5px]">סה&quot;כ ({sorted.length} חשבוניות)</span>
-            <span className="text-center ltr-num">₪{fmtMoney(totalRow.total)}</span>
-            <span className="text-center ltr-num">₪{fmtMoney(totalRow.paid)}</span>
-            <span className="text-center ltr-num">₪{fmtMoney(totalRow.balance)}</span>
+            <span className="text-right ps-[5px]">סה&quot;כ ({totalInvoices} חשבוניות)</span>
+            <span></span>
+            <span className="text-center ltr-num">₪{fmtMoney(grandTotal.total)}</span>
+            <span className="text-center ltr-num">₪{fmtMoney(grandTotal.paid)}</span>
+            <span className="text-center ltr-num">₪{fmtMoney(grandTotal.balance)}</span>
             <span></span>
             <span></span>
             <span></span>
@@ -1032,8 +1175,6 @@ function PaymentsPageInner() {
   const [isLoadingPending, setIsLoadingPending] = useState(false);
   const [pendingCategoryFilter, setPendingCategoryFilter] = useState<Set<string>>(new Set());
   const [pendingAvailableCategories, setPendingAvailableCategories] = useState<string[]>([]);
-  const [pendingSortColumn, setPendingSortColumn] = useState<"supplier" | "total" | "paid" | "balance" | "terms" | "dueDate" | "method" | "verified" | "starred" | null>("starred");
-  const [pendingSortOrder, setPendingSortOrder] = useState<"asc" | "desc">("desc");
   const isDefaultCategory = useCallback((name: string) => {
     const n = (name || "").trim();
     return n.startsWith("הוצאות שוטפ") || n.startsWith("הוצאות תפעול") || n.startsWith("עלות מכר");
@@ -1788,7 +1929,7 @@ function PaymentsPageInner() {
         supabase
           .from("invoices")
           .select(`
-            id, business_id, supplier_id, invoice_number, invoice_date, total_amount,
+            id, business_id, supplier_id, invoice_number, invoice_date, reference_date, total_amount,
             amount_paid, status, payment_verified_at,
             supplier:suppliers(
               id, name, payment_terms_days, default_payment_method, default_credit_card_id, parent_category_id
@@ -1829,6 +1970,7 @@ function PaymentsPageInner() {
         supplier_id: string | null;
         invoice_number: string | null;
         invoice_date: string;
+        reference_date: string | null;
         total_amount: number | string;
         amount_paid: number | string | null;
         status: string | null;
@@ -1847,6 +1989,38 @@ function PaymentsPageInner() {
       const marks = marksRes.data || [];
       const cards = cardsRes.data || [];
       const parentCats = parentCatsRes.data || [];
+
+      // "שולם" per invoice: invoices.amount_paid is unreliable (rarely written
+      // by the payment flow). Compute the real paid amount from the two payment
+      // sources — payment_invoice_links.amount_allocated (N:M) and the direct
+      // payments.invoice_id FK — so the column reflects what was actually paid.
+      const invoiceIds = invoices.map((i) => i.id);
+      const paidByInvoice = new Map<string, number>();
+      if (invoiceIds.length > 0) {
+        const [linksRes, directRes] = await Promise.all([
+          supabase
+            .from("payment_invoice_links")
+            .select("invoice_id, amount_allocated, payment_id")
+            .in("invoice_id", invoiceIds),
+          supabase
+            .from("payments")
+            .select("id, invoice_id, total_amount")
+            .in("invoice_id", invoiceIds)
+            .is("deleted_at", null),
+        ]);
+        const seenPaymentIds = new Set<string>();
+        for (const l of (linksRes.data || [])) {
+          const amt = Number(l.amount_allocated) || 0;
+          if (amt === 0) continue;
+          paidByInvoice.set(l.invoice_id, (paidByInvoice.get(l.invoice_id) || 0) + amt);
+          if (l.payment_id) seenPaymentIds.add(l.payment_id);
+        }
+        for (const p of (directRes.data || [])) {
+          if (seenPaymentIds.has(p.id)) continue; // already counted via links
+          if (!p.invoice_id) continue;
+          paidByInvoice.set(p.invoice_id, (paidByInvoice.get(p.invoice_id) || 0) + (Number(p.total_amount) || 0));
+        }
+      }
 
       const cardById = new Map<string, { card_name: string | null; last_four_digits: string | null }>();
       for (const c of cards) cardById.set(c.id, { card_name: c.card_name, last_four_digits: c.last_four_digits });
@@ -1868,7 +2042,9 @@ function PaymentsPageInner() {
 
       for (const inv of invoices) {
         const total = Number(inv.total_amount) || 0;
-        const paid = Number(inv.amount_paid) || 0;
+        // Prefer the computed paid (links + direct FK); fall back to amount_paid.
+        const computedPaid = paidByInvoice.get(inv.id);
+        const paid = computedPaid != null ? computedPaid : (Number(inv.amount_paid) || 0);
         const balance = total - paid;
         // Skip fully-paid invoices (use 0.01 epsilon to ignore rounding crumbs)
         if (balance < 0.01) continue;
@@ -1896,15 +2072,23 @@ function PaymentsPageInner() {
         else if (terms && terms > 0) termsLabel = `שוטף ${terms}`;
         else termsLabel = "מיידי";
 
-        // Due date = invoice_date + payment_terms_days. For standing-order rows
-        // we still show the invoice_date as the reference — the actual debit is
-        // unknown until reconciliation.
+        // Due date. For "שוטף N" terms the Israeli convention is end-of-month +
+        // N days credit → the payment falls at the END of the month that is
+        // N days out, not exactly invoice_date + N. David's request: שוטף 30
+        // should land at the end of the FOLLOWING month, not 30 days after the
+        // invoice. Implementation: take the invoice month-end, add the terms
+        // days, then snap to that month's end.
         let dueDate = inv.invoice_date;
         if (!isStandingOrder && terms && terms > 0) {
           const [y, m, d] = inv.invoice_date.split("T")[0].split("-").map(Number);
-          const base = new Date(y, (m || 1) - 1, d || 1);
-          base.setDate(base.getDate() + terms);
-          dueDate = toLocalDateStr(base);
+          // End of the invoice's month.
+          const invMonthEnd = new Date(y, (m || 1), 0);
+          // Add the credit days, then snap to the end of whatever month we land in.
+          const plusTerms = new Date(invMonthEnd);
+          plusTerms.setDate(plusTerms.getDate() + terms);
+          const snapped = new Date(plusTerms.getFullYear(), plusTerms.getMonth() + 1, 0);
+          dueDate = toLocalDateStr(snapped);
+          void d;
         }
 
         const parentCategoryName = supplier?.parent_category_id
@@ -1914,12 +2098,21 @@ function PaymentsPageInner() {
 
         const starred = (supplierId && supplierLevelStarred.has(supplierId)) || invoiceLevelStarred.has(inv.id);
 
+        // Group by the expense's accounting month — reference_date (value date)
+        // when present, else invoice_date. "אפריל 26" style label.
+        const groupDateStr = (inv.reference_date || inv.invoice_date).split("T")[0];
+        const [gy, gm] = groupDateStr.split("-").map(Number);
+        const monthKey = `${gy}-${String(gm).padStart(2, "0")}`;
+        const monthLabel = `${hebrewMonthNamesConst[(gm || 1) - 1]} ${String(gy).slice(2)}`;
+
         rows.push({
           invoiceId: inv.id,
           supplierId,
           supplierName,
           invoiceNumber: inv.invoice_number,
           invoiceDate: inv.invoice_date,
+          monthKey,
+          monthLabel,
           totalAmount: total,
           paidAmount: paid,
           balance,
@@ -2032,14 +2225,6 @@ function PaymentsPageInner() {
       if (next.has(name)) next.delete(name);
       else next.add(name);
       return next;
-    });
-  }, []);
-
-  const handlePendingSort = useCallback((col: "supplier" | "total" | "paid" | "balance" | "terms" | "dueDate" | "method" | "verified" | "starred") => {
-    setPendingSortColumn(prev => {
-      if (prev !== col) { setPendingSortOrder("asc"); return col; }
-      setPendingSortOrder(o => o === "asc" ? "desc" : "asc");
-      return col;
     });
   }, []);
 
@@ -3650,9 +3835,6 @@ function PaymentsPageInner() {
           availableCategories={pendingAvailableCategories}
           categoryFilter={pendingCategoryFilter}
           onToggleCategory={togglePendingCategory}
-          sortColumn={pendingSortColumn}
-          sortOrder={pendingSortOrder}
-          onSort={handlePendingSort}
           onToggleStar={togglePendingStar}
           onToggleVerified={togglePendingVerified}
           onClose={() => setShowPendingReport(false)}

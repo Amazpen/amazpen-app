@@ -14,6 +14,10 @@ interface DateRangePickerProps {
   onChange: (dateRange: DateRange) => void;
   className?: string;
   variant?: "compact" | "button";
+  // When true, adds a "טווח מותאם" section with free start/end date inputs so
+  // the user can pick an arbitrary range (e.g. 01/01–31/03) instead of being
+  // limited to whole months. Used by the pending-payments report.
+  allowCustomRange?: boolean;
 }
 
 // Hebrew months for dropdown
@@ -40,10 +44,31 @@ const years = [2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031];
 // to scroll/select a year for every month switch.
 const DEFAULT_YEAR = "2026";
 
-export function DateRangePicker({ dateRange, onChange, className = "", variant = "compact" }: DateRangePickerProps) {
+function toInputDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+export function DateRangePicker({ dateRange, onChange, className = "", variant = "compact", allowCustomRange = false }: DateRangePickerProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedYear, setSelectedYear] = useState(DEFAULT_YEAR);
+  // Custom-range draft inputs (only used when allowCustomRange).
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+
+  const applyCustomRange = () => {
+    if (!customStart || !customEnd) return;
+    const [sy, sm, sd] = customStart.split("-").map(Number);
+    const [ey, em, ed] = customEnd.split("-").map(Number);
+    const start = new Date(sy, sm - 1, sd);
+    const end = new Date(ey, em - 1, ed);
+    if (end < start) return;
+    onChange({ start, end });
+    setIsDropdownOpen(false);
+  };
   // Anchor: which side of the trigger the dropdown is pinned to. Defaults to
   // 'right' (RTL — opens leftwards from the trigger). When the trigger sits
   // close to the left edge of the viewport, the menu would clip off-screen,
@@ -61,9 +86,23 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
     setAnchorSide(wouldClipLeft ? "left" : "right");
   }, [isDropdownOpen]);
 
-  // Always display as month + year (picker enforces full-month ranges only)
+  // Display: a whole-month range shows "אפריל 2026"; a custom range shows
+  // "01/01/26 – 31/03/26". We detect a whole month by checking the range spans
+  // exactly the 1st to the last day of one month.
+  const isWholeMonth = (() => {
+    const s = dateRange.start;
+    const e = dateRange.end;
+    const lastDay = new Date(s.getFullYear(), s.getMonth() + 1, 0).getDate();
+    return s.getDate() === 1
+      && e.getDate() === lastDay
+      && s.getMonth() === e.getMonth()
+      && s.getFullYear() === e.getFullYear();
+  })();
   const monthLabel = hebrewMonths[dateRange.start.getMonth()]?.label || "";
-  const displayLabel = `${monthLabel} ${dateRange.start.getFullYear()}`;
+  const fmtShort = (d: Date) => `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getFullYear()).slice(2)}`;
+  const displayLabel = isWholeMonth
+    ? `${monthLabel} ${dateRange.start.getFullYear()}`
+    : `${fmtShort(dateRange.start)} – ${fmtShort(dateRange.end)}`;
 
   const selectCurrentMonth = () => {
     const now = new Date();
@@ -214,6 +253,41 @@ export function DateRangePicker({ dateRange, onChange, className = "", variant =
                 </SelectContent>
               </Select>
             </div>
+
+            {allowCustomRange && (
+              <>
+                <div className="border-t border-[#29318A]/50 my-[3px]" />
+                <span className="text-[12px] text-white/60 text-center">טווח מותאם</span>
+                <div className="flex flex-col gap-[4px] px-[2px]">
+                  <label className="flex items-center justify-between gap-[6px] text-[11px] text-white/70">
+                    מתאריך
+                    <input
+                      type="date"
+                      value={customStart || toInputDate(dateRange.start)}
+                      onChange={(e) => setCustomStart(e.target.value)}
+                      className="bg-[#1a1f4e] border border-[#29318A] rounded-[5px] px-[6px] py-[3px] text-white text-[11px] ltr-num"
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-[6px] text-[11px] text-white/70">
+                    עד תאריך
+                    <input
+                      type="date"
+                      value={customEnd || toInputDate(dateRange.end)}
+                      onChange={(e) => setCustomEnd(e.target.value)}
+                      className="bg-[#1a1f4e] border border-[#29318A] rounded-[5px] px-[6px] py-[3px] text-white text-[11px] ltr-num"
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={applyCustomRange}
+                    className="text-[12px] text-white bg-[#29318A] hover:bg-[#3D44A0] rounded-[5px] py-[4px] transition-colors"
+                  >
+                    החל טווח
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </>
       )}
