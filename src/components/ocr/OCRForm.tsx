@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { OCRDocument, OCRFormData, DocumentType, ExpenseType, OCRLineItem } from '@/types/ocr';
 import KartesetCheckPanel from '@/components/ocr/KartesetCheckPanel';
@@ -283,6 +284,15 @@ export default function OCRForm({
   const [mergeSelectedIds, setMergeSelectedIds] = useState<Set<string>>(new Set());
   // Preview a single doc full-screen from inside the merge picker.
   const [mergePreviewUrl, setMergePreviewUrl] = useState<string | null>(null);
+
+  // Close the full-screen preview on Escape — the X / click-to-close are the
+  // primary affordances but keyboard close is expected for an overlay.
+  useEffect(() => {
+    if (!mergePreviewUrl) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMergePreviewUrl(null); };
+    globalThis.addEventListener('keydown', onKey);
+    return () => globalThis.removeEventListener('keydown', onKey);
+  }, [mergePreviewUrl]);
 
   // Fixed-expense linking — when the selected supplier is marked as is_fixed_expense,
   // pull their currently-open monthly invoices so the user can attach this document
@@ -5203,25 +5213,26 @@ export default function OCRForm({
         </SheetContent>
       </Sheet>
 
-      {/* Full-screen image preview overlay — kept outside the Sheet so the
-          merged-doc chips in the form header can also open it (otherwise
-          closing the Sheet would unmount the overlay). z-[200] beats the
-          Sheet's z-index so it stacks on top whether the Sheet is open
-          or not. */}
-      {mergePreviewUrl && (
+      {/* Full-screen image preview overlay. Rendered through a portal to
+          document.body so it escapes the Radix Sheet's modal layer — when it
+          lived inside the Sheet's React subtree, Radix's pointer-events
+          blocker (the dialog overlay) sat on top of it and swallowed clicks,
+          so the X (and click-to-close) did nothing. The portal puts the
+          overlay as a direct child of <body>, above everything. */}
+      {mergePreviewUrl && typeof globalThis !== 'undefined' && globalThis.document && createPortal(
         <div
           role="dialog"
           aria-label="תצוגה מוגדלת"
           onClick={() => setMergePreviewUrl(null)}
-          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
         >
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setMergePreviewUrl(null); }}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+            className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center transition-colors z-[10000]"
             aria-label="סגור"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
           </button>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -5230,7 +5241,8 @@ export default function OCRForm({
             onClick={(e) => e.stopPropagation()}
             className="max-w-full max-h-full object-contain rounded-[8px] cursor-default"
           />
-        </div>
+        </div>,
+        globalThis.document.body
       )}
 
       {/* Duplicate warning banner */}
