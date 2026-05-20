@@ -851,6 +851,78 @@ export default function EditBusinessPage({ params }: PageProps) {
     setIsSubmitting(true);
     const supabase = createClient();
 
+    // Hard-delete removed config rows. These tables carry a partial unique
+    // index on (business_id, name) WHERE deleted_at IS NULL, so the old
+    // "is_active = false" removal left the name occupying the index and any
+    // re-add of the same name failed with a 409. We now DELETE for real.
+    // If the row is still referenced by historical data (daily entries etc.,
+    // FK delete_rule = NO ACTION), the DELETE raises 23503 — fall back to a
+    // soft-delete that sets deleted_at, which frees the unique index (no more
+    // 409) while preserving the history.
+    const deleteConfigRows = async (
+      table: 'income_sources' | 'custom_parameters' | 'managed_products',
+      ids: string[],
+    ) => {
+      if (ids.length === 0) return;
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('business_id', businessId)
+        .in('id', ids);
+      if (!error) return;
+      // 23503 = foreign_key_violation — row has dependent history. Soft-delete
+      // instead so the name is freed from the partial unique index.
+      if (error.code === '23503') {
+        await supabase
+          .from(table)
+          .update({ is_active: false, deleted_at: new Date().toISOString() })
+          .eq('business_id', businessId)
+          .in('id', ids);
+        return;
+      }
+      throw error;
+    };
+
+    // Insert new config rows, reviving any soft-deleted row that shares the
+    // same (business_id, name). A plain INSERT of a name that still exists as
+    // a soft-deleted row collides with the partial unique index (409); reviving
+    // clears deleted_at and re-activates the existing row instead.
+    const insertConfigRows = async (
+      table: 'income_sources' | 'custom_parameters' | 'managed_products',
+      rows: Record<string, unknown>[],
+    ) => {
+      if (rows.length === 0) return;
+      const names = rows.map((r) => r.name as string);
+      const { data: deletedRows } = await supabase
+        .from(table)
+        .select('id, name')
+        .eq('business_id', businessId)
+        .not('deleted_at', 'is', null)
+        .in('name', names);
+      const revivedByName = new Map<string, string>();
+      for (const dr of deletedRows || []) revivedByName.set(dr.name as string, dr.id as string);
+
+      const toInsert: Record<string, unknown>[] = [];
+      for (const row of rows) {
+        const reviveId = revivedByName.get(row.name as string);
+        if (reviveId) {
+          const { deleted_at: _omit, ...reviveData } = { ...row, deleted_at: null };
+          void _omit;
+          const { error } = await supabase
+            .from(table)
+            .update({ ...reviveData, deleted_at: null, is_active: true })
+            .eq('id', reviveId);
+          if (error) throw error;
+        } else {
+          toInsert.push(row);
+        }
+      }
+      if (toInsert.length > 0) {
+        const { error } = await supabase.from(table).insert(toInsert);
+        if (error) throw error;
+      }
+    };
+
     try {
       // 1. Upload new logo if provided
       let logoUrl: string | null = existingLogoUrl;
@@ -1222,15 +1294,9 @@ export default function EditBusinessPage({ params }: PageProps) {
           }, { onConflict: "business_id,day_of_week" });
       }
 
-      // 4. Update income sources — only deactivate ids the user explicitly clicked X on.
+      // 4. Update income sources — only delete ids the user explicitly clicked X on.
       // Never use list-diff: a stale form/draft must not be allowed to hide DB items.
-      if (removedIncomeIds.size > 0) {
-        await supabase
-          .from("income_sources")
-          .update({ is_active: false })
-          .eq("business_id", businessId)
-          .in("id", Array.from(removedIncomeIds));
-      }
+      await deleteConfigRows("income_sources", Array.from(removedIncomeIds));
 
       // Update display_order for existing income sources based on current array order (#38)
       for (let i = 0; i < incomeSources.length; i++) {
@@ -1242,37 +1308,27 @@ export default function EditBusinessPage({ params }: PageProps) {
       const newIncomeSources = incomeSources
         .map((s, i) => ({ ...s, _order: i }))
         .filter(s => !s.id || s.id.startsWith('_new_'));
-      if (newIncomeSources.length > 0) {
-        await supabase.from("income_sources").insert(
-          newIncomeSources.map((s) => ({
-            business_id: businessId,
-            name: s.name,
-            display_order: s._order,
-            is_active: true,
-          }))
-        );
-      }
+      await insertConfigRows("income_sources",
+        newIncomeSources.map((s) => ({
+          business_id: businessId,
+          name: s.name,
+          display_order: s._order,
+          is_active: true,
+        }))
+      );
 
-      // 5. Update custom parameters — only deactivate explicit removals.
-      if (removedCustomParamIds.size > 0) {
-        await supabase
-          .from("custom_parameters")
-          .update({ is_active: false })
-          .eq("business_id", businessId)
-          .in("id", Array.from(removedCustomParamIds));
-      }
+      // 5. Update custom parameters — only delete explicit removals.
+      await deleteConfigRows("custom_parameters", Array.from(removedCustomParamIds));
 
       const newParams = customParameters.filter(p => !p.id || p.id.startsWith('_new_'));
-      if (newParams.length > 0) {
-        await supabase.from("custom_parameters").insert(
-          newParams.map((p, i) => ({
-            business_id: businessId,
-            name: p.name,
-            display_order: customParameters.length + i,
-            is_active: true,
-          }))
-        );
-      }
+      await insertConfigRows("custom_parameters",
+        newParams.map((p, i) => ({
+          business_id: businessId,
+          name: p.name,
+          display_order: customParameters.length + i,
+          is_active: true,
+        }))
+      );
 
       // 7. Update credit cards — only soft-delete explicit removals.
       const nowIso = new Date().toISOString();
@@ -1298,14 +1354,8 @@ export default function EditBusinessPage({ params }: PageProps) {
         if (insertCardsError) throw insertCardsError;
       }
 
-      // 8. Update managed products — only deactivate explicit removals.
-      if (removedManagedProductIds.size > 0) {
-        await supabase
-          .from("managed_products")
-          .update({ is_active: false })
-          .eq("business_id", businessId)
-          .in("id", Array.from(removedManagedProductIds));
-      }
+      // 8. Update managed products — only delete explicit removals.
+      await deleteConfigRows("managed_products", Array.from(removedManagedProductIds));
 
       // Update existing products (unit + unit_cost + display_order)
       const existingProducts = managedProducts.filter(p => p.id && !p.id.startsWith('_new_'));
@@ -1321,7 +1371,7 @@ export default function EditBusinessPage({ params }: PageProps) {
       const newProducts = managedProducts.filter(p => !p.id || p.id.startsWith('_new_'));
       if (newProducts.length > 0) {
         const existingCount = managedProducts.filter(p => p.id && !p.id.startsWith('_new_')).length;
-        await supabase.from("managed_products").insert(
+        await insertConfigRows("managed_products",
           newProducts.map((p, idx) => ({
             business_id: businessId,
             name: p.name,
