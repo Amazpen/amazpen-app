@@ -171,6 +171,7 @@ interface PaymentMethodEntry {
     date: string;
     dateForInput: string;
     amount: number;
+    amountStr?: string;   // raw text while editing (lets the user type "20528.50")
     checkNumber?: string;
     manuallyEdited?: boolean;
   }>;
@@ -1479,7 +1480,10 @@ export default function OCRForm({
   // already typed. We just update the edited row and recompute the method total
   // as the sum of installments so the running "סה"כ" matches what was entered.
   const handleInstallmentAmountChange = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, paymentMethodId: number, installmentIndex: number, newAmount: string) => {
-    const amount = parseFloat(newAmount.replace(/[^\d.-]/g, '')) || 0;
+    // Keep the raw text so the user can type a decimal point ("20528." → "20528.50")
+    // without the controlled input snapping it back to an integer mid-keystroke.
+    const cleaned = newAmount.replace(/[^\d.]/g, '');
+    const amount = parseFloat(cleaned) || 0;
     setter(prev => prev.map(p => {
       if (p.id !== paymentMethodId) return p;
       const updatedInstallments = [...p.customInstallments];
@@ -1487,6 +1491,7 @@ export default function OCRForm({
         updatedInstallments[installmentIndex] = {
           ...updatedInstallments[installmentIndex],
           amount: Math.round(amount * 100) / 100,
+          amountStr: cleaned,
           manuallyEdited: true,
         };
       }
@@ -2659,7 +2664,7 @@ export default function OCRForm({
                           type="text"
                           inputMode="decimal"
                           title={`סכום תשלום ${item.number}`}
-                          value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
+                          value={item.amountStr ?? (item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2))}
                           onFocus={(e) => e.target.select()}
                           onChange={(e) => handleInstallmentAmountChange(setter, pm.id, index, e.target.value)}
                           className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
