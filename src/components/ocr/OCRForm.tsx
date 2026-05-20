@@ -172,6 +172,7 @@ interface PaymentMethodEntry {
     dateForInput: string;
     amount: number;
     checkNumber?: string;
+    manuallyEdited?: boolean;
   }>;
 }
 
@@ -1472,32 +1473,26 @@ export default function OCRForm({
     }));
   };
 
+  // Each installment is independent: editing one NEVER rewrites another. The
+  // old version redistributed the remainder across ALL other rows, so editing a
+  // second cheque in a 3-cheque split clobbered the first one the user had
+  // already typed. We just update the edited row and recompute the method total
+  // as the sum of installments so the running "סה"כ" matches what was entered.
   const handleInstallmentAmountChange = (setter: React.Dispatch<React.SetStateAction<PaymentMethodEntry[]>>, paymentMethodId: number, installmentIndex: number, newAmount: string) => {
     const amount = parseFloat(newAmount.replace(/[^\d.-]/g, '')) || 0;
     setter(prev => prev.map(p => {
       if (p.id !== paymentMethodId) return p;
-      const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, '')) || 0;
       const updatedInstallments = [...p.customInstallments];
       if (updatedInstallments[installmentIndex]) {
-        const cappedAmount = Math.min(Math.round(amount * 100) / 100, totalAmount);
-        updatedInstallments[installmentIndex] = { ...updatedInstallments[installmentIndex], amount: cappedAmount };
-        const remaining = Math.round((totalAmount - cappedAmount) * 100) / 100;
-        const otherIndices = updatedInstallments.map((_, idx) => idx).filter(idx => idx !== installmentIndex);
-        if (otherIndices.length > 0) {
-          const perOther = Math.floor((remaining / otherIndices.length) * 100) / 100;
-          let distributed = 0;
-          for (let i = 0; i < otherIndices.length; i++) {
-            const idx = otherIndices[i];
-            if (i === otherIndices.length - 1) {
-              updatedInstallments[idx] = { ...updatedInstallments[idx], amount: Math.round((remaining - distributed) * 100) / 100 };
-            } else {
-              updatedInstallments[idx] = { ...updatedInstallments[idx], amount: perOther };
-              distributed += perOther;
-            }
-          }
-        }
+        updatedInstallments[installmentIndex] = {
+          ...updatedInstallments[installmentIndex],
+          amount: Math.round(amount * 100) / 100,
+          manuallyEdited: true,
+        };
       }
-      return { ...p, customInstallments: updatedInstallments };
+      const sum = updatedInstallments.reduce((s, inst) => s + (Number(inst.amount) || 0), 0);
+      const sumStr = sum % 1 === 0 ? String(sum) : sum.toFixed(2);
+      return { ...p, amount: sumStr, customInstallments: updatedInstallments };
     }));
   };
 

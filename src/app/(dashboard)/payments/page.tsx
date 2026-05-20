@@ -3498,46 +3498,30 @@ function PaymentsPageInner() {
     }));
   };
 
-  // Handle installment amount change for a specific payment method
+  // Handle installment amount change for a specific payment method.
+  //
+  // Each installment is independent: editing one NEVER rewrites another. The
+  // previous version auto-balanced the remainder across the other rows, which
+  // overwrote a manually-entered amount the moment the user edited a second
+  // installment (3-cheque split: change cheque #2 and cheque #1 got clobbered).
+  // The payment method's `amount` (the total) is recomputed from the sum of all
+  // installments so the running "סה"כ" reflects exactly what the user typed.
   const handleInstallmentAmountChange = (paymentMethodId: number, installmentIndex: number, newAmount: string) => {
     const amount = parseFloat(newAmount.replace(/[^\d.-]/g, "")) || 0;
     setPaymentMethods(prev => prev.map(p => {
       if (p.id !== paymentMethodId) return p;
-      const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
       const updatedInstallments = [...p.customInstallments];
       if (updatedInstallments[installmentIndex]) {
-        // Cap the amount to the total so a single installment can't exceed it
-        const cappedAmount = Math.min(Math.round(amount * 100) / 100, totalAmount);
         updatedInstallments[installmentIndex] = {
           ...updatedInstallments[installmentIndex],
-          amount: cappedAmount,
+          amount: Math.round(amount * 100) / 100,
           manuallyEdited: true,
         };
-        // Calculate total of all manually edited installments (including current)
-        const manualTotal = updatedInstallments.reduce((sum, inst, idx) => {
-          if (inst.manuallyEdited || idx === installmentIndex) return sum + inst.amount;
-          return sum;
-        }, 0);
-        // Distribute remainder only among non-edited installments
-        const remaining = Math.max(0, Math.round((totalAmount - manualTotal) * 100) / 100);
-        const autoIndices = updatedInstallments
-          .map((_inst, idx) => idx)
-          .filter(idx => idx !== installmentIndex && !updatedInstallments[idx].manuallyEdited);
-        if (autoIndices.length > 0) {
-          const perOther = Math.floor((remaining / autoIndices.length) * 100) / 100;
-          let distributed = 0;
-          for (let i = 0; i < autoIndices.length; i++) {
-            const idx = autoIndices[i];
-            if (i === autoIndices.length - 1) {
-              updatedInstallments[idx] = { ...updatedInstallments[idx], amount: Math.round((remaining - distributed) * 100) / 100 };
-            } else {
-              updatedInstallments[idx] = { ...updatedInstallments[idx], amount: perOther };
-              distributed += perOther;
-            }
-          }
-        }
       }
-      return { ...p, customInstallments: updatedInstallments };
+      // Keep the method total in sync with the sum of installments.
+      const sum = updatedInstallments.reduce((s, inst) => s + (Number(inst.amount) || 0), 0);
+      const sumStr = sum % 1 === 0 ? String(sum) : sum.toFixed(2);
+      return { ...p, amount: sumStr, customInstallments: updatedInstallments };
     }));
   };
 
