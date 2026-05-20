@@ -1804,9 +1804,9 @@ export default function EditBusinessPage({ params }: PageProps) {
           top-level field + effective-month picker were removed. */}
 
       {/* Per-month markup + VAT + manager salary table — full width */}
-      <div dir="rtl" className="w-full flex flex-col gap-[10px] p-[14px] bg-[#0f1231] rounded-[10px] border border-[#727BA0]/50">
+      <div dir="rtl" className="w-full flex flex-col gap-[10px] p-[15px] bg-[#1a1f3a]/30 rounded-[10px] border border-[#727BA0]">
         <div className="flex flex-col gap-[4px] text-right">
-          <span className="text-[14px] font-medium text-white">שכר מנהל, אחוז העמסה ומע&quot;מ לפי חודש</span>
+          <span className="text-[15px] font-medium text-white">שכר מנהל, אחוז העמסה ומע&quot;מ לפי חודש</span>
           <span className="text-[11px] text-white/60 leading-[1.5]">
             ערך ריק בחודש מסוים = משתמש בערך של החודש הקודם. כדי לקבוע ערך לחודש בודד, מלאו את השדה. ה-<span className="inline-block w-[14px] h-[14px] rounded-full bg-[#F64E60]/30 text-[#F64E60] text-[10px] leading-[14px] text-center">×</span> מאפס את החודש הזה.
           </span>
@@ -1927,7 +1927,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                   </div>
 
                   {/* Manager salary cell (₪) */}
-                  <div className={`relative border rounded-[8px] h-[38px] flex items-center ${hasSalary ? "border-white bg-[#1a1f3a]" : "border-[#4C526B]"}`}>
+                  <div className={`relative border rounded-[8px] h-[38px] flex items-center ${hasSalary ? "border-white bg-[#1a1f3a]" : "border-[#727BA0]"}`}>
                     <span className="text-white/50 text-[12px] pr-[8px]">₪</span>
                     <Input
                       type="text"
@@ -1977,7 +1977,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                   </div>
 
                   {/* Markup cell */}
-                  <div className={`relative border rounded-[8px] h-[38px] flex items-center ${hasMarkup ? "border-white bg-[#1a1f3a]" : "border-[#4C526B]"}`}>
+                  <div className={`relative border rounded-[8px] h-[38px] flex items-center ${hasMarkup ? "border-white bg-[#1a1f3a]" : "border-[#727BA0]"}`}>
                     <span className="text-white/50 text-[12px] pr-[8px]">%</span>
                     <Input
                       type="number"
@@ -2029,7 +2029,7 @@ export default function EditBusinessPage({ params }: PageProps) {
                   </div>
 
                   {/* VAT cell */}
-                  <div className={`relative border rounded-[8px] h-[38px] flex items-center ${hasVat ? "border-white bg-[#1a1f3a]" : "border-[#4C526B]"}`}>
+                  <div className={`relative border rounded-[8px] h-[38px] flex items-center ${hasVat ? "border-white bg-[#1a1f3a]" : "border-[#727BA0]"}`}>
                     <span className="text-white/50 text-[12px] pr-[8px]">%</span>
                     <Input
                       type="number"
