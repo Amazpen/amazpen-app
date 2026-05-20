@@ -560,7 +560,7 @@ export default function OCRBusinessPage() {
               .update({
                 invoice_number: formData.document_number || null,
                 invoice_date: primaryDate || formData.document_date,
-                reference_date: primaryDate || formData.value_date || formData.document_date,
+                reference_date: formData.value_date || primaryDate || formData.document_date,
                 discount_amount: parseFloat(formData.discount_amount || '0') || 0,
                 discount_percentage: parseFloat(formData.discount_percentage || '0') || 0,
                 subtotal: primarySubtotal,
@@ -592,8 +592,10 @@ export default function OCRBusinessPage() {
                   attachment_url: ocrImageUrl,
                 };
                 if (exDate) {
+                  // exDate sets the month (invoice_date); keep reference_date
+                  // (תאריך ערך) as the form's value_date so they stay independent.
                   update.invoice_date = exDate;
-                  update.reference_date = exDate;
+                  update.reference_date = formData.value_date || exDate;
                 }
                 const { error: exError } = await supabase
                   .from('invoices')

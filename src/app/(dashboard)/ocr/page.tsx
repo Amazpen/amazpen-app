@@ -632,10 +632,11 @@ export default function OCRPage() {
             const primaryVat = extras.length > 0 ? primarySubtotal * vatRatio : docVat;
             const primaryTotal = extras.length > 0 ? primarySubtotal * totalRatio : docTotalAmount;
             // Per-month date override for the primary slice. When the user
-            // picked a date in the allocation row, use it for both
-            // invoice_date and reference_date so the slice falls on that
-            // exact day. Falls back to the legacy single-month behaviour
-            // (form-level document_date / value_date).
+            // picked a date in the allocation row it sets the invoice_date
+            // (which month the expense lands in). The reference_date (תאריך
+            // ערך) stays the value_date the user entered on the form — they
+            // are independent fields and must not be collapsed into one, or
+            // editing the invoice later shows the same date in both fields.
             const primaryDate = (extras.length > 0 && formData.fixed_invoice_primary_date)
               ? formData.fixed_invoice_primary_date
               : null;
@@ -644,7 +645,7 @@ export default function OCRPage() {
               .update({
                 invoice_number: formData.document_number || null,
                 invoice_date: primaryDate || formData.document_date,
-                reference_date: primaryDate || formData.value_date || formData.document_date,
+                reference_date: formData.value_date || primaryDate || formData.document_date,
                 discount_amount: parseFloat(formData.discount_amount || '0') || 0,
                 discount_percentage: parseFloat(formData.discount_percentage || '0') || 0,
                 subtotal: primarySubtotal,
@@ -686,8 +687,11 @@ export default function OCRPage() {
                   payment_verified_at: new Date().toISOString(),
                 };
                 if (exDate) {
+                  // exDate sets which month this slice lands in (invoice_date).
+                  // Keep reference_date (תאריך ערך) as the form's value_date so
+                  // the two date fields stay independent.
                   update.invoice_date = exDate;
-                  update.reference_date = exDate;
+                  update.reference_date = formData.value_date || exDate;
                 }
                 const { error: exError } = await supabase
                   .from('invoices')
