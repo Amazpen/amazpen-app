@@ -58,18 +58,45 @@ const formatDateDisplay = (s: string) => {
 const fmtMoney = (n: number) =>
   n.toLocaleString("he-IL", { minimumFractionDigits: n % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
 
-// Auto-check rule: treat a row as "verified by the system" when at least 2 of
-// the 3 key data points were captured cleanly — date, document number
-// (reference) and a non-zero amount. This mimics the manual statement check:
-// if the OCR pulled enough of the line in, we tick it off automatically so the
-// user only has to eyeball the rows that are missing data.
-const qualifiesForAutoCheck = (row: { date: string | null; reference: string | null; total: number }) => {
-  let points = 0;
-  if (row.date && row.date.trim() !== "") points++;
-  if (row.reference && row.reference.trim() !== "") points++;
-  if (Number.isFinite(row.total) && row.total > 0) points++;
-  return points >= 2;
-};
+// A parsed line from the supplier statement (כרטסת) the user pastes in.
+interface StatementLine {
+  date: string | null;     // YYYY-MM-DD if parseable
+  reference: string | null; // document number
+  amount: number | null;    // absolute amount
+  raw: string;              // original text line
+}
+
+// Parse pasted statement text into structured lines. The user pastes rows
+// copied from the supplier's כרטסת; each line typically has a date, a document
+// number, and an amount somewhere in it. We extract those three with tolerant
+// regexes (Hebrew statements vary wildly in column order/separators).
+function parseStatementText(text: string): StatementLine[] {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const out: StatementLine[] = [];
+  for (const line of lines) {
+    // Date: dd/mm/yy(yy) or dd.mm.yy(yy) or dd-mm-yy(yy)
+    const dateMatch = line.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
+    let date: string | null = null;
+    if (dateMatch) {
+      const d = dateMatch[1].padStart(2, "0");
+      const m = dateMatch[2].padStart(2, "0");
+      let y = dateMatch[3];
+      if (y.length === 2) y = `20${y}`;
+      date = `${y}-${m}-${d}`;
+    }
+    // Amount: the largest number with optional decimals (statements list the
+    // line amount; we take the max number on the line that isn't the doc/date).
+    const numbers = (line.match(/-?[\d,]+\.?\d*/g) || [])
+      .map(n => parseFloat(n.replace(/,/g, "")))
+      .filter(n => Number.isFinite(n) && Math.abs(n) >= 1);
+    const amount = numbers.length > 0 ? Math.abs(numbers.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a))) : null;
+    // Reference: a run of 4+ digits that isn't part of the date.
+    const refCandidates = (line.match(/\d{4,}/g) || []).filter(r => !dateMatch || !dateMatch[0].includes(r));
+    const reference = refCandidates.length > 0 ? refCandidates[0] : null;
+    out.push({ date, reference, amount, raw: line });
+  }
+  return out;
+}
 
 export default function KartesetCheckPanel({ businessId, suppliers, initialSupplierId }: KartesetCheckPanelProps) {
   const { showToast } = useToast();
@@ -88,6 +115,9 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
   const [rows, setRows] = useState<KartesetRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
+  // Raw statement text pasted by the user (from the supplier's כרטסת).
+  const [statementText, setStatementText] = useState("");
+  const [showStatementInput, setShowStatementInput] = useState(false);
 
   const supplierName = useMemo(
     () => suppliers.find(s => s.id === supplierId)?.name || "",
@@ -176,37 +206,13 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
         return 0;
       });
 
-      // Auto-check: rows the OCR captured well enough (2 of 3 — date / number /
-      // amount) get ticked automatically so the user only reviews the gaps.
-      // Only touch rows that aren't already checked, then persist the new
-      // marks to the DB so they stick on the next visit (same column the
-      // manual toggle writes).
-      const autoTs = new Date().toISOString();
-      const autoInvoiceIds: string[] = [];
-      const autoPaymentIds: string[] = [];
-      for (const r of merged) {
-        if (!r.isChecked && qualifiesForAutoCheck(r)) {
-          r.isChecked = true;
-          r.checkedAt = autoTs;
-          if (r.kind === "invoice") autoInvoiceIds.push(r.id);
-          else autoPaymentIds.push(r.id);
-        }
-      }
-      if (autoInvoiceIds.length > 0) {
-        const { error: aiErr } = await supabase.from("invoices").update({ karteset_checked_at: autoTs }).in("id", autoInvoiceIds);
-        if (aiErr) console.error("Karteset auto-check (invoices) failed:", aiErr);
-      }
-      if (autoPaymentIds.length > 0) {
-        const { error: apErr } = await supabase.from("payments").update({ karteset_checked_at: autoTs }).in("id", autoPaymentIds);
-        if (apErr) console.error("Karteset auto-check (payments) failed:", apErr);
-      }
-
+      // No blanket auto-check: the previous version ticked every row with 2 of
+      // 3 fields, which marked the WHOLE month (every מצפן invoice has date +
+      // number + amount) even when those lines weren't on the statement at all.
+      // Matching against the statement now happens only when the user pastes
+      // the כרטסת text (see statementLines / matching below).
       setRows(merged);
       setHasFetched(true);
-      const autoCount = autoInvoiceIds.length + autoPaymentIds.length;
-      if (autoCount > 0) {
-        showToast(`${autoCount} שורות סומנו אוטומטית (זוהו 2 מתוך 3: תאריך/מספר/סכום)`, "success");
-      }
     } catch (err) {
       console.error("Karteset fetch failed:", err);
       showToast("שגיאה בטעינת הכרטסת", "error");
@@ -316,6 +322,32 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
     }
     return { invoicesSum, paymentsSum, balance: invoicesSum - paymentsSum, checkedSum, uncheckedCount };
   }, [rows]);
+
+  // Compare the pasted statement against מצפן rows.
+  // A statement line is "missing from מצפן" when no מצפן row matches it.
+  // Match priority: document number, else (date + amount within ₪1).
+  const statementLines = useMemo(() => parseStatementText(statementText), [statementText]);
+
+  const missingFromMatzpen = useMemo(() => {
+    if (statementLines.length === 0) return [];
+    const refs = new Set(rows.map(r => (r.reference || "").replace(/\D/g, "")).filter(Boolean));
+    const missing: StatementLine[] = [];
+    for (const line of statementLines) {
+      const lineRef = (line.reference || "").replace(/\D/g, "");
+      let matched = false;
+      if (lineRef && refs.has(lineRef)) {
+        matched = true;
+      } else if (line.amount != null) {
+        // Fall back to date + amount match (±₪1, same day).
+        matched = rows.some(r =>
+          Math.abs(r.total - (line.amount as number)) <= 1 &&
+          (!line.date || r.date.split("T")[0] === line.date)
+        );
+      }
+      if (!matched) missing.push(line);
+    }
+    return missing;
+  }, [statementLines, rows]);
 
   // Reset hasFetched when the user changes filters (so they know they need to re-load).
   useEffect(() => {
@@ -505,6 +537,68 @@ export default function KartesetCheckPanel({ businessId, suppliers, initialSuppl
                   <div className="text-white/70">יתרה (חשבוניות − תשלומים)</div>
                   <div className="text-white font-bold ltr-num">₪{fmtMoney(totals.balance)}</div>
                 </div>
+              </div>
+
+              {/* Statement comparison — paste the כרטסת text and the system
+                  flags lines that appear in the statement but NOT in מצפן. */}
+              <div className="mt-[14px] border-t border-white/15 pt-[12px] flex flex-col gap-[8px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[14px] font-bold text-white">השוואה מול כרטסת הספק</span>
+                  <Button
+                    type="button"
+                    onClick={() => setShowStatementInput(v => !v)}
+                    className="text-[12px] text-[#00D4FF] hover:text-white transition-colors"
+                  >
+                    {showStatementInput ? "הסתר" : "הדבק תנועות מהכרטסת"}
+                  </Button>
+                </div>
+
+                {showStatementInput && (
+                  <>
+                    <p className="text-[11px] text-white/50 leading-[1.5]">
+                      העתק את שורות הכרטסת מהספק והדבק כאן (כל תנועה בשורה — תאריך, מספר מסמך וסכום).
+                      המערכת תזהה אילו תנועות קיימות בכרטסת אך חסרות במצפן.
+                    </p>
+                    <textarea
+                      value={statementText}
+                      onChange={(e) => setStatementText(e.target.value)}
+                      placeholder={"28/04/26  439756  1,451.40\n28/04/26  439814  1,804.00\n..."}
+                      rows={5}
+                      dir="ltr"
+                      className="w-full bg-[#1a1f4e] border border-[#727BA0] rounded-[8px] p-[10px] text-[12px] text-white ltr-num resize-y focus:outline-none focus:border-[#4956D4]"
+                    />
+                  </>
+                )}
+
+                {statementLines.length > 0 && (
+                  <div className="flex flex-col gap-[6px]">
+                    {missingFromMatzpen.length === 0 ? (
+                      <div className="bg-emerald-500/10 border border-emerald-400/30 rounded-[6px] px-[12px] py-[8px] text-[13px] text-emerald-200 text-center">
+                        ✓ כל {statementLines.length} התנועות מהכרטסת קיימות במצפן
+                      </div>
+                    ) : (
+                      <div className="bg-[#F64E60]/10 border border-[#F64E60]/40 rounded-[8px] p-[10px]">
+                        <div className="text-[14px] font-bold text-[#F64E60] mb-[8px]">
+                          תנועות חסרות — יש בכרטסת ואין במצפן ({missingFromMatzpen.length})
+                        </div>
+                        <div className="grid grid-cols-[90px_1fr_110px] text-[11px] text-white/50 font-medium pb-[4px] border-b border-white/10">
+                          <span>תאריך</span>
+                          <span>מספר מסמך</span>
+                          <span className="text-left">סכום</span>
+                        </div>
+                        <div className="flex flex-col gap-[2px] max-h-[200px] overflow-y-auto mt-[4px]">
+                          {missingFromMatzpen.map((line, i) => (
+                            <div key={i} className="grid grid-cols-[90px_1fr_110px] text-[12px] text-white py-[3px] ltr-num">
+                              <span>{line.date ? formatDateDisplay(line.date) : "—"}</span>
+                              <span className="truncate" title={line.raw}>{line.reference || "—"}</span>
+                              <span className="text-left font-semibold">{line.amount != null ? `₪${fmtMoney(line.amount)}` : "—"}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
