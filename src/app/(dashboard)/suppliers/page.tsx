@@ -3797,7 +3797,7 @@ export default function SuppliersPage() {
                         onChange={(e) => setShowOnlyUnpaidInvoices(e.target.checked)}
                         className="w-[14px] h-[14px] accent-[#3F97FF]"
                       />
-                      <span>הצג רק לא שולמו{showOnlyUnpaidInvoices && supplierInvoices.filter(i => i.status === "paid").length > 0 ? ` (${supplierInvoices.filter(i => i.status === "paid").length} מוסתרות)` : ""}</span>
+                      <span>הצג רק לא שולמו{showOnlyUnpaidInvoices && supplierInvoices.filter(i => i.status === "שולם").length > 0 ? ` (${supplierInvoices.filter(i => i.status === "שולם").length} מוסתרות)` : ""}</span>
                     </label>
                   </div>
                   {/* Table Header */}
@@ -3823,7 +3823,7 @@ export default function SuppliersPage() {
                           </div>
                         </div>
                       ))
-                    ) : (showOnlyUnpaidInvoices ? supplierInvoices.filter(i => i.status !== "paid") : supplierInvoices).length === 0 ? (
+                    ) : (showOnlyUnpaidInvoices ? supplierInvoices.filter(i => i.status !== "שולם") : supplierInvoices).length === 0 ? (
                       <div className="flex items-center justify-center py-[30px]">
                         <span className="text-[14px] text-white/50">
                           {showOnlyUnpaidInvoices && supplierInvoices.length > 0
@@ -3832,7 +3832,7 @@ export default function SuppliersPage() {
                         </span>
                       </div>
                     ) : (
-                      (showOnlyUnpaidInvoices ? supplierInvoices.filter(i => i.status !== "paid") : supplierInvoices).map((invoice) => (
+                      (showOnlyUnpaidInvoices ? supplierInvoices.filter(i => i.status !== "שולם") : supplierInvoices).map((invoice) => (
                         <div
                           key={invoice.id}
                           className={`rounded-[7px] p-[7px_3px] transition-colors ${
