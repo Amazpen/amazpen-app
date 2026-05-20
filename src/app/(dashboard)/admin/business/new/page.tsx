@@ -140,11 +140,12 @@ function NewBusinessPage() {
   interface CreditCard {
     id: string;
     cardName: string;
-    billingDay: number;
+    billingDay: number | null; // null = מיידי (דיירקט) — חיוב בתאריך המסמך, ללא יום חיוב חודשי
   }
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
   const [newCardName, setNewCardName] = useState("");
   const [newBillingDay, setNewBillingDay] = useState<number>(10);
+  const [newCardImmediate, setNewCardImmediate] = useState(false);
 
   // Managed Products
   interface ManagedProduct {
@@ -488,11 +489,12 @@ function NewBusinessPage() {
   };
 
   const handleAddCreditCard = () => {
-    if (newCardName.trim() && newBillingDay >= 1 && newBillingDay <= 31) {
-      setCreditCards([...creditCards, { id: generateUUID(), cardName: newCardName.trim(), billingDay: newBillingDay }]);
-      setNewCardName("");
-      setNewBillingDay(10);
-    }
+    if (!newCardName.trim()) return;
+    if (!newCardImmediate && !(newBillingDay >= 1 && newBillingDay <= 31)) return;
+    setCreditCards([...creditCards, { id: generateUUID(), cardName: newCardName.trim(), billingDay: newCardImmediate ? null : newBillingDay }]);
+    setNewCardName("");
+    setNewBillingDay(10);
+    setNewCardImmediate(false);
   };
 
   const handleRemoveCreditCard = (index: number) => {
@@ -1540,16 +1542,17 @@ function NewBusinessPage() {
           >
             הוסף
           </Button>
-          <div className="w-[80px] border border-[#727BA0] rounded-[8px] h-[42px]">
+          <div className={`w-[80px] border border-[#727BA0] rounded-[8px] h-[42px] ${newCardImmediate ? "opacity-40" : ""}`}>
             <Input
               type="number"
               min="1"
               max="31"
               value={newBillingDay}
               onChange={(e) => setNewBillingDay(parseInt(e.target.value) || 1)}
+              disabled={newCardImmediate}
               aria-label="יום חיוב בחודש"
-              title="יום חיוב בחודש (1-31)"
-              className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[8px] border-none outline-none px-[8px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              title={newCardImmediate ? "מיידי — אין יום חיוב" : "יום חיוב בחודש (1-31)"}
+              className="w-full h-full bg-transparent text-white text-[14px] text-center rounded-[8px] border-none outline-none px-[8px] disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
           <div className="flex-1 border border-[#727BA0] rounded-[8px] h-[42px]">
@@ -1563,6 +1566,17 @@ function NewBusinessPage() {
             />
           </div>
         </div>
+
+        {/* "מיידי (דיירקט)" — חיוב בתאריך המסמך, ללא יום חיוב חודשי */}
+        <label className="flex flex-row-reverse items-center justify-end gap-[8px] mb-[10px] cursor-pointer select-none">
+          <span className="text-[13px] text-white/70">מיידי (דיירקט) — חיוב בתאריך המסמך</span>
+          <input
+            type="checkbox"
+            checked={newCardImmediate}
+            onChange={(e) => setNewCardImmediate(e.target.checked)}
+            className="w-[16px] h-[16px] accent-[#4956D4] cursor-pointer"
+          />
+        </label>
 
         <SortableObjectList
           items={creditCards}
@@ -1583,7 +1597,7 @@ function NewBusinessPage() {
                 </svg>
               </Button>
               <span className="text-[14px] text-white">{card.cardName}</span>
-              <span className="text-[12px] text-white/60 bg-[#4956D4]/30 px-[6px] py-[2px] rounded">יום {card.billingDay}</span>
+              <span className="text-[12px] text-white/60 bg-[#4956D4]/30 px-[6px] py-[2px] rounded">{card.billingDay == null ? "מיידי" : `יום ${card.billingDay}`}</span>
             </div>
           )}
         />
