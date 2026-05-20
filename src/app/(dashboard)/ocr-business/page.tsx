@@ -74,6 +74,11 @@ export default function OCRBusinessPage() {
 
   // State - ALL hooks must be declared before any conditional returns
   const [documents, setDocuments] = useState<OCRDocument[]>([]);
+  // Mirror of `documents` for reading the latest list inside async handlers
+  // without capturing a stale closure (handlers run many awaits before they
+  // touch the list, during which realtime may have changed it).
+  const documentsRef = useRef<OCRDocument[]>([]);
+  useEffect(() => { documentsRef.current = documents; }, [documents]);
   const [currentDocument, setCurrentDocument] = useState<OCRDocument | null>(null);
   const [filterStatus, setFilterStatus] = usePersistedState<DocumentStatus | 'all'>('ocr-business:filterStatus', 'pending');
   // No business filter on this page — the document scope is already
@@ -121,10 +126,14 @@ export default function OCRBusinessPage() {
       setIsInitialLoad(false);
       return [];
     }
+    // The queue only ever renders status='pending' docs. Approved/archived
+    // docs are never shown, so fetching them on every action re-pulled the
+    // whole table per business. Scope to pending only — UI unchanged.
     const { data, error } = await supabase
       .from('ocr_documents')
       .select('*, ocr_extracted_data(*, ocr_extracted_line_items(*))')
       .in('business_id', visibleBusinessIds)
+      .eq('status', 'pending')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -245,9 +254,24 @@ export default function OCRBusinessPage() {
     }
   }, [isCheckingAuth, hasAccess, fetchDocuments]);
 
+  // Debounced realtime refetch: a save touches both ocr_documents and
+  // ocr_extracted_data, firing two events that would otherwise each trigger a
+  // full refetch and race the optimistic local-state updates. Coalesce to one
+  // refetch ~400ms after the last event — new docs still appear, mutations stay
+  // snappy.
+  const realtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedFetchDocuments = useCallback(() => {
+    if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+    realtimeDebounceRef.current = setTimeout(() => {
+      fetchDocuments();
+    }, 400);
+  }, [fetchDocuments]);
+  useEffect(() => () => {
+    if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+  }, []);
   useMultiTableRealtime(
     ['ocr_documents', 'ocr_extracted_data'],
-    fetchDocuments,
+    debouncedFetchDocuments,
     !isCheckingAuth && hasAccess
   );
 
@@ -1091,8 +1115,12 @@ export default function OCRBusinessPage() {
 
         setMergedDocuments([]);
 
-        const fresh = await fetchDocuments();
+        // The approved doc (and any merged-in docs) left the pending queue —
+        // remove them from local state instead of re-pulling the whole table.
+        // Read from the ref to avoid a stale closure after the awaits above.
         const excludeIds = new Set([currentDocument.id, ...mergedIds]);
+        const fresh = documentsRef.current.filter((d) => !excludeIds.has(d.id));
+        setDocuments(fresh);
         const nextPending = fresh.find(
           (d) => d.status === 'pending' && !excludeIds.has(d.id)
         );
@@ -1110,7 +1138,7 @@ export default function OCRBusinessPage() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentDocument, fetchDocuments, handleSelectDocument]
+    [currentDocument, handleSelectDocument]
   );
 
   const handleReject = useCallback(
@@ -1130,7 +1158,10 @@ export default function OCRBusinessPage() {
 
         if (error) throw error;
 
-        const fresh = await fetchDocuments();
+        // Archived doc left the pending queue — remove it locally. Read from
+        // the ref to avoid a stale closure after the awaits above.
+        const fresh = documentsRef.current.filter((d) => d.id !== documentId);
+        setDocuments(fresh);
         const nextPending = fresh.find(
           (d) => d.status === 'pending' && d.id !== documentId
         );
@@ -1146,7 +1177,7 @@ export default function OCRBusinessPage() {
         setIsLoading(false);
       }
     },
-    [fetchDocuments, handleSelectDocument]
+    [handleSelectDocument]
   );
 
   const handleDelete = useCallback(
@@ -1157,7 +1188,10 @@ export default function OCRBusinessPage() {
         const { error } = await supabase.from('ocr_documents').delete().eq('id', documentId);
         if (error) throw error;
 
-        const fresh = await fetchDocuments();
+        // Drop the deleted doc from local state instead of re-pulling. Read
+        // from the ref to avoid a stale closure after the await above.
+        const fresh = documentsRef.current.filter((d) => d.id !== documentId);
+        setDocuments(fresh);
         const nextPending = fresh.find(
           (d) => d.status === 'pending' && d.id !== documentId
         );
@@ -1173,7 +1207,7 @@ export default function OCRBusinessPage() {
         setIsLoading(false);
       }
     },
-    [fetchDocuments, handleSelectDocument]
+    [handleSelectDocument]
   );
 
   const handleSkip = useCallback(() => {

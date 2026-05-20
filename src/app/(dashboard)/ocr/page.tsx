@@ -52,6 +52,11 @@ export default function OCRPage() {
 
   // State - ALL hooks must be declared before any conditional returns
   const [documents, setDocuments] = useState<OCRDocument[]>([]);
+  // Mirror of `documents` for reading the latest list inside async handlers
+  // without capturing a stale closure (handlers run many awaits before they
+  // touch the list, during which realtime may have changed it).
+  const documentsRef = useRef<OCRDocument[]>([]);
+  useEffect(() => { documentsRef.current = documents; }, [documents]);
   const [currentDocument, setCurrentDocument] = useState<OCRDocument | null>(null);
   const [filterStatus, setFilterStatus] = usePersistedState<DocumentStatus | 'all'>('ocr:filterStatus', 'pending');
   const [businessFilter, setBusinessFilter] = usePersistedState<string>('ocr:businessFilter', 'all');
@@ -114,9 +119,15 @@ export default function OCRPage() {
   // Fetch OCR documents from Supabase
   const fetchDocuments = useCallback(async (): Promise<OCRDocument[]> => {
     const supabase = createClient();
+    // The queue only ever renders status='pending' docs. Approved/archived
+    // docs (1,300+) are never shown, so fetching them on every action made
+    // each delete/save/approve re-pull the entire table. Scope the query to
+    // pending only — the UI is unchanged, but the payload drops from the
+    // full table to just the live queue.
     const { data, error } = await supabase
       .from('ocr_documents')
       .select('*, ocr_extracted_data(*, ocr_extracted_line_items(*))')
+      .eq('status', 'pending')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -265,10 +276,26 @@ export default function OCRPage() {
     }
   }, [isCheckingAuth, isAdmin, fetchDocuments]);
 
-  // Realtime subscription - auto-refresh when new documents arrive or data changes
+  // Realtime subscription - auto-refresh when new documents arrive or data changes.
+  // Debounced: a single save touches both ocr_documents and ocr_extracted_data,
+  // firing two events back-to-back. Without debounce each one triggers its own
+  // full refetch, and they also race the optimistic local-state updates the
+  // action handlers just made. Coalescing to one refetch ~400ms after the last
+  // event keeps the queue fresh (new docs from WhatsApp/Telegram still appear)
+  // without re-pulling on every keystroke of a mutation.
+  const realtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedFetchDocuments = useCallback(() => {
+    if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+    realtimeDebounceRef.current = setTimeout(() => {
+      fetchDocuments();
+    }, 400);
+  }, [fetchDocuments]);
+  useEffect(() => () => {
+    if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
+  }, []);
   useMultiTableRealtime(
     ['ocr_documents', 'ocr_extracted_data'],
-    fetchDocuments,
+    debouncedFetchDocuments,
     !isCheckingAuth && isAdmin
   );
 
@@ -1218,8 +1245,15 @@ export default function OCRPage() {
 
         setMergedDocuments([]);
 
-        const fresh = await fetchDocuments();
+        // The approved doc (and any merged-in docs) just left the pending
+        // queue. Drop them from local state instead of re-pulling the whole
+        // table. Read the latest list from documentsRef (kept in sync via an
+        // effect) rather than the captured `documents` — this handler has many
+        // awaits before this point, and a realtime event could have added a new
+        // doc meanwhile; a stale closure would silently drop it.
         const excludeIds = new Set([currentDocument.id, ...mergedIds]);
+        const fresh = documentsRef.current.filter((d) => !excludeIds.has(d.id));
+        setDocuments(fresh);
         // Respect the active business filter in the queue: if the reviewer
         // is scoped to one customer (e.g. "הנקודה הקסומה"), jumping to the
         // next pending doc from any other business yanks them out of their
@@ -1248,7 +1282,7 @@ export default function OCRPage() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentDocument, fetchDocuments, handleSelectDocument, businessFilter]
+    [currentDocument, handleSelectDocument, businessFilter]
   );
 
   // Same guard as in handleApprove — keeps the "next doc" pick scoped to
@@ -1283,7 +1317,11 @@ export default function OCRPage() {
 
         if (error) throw error;
 
-        const fresh = await fetchDocuments();
+        // Archived doc left the pending queue — remove it locally instead
+        // of re-pulling the whole table. Read the latest list from the ref
+        // to avoid a stale closure after the awaits above.
+        const fresh = documentsRef.current.filter((d) => d.id !== documentId);
+        setDocuments(fresh);
         const nextPending = pickNextPendingInFilter(fresh, new Set([documentId]));
         if (nextPending) {
           handleSelectDocument(nextPending);
@@ -1297,7 +1335,7 @@ export default function OCRPage() {
         setIsLoading(false);
       }
     },
-    [fetchDocuments, handleSelectDocument, pickNextPendingInFilter]
+    [handleSelectDocument, pickNextPendingInFilter]
   );
 
   const handleDelete = useCallback(
@@ -1308,7 +1346,12 @@ export default function OCRPage() {
         const { error } = await supabase.from('ocr_documents').delete().eq('id', documentId);
         if (error) throw error;
 
-        const fresh = await fetchDocuments();
+        // Drop the row from local state instead of re-pulling the whole
+        // queue — the deleted doc is simply removed, and we pick the next
+        // pending doc from the updated list. Read from the ref to avoid a
+        // stale closure after the await above.
+        const fresh = documentsRef.current.filter((d) => d.id !== documentId);
+        setDocuments(fresh);
         const nextPending = pickNextPendingInFilter(fresh, new Set([documentId]));
         if (nextPending) {
           handleSelectDocument(nextPending);
@@ -1322,7 +1365,7 @@ export default function OCRPage() {
         setIsLoading(false);
       }
     },
-    [fetchDocuments, handleSelectDocument, pickNextPendingInFilter]
+    [handleSelectDocument, pickNextPendingInFilter]
   );
 
   const handleSkip = useCallback(() => {
