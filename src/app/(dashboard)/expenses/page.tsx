@@ -917,6 +917,7 @@ function ExpensesPageInner() {
       date: string;
       dateForInput: string;
       amount: number;
+      amountStr?: string;   // raw text while editing (lets the user type "20528.50")
       checkNumber?: string;
     }>;
   }
@@ -1222,36 +1223,28 @@ function ExpensesPageInner() {
     }));
   };
 
-  // Handle installment amount change for popup
+  // Handle installment amount change for popup.
+  // Each installment is independent: editing one NEVER rewrites another (the
+  // old version redistributed the remainder across siblings, clobbering a
+  // manually-entered cheque the moment the user edited the next one). Keep the
+  // raw text in amountStr so decimals can be typed without the controlled
+  // input snapping back, and recompute the method total from the sum.
   const handlePopupInstallmentAmountChange = (paymentMethodId: number, installmentIndex: number, newAmount: string) => {
-    const amount = parseFloat(newAmount.replace(/[^\d.-]/g, "")) || 0;
+    const cleaned = newAmount.replace(/[^\d.]/g, "");
+    const amount = parseFloat(cleaned) || 0;
     setPopupPaymentMethods(prev => prev.map(p => {
       if (p.id !== paymentMethodId) return p;
-      const totalAmount = parseFloat(p.amount.replace(/[^\d.-]/g, "")) || 0;
       const updatedInstallments = [...p.customInstallments];
       if (updatedInstallments[installmentIndex]) {
-        const cappedAmount = Math.min(Math.round(amount * 100) / 100, totalAmount);
         updatedInstallments[installmentIndex] = {
           ...updatedInstallments[installmentIndex],
-          amount: cappedAmount,
+          amount: Math.round(amount * 100) / 100,
+          amountStr: cleaned,
         };
-        const remaining = Math.round((totalAmount - cappedAmount) * 100) / 100;
-        const otherIndices = updatedInstallments.map((_, idx) => idx).filter(idx => idx !== installmentIndex);
-        if (otherIndices.length > 0) {
-          const perOther = Math.floor((remaining / otherIndices.length) * 100) / 100;
-          let distributed = 0;
-          for (let i = 0; i < otherIndices.length; i++) {
-            const idx = otherIndices[i];
-            if (i === otherIndices.length - 1) {
-              updatedInstallments[idx] = { ...updatedInstallments[idx], amount: Math.round((remaining - distributed) * 100) / 100 };
-            } else {
-              updatedInstallments[idx] = { ...updatedInstallments[idx], amount: perOther };
-              distributed += perOther;
-            }
-          }
-        }
       }
-      return { ...p, customInstallments: updatedInstallments };
+      const sum = updatedInstallments.reduce((s, inst) => s + (Number(inst.amount) || 0), 0);
+      const sumStr = sum % 1 === 0 ? String(sum) : sum.toFixed(2);
+      return { ...p, amount: sumStr, customInstallments: updatedInstallments };
     }));
   };
 
@@ -6338,7 +6331,7 @@ function ExpensesPageInner() {
                                             type="text"
                                             inputMode="decimal"
                                             title={`סכום תשלום ${item.number}`}
-                                            value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
+                                            value={item.amountStr ?? (item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2))}
                                             onFocus={(e) => e.target.select()}
                                             onChange={(e) => handlePopupInstallmentAmountChange(pm.id, index, e.target.value)}
                                             className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
@@ -7114,7 +7107,7 @@ function ExpensesPageInner() {
                                               type="text"
                                               inputMode="decimal"
                                               title={`סכום תשלום ${item.number}`}
-                                              value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
+                                              value={item.amountStr ?? (item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2))}
                                               onFocus={(e) => e.target.select()}
                                               onChange={(e) => handlePopupInstallmentAmountChange(pm.id, index, e.target.value)}
                                               className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
@@ -7589,7 +7582,7 @@ function ExpensesPageInner() {
                                     type="text"
                                     inputMode="decimal"
                                     title={`סכום תשלום ${item.number}`}
-                                    value={item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2)}
+                                    value={item.amountStr ?? (item.amount % 1 === 0 ? item.amount.toString() : item.amount.toFixed(2))}
                                     onFocus={(e) => e.target.select()}
                                     onChange={(e) => handlePopupInstallmentAmountChange(pm.id, index, e.target.value)}
                                     className="w-full h-[36px] bg-[#29318A]/30 border border-[#727BA0] rounded-[7px] text-[14px] text-white text-center focus:outline-none focus:border-white/50 px-[5px] ltr-num"
