@@ -339,6 +339,16 @@ function ExpensesPageInner() {
   const [editSelectedOpenPaymentId, setEditSelectedOpenPaymentId] = useState<string | null>(null);
   const [isLoadingEditOpenPayments, setIsLoadingEditOpenPayments] = useState(false);
 
+  // "חשבוניות פתוחות" — when "שולמה במלואה" is ticked (add or edit flow), let
+  // the user also close OTHER open invoices of the same supplier with the same
+  // payment. Mirrors the OCR payment tab. The current invoice closes via the
+  // existing flow; these are additional invoices the one payment also covers.
+  type OpenInvoiceLite = { id: string; invoice_number: string | null; invoice_date: string; total_amount: number; status: string };
+  const [paidOpenInvoices, setPaidOpenInvoices] = useState<OpenInvoiceLite[]>([]);
+  const [paidSelectedInvoiceIds, setPaidSelectedInvoiceIds] = useState<Set<string>>(new Set());
+  const [paidExpandedMonths, setPaidExpandedMonths] = useState<Set<string>>(new Set());
+  const [isLoadingPaidOpenInvoices, setIsLoadingPaidOpenInvoices] = useState(false);
+
   // Line items for price tracking (goods expenses only)
   const [expenseLineItems, setExpenseLineItems] = useState<OCRLineItem[]>([]);
   const [showLineItems, setShowLineItems] = useState(false);
@@ -2847,6 +2857,12 @@ function ExpensesPageInner() {
                 }
               }
             }
+
+            // "חשבוניות פתוחות נוספות" — this payment also closes other open
+            // invoices of the supplier. Link + mark paid via the shared helper
+            // (same allocation rules as the OCR payment tab). The payment amount
+            // available for these extras is the full payment total.
+            await settleExtraOpenInvoices(supabase, newPayment.id, paymentTotal || totalWithVat);
           }
         }
 
@@ -2965,6 +2981,10 @@ function ExpensesPageInner() {
     setNewLineItemDesc('');
     setNewLineItemQty('');
     setNewLineItemPrice('');
+    // Reset the "חשבוניות פתוחות נוספות" picker.
+    setPaidOpenInvoices([]);
+    setPaidSelectedInvoiceIds(new Set());
+    setPaidExpandedMonths(new Set());
   };
 
   // Handle opening edit popup
@@ -3002,6 +3022,230 @@ function ExpensesPageInner() {
       setIsLoadingEditOpenPayments(false);
     }
   }, [selectedBusinesses]);
+
+  // Month grouping helpers for the "חשבוניות פתוחות" picker (mirrors OCR).
+  const hebrewMonthNames = useMemo(() => [
+    "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+    "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
+  ], []);
+  const getMonthYearKey = useCallback((dateStr: string) => {
+    const d = new Date(dateStr);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+  const getMonthYearLabel = useCallback((key: string) => {
+    const [y, m] = key.split("-");
+    return `${hebrewMonthNames[parseInt(m) - 1]}, ${y}`;
+  }, [hebrewMonthNames]);
+  const groupInvoicesByMonth = useCallback((invs: OpenInvoiceLite[]): [string, OpenInvoiceLite[]][] => {
+    const groups = new Map<string, OpenInvoiceLite[]>();
+    for (const inv of invs) {
+      const key = getMonthYearKey(inv.invoice_date);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(inv);
+    }
+    return Array.from(groups.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [getMonthYearKey]);
+
+  // Fetch open (pending) invoices for a supplier so a "paid in full" payment can
+  // also close them — the /expenses equivalent of the OCR payment tab's
+  // "חשבוניות פתוחות". Excludes the invoice currently being edited.
+  const fetchPaidOpenInvoices = useCallback(async (supplierId: string, excludeInvoiceId?: string) => {
+    if (!supplierId || selectedBusinesses.length === 0) {
+      setPaidOpenInvoices([]);
+      setPaidSelectedInvoiceIds(new Set());
+      setPaidExpandedMonths(new Set());
+      return;
+    }
+    setIsLoadingPaidOpenInvoices(true);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("invoices")
+        .select("id, invoice_number, invoice_date, total_amount, status")
+        .in("business_id", selectedBusinesses)
+        .eq("supplier_id", supplierId)
+        .eq("status", "pending")
+        .is("deleted_at", null)
+        .order("invoice_date", { ascending: false });
+      const mapped: OpenInvoiceLite[] = (data || [])
+        .filter((inv) => inv.id !== excludeInvoiceId)
+        .map((inv) => ({
+          id: inv.id as string,
+          invoice_number: (inv.invoice_number as string) || null,
+          invoice_date: inv.invoice_date as string,
+          total_amount: Number(inv.total_amount),
+          status: inv.status as string,
+        }));
+      setPaidOpenInvoices(mapped);
+      setPaidSelectedInvoiceIds(new Set());
+      setPaidExpandedMonths(mapped.length > 0 ? new Set([getMonthYearKey(mapped[0].invoice_date)]) : new Set());
+    } finally {
+      setIsLoadingPaidOpenInvoices(false);
+    }
+  }, [selectedBusinesses, getMonthYearKey]);
+
+  const paidSelectedInvoicesTotal = useMemo(() => {
+    return paidOpenInvoices
+      .filter((inv) => paidSelectedInvoiceIds.has(inv.id))
+      .reduce((s, inv) => s + inv.total_amount, 0);
+  }, [paidOpenInvoices, paidSelectedInvoiceIds]);
+
+  // Settle the extra "חשבוניות פתוחות נוספות" the user ticked with the same
+  // payment. Mirrors the OCR payment tab (ocr/page.tsx): link every selected
+  // invoice via payment_invoice_links, then mark 'paid' only what the payment
+  // amount actually covers — when the selected total is within ±5 of the
+  // payment, close them all; otherwise greedily close the ones that fit.
+  // `paymentAmount` is the amount available to allocate to these extra invoices.
+  const settleExtraOpenInvoices = useCallback(async (
+    supabase: ReturnType<typeof createClient>,
+    paymentId: string,
+    paymentAmount: number,
+  ) => {
+    if (paidSelectedInvoiceIds.size === 0) return;
+    const selected = paidOpenInvoices.filter(inv => paidSelectedInvoiceIds.has(inv.id));
+    if (selected.length === 0) return;
+
+    // Link each selected invoice (proportional/greedy allocation, like OCR).
+    let remaining = paymentAmount;
+    const links = selected.map(inv => {
+      const allocated = Math.min(inv.total_amount, Math.max(0, remaining));
+      remaining -= allocated;
+      return { payment_id: paymentId, invoice_id: inv.id, amount_allocated: allocated };
+    });
+    const { error: linkErr } = await supabase.from("payment_invoice_links").insert(links);
+    if (linkErr) console.error("[Settle Extra Invoices] link insert failed:", linkErr);
+
+    // Decide which to mark paid: all if the totals match (±5), else greedy fit.
+    const selectedTotal = selected.reduce((s, inv) => s + inv.total_amount, 0);
+    let toMarkPaid: string[];
+    if (Math.abs(selectedTotal - paymentAmount) <= 5) {
+      toMarkPaid = selected.map(inv => inv.id);
+    } else {
+      const sorted = [...selected].sort((a, b) => a.total_amount - b.total_amount);
+      let rem = paymentAmount;
+      toMarkPaid = [];
+      for (const inv of sorted) {
+        if (inv.total_amount <= rem + 1) {
+          toMarkPaid.push(inv.id);
+          rem -= inv.total_amount;
+        }
+      }
+    }
+    if (toMarkPaid.length > 0) {
+      await supabase.from("invoices").update({ status: "paid" }).in("id", toMarkPaid);
+    }
+  }, [paidOpenInvoices, paidSelectedInvoiceIds]);
+
+  // Shared "חשבוניות פתוחות" picker — rendered inside the paid-in-full block of
+  // both the add and edit flows. Lets one payment also close other open
+  // invoices of the same supplier (mirrors the OCR payment tab).
+  const renderPaidOpenInvoices = () => (
+    <div className="flex flex-col gap-[10px] border border-[#727BA0] rounded-[10px] p-[10px] mt-[10px]" dir="rtl">
+      <div className="flex items-center justify-between">
+        <label className="text-[15px] font-medium text-white">
+          חשבוניות פתוחות נוספות ({paidOpenInvoices.length})
+        </label>
+        <span className="text-[13px] text-white/60 ltr-num">
+          {paidSelectedInvoiceIds.size > 0 && (
+            <>נבחרו {paidSelectedInvoiceIds.size} — ₪{paidSelectedInvoicesTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</>
+          )}
+        </span>
+      </div>
+      <span className="text-[12px] text-white/50 text-right leading-[1.4]">
+        סמן חשבוניות פתוחות אחרות של הספק שהתשלום הזה סוגר גם אותן.
+      </span>
+      {isLoadingPaidOpenInvoices ? (
+        <div className="flex justify-center py-[15px]">
+          <div className="w-[20px] h-[20px] border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
+        </div>
+      ) : paidOpenInvoices.length === 0 ? (
+        <p className="text-[12px] text-white/40 text-center py-[10px]">אין חשבוניות פתוחות נוספות לספק זה</p>
+      ) : (
+        <div className="flex flex-col gap-[6px] max-h-[300px] overflow-y-auto">
+          {groupInvoicesByMonth(paidOpenInvoices).map(([monthKey, monthInvs]) => {
+            const isExpanded = paidExpandedMonths.has(monthKey);
+            const monthTotal = monthInvs.reduce((s, i) => s + i.total_amount, 0);
+            const monthIds = monthInvs.map(i => i.id);
+            const monthAllSelected = monthIds.length > 0 && monthIds.every(id => paidSelectedInvoiceIds.has(id));
+            const monthSomeSelected = monthIds.some(id => paidSelectedInvoiceIds.has(id));
+            return (
+              <div key={monthKey} className="flex flex-col gap-[4px]">
+                <button
+                  type="button"
+                  onClick={() => setPaidExpandedMonths(prev => {
+                    const next = new Set(prev);
+                    if (next.has(monthKey)) next.delete(monthKey); else next.add(monthKey);
+                    return next;
+                  })}
+                  className={`flex items-center justify-between p-[8px_10px] rounded-[8px] border ${monthSomeSelected ? "bg-[#29318A]/20 border-[#29318A]" : "bg-[#1a1f42] border-[#4C526B]/50"} hover:border-white/30 transition-colors`}
+                >
+                  <span className="text-[13px] text-white/80 font-semibold ltr-num">₪{monthTotal.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <div className="flex items-center gap-[8px]">
+                    <span className="text-[14px] text-white font-medium">{getMonthYearLabel(monthKey)}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={`text-white/60 transition-transform ${isExpanded ? "rotate-180" : ""}`}>
+                      <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                </button>
+                {isExpanded && (
+                  <div className="flex flex-col gap-[4px] pr-[6px]">
+                    {monthIds.length > 0 && (
+                      <Button
+                        type="button"
+                        onClick={() => setPaidSelectedInvoiceIds(prev => {
+                          const next = new Set(prev);
+                          if (monthAllSelected) monthIds.forEach(id => next.delete(id));
+                          else monthIds.forEach(id => next.add(id));
+                          return next;
+                        })}
+                        className="text-[12px] text-[#0075FF] hover:text-[#00D4FF] transition-colors self-start bg-transparent p-0 h-auto"
+                      >
+                        {monthAllSelected ? "בטל הכל בחודש" : "בחר הכל בחודש"}
+                      </Button>
+                    )}
+                    {monthInvs.map(inv => {
+                      const isSelected = paidSelectedInvoiceIds.has(inv.id);
+                      const d = new Date(inv.invoice_date);
+                      const dateStr = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+                      return (
+                        <button
+                          key={inv.id}
+                          type="button"
+                          onClick={() => setPaidSelectedInvoiceIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(inv.id)) next.delete(inv.id); else next.add(inv.id);
+                            return next;
+                          })}
+                          className={`flex items-center justify-between p-[10px] rounded-[10px] border transition-colors cursor-pointer ${
+                            isSelected ? "border-[#29318A] bg-[#29318A]/30" : "border-[#727BA0]/40 bg-[#1a1f42] hover:border-white/20"
+                          }`}
+                        >
+                          <span className="ltr-num text-[14px] text-white font-medium">₪{inv.total_amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <div className="flex items-center gap-[8px]">
+                            <div className="flex flex-col items-end">
+                              <span className="text-[13px] text-white">{inv.invoice_number || "ללא מספר"}</span>
+                              <span className="text-[11px] text-white/50 ltr-num">{dateStr}</span>
+                            </div>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={isSelected ? "text-[#3CD856]" : "text-white/30"}>
+                              {isSelected ? (
+                                <><rect x="3" y="3" width="18" height="18" rx="3" fill="currentColor"/><path d="M8 12L11 15L16 9" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></>
+                              ) : (
+                                <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/>
+                              )}
+                            </svg>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 
   const handleEditInvoice = (invoice: InvoiceDisplay) => {
     // Markezet (consolidated) invoices need a different editor: the coordinator
@@ -3291,6 +3535,10 @@ function ExpensesPageInner() {
               }
             }
           }
+
+          // "חשבוניות פתוחות נוספות" — settle other open invoices the user
+          // ticked with this same payment (same allocation rules as OCR).
+          await settleExtraOpenInvoices(supabase, newPayment.id, paymentAmount);
         }
       }
 
@@ -3507,6 +3755,11 @@ function ExpensesPageInner() {
     setEditLinkToOpenPayment(false);
     setEditOpenPayments([]);
     setEditSelectedOpenPaymentId(null);
+    // Reset the "חשבוניות פתוחות נוספות" picker so selections don't leak
+    // to the next invoice opened.
+    setPaidOpenInvoices([]);
+    setPaidSelectedInvoiceIds(new Set());
+    setPaidExpandedMonths(new Set());
     // Return to supplier breakdown if we came from there
     if (returnToBreakdownRef.current) {
       returnToBreakdownRef.current = false;
@@ -6194,6 +6447,11 @@ function ExpensesPageInner() {
                       if (!paymentReference.trim() && invoiceNumber.trim()) {
                         setPaymentReference(invoiceNumber.trim());
                       }
+                      // Load other open invoices of the supplier so this payment
+                      // can also close them (exclude the invoice being edited).
+                      if (selectedSupplier) fetchPaidOpenInvoices(selectedSupplier, editingInvoice?.id);
+                    } else {
+                      setPaidSelectedInvoiceIds(new Set());
                     }
                   }}
                   className="flex items-center gap-[3px] min-h-[35px]"
@@ -6520,6 +6778,9 @@ function ExpensesPageInner() {
                           />
                         </div>
                       </div>
+
+                      {/* חשבוניות פתוחות נוספות — close other open invoices with this payment */}
+                      {selectedSupplier && renderPaidOpenInvoices()}
                     </div>
                   </div>
                 )}
@@ -7055,6 +7316,11 @@ function ExpensesPageInner() {
                         if (!paymentReference.trim() && invoiceNumber.trim()) {
                           setPaymentReference(invoiceNumber.trim());
                         }
+                        // Load other open invoices of the supplier so this payment
+                        // can also close them (exclude the invoice being edited).
+                        if (selectedSupplier) fetchPaidOpenInvoices(selectedSupplier, editingInvoice?.id);
+                      } else {
+                        setPaidSelectedInvoiceIds(new Set());
                       }
                     }}
                     className="flex items-center gap-[3px] min-h-[35px]"
@@ -7373,6 +7639,9 @@ function ExpensesPageInner() {
                             />
                           </div>
                         </div>
+
+                        {/* חשבוניות פתוחות נוספות — close other open invoices with this payment */}
+                        {selectedSupplier && renderPaidOpenInvoices()}
                       </div>
                     </div>
                   )}
