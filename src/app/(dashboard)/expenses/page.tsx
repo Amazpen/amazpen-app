@@ -330,6 +330,15 @@ function ExpensesPageInner() {
   const [showUnlinkedPayments, setShowUnlinkedPayments] = useState(false);
   const [linkToUnlinkedPaymentId, setLinkToUnlinkedPaymentId] = useState<string | null>(null);
 
+  // Edit-invoice "קשר לתשלום פתוח" flow — separate state from the add-flow's
+  // unlinkedPayments above so the two never clobber each other. Used when
+  // editing a fully-unpaid invoice to link it to an existing on-account payment
+  // for the same supplier (e.g. paid in advance, invoice arrived later).
+  const [editLinkToOpenPayment, setEditLinkToOpenPayment] = useState(false);
+  const [editOpenPayments, setEditOpenPayments] = useState<UnlinkedPayment[]>([]);
+  const [editSelectedOpenPaymentId, setEditSelectedOpenPaymentId] = useState<string | null>(null);
+  const [isLoadingEditOpenPayments, setIsLoadingEditOpenPayments] = useState(false);
+
   // Line items for price tracking (goods expenses only)
   const [expenseLineItems, setExpenseLineItems] = useState<OCRLineItem[]>([]);
   const [showLineItems, setShowLineItems] = useState(false);
@@ -2959,6 +2968,41 @@ function ExpensesPageInner() {
   };
 
   // Handle opening edit popup
+  // Fetch on-account payments (no invoice link yet) for a supplier — used by
+  // the edit-invoice "קשר לתשלום פתוח" flow. Mirrors the add-flow query at
+  // ~line 2214: a payment is "open" when it has neither a direct invoice_id FK
+  // nor any row in payment_invoice_links.
+  const fetchEditOpenPayments = useCallback(async (supplierId: string) => {
+    if (!supplierId || selectedBusinesses.length === 0) {
+      setEditOpenPayments([]);
+      return;
+    }
+    setIsLoadingEditOpenPayments(true);
+    try {
+      const supabaseU = createClient();
+      const { data: rawRows } = await supabaseU
+        .from("payments")
+        .select(`id, payment_date, total_amount, notes, invoice_id, payment_invoice_links!left(id)`)
+        .eq("supplier_id", supplierId)
+        .in("business_id", selectedBusinesses)
+        .is("deleted_at", null)
+        .is("invoice_id", null)
+        .order("payment_date", { ascending: false });
+
+      type Row = {
+        id: string; payment_date: string; total_amount: number | string;
+        notes: string | null; invoice_id: string | null;
+        payment_invoice_links: { id: string }[] | null;
+      };
+      const open = ((rawRows as Row[] | null) || [])
+        .filter((p) => !p.payment_invoice_links || p.payment_invoice_links.length === 0)
+        .map((p) => ({ id: p.id, payment_date: p.payment_date, total_amount: Number(p.total_amount), notes: p.notes }));
+      setEditOpenPayments(open);
+    } finally {
+      setIsLoadingEditOpenPayments(false);
+    }
+  }, [selectedBusinesses]);
+
   const handleEditInvoice = (invoice: InvoiceDisplay) => {
     // Markezet (consolidated) invoices need a different editor: the coordinator
     // sheet, which lets the user (un)link delivery notes to the markezet. The
@@ -3039,6 +3083,10 @@ function ExpensesPageInner() {
     setPaymentReceiptFile(null);
     setPaymentReceiptPreview(null);
     setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }]);
+    // Reset the "link to open payment" flow — starts off; the user opts in.
+    setEditLinkToOpenPayment(false);
+    setEditOpenPayments([]);
+    setEditSelectedOpenPaymentId(null);
     setShowEditPopup(true);
   };
 
@@ -3139,6 +3187,12 @@ function ExpensesPageInner() {
         if (isPaidInFull && (editingInvoice.linkedPayments?.length || 0) === 0) {
           updateData.status = "paid";
         }
+
+        // "קשר לתשלום פתוח" — linking to an existing on-account payment also
+        // closes the invoice. The link itself is created after the update lands.
+        if (editLinkToOpenPayment && editSelectedOpenPaymentId && (editingInvoice.linkedPayments?.length || 0) === 0) {
+          updateData.status = "paid";
+        }
       }
 
       const { error } = await supabase
@@ -3236,6 +3290,39 @@ function ExpensesPageInner() {
                 });
               }
             }
+          }
+        }
+      }
+
+      // "קשר לתשלום פתוח" — link the chosen on-account payment to this invoice.
+      // Sets both the direct FK (payments.invoice_id) and the junction row
+      // (payment_invoice_links) so every balance query sees the allocation,
+      // mirroring how the add-flow links an unlinked payment. amount_allocated
+      // is the lesser of payment and invoice totals (David: link even when the
+      // amounts differ — partial allocation is fine).
+      if (!isDN && editLinkToOpenPayment && editSelectedOpenPaymentId && (editingInvoice.linkedPayments?.length || 0) === 0) {
+        const chosen = editOpenPayments.find(p => p.id === editSelectedOpenPaymentId);
+        const allocated = chosen
+          ? Math.min(chosen.total_amount, updateData.total_amount as number)
+          : (updateData.total_amount as number);
+
+        const { error: linkFkErr } = await supabase
+          .from("payments")
+          .update({ invoice_id: editingInvoice.id })
+          .eq("id", editSelectedOpenPaymentId);
+        if (linkFkErr) {
+          console.error("[Edit Expense] link open payment (FK) error:", linkFkErr);
+          showToast("שגיאה בקישור התשלום — הסטטוס עודכן אך הקישור לא נשמר", "error");
+        } else {
+          const { error: linkJunctionErr } = await supabase
+            .from("payment_invoice_links")
+            .insert({
+              payment_id: editSelectedOpenPaymentId,
+              invoice_id: editingInvoice.id,
+              amount_allocated: allocated,
+            });
+          if (linkJunctionErr) {
+            console.error("[Edit Expense] link open payment (junction) error:", linkJunctionErr);
           }
         }
       }
@@ -3416,6 +3503,10 @@ function ExpensesPageInner() {
     setPaymentReceiptFile(null);
     setPaymentReceiptPreview(null);
     setPopupPaymentMethods([{ id: 1, method: "", amount: "", installments: "1", checkNumber: "", creditCardId: "", customInstallments: [] }]);
+    // Reset the "link to open payment" flow.
+    setEditLinkToOpenPayment(false);
+    setEditOpenPayments([]);
+    setEditSelectedOpenPaymentId(null);
     // Return to supplier breakdown if we came from there
     if (returnToBreakdownRef.current) {
       returnToBreakdownRef.current = false;
@@ -6069,7 +6160,9 @@ function ExpensesPageInner() {
 
               {/* Document Status Checkboxes */}
               <div className="flex flex-col gap-[3px]" dir="rtl">
-                {/* Paid in Full Checkbox */}
+                {/* Paid in Full Checkbox — hidden when the user opted to link an
+                    existing open payment instead (the two are mutually exclusive). */}
+                {!editLinkToOpenPayment && (
                 <Button
                   type="button"
                   onClick={() => {
@@ -6117,6 +6210,7 @@ function ExpensesPageInner() {
                   </svg>
                   <span className="text-[15px] font-medium text-white">התעודה שולמה במלואה</span>
                 </Button>
+                )}
 
                 {/* Payment Details Section - shown when isPaidInFull is true */}
                 {isPaidInFull && (
@@ -6430,8 +6524,85 @@ function ExpensesPageInner() {
                   </div>
                 )}
 
+                {/* Link to an existing open (on-account) payment. Only offered
+                    when the invoice has no linked payments yet and the user
+                    hasn't ticked "שולמה במלואה" (the two are mutually exclusive
+                    ways to mark the invoice paid). Use case: supplier was paid
+                    in advance, the invoice arrived later — link the two so the
+                    invoice closes against the existing payment. */}
+                {!isPaidInFull && (editingInvoice?.linkedPayments?.length || 0) === 0 && (
+                  <>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const newVal = !editLinkToOpenPayment;
+                        setEditLinkToOpenPayment(newVal);
+                        setEditSelectedOpenPaymentId(null);
+                        if (newVal && selectedSupplier) {
+                          fetchEditOpenPayments(selectedSupplier);
+                        }
+                      }}
+                      className="flex items-center gap-[3px] min-h-[35px]"
+                    >
+                      <svg width="21" height="21" viewBox="0 0 32 32" fill="none" className="text-[#979797]">
+                        {editLinkToOpenPayment ? (
+                          <>
+                            <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2" fill="currentColor"/>
+                            <path d="M10 16L14 20L22 12" stroke="#0F1535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </>
+                        ) : (
+                          <rect x="4" y="4" width="24" height="24" rx="2" stroke="currentColor" strokeWidth="2"/>
+                        )}
+                      </svg>
+                      <span className="text-[15px] font-medium text-white">קשר לתשלום פתוח</span>
+                    </Button>
+
+                    {editLinkToOpenPayment && (
+                      <div className="bg-[#0F1535] rounded-[10px] p-[15px_10px] mt-[10px] flex flex-col gap-[8px]">
+                        {isLoadingEditOpenPayments ? (
+                          <span className="text-[13px] text-white/50 text-center py-[10px]">טוען תשלומים פתוחים...</span>
+                        ) : editOpenPayments.length === 0 ? (
+                          <span className="text-[13px] text-white/50 text-center py-[10px]">לספק זה אין תשלומים פתוחים שלא קושרו לחשבונית.</span>
+                        ) : (
+                          <>
+                            <span className="text-[12px] text-white/60 text-right leading-[1.4]">
+                              בחר תשלום פתוח של הספק כדי לקשר אליו את החשבונית. החשבונית תיסגר ותסומן כשולמה.
+                            </span>
+                            {editOpenPayments.map((p) => {
+                              const d = new Date(p.payment_date);
+                              const dateStr = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+                              return (
+                                <Button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => setEditSelectedOpenPaymentId(p.id)}
+                                  className={`w-full text-right px-[12px] py-[10px] rounded-[10px] text-[13px] transition-all ${
+                                    editSelectedOpenPaymentId === p.id
+                                      ? "bg-[#4F46E5] text-white border border-white/30"
+                                      : "bg-[#1A2150] text-white/70 border border-white/10 hover:bg-[#1A2150]/80"
+                                  }`}
+                                >
+                                  <div className="flex flex-col gap-[2px]">
+                                    <div className="flex items-center justify-between">
+                                      <span className="ltr-num">₪{p.total_amount.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                      <span className="ltr-num text-white/70">{dateStr}</span>
+                                    </div>
+                                    {p.notes && (
+                                      <span className="text-[11px] text-white/50 truncate text-right">{p.notes}</span>
+                                    )}
+                                  </div>
+                                </Button>
+                              );
+                            })}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+
                 {/* Document Clarification - hidden when isPaidInFull */}
-                {!isPaidInFull && (
+                {!isPaidInFull && !editLinkToOpenPayment && (
                   <div className="flex flex-col gap-[10px]">
                     <Button
                       type="button"
