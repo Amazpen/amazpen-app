@@ -2148,7 +2148,10 @@ function ExpensesPageInner() {
   // Handle supplier selection - auto-set VAT based on supplier's vat_type
   const handleSupplierChange = useCallback(async (supplierId: string) => {
     setSelectedSupplier(supplierId);
-    setLinkToCoordinator(false);
+    // David's request (mirrors OCRForm): if the supplier is configured as
+    // "ממתין למרכזת" (waiting_for_coordinator), default the "שייך למרכזת"
+    // toggle to ON the moment the supplier is picked. Otherwise reset it off.
+    setLinkToCoordinator(!!suppliers.find(s => s.id === supplierId)?.waiting_for_coordinator);
     setFixedOpenInvoices([]);
     setLinkToFixedInvoiceId(null);
     setShowFixedInvoices(false);
@@ -6012,7 +6015,7 @@ function ExpensesPageInner() {
                         </svg>
                       )}
                     </Button>
-                    <span className="text-[15px] font-medium text-white">האם לשייך למרכזת?</span>
+                    <span className="text-[15px] font-medium text-white">שייך למרכזת (תעודת משלוח)</span>
                   </div>
                 );
               })()}
