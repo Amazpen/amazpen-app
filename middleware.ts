@@ -33,11 +33,42 @@ export async function middleware(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const pathname = request.nextUrl.pathname;
+
+  // getUser() does a network call to Supabase. If Supabase is briefly
+  // unreachable (DNS blip, restart, BGP routing issue) this rejects with
+  // "fetch failed". Without a guard, every request in the matcher throws an
+  // unhandled error and 500s. Catch it so a transient Supabase outage doesn't
+  // take down every page load.
+  let user = null;
+  let authCheckFailed = false;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch (err) {
+    authCheckFailed = true;
+    console.error(
+      "[middleware] supabase.auth.getUser() failed (Supabase unreachable?):",
+      err instanceof Error ? err.message : err
+    );
+  }
+
+  // Fail closed: if we couldn't verify the session, don't pass the request
+  // through as if it were anonymous-but-fine. On a protected route send the
+  // user to /login (the dashboard layout fetches everything client-side under
+  // RLS, so the worst case without this is an empty shell — but /login is the
+  // honest response). On an already-public route just continue.
+  if (authCheckFailed) {
+    const isPublicRouteOnFailure = ["/login", "/register", "/forgot-password", "/reset-password", "/auth/callback"]
+      .some((route) => pathname.startsWith(route)) || pathname.startsWith("/.well-known");
+    if (isPublicRouteOnFailure) {
+      return supabaseResponse;
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(url);
+  }
 
   // Allow .well-known paths (Digital Asset Links for Android TWA)
   if (pathname.startsWith("/.well-known")) {
