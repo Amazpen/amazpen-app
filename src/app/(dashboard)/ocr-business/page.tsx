@@ -16,7 +16,11 @@
 // Businesses that may use this per-tenant portal. Membership in at least one
 // of these is required for non-admins. Add another business id here to
 // extend access.
-const ALLOWED_BUSINESS_IDS = ['bcd1d49d-1fb7-4f50-b202-e8eae1d9fe70'];
+const ALLOWED_BUSINESS_IDS = [
+  'bcd1d49d-1fb7-4f50-b202-e8eae1d9fe70', // אושי אושי (OUSHI)
+  '6998ef49-c3db-4c57-96de-2a470ca4c766', // פרגו נס ציונה
+  '98a3d91c-b9f0-4f29-b770-409f8a2664d3', // שמה שמה אילת
+];
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
