@@ -577,9 +577,6 @@ export default function CashFlowPage() {
           <span className="bg-[#FFA412] text-[#0F1535] text-[12px] font-bold px-[10px] py-[3px] rounded-full whitespace-nowrap">
             גרסת בטא
           </span>
-          <span className="text-[13px] text-white/80 leading-[1.5]">
-            התזרים נמצא בבדיקה — המספרים עוד עשויים להשתנות. נשמח לפידבק.
-          </span>
         </div>
       </div>
 
