@@ -56,39 +56,28 @@ CREATE INDEX IF NOT EXISTS payment_priority_marks_business_idx
 
 ALTER TABLE payment_priority_marks ENABLE ROW LEVEL SECURITY;
 
--- RLS: a user can read/write marks for any business they're a member of.
+-- RLS: a user can read/write marks for any business they're a member of, plus
+-- admins (who view businesses without an explicit business_members row). Use the
+-- same is_business_member()/is_admin() helpers as the rest of the schema —
+-- a raw `business_id IN (... business_members ...)` check omits admins and 403s
+-- on the 8/18 member-less businesses. (Aligned 2026-05-24.)
 DROP POLICY IF EXISTS payment_priority_marks_select ON payment_priority_marks;
 CREATE POLICY payment_priority_marks_select
   ON payment_priority_marks
   FOR SELECT
-  USING (
-    business_id IN (
-      SELECT business_id FROM business_members
-      WHERE user_id = auth.uid()
-    )
-  );
+  USING (is_business_member(business_id) OR is_admin());
 
 DROP POLICY IF EXISTS payment_priority_marks_insert ON payment_priority_marks;
 CREATE POLICY payment_priority_marks_insert
   ON payment_priority_marks
   FOR INSERT
-  WITH CHECK (
-    business_id IN (
-      SELECT business_id FROM business_members
-      WHERE user_id = auth.uid()
-    )
-  );
+  WITH CHECK (is_business_member(business_id) OR is_admin());
 
 DROP POLICY IF EXISTS payment_priority_marks_delete ON payment_priority_marks;
 CREATE POLICY payment_priority_marks_delete
   ON payment_priority_marks
   FOR DELETE
-  USING (
-    business_id IN (
-      SELECT business_id FROM business_members
-      WHERE user_id = auth.uid()
-    )
-  );
+  USING (is_business_member(business_id) OR is_admin());
 
 -- ---------------------------------------------------------------------------
 -- 2) invoices.payment_verified_at
