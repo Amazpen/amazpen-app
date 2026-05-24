@@ -175,7 +175,7 @@ export function getStatusLabel(status: DocumentStatus): string {
   const labels: Record<DocumentStatus, string> = {
     pending: 'ממתין',
     reviewing: 'בבדיקה',
-    approved: 'אושר',
+    approved: 'אושרו',
     rejected: 'נדחה',
     archived: 'ארכיון',
   };

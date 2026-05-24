@@ -33,6 +33,12 @@ interface DocumentQueueProps {
    * badge can't be derived locally — the page passes it in.
    */
   pendingCount?: number;
+  /**
+   * Real per-status totals from the DB (count-only). Drives the tab badges so
+   * 'הכל'/'אושרו'/'ארכיון' show accurate numbers even though only the active
+   * tab's docs are loaded into `documents`.
+   */
+  statusTotals?: { pending: number; approved: number; archived: number };
   /** History pagination: true when the current history tab has more rows to load. */
   canLoadMore?: boolean;
   /** Fetch the next batch of the current history tab. */
@@ -64,6 +70,7 @@ export default function DocumentQueue({
   onBusinessFilterChange,
   onReassignBusiness,
   pendingCount,
+  statusTotals,
   canLoadMore = false,
   onLoadMore,
   isLoadingMore = false,
@@ -170,9 +177,22 @@ export default function DocumentQueue({
     },
     {} as Record<DocumentStatus, number>
   );
-  // The 'documents' prop only holds the active tab now, so derive the pending
-  // badge from the page-supplied count rather than from this scoped list.
-  if (pendingCount != null) statusCounts.pending = pendingCount;
+  // The 'documents' prop only holds the active tab now, so the locally-derived
+  // counts above are only valid for the tab currently loaded. Override every
+  // tab badge with the real DB totals when the page provides them, so
+  // 'ממתינים'/'אושרו'/'ארכיון' are always accurate.
+  if (statusTotals) {
+    statusCounts.pending = statusTotals.pending;
+    statusCounts.approved = statusTotals.approved;
+    statusCounts.archived = statusTotals.archived;
+  } else if (pendingCount != null) {
+    statusCounts.pending = pendingCount;
+  }
+  // 'הכל' badge: sum of all statuses from the DB when available, else the
+  // business-scoped local list (legacy behaviour without statusTotals).
+  const allCount = statusTotals
+    ? statusTotals.pending + statusTotals.approved + statusTotals.archived
+    : businessScoped.length;
 
   // Count docs per business (for the business filter list, scoped to current status)
   const businessCounts: Record<string, number> = { all: 0, unassigned: 0 };
@@ -324,7 +344,7 @@ export default function DocumentQueue({
           <div className="flex flex-col gap-1.5">
             {STATUS_FILTERS.map((filter) => {
               const count = filter.value === 'all'
-                ? businessScoped.length
+                ? allCount
                 : statusCounts[filter.value as DocumentStatus] || 0;
               const isArchive = filter.value === 'archived';
 
@@ -428,7 +448,7 @@ export default function DocumentQueue({
         <div className="flex items-center gap-1">
           {STATUS_FILTERS.map((filter) => {
             const count = filter.value === 'all'
-              ? documents.length
+              ? allCount
               : statusCounts[filter.value as DocumentStatus] || 0;
             const isArchive = filter.value === 'archived';
 

@@ -141,6 +141,9 @@ export default function OCRPage() {
   const [historyDocs, setHistoryDocs] = useState<OCRDocument[]>([]);
   const [historyTotal, setHistoryTotal] = useState(0);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  // Real per-status totals from the DB (count only, no rows) so the tab badges
+  // show 90/1378/164 even though we only load the pending docs + a history page.
+  const [statusTotals, setStatusTotals] = useState<{ pending: number; approved: number; archived: number }>({ pending: 0, approved: 0, archived: 0 });
   const [businessFilter, setBusinessFilter] = usePersistedState<string>('ocr:businessFilter', 'all');
 
   // Reviewers used to get stuck on filterStatus='reviewing' because the old
@@ -257,6 +260,25 @@ export default function OCRPage() {
     setHistoryDocs(prev => reset ? mapped : [...prev, ...mapped]);
   }, [historyDocs.length]);
 
+  // Fetch real per-status totals (count-only, head request — no rows pulled)
+  // so the tab badges show accurate numbers without loading the history docs.
+  const fetchStatusCounts = useCallback(async () => {
+    const supabase = createClient();
+    const countFor = async (status: DocumentStatus) => {
+      const { count } = await supabase
+        .from('ocr_documents')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', status);
+      return count ?? 0;
+    };
+    const [pending, approved, archived] = await Promise.all([
+      countFor('pending'),
+      countFor('approved'),
+      countFor('archived'),
+    ]);
+    setStatusTotals({ pending, approved, archived });
+  }, []);
+
   // Business and supplier state
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = usePersistedState('ocr:businessId', '');
@@ -314,8 +336,9 @@ export default function OCRPage() {
   useEffect(() => {
     if (!isCheckingAuth && isAdmin) {
       fetchDocuments();
+      fetchStatusCounts();
     }
-  }, [isCheckingAuth, isAdmin, fetchDocuments]);
+  }, [isCheckingAuth, isAdmin, fetchDocuments, fetchStatusCounts]);
 
   // Realtime subscription - auto-refresh when new documents arrive or data changes.
   // Debounced: a single save touches both ocr_documents and ocr_extracted_data,
@@ -329,8 +352,9 @@ export default function OCRPage() {
     if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
     realtimeDebounceRef.current = setTimeout(() => {
       fetchDocuments();
+      fetchStatusCounts();
     }, 400);
-  }, [fetchDocuments]);
+  }, [fetchDocuments, fetchStatusCounts]);
   useEffect(() => () => {
     if (realtimeDebounceRef.current) clearTimeout(realtimeDebounceRef.current);
   }, []);
@@ -1786,6 +1810,7 @@ export default function OCRPage() {
               onBusinessFilterChange={setBusinessFilter}
               onReassignBusiness={handleReassignBusinessForDoc}
               pendingCount={pendingCount}
+              statusTotals={statusTotals}
               canLoadMore={canLoadMoreHistory}
               onLoadMore={handleLoadMoreHistory}
               isLoadingMore={isHistoryLoading}
@@ -1914,6 +1939,7 @@ export default function OCRPage() {
             onBusinessFilterChange={setBusinessFilter}
             onReassignBusiness={handleReassignBusinessForDoc}
             pendingCount={pendingCount}
+            statusTotals={statusTotals}
             canLoadMore={canLoadMoreHistory}
             onLoadMore={handleLoadMoreHistory}
             isLoadingMore={isHistoryLoading}
