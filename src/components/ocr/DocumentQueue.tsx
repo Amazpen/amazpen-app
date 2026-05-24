@@ -177,21 +177,28 @@ export default function DocumentQueue({
     },
     {} as Record<DocumentStatus, number>
   );
-  // The 'documents' prop only holds the active tab now, so the locally-derived
-  // counts above are only valid for the tab currently loaded. Override every
-  // tab badge with the real DB totals when the page provides them, so
-  // 'ממתינים'/'אושרו'/'ארכיון' are always accurate.
+  // Tab badges. The pending docs live in memory, so on the pending tab the
+  // 'ממתינים' badge keeps its business-scoped local count (e.g. 7 when filtered
+  // to "לא מזוהים") — matching what's actually shown. approved/archived are
+  // never loaded eagerly, so those always come from the DB totals. When NOT on
+  // the pending tab we don't have the pending docs loaded, so fall back to the
+  // DB total for the pending badge too.
   if (statusTotals) {
-    statusCounts.pending = statusTotals.pending;
+    if (!isHistoryTab) {
+      // On pending/all tab: keep the business-scoped pending count from above.
+      statusCounts.pending = statusCounts.pending || 0;
+    } else {
+      statusCounts.pending = statusTotals.pending;
+    }
     statusCounts.approved = statusTotals.approved;
     statusCounts.archived = statusTotals.archived;
   } else if (pendingCount != null) {
     statusCounts.pending = pendingCount;
   }
-  // 'הכל' badge: sum of all statuses from the DB when available, else the
-  // business-scoped local list (legacy behaviour without statusTotals).
+  // 'הכל' badge: pending (scoped to the current business when on the pending
+  // tab) + the DB totals for approved/archived.
   const allCount = statusTotals
-    ? statusTotals.pending + statusTotals.approved + statusTotals.archived
+    ? (statusCounts.pending || 0) + statusTotals.approved + statusTotals.archived
     : businessScoped.length;
 
   // Count docs per business (for the business filter list, scoped to current status)
